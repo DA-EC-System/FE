@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Account, CompanyContext, Membership } from '@/types/auth';
+import type { ModuleKey } from '@/utils/modules';
 
 interface AuthStore {
   accessToken: string | null;
@@ -12,6 +13,8 @@ interface AuthStore {
   setMemberships: (memberships: Membership[]) => void;
   setAccount: (account: Account) => void;
   setCompany: (token: string, context: CompanyContext) => void;
+  /** CEO vừa bật/tắt phân hệ (UC-PI-02): đổi menu ngay, không cần chọn lại công ty */
+  setEnabledModules: (modules: ModuleKey[]) => void;
   leaveCompany: () => void;
   clear: () => void;
 }
@@ -32,6 +35,10 @@ export const useAuthStore = create<AuthStore>()(
       setMemberships: (memberships) => set({ memberships }),
       setAccount: (account) => set({ account }),
       setCompany: (accessToken, companyContext) => set({ accessToken, companyContext }),
+      setEnabledModules: (enabledModules) =>
+        set((s) => ({
+          companyContext: s.companyContext ? { ...s.companyContext, enabledModules } : null,
+        })),
       leaveCompany: () => set({ companyContext: null }),
       clear: () =>
         set({ accessToken: null, account: null, memberships: [], companyContext: null }),

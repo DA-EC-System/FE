@@ -18,6 +18,8 @@ import { CompanyLayout, PlatformLayout } from '@/components/layout/AppLayout';
 import { PlatformOverviewPage } from '@/features/platform/PlatformOverviewPage';
 import { CompanyListPage } from '@/features/platform/CompanyListPage';
 import { PlatformAuditLogPage } from '@/features/platform/PlatformAuditLogPage';
+import { ModuleSettingsPage } from '@/features/company/ModuleSettingsPage';
+import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { StaffListPage } from '@/features/identity/StaffListPage';
@@ -93,6 +95,22 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="identity" permission={PERMISSIONS.roleView}>
                         <RolesPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'admin/modules',
+                    element: (
+                      <RequireModule module="platform" permission={PERMISSIONS.moduleManage}>
+                        <ModuleSettingsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'admin/audit-logs',
+                    element: (
+                      <RequireModule module="platform" permission={PERMISSIONS.auditView}>
+                        <CompanyAuditLogPage />
                       </RequireModule>
                     ),
                   },

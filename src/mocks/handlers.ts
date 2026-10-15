@@ -23,6 +23,16 @@ import type {
   SelectCompanyResponse,
 } from '@/types/auth';
 import type {
+  ActorRef,
+  AuditAction,
+  CompanyAuditLog,
+  CompanyAuditLogDetail,
+  CompanyModule,
+  SetModuleInput,
+  SetModuleResult,
+} from '@/types/companySettings';
+import { MODULE_LABELS, type OptionalModuleKey } from '@/utils/modules';
+import type {
   InviteStaffInput,
   InviteStaffResult,
   Role,
@@ -476,6 +486,17 @@ const platformHandlers = [
 ];
 
 // ---------- Channel: gian hàng của công ty đang chọn ----------
+const shopEntity = (s: Shop) => ({ type: 'channel.shops', id: s.id, label: s.shopName });
+function shopSnapshot(s: Shop): Record<string, unknown> {
+  return {
+    shopName: s.shopName,
+    platform: s.platform,
+    externalShopId: s.externalShopId,
+    region: s.region,
+    status: s.status,
+  };
+}
+
 function findShop(id: unknown, companyId: string) {
   return db.shops.findIndex((s) => s.id === id && s.companyId === companyId);
 }
@@ -508,6 +529,9 @@ const shopHandlers = [
     if (!guard.ok) return guard.response;
     const { ids } = (await request.json()) as { ids: string[] };
     const before = db.shops.length;
+    db.shops
+      .filter((s) => ids.includes(s.id) && s.companyId === guard.value.companyId)
+      .forEach((s) => writeCompanyLog(guard.value, 'delete', shopEntity(s), shopSnapshot(s), null));
     db.shops = db.shops.filter(
       (s) => !(ids.includes(s.id) && s.companyId === guard.value.companyId),
     );
@@ -527,6 +551,7 @@ const shopHandlers = [
       updatedAt: db.now(),
     };
     db.shops.unshift(newShop);
+    writeCompanyLog(guard.value, 'create', shopEntity(newShop), null, shopSnapshot(newShop));
     return HttpResponse.json(newShop, { status: 201 });
   }),
 
@@ -537,7 +562,9 @@ const shopHandlers = [
     const idx = findShop(params.id, guard.value.companyId);
     if (idx === -1) return problem(404, 'Không tìm thấy gian hàng');
     const patch = (await request.json()) as ShopUpdateInput;
+    const before = shopSnapshot(db.shops[idx]);
     db.shops[idx] = { ...db.shops[idx], ...patch, updatedAt: db.now() };
+    writeCompanyLog(guard.value, 'update', shopEntity(db.shops[idx]), before, shopSnapshot(db.shops[idx]));
     return HttpResponse.json(db.shops[idx]);
   }),
 
@@ -548,6 +575,7 @@ const shopHandlers = [
     const idx = findShop(params.id, guard.value.companyId);
     if (idx === -1) return problem(404, 'Không tìm thấy gian hàng');
     const [removed] = db.shops.splice(idx, 1);
+    writeCompanyLog(guard.value, 'delete', shopEntity(removed), shopSnapshot(removed), null);
     return HttpResponse.json(removed);
   }),
 
@@ -619,15 +647,38 @@ function versionConflict<T>(current: T, detail: string) {
   });
 }
 
-function writeCompanyLog(actor: CompanyActor, action: string, target: string) {
+/** Ghi audit.audit_logs cho mọi thao tác ghi trong công ty (UC-PI-07) */
+function writeCompanyLog(
+  actor: CompanyActor,
+  action: AuditAction,
+  entity: { type: string; id: string; label: string },
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+) {
   db.companyAuditLogs.unshift({
-    id: `cal-${Date.now()}-${db.companyAuditLogs.length}`,
+    id: `cal-${Date.now().toString(36)}-${db.companyAuditLogs.length}`,
     companyId: actor.companyId,
+    actorId: actor.account.id,
     action,
-    target,
-    actorEmail: actor.account.email,
+    entityType: entity.type,
+    entityId: entity.id,
+    entityLabel: entity.label,
+    before,
+    after,
     createdAt: db.now(),
   });
+}
+
+const roleEntity = (r: MockRole) => ({ type: 'access.roles', id: r.id, label: r.name });
+const roleSnapshot = (r: MockRole) => ({ name: r.name, permissions: [...r.permissions] });
+const staffEntity = (m: MockMembership) => ({
+  type: 'staff.memberships',
+  id: m.accountId,
+  label: toStaff(m).email,
+});
+function staffSnapshot(m: MockMembership) {
+  const s = toStaff(m);
+  return { email: s.email, fullName: s.fullName, roles: s.roles.map((r) => r.name), status: s.status };
 }
 
 /**
@@ -751,7 +802,7 @@ const identityHandlers = [
       updatedAt: db.now(),
     };
     db.roles.push(role);
-    writeCompanyLog(actor, 'role.created', role.name);
+    writeCompanyLog(actor, 'create', roleEntity(role), null, roleSnapshot(role));
     return HttpResponse.json(toRole(role, actor.companyId), { status: 201 });
   }),
 
@@ -784,11 +835,12 @@ const identityHandlers = [
       });
     }
     if (lacking(actor, body.permissions).length) return notHeld();
+    const before = roleSnapshot(role);
     role.name = body.name.trim();
     role.permissions = [...new Set(body.permissions)];
     role.version += 1;
     role.updatedAt = db.now();
-    writeCompanyLog(actor, 'role.updated', role.name);
+    writeCompanyLog(actor, 'update', roleEntity(role), before, roleSnapshot(role));
     return HttpResponse.json(toRole(role, actor.companyId));
   }),
 
@@ -820,7 +872,7 @@ const identityHandlers = [
       });
     }
     db.roles.splice(db.roles.indexOf(role), 1);
-    writeCompanyLog(actor, 'role.deleted', role.name);
+    writeCompanyLog(actor, 'delete', roleEntity(role), roleSnapshot(role), null);
     return new HttpResponse(null, { status: 204 });
   }),
 
@@ -903,7 +955,10 @@ const identityHandlers = [
       version: 1,
     };
     db.memberships.push(membership);
-    writeCompanyLog(actor, outcome === 'invited' ? 'staff.invited' : 'staff.added', email);
+    writeCompanyLog(actor, 'create', staffEntity(membership), null, {
+      ...staffSnapshot(membership),
+      invited: outcome === 'invited',
+    });
     const payload: InviteStaffResult = { outcome, member: toStaff(membership) };
     return HttpResponse.json(payload, { status: 201 });
   }),
@@ -923,9 +978,10 @@ const identityHandlers = [
     }
     const rejected = checkRoleAssignment(actor, body.roleIds, m.roleIds);
     if (rejected) return rejected;
+    const before = { roles: staffSnapshot(m).roles };
     m.roleIds = [...new Set(body.roleIds)];
     m.version += 1;
-    writeCompanyLog(actor, 'staff.roles_changed', toStaff(m).email);
+    writeCompanyLog(actor, 'update', staffEntity(m), before, { roles: staffSnapshot(m).roles });
     return HttpResponse.json(toStaff(m));
   }),
 
@@ -946,10 +1002,167 @@ const identityHandlers = [
       }
       m.status = target;
       m.version += 1;
-      writeCompanyLog(actor, action === 'lock' ? 'staff.locked' : 'staff.unlocked', toStaff(m).email);
+      writeCompanyLog(
+        actor,
+        'update',
+        staffEntity(m),
+        { status: action === 'lock' ? 'active' : 'locked' },
+        { status: target },
+      );
       return HttpResponse.json(toStaff(m));
     }),
   ),
 ];
 
-export const handlers = [...authHandlers, ...platformHandlers, ...identityHandlers, ...shopHandlers];
+
+// ---------- Phân hệ tuỳ chọn (UC-PI-02) và nhật ký thao tác (UC-PI-07) ----------
+function actorRef(accountId: string | null): ActorRef | null {
+  const a = accountId ? db.accounts.find((x) => x.id === accountId) : undefined;
+  return a ? { accountId: a.id, email: a.email, fullName: a.fullName } : null;
+}
+
+function moduleHasData(companyId: string, code: OptionalModuleKey) {
+  if (code === 'channel') return db.shops.some((s) => s.companyId === companyId);
+  return Boolean(db.moduleData[code]?.includes(companyId));
+}
+
+function toCompanyModule(companyId: string, code: OptionalModuleKey): CompanyModule {
+  const company = db.companies.find((c) => c.id === companyId)!;
+  const state = db.moduleStates[`${companyId}:${code}`];
+  const enabled = company.optionalModules.includes(code);
+  return {
+    code,
+    enabled,
+    enabledAt: enabled ? state?.enabledAt ?? null : null,
+    enabledBy: enabled ? actorRef(state?.enabledBy ?? null) : null,
+    aiConsentAt: enabled ? state?.aiConsentAt ?? null : null,
+    aiConsentBy: enabled ? actorRef(state?.aiConsentBy ?? null) : null,
+    hasData: moduleHasData(companyId, code),
+  };
+}
+
+function toAuditLog(l: (typeof db.companyAuditLogs)[number]): CompanyAuditLog {
+  return {
+    id: l.id,
+    action: l.action,
+    entityType: l.entityType,
+    entityId: l.entityId,
+    entityLabel: l.entityLabel,
+    actor: actorRef(l.actorId) ?? { accountId: l.actorId, email: '', fullName: 'Tài khoản đã xoá' },
+    createdAt: l.createdAt,
+  };
+}
+
+const companySettingsHandlers = [
+  http.get(`${API}/company/modules`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.moduleManage);
+    if (!guard.ok) return guard.response;
+    return HttpResponse.json(OPTIONAL_MODULES.map((code) => toCompanyModule(guard.value.companyId, code)));
+  }),
+
+  http.put(`${API}/company/modules/:code`, async ({ params, request }) => {
+    await delay(LATENCY);
+    // UC-PI-02 bước 4: chỉ CEO của công ty (quyền này chỉ vai trò CEO có)
+    const guard = requireCompany(request, PERMISSIONS.moduleManage);
+    if (!guard.ok) return guard.response;
+    const actor = guard.value;
+    const code = params.code as OptionalModuleKey;
+    if (!OPTIONAL_MODULES.includes(code)) {
+      return problem(404, 'Không có phân hệ tuỳ chọn này', { code: 'module_not_found' });
+    }
+    const body = (await request.json()) as Omit<SetModuleInput, 'code'>;
+    const company = db.companies.find((c) => c.id === actor.companyId)!;
+    const current = toCompanyModule(company.id, code);
+    if (current.enabled === body.enabled) {
+      return problem(409, 'Phân hệ vừa được đổi ở phiên khác', {
+        code: 'module_state_changed',
+        detail: `${MODULE_LABELS[code]} hiện đang ${current.enabled ? 'bật' : 'tắt'}. Chưa có gì thay đổi.`,
+        current,
+      });
+    }
+    if (body.enabled && code === 'assistant' && body.aiConsent !== true) {
+      return problem(422, 'Cần đồng ý gửi dữ liệu tới OpenAI', {
+        code: 'ai_consent_required',
+        detail: 'Bật Trợ lý AI cần CEO đồng ý gửi câu hỏi và dữ liệu liên quan tới OpenAI.',
+      });
+    }
+    if (!body.enabled && current.hasData) {
+      return problem(409, 'Phân hệ đã có dữ liệu', {
+        code: 'module_has_data',
+        detail: `${MODULE_LABELS[code]} đã có dữ liệu của công ty nên không tắt được.`,
+        current,
+      });
+    }
+
+    const key = `${company.id}:${code}`;
+    if (body.enabled) {
+      company.optionalModules = [...company.optionalModules, code];
+      db.moduleStates[key] = {
+        enabledAt: db.now(),
+        enabledBy: actor.account.id,
+        aiConsentAt: code === 'assistant' ? db.now() : null,
+        aiConsentBy: code === 'assistant' ? actor.account.id : null,
+      };
+    } else {
+      company.optionalModules = company.optionalModules.filter((m) => m !== code);
+    }
+    const module = toCompanyModule(company.id, code);
+    writeCompanyLog(
+      actor,
+      'update',
+      { type: 'platform.company_modules', id: code, label: MODULE_LABELS[code] },
+      { enabled: current.enabled },
+      code === 'assistant' && body.enabled
+        ? { enabled: true, aiConsentAt: module.aiConsentAt }
+        : { enabled: module.enabled },
+    );
+    const payload: SetModuleResult = { module, enabledModules: buildContext(actor.membership).enabledModules };
+    return HttpResponse.json(payload);
+  }),
+
+  http.get(`${API}/audit/logs`, async ({ request }) => {
+    await delay(LATENCY);
+    // UC-PI-07 bước 2: CEO hoặc Admin (quyền này chỉ hai vai trò có sẵn đó có)
+    const guard = requireCompany(request, PERMISSIONS.auditView);
+    if (!guard.ok) return guard.response;
+    const url = new URL(request.url);
+    const { page, pageSize } = pageParams(url);
+    const actorId = url.searchParams.get('actorId');
+    const entityType = url.searchParams.get('entityType');
+    const action = url.searchParams.get('action');
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+
+    let items = db.companyAuditLogs
+      .filter((l) => l.companyId === guard.value.companyId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (actorId) items = items.filter((l) => l.actorId === actorId);
+    if (entityType) items = items.filter((l) => l.entityType === entityType);
+    if (action) items = items.filter((l) => l.action === action);
+    if (from) items = items.filter((l) => l.createdAt.slice(0, 10) >= from);
+    if (to) items = items.filter((l) => l.createdAt.slice(0, 10) <= to);
+    return HttpResponse.json(paginate(items.map(toAuditLog), page, pageSize));
+  }),
+
+  http.get(`${API}/audit/logs/:id`, async ({ params, request }) => {
+    await delay(100);
+    const guard = requireCompany(request, PERMISSIONS.auditView);
+    if (!guard.ok) return guard.response;
+    const log = db.companyAuditLogs.find((l) => l.id === params.id);
+    // Dòng của công ty khác: 403, không lộ là dòng đó có tồn tại
+    if (!log || log.companyId !== guard.value.companyId) {
+      return problem(403, 'Không xem được dòng nhật ký này');
+    }
+    const detail: CompanyAuditLogDetail = { ...toAuditLog(log), before: log.before, after: log.after };
+    return HttpResponse.json(detail);
+  }),
+];
+
+export const handlers = [
+  ...authHandlers,
+  ...platformHandlers,
+  ...identityHandlers,
+  ...companySettingsHandlers,
+  ...shopHandlers,
+];

@@ -11,6 +11,8 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
   - `/platform/*` — Quản trị nền tảng (UC-PI-08): tổng quan, danh sách công ty (khoá có lý do / mở khoá), nhật ký nền tảng. Không có dữ liệu kinh doanh (QT-03), không tạo/sửa/xoá công ty (công ty tự đăng ký — UC-PI-01).
   - `/c/:companyId/*` — khu làm việc của công ty. Menu và trang lọc theo phân hệ đang bật và quyền của vai trò trong công ty đó.
 - **Kênh bán** — `/c/:companyId/channel/shops`: kết nối / sửa / ngắt / đồng bộ gian hàng (cần bật phân hệ Kênh bán).
+- **Phân hệ** — `/c/:companyId/admin/modules` (UC-PI-02, chỉ CEO): bật/tắt 5 phân hệ tuỳ chọn, menu đổi ngay. Bật Trợ lý AI phải đồng ý gửi dữ liệu tới OpenAI; phân hệ đã có dữ liệu thì không tắt được.
+- **Nhật ký thao tác** — `/c/:companyId/admin/audit-logs` (UC-PI-07, CEO và Admin): lọc theo người, đối tượng, thao tác, khoảng ngày; bấm một dòng để xem giá trị trước và sau. Chỉ đọc.
 - **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 5 tài khoản; lỗi trả theo Problem Details (RFC 9457).
 
 ## Stack
@@ -62,8 +64,8 @@ pnpm dev
 | Email | Mật khẩu | Trường hợp thử |
 |---|---|---|
 | `platform@commerio.vn` | `platform` | Quản trị nền tảng: chỉ vào `/platform`, mở `/c/...` sẽ nhận 403 |
-| `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC, Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
-| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, nhưng không gán được vai trò kho/tài chính (quyền Admin không có) |
+| `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC (bật/tắt phân hệ, xem nhật ký), Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
+| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, xem nhật ký; không gán được vai trò kho/tài chính (quyền Admin không có), không bật/tắt phân hệ |
 | `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
 | `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
 | `moi@commerio.vn` | `moi12345` | Mới được mời: đăng nhập xong bị bắt đổi mật khẩu |
@@ -72,7 +74,9 @@ Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả l�
 
 Ở **Quản trị → Nhân viên**, thêm nhân viên bằng email mới thì mock in mật khẩu thư mời ra console của trình duyệt (`[mock] Thư mời gửi ...`) để thử đăng nhập lần đầu.
 
-Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới, mật khẩu đã đổi, nhân viên và vai trò vừa tạo sẽ mất khi tải lại trang.
+Ở **Quản trị → Phân hệ** của Công ty ABC, Kênh bán (đã có gian hàng) và Hộp thư chung được đánh dấu là đã có dữ liệu nên không tắt được; Báo cáo tắt được.
+
+Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới, mật khẩu đã đổi, nhân viên, vai trò, phân hệ và nhật ký vừa tạo sẽ mất khi tải lại trang.
 
 Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
@@ -89,7 +93,7 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ```
 src/
-├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, shops)
+├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, shops)
 ├─ components/
 │  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
 │  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
@@ -97,14 +101,14 @@ src/
 │  ├─ auth/     # LoginPage, RegisterPage, ChangePasswordPage, SelectCompanyPage
 │  ├─ identity/ # StaffListPage, RolesPage và các dialog mời, đổi vai trò, tạo/sửa vai trò
 │  ├─ platform/ # PlatformOverviewPage, CompanyListPage, LockCompanyDialog, PlatformAuditLogPage
-│  ├─ company/  # CompanyHomePage
+│  ├─ company/  # CompanyHomePage, ModuleSettingsPage, CompanyAuditLogPage
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
 ├─ hooks/       # useAuth, usePermission, useDebounce
 ├─ mocks/       # MSW handlers + in-memory db
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ theme/       # MUI light + dark, ColorModeContext
-├─ types/       # auth, company, audit, identity, shop
+├─ types/       # auth, company, companySettings, audit, identity, shop
 └─ utils/       # format, modules, permissions
 ```
 
