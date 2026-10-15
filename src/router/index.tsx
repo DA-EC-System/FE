@@ -24,6 +24,9 @@ import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { StaffListPage } from '@/features/identity/StaffListPage';
 import { RolesPage } from '@/features/identity/RolesPage';
+import { ProductListPage } from '@/features/catalog/ProductListPage';
+import { ProductFormPage } from '@/features/catalog/ProductFormPage';
+import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -116,7 +119,36 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: 'catalog',
-                    element: <PlaceholderPage title="Danh mục sản phẩm" />,
+                    element: (
+                      <RequireModule module="catalog" permission={PERMISSIONS.productView}>
+                        <ProductListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'catalog/products/new',
+                    element: (
+                      <RequireModule module="catalog" permission={PERMISSIONS.productManage}>
+                        <ProductFormPage key="new" />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    // key khác trang tạo mới: không giữ state cũ khi chuyển từ tạo sang sửa
+                    path: 'catalog/products/:productId',
+                    element: (
+                      <RequireModule module="catalog" permission={PERMISSIONS.productView}>
+                        <ProductFormPage key="edit" />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'catalog/setup',
+                    element: (
+                      <RequireModule module="catalog" permission={PERMISSIONS.catalogSetup}>
+                        <CatalogSetupPage />
+                      </RequireModule>
+                    ),
                   },
                   {
                     path: 'inventory',

@@ -13,6 +13,9 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 - **Kênh bán** — `/c/:companyId/channel/shops`: kết nối / sửa / ngắt / đồng bộ gian hàng (cần bật phân hệ Kênh bán).
 - **Phân hệ** — `/c/:companyId/admin/modules` (UC-PI-02, chỉ CEO): bật/tắt 5 phân hệ tuỳ chọn, menu đổi ngay. Bật Trợ lý AI phải đồng ý gửi dữ liệu tới OpenAI; phân hệ đã có dữ liệu thì không tắt được.
 - **Nhật ký thao tác** — `/c/:companyId/admin/audit-logs` (UC-PI-07, CEO và Admin): lọc theo người, đối tượng, thao tác, khoảng ngày; bấm một dòng để xem giá trị trước và sau. Chỉ đọc.
+- **Sản phẩm** — `/c/:companyId/catalog` (UC-CP-02): tìm theo tên hoặc SKU, lọc danh mục và trạng thái. Tạo sản phẩm: chọn thuộc tính và giá trị để sinh tổ hợp biến thể, bỏ tổ hợp không bán, xem SKU dự kiến. Sửa: đổi tên, mô tả, ảnh; thêm biến thể hoặc ngừng bán biến thể. Danh mục không đổi được sau khi tạo vì SKU đã sinh theo danh mục. Xoá là lưu trữ: SKU giữ lại, không cấp cho sản phẩm khác.
+- **Ảnh sản phẩm** — tối đa 9 ảnh JPG/PNG/WebP, mỗi ảnh tối đa 5 MB; ảnh đầu là ảnh đại diện, đổi thứ tự bằng nút ←/→. FE xin vé `POST /files/uploads` rồi PUT thẳng file lên `uploadUrl` (presigned, commerio-backend#14).
+- **Danh mục & thuộc tính** — `/c/:companyId/catalog/setup` (UC-CP-01, CEO và Admin): danh mục kèm quy tắc SKU, xem trước SKU mẫu khi gõ; thuộc tính và danh sách giá trị. Danh mục, thuộc tính, giá trị đang có sản phẩm dùng thì không xoá được.
 - **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 5 tài khoản; lỗi trả theo Problem Details (RFC 9457).
 
 ## Stack
@@ -65,7 +68,7 @@ pnpm dev
 |---|---|---|
 | `platform@commerio.vn` | `platform` | Quản trị nền tảng: chỉ vào `/platform`, mở `/c/...` sẽ nhận 403 |
 | `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC (bật/tắt phân hệ, xem nhật ký), Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
-| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, xem nhật ký; không gán được vai trò kho/tài chính (quyền Admin không có), không bật/tắt phân hệ |
+| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, sản phẩm, danh mục và thuộc tính, xem nhật ký; không gán được vai trò kho/tài chính (quyền Admin không có), không bật/tắt phân hệ |
 | `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
 | `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
 | `moi@commerio.vn` | `moi12345` | Mới được mời: đăng nhập xong bị bắt đổi mật khẩu |
@@ -76,7 +79,18 @@ Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả l�
 
 Ở **Quản trị → Phân hệ** của Công ty ABC, Kênh bán (đã có gian hàng) và Hộp thư chung được đánh dấu là đã có dữ liệu nên không tắt được; Báo cáo tắt được.
 
-Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới, mật khẩu đã đổi, nhân viên, vai trò, phân hệ và nhật ký vừa tạo sẽ mất khi tải lại trang.
+Ở **Hàng hoá → Sản phẩm** của Công ty ABC, "Áo thun basic cổ tròn" đang có đơn hàng chưa hoàn tất nên không xoá được; "Thắt lưng da bò" không có thuộc tính nên chỉ có một biến thể. Sale chỉ xem, không tạo hay sửa.
+
+### Quy tắc SKU
+
+Quy tắc của danh mục gồm chữ cố định (A-Z, 0-9, `-`, `_`) và hai token:
+
+- `{SEQ}` hoặc `{SEQ:n}` (bắt buộc, đúng một lần): số thứ tự của danh mục, đệm 0 cho đủ n chữ số, mặc định 4.
+- `{VAL}` (tuỳ chọn): mã giá trị thuộc tính của biến thể nối bằng `-`. Mã là giá trị bỏ dấu, viết hoa, chỉ giữ chữ và số, tối đa 6 ký tự (`Xanh navy` → `XANHNA`).
+
+Ví dụ `AO-{SEQ:4}-{VAL}` sinh `AO-0012-DEN-XL`. FE chỉ xem trước bằng `src/utils/sku.ts`; SKU thật do BE sinh và giữ duy nhất trong công ty.
+
+Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới, mật khẩu đã đổi, nhân viên, vai trò, phân hệ, sản phẩm, ảnh và nhật ký vừa tạo sẽ mất khi tải lại trang.
 
 Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
@@ -93,7 +107,7 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ```
 src/
-├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, shops)
+├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, catalog, shops)
 ├─ components/
 │  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
 │  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
@@ -102,14 +116,15 @@ src/
 │  ├─ identity/ # StaffListPage, RolesPage và các dialog mời, đổi vai trò, tạo/sửa vai trò
 │  ├─ platform/ # PlatformOverviewPage, CompanyListPage, LockCompanyDialog, PlatformAuditLogPage
 │  ├─ company/  # CompanyHomePage, ModuleSettingsPage, CompanyAuditLogPage
+│  ├─ catalog/  # ProductListPage, ProductFormPage (ảnh, bộ dựng biến thể), CatalogSetupPage và các dialog
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
 ├─ hooks/       # useAuth, usePermission, useDebounce
-├─ mocks/       # MSW handlers + in-memory db
+├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file)
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ theme/       # MUI light + dark, ColorModeContext
-├─ types/       # auth, company, companySettings, audit, identity, shop
-└─ utils/       # format, modules, permissions
+├─ types/       # auth, company, companySettings, audit, identity, catalog, shop
+└─ utils/       # format, modules, permissions, sku
 ```
 
 ## Tích hợp backend thật
@@ -140,7 +155,6 @@ Có thể migrate sang Next.js + MUI sau nếu cần SSR.
 
 ## Lộ trình tiếp theo
 
-- Module Catalog (sản phẩm, biến thể, danh mục, thuộc tính).
 - Module Inventory (tồn kho, phiếu nhập/xuất, cảnh báo ngưỡng).
 - Module Sales (đơn hàng, lịch sử trạng thái, hồ sơ khách).
 - Module Fulfillment, Finance, Payment, Inbox, Assistant, Report.
