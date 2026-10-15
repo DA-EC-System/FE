@@ -17,6 +17,10 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 - **Ảnh sản phẩm** — tối đa 9 ảnh JPG/PNG/WebP, mỗi ảnh tối đa 5 MB; ảnh đầu là ảnh đại diện, đổi thứ tự bằng nút ←/→. FE xin vé `POST /files/uploads` rồi PUT thẳng file lên `uploadUrl` (presigned, commerio-backend#14).
 - **Danh mục & thuộc tính** — `/c/:companyId/catalog/setup` (UC-CP-01, CEO và Admin): danh mục kèm quy tắc SKU, xem trước SKU mẫu khi gõ; thuộc tính và danh sách giá trị. Danh mục, thuộc tính, giá trị đang có sản phẩm dùng thì không xoá được.
 - **Bảng giá** — `/c/:companyId/pricing` (UC-CP-03): mỗi công ty có một bảng giá chuẩn (không xoá được) và tối đa một bảng giá riêng cho mỗi gian hàng (cần phân hệ Kênh bán). Lưới sửa giá từng biến thể: gõ thẳng vào ô, giá sai báo ngay tại ô; ô đã sửa được tô màu, bấm **Lưu** mới gửi lên. Chọn nhiều dòng để sửa hàng loạt: đặt cùng giá, tăng/giảm theo % hoặc số tiền (có làm tròn), chép giá chuẩn, bỏ giá. Bảng theo gian hàng hiện thêm cột giá chuẩn; ô trống nghĩa là lấy giá chuẩn. Người khác vừa lưu thì FE nạp giá mới nhưng giữ thay đổi của mình để kiểm lại. Rời trang khi còn thay đổi chưa lưu sẽ được hỏi lại. Sale chỉ xem.
+- **Kho** — `/c/:companyId/inventory` (UC-IN-01, 02, 03), ba tab:
+  - *Tồn kho*: tồn thực, đang giữ cho đơn, khả dụng của từng biến thể; tìm theo tên hoặc SKU, lọc danh mục, lọc dưới ngưỡng (bấm thẻ "Dưới ngưỡng tồn" cũng lọc). Bấm biểu tượng lịch sử để xem biến động theo chứng từ. CEO và Admin đặt ngưỡng ngay trên dòng. Giá vốn bình quân và giá trị tồn chỉ hiện với CEO.
+  - *Phiếu nhập/xuất*: lập phiếu nháp, thêm biến thể bằng ô tìm, sửa số lượng (và giá nhập với phiếu nhập), rồi ghi sổ; tồn chỉ đổi khi ghi sổ. Phiếu xuất tay bắt buộc ghi lý do và không vượt số khả dụng. Phiếu đã ghi sổ hoặc đã huỷ chỉ xem.
+  - *Nhập hoàn* (Nhân viên kho, CEO): đơn giao không thành công; nhập số thực nhận, khác số đã xuất thì ghi lý do. Mỗi đơn nhập hoàn một lần.
 - **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 5 tài khoản; lỗi trả theo Problem Details (RFC 9457).
 
 ## Stack
@@ -69,7 +73,7 @@ pnpm dev
 |---|---|---|
 | `platform@commerio.vn` | `platform` | Quản trị nền tảng: chỉ vào `/platform`, mở `/c/...` sẽ nhận 403 |
 | `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC (bật/tắt phân hệ, xem nhật ký), Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
-| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, sản phẩm, danh mục và thuộc tính, xem nhật ký; không gán được vai trò kho/tài chính (quyền Admin không có), không bật/tắt phân hệ |
+| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, sản phẩm, danh mục và thuộc tính, xem tồn và đặt ngưỡng, xem nhật ký; không gán được vai trò kho/tài chính (quyền Admin không có), không bật/tắt phân hệ |
 | `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
 | `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
 | `moi@commerio.vn` | `moi12345` | Mới được mời: đăng nhập xong bị bắt đổi mật khẩu |
@@ -83,6 +87,8 @@ Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả l�
 Ở **Hàng hoá → Sản phẩm** của Công ty ABC, "Áo thun basic cổ tròn" đang có đơn hàng chưa hoàn tất nên không xoá được; "Thắt lưng da bò" không có thuộc tính nên chỉ có một biến thể. Sale chỉ xem, không tạo hay sửa.
 
 Ở **Hàng hoá → Bảng giá**, "Giá Shopee" gắn với gian hàng đang kết nối nên không xoá được; muốn xoá thì ngắt gian hàng trước. Bảng giá chuẩn còn 2 biến thể chưa có giá.
+
+Ở **Hàng hoá → Kho** của Công ty ABC, có 2 biến thể dưới ngưỡng, một phiếu nhập nháp `PN-000003` để thử sửa và ghi sổ, và 2 đơn giao không thành công chờ nhập hoàn. Đăng nhập `kho@commerio.vn` để lập phiếu (không thấy giá vốn), `admin@commerio.vn` để đặt ngưỡng (không lập phiếu), `ceo@commerio.vn` để xem giá vốn.
 
 ### Quy tắc SKU
 
@@ -110,7 +116,7 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ```
 src/
-├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, catalog, pricing, shops)
+├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, catalog, pricing, inventory, shops)
 ├─ components/
 │  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
 │  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
@@ -121,13 +127,14 @@ src/
 │  ├─ company/  # CompanyHomePage, ModuleSettingsPage, CompanyAuditLogPage
 │  ├─ catalog/  # ProductListPage, ProductFormPage (ảnh, bộ dựng biến thể), CatalogSetupPage và các dialog
 │  ├─ pricing/  # PricelistListPage, PricelistDetailPage (lưới sửa giá), BulkPriceDialog, PricelistFormDialog
+│  ├─ inventory/ # InventoryPage (tab tồn, phiếu, nhập hoàn), StockDocPage (lập, ghi sổ phiếu), ReorderDialog, StockDetailDrawer, ReturnReceiptDialog
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
 ├─ hooks/       # useAuth, usePermission, useDebounce
-├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file; pricingData: bảng giá)
+├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file; pricingData: bảng giá; inventoryData: phiếu kho, tồn, đơn hoàn)
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ theme/       # MUI light + dark, ColorModeContext
-├─ types/       # auth, company, companySettings, audit, identity, catalog, pricing, shop
+├─ types/       # auth, company, companySettings, audit, identity, catalog, pricing, inventory, shop
 └─ utils/       # format, modules, permissions, sku
 ```
 
@@ -159,7 +166,6 @@ Có thể migrate sang Next.js + MUI sau nếu cần SSR.
 
 ## Lộ trình tiếp theo
 
-- Module Inventory (tồn kho, phiếu nhập/xuất, cảnh báo ngưỡng).
 - Module Sales (đơn hàng, lịch sử trạng thái, hồ sơ khách).
 - Module Fulfillment, Finance, Payment, Inbox, Assistant, Report.
 - Kết nối backend thật, bỏ MSW.

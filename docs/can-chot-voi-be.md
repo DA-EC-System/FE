@@ -1,6 +1,6 @@
 # Các điểm FE cần chốt với BE
 
-Cập nhật: 15/10/2026. Phạm vi: các phần FE đã làm từ PR #24 đến #31. Hiện FE chạy bằng mock MSW (`src/mocks/handlers.ts`). Khi chưa chốt, hợp đồng trong mock là đề xuất của FE.
+Cập nhật: 15/10/2026. Phạm vi: các phần FE đã làm từ PR #24 đến #32. Hiện FE chạy bằng mock MSW (`src/mocks/handlers.ts`). Khi chưa chốt, hợp đồng trong mock là đề xuất của FE.
 
 Cột **Trạng thái**: `Chờ BE` là chưa có trả lời; khi chốt xong, ghi kết luận và số PR/issue BE vào cột này.
 
@@ -150,3 +150,48 @@ FE tự sinh SKU để xem trước (`src/utils/sku.ts`). **BE phải sinh SKU g
 | G8 | Biến thể hoặc sản phẩm bị ngừng bán | Giá vẫn giữ trong DB nhưng không hiện trên lưới và không tính vào `pricedCount`; bán lại thì giá cũ hiện lại | Chờ BE |
 | G9 | Số dòng | `GET items` trả toàn bộ, ổn tới vài nghìn biến thể. Nếu công ty lớn hơn, cần phân trang phía BE và FE đổi lưới sang chế độ server | Chờ BE |
 | G10 | Quyền mới | `pricing.pricelist.view` (CEO, Admin, Sale), `pricing.pricelist.manage` (CEO, Admin). Tạo bảng gian hàng cần thêm phân hệ Kênh bán bật và quyền xem gian hàng | Chờ BE |
+
+## 7. Kho — UC-IN-01, 02, 03 (FE PR #32, commerio-backend#16)
+
+### 7.1 Hợp đồng API
+
+| Method | Đường dẫn | Ghi chú |
+|---|---|---|
+| GET | `/inventory/stock?page=&pageSize=&search=&categoryId=&belowMin=` | `{ items: StockLevel[], total, page, pageSize, summary: { variantCount, belowMinCount, totalValue \| null } }`. `StockLevel`: `variantId, productId, productName, sku, attributesLabel, category {id, name}, onHand, reserved, available, minQty \| null, belowMin, reorderVersion, avgCost \| null, stockValue \| null` |
+| GET | `/inventory/stock/:variantId` | `{ level, moves }`; `moves` tối đa 100 dòng mới nhất: `qtyChange, onHandAfter, document {id, number, type, kind}, unitCost \| null, doneAt, doneBy` |
+| PUT | `/inventory/stock/:variantId/reorder-rule` | `{ minQty: number \| null, version }`; `null` là bỏ ngưỡng. Trả `StockLevel` mới |
+| GET | `/inventory/documents?page=&pageSize=&type=&status=&search=` | Danh sách `StockDocSummary`: `number, type, kind, status, note, reference, lineCount, totalQty, createdBy, createdAt, postedBy, postedAt, version` |
+| GET | `/inventory/documents/:id` | `StockDoc` = summary + `lines [{variantId, sku, productName, attributesLabel, quantity, unitCost \| null}]` |
+| POST | `/inventory/documents` | `{ type: 'receipt' \| 'issue', note, lines: [{variantId, quantity, unitCost?}] }` → 201, phiếu nháp lập tay |
+| PUT | `/inventory/documents/:id` | `{ note, lines, version }`: chỉ sửa phiếu nháp lập tay |
+| POST | `/inventory/documents/:id/post` | `{ version }`: ghi sổ, tồn đổi ngay |
+| POST | `/inventory/documents/:id/cancel` | `{ version }`: chỉ huỷ được phiếu nháp |
+| GET | `/inventory/returns` | Đơn giao không thành công: `orderId, orderCode, customerName, customerPhone, shipmentCode, failedReason, failedAt, lines [{variantId, sku, productName, attributesLabel, quantity}], receipt {id, number} \| null`. Đơn chưa xử lý đứng đầu |
+| POST | `/inventory/returns` | `{ orderId, lines: [{variantId, quantity}], note }` → 201, phiếu nhập hoàn đã ghi sổ |
+
+Số phiếu FE đề xuất: `PN-000001` (nhập), `PX-000001` (xuất), đánh số riêng theo công ty.
+
+### 7.2 Mã lỗi
+
+| Mã | HTTP | Khi nào |
+|---|---|---|
+| `version_conflict` | 409 | Đặt ngưỡng, sửa, ghi sổ, huỷ phiếu khi `version` cũ; kèm `current` mới nhất (`StockLevel` hoặc `StockDoc`) |
+| `not_draft` | 409 | Sửa, ghi sổ, huỷ phiếu không còn ở trạng thái nháp, hoặc sửa phiếu không phải lập tay |
+| `already_processed` | 409 | Nhập hoàn đơn đã có phiếu; `detail` nêu số phiếu đã lập |
+| `insufficient_stock` | 422 | Ghi sổ phiếu xuất vượt khả dụng; kèm `errors["lines.<i>.quantity"]` = "Chỉ còn X khả dụng" |
+| (lỗi theo ô) | 422 | `errors.minQty`; `errors.note`; `errors["lines.<i>.variantId \| quantity \| unitCost"]` theo chỉ số dòng; `errors.lines` khi phiếu rỗng hoặc nhập hoàn toàn số 0 |
+
+### 7.3 Ngữ nghĩa
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| K1 | Số tồn | `available = onHand − reserved`; `reserved` là tổng giữ chỗ `active` của đơn. Phiếu xuất tay chỉ lấy phần khả dụng | Chờ BE |
+| K2 | Giá vốn | Bình quân gia quyền, tính lại khi ghi sổ phiếu nhập mua/lập tay. Nhập hoàn lấy giá vốn hiện tại, không đổi bình quân. Phiếu xuất ghi nhận giá vốn lúc xuất | Chờ BE |
+| K3 | Ai thấy giá | Giá vốn, giá trị tồn chỉ trả về cho người có `inventory.cost.view` (CEO), người khác nhận `null`. FE đề xuất thêm: người lập phiếu (`inventory.receipt.create`) thấy và nhập được giá nhập trên phiếu nhập lập tay, nhưng không thấy giá vốn bình quân | Chờ BE |
+| K4 | Phiếu xuất tay | ERD chỉ có `receipt_kind`; FE thêm phiếu xuất lập tay (`kind: 'manual'`, bắt buộc ghi lý do) cho hàng hỏng, mất, kiểm kê lệch. Phiếu xuất theo đơn (`kind: 'order'`) do phân hệ Đơn hàng sinh, kho chỉ xem | Chờ BE |
+| K5 | Quyền Admin | UC-IN-01, 02 cho Admin xem tồn và đặt ngưỡng, nên mock gán Admin `inventory.stock.view` và `inventory.reorder.manage` (trái với ghi chú cũ "Admin không có quyền kho"). Admin không lập phiếu, không thấy giá vốn | Chờ BE |
+| K6 | Quyền mới | `inventory.receipt.create` (lập, ghi sổ, huỷ phiếu và nhập hoàn), `inventory.reorder.manage`, `inventory.cost.view`; `inventory.stock.view` đã có | Chờ BE |
+| K7 | Ngưỡng tồn | Số nguyên ≥ 0 so với số khả dụng; `belowMin = available < minQty`. Thông báo dưới ngưỡng (QT-16) và sinh đơn mua nháp do BE làm, FE chỉ hiện cảnh báo trên lưới | Chờ BE |
+| K8 | Nhập hoàn | Mỗi đơn nhập hoàn một lần; số thực nhận từ 0 tới số đã xuất, khác số đã xuất thì bắt buộc ghi chú. Phiếu ghi sổ ngay, dòng số 0 bị bỏ. Danh sách đơn hiện là dữ liệu mock thay cho phân hệ Đơn hàng/Giao vận | Chờ BE |
+| K9 | Đẩy tồn lên sàn (QT-46) | Sau mỗi lần ghi sổ BE đẩy số khả dụng lên các gian hàng; FE chưa hiện trạng thái đồng bộ | Chờ BE |
+| K10 | Ghi sổ | Một lần ghi sổ là một giao dịch, khoá dòng tồn để tránh hai phiếu xuất cùng lấy một số khả dụng. Phiếu đã ghi sổ không sửa, không huỷ; sai thì lập phiếu ngược | Chờ BE |

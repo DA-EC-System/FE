@@ -21,6 +21,9 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'catalog.products': 'Sản phẩm',
   'catalog.product_variants': 'Biến thể',
   'pricing.pricelists': 'Bảng giá',
+  'inventory.reorder_rules': 'Ngưỡng tồn',
+  'inventory.stock_receipts': 'Phiếu nhập',
+  'inventory.stock_issues': 'Phiếu xuất',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;
@@ -51,6 +54,9 @@ const FIELD_LABELS: Record<string, string> = {
   type: 'Loại',
   shop: 'Gian hàng',
   prices: 'Giá',
+  minQty: 'Ngưỡng tối thiểu',
+  note: 'Ghi chú',
+  lines: 'Dòng phiếu',
 };
 
 export const auditFieldLabel = (field: string) => FIELD_LABELS[field] ?? field;
@@ -64,6 +70,9 @@ const VALUE_LABELS: Record<string, string> = {
   disconnected: 'Đã ngắt',
   standard: 'Bảng giá chuẩn',
   channel: 'Theo gian hàng',
+  draft: 'Nháp',
+  done: 'Đã ghi sổ',
+  cancelled: 'Đã huỷ',
 };
 
 /** Giá trị jsonb thành chữ: mảng mỗi phần tử một dòng, ngày ISO theo giờ địa phương */

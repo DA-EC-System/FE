@@ -29,6 +29,8 @@ import { ProductFormPage } from '@/features/catalog/ProductFormPage';
 import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
 import { PricelistListPage } from '@/features/pricing/PricelistListPage';
 import { PricelistDetailPage } from '@/features/pricing/PricelistDetailPage';
+import { InventoryPage } from '@/features/inventory/InventoryPage';
+import { StockDocPage } from '@/features/inventory/StockDocPage';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -170,7 +172,19 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: 'inventory',
-                    element: <PlaceholderPage title="Kho hàng" />,
+                    element: (
+                      <RequireModule module="inventory" permission={PERMISSIONS.stockView}>
+                        <InventoryPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'inventory/documents/:docId',
+                    element: (
+                      <RequireModule module="inventory" permission={PERMISSIONS.stockView}>
+                        <StockDocPage />
+                      </RequireModule>
+                    ),
                   },
                   {
                     path: 'orders',

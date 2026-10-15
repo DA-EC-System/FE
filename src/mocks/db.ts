@@ -163,7 +163,9 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.pricelistView, module: 'pricing', label: 'Xem bảng giá' },
   { code: P.pricelistManage, module: 'pricing', label: 'Tạo bảng giá, sửa giá' },
   { code: P.stockView, module: 'inventory', label: 'Xem tồn kho' },
-  { code: 'inventory.receipt.create', module: 'inventory', label: 'Lập phiếu nhập, xuất kho' },
+  { code: P.stockDocManage, module: 'inventory', label: 'Lập, ghi sổ phiếu nhập, xuất kho' },
+  { code: P.reorderManage, module: 'inventory', label: 'Đặt ngưỡng tồn' },
+  { code: P.costView, module: 'inventory', label: 'Xem giá vốn, giá trị tồn' },
   { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
   { code: 'sales.order.create', module: 'sales', label: 'Tạo đơn hàng' },
   { code: 'fulfillment.order.approve', module: 'fulfillment', label: 'Duyệt đơn, giao hàng' },
@@ -181,7 +183,10 @@ export const permissionCatalog: PermissionDef[] = [
   { code: 'report.dashboard.view', module: 'report', label: 'Xem báo cáo' },
 ];
 
-/** Admin không có quyền kho, mua hàng, tài chính (UC-PI-05); CEO có mọi quyền. */
+/**
+ * Admin không có quyền kho, mua hàng, tài chính (UC-PI-05) trừ xem tồn và đặt ngưỡng (UC-IN-01, UC-IN-02);
+ * CEO có mọi quyền.
+ */
 const ADMIN_PERMISSIONS = [
   P.auditView,
   P.staffView,
@@ -193,6 +198,8 @@ const ADMIN_PERMISSIONS = [
   P.catalogSetup,
   P.pricelistView,
   P.pricelistManage,
+  P.stockView,
+  P.reorderManage,
   P.orderView,
   'sales.order.create',
   P.shopView,
@@ -247,7 +254,7 @@ const roles: MockRole[] = [
     id: `role-kho-${companyId}`,
     companyId,
     name: 'Nhân viên kho',
-    permissions: [P.productView, P.stockView, 'inventory.receipt.create'],
+    permissions: [P.productView, P.stockView, P.stockDocManage],
     version: 1,
     updatedAt: '2026-03-01T00:00:00.000Z',
   })),
