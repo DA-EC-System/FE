@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import logoUrl from '@/assets/logo.png';
 import {
   AppBar,
   Toolbar,
@@ -31,6 +30,7 @@ import { useAuth, useLogout } from '@/hooks/useAuth';
 import { useColorMode } from '@/theme/ColorModeContext';
 import { ROUTES } from '@/router/routes';
 import { DRAWER_WIDTH } from './drawerConfig';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 interface TopBarProps {
   onToggleSidebar: () => void;
@@ -131,17 +131,7 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           to={ROUTES.home}
           sx={{ textDecoration: 'none', color: 'inherit', display: { xs: 'none', sm: 'flex' } }}
         >
-          <Box
-            component="img"
-            src={logoUrl}
-            alt="Commerio"
-            sx={{
-              width: 32,
-              height: 32,
-              objectFit: 'contain',
-              flexShrink: 0,
-            }}
-          />
+          <BrandLogo size={32} />
           <Typography variant="h6" fontWeight={700} letterSpacing={-0.5}>
             Commerio
           </Typography>

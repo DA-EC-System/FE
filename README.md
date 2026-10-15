@@ -131,3 +131,19 @@ Có thể migrate sang Next.js + MUI sau nếu cần SSR.
 - Module Fulfillment, Finance, Payment, Inbox, Assistant, Report.
 - Kết nối backend thật, bỏ MSW.
 - E2E test với Cypress.
+
+## Bộ màu thương hiệu
+
+Lấy logo làm chuẩn: navy `#0D2143` (viền) và xanh thép `#486A8C` (mặt trên). Định nghĩa ở `src/theme/tokens.ts`, đưa vào theme MUI ở `src/theme/index.ts`.
+
+| Vai trò | Light | Dark | Dùng cho |
+|---|---|---|---|
+| `primary` | `#486A8C` (brand 500) | `#ABBACA` (brand 300) | nút chính, link, mục đang chọn |
+| `secondary` | `#0D2143` (brand 900) | `#E5EAEF` (brand 100) | điểm nhấn đậm |
+| `brand.50–900` | thang pha từ hai màu logo | | nền nhạt, viền, banner (`bgcolor: 'brand.100'`) |
+| `success / warning / error / info` | `#2E7D5B` / `#A35F0C` / `#C0392B` / `#2B7BB9` | bản sáng hơn | trạng thái |
+
+Quy ước:
+- Không viết mã hex trong component; dùng `primary.main`, `brand.700`, `text.secondary`... qua `sx` hoặc `theme.palette`.
+- Logo dùng `<BrandLogo />`; trên nền tối truyền `onDark` để có nền trắng phía sau (viền navy không bị chìm).
+- Các cặp chữ/nền trong bảng đều đạt WCAG AA (≥ 4.5) ở chế độ sáng.

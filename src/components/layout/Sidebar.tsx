@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import logoUrl from '@/assets/logo.png';
 import {
   Drawer,
   Box,
@@ -19,6 +18,7 @@ import { DRAWER_WIDTH } from './drawerConfig';
 import type { NavSection } from './navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { hasPermission, isModuleEnabled } from '@/utils/permissions';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 interface SidebarProps {
   open: boolean;
@@ -51,17 +51,7 @@ export function Sidebar({ open, onClose, variant, sections, subtitle }: SidebarP
   const drawerContent = (
     <Box>
       <Toolbar sx={{ minHeight: 64, px: 2, gap: 1.5 }}>
-        <Box
-          component="img"
-          src={logoUrl}
-          alt="Commerio"
-          sx={{
-            width: 32,
-            height: 32,
-            objectFit: 'contain',
-            flexShrink: 0,
-          }}
-        />
+        <BrandLogo size={32} />
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
             Commerio
