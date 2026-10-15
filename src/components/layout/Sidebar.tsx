@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import logoUrl from '@/assets/logo.png';
 import {
   Drawer,
   Box,
@@ -79,20 +80,16 @@ export function Sidebar({ open, onClose, variant }: SidebarProps) {
     <Box>
       <Toolbar sx={{ minHeight: 64, px: 2, gap: 1.5 }}>
         <Box
+          component="img"
+          src={logoUrl}
+          alt="Commerio"
           sx={{
             width: 32,
             height: 32,
-            borderRadius: 1.5,
-            background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 800,
+            objectFit: 'contain',
+            flexShrink: 0,
           }}
-        >
-          C
-        </Box>
+        />
         <Box>
           <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
             Commerio

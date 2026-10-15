@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import logoUrl from '@/assets/logo.png';
 import {
   AppBar,
   Toolbar,
@@ -64,20 +65,16 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           sx={{ textDecoration: 'none', color: 'inherit' }}
         >
           <Box
+            component="img"
+            src={logoUrl}
+            alt="Commerio"
             sx={{
               width: 32,
               height: 32,
-              borderRadius: 1.5,
-              background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 800,
+              objectFit: 'contain',
+              flexShrink: 0,
             }}
-          >
-            C
-          </Box>
+          />
           <Typography variant="h6" fontWeight={700} letterSpacing={-0.5}>
             Commerio
           </Typography>

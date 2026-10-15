@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import logoUrl from '@/assets/logo.png';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,7 +18,6 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import StorefrontIcon from '@mui/icons-material/Storefront';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useLogin, useAuth } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
@@ -108,19 +108,16 @@ export function LoginPage() {
       >
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <Box
+            component="img"
+            src={logoUrl}
+            alt="Commerio"
             sx={{
               width: 40,
               height: 40,
-              borderRadius: 2,
-              background: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(8px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              objectFit: 'contain',
+              flexShrink: 0,
             }}
-          >
-            <StorefrontIcon />
-          </Box>
+          />
           <Typography variant="h5" fontWeight={800}>
             Commerio
           </Typography>
