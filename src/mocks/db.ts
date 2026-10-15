@@ -179,24 +179,36 @@ const accounts: Account[] = [
     email: 'platform@commerio.vn',
     fullName: 'Quản trị nền tảng',
     isPlatformAdmin: true,
+    mustChangePassword: false,
   },
   {
     id: 'acc-001',
     email: 'ceo@commerio.vn',
     fullName: 'Lê Hoàng Minh',
     isPlatformAdmin: false,
+    mustChangePassword: false,
   },
   {
     id: 'acc-002',
     email: 'sale@commerio.vn',
     fullName: 'Trần Thị Bán Hàng',
     isPlatformAdmin: false,
+    mustChangePassword: false,
   },
   {
     id: 'acc-003',
     email: 'kho@commerio.vn',
     fullName: 'Ngô Văn Kho',
     isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
+  // Vừa được mời, còn dùng mật khẩu trong thư mời → bị bắt đổi mật khẩu (UC-PI-03 bước 7)
+  {
+    id: 'acc-004',
+    email: 'moi@commerio.vn',
+    fullName: 'Đỗ Mới Vào',
+    isPlatformAdmin: false,
+    mustChangePassword: true,
   },
 ];
 
@@ -216,6 +228,7 @@ const memberships: MockMembership[] = [
   { accountId: 'acc-003', companyId: 'cmp-001', roleKeys: ['warehouse'], status: 'active' },
   { accountId: 'acc-003', companyId: 'cmp-004', roleKeys: ['warehouse'], status: 'active' },
   { accountId: 'acc-003', companyId: 'cmp-002', roleKeys: ['warehouse'], status: 'locked' },
+  { accountId: 'acc-004', companyId: 'cmp-001', roleKeys: ['sale'], status: 'active' },
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -244,6 +257,7 @@ export const passwords: Record<string, string> = {
   'ceo@commerio.vn': 'ceo',
   'sale@commerio.vn': 'sale',
   'kho@commerio.vn': 'kho',
+  'moi@commerio.vn': 'moi12345',
 };
 
 export const db = {

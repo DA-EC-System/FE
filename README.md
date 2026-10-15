@@ -4,12 +4,14 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 
 ## Tính năng đã có
 
-- **Đăng nhập** (`/login`) với 4 tài khoản demo, **chọn công ty** (`/select-company`) khi tài khoản thuộc nhiều công ty. Chọn công ty xong BE cấp token gắn với công ty đó.
+- **Đăng nhập** (`/login`) bằng email/mật khẩu hoặc Google, **chọn công ty** (`/select-company`) khi tài khoản thuộc nhiều công ty. Chọn công ty xong BE cấp token gắn với công ty đó.
+- **Đăng ký công ty** (`/register`, UC-PI-01): tên, mã số thuế, tài khoản CEO, chọn phân hệ tuỳ chọn (bật Trợ lý AI phải đồng ý gửi dữ liệu tới OpenAI). Đăng ký xong quay về trang đăng nhập, điền sẵn email.
+- **Đổi mật khẩu** (`/change-password`, UC-PI-04) từ menu tài khoản. Tài khoản còn dùng mật khẩu trong thư mời bị đưa tới trang này và chặn mọi trang khác (UC-PI-03 bước 7).
 - **Hai không gian tách biệt**:
   - `/platform/*` — Quản trị nền tảng (UC-PI-08): tổng quan, danh sách công ty (khoá có lý do / mở khoá), nhật ký nền tảng. Không có dữ liệu kinh doanh (QT-03), không tạo/sửa/xoá công ty (công ty tự đăng ký — UC-PI-01).
   - `/c/:companyId/*` — khu làm việc của công ty. Menu và trang lọc theo phân hệ đang bật và quyền của vai trò trong công ty đó.
 - **Kênh bán** — `/c/:companyId/channel/shops`: kết nối / sửa / ngắt / đồng bộ gian hàng (cần bật phân hệ Kênh bán).
-- **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 4 tài khoản; lỗi trả theo Problem Details (RFC 9457).
+- **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 5 tài khoản; lỗi trả theo Problem Details (RFC 9457).
 
 ## Stack
 
@@ -63,6 +65,11 @@ pnpm dev
 | `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC, Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
 | `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
 | `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
+| `moi@commerio.vn` | `moi12345` | Mới được mời: đăng nhập xong bị bắt đổi mật khẩu |
+
+Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả lập: nhập email của một tài khoản ở trên để vào, nhập email khác để xem trường hợp "chưa có tài khoản". Với backend thật, nút tạm khoá đến khi chốt cách làm với BE#7.
+
+Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới hay mật khẩu đã đổi sẽ mất khi tải lại trang.
 
 Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 

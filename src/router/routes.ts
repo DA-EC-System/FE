@@ -9,6 +9,8 @@
 export const ROUTES = {
   home: '/',
   login: '/login',
+  register: '/register',
+  changePassword: '/change-password',
   selectCompany: '/select-company',
   platform: {
     root: '/platform',

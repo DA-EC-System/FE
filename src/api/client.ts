@@ -43,6 +43,12 @@ apiClient.interceptors.response.use(
     } else if (status === 403 && code === 'company_locked' && path.startsWith('/c/')) {
       useAuthStore.getState().leaveCompany();
       window.location.assign('/select-company');
+    } else if (status === 403 && code === 'password_change_required') {
+      // BE chặn mọi chức năng khi còn mật khẩu trong thư mời; guard sẽ mở trang đổi mật khẩu
+      const account = useAuthStore.getState().account;
+      if (account && !account.mustChangePassword) {
+        useAuthStore.getState().setAccount({ ...account, mustChangePassword: true });
+      }
     }
     return Promise.reject(error);
   },

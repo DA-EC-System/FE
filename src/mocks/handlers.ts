@@ -11,11 +11,15 @@ import { db, passwords, roles, type MockMembership } from './db';
 import type { Shop, ShopCreateInput, ShopUpdateInput } from '@/types/shop';
 import type {
   Account,
+  ChangePasswordRequest,
   CompanyContext,
+  GoogleLoginRequest,
   LoginRequest,
   LoginResponse,
   Membership,
   MeResponse,
+  RegisterCompanyRequest,
+  RegisterCompanyResponse,
   SelectCompanyResponse,
 } from '@/types/auth';
 import type { CompanyStatus, LockCompanyInput } from '@/types/company';
@@ -97,9 +101,26 @@ function buildContext(m: MockMembership): CompanyContext {
 
 type Guard<T> = { ok: true; value: T } | { ok: false; response: Response };
 
+/** Còn mật khẩu trong thư mời: BE chặn mọi chức năng trừ đổi mật khẩu (UC-PI-03 bước 7). */
+function passwordChangeRequired(account: Account) {
+  return account.mustChangePassword
+    ? problem(403, 'Cần đổi mật khẩu trước khi tiếp tục', { code: 'password_change_required' })
+    : null;
+}
+
+function loginPayload(account: Account): LoginResponse {
+  return {
+    accessToken: makeToken(account.id, null),
+    account,
+    memberships: account.isPlatformAdmin ? [] : membershipsOf(account.id),
+  };
+}
+
 function requirePlatformAdmin(request: Request): Guard<Account> {
   const token = readToken(request);
   if (!token) return { ok: false, response: problem(401, 'Chưa đăng nhập') };
+  const blocked = passwordChangeRequired(token.account);
+  if (blocked) return { ok: false, response: blocked };
   if (!token.account.isPlatformAdmin) {
     return { ok: false, response: problem(403, 'Chỉ quản trị nền tảng được thực hiện') };
   }
@@ -113,6 +134,8 @@ function requireCompany(
 ): Guard<{ companyId: string }> {
   const token = readToken(request);
   if (!token) return { ok: false, response: problem(401, 'Chưa đăng nhập') };
+  const blocked = passwordChangeRequired(token.account);
+  if (blocked) return { ok: false, response: blocked };
   if (!token.companyId) {
     return { ok: false, response: problem(403, 'Chưa chọn công ty', { code: 'no_company' }) };
   }
@@ -173,12 +196,80 @@ const authHandlers = [
     if (!account || passwords[body.email] !== body.password) {
       return problem(401, 'Email hoặc mật khẩu không đúng');
     }
-    const payload: LoginResponse = {
-      accessToken: makeToken(account.id, null),
-      account,
-      memberships: account.isPlatformAdmin ? [] : membershipsOf(account.id),
-    };
-    return HttpResponse.json(payload);
+    return HttpResponse.json(loginPayload(account));
+  }),
+
+  // Mock: credential chính là email Google trả về. BE thật kiểm ID token với Google.
+  http.post(`${API}/auth/google`, async ({ request }) => {
+    await delay(LATENCY);
+    const { credential } = (await request.json()) as GoogleLoginRequest;
+    const account = db.accounts.find((a) => a.email === credential.trim().toLowerCase());
+    if (!account) {
+      return problem(401, 'Chưa có tài khoản', {
+        code: 'google_account_not_found',
+        detail: `Email ${credential} chưa có tài khoản Commerio. Hệ thống không tự tạo tài khoản; hãy nhờ CEO công ty mời bạn.`,
+      });
+    }
+    return HttpResponse.json(loginPayload(account));
+  }),
+
+  // UC-PI-01
+  http.post(`${API}/auth/register`, async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as RegisterCompanyRequest;
+    const email = body.ceo.email.trim().toLowerCase();
+    if (db.accounts.some((a) => a.email === email)) {
+      return problem(409, 'Email đã được dùng', {
+        code: 'email_taken',
+        errors: { 'ceo.email': 'Email này đã có tài khoản' },
+      });
+    }
+    if (body.optionalModules.includes('assistant') && !body.assistantDataConsent) {
+      return problem(422, 'Chưa đồng ý gửi dữ liệu tới OpenAI', {
+        errors: { assistantDataConsent: 'Cần đồng ý để bật Trợ lý AI' },
+      });
+    }
+    const seq = String(db.companies.length + 1).padStart(3, '0');
+    const companyId = `cmp-${seq}-${Date.now().toString(36)}`;
+    const accountId = `acc-${Date.now().toString(36)}`;
+    db.companies.push({
+      id: companyId,
+      name: body.company.name.trim(),
+      taxCode: body.company.taxCode.trim(),
+      ceoName: body.ceo.fullName.trim(),
+      ceoEmail: email,
+      optionalModules: body.optionalModules,
+      status: 'active',
+      createdAt: db.now(),
+    });
+    db.accounts.push({
+      id: accountId,
+      email,
+      fullName: body.ceo.fullName.trim(),
+      isPlatformAdmin: false,
+      mustChangePassword: false,
+    });
+    db.memberships.push({ accountId, companyId, roleKeys: ['ceo'], status: 'active' });
+    passwords[email] = body.ceo.password;
+    writePlatformLog('company.registered', companyId, email);
+    const payload: RegisterCompanyResponse = { companyId, email };
+    return HttpResponse.json(payload, { status: 201 });
+  }),
+
+  // UC-PI-04
+  http.post(`${API}/auth/change-password`, async ({ request }) => {
+    await delay(LATENCY);
+    const token = readToken(request);
+    if (!token) return problem(401, 'Chưa đăng nhập');
+    const body = (await request.json()) as ChangePasswordRequest;
+    if (passwords[token.account.email] !== body.currentPassword) {
+      return problem(422, 'Mật khẩu hiện tại không đúng', {
+        errors: { currentPassword: 'Mật khẩu hiện tại không đúng' },
+      });
+    }
+    passwords[token.account.email] = body.newPassword;
+    token.account.mustChangePassword = false;
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`${API}/auth/me`, async ({ request }) => {
@@ -196,6 +287,8 @@ const authHandlers = [
     await delay(LATENCY);
     const token = readToken(request);
     if (!token) return problem(401, 'Chưa đăng nhập');
+    const blocked = passwordChangeRequired(token.account);
+    if (blocked) return blocked;
     const { companyId } = (await request.json()) as { companyId: string };
     const membership = db.memberships.find(
       (m) => m.accountId === token.account.id && m.companyId === companyId,
