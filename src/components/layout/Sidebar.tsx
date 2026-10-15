@@ -13,67 +13,39 @@ import {
   Typography,
   Chip,
   Tooltip,
-  Stack,
 } from '@mui/material';
-import { NavLink, useLocation } from 'react-router-dom';
-import BusinessIcon from '@mui/icons-material/Business';
-import StoreIcon from '@mui/icons-material/Store';
-import CategoryIcon from '@mui/icons-material/Category';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import { NavLink, matchPath, useLocation } from 'react-router-dom';
 import { DRAWER_WIDTH } from './drawerConfig';
-import { ROUTES } from '@/router/routes';
+import type { NavSection } from './navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { hasPermission, isModuleEnabled } from '@/utils/permissions';
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
   variant: 'permanent' | 'temporary';
+  sections: NavSection[];
+  subtitle: string;
 }
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: React.ReactNode;
-  disabled?: boolean;
-  /** hiển thị khi user thoả điều kiện này (mặc định luôn hiển thị) */
-  show?: (isPlatformAdmin: boolean) => boolean;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    to: ROUTES.admin.companies,
-    label: 'Công ty',
-    icon: <BusinessIcon />,
-    show: () => true,
-  },
-  {
-    to: ROUTES.admin.catalog,
-    label: 'Danh mục sản phẩm',
-    icon: <CategoryIcon />,
-    disabled: true,
-  },
-  {
-    to: ROUTES.admin.inventory,
-    label: 'Kho hàng',
-    icon: <Inventory2Icon />,
-    disabled: true,
-  },
-  {
-    to: ROUTES.admin.orders,
-    label: 'Đơn hàng',
-    icon: <ShoppingCartIcon />,
-    disabled: true,
-  },
-];
-
-export function Sidebar({ open, onClose, variant }: SidebarProps) {
-  const { user } = useAuth();
+export function Sidebar({ open, onClose, variant, sections, subtitle }: SidebarProps) {
+  const { companyContext } = useAuth();
   const location = useLocation();
 
-  const visibleItems = useMemo(
-    () => NAV_ITEMS.filter((i) => !i.show || i.show(user?.isPlatformAdmin ?? false)),
-    [user],
+  // Ẩn mục của phân hệ chưa bật hoặc thiếu quyền; bỏ nhóm không còn mục nào
+  const visibleSections = useMemo(
+    () =>
+      sections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(
+            (i) =>
+              (!i.module || isModuleEnabled(companyContext, i.module)) &&
+              (!i.permission || hasPermission(companyContext, i.permission)),
+          ),
+        }))
+        .filter((section) => section.items.length > 0),
+    [sections, companyContext],
   );
 
   const drawerContent = (
@@ -90,90 +62,75 @@ export function Sidebar({ open, onClose, variant }: SidebarProps) {
             flexShrink: 0,
           }}
         />
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
             Commerio
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Quản lý đa kênh
+          <Typography variant="caption" color="text.secondary" noWrap component="div">
+            {subtitle}
           </Typography>
         </Box>
       </Toolbar>
       <Divider />
 
       <List sx={{ px: 1.5, py: 2 }}>
-        <Typography
-          variant="overline"
-          color="text.secondary"
-          sx={{ px: 1.5, fontSize: 11 }}
-        >
-          Quản trị
-        </Typography>
-        {visibleItems.map((item) => {
-          const isActive = location.pathname.startsWith(item.to);
-          const button = (
-            <ListItemButton
-              component={item.disabled ? 'div' : NavLink}
-              to={item.disabled ? undefined : item.to}
-              disabled={item.disabled}
-              selected={isActive}
-              onClick={variant === 'temporary' ? onClose : undefined}
-              sx={{
-                borderRadius: 1.5,
-                my: 0.25,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
-                  '&:hover': { backgroundColor: 'primary.dark' },
-                },
-              }}
+        {visibleSections.map((section) => (
+          <Box key={section.title} sx={{ mb: 1.5 }}>
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ px: 1.5, fontSize: 11 }}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-              <ListItemText
-                primary={item.label}
-                primaryTypographyProps={{ fontSize: 14, fontWeight: 600 }}
-              />
-              {item.disabled && (
-                <Chip label="Soon" size="small" sx={{ height: 18, fontSize: 10 }} />
-              )}
-            </ListItemButton>
-          );
-
-          return (
-            <ListItem key={item.to} disablePadding>
-              {item.disabled ? (
-                <Tooltip title="Sắp ra mắt" placement="right">
-                  <Box sx={{ width: '100%' }}>{button}</Box>
-                </Tooltip>
-              ) : (
-                button
-              )}
-            </ListItem>
-          );
-        })}
-      </List>
-
-      <Divider />
-      <Box sx={{ p: 2 }}>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            background: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-            <StoreIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle2" fontWeight={700}>
-              Kênh bán hàng
+              {section.title}
             </Typography>
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
-            Vào trang chi tiết một công ty để quản lý các gian hàng kết nối sàn.
-          </Typography>
-        </Box>
-      </Box>
+            {section.items.map((item) => {
+              const isActive = Boolean(
+                matchPath({ path: item.to, end: Boolean(item.end) }, location.pathname),
+              );
+              const button = (
+                <ListItemButton
+                  component={item.disabled ? 'div' : NavLink}
+                  to={item.disabled ? undefined : item.to}
+                  disabled={item.disabled}
+                  selected={isActive}
+                  onClick={variant === 'temporary' ? onClose : undefined}
+                  sx={{
+                    borderRadius: 1.5,
+                    my: 0.25,
+                    '&.Mui-selected': {
+                      backgroundColor: 'primary.main',
+                      color: 'primary.contrastText',
+                      '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
+                      '&:hover': { backgroundColor: 'primary.dark' },
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{ fontSize: 14, fontWeight: 600 }}
+                  />
+                  {item.disabled && (
+                    <Chip label="Soon" size="small" sx={{ height: 18, fontSize: 10 }} />
+                  )}
+                </ListItemButton>
+              );
+
+              return (
+                <ListItem key={item.to} disablePadding>
+                  {item.disabled ? (
+                    <Tooltip title="Sắp ra mắt" placement="right">
+                      <Box sx={{ width: '100%' }}>{button}</Box>
+                    </Tooltip>
+                  ) : (
+                    button
+                  )}
+                </ListItem>
+              );
+            })}
+          </Box>
+        ))}
+      </List>
     </Box>
   );
 
@@ -196,5 +153,3 @@ export function Sidebar({ open, onClose, variant }: SidebarProps) {
     </Drawer>
   );
 }
-
-// (Stack imported at top)

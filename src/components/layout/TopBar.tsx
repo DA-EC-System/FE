@@ -13,16 +13,23 @@ import {
   Stack,
   Divider,
   ListItemIcon,
+  ListItemText,
   Chip,
+  Button,
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import { useAuth } from '@/hooks/useAuth';
+import BusinessIcon from '@mui/icons-material/Business';
+import CheckIcon from '@mui/icons-material/Check';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { useAuth, useLogout } from '@/hooks/useAuth';
 import { useColorMode } from '@/theme/ColorModeContext';
+import { ROUTES } from '@/router/routes';
 import { DRAWER_WIDTH } from './drawerConfig';
 
 interface TopBarProps {
@@ -30,8 +37,68 @@ interface TopBarProps {
   sidebarOpen: boolean;
 }
 
+/** Nút đổi công ty: chỉ liệt kê công ty còn vào được; đổi qua URL để RequireCompany xin token mới. */
+function CompanySwitcher() {
+  const { memberships, companyContext } = useAuth();
+  const navigate = useNavigate();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  if (!companyContext) return null;
+
+  const usable = memberships.filter(
+    (m) => m.companyStatus === 'active' && m.status === 'active',
+  );
+
+  return (
+    <>
+      <Button
+        color="inherit"
+        startIcon={<BusinessIcon />}
+        endIcon={<ExpandMoreIcon />}
+        onClick={(e) => setAnchor(e.currentTarget)}
+        sx={{ textTransform: 'none', fontWeight: 600, maxWidth: 320 }}
+      >
+        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {companyContext.companyName}
+        </Box>
+      </Button>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+      >
+        {usable.map((m) => (
+          <MenuItem
+            key={m.companyId}
+            selected={m.companyId === companyContext.companyId}
+            onClick={() => {
+              setAnchor(null);
+              if (m.companyId !== companyContext.companyId) {
+                navigate(ROUTES.company.root(m.companyId));
+              }
+            }}
+          >
+            <ListItemIcon>
+              {m.companyId === companyContext.companyId && <CheckIcon fontSize="small" />}
+            </ListItemIcon>
+            <ListItemText primary={m.companyName} secondary={m.roles.join(', ')} />
+          </MenuItem>
+        ))}
+        <Divider />
+        <MenuItem component={RouterLink} to={ROUTES.selectCompany} onClick={() => setAnchor(null)}>
+          <ListItemIcon>
+            <SwapHorizIcon fontSize="small" />
+          </ListItemIcon>
+          Tất cả công ty
+        </MenuItem>
+      </Menu>
+    </>
+  );
+}
+
 export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
-  const { user, clear } = useAuth();
+  const { account, companyContext } = useAuth();
+  const logout = useLogout();
   const { mode, toggle } = useColorMode();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
@@ -61,8 +128,8 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           spacing={1.5}
           alignItems="center"
           component={RouterLink}
-          to="/"
-          sx={{ textDecoration: 'none', color: 'inherit' }}
+          to={ROUTES.home}
+          sx={{ textDecoration: 'none', color: 'inherit', display: { xs: 'none', sm: 'flex' } }}
         >
           <Box
             component="img"
@@ -78,14 +145,19 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           <Typography variant="h6" fontWeight={700} letterSpacing={-0.5}>
             Commerio
           </Typography>
+        </Stack>
+
+        {account?.isPlatformAdmin ? (
           <Chip
-            label="Admin"
+            label="Quản trị nền tảng"
             size="small"
             sx={{ ml: 0.5, fontWeight: 600 }}
             color="primary"
             variant="outlined"
           />
-        </Stack>
+        ) : (
+          <CompanySwitcher />
+        )}
 
         <Box sx={{ flexGrow: 1 }} />
 
@@ -95,10 +167,10 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           </IconButton>
         </Tooltip>
 
-        <Tooltip title={user?.fullName ?? 'Tài khoản'}>
+        <Tooltip title={account?.fullName ?? 'Tài khoản'}>
           <IconButton onClick={(e) => setAnchor(e.currentTarget)} color="inherit">
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-              {user?.fullName?.charAt(0).toUpperCase() ?? <AccountCircleIcon />}
+              {account?.fullName?.charAt(0).toUpperCase() ?? <AccountCircleIcon />}
             </Avatar>
           </IconButton>
         </Tooltip>
@@ -112,16 +184,16 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
         >
           <Box sx={{ px: 2, py: 1.5, minWidth: 220 }}>
             <Typography variant="subtitle2" fontWeight={700}>
-              {user?.fullName}
+              {account?.fullName}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {user?.email}
+              {account?.email}
             </Typography>
             <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
-              {user?.isPlatformAdmin && (
-                <Chip size="small" color="primary" label="Platform Admin" />
+              {account?.isPlatformAdmin && (
+                <Chip size="small" color="primary" label="Quản trị nền tảng" />
               )}
-              {user?.roles.map((r) => (
+              {companyContext?.roles.map((r) => (
                 <Chip key={r} size="small" variant="outlined" label={r} />
               ))}
             </Stack>
@@ -130,8 +202,7 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           <MenuItem
             onClick={() => {
               setAnchor(null);
-              clear();
-              window.location.assign('/login');
+              logout();
             }}
           >
             <ListItemIcon>

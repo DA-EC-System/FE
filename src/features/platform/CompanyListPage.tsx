@@ -1,237 +1,241 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
-  Box,
-  Paper,
-  Stack,
-  Chip,
-  IconButton,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  Button,
-  Snackbar,
   Alert,
+  Box,
+  Button,
+  Chip,
+  InputAdornment,
+  MenuItem,
+  Paper,
+  Snackbar,
+  Stack,
+  TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import {
-  DataGrid,
-  type GridColDef,
-  type GridRowSelectionModel,
-  GridToolbar,
-} from '@mui/x-data-grid';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
 import SearchIcon from '@mui/icons-material/Search';
-import StoreIcon from '@mui/icons-material/Store';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import LaunchIcon from '@mui/icons-material/Launch';
-import { useNavigate } from 'react-router-dom';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { CompanyFormDialog } from './CompanyFormDialog';
-import {
-  useCompanies,
-  useCreateCompany,
-  useUpdateCompany,
-  useDeleteCompany,
-  useBulkDeleteCompanies,
-} from '@/api/companies.api';
-import { useAuth } from '@/hooks/useAuth';
-import { makeCan } from '@/utils/permissions';
-import { formatDate } from '@/utils/format';
-import { ROUTES } from '@/router/routes';
-import type { Company } from '@/types/company';
-import type { CompanyFormValues } from './companySchemas';
+import { LockCompanyDialog } from './LockCompanyDialog';
+import { useLockCompany, usePlatformCompanies, useUnlockCompany } from '@/api/platform.api';
+import { getErrorMessage, getProblem } from '@/api/client';
+import { useDebounce } from '@/hooks/useDebounce';
+import { MODULE_LABELS } from '@/utils/modules';
+import { formatDate, formatDateTime } from '@/utils/format';
+import type { Company, CompanyStatus } from '@/types/company';
 
+type Toast = { severity: 'success' | 'warning' | 'error'; msg: string };
+
+const PAGE_SIZES = [10, 25, 50];
+
+/**
+ * UC-PI-08 — Quản lý công ty. Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái,
+ * khoá (có lý do) hoặc mở khoá. Không xem dữ liệu kinh doanh, không tạo/sửa/xoá công ty (QT-03).
+ */
 export function CompanyListPage() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const can = useMemo(() => makeCan(user), [user]);
+  // Bộ lọc và trang nằm trên URL để tải lại hay chia sẻ link vẫn giữ nguyên
+  const [params, setParams] = useSearchParams();
+  const page = Math.max(1, Number(params.get('page') ?? '1'));
+  const pageSize = PAGE_SIZES.includes(Number(params.get('pageSize')))
+    ? Number(params.get('pageSize'))
+    : 25;
+  const status = (params.get('status') ?? '') as CompanyStatus | '';
+  const q = params.get('q') ?? '';
 
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selection, setSelection] = useState<GridRowSelectionModel>([]);
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebounce(searchInput.trim());
 
-  const [editing, setEditing] = useState<Company | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [deleting, setDeleting] = useState<Company | null>(null);
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [toast, setToast] = useState<{ severity: 'success' | 'error'; msg: string } | null>(null);
+  const updateParams = (patch: Record<string, string | number | undefined>) => {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === undefined || value === '') next.delete(key);
+          else next.set(key, String(value));
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
-  // Debounce search
-  useMemo(() => {
-    const id = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(id);
-  }, [search]);
+  useEffect(() => {
+    if (debouncedSearch !== q) updateParams({ q: debouncedSearch, page: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
-  const query = useCompanies({
-    page: 1,
-    pageSize: 100,
-    search: debouncedSearch,
+  const query = usePlatformCompanies({
+    page,
+    pageSize,
+    search: q || undefined,
+    status: status || undefined,
   });
 
-  const createMut = useCreateCompany();
-  const updateMut = useUpdateCompany();
-  const deleteMut = useDeleteCompany();
-  const bulkDeleteMut = useBulkDeleteCompanies();
+  const lockMut = useLockCompany();
+  const unlockMut = useUnlockCompany();
+  const [locking, setLocking] = useState<Company | null>(null);
+  const [lockFieldError, setLockFieldError] = useState<string>();
+  const [unlocking, setUnlocking] = useState<Company | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
 
-  const rows = query.data?.items ?? [];
+  // 409: trạng thái đã đổi ở phiên khác — báo trạng thái hiện tại, không đổi gì
+  const reportError = (error: unknown) => {
+    const problem = getProblem(error);
+    setToast({
+      severity: problem?.status === 409 ? 'warning' : 'error',
+      msg: getErrorMessage(error),
+    });
+  };
 
-  const handleSubmit = useCallback(
-    async (values: CompanyFormValues) => {
-      try {
-        if (editing) {
-          await updateMut.mutateAsync({ id: editing.id, ...values });
-          setToast({ severity: 'success', msg: 'Đã cập nhật công ty' });
-        } else {
-          await createMut.mutateAsync(values);
-          setToast({ severity: 'success', msg: 'Đã tạo công ty mới' });
-        }
-        setEditing(null);
-        setCreateOpen(false);
-      } catch (e) {
-        setToast({ severity: 'error', msg: (e as Error).message });
-      }
-    },
-    [editing, createMut, updateMut],
-  );
+  const handleLock = (reason: string) => {
+    if (!locking) return;
+    setLockFieldError(undefined);
+    lockMut.mutate(
+      { id: locking.id, reason },
+      {
+        onSuccess: (company) => {
+          setToast({ severity: 'success', msg: `Đã khoá ${company.name}` });
+          setLocking(null);
+        },
+        onError: (error) => {
+          const problem = getProblem(error);
+          if (problem?.status === 422 && problem.errors?.reason) {
+            setLockFieldError(problem.errors.reason);
+            return;
+          }
+          setLocking(null);
+          reportError(error);
+        },
+      },
+    );
+  };
 
-  const handleDelete = useCallback(async () => {
-    if (!deleting) return;
-    try {
-      await deleteMut.mutateAsync(deleting.id);
-      setToast({ severity: 'success', msg: `Đã xoá ${deleting.name}` });
-      setDeleting(null);
-    } catch (e) {
-      setToast({ severity: 'error', msg: (e as Error).message });
-    }
-  }, [deleting, deleteMut]);
-
-  const handleBulkDelete = useCallback(async () => {
-    const ids = selection.map(String);
-    if (ids.length === 0) return;
-    try {
-      const res = await bulkDeleteMut.mutateAsync(ids);
-      setToast({ severity: 'success', msg: `Đã xoá ${res.deleted} công ty` });
-      setBulkDeleting(false);
-      setSelection([]);
-    } catch (e) {
-      setToast({ severity: 'error', msg: (e as Error).message });
-    }
-  }, [selection, bulkDeleteMut]);
+  const handleUnlock = () => {
+    if (!unlocking) return;
+    unlockMut.mutate(unlocking.id, {
+      onSuccess: (company) => setToast({ severity: 'success', msg: `Đã mở khoá ${company.name}` }),
+      onError: reportError,
+      onSettled: () => setUnlocking(null),
+    });
+  };
 
   const columns: GridColDef<Company>[] = useMemo(
     () => [
-      { field: 'id', headerName: 'Mã', width: 110 },
+      { field: 'name', headerName: 'Tên công ty', flex: 1.4, minWidth: 220 },
+      { field: 'taxCode', headerName: 'Mã số thuế', width: 130 },
       {
-        field: 'name',
-        headerName: 'Tên công ty',
-        flex: 1.4,
-        minWidth: 240,
+        field: 'ceoName',
+        headerName: 'CEO',
+        flex: 1,
+        minWidth: 200,
+        renderCell: ({ row }) => (
+          <Box sx={{ lineHeight: 1.3, py: 1 }}>
+            <Typography variant="body2">{row.ceoName}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {row.ceoEmail}
+            </Typography>
+          </Box>
+        ),
       },
       {
-        field: 'taxCode',
-        headerName: 'Mã số thuế',
-        width: 160,
+        field: 'createdAt',
+        headerName: 'Ngày đăng ký',
+        width: 120,
+        valueFormatter: (value: string) => formatDate(value),
+      },
+      {
+        field: 'optionalModules',
+        headerName: 'Phân hệ tuỳ chọn',
+        flex: 1,
+        minWidth: 200,
+        sortable: false,
+        renderCell: ({ row }) =>
+          row.optionalModules.length === 0 ? (
+            <Typography variant="body2" color="text.disabled">
+              —
+            </Typography>
+          ) : (
+            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, py: 1 }}>
+              {row.optionalModules.map((m) => (
+                <Chip key={m} label={MODULE_LABELS[m]} size="small" variant="outlined" />
+              ))}
+            </Stack>
+          ),
       },
       {
         field: 'status',
         headerName: 'Trạng thái',
-        width: 140,
-        renderCell: ({ value }) =>
-          value === 'active' ? (
+        width: 220,
+        renderCell: ({ row }) =>
+          row.status === 'active' ? (
             <Chip label="Đang hoạt động" color="success" size="small" />
           ) : (
-            <Chip label="Đã khoá" color="error" size="small" />
+            <Tooltip title={row.lockReason ?? ''}>
+              <Box sx={{ py: 1, lineHeight: 1.3 }}>
+                <Chip label="Đã khoá" color="error" size="small" />
+                <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                  {formatDateTime(row.lockedAt)} · {row.lockReason}
+                </Typography>
+              </Box>
+            </Tooltip>
           ),
       },
       {
-        field: 'lockReason',
-        headerName: 'Lý do khoá',
-        flex: 1,
-        minWidth: 180,
-        valueGetter: (_, row) => row.lockReason ?? '—',
-      },
-      {
-        field: 'createdAt',
-        headerName: 'Ngày tạo',
-        width: 130,
-        valueGetter: (value) => formatDate(value as string),
-      },
-      {
         field: 'actions',
-        headerName: 'Hành động',
-        width: 180,
+        headerName: '',
+        width: 130,
         sortable: false,
         filterable: false,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={0.5}>
-            <Tooltip title="Kênh bán hàng của công ty">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => navigate(ROUTES.admin.companyShops(row.id))}
-              >
-                <StoreIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {can('update', 'company') && (
-              <Tooltip title="Sửa">
-                <IconButton size="small" onClick={() => setEditing(row)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {can('delete', 'company') && (
-              <Tooltip title="Xoá">
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => setDeleting(row)}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Stack>
-        ),
+        renderCell: ({ row }) =>
+          row.status === 'active' ? (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<LockIcon />}
+              onClick={() => {
+                setLockFieldError(undefined);
+                setLocking(row);
+              }}
+            >
+              Khoá
+            </Button>
+          ) : (
+            <Button size="small" startIcon={<LockOpenIcon />} onClick={() => setUnlocking(row)}>
+              Mở khoá
+            </Button>
+          ),
       },
     ],
-    [can, navigate],
+    [],
   );
+
+  const paginationModel: GridPaginationModel = { page: page - 1, pageSize };
 
   return (
     <Box>
       <PageHeader
-        title="Quản lý Công ty (Platform)"
-        subtitle="Mỗi công ty là một tenant độc lập với dữ liệu, nhân sự và kênh bán hàng riêng."
-        action={
-          can('create', 'company') ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateOpen(true)}
-            >
-              Thêm công ty
-            </Button>
-          ) : null
-        }
+        title="Công ty"
+        subtitle="Công ty tự đăng ký dùng Commerio. Quản trị nền tảng chỉ khoá hoặc mở khoá, không xem dữ liệu kinh doanh."
       />
 
+      {query.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {getErrorMessage(query.error)}
+        </Alert>
+      )}
+
       <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          sx={{ p: 2 }}
-          alignItems={{ sm: 'center' }}
-        >
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2 }}>
           <TextField
             size="small"
-            placeholder="Tìm theo tên hoặc mã số thuế..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ minWidth: 280 }}
+            placeholder="Tìm theo tên, mã số thuế, email CEO..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            sx={{ minWidth: 300 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -240,103 +244,69 @@ export function CompanyListPage() {
               ),
             }}
           />
-          <Box sx={{ flexGrow: 1 }} />
-          {selection.length > 0 && can('delete', 'company') && (
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setBulkDeleting(true)}
-            >
-              Xoá {selection.length} mục đã chọn
-            </Button>
-          )}
+          <TextField
+            select
+            size="small"
+            label="Trạng thái"
+            value={status}
+            onChange={(e) => updateParams({ status: e.target.value, page: undefined })}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">Tất cả</MenuItem>
+            <MenuItem value="active">Đang hoạt động</MenuItem>
+            <MenuItem value="locked">Đã khoá</MenuItem>
+          </TextField>
         </Stack>
 
         <DataGrid
-          rows={rows}
+          rows={query.data?.items ?? []}
           columns={columns}
-          loading={query.isLoading || query.isFetching}
-          checkboxSelection={can('delete', 'company')}
+          rowCount={query.data?.total ?? 0}
+          loading={query.isFetching}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={(m) =>
+            updateParams({ page: m.page + 1, pageSize: m.pageSize })
+          }
+          pageSizeOptions={PAGE_SIZES}
+          getRowHeight={() => 'auto'}
           disableRowSelectionOnClick
-          rowSelectionModel={selection}
-          onRowSelectionModelChange={setSelection}
-          slots={{ toolbar: GridToolbar }}
-          slotProps={{
-            toolbar: {
-              showQuickFilter: false,
-              printOptions: { disableToolbarButton: true },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 25 } },
-          }}
-          sx={{ minHeight: 480 }}
+          disableColumnFilter
+          sx={{ minHeight: 420, border: 0 }}
         />
       </Paper>
 
-      <Stack direction="row" spacing={1} sx={{ mt: 2 }} alignItems="center">
-        <VisibilityIcon fontSize="small" color="action" />
-        <Typography variant="caption" color="text.secondary">
-          Mẹo: nhấp biểu tượng <LaunchIcon sx={{ fontSize: 12, mx: 0.5 }} /> /
-          <StoreIcon sx={{ fontSize: 12, mx: 0.5 }} /> trên từng dòng để vào
-          trang quản lý Kênh bán hàng của công ty đó.
-        </Typography>
-      </Stack>
-
-      {/* Create / Edit dialog */}
-      <CompanyFormDialog
-        open={createOpen || Boolean(editing)}
-        company={editing}
-        onClose={() => {
-          setCreateOpen(false);
-          setEditing(null);
-        }}
-        onSubmit={handleSubmit}
-        loading={createMut.isPending || updateMut.isPending}
+      <LockCompanyDialog
+        company={locking}
+        loading={lockMut.isPending}
+        serverError={lockFieldError}
+        onSubmit={handleLock}
+        onClose={() => setLocking(null)}
       />
 
       <ConfirmDialog
-        open={Boolean(deleting)}
-        title="Xoá công ty?"
+        open={Boolean(unlocking)}
+        title="Mở khoá công ty?"
         message={
           <>
-            Bạn sắp xoá <strong>{deleting?.name}</strong>. Mọi kênh bán hàng
-            thuộc công ty này cũng sẽ bị xoá. Hành động này không thể hoàn
-            tác.
+            Nhân viên của <strong>{unlocking?.name}</strong> sẽ đăng nhập lại được và công ty
+            hoạt động như trước khi khoá.
           </>
         }
-        confirmLabel="Xoá"
-        destructive
-        loading={deleteMut.isPending}
-        onConfirm={handleDelete}
-        onClose={() => setDeleting(null)}
-      />
-
-      <ConfirmDialog
-        open={bulkDeleting}
-        title={`Xoá ${selection.length} công ty đã chọn?`}
-        message="Tất cả kênh bán hàng thuộc các công ty này cũng sẽ bị xoá. Hành động này không thể hoàn tác."
-        confirmLabel="Xoá tất cả"
-        destructive
-        loading={bulkDeleteMut.isPending}
-        onConfirm={handleBulkDelete}
-        onClose={() => setBulkDeleting(false)}
+        confirmLabel="Mở khoá"
+        loading={unlockMut.isPending}
+        onConfirm={handleUnlock}
+        onClose={() => setUnlocking(null)}
       />
 
       <Snackbar
         open={Boolean(toast)}
-        autoHideDuration={4000}
+        autoHideDuration={5000}
         onClose={() => setToast(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         {toast ? (
-          <Alert
-            severity={toast.severity}
-            onClose={() => setToast(null)}
-            variant="filled"
-          >
+          <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>
             {toast.msg}
           </Alert>
         ) : undefined}

@@ -21,7 +21,7 @@ export function NotFoundPage() {
         <Typography color="text.secondary">
           Trang bạn truy cập không tồn tại hoặc đã bị di chuyển.
         </Typography>
-        <Button component={RouterLink} to={ROUTES.admin.companies} variant="contained">
+        <Button component={RouterLink} to={ROUTES.home} variant="contained">
           Về trang chính
         </Button>
       </Stack>

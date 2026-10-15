@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -12,11 +11,7 @@ import {
   Button,
   Snackbar,
   Alert,
-  Breadcrumbs,
-  Link,
-  Typography,
   MenuItem,
-  Skeleton,
 } from '@mui/material';
 import {
   DataGrid,
@@ -28,10 +23,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import SyncIcon from '@mui/icons-material/Sync';
-import HomeIcon from '@mui/icons-material/Home';
-import BusinessIcon from '@mui/icons-material/Business';
-import StoreIcon from '@mui/icons-material/Store';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ShopFormDialog } from './ShopFormDialog';
@@ -42,12 +33,13 @@ import {
   useDeleteShop,
   useSyncShop,
   useBulkDeleteShops,
-  useCompany,
 } from '@/api/shops.api';
+import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
-import { makeCan } from '@/utils/permissions';
+import { useCan } from '@/hooks/usePermission';
+import { useDebounce } from '@/hooks/useDebounce';
+import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import { ROUTES } from '@/router/routes';
 import type { Shop } from '@/types/shop';
 import {
   PLATFORM_LABELS,
@@ -57,13 +49,17 @@ import {
 } from './shopSchemas';
 
 export function ShopListPage() {
-  const { companyId = '' } = useParams<{ companyId: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const can = useMemo(() => makeCan(user), [user]);
+  const { companyContext } = useAuth();
+  const companyId = companyContext?.companyId ?? '';
+  const companyName = companyContext?.companyName ?? '';
+  const can = useCan();
+  const canConnect = can(PERMISSIONS.shopConnect);
+  const canUpdate = can(PERMISSIONS.shopUpdate);
+  const canDisconnect = can(PERMISSIONS.shopDisconnect);
+  const canSync = can(PERMISSIONS.shopSync);
 
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debouncedSearch = useDebounce(search.trim());
   const [platformFilter, setPlatformFilter] = useState<string>('');
   const [selection, setSelection] = useState<GridRowSelectionModel>([]);
 
@@ -74,21 +70,14 @@ export function ShopListPage() {
   const [syncing, setSyncing] = useState<Shop | null>(null);
   const [toast, setToast] = useState<{ severity: 'success' | 'error'; msg: string } | null>(null);
 
-  useMemo(() => {
-    const id = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(id);
-  }, [search]);
-
-  const companyQuery = useCompany(companyId);
   const shopsQuery = useShops({
-    companyId,
     page: 1,
     pageSize: 100,
     search: debouncedSearch,
     platform: platformFilter,
   });
 
-  const createMut = useCreateShop(companyId);
+  const createMut = useCreateShop();
   const updateMut = useUpdateShop();
   const deleteMut = useDeleteShop();
   const syncMut = useSyncShop();
@@ -109,7 +98,7 @@ export function ShopListPage() {
         setEditing(null);
         setCreateOpen(false);
       } catch (e) {
-        setToast({ severity: 'error', msg: (e as Error).message });
+        setToast({ severity: 'error', msg: getErrorMessage(e) });
       }
     },
     [editing, createMut, updateMut],
@@ -122,7 +111,7 @@ export function ShopListPage() {
       setToast({ severity: 'success', msg: `Đã xoá ${deleting.shopName}` });
       setDeleting(null);
     } catch (e) {
-      setToast({ severity: 'error', msg: (e as Error).message });
+      setToast({ severity: 'error', msg: getErrorMessage(e) });
     }
   }, [deleting, deleteMut]);
 
@@ -133,7 +122,7 @@ export function ShopListPage() {
       setToast({ severity: 'success', msg: `Đã đồng bộ ${syncing.shopName}` });
       setSyncing(null);
     } catch (e) {
-      setToast({ severity: 'error', msg: (e as Error).message });
+      setToast({ severity: 'error', msg: getErrorMessage(e) });
     }
   }, [syncing, syncMut]);
 
@@ -146,7 +135,7 @@ export function ShopListPage() {
       setBulkDeleting(false);
       setSelection([]);
     } catch (e) {
-      setToast({ severity: 'error', msg: (e as Error).message });
+      setToast({ severity: 'error', msg: getErrorMessage(e) });
     }
   }, [selection, bulkDeleteMut]);
 
@@ -204,21 +193,21 @@ export function ShopListPage() {
         filterable: false,
         renderCell: ({ row }) => (
           <Stack direction="row" spacing={0.5}>
-            {can('sync', 'shop') && (
+            {canSync && (
               <Tooltip title="Đồng bộ đơn">
                 <IconButton size="small" onClick={() => setSyncing(row)}>
                   <SyncIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
-            {can('update', 'shop') && (
+            {canUpdate && (
               <Tooltip title="Sửa">
                 <IconButton size="small" onClick={() => setEditing(row)}>
                   <EditIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
-            {can('delete', 'shop') && (
+            {canDisconnect && (
               <Tooltip title="Xoá">
                 <IconButton
                   size="small"
@@ -233,54 +222,16 @@ export function ShopListPage() {
         ),
       },
     ],
-    [can],
+    [canSync, canUpdate, canDisconnect],
   );
 
   return (
     <Box>
-      <Breadcrumbs
-        separator={<NavigateNextIcon fontSize="small" />}
-        sx={{ mb: 2 }}
-      >
-        <Link
-          component={RouterLink}
-          to={ROUTES.admin.companies}
-          underline="hover"
-          color="inherit"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <HomeIcon fontSize="small" />
-          Công ty
-        </Link>
-        {companyQuery.data ? (
-          <Typography
-            color="text.primary"
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-          >
-            <BusinessIcon fontSize="small" />
-            {companyQuery.data.name}
-          </Typography>
-        ) : (
-          <Skeleton width={120} />
-        )}
-        <Typography
-          color="text.primary"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <StoreIcon fontSize="small" />
-          Kênh bán
-        </Typography>
-      </Breadcrumbs>
-
       <PageHeader
-        title="Kênh bán hàng (Channel)"
-        subtitle={
-          companyQuery.data
-            ? `Các gian hàng kết nối sàn của ${companyQuery.data.name}.`
-            : 'Đang tải thông tin công ty...'
-        }
+        title="Kênh bán hàng"
+        subtitle={`Các gian hàng kết nối sàn của ${companyName}.`}
         action={
-          can('create', 'shop') ? (
+          canConnect ? (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -329,7 +280,7 @@ export function ShopListPage() {
             ))}
           </TextField>
           <Box sx={{ flexGrow: 1 }} />
-          {selection.length > 0 && can('delete', 'shop') && (
+          {selection.length > 0 && canDisconnect && (
             <Button
               variant="outlined"
               color="error"
@@ -339,19 +290,13 @@ export function ShopListPage() {
               Xoá {selection.length} mục đã chọn
             </Button>
           )}
-          <Button
-            variant="text"
-            onClick={() => navigate(ROUTES.admin.companies)}
-          >
-            ← Quay lại
-          </Button>
         </Stack>
 
         <DataGrid
           rows={rows}
           columns={columns}
           loading={shopsQuery.isLoading || shopsQuery.isFetching}
-          checkboxSelection={can('delete', 'shop')}
+          checkboxSelection={canDisconnect}
           disableRowSelectionOnClick
           rowSelectionModel={selection}
           onRowSelectionModelChange={setSelection}

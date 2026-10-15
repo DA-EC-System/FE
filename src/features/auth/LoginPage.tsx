@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import logoUrl from '@/assets/logo.png';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,37 +15,54 @@ import {
   IconButton,
   Divider,
   Chip,
+  ButtonBase,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useLocation, Navigate, type Location } from 'react-router-dom';
 import { useLogin, useAuth } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
 import { ROUTES } from '@/router/routes';
+import type { Account } from '@/types/auth';
+import { USE_MOCKS } from '@/utils/env';
 
 const loginSchema = z.object({
-  email: z.string().email('Email không hợp lệ'),
-  password: z.string().min(3, 'Mật khẩu tối thiểu 3 ký tự'),
+  email: z.string().trim().toLowerCase().email('Email không hợp lệ'),
+  // Chỉ bắt buộc nhập; quy tắc độ dài mật khẩu thuộc màn đăng ký và đổi mật khẩu
+  password: z.string().min(1, 'Nhập mật khẩu'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
 
+// Chỉ hiện khi chạy với mock, không lộ ra bản dùng backend thật
+const SHOW_DEMO_ACCOUNTS = USE_MOCKS;
+
 const DEMO_ACCOUNTS = [
-  { label: 'Platform Admin', email: 'admin@commerio.vn', password: 'admin' },
-  { label: 'CEO công ty', email: 'ceo@commerio.vn', password: 'ceo' },
+  { label: 'Quản trị nền tảng', email: 'platform@commerio.vn', password: 'platform' },
+  { label: 'CEO · 2 công ty', email: 'ceo@commerio.vn', password: 'ceo' },
   { label: 'Sale', email: 'sale@commerio.vn', password: 'sale' },
+  { label: 'Nhân viên kho', email: 'kho@commerio.vn', password: 'kho' },
 ];
 
+/**
+ * Trang quay lại sau đăng nhập. Bỏ qua trang thuộc không gian khác của tài khoản
+ * (ví dụ phiên trước là quản trị nền tảng, giờ đăng nhập bằng nhân viên) để không rơi vào 403.
+ */
+function redirectTarget(from: Location | undefined, account: Account | null): string {
+  if (!from || !account) return ROUTES.home;
+  const path = `${from.pathname}${from.search}${from.hash}`;
+  const isPlatformPath = from.pathname.startsWith(ROUTES.platform.root);
+  return account.isPlatformAdmin === isPlatformPath ? path : ROUTES.home;
+}
+
 export function LoginPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, account } = useAuth();
   const login = useLogin();
-  const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from
-    ?.pathname ?? ROUTES.admin.companies;
+  const from = (location.state as { from?: Location } | null)?.from;
 
   const {
     register,
@@ -57,25 +74,14 @@ export function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  useEffect(() => {
-    if (login.isSuccess) {
-      navigate(from, { replace: true });
-    }
-  }, [login.isSuccess, navigate, from]);
-
-  useEffect(() => {
-    if (login.error) {
-      setError(getErrorMessage(login.error));
-    }
-  }, [login.error]);
-
+  // Đăng nhập xong store đổi ngay → render lại và chuyển trang tại đây
   if (isAuthenticated) {
-    return <Navigate to={from} replace />;
+    return <Navigate to={redirectTarget(from, account)} replace />;
   }
 
   const onSubmit = handleSubmit((values) => {
     setError(null);
-    login.mutate(values);
+    login.mutate(values, { onError: (e) => setError(getErrorMessage(e)) });
   });
 
   const fillDemo = (email: string, password: string) => {
@@ -166,7 +172,7 @@ export function LoginPage() {
               Đăng nhập
             </Typography>
             <Typography color="text.secondary">
-              Chào mừng trở lại! Đăng nhập để tiếp tục quản trị.
+              Chào mừng trở lại! Đăng nhập để tiếp tục làm việc.
             </Typography>
           </Stack>
 
@@ -221,50 +227,56 @@ export function LoginPage() {
             </Stack>
           </form>
 
-          <Divider sx={{ my: 3 }}>
-            <Typography variant="caption" color="text.secondary">
-              Tài khoản demo
-            </Typography>
-          </Divider>
+          {SHOW_DEMO_ACCOUNTS && (
+            <>
+              <Divider sx={{ my: 3 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Tài khoản demo
+                </Typography>
+              </Divider>
 
-          <Stack spacing={1}>
-            {DEMO_ACCOUNTS.map((acc) => (
-              <Box
-                key={acc.email}
-                onClick={() => fillDemo(acc.email, acc.password)}
-                sx={{
-                  p: 1.5,
-                  borderRadius: 1.5,
-                  border: 1,
-                  borderColor: 'divider',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  transition: 'all 0.15s',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    backgroundColor: 'action.hover',
-                  },
-                }}
-              >
-                <Box>
-                  <Typography variant="body2" fontWeight={600}>
-                    {acc.email}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Mật khẩu: {acc.password}
-                  </Typography>
-                </Box>
-                <Chip
-                  label={acc.label}
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                />
-              </Box>
-            ))}
-          </Stack>
+              <Stack spacing={1}>
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <ButtonBase
+                    key={acc.email}
+                    onClick={() => fillDemo(acc.email, acc.password)}
+                    sx={{
+                      width: '100%',
+                      textAlign: 'left',
+                      p: 1.5,
+                      borderRadius: 1.5,
+                      border: 1,
+                      borderColor: 'divider',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.15s',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2" fontWeight={600} component="div">
+                        {acc.email}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Mật khẩu: {acc.password}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={acc.label}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                  </ButtonBase>
+                ))}
+              </Stack>
+            </>
+          )}
         </Paper>
       </Box>
     </Box>

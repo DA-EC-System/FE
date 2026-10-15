@@ -1,20 +1,15 @@
-# Commerio Admin — Frontend
+# Commerio — Frontend
 
 Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử Doanh nghiệp) — đồ án chuyên ngành HK261.
 
 ## Tính năng đã có
 
-- **Trang đăng nhập** (`/login`) với email + mật khẩu, có sẵn 3 tài khoản demo.
-- **Phân quyền theo vai trò** (RBAC) — `Platform Admin`, `CEO`, `Admin`, `Sale`…
-- **Admin Layout** với AppBar (top) + Drawer (sidebar) + Dark mode.
-- **CRUD Công ty (Platform)** — `/admin/companies`
-  - Tìm kiếm, lọc, xoá hàng loạt
-  - Tạo / sửa / xoá công ty (validate mã số thuế, lý do khoá…)
-  - Vào trang Kênh bán của từng công ty
-- **CRUD Kênh bán (Channel / Shop)** — `/admin/companies/:companyId/shops`
-  - Tạo / sửa / xoá / đồng bộ gian hàng kết nối sàn
-  - Lọc theo nền tảng (Shopee, Lazada, TikTok Shop, mock)
-- **Mock API bằng MSW** — dữ liệu mẫu sẵn 5 công ty, 7 gian hàng, 3 tài khoản.
+- **Đăng nhập** (`/login`) với 4 tài khoản demo, **chọn công ty** (`/select-company`) khi tài khoản thuộc nhiều công ty. Chọn công ty xong BE cấp token gắn với công ty đó.
+- **Hai không gian tách biệt**:
+  - `/platform/*` — Quản trị nền tảng (UC-PI-08): tổng quan, danh sách công ty (khoá có lý do / mở khoá), nhật ký nền tảng. Không có dữ liệu kinh doanh (QT-03), không tạo/sửa/xoá công ty (công ty tự đăng ký — UC-PI-01).
+  - `/c/:companyId/*` — khu làm việc của công ty. Menu và trang lọc theo phân hệ đang bật và quyền của vai trò trong công ty đó.
+- **Kênh bán** — `/c/:companyId/channel/shops`: kết nối / sửa / ngắt / đồng bộ gian hàng (cần bật phân hệ Kênh bán).
+- **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 4 tài khoản; lỗi trả theo Problem Details (RFC 9457).
 
 ## Stack
 
@@ -62,11 +57,12 @@ pnpm dev
 
 ### Tài khoản demo (mock)
 
-| Vai trò | Email | Mật khẩu | Quyền |
-|---|---|---|---|
-| Platform Admin | `admin@commerio.vn` | `admin` | CRUD mọi công ty + mọi gian hàng |
-| CEO | `ceo@commerio.vn` | `ceo` | Xem công ty, CRUD gian hàng, không tạo công ty |
-| Sale | `sale@commerio.vn` | `sale` | Xem, không sửa/xoá (test phân quyền UI) |
+| Email | Mật khẩu | Trường hợp thử |
+|---|---|---|
+| `platform@commerio.vn` | `platform` | Quản trị nền tảng: chỉ vào `/platform`, mở `/c/...` sẽ nhận 403 |
+| `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC, Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
+| `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
+| `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
 
 Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
@@ -83,26 +79,27 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ```
 src/
-├─ api/         # axios client + react-query hooks (companies, shops, auth)
+├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, shops)
 ├─ components/
-│  ├─ common/   # PageHeader, ConfirmDialog, PlaceholderPage, NotFoundPage
-│  └─ layout/   # AdminLayout, TopBar, Sidebar
+│  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
+│  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
 ├─ features/
-│  ├─ auth/     # LoginPage
-│  ├─ platform/ # CompanyListPage, CompanyFormDialog, companySchemas
+│  ├─ auth/     # LoginPage, SelectCompanyPage
+│  ├─ platform/ # PlatformOverviewPage, CompanyListPage, LockCompanyDialog, PlatformAuditLogPage
+│  ├─ company/  # CompanyHomePage
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
-├─ hooks/       # useAuth
+├─ hooks/       # useAuth, usePermission, useDebounce
 ├─ mocks/       # MSW handlers + in-memory db
-├─ router/      # createBrowserRouter + ProtectedRoute
-├─ stores/      # zustand (auth)
+├─ router/      # createBrowserRouter + guards
+├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ theme/       # MUI light + dark, ColorModeContext
-├─ types/       # auth, company, shop
-└─ utils/       # format, permissions (RBAC)
+├─ types/       # auth, company, audit, shop
+└─ utils/       # format, modules, permissions
 ```
 
 ## Tích hợp backend thật
 
-Mặc định `VITE_USE_MOCKS=true` (xem `.env`). Khi backend sẵn sàng:
+Khi chạy `pnpm dev`, mock (MSW) mặc định bật kể cả khi chưa có `.env`. Khi backend sẵn sàng:
 
 1. Sửa `.env`:
    ```
