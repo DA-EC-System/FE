@@ -22,6 +22,10 @@ export const ROUTES = {
     root: (companyId: string) => `/c/${companyId}`,
     shops: (companyId: string) => `/c/${companyId}/channel/shops`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
+    catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
+    catalogProduct: (companyId: string, productId: string) =>
+      `/c/${companyId}/catalog/products/${productId}`,
+    catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,
     orders: (companyId: string) => `/c/${companyId}/orders`,
     staff: (companyId: string) => `/c/${companyId}/admin/staff`,

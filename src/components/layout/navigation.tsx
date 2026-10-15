@@ -4,6 +4,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import HistoryIcon from '@mui/icons-material/History';
 import StoreIcon from '@mui/icons-material/Store';
 import CategoryIcon from '@mui/icons-material/Category';
+import TuneIcon from '@mui/icons-material/Tune';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import GroupIcon from '@mui/icons-material/Group';
@@ -86,7 +87,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: <CategoryIcon />,
           module: 'catalog',
           permission: PERMISSIONS.productView,
-          disabled: true,
+        },
+        {
+          to: ROUTES.company.catalogSetup(companyId),
+          label: 'Danh mục & thuộc tính',
+          icon: <TuneIcon />,
+          module: 'catalog',
+          permission: PERMISSIONS.catalogSetup,
         },
         {
           to: ROUTES.company.inventory(companyId),

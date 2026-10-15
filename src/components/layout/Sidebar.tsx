@@ -48,6 +48,12 @@ export function Sidebar({ open, onClose, variant, sections, subtitle }: SidebarP
     [sections, companyContext],
   );
 
+  // Mục khớp dài nhất: ở /catalog/setup chỉ sáng "Danh mục & thuộc tính", không sáng cả "Sản phẩm"
+  const activeTo = visibleSections
+    .flatMap((s) => s.items)
+    .filter((i) => matchPath({ path: i.to, end: Boolean(i.end) }, location.pathname))
+    .reduce<string | null>((best, i) => (!best || i.to.length > best.length ? i.to : best), null);
+
   const drawerContent = (
     <Box>
       <Toolbar sx={{ minHeight: 64, px: 2, gap: 1.5 }}>
@@ -74,9 +80,7 @@ export function Sidebar({ open, onClose, variant, sections, subtitle }: SidebarP
               {section.title}
             </Typography>
             {section.items.map((item) => {
-              const isActive = Boolean(
-                matchPath({ path: item.to, end: Boolean(item.end) }, location.pathname),
-              );
+              const isActive = item.to === activeTo;
               const button = (
                 <ListItemButton
                   component={item.disabled ? 'div' : NavLink}

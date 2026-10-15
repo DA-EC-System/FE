@@ -1,0 +1,114 @@
+# Các điểm FE cần chốt với BE
+
+Cập nhật: 15/10/2026. Phạm vi: các phần FE đã làm từ PR #24 đến #30. Hiện FE chạy bằng mock MSW (`src/mocks/handlers.ts`). Khi chưa chốt, hợp đồng trong mock là đề xuất của FE.
+
+Cột **Trạng thái**: `Chờ BE` là chưa có trả lời; khi chốt xong, ghi kết luận và số PR/issue BE vào cột này.
+
+---
+
+## 1. Quy ước chung
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| C1 | Lỗi theo ô trong Problem Details | 422 có `errors: { [field]: string }`, field lồng viết dạng `ceo.email` | Chờ BE |
+| C2 | Trường mở rộng trong Problem Details | `code` (mã lỗi máy đọc), `current` (bản mới nhất khi 409 `version_conflict`), `member` (khi 409 `already_member`) | Chờ BE |
+| C3 | Khoá lạc quan | Mọi bản ghi sửa được có `version`; PUT gửi `version` trong body, DELETE gửi `?version=`; lệch thì 409 `version_conflict` kèm `current` | Chờ BE |
+| C4 | Công ty đang làm việc | Lấy từ token sau `/auth/select-company`, không truyền `companyId` trong URL hay body; đụng dữ liệu công ty khác trả 403 | Chờ BE |
+| C5 | Phân trang | Query `page` (từ 1), `pageSize`; response `{ items, total, page, pageSize }` | Chờ BE |
+| C6 | Múi giờ của bộ lọc ngày | `from`/`to` dạng `yyyy-mm-dd`, tính trọn ngày theo giờ Việt Nam (UTC+7) | Chờ BE |
+
+## 2. Xác thực — UC-PI-01, 03, 04 (FE PR #24, #26)
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| A1 | Lưu token | UC-PI-03 yêu cầu cookie HttpOnly. FE hiện giữ access token trong localStorage, chờ BE có refresh token | Chờ BE |
+| A2 | Refresh token | `POST /auth/refresh` bằng cookie HttpOnly; access token trả trong body, thời hạn ngắn | Chờ BE |
+| A3 | Hợp đồng `/auth/*` | `login`, `select-company`, `register`, `google`, `change-password` (xem `src/types/auth.ts`) | Chờ BE |
+| A4 | Mã lỗi | `email_taken`, `password_change_required` (403), `google_account_not_found`, `company_locked` (403) | Chờ BE |
+| A5 | Quy tắc mật khẩu | 8–72 ký tự, có chữ và số | Chờ BE |
+| A6 | Google (commerio-backend#7) | FE lấy ID token bằng Google Identity Services rồi gửi `POST /auth/google`, hay BE làm luồng chuyển hướng OAuth2? Nút Google đang tạm khoá khi chạy với BE thật | Chờ BE |
+| A7 | Quên mật khẩu | Không làm (D26 bỏ `password_reset_tokens`) | Đã thống nhất theo D26 |
+
+## 3. Nhân viên và vai trò — UC-PI-05, 06 (FE PR #27, commerio-backend#8, #9)
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| I1 | Hợp đồng `/identity/*` | `permissions`, `roles` (CRUD), `staff` (danh sách, thêm, đổi vai trò, `lock`/`unlock`); bảng chi tiết ở mô tả PR #27 | Chờ BE |
+| I2 | Thêm nhân viên | 201 `{ outcome: 'invited' \| 'added', member }`. Email đã có trong công ty: 409 `already_member` kèm `member`. Email có tài khoản ở công ty khác: thêm vào, không lộ công ty kia | Chờ BE |
+| I3 | Mã lỗi | `role_name_taken`, `permission_not_held`, `builtin_role`, `role_in_use`, `protected_account` | Chờ BE |
+| I4 | Danh mục mã quyền | `identity.account.view\|manage`, `identity.role.view\|manage`; docs/19 mới có hai ví dụ, cần danh mục đầy đủ | Chờ BE |
+| I5 | Giới hạn gán quyền | Không gán vai trò CEO qua màn này; không thêm hay gỡ vai trò có quyền mình không có | Chờ BE |
+
+## 4. Phân hệ và nhật ký — UC-PI-02, 07 (FE PR #29, commerio-backend#10, #11)
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| M1 | Hợp đồng | `GET /company/modules`, `PUT /company/modules/:code`, `GET /audit/logs`, `GET /audit/logs/:id` | Chờ BE |
+| M2 | Mã lỗi | `module_state_changed` (409 kèm `current`), `module_has_data`, `ai_consent_required` | Chờ BE |
+| M3 | Quyền `platform.module.manage` (CEO), `platform.audit.view` (CEO, Admin) | Không nằm trong danh mục quyền nên không cấp được cho vai trò tuỳ biến; BE vẫn tự kiểm | Chờ BE |
+| M4 | Phân hệ vừa tắt ở phiên nhân viên khác | Menu của nhân viên đang đăng nhập chỉ cập nhật khi tải lại trang hoặc chọn lại công ty. BE phải chặn API của phân hệ đã tắt. Mock đang trả 403 `module_disabled` | Chờ BE |
+| M5 | Dạng bản ghi nhật ký | Theo ERD `audit.audit_logs`: `action` create/update/delete, `entity_type`, `entity_id`, `before`, `after` | Chờ BE |
+
+## 5. Sản phẩm, danh mục, thuộc tính — UC-CP-01, 02 (FE PR #30, commerio-backend#13, #14)
+
+### 5.1 Quy tắc SKU (QT-11, D14, D25)
+
+FE tự sinh SKU để xem trước (`src/utils/sku.ts`). **BE phải sinh SKU giống hệt** thì bản xem trước mới khớp với SKU thật.
+
+- Ký tự cho phép ở phần chữ cố định: A-Z, 0-9, `-`, `_`. Tổng độ dài quy tắc tối đa 40.
+- `{SEQ}` hoặc `{SEQ:n}`: bắt buộc, đúng một lần. Là số thứ tự của danh mục, đệm 0 đủ n chữ số (n từ 1 đến 9, mặc định 4).
+- `{VAL}`: tuỳ chọn, tối đa một lần. Là mã các giá trị thuộc tính của biến thể, nối bằng `-` theo thứ tự thuộc tính.
+- Mã giá trị: bỏ dấu (`đ` → `D`), viết hoa, chỉ giữ A-Z0-9, cắt còn tối đa 6 ký tự. Ví dụ `Xanh navy` → `XANHNA`.
+- Biến thể không có thuộc tính: `{VAL}` rỗng và bỏ luôn dấu nối thừa (`AO-{SEQ}-{VAL}` → `AO-0003`).
+- Mỗi biến thể dùng một số thứ tự, sinh lần lượt theo thứ tự biến thể trong request.
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| P1 | Cú pháp quy tắc và cách sinh mã giá trị | Như trên | Chờ BE |
+| P2 | Mã giá trị trùng nhau sau khi cắt 6 ký tự (vd `Xanh navy` và `Xanh nhạt`) | Chưa xử lý. Đề xuất: cho mỗi giá trị trường `code` sửa được, mặc định sinh như trên | Chờ BE |
+| P3 | Đổi quy tắc SKU của danh mục | Chỉ áp dụng cho SKU sinh sau, SKU đã cấp giữ nguyên | Chờ BE |
+| P4 | Danh mục có `skuNextSeq` | Trả trong `GET /catalog/categories` để FE xem trước | Chờ BE |
+
+### 5.2 Hợp đồng API
+
+| Method | Path | Ghi chú |
+|---|---|---|
+| GET | `/catalog/categories` | Kèm `skuPattern`, `skuNextSeq`, `productCount`, `version` |
+| POST, PUT, DELETE | `/catalog/categories[/:id]` | Quyền `catalog.category.manage` |
+| GET | `/catalog/attributes` | Mỗi giá trị có `inUse`; thuộc tính có `productCount` |
+| POST, PUT, DELETE | `/catalog/attributes[/:id]` | PUT gửi `values: [{ id?, value }]`; giá trị cũ không có trong danh sách là bị xoá |
+| GET | `/catalog/products?search&categoryId&status&page&pageSize` | `search` khớp tên hoặc SKU; `status` = `active` (mặc định) hoặc `archived`; dòng có `category`, `variantCount`, `thumbnailUrl` |
+| GET | `/catalog/products/:id` | Kèm `images[]` theo thứ tự, `variants[]` (kể cả đã ngừng bán, có `archivedAt`) |
+| POST | `/catalog/products` | `{ name, categoryId, description, imageFileIds, variants: [{ attributeValueIds }] }` |
+| PUT | `/catalog/products/:id` | `{ name, description, imageFileIds, version }`, không gửi danh mục và biến thể |
+| DELETE | `/catalog/products/:id?version=` | Lưu trữ |
+| POST | `/catalog/products/:id/variants` | `{ attributeValueIds }`. 201 nếu tạo mới; 200 nếu tổ hợp từng ngừng bán, bán lại với SKU cũ |
+| DELETE | `/catalog/products/:id/variants/:variantId` | Ngừng bán |
+| POST | `/files/uploads` | `{ fileName, contentType, sizeBytes, purpose: 'product_image' }` → `{ fileId, uploadUrl, headers }` |
+| PUT | `uploadUrl` | FE gửi thẳng file kèm `headers`, không gắn token Commerio |
+
+### 5.3 Mã lỗi
+
+| Mã | HTTP | Khi nào |
+|---|---|---|
+| `in_use` | 409 | Xoá danh mục, thuộc tính hoặc giá trị thuộc tính đang có sản phẩm dùng |
+| `variant_exists` | 409 | Thêm biến thể có tổ hợp đã có và đang bán |
+| `last_variant` | 409 | Ngừng bán biến thể cuối cùng còn bán |
+| `product_has_active_orders` | 409 | Xoá sản phẩm còn đơn hàng đang xử lý |
+| `product_archived` | 409 | Sửa sản phẩm đã xoá |
+| `version_conflict` | 409 | Như C3 |
+| `file_type_not_allowed` | 422 | Ảnh không phải JPG, PNG, WebP |
+| `file_too_large` | 422 | Ảnh lớn hơn 5 MB |
+| (lỗi theo ô) | 422 | `errors.name`, `errors.categoryId`, `errors.images`, `errors.variants`, `errors.skuPattern`, `errors.values` |
+
+### 5.4 Ngữ nghĩa
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| P5 | Xoá sản phẩm, biến thể | Là lưu trữ (`archived_at`); SKU không bao giờ cấp lại | Chờ BE |
+| P6 | Đổi danh mục sau khi tạo | Không cho, vì SKU đã sinh theo danh mục | Chờ BE |
+| P7 | Thêm hoặc ngừng bán biến thể | Không tăng `version` của sản phẩm, để người đang mở form sửa không bị 409 oan. Tạo sản phẩm cũng không tăng `version` của danh mục | Chờ BE |
+| P8 | Giới hạn | Tối đa 100 biến thể mỗi lần tạo, 9 ảnh mỗi sản phẩm; mọi biến thể của một sản phẩm cùng bộ thuộc tính | Chờ BE |
+| P9 | Ảnh đã tải nhưng không gắn vào sản phẩm | BE tự dọn sau một thời gian (đề xuất 24 giờ) | Chờ BE |
+| P10 | Ảnh chưa PUT xong mà đã gửi `fileId` | 422 `errors.images` | Chờ BE |
+| P11 | Quyền mới | `catalog.product.view`, `catalog.product.manage`, `catalog.category.manage`; CEO và Admin có cả ba, Sale chỉ có view | Chờ BE |

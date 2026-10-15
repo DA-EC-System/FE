@@ -20,6 +20,9 @@ export const PERMISSIONS = {
   shopDisconnect: 'channel.shop.disconnect',
   shopSync: 'channel.shop.sync',
   productView: 'catalog.product.view',
+  productManage: 'catalog.product.manage',
+  /** Danh mục, thuộc tính, quy tắc SKU (UC-CP-01) */
+  catalogSetup: 'catalog.category.manage',
   stockView: 'inventory.stock.view',
   orderView: 'sales.order.view',
 } as const;

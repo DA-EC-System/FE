@@ -16,6 +16,10 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'access.roles': 'Vai trò',
   'platform.company_modules': 'Phân hệ',
   'channel.shops': 'Gian hàng',
+  'catalog.categories': 'Danh mục',
+  'catalog.attributes': 'Thuộc tính',
+  'catalog.products': 'Sản phẩm',
+  'catalog.product_variants': 'Biến thể',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;
@@ -34,6 +38,15 @@ const FIELD_LABELS: Record<string, string> = {
   platform: 'Sàn',
   externalShopId: 'Mã gian hàng trên sàn',
   region: 'Khu vực',
+  skuPattern: 'Quy tắc SKU',
+  values: 'Giá trị',
+  category: 'Danh mục',
+  description: 'Mô tả',
+  images: 'Số ảnh',
+  variants: 'Biến thể đang bán',
+  product: 'Sản phẩm',
+  sku: 'SKU',
+  attributes: 'Thuộc tính',
 };
 
 export const auditFieldLabel = (field: string) => FIELD_LABELS[field] ?? field;
