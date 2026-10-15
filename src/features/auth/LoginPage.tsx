@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import logoUrl from '@/assets/logo.png';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,6 +24,8 @@ import { getErrorMessage } from '@/api/client';
 import { ROUTES } from '@/router/routes';
 import type { Account } from '@/types/auth';
 import { USE_MOCKS } from '@/utils/env';
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { brandGradient } from '@/theme/tokens';
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email('Email không hợp lệ'),
@@ -104,8 +105,7 @@ export function LoginPage() {
         sx={{
           display: { xs: 'none', md: 'flex' },
           flex: 1,
-          background:
-            'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A78BFA 100%)',
+          background: brandGradient,
           color: 'white',
           flexDirection: 'column',
           justifyContent: 'space-between',
@@ -113,17 +113,7 @@ export function LoginPage() {
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Box
-            component="img"
-            src={logoUrl}
-            alt="Commerio"
-            sx={{
-              width: 40,
-              height: 40,
-              objectFit: 'contain',
-              flexShrink: 0,
-            }}
-          />
+          <BrandLogo size={40} onDark />
           <Typography variant="h5" fontWeight={800}>
             Commerio
           </Typography>
