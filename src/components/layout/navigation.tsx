@@ -6,6 +6,8 @@ import StoreIcon from '@mui/icons-material/Store';
 import CategoryIcon from '@mui/icons-material/Category';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import GroupIcon from '@mui/icons-material/Group';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
@@ -91,6 +93,25 @@ export function companyNav(companyId: string): NavSection[] {
           module: 'inventory',
           permission: PERMISSIONS.stockView,
           disabled: true,
+        },
+      ],
+    },
+    {
+      title: 'Quản trị',
+      items: [
+        {
+          to: ROUTES.company.staff(companyId),
+          label: 'Nhân viên',
+          icon: <GroupIcon />,
+          module: 'identity',
+          permission: PERMISSIONS.staffView,
+        },
+        {
+          to: ROUTES.company.roles(companyId),
+          label: 'Vai trò',
+          icon: <AdminPanelSettingsIcon />,
+          module: 'identity',
+          permission: PERMISSIONS.roleView,
         },
       ],
     },

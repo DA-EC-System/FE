@@ -6,6 +6,10 @@ import type { ModuleKey } from './modules';
  * Danh mục đầy đủ do BE cấp qua access.permissions; khi có OpenAPI sẽ sinh tự động.
  */
 export const PERMISSIONS = {
+  staffView: 'identity.account.view',
+  staffManage: 'identity.account.manage',
+  roleView: 'identity.role.view',
+  roleManage: 'identity.role.manage',
   shopView: 'channel.shop.view',
   shopConnect: 'channel.shop.connect',
   shopUpdate: 'channel.shop.update',
@@ -33,4 +37,18 @@ export function isModuleEnabled(
   module: ModuleKey,
 ): boolean {
   return Boolean(context?.enabledModules.includes(module));
+}
+
+/**
+ * Chỉ cấp được quyền mình đang có (UC-PI-05 bước 4, UC-PI-06 bước 6):
+ * trả về các quyền trong danh sách mà người đang đăng nhập không có.
+ * Quyền của phân hệ công ty chưa bật không tính, giống BE.
+ */
+export function missingPermissions(
+  context: CompanyContext | null,
+  permissions: readonly string[],
+): string[] {
+  const held = new Set(context?.permissions ?? []);
+  const enabled = new Set<string>(context?.enabledModules ?? []);
+  return permissions.filter((p) => enabled.has(p.split('.')[0]) && !held.has(p));
 }

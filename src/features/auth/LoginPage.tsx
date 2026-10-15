@@ -39,6 +39,7 @@ const SHOW_DEMO_ACCOUNTS = USE_MOCKS;
 const DEMO_ACCOUNTS = [
   { label: 'Quản trị nền tảng', email: 'platform@commerio.vn', password: 'platform' },
   { label: 'CEO · 2 công ty', email: 'ceo@commerio.vn', password: 'ceo' },
+  { label: 'Admin công ty', email: 'admin@commerio.vn', password: 'admin' },
   { label: 'Sale', email: 'sale@commerio.vn', password: 'sale' },
   { label: 'Nhân viên kho', email: 'kho@commerio.vn', password: 'kho' },
   { label: 'Mới được mời', email: 'moi@commerio.vn', password: 'moi12345' },

@@ -63,13 +63,16 @@ pnpm dev
 |---|---|---|
 | `platform@commerio.vn` | `platform` | Quản trị nền tảng: chỉ vào `/platform`, mở `/c/...` sẽ nhận 403 |
 | `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC, Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
+| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, nhưng không gán được vai trò kho/tài chính (quyền Admin không có) |
 | `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
 | `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
 | `moi@commerio.vn` | `moi12345` | Mới được mời: đăng nhập xong bị bắt đổi mật khẩu |
 
 Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả lập: nhập email của một tài khoản ở trên để vào, nhập email khác để xem trường hợp "chưa có tài khoản". Với backend thật, nút tạm khoá đến khi chốt cách làm với BE#7.
 
-Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới hay mật khẩu đã đổi sẽ mất khi tải lại trang.
+Ở **Quản trị → Nhân viên**, thêm nhân viên bằng email mới thì mock in mật khẩu thư mời ra console của trình duyệt (`[mock] Thư mời gửi ...`) để thử đăng nhập lần đầu.
+
+Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới, mật khẩu đã đổi, nhân viên và vai trò vừa tạo sẽ mất khi tải lại trang.
 
 Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
@@ -86,12 +89,13 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ```
 src/
-├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, shops)
+├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, shops)
 ├─ components/
 │  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
 │  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
 ├─ features/
-│  ├─ auth/     # LoginPage, SelectCompanyPage
+│  ├─ auth/     # LoginPage, RegisterPage, ChangePasswordPage, SelectCompanyPage
+│  ├─ identity/ # StaffListPage, RolesPage và các dialog mời, đổi vai trò, tạo/sửa vai trò
 │  ├─ platform/ # PlatformOverviewPage, CompanyListPage, LockCompanyDialog, PlatformAuditLogPage
 │  ├─ company/  # CompanyHomePage
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
@@ -100,7 +104,7 @@ src/
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ theme/       # MUI light + dark, ColorModeContext
-├─ types/       # auth, company, audit, shop
+├─ types/       # auth, company, audit, identity, shop
 └─ utils/       # format, modules, permissions
 ```
 

@@ -20,6 +20,8 @@ import { CompanyListPage } from '@/features/platform/CompanyListPage';
 import { PlatformAuditLogPage } from '@/features/platform/PlatformAuditLogPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
+import { StaffListPage } from '@/features/identity/StaffListPage';
+import { RolesPage } from '@/features/identity/RolesPage';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -75,6 +77,22 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.shopView}>
                         <ShopListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'admin/staff',
+                    element: (
+                      <RequireModule module="identity" permission={PERMISSIONS.staffView}>
+                        <StaffListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'admin/roles',
+                    element: (
+                      <RequireModule module="identity" permission={PERMISSIONS.roleView}>
+                        <RolesPage />
                       </RequireModule>
                     ),
                   },

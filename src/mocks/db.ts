@@ -8,6 +8,7 @@ import type { Company } from '@/types/company';
 import type { Shop } from '@/types/shop';
 import type { Account, MembershipStatus } from '@/types/auth';
 import type { PlatformAuditLog } from '@/types/audit';
+import type { PermissionDef } from '@/types/identity';
 import { PERMISSIONS as P } from '@/utils/permissions';
 
 const now = () => new Date().toISOString();
@@ -145,33 +146,111 @@ const shops: Shop[] = [
   },
 ];
 
-/** Vai trò và quyền mẫu. CEO kế thừa Admin và giữ quyền tài chính; Admin không có quyền kho, tài chính. */
+/**
+ * Danh mục quyền (access.permissions). docs/19 mới có ví dụ; danh sách này là bản nháp để dựng
+ * màn hình, chốt với BE ở commerio-backend#8.
+ */
+export const permissionCatalog: PermissionDef[] = [
+  { code: P.staffView, module: 'identity', label: 'Xem tài khoản nhân viên' },
+  { code: P.staffManage, module: 'identity', label: 'Thêm nhân viên, gán vai trò, khoá tài khoản' },
+  { code: P.roleView, module: 'identity', label: 'Xem vai trò' },
+  { code: P.roleManage, module: 'identity', label: 'Tạo, sửa, xoá vai trò tuỳ biến' },
+  { code: P.productView, module: 'catalog', label: 'Xem sản phẩm' },
+  { code: 'catalog.product.manage', module: 'catalog', label: 'Thêm, sửa sản phẩm' },
+  { code: 'pricing.pricelist.manage', module: 'pricing', label: 'Quản lý bảng giá' },
+  { code: P.stockView, module: 'inventory', label: 'Xem tồn kho' },
+  { code: 'inventory.receipt.create', module: 'inventory', label: 'Lập phiếu nhập, xuất kho' },
+  { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
+  { code: 'sales.order.create', module: 'sales', label: 'Tạo đơn hàng' },
+  { code: 'fulfillment.order.approve', module: 'fulfillment', label: 'Duyệt đơn, giao hàng' },
+  { code: 'finance.invoice.view', module: 'finance', label: 'Xem hoá đơn, sổ quỹ' },
+  { code: 'finance.voucher.create', module: 'finance', label: 'Lập phiếu thu, phiếu chi' },
+  { code: 'payment.transaction.view', module: 'payment', label: 'Xem giao dịch thanh toán' },
+  { code: 'purchasing.order.manage', module: 'purchasing', label: 'Quản lý đơn mua hàng' },
+  { code: P.shopView, module: 'channel', label: 'Xem gian hàng' },
+  { code: P.shopConnect, module: 'channel', label: 'Kết nối gian hàng' },
+  { code: P.shopUpdate, module: 'channel', label: 'Sửa gian hàng' },
+  { code: P.shopDisconnect, module: 'channel', label: 'Ngắt gian hàng' },
+  { code: P.shopSync, module: 'channel', label: 'Đồng bộ gian hàng' },
+  { code: 'inbox.conversation.reply', module: 'inbox', label: 'Trả lời tin nhắn' },
+  { code: 'assistant.chat.use', module: 'assistant', label: 'Dùng Trợ lý AI' },
+  { code: 'report.dashboard.view', module: 'report', label: 'Xem báo cáo' },
+];
+
+/** Admin không có quyền kho, mua hàng, tài chính (UC-PI-05); CEO có mọi quyền. */
 const ADMIN_PERMISSIONS = [
+  P.staffView,
+  P.staffManage,
+  P.roleView,
+  P.roleManage,
+  P.productView,
+  'catalog.product.manage',
+  P.orderView,
+  'sales.order.create',
   P.shopView,
   P.shopConnect,
   P.shopUpdate,
   P.shopDisconnect,
   P.shopSync,
-  P.productView,
-  P.orderView,
+  'inbox.conversation.reply',
+  'report.dashboard.view',
 ];
 
-export const roles: Record<string, { name: string; permissions: string[] }> = {
-  ceo: {
+export interface MockRole {
+  id: string;
+  /** null: vai trò có sẵn, dùng chung mọi công ty */
+  companyId: string | null;
+  name: string;
+  permissions: string[];
+  version: number;
+  updatedAt: string;
+}
+
+export const CEO_ROLE_ID = 'role-ceo';
+
+const roles: MockRole[] = [
+  {
+    id: CEO_ROLE_ID,
+    companyId: null,
     name: 'CEO',
-    permissions: [...ADMIN_PERMISSIONS, P.stockView, 'finance.invoice.view'],
+    permissions: permissionCatalog.map((p) => p.code),
+    version: 1,
+    updatedAt: '2026-01-01T00:00:00.000Z',
   },
-  admin: { name: 'Admin', permissions: ADMIN_PERMISSIONS },
-  sale: {
+  {
+    id: 'role-admin',
+    companyId: null,
+    name: 'Admin',
+    permissions: ADMIN_PERMISSIONS,
+    version: 1,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'role-sale',
+    companyId: null,
     name: 'Sale',
-    permissions: [P.shopView, P.productView, P.orderView, 'sales.order.create'],
+    permissions: [P.shopView, P.productView, P.orderView, 'sales.order.create', 'inbox.conversation.reply'],
+    version: 1,
+    updatedAt: '2026-01-01T00:00:00.000Z',
   },
-  // Vai trò tuỳ biến (UC-PI-06)
-  warehouse: {
+  // Vai trò tuỳ biến (UC-PI-06): mỗi công ty có bản riêng
+  ...['cmp-001', 'cmp-002', 'cmp-004'].map<MockRole>((companyId) => ({
+    id: `role-kho-${companyId}`,
+    companyId,
     name: 'Nhân viên kho',
     permissions: [P.productView, P.stockView, 'inventory.receipt.create'],
+    version: 1,
+    updatedAt: '2026-03-01T00:00:00.000Z',
+  })),
+  {
+    id: 'role-cskh-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Chăm sóc khách hàng',
+    permissions: [P.orderView, 'inbox.conversation.reply'],
+    version: 1,
+    updatedAt: '2026-04-10T00:00:00.000Z',
   },
-};
+];
 
 const accounts: Account[] = [
   {
@@ -210,25 +289,58 @@ const accounts: Account[] = [
     isPlatformAdmin: false,
     mustChangePassword: true,
   },
+  {
+    id: 'acc-005',
+    email: 'admin@commerio.vn',
+    fullName: 'Vũ Quản Trị',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
+  {
+    id: 'acc-006',
+    email: 'nghi@commerio.vn',
+    fullName: 'Hồ Đã Nghỉ',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
 ];
 
 export interface MockMembership {
   accountId: string;
   companyId: string;
-  roleKeys: string[];
+  roleIds: string[];
   status: MembershipStatus;
+  joinedAt: string;
+  version: number;
 }
+
+const member = (
+  accountId: string,
+  companyId: string,
+  roleIds: string[],
+  status: MembershipStatus = 'active',
+): MockMembership => ({
+  accountId,
+  companyId,
+  roleIds,
+  status,
+  joinedAt: '2026-02-01T08:00:00.000Z',
+  version: 1,
+});
 
 const memberships: MockMembership[] = [
   // CEO của ABC, đồng thời là Admin ở Minh Phát (không bật Channel) — demo chuyển công ty
-  { accountId: 'acc-001', companyId: 'cmp-001', roleKeys: ['ceo'], status: 'active' },
-  { accountId: 'acc-001', companyId: 'cmp-003', roleKeys: ['admin'], status: 'active' },
-  { accountId: 'acc-002', companyId: 'cmp-001', roleKeys: ['sale'], status: 'active' },
+  member('acc-001', 'cmp-001', [CEO_ROLE_ID]),
+  member('acc-001', 'cmp-003', ['role-admin']),
+  member('acc-002', 'cmp-001', ['role-sale']),
   // Nhân viên kho: một công ty bị khoá cả công ty, một công ty bị khoá tài khoản
-  { accountId: 'acc-003', companyId: 'cmp-001', roleKeys: ['warehouse'], status: 'active' },
-  { accountId: 'acc-003', companyId: 'cmp-004', roleKeys: ['warehouse'], status: 'active' },
-  { accountId: 'acc-003', companyId: 'cmp-002', roleKeys: ['warehouse'], status: 'locked' },
-  { accountId: 'acc-004', companyId: 'cmp-001', roleKeys: ['sale'], status: 'active' },
+  member('acc-003', 'cmp-001', ['role-kho-cmp-001']),
+  member('acc-003', 'cmp-004', ['role-kho-cmp-004']),
+  member('acc-003', 'cmp-002', ['role-kho-cmp-002'], 'locked'),
+  member('acc-004', 'cmp-001', ['role-sale']),
+  // Admin của ABC: không gán được vai trò Nhân viên kho (có quyền kho Admin không có)
+  member('acc-005', 'cmp-001', ['role-admin']),
+  member('acc-006', 'cmp-001', ['role-sale', 'role-cskh-cmp-001'], 'locked'),
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -258,13 +370,29 @@ export const passwords: Record<string, string> = {
   'sale@commerio.vn': 'sale',
   'kho@commerio.vn': 'kho',
   'moi@commerio.vn': 'moi12345',
+  'admin@commerio.vn': 'admin',
+  'nghi@commerio.vn': 'nghi',
 };
+
+/** Nhật ký thao tác trong công ty (audit, company_id có giá trị); màn hình xem ở FE#4 */
+export interface MockCompanyAuditLog {
+  id: string;
+  companyId: string;
+  action: string;
+  target: string;
+  actorEmail: string;
+  createdAt: string;
+}
+
+const companyAuditLogs: MockCompanyAuditLog[] = [];
 
 export const db = {
   companies,
   shops,
   accounts,
   memberships,
+  roles,
   auditLogs,
+  companyAuditLogs,
   now,
 };
