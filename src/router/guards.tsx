@@ -19,10 +19,31 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
+/**
+ * Còn dùng mật khẩu trong thư mời → chỉ được ở trang đổi mật khẩu (UC-PI-03 bước 7, UC-PI-04).
+ * Đổi xong thì quay lại trang đang định mở.
+ */
+export function RequirePasswordChanged() {
+  const { account } = useAuth();
+  const location = useLocation();
+  if (account?.mustChangePassword) {
+    return <Navigate to={ROUTES.changePassword} replace state={{ from: location }} />;
+  }
+  return <Outlet />;
+}
+
+/** Trang chỉ dành cho người chưa đăng nhập (đăng ký công ty). */
+export function RequireGuest() {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) return <Navigate to={ROUTES.home} replace />;
+  return <Outlet />;
+}
+
 /** `/` → không gian phù hợp với tài khoản. */
 export function HomeRedirect() {
   const { isAuthenticated, account, companyContext } = useAuth();
   if (!isAuthenticated || !account) return <Navigate to={ROUTES.login} replace />;
+  if (account.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (account.isPlatformAdmin) return <Navigate to={ROUTES.platform.root} replace />;
   if (companyContext) {
     return <Navigate to={ROUTES.company.root(companyContext.companyId)} replace />;

@@ -36,3 +36,6 @@ dist-ssr
 # Test
 coverage
 *.lcov
+
+# TypeScript incremental build
+*.tsbuildinfo

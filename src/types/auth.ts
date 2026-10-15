@@ -9,13 +9,15 @@
  */
 
 import type { CompanyStatus } from './company';
-import type { ModuleKey } from '@/utils/modules';
+import type { ModuleKey, OptionalModuleKey } from '@/utils/modules';
 
 export interface Account {
   id: string;
   email: string;
   fullName: string;
   isPlatformAdmin: boolean;
+  /** Còn dùng mật khẩu do hệ thống sinh trong thư mời → phải đổi trước khi làm việc (UC-PI-03 bước 7) */
+  mustChangePassword: boolean;
 }
 
 export type MembershipStatus = 'active' | 'locked';
@@ -53,6 +55,30 @@ export interface LoginResponse {
 export interface MeResponse {
   account: Account;
   memberships: Membership[];
+}
+
+/** Google Identity Services trả `credential` (ID token); BE kiểm và liên kết theo email (BE#7). */
+export interface GoogleLoginRequest {
+  credential: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+/** UC-PI-01: người đăng ký thành CEO; mười phân hệ lõi luôn bật. */
+export interface RegisterCompanyRequest {
+  company: { name: string; taxCode: string };
+  ceo: { fullName: string; email: string; password: string };
+  optionalModules: OptionalModuleKey[];
+  /** Bắt buộc true khi chọn phân hệ assistant: đồng ý gửi dữ liệu tới OpenAI */
+  assistantDataConsent: boolean;
+}
+
+export interface RegisterCompanyResponse {
+  companyId: string;
+  email: string;
 }
 
 /** Token mới gắn với công ty đã chọn (UC-PI-03) */

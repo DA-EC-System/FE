@@ -10,6 +10,7 @@ interface AuthStore {
   companyContext: CompanyContext | null;
   setSession: (token: string, account: Account, memberships: Membership[]) => void;
   setMemberships: (memberships: Membership[]) => void;
+  setAccount: (account: Account) => void;
   setCompany: (token: string, context: CompanyContext) => void;
   leaveCompany: () => void;
   clear: () => void;
@@ -29,6 +30,7 @@ export const useAuthStore = create<AuthStore>()(
       setSession: (accessToken, account, memberships) =>
         set({ accessToken, account, memberships, companyContext: null }),
       setMemberships: (memberships) => set({ memberships }),
+      setAccount: (account) => set({ account }),
       setCompany: (accessToken, companyContext) => set({ accessToken, companyContext }),
       leaveCompany: () => set({ companyContext: null }),
       clear: () =>

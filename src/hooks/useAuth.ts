@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
-import type { LoginRequest } from '@/types/auth';
+import type { ChangePasswordRequest, LoginRequest, LoginResponse } from '@/types/auth';
 import { authApi } from '@/api/auth.api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -15,14 +15,44 @@ export function useAuth() {
   return { token, account, memberships, companyContext, isAuthenticated, clear };
 }
 
-export function useLogin() {
+function useStartSession() {
   const setSession = useAuthStore((s) => s.setSession);
   const qc = useQueryClient();
+  return (res: LoginResponse) => {
+    qc.clear();
+    setSession(res.accessToken, res.account, res.memberships);
+  };
+}
+
+export function useLogin() {
+  const startSession = useStartSession();
   return useMutation({
     mutationFn: (input: LoginRequest) => authApi.login(input),
-    onSuccess: (res) => {
-      qc.clear();
-      setSession(res.accessToken, res.account, res.memberships);
+    onSuccess: startSession,
+  });
+}
+
+/** Đăng nhập bằng Google (nhánh mở rộng UC-PI-03): không tự tạo tài khoản mới. */
+export function useGoogleLogin() {
+  const startSession = useStartSession();
+  return useMutation({
+    mutationFn: (credential: string) => authApi.loginWithGoogle({ credential }),
+    onSuccess: startSession,
+  });
+}
+
+export function useRegisterCompany() {
+  return useMutation({ mutationFn: authApi.registerCompany });
+}
+
+/** UC-PI-04. Đổi xong thì bỏ cờ bắt đổi mật khẩu để mở lại các chức năng khác. */
+export function useChangePassword() {
+  const setAccount = useAuthStore((s) => s.setAccount);
+  return useMutation({
+    mutationFn: (input: ChangePasswordRequest) => authApi.changePassword(input),
+    onSuccess: () => {
+      const account = useAuthStore.getState().account;
+      if (account) setAccount({ ...account, mustChangePassword: false });
     },
   });
 }
