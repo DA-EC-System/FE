@@ -1,6 +1,6 @@
 # Các điểm FE cần chốt với BE
 
-Cập nhật: 15/10/2026. Phạm vi: các phần FE đã làm từ PR #24 đến #30. Hiện FE chạy bằng mock MSW (`src/mocks/handlers.ts`). Khi chưa chốt, hợp đồng trong mock là đề xuất của FE.
+Cập nhật: 15/10/2026. Phạm vi: các phần FE đã làm từ PR #24 đến #31. Hiện FE chạy bằng mock MSW (`src/mocks/handlers.ts`). Khi chưa chốt, hợp đồng trong mock là đề xuất của FE.
 
 Cột **Trạng thái**: `Chờ BE` là chưa có trả lời; khi chốt xong, ghi kết luận và số PR/issue BE vào cột này.
 
@@ -112,3 +112,41 @@ FE tự sinh SKU để xem trước (`src/utils/sku.ts`). **BE phải sinh SKU g
 | P9 | Ảnh đã tải nhưng không gắn vào sản phẩm | BE tự dọn sau một thời gian (đề xuất 24 giờ) | Chờ BE |
 | P10 | Ảnh chưa PUT xong mà đã gửi `fileId` | 422 `errors.images` | Chờ BE |
 | P11 | Quyền mới | `catalog.product.view`, `catalog.product.manage`, `catalog.category.manage`; CEO và Admin có cả ba, Sale chỉ có view | Chờ BE |
+
+## 6. Bảng giá — UC-CP-03 (FE PR #31, commerio-backend#15)
+
+### 6.1 Hợp đồng API
+
+| Method | Đường dẫn | Ghi chú |
+|---|---|---|
+| GET | `/pricing/pricelists` | Mảng `Pricelist`, bảng chuẩn đứng đầu. Mỗi dòng có `type`, `shop {id, shopName, platform} \| null`, `pricedCount`, `variantCount`, `version`, `updatedAt` |
+| GET | `/pricing/pricelists/:id` | Một `Pricelist` |
+| GET | `/pricing/pricelists/:id/items` | Mọi biến thể đang bán: `variantId, productId, productName, sku, attributesLabel, categoryId, thumbnailUrl, price, standardPrice`. Không phân trang, FE lọc và phân trang tại chỗ |
+| POST | `/pricing/pricelists` | `{ name, shopId, copyFromStandard }` → 201. Chỉ tạo bảng theo gian hàng |
+| PUT | `/pricing/pricelists/:id` | `{ name, version }`: đổi tên |
+| DELETE | `/pricing/pricelists/:id?version=` | 204 |
+| PUT | `/pricing/pricelists/:id/items` | `{ version, items: [{ variantId, price \| null }] }`: chỉ gửi dòng đã đổi; `null` là bỏ giá. Trả `Pricelist` mới |
+
+### 6.2 Mã lỗi
+
+| Mã | HTTP | Khi nào |
+|---|---|---|
+| `in_use` | 409 | Xoá bảng giá chuẩn; xoá bảng của gian hàng chưa ngắt kết nối |
+| `version_conflict` | 409 | Như C3, kèm `current` là `Pricelist` mới nhất |
+| (lỗi theo ô) | 422 | `errors.name`, `errors.shopId` khi tạo hoặc đổi tên |
+| (lỗi theo dòng) | 422 | `errors["items.<variantId>"]`: giá âm, không nguyên, quá 10 tỷ, biến thể không còn bán, gửi trùng. `errors.items` khi danh sách rỗng hoặc quá 2000 dòng |
+
+### 6.3 Ngữ nghĩa
+
+| # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
+|---|---|---|---|
+| G1 | Kiểu giá | Số nguyên đồng (JSON number), 0 ≤ giá ≤ 10 tỷ. ERD để `numeric(18,2)`; FE không cho nhập lẻ | Chờ BE |
+| G2 | Bảng giá chuẩn | Mỗi công ty đúng một bảng, BE tạo sẵn khi tạo công ty, không xoá được; đổi tên được | Chờ BE |
+| G3 | Bảng theo gian hàng | Tối đa một bảng mỗi gian hàng (`unique(shop_id)`); không tạo cho gian hàng đã ngắt | Chờ BE |
+| G4 | "Đang được sử dụng" (UC-CP-03 ngoại lệ xoá) | Bảng chuẩn luôn đang dùng; bảng gian hàng đang dùng khi gian hàng chưa ở trạng thái `disconnected`. Khi có phân hệ Đơn hàng, cần thêm điều kiện "còn đơn đang xử lý lấy giá từ bảng này"? | Chờ BE |
+| G5 | Biến thể chưa có giá trong bảng gian hàng | Lấy giá chuẩn; trong bảng chuẩn cũng chưa có thì đơn không lấy được giá (Đơn hàng xử lý sau) | Chờ BE |
+| G6 | Lưu giá | Một lần `PUT items` là một giao dịch: lỗi một dòng thì không lưu dòng nào. Chỉ tăng `version` và ghi nhật ký khi có giá thật sự đổi; nhật ký chỉ ghi các dòng đổi | Chờ BE |
+| G7 | `copyFromStandard` | Chép giá tại lúc tạo; sau đó hai bảng độc lập | Chờ BE |
+| G8 | Biến thể hoặc sản phẩm bị ngừng bán | Giá vẫn giữ trong DB nhưng không hiện trên lưới và không tính vào `pricedCount`; bán lại thì giá cũ hiện lại | Chờ BE |
+| G9 | Số dòng | `GET items` trả toàn bộ, ổn tới vài nghìn biến thể. Nếu công ty lớn hơn, cần phân trang phía BE và FE đổi lưới sang chế độ server | Chờ BE |
+| G10 | Quyền mới | `pricing.pricelist.view` (CEO, Admin, Sale), `pricing.pricelist.manage` (CEO, Admin). Tạo bảng gian hàng cần thêm phân hệ Kênh bán bật và quyền xem gian hàng | Chờ BE |

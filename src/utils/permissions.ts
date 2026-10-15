@@ -23,6 +23,9 @@ export const PERMISSIONS = {
   productManage: 'catalog.product.manage',
   /** Danh mục, thuộc tính, quy tắc SKU (UC-CP-01) */
   catalogSetup: 'catalog.category.manage',
+  pricelistView: 'pricing.pricelist.view',
+  /** Tạo, đổi tên, xoá bảng giá và sửa giá (UC-CP-03) */
+  pricelistManage: 'pricing.pricelist.manage',
   stockView: 'inventory.stock.view',
   orderView: 'sales.order.view',
 } as const;
