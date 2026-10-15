@@ -109,7 +109,6 @@ export function companyNav(companyId: string): NavSection[] {
           icon: <Inventory2Icon />,
           module: 'inventory',
           permission: PERMISSIONS.stockView,
-          disabled: true,
         },
       ],
     },

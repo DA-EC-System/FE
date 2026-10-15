@@ -27,6 +27,12 @@ export const PERMISSIONS = {
   /** Tạo, đổi tên, xoá bảng giá và sửa giá (UC-CP-03) */
   pricelistManage: 'pricing.pricelist.manage',
   stockView: 'inventory.stock.view',
+  /** Lập, sửa, ghi sổ, huỷ phiếu nhập/xuất; lập phiếu nhập hoàn (UC-IN-03) */
+  stockDocManage: 'inventory.receipt.create',
+  /** Đặt ngưỡng tồn (UC-IN-02) */
+  reorderManage: 'inventory.reorder.manage',
+  /** Giá vốn, giá trị tồn (UC-IN-01: chỉ CEO) */
+  costView: 'inventory.cost.view',
   orderView: 'sales.order.view',
 } as const;
 
