@@ -4,8 +4,16 @@ import { Outlet } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { DRAWER_WIDTH } from './drawerConfig';
+import { PLATFORM_NAV, companyNav, type NavSection } from './navigation';
+import { useAuth } from '@/hooks/useAuth';
 
-export function AdminLayout() {
+interface AppLayoutProps {
+  sections: NavSection[];
+  subtitle: string;
+}
+
+/** Khung chung: AppBar + Drawer + nội dung. Mỗi không gian truyền menu riêng. */
+export function AppLayout({ sections, subtitle }: AppLayoutProps) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [open, setOpen] = useState(true);
@@ -17,6 +25,8 @@ export function AdminLayout() {
         open={isDesktop ? open : false}
         onClose={() => setOpen(false)}
         variant={isDesktop ? 'permanent' : 'temporary'}
+        sections={sections}
+        subtitle={subtitle}
       />
       <Box
         component="main"
@@ -34,5 +44,21 @@ export function AdminLayout() {
         </Box>
       </Box>
     </Box>
+  );
+}
+
+export function PlatformLayout() {
+  return <AppLayout sections={PLATFORM_NAV} subtitle="Quản trị nền tảng" />;
+}
+
+export function CompanyLayout() {
+  const { companyContext } = useAuth();
+  // RequireCompany đảm bảo đã có companyContext trước khi render layout
+  const companyId = companyContext?.companyId ?? '';
+  return (
+    <AppLayout
+      sections={companyNav(companyId)}
+      subtitle={companyContext?.companyName ?? ''}
+    />
   );
 }

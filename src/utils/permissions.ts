@@ -1,42 +1,36 @@
-import type { User } from '@/types/auth';
-
-export type Action = 'view' | 'create' | 'update' | 'delete' | 'sync';
-
-export type Resource = 'company' | 'shop';
-
-interface CanParams {
-  user: User | null;
-  action: Action;
-  resource: Resource;
-}
+import type { CompanyContext } from '@/types/auth';
+import type { ModuleKey } from './modules';
 
 /**
- * Kiểm tra user có quyền thao tác trên resource hay không.
- *
- * Quy tắc phân quyền (theo tài liệu đồ án §2.1):
- *  - Platform Admin (isPlatformAdmin=true): làm được mọi thứ trên mọi company.
- *  - Company Admin (roles chứa 'admin'): CRUD đầy đủ resource thuộc company mình.
- *  - Vai trò khác: chỉ khi permission chi tiết cho phép ("shop:create", "company:delete"…).
- *  - Resource "company" chỉ cho phép Platform Admin (công ty là tenant cha).
+ * Mã quyền đang dùng ở FE. Dạng "<module>.<resource>.<action>".
+ * Danh mục đầy đủ do BE cấp qua access.permissions; khi có OpenAPI sẽ sinh tự động.
  */
-export function can({ user, action, resource }: CanParams): boolean {
-  if (!user) return false;
+export const PERMISSIONS = {
+  shopView: 'channel.shop.view',
+  shopConnect: 'channel.shop.connect',
+  shopUpdate: 'channel.shop.update',
+  shopDisconnect: 'channel.shop.disconnect',
+  shopSync: 'channel.shop.sync',
+  productView: 'catalog.product.view',
+  stockView: 'inventory.stock.view',
+  orderView: 'sales.order.view',
+} as const;
 
-  if (user.isPlatformAdmin) return true;
-
-  // Company-level actions cần quyền nâng cao (chỉ platform admin mặc định có).
-  if (resource === 'company' && action !== 'view') return false;
-  if (resource === 'company' && action === 'view') {
-    return user.roles.includes('admin') || user.roles.includes('ceo');
-  }
-
-  if (user.roles.includes('admin') || user.roles.includes('ceo')) return true;
-
-  return user.permissions.includes(`${resource}:${action}`);
+/**
+ * Kiểm quyền trong công ty đang chọn. Quản trị nền tảng không có CompanyContext
+ * nên luôn bị từ chối ở đây (QT-03: không xem dữ liệu kinh doanh).
+ * FE chỉ dùng để ẩn giao diện; BE vẫn kiểm lại mọi yêu cầu.
+ */
+export function hasPermission(
+  context: CompanyContext | null,
+  permission: string,
+): boolean {
+  return Boolean(context?.permissions.includes(permission));
 }
 
-/** Helper cho JSX: `<Show when={can(...)}>...</Show>` style. */
-export function makeCan(user: User | null) {
-  return (action: Action, resource: Resource) =>
-    can({ user, action, resource });
+export function isModuleEnabled(
+  context: CompanyContext | null,
+  module: ModuleKey,
+): boolean {
+  return Boolean(context?.enabledModules.includes(module));
 }
