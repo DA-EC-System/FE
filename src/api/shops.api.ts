@@ -31,11 +31,11 @@ function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-export function useShops(params: ShopListParams) {
+export function useShops(params: ShopListParams, options: { enabled?: boolean } = {}) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.list(companyId, params),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && (options.enabled ?? true),
     queryFn: async (): Promise<PageResult<Shop>> => {
       const { data } = await apiClient.get<PageResult<Shop>>('/channel/shops', {
         params,

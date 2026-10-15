@@ -20,6 +20,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'catalog.attributes': 'Thuộc tính',
   'catalog.products': 'Sản phẩm',
   'catalog.product_variants': 'Biến thể',
+  'pricing.pricelists': 'Bảng giá',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;
@@ -47,6 +48,9 @@ const FIELD_LABELS: Record<string, string> = {
   product: 'Sản phẩm',
   sku: 'SKU',
   attributes: 'Thuộc tính',
+  type: 'Loại',
+  shop: 'Gian hàng',
+  prices: 'Giá',
 };
 
 export const auditFieldLabel = (field: string) => FIELD_LABELS[field] ?? field;
@@ -58,6 +62,8 @@ const VALUE_LABELS: Record<string, string> = {
   expiring: 'Sắp hết hạn',
   deauthorized: 'Bị thu hồi',
   disconnected: 'Đã ngắt',
+  standard: 'Bảng giá chuẩn',
+  channel: 'Theo gian hàng',
 };
 
 /** Giá trị jsonb thành chữ: mảng mỗi phần tử một dòng, ngày ISO theo giờ địa phương */

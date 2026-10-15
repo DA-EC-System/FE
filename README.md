@@ -16,6 +16,7 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 - **Sản phẩm** — `/c/:companyId/catalog` (UC-CP-02): tìm theo tên hoặc SKU, lọc danh mục và trạng thái. Tạo sản phẩm: chọn thuộc tính và giá trị để sinh tổ hợp biến thể, bỏ tổ hợp không bán, xem SKU dự kiến. Sửa: đổi tên, mô tả, ảnh; thêm biến thể hoặc ngừng bán biến thể. Danh mục không đổi được sau khi tạo vì SKU đã sinh theo danh mục. Xoá là lưu trữ: SKU giữ lại, không cấp cho sản phẩm khác.
 - **Ảnh sản phẩm** — tối đa 9 ảnh JPG/PNG/WebP, mỗi ảnh tối đa 5 MB; ảnh đầu là ảnh đại diện, đổi thứ tự bằng nút ←/→. FE xin vé `POST /files/uploads` rồi PUT thẳng file lên `uploadUrl` (presigned, commerio-backend#14).
 - **Danh mục & thuộc tính** — `/c/:companyId/catalog/setup` (UC-CP-01, CEO và Admin): danh mục kèm quy tắc SKU, xem trước SKU mẫu khi gõ; thuộc tính và danh sách giá trị. Danh mục, thuộc tính, giá trị đang có sản phẩm dùng thì không xoá được.
+- **Bảng giá** — `/c/:companyId/pricing` (UC-CP-03): mỗi công ty có một bảng giá chuẩn (không xoá được) và tối đa một bảng giá riêng cho mỗi gian hàng (cần phân hệ Kênh bán). Lưới sửa giá từng biến thể: gõ thẳng vào ô, giá sai báo ngay tại ô; ô đã sửa được tô màu, bấm **Lưu** mới gửi lên. Chọn nhiều dòng để sửa hàng loạt: đặt cùng giá, tăng/giảm theo % hoặc số tiền (có làm tròn), chép giá chuẩn, bỏ giá. Bảng theo gian hàng hiện thêm cột giá chuẩn; ô trống nghĩa là lấy giá chuẩn. Người khác vừa lưu thì FE nạp giá mới nhưng giữ thay đổi của mình để kiểm lại. Rời trang khi còn thay đổi chưa lưu sẽ được hỏi lại. Sale chỉ xem.
 - **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 5 tài khoản; lỗi trả theo Problem Details (RFC 9457).
 
 ## Stack
@@ -81,6 +82,8 @@ Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả l�
 
 Ở **Hàng hoá → Sản phẩm** của Công ty ABC, "Áo thun basic cổ tròn" đang có đơn hàng chưa hoàn tất nên không xoá được; "Thắt lưng da bò" không có thuộc tính nên chỉ có một biến thể. Sale chỉ xem, không tạo hay sửa.
 
+Ở **Hàng hoá → Bảng giá**, "Giá Shopee" gắn với gian hàng đang kết nối nên không xoá được; muốn xoá thì ngắt gian hàng trước. Bảng giá chuẩn còn 2 biến thể chưa có giá.
+
 ### Quy tắc SKU
 
 Quy tắc của danh mục gồm chữ cố định (A-Z, 0-9, `-`, `_`) và hai token:
@@ -107,7 +110,7 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ```
 src/
-├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, catalog, shops)
+├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, catalog, pricing, shops)
 ├─ components/
 │  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
 │  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
@@ -117,13 +120,14 @@ src/
 │  ├─ platform/ # PlatformOverviewPage, CompanyListPage, LockCompanyDialog, PlatformAuditLogPage
 │  ├─ company/  # CompanyHomePage, ModuleSettingsPage, CompanyAuditLogPage
 │  ├─ catalog/  # ProductListPage, ProductFormPage (ảnh, bộ dựng biến thể), CatalogSetupPage và các dialog
+│  ├─ pricing/  # PricelistListPage, PricelistDetailPage (lưới sửa giá), BulkPriceDialog, PricelistFormDialog
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
 ├─ hooks/       # useAuth, usePermission, useDebounce
-├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file)
+├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file; pricingData: bảng giá)
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ theme/       # MUI light + dark, ColorModeContext
-├─ types/       # auth, company, companySettings, audit, identity, catalog, shop
+├─ types/       # auth, company, companySettings, audit, identity, catalog, pricing, shop
 └─ utils/       # format, modules, permissions, sku
 ```
 
