@@ -26,5 +26,7 @@ export const ROUTES = {
     orders: (companyId: string) => `/c/${companyId}/orders`,
     staff: (companyId: string) => `/c/${companyId}/admin/staff`,
     roles: (companyId: string) => `/c/${companyId}/admin/roles`,
+    modules: (companyId: string) => `/c/${companyId}/admin/modules`,
+    auditLogs: (companyId: string) => `/c/${companyId}/admin/audit-logs`,
   },
 } as const;

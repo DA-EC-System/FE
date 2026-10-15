@@ -8,6 +8,8 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import GroupIcon from '@mui/icons-material/Group';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import ExtensionIcon from '@mui/icons-material/Extension';
+import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
@@ -112,6 +114,20 @@ export function companyNav(companyId: string): NavSection[] {
           icon: <AdminPanelSettingsIcon />,
           module: 'identity',
           permission: PERMISSIONS.roleView,
+        },
+        {
+          to: ROUTES.company.modules(companyId),
+          label: 'Phân hệ',
+          icon: <ExtensionIcon />,
+          module: 'platform',
+          permission: PERMISSIONS.moduleManage,
+        },
+        {
+          to: ROUTES.company.auditLogs(companyId),
+          label: 'Nhật ký thao tác',
+          icon: <ManageSearchIcon />,
+          module: 'platform',
+          permission: PERMISSIONS.auditView,
         },
       ],
     },

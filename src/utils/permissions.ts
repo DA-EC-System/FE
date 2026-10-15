@@ -10,6 +10,10 @@ export const PERMISSIONS = {
   staffManage: 'identity.account.manage',
   roleView: 'identity.role.view',
   roleManage: 'identity.role.manage',
+  /** Chỉ vai trò CEO có, không cấp cho vai trò tuỳ biến (UC-PI-02) */
+  moduleManage: 'platform.module.manage',
+  /** Vai trò CEO và Admin có, không cấp cho vai trò tuỳ biến (UC-PI-07) */
+  auditView: 'platform.audit.view',
   shopView: 'channel.shop.view',
   shopConnect: 'channel.shop.connect',
   shopUpdate: 'channel.shop.update',

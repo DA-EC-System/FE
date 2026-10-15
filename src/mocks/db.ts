@@ -9,6 +9,8 @@ import type { Shop } from '@/types/shop';
 import type { Account, MembershipStatus } from '@/types/auth';
 import type { PlatformAuditLog } from '@/types/audit';
 import type { PermissionDef } from '@/types/identity';
+import type { AuditAction } from '@/types/companySettings';
+import type { OptionalModuleKey } from '@/utils/modules';
 import { PERMISSIONS as P } from '@/utils/permissions';
 
 const now = () => new Date().toISOString();
@@ -179,6 +181,7 @@ export const permissionCatalog: PermissionDef[] = [
 
 /** Admin không có quyền kho, mua hàng, tài chính (UC-PI-05); CEO có mọi quyền. */
 const ADMIN_PERMISSIONS = [
+  P.auditView,
   P.staffView,
   P.staffManage,
   P.roleView,
@@ -213,7 +216,8 @@ const roles: MockRole[] = [
     id: CEO_ROLE_ID,
     companyId: null,
     name: 'CEO',
-    permissions: permissionCatalog.map((p) => p.code),
+    // Hai quyền platform.* không nằm trong danh mục nên không cấp được cho vai trò tuỳ biến
+    permissions: [...permissionCatalog.map((p) => p.code), P.moduleManage, P.auditView],
     version: 1,
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
@@ -374,17 +378,145 @@ export const passwords: Record<string, string> = {
   'nghi@commerio.vn': 'nghi',
 };
 
-/** Nhật ký thao tác trong công ty (audit, company_id có giá trị); màn hình xem ở FE#4 */
+/** Nhật ký thao tác trong công ty: audit.audit_logs có company_id (UC-PI-07) */
 export interface MockCompanyAuditLog {
   id: string;
   companyId: string;
-  action: string;
-  target: string;
-  actorEmail: string;
+  actorId: string;
+  action: AuditAction;
+  entityType: string;
+  entityId: string;
+  entityLabel: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
   createdAt: string;
 }
 
-const companyAuditLogs: MockCompanyAuditLog[] = [];
+const companyAuditLogs: MockCompanyAuditLog[] = [
+  {
+    id: 'cal-006',
+    companyId: 'cmp-001',
+    actorId: 'acc-001',
+    action: 'update',
+    entityType: 'platform.company_modules',
+    entityId: 'report',
+    entityLabel: 'Báo cáo',
+    before: { enabled: false },
+    after: { enabled: true },
+    createdAt: '2026-09-02T02:15:00.000Z',
+  },
+  {
+    id: 'cal-005',
+    companyId: 'cmp-001',
+    actorId: 'acc-005',
+    action: 'update',
+    entityType: 'staff.memberships',
+    entityId: 'acc-006',
+    entityLabel: 'nghi@commerio.vn',
+    before: { status: 'active' },
+    after: { status: 'locked' },
+    createdAt: '2026-09-28T08:40:00.000Z',
+  },
+  {
+    id: 'cal-004',
+    companyId: 'cmp-001',
+    actorId: 'acc-005',
+    action: 'create',
+    entityType: 'staff.memberships',
+    entityId: 'acc-006',
+    entityLabel: 'nghi@commerio.vn',
+    before: null,
+    after: {
+      email: 'nghi@commerio.vn',
+      fullName: 'Hồ Đã Nghỉ',
+      roles: ['Sale', 'Chăm sóc khách hàng'],
+      status: 'active',
+    },
+    createdAt: '2026-09-10T03:05:00.000Z',
+  },
+  {
+    id: 'cal-003',
+    companyId: 'cmp-001',
+    actorId: 'acc-005',
+    action: 'create',
+    entityType: 'access.roles',
+    entityId: 'role-cskh-cmp-001',
+    entityLabel: 'Chăm sóc khách hàng',
+    before: null,
+    after: {
+      name: 'Chăm sóc khách hàng',
+      permissions: ['sales.order.view', 'inbox.conversation.reply'],
+    },
+    createdAt: '2026-09-09T09:20:00.000Z',
+  },
+  {
+    id: 'cal-002',
+    companyId: 'cmp-001',
+    actorId: 'acc-001',
+    action: 'create',
+    entityType: 'access.roles',
+    entityId: 'role-kho-cmp-001',
+    entityLabel: 'Nhân viên kho',
+    before: null,
+    after: {
+      name: 'Nhân viên kho',
+      permissions: ['catalog.product.view', 'inventory.stock.view', 'inventory.receipt.create'],
+    },
+    createdAt: '2026-08-15T01:30:00.000Z',
+  },
+  {
+    id: 'cal-001',
+    companyId: 'cmp-001',
+    actorId: 'acc-001',
+    action: 'update',
+    entityType: 'channel.shops',
+    entityId: 'shp-001',
+    entityLabel: 'ABC Fashion Official',
+    before: { status: 'expiring' },
+    after: { status: 'connected' },
+    createdAt: '2026-08-01T04:00:00.000Z',
+  },
+];
+
+/**
+ * platform.company_modules: thông tin lần bật và đồng ý OpenAI (UC-PI-02).
+ * Trạng thái bật/tắt lấy từ company.optionalModules; khoá là "<companyId>:<module>".
+ */
+export interface MockModuleState {
+  enabledAt: string | null;
+  enabledBy: string | null;
+  aiConsentAt: string | null;
+  aiConsentBy: string | null;
+}
+
+const moduleStates: Record<string, MockModuleState> = Object.fromEntries(
+  companies.flatMap((c) =>
+    c.optionalModules.map((code) => [
+      `${c.id}:${code}`,
+      {
+        enabledAt: c.createdAt,
+        enabledBy: null,
+        aiConsentAt: code === 'assistant' ? c.createdAt : null,
+        aiConsentBy: null,
+      },
+    ]),
+  ),
+);
+moduleStates['cmp-001:report'] = {
+  enabledAt: '2026-09-02T02:15:00.000Z',
+  enabledBy: 'acc-001',
+  aiConsentAt: null,
+  aiConsentBy: null,
+};
+
+/**
+ * Phân hệ đã có dữ liệu thì không tắt được. Kênh bán tính theo gian hàng;
+ * các phân hệ chưa có màn hình thì đánh dấu sẵn ở đây.
+ */
+const moduleData: Partial<Record<OptionalModuleKey, string[]>> = {
+  inbox: ['cmp-001'],
+  purchasing: ['cmp-004'],
+};
 
 export const db = {
   companies,
@@ -394,5 +526,7 @@ export const db = {
   roles,
   auditLogs,
   companyAuditLogs,
+  moduleStates,
+  moduleData,
   now,
 };
