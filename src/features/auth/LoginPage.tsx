@@ -3,32 +3,30 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  Alert,
   Box,
-  Paper,
+  Button,
+  ButtonBase,
+  Chip,
+  Divider,
+  Link,
   Stack,
   TextField,
-  Button,
   Typography,
-  Alert,
-  InputAdornment,
-  IconButton,
-  Divider,
-  Chip,
-  ButtonBase,
 } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useLocation, Navigate, type Location } from 'react-router-dom';
-import { useLogin, useAuth } from '@/hooks/useAuth';
+import { Link as RouterLink, Navigate, useLocation, type Location } from 'react-router-dom';
+import { useAuth, useLogin } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
 import { ROUTES } from '@/router/routes';
 import type { Account } from '@/types/auth';
 import { USE_MOCKS } from '@/utils/env';
-import { BrandLogo } from '@/components/common/BrandLogo';
-import { brandGradient } from '@/theme/tokens';
+import { AuthShell } from './AuthShell';
+import { PasswordField } from './PasswordField';
+import { GoogleLoginButton } from './GoogleLoginButton';
+import { emailSchema } from './schemas';
 
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email('Email không hợp lệ'),
+  email: emailSchema,
   // Chỉ bắt buộc nhập; quy tắc độ dài mật khẩu thuộc màn đăng ký và đổi mật khẩu
   password: z.string().min(1, 'Nhập mật khẩu'),
 });
@@ -43,7 +41,14 @@ const DEMO_ACCOUNTS = [
   { label: 'CEO · 2 công ty', email: 'ceo@commerio.vn', password: 'ceo' },
   { label: 'Sale', email: 'sale@commerio.vn', password: 'sale' },
   { label: 'Nhân viên kho', email: 'kho@commerio.vn', password: 'kho' },
+  { label: 'Mới được mời', email: 'moi@commerio.vn', password: 'moi12345' },
 ];
+
+interface LoginLocationState {
+  from?: Location;
+  /** Vừa đăng ký công ty xong (UC-PI-01) */
+  registeredEmail?: string;
+}
 
 /**
  * Trang quay lại sau đăng nhập. Bỏ qua trang thuộc không gian khác của tài khoản
@@ -60,10 +65,9 @@ export function LoginPage() {
   const { isAuthenticated, account } = useAuth();
   const login = useLogin();
   const location = useLocation();
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: Location } | null)?.from;
+  const { from, registeredEmail } = (location.state as LoginLocationState | null) ?? {};
 
   const {
     register,
@@ -72,7 +76,7 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: registeredEmail ?? '', password: '' },
   });
 
   // Đăng nhập xong store đổi ngay → render lại và chuyển trang tại đây
@@ -92,183 +96,105 @@ export function LoginPage() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'stretch',
-        background: 'background.default',
-      }}
-    >
-      {/* Left brand panel */}
-      <Box
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          flex: 1,
-          background: brandGradient,
-          color: 'white',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          p: 6,
-        }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <BrandLogo size={40} onDark />
-          <Typography variant="h5" fontWeight={800}>
-            Commerio
-          </Typography>
+    <AuthShell title="Đăng nhập" subtitle="Chào mừng trở lại! Đăng nhập để tiếp tục làm việc.">
+      {registeredEmail && !error && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Đăng ký công ty thành công. Đăng nhập bằng {registeredEmail} để bắt đầu.
+        </Alert>
+      )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <form onSubmit={onSubmit} noValidate>
+        <Stack spacing={2}>
+          <TextField
+            label="Email"
+            type="email"
+            autoComplete="email"
+            fullWidth
+            autoFocus={!registeredEmail}
+            {...register('email')}
+            error={Boolean(errors.email)}
+            helperText={errors.email?.message}
+          />
+          <PasswordField
+            label="Mật khẩu"
+            autoComplete="current-password"
+            autoFocus={Boolean(registeredEmail)}
+            {...register('password')}
+            error={Boolean(errors.password)}
+            helperText={errors.password?.message}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            disabled={isSubmitting || login.isPending}
+            sx={{ mt: 1 }}
+          >
+            {login.isPending ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </Button>
         </Stack>
+      </form>
 
-        <Box>
-          <Typography variant="h3" fontWeight={800} sx={{ mb: 2, lineHeight: 1.1 }}>
-            Hệ thống quản lý
-            <br />
-            đa kênh cho doanh nghiệp
-          </Typography>
-          <Typography variant="body1" sx={{ opacity: 0.85, maxWidth: 480 }}>
-            Một trang quản lý vận hành bán hàng cho nhiều công ty, đồng bộ sản
-            phẩm, tồn kho và đơn hàng từ Shopee, Lazada, TikTok Shop và kênh
-            tin nhắn về một nơi duy nhất.
-          </Typography>
-        </Box>
-
-        <Typography variant="caption" sx={{ opacity: 0.6 }}>
-          © 2026 Commerio · Đồ án chuyên ngành — HCMUT
+      <Divider sx={{ my: 2.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          hoặc
         </Typography>
-      </Box>
+      </Divider>
+      <GoogleLoginButton onError={setError} />
 
-      {/* Right form */}
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: { xs: 3, md: 6 },
-        }}
-      >
-        <Paper
-          elevation={0}
-          sx={{
-            width: '100%',
-            maxWidth: 440,
-            p: { xs: 3, md: 5 },
-            border: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <Stack spacing={1} sx={{ mb: 3 }}>
-            <Typography variant="h4" fontWeight={800}>
-              Đăng nhập
+      <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 3 }}>
+        Công ty chưa dùng Commerio?{' '}
+        <Link component={RouterLink} to={ROUTES.register} fontWeight={600}>
+          Đăng ký công ty
+        </Link>
+      </Typography>
+
+      {SHOW_DEMO_ACCOUNTS && (
+        <>
+          <Divider sx={{ my: 3 }}>
+            <Typography variant="caption" color="text.secondary">
+              Tài khoản demo
             </Typography>
-            <Typography color="text.secondary">
-              Chào mừng trở lại! Đăng nhập để tiếp tục làm việc.
-            </Typography>
-          </Stack>
+          </Divider>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-
-          <form onSubmit={onSubmit} noValidate>
-            <Stack spacing={2}>
-              <TextField
-                label="Email"
-                type="email"
-                autoComplete="email"
-                fullWidth
-                {...register('email')}
-                error={Boolean(errors.email)}
-                helperText={errors.email?.message}
-              />
-              <TextField
-                label="Mật khẩu"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                fullWidth
-                {...register('password')}
-                error={Boolean(errors.password)}
-                helperText={errors.password?.message}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword((v) => !v)}
-                        edge="end"
-                        aria-label="Hiện/ẩn mật khẩu"
-                      >
-                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
+          <Stack spacing={1}>
+            {DEMO_ACCOUNTS.map((acc) => (
+              <ButtonBase
+                key={acc.email}
+                onClick={() => fillDemo(acc.email, acc.password)}
+                sx={{
+                  width: '100%',
+                  textAlign: 'left',
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  border: 1,
+                  borderColor: 'divider',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  transition: 'all 0.15s',
+                  '&:hover': { borderColor: 'primary.main', backgroundColor: 'action.hover' },
                 }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                disabled={isSubmitting || login.isPending}
-                sx={{ mt: 1 }}
               >
-                {login.isPending ? 'Đang đăng nhập...' : 'Đăng nhập'}
-              </Button>
-            </Stack>
-          </form>
-
-          {SHOW_DEMO_ACCOUNTS && (
-            <>
-              <Divider sx={{ my: 3 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Tài khoản demo
-                </Typography>
-              </Divider>
-
-              <Stack spacing={1}>
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <ButtonBase
-                    key={acc.email}
-                    onClick={() => fillDemo(acc.email, acc.password)}
-                    sx={{
-                      width: '100%',
-                      textAlign: 'left',
-                      p: 1.5,
-                      borderRadius: 1.5,
-                      border: 1,
-                      borderColor: 'divider',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      transition: 'all 0.15s',
-                      '&:hover': {
-                        borderColor: 'primary.main',
-                        backgroundColor: 'action.hover',
-                      },
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" fontWeight={600} component="div">
-                        {acc.email}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Mật khẩu: {acc.password}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={acc.label}
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                    />
-                  </ButtonBase>
-                ))}
-              </Stack>
-            </>
-          )}
-        </Paper>
-      </Box>
-    </Box>
+                <Box>
+                  <Typography variant="body2" fontWeight={600} component="div">
+                    {acc.email}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Mật khẩu: {acc.password}
+                  </Typography>
+                </Box>
+                <Chip label={acc.label} size="small" variant="outlined" color="primary" />
+              </ButtonBase>
+            ))}
+          </Stack>
+        </>
+      )}
+    </AuthShell>
   );
 }

@@ -4,12 +4,16 @@ import {
   HomeRedirect,
   RequireAuth,
   RequireCompany,
+  RequireGuest,
   RequireModule,
+  RequirePasswordChanged,
   RequirePlatformAdmin,
   RequireStaff,
 } from './guards';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { SelectCompanyPage } from '@/features/auth/SelectCompanyPage';
+import { RegisterPage } from '@/features/auth/RegisterPage';
+import { ChangePasswordPage } from '@/features/auth/ChangePasswordPage';
 import { CompanyLayout, PlatformLayout } from '@/components/layout/AppLayout';
 import { PlatformOverviewPage } from '@/features/platform/PlatformOverviewPage';
 import { CompanyListPage } from '@/features/platform/CompanyListPage';
@@ -24,58 +28,69 @@ export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
   { path: ROUTES.login, element: <LoginPage /> },
   {
+    element: <RequireGuest />,
+    children: [{ path: ROUTES.register, element: <RegisterPage /> }],
+  },
+  {
     element: <RequireAuth />,
     children: [
+      { path: ROUTES.changePassword, element: <ChangePasswordPage /> },
       {
-        element: <RequireStaff />,
-        children: [{ path: ROUTES.selectCompany, element: <SelectCompanyPage /> }],
-      },
-
-      // Quản trị nền tảng — không có dữ liệu kinh doanh (QT-03)
-      {
-        path: ROUTES.platform.root,
-        element: <RequirePlatformAdmin />,
+        // Mọi trang khác bị chặn khi còn phải đổi mật khẩu
+        element: <RequirePasswordChanged />,
         children: [
           {
-            element: <PlatformLayout />,
+            element: <RequireStaff />,
+            children: [{ path: ROUTES.selectCompany, element: <SelectCompanyPage /> }],
+          },
+
+          // Quản trị nền tảng — không có dữ liệu kinh doanh (QT-03)
+          {
+            path: ROUTES.platform.root,
+            element: <RequirePlatformAdmin />,
             children: [
-              { index: true, element: <Navigate to="overview" replace /> },
-              { path: 'overview', element: <PlatformOverviewPage /> },
-              { path: 'companies', element: <CompanyListPage /> },
-              { path: 'audit-logs', element: <PlatformAuditLogPage /> },
+              {
+                element: <PlatformLayout />,
+                children: [
+                  { index: true, element: <Navigate to="overview" replace /> },
+                  { path: 'overview', element: <PlatformOverviewPage /> },
+                  { path: 'companies', element: <CompanyListPage /> },
+                  { path: 'audit-logs', element: <PlatformAuditLogPage /> },
+                ],
+              },
             ],
           },
-        ],
-      },
 
-      // Khu làm việc của một công ty
-      {
-        path: '/c/:companyId',
-        element: <RequireCompany />,
-        children: [
+          // Khu làm việc của một công ty
           {
-            element: <CompanyLayout />,
+            path: '/c/:companyId',
+            element: <RequireCompany />,
             children: [
-              { index: true, element: <CompanyHomePage /> },
               {
-                path: 'channel/shops',
-                element: (
-                  <RequireModule module="channel" permission={PERMISSIONS.shopView}>
-                    <ShopListPage />
-                  </RequireModule>
-                ),
-              },
-              {
-                path: 'catalog',
-                element: <PlaceholderPage title="Danh mục sản phẩm" />,
-              },
-              {
-                path: 'inventory',
-                element: <PlaceholderPage title="Kho hàng" />,
-              },
-              {
-                path: 'orders',
-                element: <PlaceholderPage title="Đơn hàng" />,
+                element: <CompanyLayout />,
+                children: [
+                  { index: true, element: <CompanyHomePage /> },
+                  {
+                    path: 'channel/shops',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopView}>
+                        <ShopListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'catalog',
+                    element: <PlaceholderPage title="Danh mục sản phẩm" />,
+                  },
+                  {
+                    path: 'inventory',
+                    element: <PlaceholderPage title="Kho hàng" />,
+                  },
+                  {
+                    path: 'orders',
+                    element: <PlaceholderPage title="Đơn hàng" />,
+                  },
+                ],
               },
             ],
           },

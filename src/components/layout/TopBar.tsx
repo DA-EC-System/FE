@@ -16,11 +16,12 @@ import {
   Chip,
   Button,
 } from '@mui/material';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LogoutIcon from '@mui/icons-material/Logout';
+import KeyIcon from '@mui/icons-material/Key';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BusinessIcon from '@mui/icons-material/Business';
 import CheckIcon from '@mui/icons-material/Check';
@@ -101,6 +102,8 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
   const logout = useLogout();
   const { mode, toggle } = useColorMode();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <AppBar
@@ -189,6 +192,17 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
             </Stack>
           </Box>
           <Divider />
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              navigate(ROUTES.changePassword, { state: { from: location } });
+            }}
+          >
+            <ListItemIcon>
+              <KeyIcon fontSize="small" />
+            </ListItemIcon>
+            Đổi mật khẩu
+          </MenuItem>
           <MenuItem
             onClick={() => {
               setAnchor(null);
