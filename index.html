@@ -6,6 +6,16 @@
     <meta name="theme-color" content="#0D2143" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Commerio Admin</title>
+    <script>
+      // Gắn class dark trước khi React chạy để không nháy nền sáng; cùng khoá với ColorModeContext
+      try {
+        var mode = localStorage.getItem('commerio.themeMode');
+        if (mode !== 'light' && mode !== 'dark') {
+          mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (mode === 'dark') document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -16,7 +16,7 @@ export const categorySchema = z.object({
     .toUpperCase()
     .superRefine((value, ctx) => {
       const message = skuPatternError(value);
-      if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+      if (message) ctx.addIssue({ code: 'custom', message });
     }),
 });
 export type CategoryForm = z.infer<typeof categorySchema>;
@@ -36,7 +36,7 @@ export const attributeSchema = z.object({
       values.forEach((v, i) => {
         const key = v.value.trim().toLowerCase();
         if (key && seen.has(key)) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [i, 'value'], message: 'Giá trị bị trùng' });
+          ctx.addIssue({ code: 'custom', path: [i, 'value'], message: 'Giá trị bị trùng' });
         }
         seen.add(key);
       });

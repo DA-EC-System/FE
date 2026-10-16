@@ -1,64 +1,69 @@
-import { useState } from 'react';
-import { Box, Toolbar, useMediaQuery, useTheme } from '@mui/material';
-import { Outlet } from 'react-router-dom';
-import { TopBar } from './TopBar';
-import { Sidebar } from './Sidebar';
-import { DRAWER_WIDTH } from './drawerConfig';
-import { PLATFORM_NAV, companyNav, type NavSection } from './navigation';
+import { useMemo, type ReactNode } from 'react';
+import { Outlet, matchPath, useLocation } from 'react-router-dom';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
+import { hasPermission, isModuleEnabled } from '@/utils/permissions';
+import { AppSidebar } from './AppSidebar';
+import { AppTitle, CompanySwitcher } from './CompanySwitcher';
+import { Header } from './Header';
+import { PLATFORM_NAV, companyNav, type NavItem, type NavSection } from './navigation';
 
 interface AppLayoutProps {
   sections: NavSection[];
-  subtitle: string;
+  /** Đầu sidebar: tên nền tảng, hoặc nút đổi công ty */
+  brand: ReactNode;
 }
 
-/** Khung chung: AppBar + Drawer + nội dung. Mỗi không gian truyền menu riêng. */
-export function AppLayout({ sections, subtitle }: AppLayoutProps) {
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-  const [open, setOpen] = useState(true);
+/** Sidebar shadcn ghi trạng thái đóng/mở vào cookie này */
+const sidebarDefaultOpen = () => !document.cookie.split('; ').includes('sidebar_state=false');
+
+/** Khung chung theo shadcn-admin: sidebar thu gọn được + header + nội dung. Mỗi không gian truyền menu riêng. */
+export function AppLayout({ sections, brand }: AppLayoutProps) {
+  const { companyContext } = useAuth();
+  const location = useLocation();
+
+  // Ẩn mục của phân hệ chưa bật hoặc thiếu quyền; bỏ nhóm không còn mục nào
+  const visibleSections = useMemo(
+    () =>
+      sections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(
+            (i) =>
+              (!i.module || isModuleEnabled(companyContext, i.module)) &&
+              (!i.permission || hasPermission(companyContext, i.permission)),
+          ),
+        }))
+        .filter((section) => section.items.length > 0),
+    [sections, companyContext],
+  );
+
+  // Mục khớp dài nhất: ở /catalog/setup chỉ sáng "Danh mục & thuộc tính", không sáng cả "Sản phẩm"
+  const activeItem = visibleSections
+    .flatMap((s) => s.items)
+    .filter((i) => matchPath({ path: i.to, end: Boolean(i.end) }, location.pathname))
+    .reduce<NavItem | null>((best, i) => (!best || i.to.length > best.to.length ? i : best), null);
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <TopBar onToggleSidebar={() => setOpen((o) => !o)} sidebarOpen={open} />
-      <Sidebar
-        open={isDesktop ? open : false}
-        onClose={() => setOpen(false)}
-        variant={isDesktop ? 'permanent' : 'temporary'}
-        sections={sections}
-        subtitle={subtitle}
-      />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          width: { md: `calc(100% - ${open ? DRAWER_WIDTH : 0}px)` },
-          minHeight: '100vh',
-          backgroundColor: 'background.default',
-          transition: 'width 0.2s',
-        }}
-      >
-        <Toolbar />
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+    <SidebarProvider defaultOpen={sidebarDefaultOpen()}>
+      <AppSidebar sections={visibleSections} activeTo={activeItem?.to ?? null} brand={brand} />
+      <SidebarInset className="min-w-0">
+        <Header title={activeItem?.label} />
+        <main className="flex-1 px-4 py-6 md:px-6">
           <Outlet />
-        </Box>
-      </Box>
-    </Box>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
 export function PlatformLayout() {
-  return <AppLayout sections={PLATFORM_NAV} subtitle="Quản trị nền tảng" />;
+  return <AppLayout sections={PLATFORM_NAV} brand={<AppTitle subtitle="Quản trị nền tảng" />} />;
 }
 
 export function CompanyLayout() {
   const { companyContext } = useAuth();
   // RequireCompany đảm bảo đã có companyContext trước khi render layout
   const companyId = companyContext?.companyId ?? '';
-  return (
-    <AppLayout
-      sections={companyNav(companyId)}
-      subtitle={companyContext?.companyName ?? ''}
-    />
-  );
+  return <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} />;
 }

@@ -28,12 +28,12 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 | Mục đích | Thư viện |
 |---|---|
 | Bundler | Vite 5 |
-| Framework | React 18 + TypeScript |
-| UI | MUI v6 + MUI X DataGrid + Inter font |
+| Framework | React 19 + TypeScript |
+| UI | Tailwind CSS v4 + shadcn/ui (Radix) + lucide, theo bộ [shadcn-admin](https://github.com/satnaing/shadcn-admin); font Inter. Các trang chưa chuyển vẫn dùng MUI v6 + MUI X DataGrid |
 | Routing | react-router-dom v6 |
 | State server | TanStack Query v5 |
 | State client | Zustand (auth) |
-| Form | react-hook-form + zod |
+| Form | react-hook-form + zod 4 |
 | HTTP | axios (interceptor JWT, 401 redirect) |
 | Mock API | MSW v2 |
 
@@ -118,8 +118,9 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 src/
 ├─ api/         # axios client (Problem Details) + react-query hooks (auth, platform, identity, companySettings, catalog, pricing, inventory, shops)
 ├─ components/
-│  ├─ common/   # PageHeader, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
-│  └─ layout/   # AppLayout (Platform/Company), TopBar, Sidebar, navigation
+│  ├─ ui/       # component shadcn/ui chép từ shadcn-admin (button, dialog, sidebar, form...)
+│  ├─ common/   # PageHeader, FormTextField, PasswordInput, AlertMessage, ConfirmDialog, ForbiddenPage, PlaceholderPage, NotFoundPage
+│  └─ layout/   # AppLayout (Platform/Company), AppSidebar, CompanySwitcher, NavUser, Header, navigation
 ├─ features/
 │  ├─ auth/     # LoginPage, RegisterPage, ChangePasswordPage, SelectCompanyPage
 │  ├─ identity/ # StaffListPage, RolesPage và các dialog mời, đổi vai trò, tạo/sửa vai trò
@@ -129,11 +130,13 @@ src/
 │  ├─ pricing/  # PricelistListPage, PricelistDetailPage (lưới sửa giá), BulkPriceDialog, PricelistFormDialog
 │  ├─ inventory/ # InventoryPage (tab tồn, phiếu, nhập hoàn), StockDocPage (lập, ghi sổ phiếu), ReorderDialog, StockDetailDrawer, ReturnReceiptDialog
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
-├─ hooks/       # useAuth, usePermission, useDebounce
+├─ hooks/       # useAuth, usePermission, useDebounce, useIsMobile
+├─ lib/         # cn() gộp class Tailwind
 ├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file; pricingData: bảng giá; inventoryData: phiếu kho, tồn, đơn hoàn)
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
-├─ theme/       # MUI light + dark, ColorModeContext
+├─ styles/      # index.css (Tailwind), theme.css (biến màu shadcn lấy từ tokens)
+├─ theme/       # tokens màu, theme MUI light + dark, ColorModeContext
 ├─ types/       # auth, company, companySettings, audit, identity, catalog, pricing, inventory, shop
 └─ utils/       # format, modules, permissions, sku
 ```
@@ -156,13 +159,12 @@ Khi chạy `pnpm dev`, mock (MSW) mặc định bật kể cả khi chưa có `.
 ## Lưu ý so với đề bài
 
 Đề bài ghi FE dùng Next.js 16 + React 19 + TailwindCSS v4. Project này dùng
-**Vite + React 18 + MUI** thay thế vì:
-- Dashboard là SPA nội bộ, không cần SSR/SEO.
-- MUI có sẵn DataGrid, DatePicker, Form components phù hợp CRUD nặng.
-- React 18 ổn định hơn React 19 với hệ sinh thái MUI tại thời điểm hiện tại.
-- Tailwind không cần thiết khi đã có MUI design tokens.
+**Vite + React 19 + Tailwind v4 + shadcn/ui**, không dùng Next.js vì dashboard là SPA nội bộ,
+không cần SSR/SEO.
 
-Có thể migrate sang Next.js + MUI sau nếu cần SSR.
+Giao diện đang chuyển từ MUI sang shadcn-admin theo từng nhóm trang. Phần nền (Tailwind, biến màu,
+component, sidebar, trang đăng nhập/đăng ký) đã chuyển; các trang nghiệp vụ còn lại vẫn dùng MUI
+tới khi chuyển xong, sau đó gỡ MUI. Component mới viết bằng shadcn/Tailwind, không thêm code MUI.
 
 ## Lộ trình tiếp theo
 
@@ -173,7 +175,7 @@ Có thể migrate sang Next.js + MUI sau nếu cần SSR.
 
 ## Bộ màu thương hiệu
 
-Lấy logo làm chuẩn: navy `#0D2143` (viền) và xanh thép `#486A8C` (mặt trên). Định nghĩa ở `src/theme/tokens.ts`, đưa vào theme MUI ở `src/theme/index.ts`.
+Lấy logo làm chuẩn: navy `#0D2143` (viền) và xanh thép `#486A8C` (mặt trên). Định nghĩa ở `src/theme/tokens.ts`, đưa vào theme MUI ở `src/theme/index.ts` và vào biến CSS của shadcn ở `src/styles/theme.css` (hai nơi phải khớp nhau).
 
 | Vai trò | Light | Dark | Dùng cho |
 |---|---|---|---|
@@ -183,6 +185,7 @@ Lấy logo làm chuẩn: navy `#0D2143` (viền) và xanh thép `#486A8C` (mặt
 | `success / warning / error / info` | `#2E7D5B` / `#A35F0C` / `#C0392B` / `#2B7BB9` | bản sáng hơn | trạng thái |
 
 Quy ước:
-- Không viết mã hex trong component; dùng `primary.main`, `brand.700`, `text.secondary`... qua `sx` hoặc `theme.palette`.
+- Không viết mã hex trong component. Trang shadcn dùng class Tailwind theo biến: `bg-primary`, `text-muted-foreground`, `bg-brand-100`, `text-success`...; trang MUI dùng `primary.main`, `brand.700`, `text.secondary` qua `sx`.
+- Chế độ tối bật bằng class `dark` trên `<html>` (`ColorModeContext` gắn, `index.html` gắn sớm để không nháy).
 - Logo dùng `<BrandLogo />`; trên nền tối truyền `onDark` để có nền trắng phía sau (viền navy không bị chìm).
 - Các cặp chữ/nền trong bảng đều đạt WCAG AA (≥ 4.5) ở chế độ sáng.

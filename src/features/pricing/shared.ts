@@ -15,7 +15,7 @@ export const priceTextSchema = z.string().transform((raw, ctx): number | null =>
   const text = raw.trim().replace(/[\s.,₫]|đ$/gi, '');
   if (!text) return null;
   const fail = (message: string) => {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    ctx.addIssue({ code: 'custom', message });
     return z.NEVER;
   };
   if (/^-\d+$/.test(text)) return fail('Giá không được âm');
@@ -64,7 +64,7 @@ export interface BulkOperation {
 }
 
 const signed = z.coerce
-  .number({ invalid_type_error: 'Nhập một số' })
+  .number({ error: 'Nhập một số' })
   .refine((n) => Number.isFinite(n), 'Nhập một số');
 
 export const bulkFormSchema = z
@@ -75,7 +75,7 @@ export const bulkFormSchema = z
   })
   .transform((form, ctx): BulkOperation => {
     const fail = (message: string) => {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['value'], message });
+      ctx.addIssue({ code: 'custom', path: ['value'], message });
       return z.NEVER;
     };
     if (form.mode === 'standard' || form.mode === 'clear') {

@@ -1,26 +1,23 @@
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { FormTextField } from '@/components/common/FormTextField';
 import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  FormControlLabel,
-  FormHelperText,
-  Link,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { AuthShell } from './AuthShell';
-import { PasswordField } from './PasswordField';
 import { registerSchema, type RegisterForm } from './schemas';
 import { useRegisterCompany } from '@/hooks/useAuth';
 import { getErrorMessage, getProblem } from '@/api/client';
@@ -54,13 +51,7 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [askConsent, setAskConsent] = useState(false);
 
-  const {
-    control,
-    register: field,
-    handleSubmit,
-    setError: setFieldError,
-    formState: { errors },
-  } = useForm<RegisterForm>({
+  const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       companyName: '',
@@ -72,8 +63,9 @@ export function RegisterPage() {
       optionalModules: [],
     },
   });
+  const { control, setError: setFieldError } = form;
 
-  const onSubmit = handleSubmit((v) => {
+  const onSubmit = form.handleSubmit((v) => {
     setError(null);
     register.mutate(
       {
@@ -110,148 +102,118 @@ export function RegisterPage() {
       subtitle="Người đăng ký sẽ là CEO của công ty trên Commerio."
     >
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <AlertMessage severity="error" className="mb-4" onClose={() => setError(null)}>
           {error}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <form onSubmit={onSubmit} noValidate>
-        <Stack spacing={3}>
-          <Stack spacing={2}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              Thông tin công ty
-            </Typography>
-            <TextField
-              label="Tên công ty"
-              fullWidth
-              autoFocus
-              {...field('companyName')}
-              error={Boolean(errors.companyName)}
-              helperText={errors.companyName?.message}
-            />
-            <TextField
+      <Form {...form}>
+        <form onSubmit={onSubmit} noValidate className="grid gap-6">
+          <section className="grid gap-4">
+            <h2 className="font-bold">Thông tin công ty</h2>
+            <FormTextField control={control} name="companyName" label="Tên công ty" autoFocus />
+            <FormTextField
+              control={control}
+              name="taxCode"
               label="Mã số thuế"
-              fullWidth
               inputMode="numeric"
-              {...field('taxCode')}
-              error={Boolean(errors.taxCode)}
-              helperText={errors.taxCode?.message}
             />
-          </Stack>
+          </section>
 
-          <Stack spacing={2}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              Tài khoản CEO
-            </Typography>
-            <TextField
-              label="Họ tên"
-              fullWidth
-              autoComplete="name"
-              {...field('fullName')}
-              error={Boolean(errors.fullName)}
-              helperText={errors.fullName?.message}
-            />
-            <TextField
+          <section className="grid gap-4">
+            <h2 className="font-bold">Tài khoản CEO</h2>
+            <FormTextField control={control} name="fullName" label="Họ tên" autoComplete="name" />
+            <FormTextField
+              control={control}
+              name="email"
               label="Email"
               type="email"
-              fullWidth
               autoComplete="email"
-              {...field('email')}
-              error={Boolean(errors.email)}
-              helperText={errors.email?.message ?? 'Dùng để đăng nhập.'}
+              description="Dùng để đăng nhập."
             />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <PasswordField
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              <FormTextField
+                control={control}
+                name="password"
                 label="Mật khẩu"
+                password
                 autoComplete="new-password"
-                {...field('password')}
-                error={Boolean(errors.password)}
-                helperText={errors.password?.message ?? 'Tối thiểu 8 ký tự, có chữ và số.'}
+                description="Tối thiểu 8 ký tự, có chữ và số."
               />
-              <PasswordField
+              <FormTextField
+                control={control}
+                name="confirmPassword"
                 label="Nhập lại mật khẩu"
+                password
                 autoComplete="new-password"
-                {...field('confirmPassword')}
-                error={Boolean(errors.confirmPassword)}
-                helperText={errors.confirmPassword?.message}
               />
-            </Stack>
-          </Stack>
+            </div>
+          </section>
 
-          <Box>
-            <Typography variant="subtitle1" fontWeight={700}>
-              Phân hệ tuỳ chọn
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Mười phân hệ lõi (sản phẩm, kho, đơn hàng, tài chính...) luôn bật. Có thể bật thêm sau.
-            </Typography>
-            <Controller
-              control={control}
-              name="optionalModules"
-              render={({ field: { value, onChange } }) => {
-                const toggle = (key: OptionalModuleKey, checked: boolean) => {
-                  // Bật Trợ lý AI phải qua bước đồng ý gửi dữ liệu tới OpenAI
-                  if (key === 'assistant' && checked) {
-                    setAskConsent(true);
-                    return;
-                  }
-                  onChange(checked ? [...value, key] : value.filter((m) => m !== key));
-                };
-                return (
-                  <>
-                    <Stack spacing={0.5}>
-                      {OPTIONAL_MODULES.map((key) => (
-                        <FormControlLabel
-                          key={key}
-                          sx={{ alignItems: 'flex-start', mr: 0 }}
-                          control={
-                            <Checkbox
-                              checked={value.includes(key)}
-                              onChange={(e) => toggle(key, e.target.checked)}
-                              sx={{ pt: 0.5 }}
-                            />
-                          }
-                          label={
-                            <Box sx={{ py: 0.5 }}>
-                              <Typography variant="body2" fontWeight={600}>
-                                {MODULE_LABELS[key]}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {MODULE_DESCRIPTIONS[key]}
-                              </Typography>
-                            </Box>
-                          }
+          <FormField
+            control={control}
+            name="optionalModules"
+            render={({ field: { value, onChange } }) => {
+              const toggle = (key: OptionalModuleKey, checked: boolean) => {
+                // Bật Trợ lý AI phải qua bước đồng ý gửi dữ liệu tới OpenAI
+                if (key === 'assistant' && checked) {
+                  setAskConsent(true);
+                  return;
+                }
+                onChange(checked ? [...value, key] : value.filter((m) => m !== key));
+              };
+              return (
+                <FormItem className="gap-1">
+                  <h2 className="font-bold">Phân hệ tuỳ chọn</h2>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Mười phân hệ lõi (sản phẩm, kho, đơn hàng, tài chính...) luôn bật. Có thể bật
+                    thêm sau.
+                  </p>
+                  <div className="grid gap-1">
+                    {OPTIONAL_MODULES.map((key) => (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-accent/60"
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={value.includes(key)}
+                          onCheckedChange={(c) => toggle(key, c === true)}
                         />
-                      ))}
-                    </Stack>
-                    <AssistantConsentDialog
-                      open={askConsent}
-                      onAgree={() => {
-                        onChange([...value, 'assistant']);
-                        setAskConsent(false);
-                      }}
-                      onDecline={() => setAskConsent(false)}
-                    />
-                  </>
-                );
-              }}
-            />
-            {errors.optionalModules && (
-              <FormHelperText error>{errors.optionalModules.message}</FormHelperText>
-            )}
-          </Box>
+                        <span className="grid gap-0.5">
+                          <span className="text-sm font-semibold">{MODULE_LABELS[key]}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {MODULE_DESCRIPTIONS[key]}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <FormMessage />
+                  <AssistantConsentDialog
+                    open={askConsent}
+                    onAgree={() => {
+                      onChange([...value, 'assistant']);
+                      setAskConsent(false);
+                    }}
+                    onDecline={() => setAskConsent(false)}
+                  />
+                </FormItem>
+              );
+            }}
+          />
 
-          <Button type="submit" variant="contained" size="large" disabled={register.isPending}>
+          <Button type="submit" size="lg" disabled={register.isPending}>
             {register.isPending ? 'Đang đăng ký...' : 'Đăng ký'}
           </Button>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
+          <p className="text-center text-sm text-muted-foreground">
             Đã có tài khoản?{' '}
-            <Link component={RouterLink} to={ROUTES.login} fontWeight={600}>
+            <Link to={ROUTES.login} className="font-semibold text-primary hover:underline">
               Đăng nhập
             </Link>
-          </Typography>
-        </Stack>
-      </form>
+          </p>
+        </form>
+      </Form>
     </AuthShell>
   );
 }
@@ -266,21 +228,21 @@ function AssistantConsentDialog({
   onDecline: () => void;
 }) {
   return (
-    <Dialog open={open} onClose={onDecline} maxWidth="sm">
-      <DialogTitle>Bật Trợ lý AI?</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Khi dùng Trợ lý AI, câu hỏi của nhân viên và dữ liệu liên quan (sản phẩm, đơn hàng, tài
-          liệu nội bộ được dùng để trả lời) sẽ được gửi tới OpenAI để xử lý. Bấm Đồng ý nếu công ty
-          chấp nhận điều này.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onDecline}>Không đồng ý</Button>
-        <Button variant="contained" onClick={onAgree}>
-          Đồng ý
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <AlertDialog open={open} onOpenChange={(o) => !o && onDecline()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Bật Trợ lý AI?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Khi dùng Trợ lý AI, câu hỏi của nhân viên và dữ liệu liên quan (sản phẩm, đơn hàng, tài
+            liệu nội bộ được dùng để trả lời) sẽ được gửi tới OpenAI để xử lý. Bấm Đồng ý nếu công
+            ty chấp nhận điều này.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onDecline}>Không đồng ý</AlertDialogCancel>
+          <AlertDialogAction onClick={onAgree}>Đồng ý</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
