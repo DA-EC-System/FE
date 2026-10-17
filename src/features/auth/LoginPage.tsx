@@ -2,26 +2,18 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Alert,
-  Box,
-  Button,
-  ButtonBase,
-  Chip,
-  Divider,
-  Link,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import { Link as RouterLink, Navigate, useLocation, type Location } from 'react-router-dom';
+import { Link, Navigate, useLocation, type Location } from 'react-router-dom';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { FormTextField } from '@/components/common/FormTextField';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Form } from '@/components/ui/form';
 import { useAuth, useLogin } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
 import { ROUTES } from '@/router/routes';
 import type { Account } from '@/types/auth';
 import { USE_MOCKS } from '@/utils/env';
-import { AuthShell } from './AuthShell';
-import { PasswordField } from './PasswordField';
+import { AuthShell, DividerText } from './AuthShell';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import { emailSchema } from './schemas';
 
@@ -70,12 +62,7 @@ export function LoginPage() {
 
   const { from, registeredEmail } = (location.state as LoginLocationState | null) ?? {};
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginForm>({
+  const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: registeredEmail ?? '', password: '' },
   });
@@ -85,115 +72,91 @@ export function LoginPage() {
     return <Navigate to={redirectTarget(from, account)} replace />;
   }
 
-  const onSubmit = handleSubmit((values) => {
+  const onSubmit = form.handleSubmit((values) => {
     setError(null);
     login.mutate(values, { onError: (e) => setError(getErrorMessage(e)) });
   });
 
   const fillDemo = (email: string, password: string) => {
-    setValue('email', email);
-    setValue('password', password);
+    form.setValue('email', email);
+    form.setValue('password', password);
+    form.clearErrors();
     setError(null);
   };
 
   return (
     <AuthShell title="Đăng nhập" subtitle="Chào mừng trở lại! Đăng nhập để tiếp tục làm việc.">
       {registeredEmail && !error && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <AlertMessage severity="success" className="mb-4">
           Đăng ký công ty thành công. Đăng nhập bằng {registeredEmail} để bắt đầu.
-        </Alert>
+        </AlertMessage>
       )}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <AlertMessage severity="error" className="mb-4" onClose={() => setError(null)}>
           {error}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <form onSubmit={onSubmit} noValidate>
-        <Stack spacing={2}>
-          <TextField
+      <Form {...form}>
+        <form onSubmit={onSubmit} noValidate className="grid gap-4">
+          <FormTextField
+            control={form.control}
+            name="email"
             label="Email"
             type="email"
             autoComplete="email"
-            fullWidth
             autoFocus={!registeredEmail}
-            {...register('email')}
-            error={Boolean(errors.email)}
-            helperText={errors.email?.message}
           />
-          <PasswordField
+          <FormTextField
+            control={form.control}
+            name="password"
             label="Mật khẩu"
+            password
             autoComplete="current-password"
             autoFocus={Boolean(registeredEmail)}
-            {...register('password')}
-            error={Boolean(errors.password)}
-            helperText={errors.password?.message}
           />
           <Button
             type="submit"
-            variant="contained"
-            size="large"
-            disabled={isSubmitting || login.isPending}
-            sx={{ mt: 1 }}
+            size="lg"
+            className="mt-2"
+            disabled={form.formState.isSubmitting || login.isPending}
           >
             {login.isPending ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </Button>
-        </Stack>
-      </form>
+        </form>
+      </Form>
 
-      <Divider sx={{ my: 2.5 }}>
-        <Typography variant="caption" color="text.secondary">
-          hoặc
-        </Typography>
-      </Divider>
+      <DividerText className="my-5">hoặc</DividerText>
       <GoogleLoginButton onError={setError} />
 
-      <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 3 }}>
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         Công ty chưa dùng Commerio?{' '}
-        <Link component={RouterLink} to={ROUTES.register} fontWeight={600}>
+        <Link to={ROUTES.register} className="font-semibold text-primary hover:underline">
           Đăng ký công ty
         </Link>
-      </Typography>
+      </p>
 
       {SHOW_DEMO_ACCOUNTS && (
         <>
-          <Divider sx={{ my: 3 }}>
-            <Typography variant="caption" color="text.secondary">
-              Tài khoản demo
-            </Typography>
-          </Divider>
-
-          <Stack spacing={1}>
+          <DividerText className="my-6">Tài khoản demo</DividerText>
+          <div className="grid gap-2">
             {DEMO_ACCOUNTS.map((acc) => (
-              <ButtonBase
+              <button
                 key={acc.email}
+                type="button"
                 onClick={() => fillDemo(acc.email, acc.password)}
-                sx={{
-                  width: '100%',
-                  textAlign: 'left',
-                  p: 1.5,
-                  borderRadius: 1.5,
-                  border: 1,
-                  borderColor: 'divider',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  transition: 'all 0.15s',
-                  '&:hover': { borderColor: 'primary.main', backgroundColor: 'action.hover' },
-                }}
+                className="flex w-full items-center justify-between gap-2 rounded-md border p-3 text-start transition-colors hover:border-primary hover:bg-accent"
               >
-                <Box>
-                  <Typography variant="body2" fontWeight={600} component="div">
-                    {acc.email}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Mật khẩu: {acc.password}
-                  </Typography>
-                </Box>
-                <Chip label={acc.label} size="small" variant="outlined" color="primary" />
-              </ButtonBase>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{acc.email}</div>
+                  <div className="text-xs text-muted-foreground">Mật khẩu: {acc.password}</div>
+                </div>
+                <Badge variant="outline" className="border-primary/40 text-primary">
+                  {acc.label}
+                </Badge>
+              </button>
             ))}
-          </Stack>
+          </div>
         </>
       )}
     </AuthShell>

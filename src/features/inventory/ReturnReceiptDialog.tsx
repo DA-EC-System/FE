@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useFieldArray, useForm, type Resolver } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Alert,
@@ -48,8 +48,7 @@ export function ReturnReceiptDialog({ order, onClose, onDone }: ReturnReceiptDia
     setError: setFieldError,
     formState: { errors },
   } = useForm<ReturnFormInput, unknown, ReturnFormOutput>({
-    // @hookform/resolvers v3 chưa suy ra kiểu đầu ra của schema có transform
-    resolver: zodResolver(returnFormSchema) as Resolver<ReturnFormInput, unknown, ReturnFormOutput>,
+    resolver: zodResolver(returnFormSchema),
     defaultValues: { note: '', lines: [] },
   });
   const { fields } = useFieldArray({ control, name: 'lines', keyName: 'key' });

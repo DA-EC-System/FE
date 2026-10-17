@@ -13,7 +13,7 @@ const qtyText = (min: number, max: number, label = 'Số lượng') =>
     // "1.200" hay "1 200" là một nghìn hai trăm; "1.5" không phải số nguyên
     const text = /^-?\d{1,3}([.,\s]\d{3})+$/.test(trimmed) ? trimmed.replace(/[\s.,]/g, '') : trimmed;
     const fail = (message: string) => {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+      ctx.addIssue({ code: 'custom', message });
       return z.NEVER;
     };
     if (!text) return fail(`Nhập ${label.toLowerCase()}`);
@@ -30,7 +30,7 @@ export const minQtySchema = z.string().transform((raw, ctx): number | null => {
   if (!raw.trim()) return null;
   const parsed = qtyText(0, MAX_QTY, 'Ngưỡng').safeParse(raw);
   if (parsed.success) return parsed.data;
-  ctx.addIssue({ code: z.ZodIssueCode.custom, message: parsed.error.issues[0].message });
+  ctx.addIssue({ code: 'custom', message: parsed.error.issues[0].message });
   return z.NEVER;
 });
 
@@ -60,7 +60,7 @@ export const docFormSchema = (type: StockDocType) =>
         const seen = new Set<string>();
         lines.forEach((l, i) => {
           if (seen.has(l.variantId)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: [i, 'variantId'], message: 'Biến thể bị lặp' });
+            ctx.addIssue({ code: 'custom', path: [i, 'variantId'], message: 'Biến thể bị lặp' });
           }
           seen.add(l.variantId);
         });
@@ -94,7 +94,7 @@ export const returnFormSchema = z
         .transform((l, ctx) => {
           const parsed = qtyText(0, l.shipped, 'Số thực nhận').safeParse(l.quantity);
           if (!parsed.success) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: parsed.error.issues[0].message });
+            ctx.addIssue({ code: 'custom', path: ['quantity'], message: parsed.error.issues[0].message });
             return z.NEVER;
           }
           return { variantId: l.variantId, shipped: l.shipped, quantity: parsed.data };
@@ -103,9 +103,9 @@ export const returnFormSchema = z
   })
   .superRefine((form, ctx) => {
     if (form.lines.every((l) => l.quantity === 0)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['lines'], message: 'Không có hàng nào quay về thì không lập phiếu' });
+      ctx.addIssue({ code: 'custom', path: ['lines'], message: 'Không có hàng nào quay về thì không lập phiếu' });
     } else if (form.lines.some((l) => l.quantity !== l.shipped) && !form.note) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: 'Ghi lý do số thực nhận khác số đã xuất' });
+      ctx.addIssue({ code: 'custom', path: ['note'], message: 'Ghi lý do số thực nhận khác số đã xuất' });
     }
   });
 export type ReturnFormInput = z.input<typeof returnFormSchema>;

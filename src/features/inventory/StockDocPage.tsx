@@ -110,8 +110,8 @@ export function StockDocPage() {
     setError,
     formState: { errors, isDirty },
   } = useForm<DocFormInput, unknown, DocFormOutput>({
-    // @hookform/resolvers v3 chưa suy ra kiểu đầu ra của schema có transform
-    resolver: zodResolver(schema) as Resolver<DocFormInput, unknown, DocFormOutput>,
+    // Dòng trên form giữ thêm sku, tên để hiển thị; schema chỉ kiểm các ô nhập nên phải ép kiểu
+    resolver: zodResolver(schema) as unknown as Resolver<DocFormInput, unknown, DocFormOutput>,
     defaultValues: { note: '', lines: [] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: 'lines', keyName: 'key' });

@@ -1,5 +1,4 @@
-import { Paper, Stack, Typography } from '@mui/material';
-import ConstructionIcon from '@mui/icons-material/Construction';
+import { Construction } from 'lucide-react';
 
 interface PlaceholderPageProps {
   title: string;
@@ -13,29 +12,13 @@ export function PlaceholderPage({
   description = 'Module này đang được phát triển trong giai đoạn tiếp theo.',
 }: PlaceholderPageProps) {
   return (
-    <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 5,
-          textAlign: 'center',
-          maxWidth: 480,
-          border: 1,
-          borderColor: 'divider',
-          borderStyle: 'dashed',
-        }}
-      >
-        <ConstructionIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-        <Typography variant="h6" fontWeight={700} gutterBottom>
-          {title}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {phase}
-        </Typography>
-        <Typography variant="caption" color="text.disabled">
-          {description}
-        </Typography>
-      </Paper>
-    </Stack>
+    <div className="flex justify-center py-16">
+      <div className="flex max-w-md flex-col items-center gap-1 rounded-xl border border-dashed bg-card p-10 text-center">
+        <Construction className="mb-3 size-12 text-primary" />
+        <h2 className="text-lg font-bold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{phase}</p>
+        <p className="text-xs text-muted-foreground/80">{description}</p>
+      </div>
+    </div>
   );
 }

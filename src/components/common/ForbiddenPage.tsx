@@ -1,5 +1,6 @@
-import { Box, Button, Paper, Typography } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { ShieldX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/router/routes';
 
 interface ForbiddenPageProps {
@@ -16,21 +17,15 @@ export function ForbiddenPage({
   backLabel = 'Về trang chính',
 }: ForbiddenPageProps) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
-      <Paper
-        sx={{ p: 4, maxWidth: 480, textAlign: 'center', border: 1, borderColor: 'divider' }}
-        elevation={0}
-      >
-        <Typography variant="h5" fontWeight={700} gutterBottom>
-          {title}
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
-          {message}
-        </Typography>
-        <Button component={RouterLink} to={backTo} variant="contained">
-          {backLabel}
+    <div className="flex justify-center p-4 md:p-8">
+      <div className="flex max-w-md flex-col items-center gap-2 rounded-xl border bg-card p-8 text-center">
+        <ShieldX className="mb-2 size-10 text-muted-foreground" />
+        <h1 className="text-xl font-bold">{title}</h1>
+        <p className="mb-4 text-muted-foreground">{message}</p>
+        <Button asChild>
+          <Link to={backTo}>{backLabel}</Link>
         </Button>
-      </Paper>
-    </Box>
+      </div>
+    </div>
   );
 }

@@ -1,21 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardActionArea,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Stack,
-  Typography,
-} from '@mui/material';
-import BusinessIcon from '@mui/icons-material/Business';
-import LockIcon from '@mui/icons-material/Lock';
+import { Building2, Loader2, Lock } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useAuth, useLogout, useMe } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
+import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import type { Membership } from '@/types/auth';
 
@@ -44,88 +35,73 @@ export function SelectCompanyPage() {
   if (account?.isPlatformAdmin) return <Navigate to={ROUTES.platform.root} replace />;
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        p: { xs: 2, md: 6 },
-        backgroundColor: 'background.default',
-      }}
-    >
-      <Box sx={{ width: '100%', maxWidth: 640 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              Chọn công ty
-            </Typography>
-            <Typography color="text.secondary">
+    <div className="flex min-h-svh justify-center bg-background p-4 md:p-12">
+      <div className="w-full max-w-2xl">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Chọn công ty</h1>
+            <p className="text-muted-foreground">
               Xin chào {account?.fullName}. Chọn công ty bạn muốn làm việc.
-            </Typography>
-          </Box>
-          <Button onClick={logout}>Đăng xuất</Button>
-        </Stack>
+            </p>
+          </div>
+          <Button variant="ghost" onClick={logout}>
+            Đăng xuất
+          </Button>
+        </div>
 
         {me.isError && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
+          <AlertMessage severity="warning" className="mb-4">
             Không tải lại được danh sách công ty: {getErrorMessage(me.error)}
-          </Alert>
+          </AlertMessage>
         )}
 
         {me.isPending && memberships.length === 0 ? (
-          <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}>
-            <CircularProgress />
-          </Box>
+          <div className="grid place-items-center py-12">
+            <Loader2 className="size-8 animate-spin text-primary" aria-label="Đang tải" />
+          </div>
         ) : memberships.length === 0 ? (
-          <Alert severity="info">
+          <AlertMessage severity="info">
             Tài khoản chưa thuộc công ty nào. Liên hệ CEO hoặc Admin của công ty để được mời.
-          </Alert>
+          </AlertMessage>
         ) : (
-          <Stack spacing={1.5}>
+          <div className="grid gap-3">
             {memberships.map((m) => {
               const reason = blockedReason(m);
               return (
-                <Card
+                <button
                   key={m.companyId}
-                  variant="outlined"
-                  sx={{ opacity: reason ? 0.6 : 1 }}
+                  type="button"
+                  disabled={Boolean(reason)}
+                  onClick={() => navigate(ROUTES.company.root(m.companyId))}
+                  className={cn(
+                    'flex w-full items-center gap-4 rounded-xl border bg-card p-4 text-start transition-colors',
+                    reason
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'hover:border-primary hover:bg-accent',
+                  )}
                 >
-                  <CardActionArea
-                    disabled={Boolean(reason)}
-                    onClick={() => navigate(ROUTES.company.root(m.companyId))}
-                  >
-                    <CardContent>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        {reason ? (
-                          <LockIcon color="disabled" />
-                        ) : (
-                          <BusinessIcon color="primary" />
-                        )}
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography fontWeight={600} noWrap>
-                            {m.companyName}
-                          </Typography>
-                          <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
-                            {m.roles.map((r) => (
-                              <Chip key={r} label={r} size="small" variant="outlined" />
-                            ))}
-                          </Stack>
-                          {reason && (
-                            <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                              {reason}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </CardActionArea>
-                </Card>
+                  {reason ? (
+                    <Lock className="size-6 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Building2 className="size-6 shrink-0 text-primary" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold">{m.companyName}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {m.roles.map((r) => (
+                        <Badge key={r} variant="outline">
+                          {r}
+                        </Badge>
+                      ))}
+                    </div>
+                    {reason && <div className="mt-1 text-xs text-destructive">{reason}</div>}
+                  </div>
+                </button>
               );
             })}
-          </Stack>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

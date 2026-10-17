@@ -1,0 +1,139 @@
+/*
+ * Bộ màu Commerio (giữ nguyên src/theme/tokens.ts) đặt vào biến của shadcn/ui.
+ * Sửa màu ở đây thì sửa cả tokens.ts để các trang MUI còn lại cùng màu.
+ *  - primary   = thép brand500 #486A8C; bản tối dùng brand300 trên chữ navy
+ *  - nền, chữ, viền theo surface.light / surface.dark
+ *  - success, warning, info, destructive theo semantic
+ */
+:root {
+  --radius: 0.625rem;
+
+  --background: #f4f6f8; /* brand50 */
+  --foreground: #0d2143; /* brand900 */
+  --card: #ffffff;
+  --card-foreground: #0d2143;
+  --popover: #ffffff;
+  --popover-foreground: #0d2143;
+  --primary: #486a8c; /* brand500 */
+  --primary-foreground: #ffffff;
+  --secondary: #e5eaef; /* brand100 */
+  --secondary-foreground: #0d2143;
+  --muted: #e5eaef;
+  --muted-foreground: #55657d;
+  --accent: #e5eaef;
+  --accent-foreground: #193052; /* brand800 */
+  --destructive: #c0392b;
+  --success: #2e7d5b;
+  --warning: #a35f0c;
+  --info: #2b7bb9;
+  --border: #e8eaec; /* neutral200 */
+  --input: #d6d9dd; /* neutral300 */
+  --ring: #7f97ae; /* brand400 */
+  --chart-1: #486a8c;
+  --chart-2: #0d2143;
+  --chart-3: #2e7d5b;
+  --chart-4: #a35f0c;
+  --chart-5: #2b7bb9;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0d2143;
+  --sidebar-primary: #486a8c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e5eaef;
+  --sidebar-accent-foreground: #0d2143;
+  --sidebar-border: #e8eaec;
+  --sidebar-ring: #7f97ae;
+}
+
+.dark {
+  --background: #081428;
+  --foreground: #e6edf5;
+  --card: #0d1f3c;
+  --card-foreground: #e6edf5;
+  --popover: #0d1f3c;
+  --popover-foreground: #e6edf5;
+  --primary: #abbaca; /* brand300 */
+  --primary-foreground: #0d2143;
+  --secondary: #1e3354;
+  --secondary-foreground: #e6edf5;
+  --muted: #1e3354;
+  --muted-foreground: #9fb0c3;
+  --accent: #1e3354;
+  --accent-foreground: #e6edf5;
+  --destructive: #ef7a6e;
+  --success: #5fbf8f;
+  --warning: #e0a04a;
+  --info: #6aaee0;
+  --border: #1e3354;
+  --input: #284264; /* brand700 */
+  --ring: #7f97ae;
+  --chart-1: #abbaca;
+  --chart-2: #6aaee0;
+  --chart-3: #5fbf8f;
+  --chart-4: #e0a04a;
+  --chart-5: #ef7a6e;
+
+  --sidebar: #0d1f3c;
+  --sidebar-foreground: #e6edf5;
+  --sidebar-primary: #abbaca;
+  --sidebar-primary-foreground: #0d2143;
+  --sidebar-accent: #1e3354;
+  --sidebar-accent-foreground: #e6edf5;
+  --sidebar-border: #1e3354;
+  --sidebar-ring: #7f97ae;
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Thang màu thương hiệu, dùng như bg-brand-900 */
+  --color-brand-50: #f4f6f8;
+  --color-brand-100: #e5eaef;
+  --color-brand-200: #ccd5df;
+  --color-brand-300: #abbaca;
+  --color-brand-400: #7f97ae;
+  --color-brand-500: #486a8c;
+  --color-brand-600: #375678;
+  --color-brand-700: #284264;
+  --color-brand-800: #193052;
+  --color-brand-900: #0d2143;
+}

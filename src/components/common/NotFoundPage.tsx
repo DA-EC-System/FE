@@ -1,30 +1,20 @@
-import { Box, Button, Stack, Typography } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/router/routes';
 
 export function NotFoundPage() {
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        p: 3,
-      }}
-    >
-      <Stack alignItems="center" spacing={2}>
-        <Typography variant="h1" fontWeight={800} color="primary">
-          404
-        </Typography>
-        <Typography variant="h6">Không tìm thấy trang</Typography>
-        <Typography color="text.secondary">
+    <div className="flex min-h-svh items-center justify-center p-6">
+      <div className="flex flex-col items-center gap-2 text-center">
+        <h1 className="text-[7rem] leading-tight font-bold text-primary">404</h1>
+        <p className="text-lg font-semibold">Không tìm thấy trang</p>
+        <p className="text-muted-foreground">
           Trang bạn truy cập không tồn tại hoặc đã bị di chuyển.
-        </Typography>
-        <Button component={RouterLink} to={ROUTES.home} variant="contained">
-          Về trang chính
+        </p>
+        <Button asChild className="mt-4">
+          <Link to={ROUTES.home}>Về trang chính</Link>
         </Button>
-      </Stack>
-    </Box>
+      </div>
+    </div>
   );
 }
