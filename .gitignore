@@ -36,3 +36,11 @@ dist-ssr
 # Test
 coverage
 *.lcov
+
+# TypeScript incremental build
+*.tsbuildinfo
+
+# Cypress
+cypress/screenshots
+cypress/videos
+cypress/downloads

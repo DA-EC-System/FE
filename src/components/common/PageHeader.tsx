@@ -1,5 +1,5 @@
-import { Box, Stack, Typography, Button } from '@mui/material';
 import type { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface PageHeaderProps {
   title: string;
@@ -20,32 +20,18 @@ export function PageHeader({
   actionIcon,
 }: PageHeaderProps) {
   return (
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      alignItems={{ xs: 'flex-start', sm: 'center' }}
-      justifyContent="space-between"
-      spacing={2}
-      sx={{ mb: 3 }}
-    >
-      <Box>
-        <Typography variant="h5" fontWeight={700}>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      {action ?? (actionLabel && onAction ? (
-        <Button
-          variant="contained"
-          startIcon={actionIcon}
-          onClick={onAction}
-        >
-          {actionLabel}
-        </Button>
-      ) : null)}
-    </Stack>
+    <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+      </div>
+      {action ??
+        (actionLabel && onAction ? (
+          <Button onClick={onAction}>
+            {actionIcon}
+            {actionLabel}
+          </Button>
+        ) : null)}
+    </div>
   );
 }
