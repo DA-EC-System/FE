@@ -1,29 +1,19 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Snackbar,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
-import LockIcon from '@mui/icons-material/Lock';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import SearchIcon from '@mui/icons-material/Search';
+import { useMemo, useState, type ReactNode } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { Lock, LockOpen, UserCog, UserPlus } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { DataTable } from '@/components/common/DataTable';
+import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRoles, useSetStaffLocked, useStaff } from '@/api/identity.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getErrorMessage } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -33,9 +23,42 @@ import type { MembershipStatus } from '@/types/auth';
 import type { StaffMember } from '@/types/identity';
 import { InviteStaffDialog } from './InviteStaffDialog';
 import { EditStaffRolesDialog } from './EditStaffRolesDialog';
-import { conflictCurrent } from './shared';
+import { conflictCurrent, protectedReason, STAFF_STATUS_LABELS } from './shared';
 
-type Toast = { severity: 'success' | 'error' | 'warning'; msg: string };
+/** Nút biểu tượng kèm tooltip; bọc span để tooltip vẫn hiện khi nút bị khoá */
+function RowAction({
+  label,
+  reason,
+  onClick,
+  children,
+  destructive,
+}: {
+  label: string;
+  reason: string | null;
+  onClick: () => void;
+  children: ReactNode;
+  destructive?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={reason ? 0 : undefined}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={destructive ? 'size-8 text-destructive hover:text-destructive' : 'size-8'}
+            aria-label={label}
+            disabled={Boolean(reason)}
+            onClick={onClick}
+          >
+            {children}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{reason ?? label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn */
 export function StaffListPage() {
@@ -47,251 +70,197 @@ export function StaffListPage() {
   const debouncedSearch = useDebounce(search.trim());
   const [status, setStatus] = useState<MembershipStatus | ''>('');
   const [roleId, setRoleId] = useState('');
-  const [pagination, setPagination] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [locking, setLocking] = useState<StaffMember | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
 
-  const staffQuery = useStaff({
-    page: pagination.page + 1,
-    pageSize: pagination.pageSize,
-    search: debouncedSearch,
-    status,
-    roleId,
-  });
+  const staffQuery = useStaff({ page, pageSize, search: debouncedSearch, status, roleId });
   const rolesQuery = useRoles();
-  const roles = rolesQuery.data ?? [];
+  const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
   const lockMut = useSetStaffLocked();
 
-  /** UC-PI-05: không đổi vai trò hay khoá CEO và chính mình */
-  const protectedReason = useCallback(
-    (m: StaffMember) => {
-      if (m.isCeo) return 'Không thao tác được trên tài khoản CEO';
-      if (m.accountId === account?.id) return 'Không thao tác được trên tài khoản của chính bạn';
-      return null;
-    },
-    [account?.id],
-  );
-
-  const handleLock = useCallback(async () => {
+  const handleLock = async () => {
     if (!locking) return;
     const locked = locking.status === 'active';
     try {
       await lockMut.mutateAsync({ accountId: locking.accountId, locked, version: locking.version });
-      setToast({
-        severity: 'success',
-        msg: locked ? `Đã tạm khoá ${locking.fullName}` : `Đã mở khoá ${locking.fullName}`,
-      });
+      toast.success(locked ? `Đã tạm khoá ${locking.fullName}` : `Đã mở khoá ${locking.fullName}`);
     } catch (e) {
       const latest = conflictCurrent<StaffMember>(e);
-      setToast(
-        getProblem(e)?.code === 'version_conflict' && latest
-          ? {
-              severity: 'warning',
-              msg: `${latest.fullName} vừa được người khác sửa, hiện ${
-                latest.status === 'locked' ? 'đang tạm khoá' : 'đang hoạt động'
-              }. Chưa có gì thay đổi.`,
-            }
-          : { severity: 'error', msg: getErrorMessage(e) },
-      );
+      if (problemCode(e) === 'version_conflict' && latest) {
+        toast.warning(
+          `${latest.fullName} vừa được người khác sửa, hiện ${STAFF_STATUS_LABELS[
+            latest.status
+          ].toLowerCase()}. Chưa có gì thay đổi.`,
+        );
+      } else {
+        toast.error(problemMessage(e));
+      }
     }
     setLocking(null);
-  }, [locking, lockMut]);
+  };
 
-  const columns: GridColDef<StaffMember>[] = useMemo(
+  const columns = useMemo<ColumnDef<StaffMember>[]>(
     () => [
       {
-        field: 'fullName',
-        headerName: 'Họ tên',
-        flex: 1.2,
-        minWidth: 200,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ height: '100%' }}>
-            <span>{row.fullName}</span>
-            {row.accountId === account?.id && (
-              <Typography variant="caption" color="text.secondary">
-                (bạn)
-              </Typography>
+        id: 'fullName',
+        header: 'Họ tên',
+        meta: { className: 'min-w-44' },
+        cell: ({ row: { original: m } }) => (
+          <span className="font-medium">
+            {m.fullName}
+            {m.accountId === account?.id && (
+              <span className="font-normal text-muted-foreground"> (bạn)</span>
             )}
-          </Stack>
+          </span>
         ),
       },
-      { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 200 },
+      { accessorKey: 'email', header: 'Email', meta: { className: 'min-w-48' } },
       {
-        field: 'roles',
-        headerName: 'Vai trò',
-        flex: 1.4,
-        minWidth: 220,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ height: '100%' }} flexWrap="wrap">
-            {row.roles.map((r) => (
-              <Chip
-                key={r.id}
-                label={r.name}
-                size="small"
-                color={row.isCeo ? 'primary' : 'default'}
-                variant={row.isCeo ? 'filled' : 'outlined'}
-              />
+        id: 'roles',
+        header: 'Vai trò',
+        meta: { className: 'min-w-48' },
+        cell: ({ row: { original: m } }) => (
+          <div className="flex flex-wrap gap-1">
+            {m.roles.map((r) => (
+              <Badge key={r.id} variant={m.isCeo ? 'default' : 'outline'}>
+                {r.name}
+              </Badge>
             ))}
-          </Stack>
+          </div>
         ),
       },
       {
-        field: 'status',
-        headerName: 'Trạng thái',
-        width: 190,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ height: '100%' }}>
-            <Chip
-              size="small"
-              label={row.status === 'locked' ? 'Tạm khoá' : 'Hoạt động'}
-              color={row.status === 'locked' ? 'error' : 'success'}
-            />
-            {row.pendingFirstLogin && (
-              <Tooltip title="Chưa đăng nhập lần đầu bằng mật khẩu trong thư mời">
-                <Chip size="small" variant="outlined" label="Chờ đăng nhập" />
-              </Tooltip>
+        id: 'status',
+        header: 'Trạng thái',
+        meta: { className: 'w-44' },
+        cell: ({ row: { original: m } }) => (
+          <div className="flex flex-wrap gap-1">
+            <Badge variant={m.status === 'locked' ? 'destructive' : 'success'}>
+              {STAFF_STATUS_LABELS[m.status]}
+            </Badge>
+            {m.pendingFirstLogin && (
+              <Badge variant="outline" title="Chưa đăng nhập lần đầu bằng mật khẩu trong thư mời">
+                Chờ đăng nhập
+              </Badge>
             )}
-          </Stack>
+          </div>
         ),
       },
       {
-        field: 'joinedAt',
-        headerName: 'Tham gia',
-        width: 150,
-        valueGetter: (value) => formatDateTime(value as string),
+        id: 'joinedAt',
+        header: 'Tham gia',
+        meta: { className: 'w-36 whitespace-nowrap' },
+        cell: ({ row }) => formatDateTime(row.original.joinedAt),
       },
+      // Không có quyền quản lý: không có cột hành động (AC-2)
       ...(canManage
         ? [
             {
-              field: 'actions',
-              headerName: 'Hành động',
-              width: 120,
-              sortable: false,
-              filterable: false,
-              renderCell: ({ row }) => {
-                const reason = protectedReason(row);
-                const locked = row.status === 'locked';
+              id: 'actions',
+              header: () => <span className="sr-only">Hành động</span>,
+              meta: { className: 'w-24' },
+              cell: ({ row: { original: m } }) => {
+                const reason = protectedReason(m, account?.id);
+                const locked = m.status === 'locked';
                 return (
-                  <Stack direction="row" spacing={0.5}>
-                    <Tooltip title={reason ?? 'Đổi vai trò'}>
-                      <span>
-                        <IconButton size="small" disabled={Boolean(reason)} onClick={() => setEditing(row)}>
-                          <ManageAccountsIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title={reason ?? (locked ? 'Mở khoá' : 'Tạm khoá')}>
-                      <span>
-                        <IconButton
-                          size="small"
-                          color={locked ? 'default' : 'error'}
-                          disabled={Boolean(reason)}
-                          onClick={() => setLocking(row)}
-                        >
-                          {locked ? <LockOpenIcon fontSize="small" /> : <LockIcon fontSize="small" />}
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Stack>
+                  <div className="flex gap-1">
+                    <RowAction label="Đổi vai trò" reason={reason} onClick={() => setEditing(m)}>
+                      <UserCog />
+                    </RowAction>
+                    <RowAction
+                      label={locked ? 'Mở khoá' : 'Tạm khoá'}
+                      reason={reason}
+                      destructive={!locked}
+                      onClick={() => setLocking(m)}
+                    >
+                      {locked ? <LockOpen /> : <Lock />}
+                    </RowAction>
+                  </div>
                 );
               },
-            } satisfies GridColDef<StaffMember>,
+            } satisfies ColumnDef<StaffMember>,
           ]
         : []),
     ],
-    [account?.id, canManage, protectedReason],
+    [account?.id, canManage],
   );
 
+  const filtered = Boolean(debouncedSearch || status || roleId);
   const lockingTarget = locking?.status === 'active';
+  const resetPage = () => setPage(1);
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Nhân viên"
         subtitle={`Tài khoản làm việc tại ${companyContext?.companyName ?? ''}.`}
         action={
           canManage ? (
-            <Button variant="contained" startIcon={<PersonAddIcon />} onClick={() => setInviteOpen(true)}>
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus />
               Thêm nhân viên
             </Button>
           ) : null
         }
       />
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Tìm theo tên hoặc email..."
+      {staffQuery.isError && (
+        <AlertMessage severity="error" className="mb-4">
+          {getErrorMessage(staffQuery.error)}
+        </AlertMessage>
+      )}
+
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPagination((p) => ({ ...p, page: 0 }));
+            onChange={(v) => {
+              setSearch(v);
+              resetPage();
             }}
-            sx={{ minWidth: 260 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
+            placeholder="Tìm theo tên hoặc email..."
           />
-          <TextField
-            size="small"
-            select
+          <FilterSelect
             label="Trạng thái"
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as MembershipStatus | '');
-              setPagination((p) => ({ ...p, page: 0 }));
+            onChange={(v) => {
+              setStatus(v as MembershipStatus | '');
+              resetPage();
             }}
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">Tất cả</MenuItem>
-            <MenuItem value="active">Hoạt động</MenuItem>
-            <MenuItem value="locked">Tạm khoá</MenuItem>
-          </TextField>
-          <TextField
-            size="small"
-            select
+            options={Object.entries(STAFF_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+          />
+          <FilterSelect
             label="Vai trò"
             value={roleId}
-            onChange={(e) => {
-              setRoleId(e.target.value);
-              setPagination((p) => ({ ...p, page: 0 }));
+            onChange={(v) => {
+              setRoleId(v);
+              resetPage();
             }}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">Tất cả</MenuItem>
-            {roles.map((r) => (
-              <MenuItem key={r.id} value={r.id}>
-                {r.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
-
-        <DataGrid
-          rows={staffQuery.data?.items ?? []}
-          getRowId={(r) => r.accountId}
+            options={roles.map((r) => ({ value: r.id, label: r.name }))}
+          />
+        </FilterBar>
+        <DataTable
           columns={columns}
-          loading={staffQuery.isLoading || staffQuery.isFetching}
-          paginationMode="server"
-          rowCount={staffQuery.data?.total ?? 0}
-          paginationModel={pagination}
-          onPaginationModelChange={setPagination}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          getRowHeight={() => 'auto'}
-          sx={{ minHeight: 420, '& .MuiDataGrid-cell': { py: 1 } }}
+          data={staffQuery.data?.items ?? []}
+          getRowId={(m) => m.accountId}
+          loading={staffQuery.isLoading}
+          fetching={staffQuery.isFetching}
+          empty={filtered ? 'Không có nhân viên nào khớp bộ lọc' : 'Chưa có nhân viên'}
+          pagination={{
+            page,
+            pageSize,
+            total: staffQuery.data?.total ?? 0,
+            onChange: (p, size) => {
+              setPage(p);
+              setPageSize(size);
+            },
+          }}
         />
-      </Paper>
+      </Card>
 
       <InviteStaffDialog
         open={inviteOpen}
@@ -299,7 +268,7 @@ export function StaffListPage() {
         onClose={() => setInviteOpen(false)}
         onDone={(msg) => {
           setInviteOpen(false);
-          setToast({ severity: 'success', msg });
+          toast.success(msg);
         }}
       />
 
@@ -309,7 +278,7 @@ export function StaffListPage() {
         onClose={() => setEditing(null)}
         onDone={(msg) => {
           setEditing(null);
-          setToast({ severity: 'success', msg });
+          toast.success(msg);
         }}
       />
 
@@ -334,19 +303,6 @@ export function StaffListPage() {
         onConfirm={handleLock}
         onClose={() => setLocking(null)}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

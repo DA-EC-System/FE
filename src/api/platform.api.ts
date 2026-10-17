@@ -84,7 +84,7 @@ export function usePlatformAuditLogs(params: AuditLogListParams) {
 /**
  * Khoá/mở khoá không cập nhật lạc quan: công ty có thể vừa đổi trạng thái ở phiên khác
  * (ngoại lệ bước 4 của UC-PI-08), nên chờ BE trả kết quả rồi tải lại.
- * Thành công hay xung đột (409) đều làm mới danh sách để hiện trạng thái thật.
+ * Gửi version (docs/21 V18); thành công hay 409 version_conflict đều làm mới danh sách.
  */
 export function useLockCompany() {
   const qc = useQueryClient();
@@ -100,8 +100,10 @@ export function useLockCompany() {
 export function useUnlockCompany() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { data } = await apiClient.post<Company>(`/platform/companies/${id}/unlock`);
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      const { data } = await apiClient.post<Company>(`/platform/companies/${id}/unlock`, {
+        version,
+      });
       return data;
     },
     onSettled: () => qc.invalidateQueries({ queryKey: platformKeys.all }),

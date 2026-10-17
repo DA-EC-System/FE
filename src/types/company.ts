@@ -21,8 +21,11 @@ export interface Company {
   lockedAt?: string;
   /** Ngày đăng ký */
   createdAt: string;
+  /** Khoá lạc quan khi khoá, mở khoá (docs/21 C3, V18) */
+  version: number;
 }
 
 export interface LockCompanyInput {
   reason: string;
+  version: number;
 }

@@ -392,6 +392,7 @@ const authHandlers = [
       optionalModules: body.optionalModules,
       status: 'active',
       createdAt: db.now(),
+      version: 1,
     });
     db.accounts.push({
       id: accountId,
@@ -540,20 +541,18 @@ const platformHandlers = [
     const guard = requirePlatformAdmin(request);
     if (!guard.ok) return guard.response;
     const company = db.companies.find((c) => c.id === params.id);
-    if (!company) return problem(404, 'Không tìm thấy công ty');
-    const { reason } = (await request.json()) as LockCompanyInput;
+    if (!company) return problem(404, 'Không tìm thấy', { code: 'not_found' });
+    const { reason, version } = (await request.json()) as LockCompanyInput;
     if (!reason?.trim()) {
       return problem(422, 'Dữ liệu không hợp lệ', { errors: { reason: 'Cần nhập lý do khoá' } });
     }
-    if (company.status === 'locked') {
-      return problem(409, 'Trạng thái công ty đã thay đổi', {
-        code: 'state_conflict',
-        detail: `${company.name} đã bị khoá ở một phiên khác.`,
-      });
+    if (version !== company.version || company.status === 'locked') {
+      return versionConflict({ ...company }, `${company.name} vừa được đổi ở một phiên khác.`);
     }
     company.status = 'locked';
     company.lockReason = reason.trim();
     company.lockedAt = db.now();
+    company.version += 1;
     writePlatformLog('company.locked', company.id, guard.value.email, company.lockReason);
     return HttpResponse.json(company);
   }),
@@ -563,16 +562,15 @@ const platformHandlers = [
     const guard = requirePlatformAdmin(request);
     if (!guard.ok) return guard.response;
     const company = db.companies.find((c) => c.id === params.id);
-    if (!company) return problem(404, 'Không tìm thấy công ty');
-    if (company.status === 'active') {
-      return problem(409, 'Trạng thái công ty đã thay đổi', {
-        code: 'state_conflict',
-        detail: `${company.name} đã được mở khoá ở một phiên khác.`,
-      });
+    if (!company) return problem(404, 'Không tìm thấy', { code: 'not_found' });
+    const { version } = (await request.json().catch(() => ({}))) as { version?: number };
+    if (version !== company.version || company.status === 'active') {
+      return versionConflict({ ...company }, `${company.name} vừa được đổi ở một phiên khác.`);
     }
     company.status = 'active';
     company.lockReason = undefined;
     company.lockedAt = undefined;
+    company.version += 1;
     writePlatformLog('company.unlocked', company.id, guard.value.email);
     return HttpResponse.json(company);
   }),
@@ -931,8 +929,8 @@ const identityHandlers = [
     const actor = guard.value;
     const role = companyRoles(actor.companyId).find((r) => r.id === params.id);
     if (!role) {
-      return problem(404, 'Vai trò không còn', {
-        code: 'role_not_found',
+      return problem(404, 'Không tìm thấy', {
+        code: 'not_found',
         detail: 'Vai trò đã bị xoá ở một phiên khác.',
       });
     }
@@ -969,15 +967,22 @@ const identityHandlers = [
     const actor = guard.value;
     const role = companyRoles(actor.companyId).find((r) => r.id === params.id);
     if (!role) {
-      return problem(404, 'Vai trò không còn', {
-        code: 'role_not_found',
+      return problem(404, 'Không tìm thấy', {
+        code: 'not_found',
         detail: 'Vai trò đã bị xoá ở một phiên khác.',
       });
     }
     if (role.companyId === null) {
       return problem(403, 'Vai trò có sẵn không xoá được', { code: 'builtin_role' });
     }
-    const version = Number(new URL(request.url).searchParams.get('version'));
+    const rawVersion = new URL(request.url).searchParams.get('version');
+    if (!rawVersion) {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        code: 'validation_failed',
+        errors: { version: 'Thiếu version' },
+      });
+    }
+    const version = Number(rawVersion);
     if (version !== role.version) {
       return versionConflict(toRole(role, actor.companyId), `Vai trò "${role.name}" vừa được người khác sửa.`);
     }
@@ -1087,7 +1092,7 @@ const identityHandlers = [
     if (!guard.ok) return guard.response;
     const actor = guard.value;
     const m = findMember(actor, params.accountId);
-    if (!m) return problem(403, 'Tài khoản không thuộc công ty này');
+    if (!m) return problem(404, 'Không tìm thấy', { code: 'not_found' });
     const blocked = protectedMember(actor, m);
     if (blocked) return blocked;
     const body = (await request.json()) as { roleIds: string[]; version: number };
@@ -1110,7 +1115,7 @@ const identityHandlers = [
       if (!guard.ok) return guard.response;
       const actor = guard.value;
       const m = findMember(actor, params.accountId);
-      if (!m) return problem(403, 'Tài khoản không thuộc công ty này');
+      if (!m) return problem(404, 'Không tìm thấy', { code: 'not_found' });
       const blocked = protectedMember(actor, m);
       if (blocked) return blocked;
       const { version } = (await request.json()) as { version: number };
@@ -1268,9 +1273,9 @@ const companySettingsHandlers = [
     const guard = requireCompany(request, PERMISSIONS.auditView);
     if (!guard.ok) return guard.response;
     const log = db.companyAuditLogs.find((l) => l.id === params.id);
-    // Dòng của công ty khác: 403, không lộ là dòng đó có tồn tại
+    // Dòng của công ty khác: 404 như không có, không lộ là dòng đó tồn tại (docs/21 C4)
     if (!log || log.companyId !== guard.value.companyId) {
-      return problem(403, 'Không xem được dòng nhật ký này');
+      return problem(404, 'Không tìm thấy', { code: 'not_found' });
     }
     const detail: CompanyAuditLogDetail = { ...toAuditLog(log), before: log.before, after: log.after };
     return HttpResponse.json(detail);

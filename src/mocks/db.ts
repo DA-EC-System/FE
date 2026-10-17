@@ -25,6 +25,7 @@ const companies: Company[] = [
     optionalModules: ['channel', 'inbox', 'report'],
     status: 'active',
     createdAt: '2026-01-15T08:00:00.000Z',
+    version: 1,
   },
   {
     id: 'cmp-002',
@@ -35,6 +36,7 @@ const companies: Company[] = [
     optionalModules: ['channel', 'assistant'],
     status: 'active',
     createdAt: '2026-03-22T10:30:00.000Z',
+    version: 1,
   },
   {
     id: 'cmp-003',
@@ -45,6 +47,7 @@ const companies: Company[] = [
     optionalModules: ['purchasing'],
     status: 'active',
     createdAt: '2026-09-25T09:00:00.000Z',
+    version: 1,
   },
   {
     id: 'cmp-004',
@@ -57,6 +60,7 @@ const companies: Company[] = [
     lockReason: 'Vi phạm điều khoản sử dụng — chờ xác minh',
     lockedAt: '2026-08-20T03:00:00.000Z',
     createdAt: '2025-11-02T07:00:00.000Z',
+    version: 1,
   },
   {
     id: 'cmp-005',
@@ -67,6 +71,7 @@ const companies: Company[] = [
     optionalModules: ['channel'],
     status: 'active',
     createdAt: '2026-10-05T11:00:00.000Z',
+    version: 1,
   },
 ];
 

@@ -1,33 +1,28 @@
 import { useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Checkbox,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Skeleton,
-  Snackbar,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCompanyModules, useSetModule } from '@/api/companySettings.api';
 import { getErrorMessage, getProblem } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { formatDateTime } from '@/utils/format';
 import { MODULE_LABELS, type OptionalModuleKey } from '@/utils/modules';
 import type { CompanyModule } from '@/types/companySettings';
-
-type Toast = { severity: 'success' | 'error' | 'warning'; msg: string };
 
 const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
   purchasing: 'Nhà cung cấp, đơn mua hàng và nhập hàng theo đơn mua.',
@@ -37,6 +32,8 @@ const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
   report: 'Báo cáo doanh thu, lợi nhuận, tồn kho theo thời gian.',
 };
 
+const HAS_DATA_NOTE = 'Công ty đã có dữ liệu trong phân hệ này nên không tắt được.';
+
 /** UC-PI-02: CEO bật/tắt năm phân hệ tuỳ chọn; có hiệu lực ngay với mọi nhân viên */
 export function ModuleSettingsPage() {
   const modulesQuery = useCompanyModules();
@@ -45,17 +42,25 @@ export function ModuleSettingsPage() {
   const [disabling, setDisabling] = useState<CompanyModule | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const submit = async (code: OptionalModuleKey, enabled: boolean, aiConsent?: boolean) => {
     const label = MODULE_LABELS[code];
     try {
       await setModule.mutateAsync({ code, enabled, aiConsent });
-      setToast({ severity: 'success', msg: `Đã ${enabled ? 'bật' : 'tắt'} ${label}` });
+      toast.success(`Đã ${enabled ? 'bật' : 'tắt'} ${label}`);
     } catch (err) {
-      // Phiên khác vừa đổi hoặc phân hệ đã có dữ liệu: báo nội dung BE trả về, danh sách tự tải lại
-      const conflict = getProblem(err)?.status === 409;
-      setToast({ severity: conflict ? 'warning' : 'error', msg: getErrorMessage(err) });
+      // Phiên khác vừa đổi: báo trạng thái hiện tại, danh sách đã đồng bộ theo current (M2)
+      const code409 = problemCode(err);
+      const current = (getProblem(err) as { current?: CompanyModule } | undefined)?.current;
+      if (code409 === 'module_state_changed' && current) {
+        toast.warning(
+          `${label} vừa được người khác ${current.enabled ? 'bật' : 'tắt'}, hiện đang ${
+            current.enabled ? 'bật' : 'tắt'
+          }. Chưa có gì thay đổi.`,
+        );
+      } else {
+        toast[getProblem(err)?.status === 409 ? 'warning' : 'error'](problemMessage(err));
+      }
     } finally {
       setDisabling(null);
       setConsentOpen(false);
@@ -74,90 +79,72 @@ export function ModuleSettingsPage() {
   const busyCode = setModule.isPending ? setModule.variables?.code : undefined;
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Phân hệ"
         subtitle="Bật hoặc tắt các phân hệ tuỳ chọn. Thay đổi có hiệu lực ngay với mọi nhân viên của công ty."
       />
 
       {modulesQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(modulesQuery.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 2,
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-        }}
-      >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {modulesQuery.isLoading &&
-          Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} variant="rounded" height={180} />
-          ))}
+          Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
         {modulesQuery.data?.map((m) => (
-          <Card
-            key={m.code}
-            elevation={0}
-            sx={{ height: '100%', display: 'flex', flexDirection: 'column', border: 1, borderColor: 'divider' }}
-          >
-            <CardContent sx={{ flexGrow: 1 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                <Typography variant="h6">{MODULE_LABELS[m.code]}</Typography>
-                <Chip
-                  size="small"
-                  color={m.enabled ? 'success' : 'default'}
-                  label={m.enabled ? 'Đang bật' : 'Đang tắt'}
-                />
-              </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {MODULE_DESCRIPTIONS[m.code]}
-              </Typography>
+          <Card key={m.code} className="gap-3" data-module={m.code}>
+            <CardHeader>
+              <CardTitle className="text-base">{MODULE_LABELS[m.code]}</CardTitle>
+              <CardAction>
+                <Badge variant={m.enabled ? 'success' : 'secondary'}>
+                  {m.enabled ? 'Đang bật' : 'Đang tắt'}
+                </Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="flex-1 space-y-2 text-sm">
+              <p className="text-muted-foreground">{MODULE_DESCRIPTIONS[m.code]}</p>
               {m.enabled && m.enabledAt && (
-                <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1.5 }}>
+                <p className="text-xs text-muted-foreground">
                   Bật lúc {formatDateTime(m.enabledAt)}
                   {m.enabledBy ? ` bởi ${m.enabledBy.fullName}` : ''}
-                </Typography>
+                </p>
               )}
               {m.code === 'assistant' && m.enabled && m.aiConsentAt && (
-                <Typography variant="caption" color="text.secondary" component="p">
+                <p className="text-xs text-muted-foreground">
                   Đã đồng ý gửi dữ liệu tới OpenAI lúc {formatDateTime(m.aiConsentAt)}
                   {m.aiConsentBy ? ` (${m.aiConsentBy.fullName})` : ''}
-                </Typography>
+                </p>
               )}
             </CardContent>
-            <CardActions sx={{ px: 2, pb: 2 }}>
+            <CardFooter className="flex-col items-start gap-2">
               {m.enabled ? (
-                <Tooltip
-                  title={m.hasData ? 'Công ty đã có dữ liệu trong phân hệ này nên không tắt được.' : ''}
-                >
-                  {/* span để Tooltip vẫn hiện khi nút bị khoá */}
-                  <span>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      disabled={m.hasData || Boolean(busyCode)}
-                      onClick={() => setDisabling(m)}
-                    >
-                      Tắt
-                    </Button>
-                  </span>
-                </Tooltip>
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    disabled={m.hasData || Boolean(busyCode)}
+                    onClick={() => setDisabling(m)}
+                  >
+                    {busyCode === m.code ? 'Đang tắt...' : 'Tắt'}
+                  </Button>
+                  {m.hasData && (
+                    <p className="text-xs text-muted-foreground" data-testid="has-data-note">
+                      {HAS_DATA_NOTE}
+                    </p>
+                  )}
+                </>
               ) : (
-                <Button
-                  variant="contained"
-                  disabled={Boolean(busyCode)}
-                  onClick={() => handleEnable(m)}
-                >
+                <Button disabled={Boolean(busyCode)} onClick={() => handleEnable(m)}>
                   {busyCode === m.code ? 'Đang bật...' : 'Bật'}
                 </Button>
               )}
-            </CardActions>
+            </CardFooter>
           </Card>
         ))}
-      </Box>
+      </div>
 
       <ConfirmDialog
         open={Boolean(disabling)}
@@ -171,50 +158,50 @@ export function ModuleSettingsPage() {
       />
 
       {/* UC-PI-02 luồng phụ: bật Trợ lý AI cần CEO đồng ý gửi dữ liệu tới OpenAI */}
-      <Dialog open={consentOpen} onClose={() => setConsentOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Bật Trợ lý AI</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 1.5 }}>
-            Trợ lý AI chạy trên dịch vụ của OpenAI. Khi nhân viên đặt câu hỏi, hệ thống sẽ gửi câu
-            hỏi cùng dữ liệu liên quan của công ty (sản phẩm, đơn hàng, tồn kho, doanh thu) tới
-            OpenAI để trả lời.
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 1.5 }}>
-            Mật khẩu, khoá kết nối gian hàng và thông tin thanh toán không được gửi đi.
-          </Typography>
-          <FormControlLabel
-            control={
-              <Checkbox checked={consentChecked} onChange={(e) => setConsentChecked(e.target.checked)} />
-            }
-            label="Tôi đồng ý gửi dữ liệu của công ty tới OpenAI khi dùng Trợ lý AI"
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConsentOpen(false)} color="inherit">
-            Không đồng ý
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!consentChecked || setModule.isPending}
-            onClick={() => void submit('assistant', true, true)}
-          >
-            Đồng ý và bật
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      <Dialog
+        open={consentOpen}
+        onOpenChange={(next) => !next && !setModule.isPending && setConsentOpen(false)}
       >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bật Trợ lý AI</DialogTitle>
+            <DialogDescription>
+              Trợ lý AI chạy trên dịch vụ của OpenAI. Khi nhân viên đặt câu hỏi, hệ thống sẽ gửi câu
+              hỏi cùng dữ liệu liên quan của công ty (sản phẩm, đơn hàng, tồn kho, doanh thu) tới
+              OpenAI để trả lời.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Mật khẩu, khoá kết nối gian hàng và thông tin thanh toán không được gửi đi.
+          </p>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="ai-consent"
+              className="mt-0.5"
+              checked={consentChecked}
+              onCheckedChange={(v) => setConsentChecked(v === true)}
+            />
+            <Label htmlFor="ai-consent" className="leading-snug font-normal">
+              Tôi đồng ý gửi dữ liệu của công ty tới OpenAI khi dùng Trợ lý AI
+            </Label>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConsentOpen(false)}
+              disabled={setModule.isPending}
+            >
+              Không đồng ý
+            </Button>
+            <Button
+              disabled={!consentChecked || setModule.isPending}
+              onClick={() => void submit('assistant', true, true)}
+            >
+              {setModule.isPending ? 'Đang bật...' : 'Đồng ý và bật'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

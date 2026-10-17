@@ -1,12 +1,14 @@
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Button,
-} from '@mui/material';
 import type { ReactNode } from 'react';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -20,6 +22,10 @@ interface ConfirmDialogProps {
   onClose: () => void;
 }
 
+/**
+ * Hộp xác nhận (AlertDialog của shadcn). Nút xác nhận là Button thường chứ không phải
+ * AlertDialogAction để hộp còn mở trong lúc chờ API; nơi gọi tự đóng khi xong.
+ */
 export function ConfirmDialog({
   open,
   title,
@@ -32,24 +38,25 @@ export function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <DialogContentText component="div">{message}</DialogContentText>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={loading}>
-          {cancelLabel}
-        </Button>
-        <Button
-          onClick={onConfirm}
-          variant="contained"
-          color={destructive ? 'error' : 'primary'}
-          disabled={loading}
-        >
-          {confirmLabel}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <AlertDialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div>{message}</div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>{cancelLabel}</AlertDialogCancel>
+          <Button
+            variant={destructive ? 'destructive' : 'default'}
+            disabled={loading}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

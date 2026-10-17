@@ -1,17 +1,11 @@
 import { useState } from 'react';
-import {
-  Alert,
-  Box,
-  Chip,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-} from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
+import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { DataTable } from '@/components/common/DataTable';
+import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { usePlatformAuditLogs } from '@/api/platform.api';
 import { getErrorMessage } from '@/api/client';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -19,30 +13,29 @@ import { formatDateTime } from '@/utils/format';
 import type { PlatformAuditAction, PlatformAuditLog } from '@/types/audit';
 import { AUDIT_ACTION_LABELS } from './auditLabels';
 
-const columns: GridColDef<PlatformAuditLog>[] = [
+const columns: ColumnDef<PlatformAuditLog>[] = [
   {
-    field: 'createdAt',
-    headerName: 'Thời điểm',
-    width: 160,
-    valueFormatter: (value: string) => formatDateTime(value),
+    id: 'createdAt',
+    header: 'Thời điểm',
+    meta: { className: 'w-40 whitespace-nowrap' },
+    cell: ({ row }) => formatDateTime(row.original.createdAt),
   },
   {
-    field: 'action',
-    headerName: 'Hành động',
-    width: 120,
-    renderCell: ({ row }) => {
-      const a = AUDIT_ACTION_LABELS[row.action];
-      return <Chip size="small" color={a.color} label={a.label} />;
+    id: 'action',
+    header: 'Hành động',
+    meta: { className: 'w-28' },
+    cell: ({ row }) => {
+      const a = AUDIT_ACTION_LABELS[row.original.action];
+      return <Badge variant={a.variant}>{a.label}</Badge>;
     },
   },
-  { field: 'targetCompanyName', headerName: 'Công ty', flex: 1, minWidth: 200 },
-  { field: 'actorEmail', headerName: 'Người thực hiện', flex: 1, minWidth: 200 },
+  { accessorKey: 'targetCompanyName', header: 'Công ty', meta: { className: 'min-w-52' } },
+  { accessorKey: 'actorEmail', header: 'Người thực hiện', meta: { className: 'min-w-52' } },
   {
-    field: 'reason',
-    headerName: 'Lý do',
-    flex: 1.2,
-    minWidth: 200,
-    valueFormatter: (value?: string) => value ?? '—',
+    id: 'reason',
+    header: 'Lý do',
+    meta: { className: 'min-w-52 whitespace-normal' },
+    cell: ({ row }) => row.original.reason ?? '—',
   },
 ];
 
@@ -52,109 +45,73 @@ export function PlatformAuditLogPage() {
   const [searchInput, setSearchInput] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [pagination, setPagination] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const search = useDebounce(searchInput.trim());
 
   const query = usePlatformAuditLogs({
-    page: pagination.page + 1,
-    pageSize: pagination.pageSize,
+    page,
+    pageSize,
     action: action || undefined,
     search: search || undefined,
     from: from || undefined,
     to: to || undefined,
   });
 
-  const resetPage = () => setPagination((p) => ({ ...p, page: 0 }));
+  const withReset =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPage(1);
+    };
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Nhật ký nền tảng"
         subtitle="Các thao tác cấp nền tảng: công ty đăng ký, bị khoá và được mở khoá."
       />
 
       {query.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(query.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ p: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Tìm theo công ty hoặc người thực hiện..."
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput
             value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-              resetPage();
-            }}
-            sx={{ minWidth: 280 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
+            onChange={withReset(setSearchInput)}
+            placeholder="Tìm theo công ty hoặc người thực hiện..."
           />
-          <TextField
-            select
-            size="small"
+          <FilterSelect
             label="Hành động"
             value={action}
-            onChange={(e) => {
-              setAction(e.target.value as PlatformAuditAction | '');
-              resetPage();
-            }}
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">Tất cả</MenuItem>
-            {Object.entries(AUDIT_ACTION_LABELS).map(([key, { label }]) => (
-              <MenuItem key={key} value={key}>
-                {label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            size="small"
-            type="date"
-            label="Từ ngày"
-            value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              resetPage();
-            }}
-            InputLabelProps={{ shrink: true }}
+            onChange={withReset((v: string) => setAction(v as PlatformAuditAction | ''))}
+            options={Object.entries(AUDIT_ACTION_LABELS).map(([value, { label }]) => ({ value, label }))}
           />
-          <TextField
-            size="small"
-            type="date"
-            label="Đến ngày"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              resetPage();
-            }}
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ min: from || undefined }}
-          />
-        </Stack>
-
-        <DataGrid
-          rows={query.data?.items ?? []}
+          <DateFilter label="Từ ngày" value={from} onChange={withReset(setFrom)} max={to || undefined} />
+          <DateFilter label="Đến ngày" value={to} onChange={withReset(setTo)} min={from || undefined} />
+        </FilterBar>
+        <DataTable
           columns={columns}
-          rowCount={query.data?.total ?? 0}
-          loading={query.isFetching}
-          paginationMode="server"
-          paginationModel={pagination}
-          onPaginationModelChange={setPagination}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          disableColumnFilter
-          sx={{ minHeight: 420, border: 0 }}
+          data={query.data?.items ?? []}
+          getRowId={(r) => r.id}
+          loading={query.isLoading}
+          fetching={query.isFetching}
+          empty="Không có dòng nào"
+          pagination={{
+            page,
+            pageSize,
+            total: query.data?.total ?? 0,
+            onChange: (p, size) => {
+              setPage(p);
+              setPageSize(size);
+            },
+          }}
         />
-      </Paper>
-    </Box>
+      </Card>
+    </div>
   );
 }
