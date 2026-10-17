@@ -37,7 +37,7 @@ export function useCompanyModules() {
     queryKey: companySettingsKeys.modules(companyId),
     enabled: Boolean(companyId),
     queryFn: async () => {
-      const { data } = await apiClient.get<CompanyModule[]>('/company/modules');
+      const { data } = await apiClient.get<CompanyModule[]>('/platform/modules');
       return data;
     },
   });
@@ -49,7 +49,7 @@ export function useSetModule() {
   const setEnabledModules = useAuthStore((s) => s.setEnabledModules);
   return useMutation({
     mutationFn: async ({ code, ...body }: SetModuleInput) => {
-      const { data } = await apiClient.put<SetModuleResult>(`/company/modules/${code}`, body);
+      const { data } = await apiClient.put<SetModuleResult>(`/platform/modules/${code}`, body);
       return data;
     },
     // Menu và RequireModule đọc enabledModules trong store: cập nhật ngay, không cần chọn lại công ty

@@ -44,7 +44,7 @@ export function SelectCompanyPage() {
               Xin chào {account?.fullName}. Chọn công ty bạn muốn làm việc.
             </p>
           </div>
-          <Button variant="ghost" onClick={logout}>
+          <Button variant="ghost" onClick={() => void logout()}>
             Đăng xuất
           </Button>
         </div>

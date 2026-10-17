@@ -147,14 +147,22 @@ Khi chạy `pnpm dev`, mock (MSW) mặc định bật kể cả khi chưa có `.
 
 1. Sửa `.env`:
    ```
-   VITE_API_BASE_URL=https://api.commerio.example.com
+   VITE_API_BASE_URL=/api/v1
    VITE_USE_MOCKS=false
    ```
+   Để trống `VITE_API_BASE_URL` thì mặc định là `/api/v1`. FE và API chạy cùng domain
+   (Caddy phục vụ FE ở `/`, API ở `/api`) để cookie refresh `SameSite=Strict` dùng được (docs/21 V38).
 2. Backend cần expose các endpoint đúng shape mà MSW handlers đang mô phỏng
-   (xem `src/mocks/handlers.ts` — toàn bộ request/response đã được khai báo
-   chuẩn REST).
-3. Backend trả về JWT thật ở `/api/auth/login`; axios interceptor sẽ tự gắn
-   vào header `Authorization: Bearer <token>` cho các request sau.
+   (xem `src/mocks/handlers.ts`), theo hợp đồng `Documents/21-hop-dong-api-fe-be.md`.
+3. Đăng nhập theo docs/21 A1–A3:
+   - `POST /identity/login` trả access token trong body (sống 15 phút) và đặt refresh token
+     vào cookie HttpOnly. FE chỉ giữ access token trong bộ nhớ, không ghi localStorage.
+   - Mở hoặc tải lại trang: FE gọi `POST /identity/refresh` (gửi kèm cookie), rồi `GET /identity/me`.
+   - Gặp 401 giữa chừng: FE làm mới token một lần rồi gọi lại request; làm mới thất bại thì về `/login`.
+   - Đăng xuất gọi `POST /identity/logout` để BE thu hồi refresh token và xoá cookie.
+
+   Khi chạy mock, có thể rút ngắn thời hạn token để thử tự làm mới, bằng cách chạy trong console
+   trước khi đăng nhập: `__commerioMock.accessTtlMs = 5000`.
 
 ## Lưu ý so với đề bài
 
