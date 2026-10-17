@@ -47,11 +47,17 @@ export function useRegisterCompany() {
   return useMutation({ mutationFn: authApi.registerCompany });
 }
 
-/** UC-PI-04. Đổi xong thì bỏ cờ bắt đổi mật khẩu để mở lại các chức năng khác. */
+/**
+ * UC-PI-04. Đổi xong thì bỏ cờ bắt đổi mật khẩu để mở lại các chức năng khác. Access token cũ
+ * vẫn mang cờ đó nên BE còn trả 403 `password_change_required`: xin token mới trước khi bỏ cờ.
+ */
 export function useChangePassword() {
   const setAccount = useAuthStore((s) => s.setAccount);
   return useMutation({
-    mutationFn: (input: ChangePasswordRequest) => authApi.changePassword(input),
+    mutationFn: async (input: ChangePasswordRequest) => {
+      await authApi.changePassword(input);
+      if (useAuthStore.getState().account?.mustChangePassword) await refreshAccessToken();
+    },
     onSuccess: () => {
       const account = useAuthStore.getState().account;
       if (account) setAccount({ ...account, mustChangePassword: false });
