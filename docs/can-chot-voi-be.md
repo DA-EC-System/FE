@@ -21,9 +21,9 @@ Cột **Trạng thái**: `Chờ BE` là chưa có trả lời; khi chốt xong, 
 
 | # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
 |---|---|---|---|
-| A1 | Lưu token | UC-PI-03 yêu cầu cookie HttpOnly. FE hiện giữ access token trong localStorage, chờ BE có refresh token | Chờ BE |
-| A2 | Refresh token | `POST /auth/refresh` bằng cookie HttpOnly; access token trả trong body, thời hạn ngắn | Chờ BE |
-| A3 | Hợp đồng `/auth/*` | `login`, `select-company`, `register`, `google`, `change-password` (xem `src/types/auth.ts`) | Chờ BE |
+| A1 | Lưu token | UC-PI-03 yêu cầu cookie HttpOnly. FE hiện giữ access token trong localStorage, chờ BE có refresh token | Đã chốt (docs/21 A1): refresh token trong cookie HttpOnly, access token chỉ trong bộ nhớ. FE đã làm (FE#1) |
+| A2 | Refresh token | `POST /auth/refresh` bằng cookie HttpOnly; access token trả trong body, thời hạn ngắn | Đã chốt: `POST /identity/refresh`, access token 15 phút. FE đã làm (FE#1) |
+| A3 | Hợp đồng `/auth/*` | `login`, `select-company`, `register`, `google`, `change-password` (xem `src/types/auth.ts`) | Đã chốt: đổi thành `/identity/*`, thêm `me`, `refresh`, `logout`. FE đã đổi (FE#1) |
 | A4 | Mã lỗi | `email_taken`, `password_change_required` (403), `google_account_not_found`, `company_locked` (403) | Chờ BE |
 | A5 | Quy tắc mật khẩu | 8–72 ký tự, có chữ và số | Chờ BE |
 | A6 | Google (commerio-backend#7) | FE lấy ID token bằng Google Identity Services rồi gửi `POST /auth/google`, hay BE làm luồng chuyển hướng OAuth2? Nút Google đang tạm khoá khi chạy với BE thật | Chờ BE |
@@ -43,7 +43,7 @@ Cột **Trạng thái**: `Chờ BE` là chưa có trả lời; khi chốt xong, 
 
 | # | Điểm cần chốt | Đề xuất của FE | Trạng thái |
 |---|---|---|---|
-| M1 | Hợp đồng | `GET /company/modules`, `PUT /company/modules/:code`, `GET /audit/logs`, `GET /audit/logs/:id` | Chờ BE |
+| M1 | Hợp đồng | `GET /company/modules`, `PUT /company/modules/:code`, `GET /audit/logs`, `GET /audit/logs/:id` | Đã chốt: `/company/modules` đổi thành `/platform/modules`, `/audit/logs` giữ nguyên. FE đã đổi (FE#1) |
 | M2 | Mã lỗi | `module_state_changed` (409 kèm `current`), `module_has_data`, `ai_consent_required` | Chờ BE |
 | M3 | Quyền `platform.module.manage` (CEO), `platform.audit.view` (CEO, Admin) | Không nằm trong danh mục quyền nên không cấp được cho vai trò tuỳ biến; BE vẫn tự kiểm | Chờ BE |
 | M4 | Phân hệ vừa tắt ở phiên nhân viên khác | Menu của nhân viên đang đăng nhập chỉ cập nhật khi tải lại trang hoặc chọn lại công ty. BE phải chặn API của phân hệ đã tắt. Mock đang trả 403 `module_disabled` | Chờ BE |

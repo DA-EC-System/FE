@@ -4,6 +4,9 @@
  *
  * Token mock dạng `mock.<accountId>.<companyId | ->.<ts>`: sau khi chọn công ty,
  * token gắn với công ty đó; các API của công ty đọc companyId từ token (như RLS ở BE).
+ * Access token sống 15 phút (docs/21 A2). Refresh token nằm trong cookie `commerio_refresh`.
+ * Mock ghi cookie bằng `document.cookie` vì: JS không đặt được cookie HttpOnly, còn header
+ * Set-Cookie của MSW bị MSW lưu vào localStorage. BE thật đặt cookie HttpOnly bằng Set-Cookie.
  */
 
 import { http, HttpResponse, delay } from 'msw';
@@ -88,7 +91,22 @@ import type { PlatformOverview } from '@/api/platform.api';
 import { CORE_MODULES, OPTIONAL_MODULES } from '@/utils/modules';
 import { PERMISSIONS } from '@/utils/permissions';
 
-const API = '/api';
+const API = '/api/v1';
+
+/**
+ * Thời hạn token của mock, đổi được khi test qua `window.__commerioMock` (không ghi vào storage).
+ * Ví dụ đặt `accessTtlMs = 5000` để thấy FE tự làm mới token sau 5 giây (AC-5).
+ */
+interface MockAuthConfig {
+  accessTtlMs: number;
+  refreshTtlMs: number;
+}
+const mockAuth: MockAuthConfig = Object.assign(
+  { accessTtlMs: 15 * 60_000, refreshTtlMs: 7 * 24 * 3600_000 },
+  (globalThis as { __commerioMock?: Partial<MockAuthConfig> }).__commerioMock,
+);
+(globalThis as { __commerioMock?: MockAuthConfig }).__commerioMock = mockAuth;
+const REFRESH_COOKIE = 'commerio_refresh';
 const LATENCY = 350; // ms — để thấy được loading state
 
 // ---------- Tiện ích ----------
@@ -127,11 +145,45 @@ interface TokenInfo {
 
 function readToken(request: Request): TokenInfo | null {
   const auth = request.headers.get('Authorization') ?? '';
-  const [prefix, accountId, companyId] = auth.replace(/^Bearer /, '').split('.');
+  const [prefix, accountId, companyId, issuedAt] = auth.replace(/^Bearer /, '').split('.');
   if (prefix !== 'mock') return null;
+  // Hết 15 phút thì BE trả 401, FE phải gọi /identity/refresh
+  if (Date.now() - Number(issuedAt) > mockAuth.accessTtlMs) return null;
   const account = db.accounts.find((a) => a.id === accountId);
   if (!account) return null;
   return { account, companyId: companyId && companyId !== '-' ? companyId : null };
+}
+
+/** Refresh token mock: `<accountId>~<hết hạn lúc>`. Đăng xuất thì thu hồi. */
+const revokedRefresh = new Set<string>();
+
+function setRefreshCookie(accountId: string) {
+  const value = `${accountId}~${Date.now() + mockAuth.refreshTtlMs}`;
+  const maxAge = Math.floor(mockAuth.refreshTtlMs / 1000);
+  document.cookie = `${REFRESH_COOKIE}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Strict`;
+}
+
+function clearRefreshCookie() {
+  document.cookie = `${REFRESH_COOKIE}=; Path=/; Max-Age=0; SameSite=Strict`;
+}
+
+/**
+ * Cookie trình duyệt gửi kèm request. Service worker không thấy header Cookie,
+ * còn handler MSW chạy trong trang nên đọc thẳng `document.cookie`.
+ */
+function readCookie(name: string): string | undefined {
+  const pair = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${name}=`));
+  return pair?.slice(name.length + 1);
+}
+
+function readRefresh(): Account | null {
+  const value = readCookie(REFRESH_COOKIE);
+  if (!value || revokedRefresh.has(value)) return null;
+  const [accountId, expiresAt] = value.split('~');
+  if (Date.now() > Number(expiresAt)) return null;
+  return db.accounts.find((a) => a.id === accountId) ?? null;
 }
 
 function makeToken(accountId: string, companyId: string | null) {
@@ -225,7 +277,7 @@ function requireCompany(request: Request, permission: string): Guard<CompanyActo
   const blocked = passwordChangeRequired(token.account);
   if (blocked) return { ok: false, response: blocked };
   if (!token.companyId) {
-    return { ok: false, response: problem(403, 'Chưa chọn công ty', { code: 'no_company' }) };
+    return { ok: false, response: problem(403, 'Chưa chọn công ty', { code: 'company_not_selected' }) };
   }
   const membership = db.memberships.find(
     (m) => m.accountId === token.account.id && m.companyId === token.companyId,
@@ -285,18 +337,19 @@ function writePlatformLog(
 
 // ---------- Auth ----------
 const authHandlers = [
-  http.post(`${API}/auth/login`, async ({ request }) => {
+  http.post(`${API}/identity/login`, async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as LoginRequest;
     const account = db.accounts.find((a) => a.email === body.email);
     if (!account || passwords[body.email] !== body.password) {
-      return problem(401, 'Email hoặc mật khẩu không đúng');
+      return problem(401, 'Email hoặc mật khẩu không đúng', { code: 'invalid_credentials' });
     }
+    setRefreshCookie(account.id);
     return HttpResponse.json(loginPayload(account));
   }),
 
   // Mock: credential chính là email Google trả về. BE thật kiểm ID token với Google.
-  http.post(`${API}/auth/google`, async ({ request }) => {
+  http.post(`${API}/identity/google`, async ({ request }) => {
     await delay(LATENCY);
     const { credential } = (await request.json()) as GoogleLoginRequest;
     const account = db.accounts.find((a) => a.email === credential.trim().toLowerCase());
@@ -306,11 +359,12 @@ const authHandlers = [
         detail: `Email ${credential} chưa có tài khoản Commerio. Hệ thống không tự tạo tài khoản; hãy nhờ CEO công ty mời bạn.`,
       });
     }
+    setRefreshCookie(account.id);
     return HttpResponse.json(loginPayload(account));
   }),
 
   // UC-PI-01
-  http.post(`${API}/auth/register`, async ({ request }) => {
+  http.post(`${API}/identity/register`, async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as RegisterCompanyRequest;
     const email = body.ceo.email.trim().toLowerCase();
@@ -360,7 +414,7 @@ const authHandlers = [
   }),
 
   // UC-PI-04
-  http.post(`${API}/auth/change-password`, async ({ request }) => {
+  http.post(`${API}/identity/change-password`, async ({ request }) => {
     await delay(LATENCY);
     const token = readToken(request);
     if (!token) return problem(401, 'Chưa đăng nhập');
@@ -375,7 +429,25 @@ const authHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.get(`${API}/auth/me`, async ({ request }) => {
+  // docs/21 A2: đổi cookie refresh lấy access token mới (chưa gắn công ty)
+  http.post(`${API}/identity/refresh`, async () => {
+    await delay(100);
+    const account = readRefresh();
+    if (!account) {
+      return problem(401, 'Phiên đăng nhập đã hết hạn', { code: 'refresh_invalid' });
+    }
+    return HttpResponse.json({ accessToken: makeToken(account.id, null) });
+  }),
+
+  http.post(`${API}/identity/logout`, async () => {
+    await delay(100);
+    const value = readCookie(REFRESH_COOKIE);
+    if (value) revokedRefresh.add(value);
+    clearRefreshCookie();
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API}/identity/me`, async ({ request }) => {
     await delay(100);
     const token = readToken(request);
     if (!token) return problem(401, 'Chưa đăng nhập');
@@ -386,7 +458,7 @@ const authHandlers = [
     return HttpResponse.json(payload);
   }),
 
-  http.post(`${API}/auth/select-company`, async ({ request }) => {
+  http.post(`${API}/identity/select-company`, async ({ request }) => {
     await delay(LATENCY);
     const token = readToken(request);
     if (!token) return problem(401, 'Chưa đăng nhập');
@@ -1097,14 +1169,14 @@ function toAuditLog(l: (typeof db.companyAuditLogs)[number]): CompanyAuditLog {
 }
 
 const companySettingsHandlers = [
-  http.get(`${API}/company/modules`, async ({ request }) => {
+  http.get(`${API}/platform/modules`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.moduleManage);
     if (!guard.ok) return guard.response;
     return HttpResponse.json(OPTIONAL_MODULES.map((code) => toCompanyModule(guard.value.companyId, code)));
   }),
 
-  http.put(`${API}/company/modules/:code`, async ({ params, request }) => {
+  http.put(`${API}/platform/modules/:code`, async ({ params, request }) => {
     await delay(LATENCY);
     // UC-PI-02 bước 4: chỉ CEO của công ty (quyền này chỉ vai trò CEO có)
     const guard = requireCompany(request, PERMISSIONS.moduleManage);

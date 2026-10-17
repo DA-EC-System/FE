@@ -86,3 +86,8 @@ export interface SelectCompanyResponse {
   accessToken: string;
   context: CompanyContext;
 }
+
+/** `POST /identity/refresh` (docs/21 A1, A2): BE đọc refresh token trong cookie HttpOnly. */
+export interface RefreshResponse {
+  accessToken: string;
+}

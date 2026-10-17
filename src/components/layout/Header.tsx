@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Building2, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useColorMode } from '@/theme/ColorModeContext';
+import { useAuth } from '@/hooks/useAuth';
+import { ProfileDropdown } from './NavUser';
 
-/** Header dính ở đầu nội dung (theo shadcn-admin): nút thu gọn sidebar, tên mục, đổi sáng/tối */
+/**
+ * Header dính ở đầu nội dung (theo shadcn-admin): nút thu gọn sidebar, tên mục,
+ * công ty đang làm việc, đổi sáng/tối, menu tài khoản.
+ */
 export function Header({ title }: { title?: string }) {
   const { mode, toggle } = useColorMode();
+  const { companyContext } = useAuth();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -28,7 +34,15 @@ export function Header({ title }: { title?: string }) {
       <SidebarTrigger variant="outline" className="max-md:scale-110" />
       <Separator orientation="vertical" className="h-6!" />
       <span className="truncate text-sm font-medium">{title}</span>
-      <div className="ms-auto">
+      <div className="ms-auto flex items-center gap-2">
+        {companyContext && (
+          <span className="hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm text-muted-foreground sm:flex">
+            <Building2 className="size-4" />
+            <span className="max-w-56 truncate font-medium text-foreground">
+              {companyContext.companyName}
+            </span>
+          </span>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -43,6 +57,7 @@ export function Header({ title }: { title?: string }) {
           </TooltipTrigger>
           <TooltipContent>{mode === 'dark' ? 'Chuyển sáng' : 'Chuyển tối'}</TooltipContent>
         </Tooltip>
+        <ProfileDropdown />
       </div>
     </header>
   );
