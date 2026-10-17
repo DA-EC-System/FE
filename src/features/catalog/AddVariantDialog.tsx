@@ -1,22 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Box,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAddVariant } from '@/api/catalog.api';
-import { getErrorMessage } from '@/api/client';
+import { getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { renderSku } from '@/utils/sku';
 import type { Attribute, Category, ProductDetail } from '@/types/catalog';
-import { comboKey, valueNames } from './shared';
+import { comboKey, valueIndex } from './shared';
 
 interface AddVariantDialogProps {
   open: boolean;
@@ -27,7 +33,7 @@ interface AddVariantDialogProps {
   onDone: (message: string) => void;
 }
 
-/** UC-CP-02 bước 5–7: thêm tổ hợp mới; tổ hợp đã có thì báo biến thể đã tồn tại */
+/** UC-CP-02 bước 5–7: thêm tổ hợp mới; tổ hợp đã có thì báo biến thể đã tồn tại (AC-12) */
 export function AddVariantDialog({
   open,
   product,
@@ -53,7 +59,7 @@ export function AddVariantDialog({
     return attributes.filter((a) => ids.includes(a.id));
   }, [product, attributes]);
 
-  const names = useMemo(() => valueNames(attributes), [attributes]);
+  const index = useMemo(() => valueIndex(attributes), [attributes]);
   const ids = productAttributes.map((a) => picked[a.id]).filter(Boolean);
   const complete = productAttributes.length > 0 && ids.length === productAttributes.length;
   const existing = complete
@@ -63,81 +69,88 @@ export function AddVariantDialog({
   const preview = existing
     ? existing.sku
     : complete && category
-      ? renderSku(category.skuPattern, category.skuNextSeq, ids.map((id) => names.get(id) ?? ''))
+      ? renderSku(category.skuPattern, category.skuNextSeq, ids.map((id) => index.get(id)?.code ?? ''))
       : '—';
 
   const submit = async () => {
     setError(null);
     try {
       const variant = await addMut.mutateAsync({ productId: product.id, attributeValueIds: ids });
-      onDone(
-        existing
-          ? `Đã bán lại biến thể ${variant.sku}`
-          : `Đã thêm biến thể ${variant.sku}`,
-      );
+      onDone(existing ? `Đã bán lại biến thể ${variant.sku}` : `Đã thêm biến thể ${variant.sku}`);
     } catch (e) {
-      setError(getErrorMessage(e));
+      // V23: thiếu hoặc thừa thuộc tính so với các biến thể đang có
+      setError(getProblem(e)?.errors?.attributeValueIds ?? problemMessage(e));
     }
   };
 
+  const busy = addMut.isPending;
+
   return (
-    <Dialog open={open} onClose={addMut.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Thêm biến thể</DialogTitle>
-      <DialogContent dividers>
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Thêm biến thể</DialogTitle>
+          <DialogDescription>Chọn một giá trị cho từng thuộc tính của sản phẩm.</DialogDescription>
+        </DialogHeader>
+
         {!productAttributes.length ? (
-          <Alert severity="info">
+          <AlertMessage severity="info">
             Sản phẩm tạo không có thuộc tính nên chỉ có một biến thể. Muốn bán theo màu, cỡ… hãy tạo
             sản phẩm mới với các thuộc tính đó.
-          </Alert>
+          </AlertMessage>
         ) : (
-          <Stack spacing={2}>
+          <div className="grid gap-4">
             {productAttributes.map((a) => (
-              <TextField
-                key={a.id}
-                select
-                label={a.name}
-                value={picked[a.id] ?? ''}
-                onChange={(e) => setPicked((p) => ({ ...p, [a.id]: e.target.value }))}
-              >
-                {a.values.map((v) => (
-                  <MenuItem key={v.id} value={v.id}>
-                    {v.value}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <div key={a.id} className="grid gap-1.5">
+                <Label htmlFor={`attr-${a.id}`}>{a.name}</Label>
+                <Select
+                  value={picked[a.id] ?? ''}
+                  onValueChange={(v) => setPicked((p) => ({ ...p, [a.id]: v }))}
+                >
+                  <SelectTrigger id={`attr-${a.id}`} className="w-full" aria-label={a.name}>
+                    <SelectValue placeholder={`Chọn ${a.name.toLowerCase()}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {a.values.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             ))}
-            <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
-              <Typography variant="caption" color="text.secondary">
+            <div className="rounded-md bg-muted p-3" data-testid="variant-sku-preview">
+              <p className="text-xs text-muted-foreground">
                 {existing ? 'SKU của biến thể' : 'SKU dự kiến'}
-              </Typography>
-              <Typography sx={{ fontFamily: 'monospace' }}>{preview}</Typography>
-            </Box>
+              </p>
+              <p className="font-mono text-sm">{preview}</p>
+            </div>
             {existing && !existing.archivedAt && (
-              <Alert severity="warning">Biến thể này đã tồn tại ({existing.sku}).</Alert>
+              <AlertMessage severity="warning">Biến thể đã tồn tại ({existing.sku}).</AlertMessage>
             )}
             {existing?.archivedAt && (
-              <Alert severity="info">Tổ hợp này từng ngừng bán; lưu sẽ bán lại với SKU cũ.</Alert>
+              <AlertMessage severity="info">
+                Tổ hợp này từng ngừng bán; lưu sẽ bán lại với SKU cũ.
+              </AlertMessage>
             )}
-          </Stack>
+          </div>
         )}
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {error && <AlertMessage severity="error">{error}</AlertMessage>}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+            Huỷ
+          </Button>
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={!complete || Boolean(existing && !existing.archivedAt) || busy}
+          >
+            {busy ? 'Đang lưu...' : existing ? 'Bán lại' : 'Thêm'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={addMut.isPending}>
-          Huỷ
-        </Button>
-        <Button
-          variant="contained"
-          onClick={submit}
-          disabled={!complete || Boolean(existing && !existing.archivedAt) || addMut.isPending}
-        >
-          {addMut.isPending ? 'Đang lưu...' : existing ? 'Bán lại' : 'Thêm'}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

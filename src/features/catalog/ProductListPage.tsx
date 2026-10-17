@@ -1,31 +1,29 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Snackbar,
-  Stack,
-  TextField,
-  Tooltip,
-} from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
-import ImageIcon from '@mui/icons-material/Image';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { Archive, Eye, ImageIcon, Pencil, Plus, Settings2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { DataTable } from '@/components/common/DataTable';
+import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { RowAction } from '@/components/common/RowAction';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useArchiveProduct, useCategories, useProducts } from '@/api/catalog.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getErrorMessage } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -33,7 +31,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { ProductListItem, ProductStatus } from '@/types/catalog';
-import type { Toast } from './shared';
+import { PRODUCT_STATUS_LABELS } from './labels';
 
 /** UC-CP-02: danh sách sản phẩm của công ty, tìm theo tên hoặc SKU */
 export function ProductListPage() {
@@ -48,13 +46,13 @@ export function ProductListPage() {
   const debouncedSearch = useDebounce(search.trim());
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState<ProductStatus>('active');
-  const [pagination, setPagination] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [archiving, setArchiving] = useState<ProductListItem | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
 
   const productsQuery = useProducts({
-    page: pagination.page + 1,
-    pageSize: pagination.pageSize,
+    page,
+    pageSize,
     search: debouncedSearch || undefined,
     categoryId: categoryId || undefined,
     status,
@@ -62,212 +60,197 @@ export function ProductListPage() {
   const categories = useCategories().data ?? [];
   const archiveMut = useArchiveProduct();
 
-  const resetPage = () => setPagination((p) => ({ ...p, page: 0 }));
-  const open = useCallback(
-    (id: string) => navigate(ROUTES.company.catalogProduct(companyId, id)),
-    [navigate, companyId],
-  );
+  const withReset =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPage(1);
+    };
 
-  const handleArchive = useCallback(async () => {
+  const open = (id: string) => navigate(ROUTES.company.catalogProduct(companyId, id));
+
+  const handleArchive = async () => {
     if (!archiving) return;
     try {
       await archiveMut.mutateAsync({ id: archiving.id, version: archiving.version });
-      setToast({ severity: 'success', msg: `Đã xoá ${archiving.name}` });
+      toast.success(`Đã chuyển ${archiving.name} sang Đã lưu trữ`);
     } catch (e) {
-      const code = getProblem(e)?.code;
-      setToast({
-        severity:
-          code === 'product_has_active_orders' || code === 'version_conflict' ? 'warning' : 'error',
-        msg: getErrorMessage(e),
-      });
+      const code = problemCode(e);
+      if (code === 'version_conflict') {
+        toast.warning(`${archiving.name} vừa được người khác sửa. Chưa có gì thay đổi, hãy thử lại.`);
+      } else if (code === 'product_has_active_orders') {
+        toast.warning(`Không xoá được ${archiving.name} vì sản phẩm còn đơn hàng chưa hoàn tất.`);
+      } else {
+        toast.error(problemMessage(e));
+      }
     }
     setArchiving(null);
-  }, [archiving, archiveMut]);
+  };
 
-  const columns: GridColDef<ProductListItem>[] = useMemo(
+  const columns = useMemo<ColumnDef<ProductListItem>[]>(
     () => [
       {
-        field: 'thumbnailUrl',
-        headerName: '',
-        width: 64,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack justifyContent="center" sx={{ height: '100%' }}>
-            <Avatar variant="rounded" src={row.thumbnailUrl ?? undefined} alt={row.name}>
-              <ImageIcon fontSize="small" />
-            </Avatar>
-          </Stack>
+        id: 'thumbnail',
+        header: '',
+        meta: { className: 'w-14' },
+        cell: ({ row }) => (
+          <Avatar className="size-10 rounded-md">
+            {row.original.thumbnailUrl && (
+              <AvatarImage src={row.original.thumbnailUrl} alt={row.original.name} className="object-cover" />
+            )}
+            <AvatarFallback className="rounded-md">
+              <ImageIcon className="size-4 text-muted-foreground" />
+            </AvatarFallback>
+          </Avatar>
         ),
       },
-      { field: 'name', headerName: 'Sản phẩm', flex: 1.5, minWidth: 220, sortable: false },
+      { accessorKey: 'name', header: 'Sản phẩm', meta: { className: 'min-w-56 font-medium' } },
       {
-        field: 'category',
-        headerName: 'Danh mục',
-        flex: 0.8,
-        minWidth: 130,
-        sortable: false,
-        valueGetter: (value: ProductListItem['category']) => value.name,
-      },
-      { field: 'variantCount', headerName: 'Số biến thể', width: 110, sortable: false },
-      {
-        field: 'status',
-        headerName: 'Trạng thái',
-        width: 120,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Chip
-            size="small"
-            label={row.status === 'archived' ? 'Đã xoá' : 'Đang bán'}
-            color={row.status === 'archived' ? 'default' : 'success'}
-          />
-        ),
+        id: 'category',
+        header: 'Danh mục',
+        meta: { className: 'min-w-32' },
+        cell: ({ row }) => row.original.category.name,
       },
       {
-        field: 'updatedAt',
-        headerName: 'Cập nhật',
-        width: 150,
-        sortable: false,
-        valueGetter: (value) => formatDateTime(value as string),
+        accessorKey: 'variantCount',
+        header: 'Số biến thể',
+        meta: { className: 'w-28 text-right' },
       },
       {
-        field: 'actions',
-        headerName: 'Hành động',
-        width: 110,
-        sortable: false,
-        renderCell: ({ row }) => {
-          const editable = canManage && row.status === 'active';
+        id: 'status',
+        header: 'Trạng thái',
+        meta: { className: 'w-32' },
+        cell: ({ row }) => {
+          const s = PRODUCT_STATUS_LABELS[row.original.status];
+          return <Badge variant={s.variant}>{s.label}</Badge>;
+        },
+      },
+      {
+        id: 'updatedAt',
+        header: 'Cập nhật',
+        meta: { className: 'w-40 whitespace-nowrap' },
+        cell: ({ row }) => formatDateTime(row.original.updatedAt),
+      },
+      {
+        id: 'actions',
+        header: '',
+        meta: { className: 'w-24 text-right' },
+        cell: ({ row }) => {
+          const p = row.original;
+          const editable = canManage && p.status === 'active';
           return (
-            <Stack direction="row" spacing={0.5}>
-              <Tooltip title={editable ? 'Sửa' : 'Xem'}>
-                <IconButton size="small" onClick={() => open(row.id)}>
-                  {editable ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                </IconButton>
-              </Tooltip>
+            <div className="flex justify-end gap-1">
+              <RowAction label={editable ? 'Sửa' : 'Xem'} onClick={() => open(p.id)}>
+                {editable ? <Pencil /> : <Eye />}
+              </RowAction>
               {editable && (
-                <Tooltip title="Xoá">
-                  <IconButton size="small" color="error" onClick={() => setArchiving(row)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <RowAction label="Xoá" destructive onClick={() => setArchiving(p)}>
+                  <Archive />
+                </RowAction>
               )}
-            </Stack>
+            </div>
           );
         },
       },
     ],
-    [canManage, open],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canManage, companyId],
   );
 
+  const filtered = Boolean(debouncedSearch || categoryId);
+  const empty = filtered
+    ? 'Không tìm thấy sản phẩm phù hợp'
+    : status === 'archived'
+      ? 'Chưa có sản phẩm đã lưu trữ'
+      : 'Chưa có sản phẩm';
+
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Sản phẩm"
         subtitle="Sản phẩm và biến thể; SKU sinh theo quy tắc của danh mục."
         action={
-          <Stack direction="row" spacing={1}>
+          <div className="flex flex-wrap gap-2">
             {canSetup && (
-              <Button variant="outlined" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
+              <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
+                <Settings2 />
                 Danh mục & thuộc tính
               </Button>
             )}
             {canManage && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => navigate(ROUTES.company.catalogNew(companyId))}
-              >
+              <Button onClick={() => navigate(ROUTES.company.catalogNew(companyId))}>
+                <Plus />
                 Thêm sản phẩm
               </Button>
             )}
-          </Stack>
+          </div>
         }
       />
 
       {productsQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(productsQuery.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Tìm theo tên hoặc SKU..."
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              resetPage();
-            }}
-            sx={{ minWidth: 260 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
+            onChange={withReset(setSearch)}
+            placeholder="Tìm theo tên hoặc SKU..."
           />
-          <TextField
-            size="small"
-            select
+          <FilterSelect
             label="Danh mục"
             value={categoryId}
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              resetPage();
-            }}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">Tất cả</MenuItem>
-            {categories.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            size="small"
-            select
-            label="Trạng thái"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as ProductStatus);
-              resetPage();
-            }}
-            sx={{ minWidth: 150 }}
-          >
-            <MenuItem value="active">Đang bán</MenuItem>
-            <MenuItem value="archived">Đã xoá</MenuItem>
-          </TextField>
-        </Stack>
-
-        <DataGrid
-          rows={productsQuery.data?.items ?? []}
+            onChange={withReset(setCategoryId)}
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
+          {/* API không có "tất cả": sản phẩm đang bán và đã lưu trữ xem riêng */}
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Trạng thái</Label>
+            <Select value={status} onValueChange={withReset((v: string) => setStatus(v as ProductStatus))}>
+              <SelectTrigger className="w-full md:min-w-40" aria-label="Trạng thái">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PRODUCT_STATUS_LABELS).map(([value, { label }]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </FilterBar>
+        <DataTable
           columns={columns}
-          loading={productsQuery.isLoading || productsQuery.isFetching}
-          paginationMode="server"
-          rowCount={productsQuery.data?.total ?? 0}
-          paginationModel={pagination}
-          onPaginationModelChange={setPagination}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          disableColumnMenu
-          rowHeight={60}
-          onRowDoubleClick={({ row }) => open(row.id)}
-          sx={{ minHeight: 420 }}
-          localeText={{ noRowsLabel: 'Chưa có sản phẩm' }}
+          data={productsQuery.data?.items ?? []}
+          getRowId={(r) => r.id}
+          loading={productsQuery.isLoading}
+          fetching={productsQuery.isFetching}
+          empty={empty}
+          onRowClick={(r) => open(r.id)}
+          pagination={{
+            page,
+            pageSize,
+            total: productsQuery.data?.total ?? 0,
+            onChange: (p, size) => {
+              setPage(p);
+              setPageSize(size);
+            },
+          }}
         />
-      </Paper>
+      </Card>
 
       <ConfirmDialog
         open={Boolean(archiving)}
         title="Xoá sản phẩm?"
         message={
           <>
-            <strong>{archiving?.name}</strong> sẽ ngừng bán cùng {archiving?.variantCount} biến thể. SKU
-            đã sinh được giữ lại, không cấp cho sản phẩm khác. Sản phẩm còn đơn hàng đang xử lý thì
-            không xoá được.
+            <strong>{archiving?.name}</strong> sẽ chuyển sang Đã lưu trữ cùng {archiving?.variantCount}{' '}
+            biến thể và chỉ còn xem được. SKU đã cấp được giữ lại, không cấp cho sản phẩm khác. Sản
+            phẩm còn đơn hàng chưa hoàn tất thì không xoá được.
           </>
         }
         confirmLabel="Xoá"
@@ -276,19 +259,6 @@ export function ProductListPage() {
         onConfirm={handleArchive}
         onClose={() => setArchiving(null)}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

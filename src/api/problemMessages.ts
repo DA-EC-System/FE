@@ -20,6 +20,15 @@ const MESSAGES: Record<string, string> = {
   module_has_data: 'Phân hệ đã có dữ liệu nên không tắt được.',
   ai_consent_required: 'Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',
   module_disabled: 'Phân hệ này đã bị tắt. Tải lại trang để cập nhật menu.',
+  // docs/21 mục 5
+  in_use: 'Không thể xoá vì đang được sử dụng.',
+  name_taken: 'Tên này đã được dùng trong công ty.',
+  variant_exists: 'Biến thể đã tồn tại.',
+  last_variant: 'Không ngừng bán được biến thể cuối cùng. Sản phẩm cần ít nhất một biến thể đang bán.',
+  product_has_active_orders: 'Không xoá được vì sản phẩm còn đơn hàng chưa hoàn tất.',
+  product_archived: 'Sản phẩm đã lưu trữ nên không sửa được.',
+  file_type_not_allowed: 'Chỉ nhận ảnh JPG, PNG hoặc WebP.',
+  file_too_large: 'Ảnh lớn hơn 5 MB.',
 };
 
 export function problemCode(error: unknown): string | undefined {

@@ -1,8 +1,9 @@
 /**
  * Quy tắc SKU của danh mục (QT-11, D14). Chữ cố định cộng hai loại token:
  *  - {SEQ} hoặc {SEQ:n}: số thứ tự của danh mục, đệm 0 cho đủ n chữ số (mặc định 4)
- *  - {VAL}: mã các giá trị thuộc tính của biến thể, nối bằng "-"
+ *  - {VAL}: mã (`code`) các giá trị thuộc tính của biến thể, nối bằng "-"
  * Vd "AO-{SEQ:4}-{VAL}" → "AO-0012-DEN-XL".
+ * Mã giá trị do người dùng đặt, bỏ trống thì sinh bằng valueCode (docs/21 V21, bảng 9.2).
  * FE dùng để xem trước; SKU thật do BE sinh và giữ duy nhất trong công ty.
  * Mock dùng chung hàm này; BE cần sinh cùng kết quả (commerio-backend#13).
  */
@@ -36,8 +37,9 @@ export function skuPatternError(pattern: string): string | null {
   return null;
 }
 
-export function renderSku(pattern: string, seq: number, values: string[]): string {
-  const val = values.map(valueCode).filter(Boolean).join('-');
+/** SKU của một biến thể; `codes` là mã các giá trị theo thứ tự thuộc tính (bảng 9.1) */
+export function renderSku(pattern: string, seq: number, codes: string[]): string {
+  const val = codes.filter(Boolean).join('-');
   return pattern
     .trim()
     .replace(TOKEN, (_, token: string, width?: string) =>

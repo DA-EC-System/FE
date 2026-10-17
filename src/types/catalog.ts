@@ -24,6 +24,8 @@ export interface CategoryInput {
 export interface AttributeValue {
   id: string;
   value: string;
+  /** Mã dùng trong {VAL} của SKU (D27, docs/21 V21), vd "DEN" */
+  code: string;
   /** Đã có biến thể dùng: không xoá được */
   inUse: boolean;
 }
@@ -38,8 +40,12 @@ export interface Attribute {
 
 export interface AttributeInput {
   name: string;
-  /** Có id: giá trị cũ (đổi chữ); không có id: giá trị mới. Giá trị cũ vắng mặt là bị xoá */
-  values: { id?: string; value: string }[];
+  /**
+   * Có id: giá trị cũ (đổi chữ); không có id: giá trị mới. Giá trị cũ vắng mặt là bị xoá.
+   * `code` bỏ trống thì BE sinh từ `value` (bảng 9.2); trùng trong thuộc tính thì 422
+   * `errors["values.<i>.code"]`
+   */
+  values: { id?: string; value: string; code?: string }[];
 }
 
 export type ProductStatus = 'active' | 'archived';
