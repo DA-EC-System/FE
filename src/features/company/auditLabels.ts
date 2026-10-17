@@ -3,11 +3,11 @@ import { formatDateTime } from '@/utils/format';
 
 export const AUDIT_ACTION_LABELS: Record<
   AuditAction,
-  { label: string; color: 'success' | 'error' | 'info' }
+  { label: string; variant: 'success' | 'destructive' | 'info' }
 > = {
-  create: { label: 'Thêm', color: 'success' },
-  update: { label: 'Sửa', color: 'info' },
-  delete: { label: 'Xoá', color: 'error' },
+  create: { label: 'Thêm', variant: 'success' },
+  update: { label: 'Sửa', variant: 'info' },
+  delete: { label: 'Xoá', variant: 'destructive' },
 };
 
 /** entity_type đang có trong nhật ký; mã lạ thì hiện nguyên mã */

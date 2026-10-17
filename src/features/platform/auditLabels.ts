@@ -2,9 +2,9 @@ import type { PlatformAuditAction } from '@/types/audit';
 
 export const AUDIT_ACTION_LABELS: Record<
   PlatformAuditAction,
-  { label: string; color: 'success' | 'error' | 'info' }
+  { label: string; variant: 'success' | 'destructive' | 'info' }
 > = {
-  'company.registered': { label: 'Đăng ký', color: 'info' },
-  'company.locked': { label: 'Khoá', color: 'error' },
-  'company.unlocked': { label: 'Mở khoá', color: 'success' },
+  'company.registered': { label: 'Đăng ký', variant: 'info' },
+  'company.locked': { label: 'Khoá', variant: 'destructive' },
+  'company.unlocked': { label: 'Mở khoá', variant: 'success' },
 };

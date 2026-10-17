@@ -1,23 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { FormTextField } from '@/components/common/FormTextField';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useInviteStaff, useSetStaffRoles } from '@/api/identity.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import type { Role, StaffMember } from '@/types/identity';
 import { RoleChecklist } from './RoleChecklist';
-import { conflictCurrent, inviteSchema, type InviteForm } from './shared';
+import { conflictCurrent, inviteSchema, protectedReason, type InviteForm } from './shared';
 
 interface InviteStaffDialogProps {
   open: boolean;
@@ -26,56 +28,49 @@ interface InviteStaffDialogProps {
   onDone: (message: string) => void;
 }
 
+const EMPTY: InviteForm = { email: '', fullName: '', roleIds: [] };
+
 /** UC-PI-05: thêm tài khoản nhân viên, gửi thư mời kèm mật khẩu */
 export function InviteStaffDialog({ open, roles, onClose, onDone }: InviteStaffDialogProps) {
   const { account } = useAuth();
   const invite = useInviteStaff();
   const setRoles = useSetStaffRoles();
   const [error, setError] = useState<string | null>(null);
-  // Email đã có tài khoản trong công ty: hỏi có thêm vai trò vừa chọn không
+  // Email đã có tài khoản trong công ty: hỏi có thêm vai trò vừa chọn không (docs/21 I2)
   const [existing, setExisting] = useState<StaffMember | null>(null);
 
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    getValues,
-    setError: setFieldError,
-    formState: { errors },
-  } = useForm<InviteForm>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { email: '', fullName: '', roleIds: [] },
-  });
+  const form = useForm<InviteForm>({ resolver: zodResolver(inviteSchema), defaultValues: EMPTY });
+  const { control, reset, getValues, setError: setFieldError } = form;
 
   useEffect(() => {
     if (open) {
-      reset({ email: '', fullName: '', roleIds: [] });
+      reset(EMPTY);
       setError(null);
       setExisting(null);
     }
   }, [open, reset]);
 
-  const onSubmit = handleSubmit(async (values) => {
+  const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
       const res = await invite.mutateAsync(values);
+      // Tài khoản sẵn có: không nhắc mật khẩu, không nêu công ty khác (AC-4)
       onDone(
         res.outcome === 'invited'
           ? `Đã tạo tài khoản và gửi thư mời tới ${res.member.email}`
-          : `Đã thêm ${res.member.email} vào công ty; người này đăng nhập bằng tài khoản sẵn có`,
+          : `Đã thêm ${res.member.fullName} (${res.member.email}) vào công ty`,
       );
     } catch (e) {
       const problem = getProblem(e);
-      if (problem?.code === 'already_member') {
-        setExisting(conflictCurrent<StaffMember>(e, 'member'));
+      const member = conflictCurrent<StaffMember>(e, 'member');
+      if (problem?.code === 'already_member' && member) {
+        setExisting(member);
         return;
       }
       const fields = problem?.errors ?? {};
-      (['email', 'fullName', 'roleIds'] as const).forEach((name) => {
-        if (fields[name]) setFieldError(name, { message: fields[name] });
-      });
-      if (!Object.keys(fields).length) setError(getErrorMessage(e));
+      const known = (['email', 'fullName', 'roleIds'] as const).filter((name) => fields[name]);
+      known.forEach((name) => setFieldError(name, { message: fields[name] }));
+      if (!known.length) setError(problemMessage(e));
     }
   });
 
@@ -84,107 +79,90 @@ export function InviteStaffDialog({ open, roles, onClose, onDone }: InviteStaffD
     const roleIds = [...new Set([...existing.roles.map((r) => r.id), ...getValues('roleIds')])];
     try {
       await setRoles.mutateAsync({ accountId: existing.accountId, roleIds, version: existing.version });
-      onDone(`Đã thêm vai trò cho ${existing.email}`);
+      onDone(`Đã thêm vai trò cho ${existing.fullName} (${existing.email})`);
     } catch (e) {
       setExisting(null);
-      setError(getErrorMessage(e));
+      setError(problemMessage(e));
     }
   };
 
   const busy = invite.isPending || setRoles.isPending;
-  const existingLocked = existing && (existing.isCeo || existing.accountId === account?.id);
+  const lockedReason = existing ? protectedReason(existing, account?.id) : null;
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Thêm nhân viên</DialogTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <DialogContent dividers>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-          {existing ? (
-            <Alert severity="warning">
-              <Typography variant="body2" sx={{ mb: 1 }}>
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Thêm nhân viên</DialogTitle>
+          <DialogDescription>
+            Hệ thống sinh mật khẩu ngẫu nhiên và gửi thư mời tới email. Nhân viên phải đổi mật khẩu ở
+            lần đăng nhập đầu.
+          </DialogDescription>
+        </DialogHeader>
+
+        {error && (
+          <AlertMessage severity="error" onClose={() => setError(null)}>
+            {error}
+          </AlertMessage>
+        )}
+
+        {existing ? (
+          <div className="grid gap-4" data-testid="already-member">
+            <AlertMessage severity="warning">
+              <p>
                 <strong>{existing.email}</strong> đã có tài khoản trong công ty
                 {existing.roles.length > 0 && (
                   <> với vai trò {existing.roles.map((r) => r.name).join(', ')}</>
                 )}
                 .
-              </Typography>
-              <Typography variant="body2">
-                {existingLocked
-                  ? 'Không đổi được vai trò của tài khoản này.'
+              </p>
+              <p className="mt-1">
+                {lockedReason
+                  ? `${lockedReason}, nên không đổi được vai trò.`
                   : 'Thêm các vai trò vừa chọn cho tài khoản này, ngoài các vai trò đang có?'}
-              </Typography>
-            </Alert>
-          ) : (
-            <Stack spacing={2}>
-              <Typography variant="body2" color="text.secondary">
-                Hệ thống sinh mật khẩu ngẫu nhiên và gửi thư mời tới email. Nhân viên phải đổi mật
-                khẩu ở lần đăng nhập đầu.
-              </Typography>
-              <TextField
-                label="Email"
-                type="email"
-                fullWidth
-                autoFocus
-                {...register('email')}
-                error={Boolean(errors.email)}
-                helperText={errors.email?.message}
-              />
-              <TextField
-                label="Họ tên"
-                fullWidth
-                {...register('fullName')}
-                error={Boolean(errors.fullName)}
-                helperText={errors.fullName?.message}
-              />
-              <div>
-                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                  Vai trò
-                </Typography>
-                <Controller
-                  control={control}
-                  name="roleIds"
-                  render={({ field }) => (
-                    <RoleChecklist
-                      roles={roles}
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={errors.roleIds?.message}
-                    />
-                  )}
-                />
-              </div>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          {existing ? (
-            <>
-              <Button onClick={() => setExisting(null)} disabled={busy}>
-                {existingLocked ? 'Quay lại' : 'Không'}
+              </p>
+            </AlertMessage>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setExisting(null)} disabled={busy}>
+                {lockedReason ? 'Quay lại' : 'Không'}
               </Button>
-              {!existingLocked && (
-                <Button variant="contained" onClick={addRolesToExisting} disabled={busy}>
-                  Thêm vai trò
+              {!lockedReason && (
+                <Button onClick={addRolesToExisting} disabled={busy}>
+                  {setRoles.isPending ? 'Đang lưu...' : 'Thêm vai trò'}
                 </Button>
               )}
-            </>
-          ) : (
-            <>
-              <Button onClick={onClose} disabled={busy}>
-                Huỷ
-              </Button>
-              <Button type="submit" variant="contained" disabled={busy}>
-                {invite.isPending ? 'Đang lưu...' : 'Lưu và gửi thư mời'}
-              </Button>
-            </>
-          )}
-        </DialogActions>
-      </form>
+            </DialogFooter>
+          </div>
+        ) : (
+          <Form {...form}>
+            <form onSubmit={onSubmit} noValidate className="grid gap-4">
+              <FormTextField control={control} name="email" label="Email" type="email" autoFocus />
+              <FormTextField control={control} name="fullName" label="Họ tên" />
+              <FormField
+                control={control}
+                name="roleIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vai trò</FormLabel>
+                    <div className="max-h-64 overflow-y-auto rounded-md border p-1">
+                      <RoleChecklist roles={roles} value={field.value} onChange={field.onChange} />
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                  Huỷ
+                </Button>
+                <Button type="submit" disabled={busy}>
+                  {invite.isPending ? 'Đang lưu...' : 'Lưu và gửi thư mời'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        )}
+      </DialogContent>
     </Dialog>
   );
 }

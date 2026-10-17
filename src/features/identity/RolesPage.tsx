@@ -1,24 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Paper,
-  Snackbar,
-  Stack,
-  Tooltip,
-} from '@mui/material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { DataTable } from '@/components/common/DataTable';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteRole, useRoles } from '@/api/identity.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getErrorMessage } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { missingPermissions, PERMISSIONS } from '@/utils/permissions';
@@ -26,7 +20,34 @@ import { formatDateTime } from '@/utils/format';
 import type { Role } from '@/types/identity';
 import { RoleFormDialog } from './RoleFormDialog';
 
-type Toast = { severity: 'success' | 'error' | 'warning'; msg: string };
+function IconAction({
+  label,
+  onClick,
+  children,
+  destructive,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  destructive?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={destructive ? 'size-8 text-destructive hover:text-destructive' : 'size-8'}
+          aria-label={label}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** UC-PI-06: vai trò có sẵn và vai trò tuỳ biến của công ty */
 export function RolesPage() {
@@ -38,7 +59,6 @@ export function RolesPage() {
 
   const [form, setForm] = useState<{ role: Role | null } | null>(null);
   const [deleting, setDeleting] = useState<Role | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
 
   /** Vì sao chỉ xem được tập quyền; null nếu sửa và xoá được */
   const readOnlyReason = useCallback(
@@ -53,80 +73,69 @@ export function RolesPage() {
     [canManage, companyContext],
   );
 
-  const handleDelete = useCallback(async () => {
+  const handleDelete = async () => {
     if (!deleting) return;
     try {
       await deleteMut.mutateAsync({ id: deleting.id, version: deleting.version });
-      setToast({ severity: 'success', msg: `Đã xoá vai trò ${deleting.name}` });
+      toast.success(`Đã xoá vai trò ${deleting.name}`);
     } catch (e) {
-      const code = getProblem(e)?.code;
-      setToast({
-        severity: code === 'role_in_use' || code === 'version_conflict' ? 'warning' : 'error',
-        msg: getErrorMessage(e),
-      });
+      const code = problemCode(e);
+      if (code === 'role_in_use') {
+        toast.warning(`Không xoá được vai trò ${deleting.name}: còn tài khoản đang mang vai trò này.`);
+      } else if (code === 'version_conflict') {
+        toast.warning(`Vai trò ${deleting.name} vừa được người khác sửa. Chưa có gì thay đổi.`);
+      } else {
+        toast.error(problemMessage(e));
+      }
     }
     setDeleting(null);
-  }, [deleting, deleteMut]);
+  };
 
-  const columns: GridColDef<Role>[] = useMemo(
+  const columns = useMemo<ColumnDef<Role>[]>(
     () => [
       {
-        field: 'name',
-        headerName: 'Vai trò',
-        flex: 1,
-        minWidth: 200,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ height: '100%' }}>
-            <span>{row.name}</span>
-            {row.builtIn && <Chip size="small" label="Có sẵn" variant="outlined" />}
-          </Stack>
+        id: 'name',
+        header: 'Vai trò',
+        meta: { className: 'min-w-48' },
+        cell: ({ row: { original: r } }) => (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{r.name}</span>
+            {r.builtIn && <Badge variant="outline">Có sẵn</Badge>}
+          </div>
         ),
       },
       {
-        field: 'permissions',
-        headerName: 'Số quyền',
-        width: 110,
-        valueGetter: (value: string[]) => value.length,
+        id: 'permissions',
+        header: 'Số quyền',
+        meta: { className: 'w-28' },
+        cell: ({ row }) => row.original.permissions.length,
       },
-      { field: 'memberCount', headerName: 'Số tài khoản', width: 130 },
+      { accessorKey: 'memberCount', header: 'Số tài khoản', meta: { className: 'w-32' } },
       {
-        field: 'updatedAt',
-        headerName: 'Cập nhật',
-        width: 160,
-        valueGetter: (value) => formatDateTime(value as string),
+        id: 'updatedAt',
+        header: 'Cập nhật',
+        meta: { className: 'w-40 whitespace-nowrap' },
+        cell: ({ row }) => formatDateTime(row.original.updatedAt),
       },
       {
-        field: 'actions',
-        headerName: 'Hành động',
-        width: 130,
-        sortable: false,
-        filterable: false,
-        renderCell: ({ row }) => {
-          const reason = readOnlyReason(row);
-          if (reason) {
-            return (
-              <Tooltip title="Xem tập quyền">
-                <IconButton size="small" onClick={() => setForm({ role: row })}>
-                  <VisibilityIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            );
-          }
-          return (
-            <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Sửa">
-                <IconButton size="small" onClick={() => setForm({ role: row })}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Xoá">
-                <IconButton size="small" color="error" onClick={() => setDeleting(row)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          );
-        },
+        id: 'actions',
+        header: () => <span className="sr-only">Hành động</span>,
+        meta: { className: 'w-28' },
+        cell: ({ row: { original: r } }) =>
+          readOnlyReason(r) ? (
+            <IconAction label="Xem tập quyền" onClick={() => setForm({ role: r })}>
+              <Eye />
+            </IconAction>
+          ) : (
+            <div className="flex gap-1">
+              <IconAction label="Sửa" onClick={() => setForm({ role: r })}>
+                <Pencil />
+              </IconAction>
+              <IconAction label="Xoá" destructive onClick={() => setDeleting(r)}>
+                <Trash2 />
+              </IconAction>
+            </div>
+          ),
       },
     ],
     [readOnlyReason],
@@ -135,13 +144,14 @@ export function RolesPage() {
   const formReason = form?.role ? readOnlyReason(form.role) : null;
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Vai trò"
         subtitle="Vai trò có sẵn và vai trò tuỳ biến; mỗi vai trò là một tập quyền."
         action={
           canManage ? (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ role: null })}>
+            <Button onClick={() => setForm({ role: null })}>
+              <Plus />
               Tạo vai trò
             </Button>
           ) : null
@@ -149,21 +159,20 @@ export function RolesPage() {
       />
 
       {rolesQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(rolesQuery.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <DataGrid
-          rows={rolesQuery.data ?? []}
+      <Card className="gap-0 py-0">
+        <DataTable
           columns={columns}
+          data={rolesQuery.data ?? []}
+          getRowId={(r) => r.id}
           loading={rolesQuery.isLoading}
-          disableRowSelectionOnClick
-          hideFooter
-          autoHeight
+          empty="Chưa có vai trò"
         />
-      </Paper>
+      </Card>
 
       <RoleFormDialog
         open={Boolean(form)}
@@ -173,7 +182,7 @@ export function RolesPage() {
         onClose={() => setForm(null)}
         onDone={(msg) => {
           setForm(null);
-          setToast({ severity: 'success', msg });
+          toast.success(msg);
         }}
       />
 
@@ -194,19 +203,6 @@ export function RolesPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleting(null)}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

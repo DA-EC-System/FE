@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
 import { useSetStaffRoles } from '@/api/identity.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import type { Role, StaffMember } from '@/types/identity';
 import { RoleChecklist } from './RoleChecklist';
-import { conflictCurrent } from './shared';
+import { conflictCurrent, STAFF_STATUS_LABELS } from './shared';
 
 interface EditStaffRolesDialogProps {
   member: StaffMember | null;
@@ -49,52 +50,52 @@ export function EditStaffRolesDialog({ member, roles, onClose, onDone }: EditSta
       onDone(`Đã cập nhật vai trò của ${current.fullName}`);
     } catch (e) {
       const latest = conflictCurrent<StaffMember>(e);
-      if (getProblem(e)?.code === 'version_conflict' && latest) {
+      if (problemCode(e) === 'version_conflict' && latest) {
         setCurrent(latest);
         setRoleIds(latest.roles.map((r) => r.id));
         setError(
           `Tài khoản vừa được người khác sửa. Vai trò hiện tại: ${
             latest.roles.map((r) => r.name).join(', ') || 'không có'
-          }${latest.status === 'locked' ? ' (đang tạm khoá)' : ''}. Chưa có gì thay đổi; chọn lại rồi lưu.`,
+          } (${STAFF_STATUS_LABELS[latest.status].toLowerCase()}). Chưa có gì thay đổi; chọn lại rồi lưu.`,
         );
         return;
       }
-      setError(getErrorMessage(e));
+      setError(problemMessage(e));
     }
   };
 
   return (
-    <Dialog open={Boolean(member)} onClose={setRoles.isPending ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Đổi vai trò</DialogTitle>
-      <DialogContent dividers>
-        {current && (
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            <strong>{current.fullName}</strong> · {current.email}
-          </Typography>
-        )}
-        {error && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        <RoleChecklist
-          roles={roles}
-          value={roleIds}
-          onChange={(ids) => {
-            setRoleIds(ids);
-            setFieldError(undefined);
-          }}
-          error={fieldError}
-        />
+    <Dialog open={Boolean(member)} onOpenChange={(next) => !next && !setRoles.isPending && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Đổi vai trò</DialogTitle>
+          {current && (
+            <DialogDescription>
+              <strong className="text-foreground">{current.fullName}</strong> · {current.email}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        {error && <AlertMessage severity="warning">{error}</AlertMessage>}
+        <div className="max-h-72 overflow-y-auto rounded-md border p-1">
+          <RoleChecklist
+            roles={roles}
+            value={roleIds}
+            onChange={(ids) => {
+              setRoleIds(ids);
+              setFieldError(undefined);
+            }}
+          />
+        </div>
+        {fieldError && <p className="text-sm text-destructive">{fieldError}</p>}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={setRoles.isPending}>
+            Huỷ
+          </Button>
+          <Button onClick={save} disabled={setRoles.isPending}>
+            {setRoles.isPending ? 'Đang lưu...' : 'Lưu'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={setRoles.isPending}>
-          Huỷ
-        </Button>
-        <Button variant="contained" onClick={save} disabled={setRoles.isPending}>
-          {setRoles.isPending ? 'Đang lưu...' : 'Lưu'}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

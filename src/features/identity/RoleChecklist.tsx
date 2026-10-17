@@ -1,5 +1,6 @@
-import { Box, Checkbox, FormControlLabel, FormHelperText, Stack, Typography } from '@mui/material';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 import type { Role } from '@/types/identity';
 import { CEO_ROLE_NAME, roleLockReason } from './shared';
 
@@ -11,56 +12,53 @@ interface RoleChecklistProps {
 }
 
 /**
- * Chọn vai trò cho nhân viên. Vai trò có quyền người đang đăng nhập không có
- * hiện mờ và không đổi được (giữ nguyên nếu nhân viên đang mang).
+ * Chọn vai trò cho nhân viên. Không có CEO (docs/21 I5). Vai trò có quyền người đang
+ * đăng nhập không có hiện mờ và không đổi được (giữ nguyên nếu nhân viên đang mang).
  */
 export function RoleChecklist({ roles, value, onChange, error }: RoleChecklistProps) {
   const { companyContext } = useAuth();
-  // CEO chỉ hiện khi nhân viên đang mang (không xảy ra ở màn này, CEO không sửa được)
-  const visible = roles.filter((r) => r.name !== CEO_ROLE_NAME || value.includes(r.id));
+  const visible = roles.filter((r) => !(r.builtIn && r.name === CEO_ROLE_NAME));
 
   return (
-    <Box>
-      <Stack spacing={0.25}>
-        {visible.map((role) => {
-          const lock = roleLockReason(role, companyContext);
-          return (
-            <FormControlLabel
-              key={role.id}
-              sx={{ alignItems: 'flex-start', mr: 0 }}
+    <div className="grid gap-1" role="group" aria-label="Vai trò" data-testid="role-checklist">
+      {visible.map((role) => {
+        const lock = roleLockReason(role, companyContext);
+        const id = `role-${role.id}`;
+        return (
+          <label
+            key={role.id}
+            htmlFor={id}
+            className={cn(
+              'flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent/50',
+              lock ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+            )}
+          >
+            <Checkbox
+              id={id}
+              className="mt-0.5"
               disabled={Boolean(lock)}
-              control={
-                <Checkbox
-                  checked={value.includes(role.id)}
-                  onChange={(e) =>
-                    onChange(
-                      e.target.checked ? [...value, role.id] : value.filter((id) => id !== role.id),
-                    )
-                  }
-                  sx={{ pt: 0.5 }}
-                />
-              }
-              label={
-                <Box sx={{ py: 0.5 }}>
-                  <Typography variant="body2" fontWeight={600}>
-                    {role.name}
-                    {role.builtIn && (
-                      <Typography component="span" variant="caption" color="text.secondary">
-                        {' '}
-                        · có sẵn
-                      </Typography>
-                    )}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {lock ?? `${role.permissions.length} quyền`}
-                  </Typography>
-                </Box>
+              checked={value.includes(role.id)}
+              onCheckedChange={(checked) =>
+                onChange(checked ? [...value, role.id] : value.filter((v) => v !== role.id))
               }
             />
-          );
-        })}
-      </Stack>
-      {error && <FormHelperText error>{error}</FormHelperText>}
-    </Box>
+            <span className="grid gap-0.5">
+              <span className="text-sm font-medium">
+                {role.name}
+                {role.builtIn && <span className="font-normal text-muted-foreground"> · có sẵn</span>}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {lock ?? `${role.permissions.length} quyền`}
+              </span>
+            </span>
+          </label>
+        );
+      })}
+      {error && (
+        <p className="text-sm text-destructive" data-testid="roleIds-error">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

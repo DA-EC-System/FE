@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { emailSchema } from '@/features/auth/schemas';
 import { getProblem } from '@/api/client';
 import { missingPermissions } from '@/utils/permissions';
-import type { CompanyContext } from '@/types/auth';
-import type { Role } from '@/types/identity';
+import type { CompanyContext, MembershipStatus } from '@/types/auth';
+import type { Role, StaffMember } from '@/types/identity';
 
 export const inviteSchema = z.object({
   email: emailSchema,
@@ -38,3 +38,18 @@ export function conflictCurrent<T>(error: unknown, key: 'current' | 'member' = '
   const problem = getProblem(error) as (Record<string, unknown> & { code?: string }) | undefined;
   return (problem?.[key] as T | undefined) ?? null;
 }
+
+/** Quyền cấp nền tảng chỉ CEO, Admin có sẵn; không cấp cho vai trò tuỳ biến (docs/21 M3) */
+export const isAssignablePermission = (code: string) => !code.startsWith('platform.');
+
+/** CEO và chính mình: không đổi vai trò, không khoá (UC-PI-05) */
+export function protectedReason(member: StaffMember, accountId: string | undefined): string | null {
+  if (member.isCeo) return 'Không thao tác được trên tài khoản CEO';
+  if (member.accountId === accountId) return 'Không thao tác được trên tài khoản của chính bạn';
+  return null;
+}
+
+export const STAFF_STATUS_LABELS: Record<MembershipStatus, string> = {
+  active: 'Hoạt động',
+  locked: 'Tạm khoá',
+};

@@ -1,5 +1,6 @@
-import { Chip, Paper, Stack, Typography } from '@mui/material';
 import { PageHeader } from '@/components/common/PageHeader';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { MODULE_LABELS, isOptionalModule } from '@/utils/modules';
 
@@ -12,34 +13,34 @@ export function CompanyHomePage() {
   return (
     <>
       <PageHeader title={companyContext.companyName} subtitle="Tổng quan công ty" />
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <div>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Vai trò của bạn
-            </Typography>
-            <Stack direction="row" spacing={1}>
+      <Card>
+        <CardContent className="grid gap-5">
+          <div className="grid gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">Vai trò của bạn</h2>
+            <div className="flex flex-wrap gap-2">
               {companyContext.roles.map((r) => (
-                <Chip key={r} label={r} color="primary" variant="outlined" />
+                <Badge key={r} variant="outline">
+                  {r}
+                </Badge>
               ))}
-            </Stack>
+            </div>
           </div>
-          <div>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Phân hệ tuỳ chọn đang bật
-            </Typography>
+          <div className="grid gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">Phân hệ tuỳ chọn đang bật</h2>
             {optional.length === 0 ? (
-              <Typography variant="body2">Chưa bật phân hệ tuỳ chọn nào.</Typography>
+              <p className="text-sm">Chưa bật phân hệ tuỳ chọn nào.</p>
             ) : (
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+              <div className="flex flex-wrap gap-2">
                 {optional.map((m) => (
-                  <Chip key={m} label={MODULE_LABELS[m]} />
+                  <Badge key={m} variant="secondary">
+                    {MODULE_LABELS[m]}
+                  </Badge>
                 ))}
-              </Stack>
+              </div>
             )}
           </div>
-        </Stack>
-      </Paper>
+        </CardContent>
+      </Card>
     </>
   );
 }

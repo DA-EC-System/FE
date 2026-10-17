@@ -1,27 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { FormTextField } from '@/components/common/FormTextField';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  FormControlLabel,
-  FormHelperText,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCreateRole, usePermissionCatalog, useUpdateRole } from '@/api/identity.api';
 import { getErrorMessage, getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 import { MODULE_LABELS } from '@/utils/modules';
 import type { PermissionDef, Role } from '@/types/identity';
-import { conflictCurrent, roleSchema, type RoleForm } from './shared';
+import { conflictCurrent, isAssignablePermission, roleSchema, type RoleForm } from './shared';
 
 interface RoleFormDialogProps {
   open: boolean;
@@ -50,17 +51,11 @@ export function RoleFormDialog({
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(role?.version ?? 0);
 
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    setError: setFieldError,
-    formState: { errors },
-  } = useForm<RoleForm>({
+  const form = useForm<RoleForm>({
     resolver: zodResolver(roleSchema),
     defaultValues: { name: '', permissions: [] },
   });
+  const { control, reset, setError: setFieldError } = form;
 
   useEffect(() => {
     if (open) {
@@ -72,16 +67,18 @@ export function RoleFormDialog({
 
   const held = useMemo(() => new Set(companyContext?.permissions ?? []), [companyContext]);
 
-  // Nhóm theo phân hệ; khi xem chỉ hiện quyền vai trò đang có
+  // Nhóm theo phân hệ. Khi xem chỉ hiện quyền vai trò đang có; khi tạo, sửa bỏ quyền nền tảng (M3)
   const groups = useMemo(() => {
     const defs = catalog.data ?? [];
-    const shown = readOnly ? defs.filter((d) => role?.permissions.includes(d.code)) : defs;
+    const shown = readOnly
+      ? defs.filter((d) => role?.permissions.includes(d.code))
+      : defs.filter((d) => isAssignablePermission(d.code));
     const map = new Map<string, PermissionDef[]>();
     shown.forEach((d) => map.set(d.module, [...(map.get(d.module) ?? []), d]));
     return [...map.entries()];
   }, [catalog.data, readOnly, role]);
 
-  const onSubmit = handleSubmit(async (values) => {
+  const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
       if (role) {
@@ -97,121 +94,108 @@ export function RoleFormDialog({
       if (problem?.code === 'version_conflict' && latest) {
         reset({ name: latest.name, permissions: latest.permissions });
         setVersion(latest.version);
-        setError(
-          'Vai trò vừa được người khác sửa. Form đã hiện trạng thái hiện tại, chưa có gì thay đổi.',
-        );
+        setError('Vai trò vừa được người khác sửa. Form đã hiện bản hiện tại, chưa có gì thay đổi.');
         return;
       }
-      if (problem?.errors?.name) setFieldError('name', { message: problem.errors.name });
-      if (problem?.errors?.permissions) {
-        setFieldError('permissions', { message: problem.errors.permissions });
+      const fields = problem?.errors ?? {};
+      if (problem?.code === 'role_name_taken') {
+        setFieldError('name', { message: fields.name ?? 'Tên vai trò đã được dùng trong công ty' });
+        return;
       }
-      if (!problem?.errors) setError(getErrorMessage(e));
+      if (fields.name) setFieldError('name', { message: fields.name });
+      if (fields.permissions) setFieldError('permissions', { message: fields.permissions });
+      if (!fields.name && !fields.permissions) setError(problemMessage(e));
     }
   });
 
   const busy = createMut.isPending || updateMut.isPending;
-  const title = readOnly ? `Vai trò ${role?.name}` : role ? 'Sửa vai trò' : 'Tạo vai trò';
+  const title = readOnly ? `Vai trò ${role?.name ?? ''}` : role ? 'Sửa vai trò' : 'Tạo vai trò';
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <DialogContent dividers>
-          {readOnly && readOnlyReason && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              {readOnlyReason}
-            </Alert>
-          )}
-          {error && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          {catalog.isError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {getErrorMessage(catalog.error)}
-            </Alert>
-          )}
-          {!readOnly && (
-            <TextField
-              label="Tên vai trò"
-              fullWidth
-              autoFocus
-              sx={{ mb: 2 }}
-              {...register('name')}
-              error={Boolean(errors.name)}
-              helperText={errors.name?.message}
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {readOnly ? 'Tập quyền của vai trò.' : 'Chỉ chọn được những quyền bạn đang có.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {readOnly && readOnlyReason && <AlertMessage severity="info">{readOnlyReason}</AlertMessage>}
+        {error && <AlertMessage severity="warning">{error}</AlertMessage>}
+        {catalog.isError && (
+          <AlertMessage severity="error">{getErrorMessage(catalog.error)}</AlertMessage>
+        )}
+
+        <Form {...form}>
+          <form onSubmit={onSubmit} noValidate className="grid min-h-0 gap-4">
+            {!readOnly && <FormTextField control={control} name="name" label="Tên vai trò" autoFocus />}
+            <FormField
+              control={control}
+              name="permissions"
+              render={({ field }) => (
+                <FormItem>
+                  {!readOnly && <FormLabel>Quyền</FormLabel>}
+                  <div className="grid max-h-[50vh] gap-3 overflow-y-auto sm:grid-cols-2">
+                    {catalog.isLoading && <Skeleton className="h-40 sm:col-span-2" />}
+                    {groups.map(([module, defs]) => (
+                      <fieldset key={module} className="rounded-md border p-3" data-module={module}>
+                        <legend className="px-1 text-sm font-semibold">
+                          {MODULE_LABELS[module as keyof typeof MODULE_LABELS] ?? module}
+                        </legend>
+                        <div className="grid gap-1.5">
+                          {defs.map((d) => {
+                            const disabled = readOnly || !held.has(d.code);
+                            const id = `perm-${d.code}`;
+                            return (
+                              <label
+                                key={d.code}
+                                htmlFor={id}
+                                title={!readOnly && disabled ? 'Bạn không có quyền này' : undefined}
+                                className={cn(
+                                  'flex items-center gap-2 text-sm',
+                                  disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                                  readOnly && 'opacity-100',
+                                )}
+                              >
+                                <Checkbox
+                                  id={id}
+                                  value={d.code}
+                                  disabled={disabled}
+                                  checked={field.value.includes(d.code)}
+                                  onCheckedChange={(checked) =>
+                                    field.onChange(
+                                      checked
+                                        ? [...field.value, d.code]
+                                        : field.value.filter((c) => c !== d.code),
+                                    )
+                                  }
+                                />
+                                {d.label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          )}
-          {!readOnly && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Chỉ chọn được những quyền bạn đang có.
-            </Typography>
-          )}
-          <Controller
-            control={control}
-            name="permissions"
-            render={({ field }) => (
-              <Box>
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                    gap: 2,
-                  }}
-                >
-                  {groups.map(([module, defs]) => (
-                    <Box
-                      key={module}
-                      sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
-                    >
-                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                        {MODULE_LABELS[module as keyof typeof MODULE_LABELS] ?? module}
-                      </Typography>
-                      <Stack>
-                        {defs.map((d) => (
-                          <FormControlLabel
-                            key={d.code}
-                            disabled={readOnly || !held.has(d.code)}
-                            control={
-                              <Checkbox
-                                size="small"
-                                checked={field.value.includes(d.code)}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.checked
-                                      ? [...field.value, d.code]
-                                      : field.value.filter((c) => c !== d.code),
-                                  )
-                                }
-                              />
-                            }
-                            label={<Typography variant="body2">{d.label}</Typography>}
-                          />
-                        ))}
-                      </Stack>
-                    </Box>
-                  ))}
-                </Box>
-                {errors.permissions && (
-                  <FormHelperText error>{errors.permissions.message}</FormHelperText>
-                )}
-              </Box>
-            )}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} disabled={busy}>
-            {readOnly ? 'Đóng' : 'Huỷ'}
-          </Button>
-          {!readOnly && (
-            <Button type="submit" variant="contained" disabled={busy}>
-              {busy ? 'Đang lưu...' : 'Lưu'}
-            </Button>
-          )}
-        </DialogActions>
-      </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                {readOnly ? 'Đóng' : 'Huỷ'}
+              </Button>
+              {!readOnly && (
+                <Button type="submit" disabled={busy}>
+                  {busy ? 'Đang lưu...' : 'Lưu'}
+                </Button>
+              )}
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
     </Dialog>
   );
 }

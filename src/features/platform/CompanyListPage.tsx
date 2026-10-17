@@ -1,36 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Snackbar,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
-import LockIcon from '@mui/icons-material/Lock';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { Lock, LockOpen } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { DataTable } from '@/components/common/DataTable';
+import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { LockCompanyDialog } from './LockCompanyDialog';
 import { useLockCompany, usePlatformCompanies, useUnlockCompany } from '@/api/platform.api';
 import { getErrorMessage, getProblem } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useDebounce } from '@/hooks/useDebounce';
 import { MODULE_LABELS } from '@/utils/modules';
 import { formatDate, formatDateTime } from '@/utils/format';
 import type { Company, CompanyStatus } from '@/types/company';
 
-type Toast = { severity: 'success' | 'warning' | 'error'; msg: string };
-
 const PAGE_SIZES = [10, 25, 50];
+
+const STATUS_LABELS: Record<CompanyStatus, string> = {
+  active: 'Đang hoạt động',
+  locked: 'Đã khoá',
+};
 
 /**
  * UC-PI-08 — Quản lý công ty. Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái,
@@ -80,25 +75,32 @@ export function CompanyListPage() {
   const [locking, setLocking] = useState<Company | null>(null);
   const [lockFieldError, setLockFieldError] = useState<string>();
   const [unlocking, setUnlocking] = useState<Company | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
 
-  // 409: trạng thái đã đổi ở phiên khác — báo trạng thái hiện tại, không đổi gì
-  const reportError = (error: unknown) => {
-    const problem = getProblem(error);
-    setToast({
-      severity: problem?.status === 409 ? 'warning' : 'error',
-      msg: getErrorMessage(error),
-    });
+  // 409 version_conflict: phiên khác vừa đổi — báo trạng thái hiện tại theo current (AC-16);
+  // danh sách tự tải lại ở onSettled của mutation
+  const reportError = (error: unknown, name: string) => {
+    const current = (getProblem(error) as { current?: Company } | undefined)?.current;
+    if (problemCode(error) === 'version_conflict' && current) {
+      toast.warning(
+        `${current.name} vừa được người khác đổi, hiện ${STATUS_LABELS[
+          current.status
+        ].toLowerCase()}${current.status === 'locked' && current.lockReason ? ` (lý do: ${current.lockReason})` : ''}. Chưa có gì thay đổi.`,
+      );
+      return;
+    }
+    toast.error(
+      problemCode(error) === 'not_found' ? `Không tìm thấy công ty ${name}` : problemMessage(error),
+    );
   };
 
   const handleLock = (reason: string) => {
     if (!locking) return;
     setLockFieldError(undefined);
     lockMut.mutate(
-      { id: locking.id, reason },
+      { id: locking.id, reason, version: locking.version },
       {
         onSuccess: (company) => {
-          setToast({ severity: 'success', msg: `Đã khoá ${company.name}` });
+          toast.success(`Đã khoá ${company.name}`);
           setLocking(null);
         },
         onError: (error) => {
@@ -107,8 +109,8 @@ export function CompanyListPage() {
             setLockFieldError(problem.errors.reason);
             return;
           }
+          reportError(error, locking.name);
           setLocking(null);
-          reportError(error);
         },
       },
     );
@@ -116,95 +118,96 @@ export function CompanyListPage() {
 
   const handleUnlock = () => {
     if (!unlocking) return;
-    unlockMut.mutate(unlocking.id, {
-      onSuccess: (company) => setToast({ severity: 'success', msg: `Đã mở khoá ${company.name}` }),
-      onError: reportError,
-      onSettled: () => setUnlocking(null),
-    });
+    const target = unlocking;
+    unlockMut.mutate(
+      { id: target.id, version: target.version },
+      {
+        onSuccess: (company) => toast.success(`Đã mở khoá ${company.name}`),
+        onError: (error) => reportError(error, target.name),
+        onSettled: () => setUnlocking(null),
+      },
+    );
   };
 
-  const columns: GridColDef<Company>[] = useMemo(
+  const columns = useMemo<ColumnDef<Company>[]>(
     () => [
-      { field: 'name', headerName: 'Tên công ty', flex: 1.4, minWidth: 220 },
-      { field: 'taxCode', headerName: 'Mã số thuế', width: 130 },
       {
-        field: 'ceoName',
-        headerName: 'CEO',
-        flex: 1,
-        minWidth: 200,
-        renderCell: ({ row }) => (
-          <Box sx={{ lineHeight: 1.3, py: 1 }}>
-            <Typography variant="body2">{row.ceoName}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {row.ceoEmail}
-            </Typography>
-          </Box>
+        accessorKey: 'name',
+        header: 'Tên công ty',
+        meta: { className: 'min-w-52 font-medium' },
+      },
+      { accessorKey: 'taxCode', header: 'Mã số thuế', meta: { className: 'w-32' } },
+      {
+        id: 'ceo',
+        header: 'CEO',
+        meta: { className: 'min-w-52' },
+        cell: ({ row: { original: c } }) => (
+          <div className="leading-tight">
+            <div>{c.ceoName}</div>
+            <div className="text-xs text-muted-foreground">{c.ceoEmail}</div>
+          </div>
         ),
       },
       {
-        field: 'createdAt',
-        headerName: 'Ngày đăng ký',
-        width: 120,
-        valueFormatter: (value: string) => formatDate(value),
+        id: 'createdAt',
+        header: 'Ngày đăng ký',
+        meta: { className: 'w-32 whitespace-nowrap' },
+        cell: ({ row }) => formatDate(row.original.createdAt),
       },
       {
-        field: 'optionalModules',
-        headerName: 'Phân hệ tuỳ chọn',
-        flex: 1,
-        minWidth: 200,
-        sortable: false,
-        renderCell: ({ row }) =>
-          row.optionalModules.length === 0 ? (
-            <Typography variant="body2" color="text.disabled">
-              —
-            </Typography>
+        id: 'optionalModules',
+        header: 'Phân hệ tuỳ chọn',
+        meta: { className: 'min-w-52' },
+        cell: ({ row: { original: c } }) =>
+          c.optionalModules.length === 0 ? (
+            <span className="text-muted-foreground">—</span>
           ) : (
-            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, py: 1 }}>
-              {row.optionalModules.map((m) => (
-                <Chip key={m} label={MODULE_LABELS[m]} size="small" variant="outlined" />
+            <div className="flex flex-wrap gap-1">
+              {c.optionalModules.map((m) => (
+                <Badge key={m} variant="outline">
+                  {MODULE_LABELS[m]}
+                </Badge>
               ))}
-            </Stack>
+            </div>
           ),
       },
       {
-        field: 'status',
-        headerName: 'Trạng thái',
-        width: 220,
-        renderCell: ({ row }) =>
-          row.status === 'active' ? (
-            <Chip label="Đang hoạt động" color="success" size="small" />
+        id: 'status',
+        header: 'Trạng thái',
+        meta: { className: 'w-56' },
+        cell: ({ row: { original: c } }) =>
+          c.status === 'active' ? (
+            <Badge variant="success">{STATUS_LABELS.active}</Badge>
           ) : (
-            <Tooltip title={row.lockReason ?? ''}>
-              <Box sx={{ py: 1, lineHeight: 1.3 }}>
-                <Chip label="Đã khoá" color="error" size="small" />
-                <Typography variant="caption" color="text.secondary" display="block" noWrap>
-                  {formatDateTime(row.lockedAt)} · {row.lockReason}
-                </Typography>
-              </Box>
-            </Tooltip>
+            <div className="grid gap-1" title={c.lockReason}>
+              <Badge variant="destructive">{STATUS_LABELS.locked}</Badge>
+              <span className="line-clamp-2 text-xs text-muted-foreground">
+                {formatDateTime(c.lockedAt)} · {c.lockReason}
+              </span>
+            </div>
           ),
       },
       {
-        field: 'actions',
-        headerName: '',
-        width: 130,
-        sortable: false,
-        filterable: false,
-        renderCell: ({ row }) =>
-          row.status === 'active' ? (
+        id: 'actions',
+        header: () => <span className="sr-only">Hành động</span>,
+        meta: { className: 'w-32' },
+        cell: ({ row: { original: c } }) =>
+          c.status === 'active' ? (
             <Button
-              size="small"
-              color="error"
-              startIcon={<LockIcon />}
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
               onClick={() => {
                 setLockFieldError(undefined);
-                setLocking(row);
+                setLocking(c);
               }}
             >
+              <Lock />
               Khoá
             </Button>
           ) : (
-            <Button size="small" startIcon={<LockOpenIcon />} onClick={() => setUnlocking(row)}>
+            <Button size="sm" variant="ghost" onClick={() => setUnlocking(c)}>
+              <LockOpen />
               Mở khoá
             </Button>
           ),
@@ -213,68 +216,50 @@ export function CompanyListPage() {
     [],
   );
 
-  const paginationModel: GridPaginationModel = { page: page - 1, pageSize };
-
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Công ty"
         subtitle="Công ty tự đăng ký dùng Commerio. Quản trị nền tảng chỉ khoá hoặc mở khoá, không xem dữ liệu kinh doanh."
       />
 
       {query.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(query.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Tìm theo tên, mã số thuế, email CEO..."
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            sx={{ minWidth: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
+            onChange={setSearchInput}
+            placeholder="Tìm theo tên, mã số thuế, email CEO..."
+            className="md:w-80"
           />
-          <TextField
-            select
-            size="small"
+          <FilterSelect
             label="Trạng thái"
             value={status}
-            onChange={(e) => updateParams({ status: e.target.value, page: undefined })}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">Tất cả</MenuItem>
-            <MenuItem value="active">Đang hoạt động</MenuItem>
-            <MenuItem value="locked">Đã khoá</MenuItem>
-          </TextField>
-        </Stack>
-
-        <DataGrid
-          rows={query.data?.items ?? []}
+            onChange={(v) => updateParams({ status: v, page: undefined })}
+            options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+          />
+        </FilterBar>
+        <DataTable
           columns={columns}
-          rowCount={query.data?.total ?? 0}
-          loading={query.isFetching}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={(m) =>
-            updateParams({ page: m.page + 1, pageSize: m.pageSize })
-          }
-          pageSizeOptions={PAGE_SIZES}
-          getRowHeight={() => 'auto'}
-          disableRowSelectionOnClick
-          disableColumnFilter
-          sx={{ minHeight: 420, border: 0 }}
+          data={query.data?.items ?? []}
+          getRowId={(c) => c.id}
+          loading={query.isLoading}
+          fetching={query.isFetching}
+          empty={q || status ? 'Không có công ty nào khớp bộ lọc' : 'Chưa có công ty'}
+          pagination={{
+            page,
+            pageSize,
+            pageSizes: PAGE_SIZES,
+            total: query.data?.total ?? 0,
+            onChange: (p, size) => updateParams({ page: p, pageSize: size }),
+          }}
         />
-      </Paper>
+      </Card>
 
       <LockCompanyDialog
         company={locking}
@@ -284,13 +269,14 @@ export function CompanyListPage() {
         onClose={() => setLocking(null)}
       />
 
+      {/* Mở khoá không hỏi lý do, chỉ xác nhận (AC-14) */}
       <ConfirmDialog
         open={Boolean(unlocking)}
         title="Mở khoá công ty?"
         message={
           <>
-            Nhân viên của <strong>{unlocking?.name}</strong> sẽ đăng nhập lại được và công ty
-            hoạt động như trước khi khoá.
+            Nhân viên của <strong>{unlocking?.name}</strong> sẽ đăng nhập lại được và công ty hoạt
+            động như trước khi khoá.
           </>
         }
         confirmLabel="Mở khoá"
@@ -298,19 +284,6 @@ export function CompanyListPage() {
         onConfirm={handleUnlock}
         onClose={() => setUnlocking(null)}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} variant="filled" onClose={() => setToast(null)}>
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }
