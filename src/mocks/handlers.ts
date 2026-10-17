@@ -295,7 +295,7 @@ function requireCompany(request: Request, permission: string): Guard<CompanyActo
   if (membership.status === 'locked') {
     return {
       ok: false,
-      response: problem(403, 'Tài khoản bị khoá trong công ty này', { code: 'company_locked' }),
+      response: problem(403, 'Tài khoản bị khoá trong công ty này', { code: 'account_locked' }),
     };
   }
   const context = buildContext(membership);
@@ -375,8 +375,9 @@ const authHandlers = [
       });
     }
     if (body.optionalModules.includes('assistant') && !body.assistantDataConsent) {
-      return problem(422, 'Chưa đồng ý gửi dữ liệu tới OpenAI', {
-        errors: { assistantDataConsent: 'Cần đồng ý để bật Trợ lý AI' },
+      return problem(422, 'Dữ liệu gửi lên không hợp lệ', {
+        code: 'validation_failed',
+        errors: { assistantDataConsent: 'Cần đồng ý gửi dữ liệu tới OpenAI để bật Trợ lý AI' },
       });
     }
     const seq = String(db.companies.length + 1).padStart(3, '0');
@@ -420,7 +421,8 @@ const authHandlers = [
     if (!token) return problem(401, 'Chưa đăng nhập');
     const body = (await request.json()) as ChangePasswordRequest;
     if (passwords[token.account.email] !== body.currentPassword) {
-      return problem(422, 'Mật khẩu hiện tại không đúng', {
+      return problem(422, 'Dữ liệu gửi lên không hợp lệ', {
+        code: 'validation_failed',
         errors: { currentPassword: 'Mật khẩu hiện tại không đúng' },
       });
     }
@@ -468,7 +470,8 @@ const authHandlers = [
     const membership = db.memberships.find(
       (m) => m.accountId === token.account.id && m.companyId === companyId,
     );
-    if (!membership) return problem(403, 'Không thuộc công ty này');
+    // docs/21 C4: không thuộc công ty thì trả 404 như bản ghi của công ty khác
+    if (!membership) return problem(404, 'Không tìm thấy công ty', { code: 'not_found' });
     const company = db.companies.find((c) => c.id === companyId)!;
     if (company.status === 'locked') {
       return problem(403, 'Công ty đang bị khoá', {
@@ -477,7 +480,7 @@ const authHandlers = [
       });
     }
     if (membership.status === 'locked') {
-      return problem(403, 'Tài khoản bị khoá trong công ty này', { code: 'company_locked' });
+      return problem(403, 'Tài khoản bị khoá trong công ty này', { code: 'account_locked' });
     }
     const payload: SelectCompanyResponse = {
       accessToken: makeToken(token.account.id, companyId),

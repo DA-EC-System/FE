@@ -39,6 +39,7 @@ const SERVER_FIELD: Record<string, keyof RegisterForm> = {
   'ceo.fullName': 'fullName',
   'ceo.email': 'email',
   'ceo.password': 'password',
+  assistantDataConsent: 'optionalModules',
 };
 
 /**
@@ -80,16 +81,17 @@ export function RegisterPage() {
           navigate(ROUTES.login, { replace: true, state: { registeredEmail: res.email } }),
         onError: (e) => {
           const problem = getProblem(e);
-          if (problem?.code === 'email_taken') {
-            setFieldError('email', { message: 'Email này đã có tài khoản' });
-            return;
-          }
-          const fieldErrors = Object.entries(problem?.errors ?? {});
-          fieldErrors.forEach(([key, message]) => {
+          const errors = { ...problem?.errors };
+          if (problem?.code === 'email_taken') errors['ceo.email'] ??= 'Email này đã có tài khoản';
+          // Lỗi gắn được với ô thì hiện dưới ô; còn lại gom lên đầu form
+          const unmapped: string[] = [];
+          for (const [key, message] of Object.entries(errors)) {
             const name = SERVER_FIELD[key];
             if (name) setFieldError(name, { message });
-          });
-          if (!fieldErrors.some(([key]) => SERVER_FIELD[key])) setError(getErrorMessage(e));
+            else unmapped.push(message);
+          }
+          if (unmapped.length > 0) setError(unmapped.join(' '));
+          else if (Object.keys(errors).length === 0) setError(getErrorMessage(e));
         },
       },
     );

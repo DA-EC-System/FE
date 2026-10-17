@@ -4,7 +4,7 @@ import { AlertMessage } from '@/components/common/AlertMessage';
 import { PageSpinner } from '@/components/common/PageSpinner';
 import { Button } from '@/components/ui/button';
 import { useAuth, useSelectCompany } from '@/hooks/useAuth';
-import { getErrorMessage } from '@/api/client';
+import { authErrorMessage } from '@/features/auth/authErrors';
 import { hasPermission, isModuleEnabled } from '@/utils/permissions';
 import { MODULE_LABELS, type ModuleKey } from '@/utils/modules';
 import { ForbiddenPage } from '@/components/common/ForbiddenPage';
@@ -108,7 +108,7 @@ export function RequireCompany() {
     return (
       <div className="flex justify-center p-8">
         <div className="grid w-full max-w-md gap-4">
-          <AlertMessage severity="error">{getErrorMessage(select.error)}</AlertMessage>
+          <AlertMessage severity="error">{authErrorMessage(select.error)}</AlertMessage>
           <Button asChild>
             <Link to={ROUTES.selectCompany}>Chọn công ty khác</Link>
           </Button>

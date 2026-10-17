@@ -9,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { useAuth, useLogin } from '@/hooks/useAuth';
-import { getErrorMessage } from '@/api/client';
 import { ROUTES } from '@/router/routes';
 import type { Account } from '@/types/auth';
 import { USE_MOCKS } from '@/utils/env';
+import { authErrorMessage } from './authErrors';
 import { AuthShell, DividerText } from './AuthShell';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import { emailSchema } from './schemas';
@@ -74,7 +74,7 @@ export function LoginPage() {
 
   const onSubmit = form.handleSubmit((values) => {
     setError(null);
-    login.mutate(values, { onError: (e) => setError(getErrorMessage(e)) });
+    login.mutate(values, { onError: (e) => setError(authErrorMessage(e)) });
   });
 
   const fillDemo = (email: string, password: string) => {

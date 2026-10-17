@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useGoogleLogin } from '@/hooks/useAuth';
-import { getErrorMessage } from '@/api/client';
-import { USE_MOCKS } from '@/utils/env';
+import { authErrorMessage } from './authErrors';
+import { GOOGLE_CLIENT_ID, USE_MOCKS } from '@/utils/env';
 
 interface GoogleLoginButtonProps {
   onError: (message: string) => void;
@@ -43,22 +43,115 @@ function GoogleIcon() {
   );
 }
 
+interface GoogleIdApi {
+  initialize: (config: {
+    client_id: string;
+    callback: (res: { credential: string }) => void;
+    ux_mode?: 'popup';
+  }) => void;
+  renderButton: (parent: HTMLElement, options: Record<string, string | number>) => void;
+}
+
+type GoogleWindow = Window & { google?: { accounts: { id: GoogleIdApi } } };
+
+const GIS_SRC = 'https://accounts.google.com/gsi/client';
+let gisLoading: Promise<GoogleIdApi> | null = null;
+
+/** Tải thư viện Google Identity Services một lần cho cả trang */
+function loadGis(): Promise<GoogleIdApi> {
+  gisLoading ??= new Promise<GoogleIdApi>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = GIS_SRC;
+    script.async = true;
+    script.onload = () => {
+      const api = (window as GoogleWindow).google?.accounts.id;
+      if (api) resolve(api);
+      else reject(new Error('Không tải được Google Identity Services'));
+    };
+    script.onerror = () => {
+      gisLoading = null;
+      reject(new Error('Không tải được Google Identity Services'));
+    };
+    document.head.appendChild(script);
+  });
+  return gisLoading;
+}
+
 /**
  * Nút "Đăng nhập bằng Google" (UC-PI-03, nhánh mở rộng). Google chỉ xác thực email;
- * BE tìm tài khoản theo email, không tự tạo tài khoản mới (BE#7).
+ * BE tìm tài khoản theo email, không tự tạo tài khoản mới (docs/21 A6, V4, V11).
  *
- * Khi chạy mock: hộp thoại giả lập bước chọn tài khoản Google, credential chính là email.
- * Với backend thật: chờ chốt với BE#7 (Google Identity Services gửi ID token lên POST /auth/google,
- * hay BE tự làm luồng chuyển hướng OAuth2), nên tạm khoá nút.
+ * - Chạy mock: hộp thoại giả lập bước chọn tài khoản Google, credential chính là email.
+ * - Backend thật: nút của Google Identity Services trả ID token, gửi lên `POST /identity/google`.
+ *   Chưa đặt `VITE_GOOGLE_CLIENT_ID` thì khoá nút.
  */
 export function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
+  if (!USE_MOCKS && GOOGLE_CLIENT_ID) return <GisButton onError={onError} />;
+  return <MockGoogleButton onError={onError} />;
+}
+
+function GisButton({ onError }: GoogleLoginButtonProps) {
+  const google = useGoogleLogin();
+  const container = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
+  // Callback của Google giữ tham chiếu lúc initialize; đọc hàm mới nhất qua ref
+  const handlers = useRef({ mutate: google.mutate, onError });
+  useEffect(() => {
+    handlers.current = { mutate: google.mutate, onError };
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    loadGis()
+      .then((api) => {
+        const el = container.current;
+        if (cancelled || !el) return;
+        api.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          ux_mode: 'popup',
+          callback: ({ credential }) =>
+            handlers.current.mutate(credential, {
+              onError: (e) => handlers.current.onError(authErrorMessage(e)),
+            }),
+        });
+        api.renderButton(el, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'signin_with',
+          locale: 'vi',
+          width: Math.min(el.offsetWidth || 400, 400),
+        });
+      })
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (failed) {
+    return (
+      <Button type="button" variant="outline" size="lg" className="w-full" disabled>
+        <GoogleIcon />
+        Không tải được đăng nhập Google
+      </Button>
+    );
+  }
+  return (
+    <div className="flex min-h-10 justify-center" aria-busy={google.isPending}>
+      <div ref={container} className="w-full max-w-[400px]" />
+    </div>
+  );
+}
+
+function MockGoogleButton({ onError }: GoogleLoginButtonProps) {
   const google = useGoogleLogin();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
 
   const submit = () => {
     setOpen(false);
-    google.mutate(email.trim().toLowerCase(), { onError: (e) => onError(getErrorMessage(e)) });
+    google.mutate(email.trim().toLowerCase(), { onError: (e) => onError(authErrorMessage(e)) });
   };
 
   const button = (
@@ -81,7 +174,7 @@ export function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
         <TooltipTrigger asChild>
           <span className="block">{button}</span>
         </TooltipTrigger>
-        <TooltipContent>Chưa kết nối đăng nhập Google với máy chủ</TooltipContent>
+        <TooltipContent>Chưa cấu hình VITE_GOOGLE_CLIENT_ID</TooltipContent>
       </Tooltip>
     );
   }

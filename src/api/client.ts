@@ -92,7 +92,13 @@ apiClient.interceptors.response.use(
       if (!url.startsWith('/identity/login') && !url.startsWith('/identity/google')) {
         useAuthStore.getState().clear();
       }
-    } else if (status === 403 && code === 'company_locked' && path.startsWith('/c/')) {
+    } else if (
+      status === 403 &&
+      (code === 'company_locked' || code === 'account_locked') &&
+      path.startsWith('/c/') &&
+      // Chọn công ty bị từ chối: RequireCompany hiện lý do ngay trên trang (FE#2 AC-11)
+      !config?.url?.startsWith('/identity/select-company')
+    ) {
       useAuthStore.getState().leaveCompany();
       window.location.assign('/select-company');
     } else if (status === 403 && code === 'password_change_required') {
