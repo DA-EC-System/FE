@@ -1,69 +1,93 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom';
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  FormControlLabel,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Snackbar,
-  Stack,
-  Switch,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { alpha } from '@mui/material/styles';
-import {
-  DataGrid,
-  useGridApiContext,
-  type GridColDef,
-  type GridRenderEditCellParams,
-  type GridRowSelectionModel,
-} from '@mui/x-data-grid';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SaveIcon from '@mui/icons-material/Save';
-import UndoIcon from '@mui/icons-material/Undo';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import SearchIcon from '@mui/icons-material/Search';
+import { useBlocker, useNavigate, useParams } from 'react-router-dom';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { ArrowLeft, ImageIcon, ListChecks, Save, Undo2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { DataTable } from '@/components/common/DataTable';
+import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { usePricelist, usePricelistItems, useSavePrices } from '@/api/pricing.api';
 import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage, getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
+import { cn } from '@/lib/utils';
 import type { PricelistItem } from '@/types/pricing';
 import { BulkPriceDialog } from './BulkPriceDialog';
-import { parsePrice, priceText, type Toast } from './shared';
+import { parsePrice, priceText } from './shared';
 
 type Row = PricelistItem & { current: number | null };
 
-/** Ô sửa giá: gõ số, lỗi hiện ngay dưới ô (UC-CP-03 bước 8) */
-function PriceEditCell({ id, field, value, error }: GridRenderEditCellParams<Row, string>) {
-  const apiRef = useGridApiContext();
+const editText = (value: number | null) => (value === null ? '' : value.toLocaleString('vi-VN'));
+
+interface PriceCellProps {
+  row: Row;
+  /** Chữ người dùng gõ mà chưa hợp lệ; giữ ở trang để đổi trang, lọc không mất */
+  invalidText: string | undefined;
+  error: string | undefined;
+  placeholder: string;
+  onValid: (variantId: string, price: number | null) => void;
+  onInvalid: (variantId: string, text: string, error: string) => void;
+}
+
+/** Ô giá: kiểm ngay khi gõ, giá hợp lệ vào bản nháp, giá sai báo lỗi dưới ô (AC-G6, AC-G7) */
+function PriceCell({ row, invalidText, error, placeholder, onValid, onInvalid }: PriceCellProps) {
+  const [text, setText] = useState(invalidText ?? editText(row.current));
+  const [focused, setFocused] = useState(false);
+
+  // Giá đổi từ ngoài (sửa hàng loạt, nạp lại, huỷ thay đổi) khi không gõ dở
+  useEffect(() => {
+    if (!focused && invalidText === undefined) setText(editText(row.current));
+  }, [row.current, focused, invalidText]);
+
   return (
-    <Tooltip open={Boolean(error)} title={typeof error === 'string' ? error : ''} placement="bottom-start" arrow>
-      <TextField
-        autoFocus
-        fullWidth
-        size="small"
-        value={value ?? ''}
-        error={Boolean(error)}
-        placeholder="Trống: chưa có giá"
-        onChange={(e) => apiRef.current.setEditCellValue({ id, field, value: e.target.value })}
-        onFocus={(e) => e.target.select()}
-        InputProps={{ endAdornment: <InputAdornment position="end">đ</InputAdornment> }}
-        sx={{ '& input': { textAlign: 'right' } }}
-      />
-    </Tooltip>
+    <div className="grid gap-1">
+      <div className="relative">
+        <Input
+          value={text}
+          inputMode="numeric"
+          placeholder={placeholder}
+          aria-label={`Giá ${row.sku}`}
+          aria-invalid={Boolean(error)}
+          data-price-input={row.variantId}
+          className="h-8 pe-6 text-right"
+          onFocus={(e) => {
+            setFocused(true);
+            e.target.select();
+          }}
+          onBlur={() => setFocused(false)}
+          onChange={(e) => {
+            const next = e.target.value;
+            setText(next);
+            const parsed = parsePrice(next);
+            if (parsed.ok) onValid(row.variantId, parsed.value);
+            else onInvalid(row.variantId, next, parsed.error);
+          }}
+        />
+        <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+          đ
+        </span>
+      </div>
+      {error && (
+        <p className="text-xs text-destructive" data-testid="price-error">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -71,7 +95,6 @@ function PriceEditCell({ id, field, value, error }: GridRenderEditCellParams<Row
 export function PricelistDetailPage() {
   const { pricelistId = '' } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
@@ -79,34 +102,30 @@ export function PricelistDetailPage() {
 
   const plQuery = usePricelist(pricelistId);
   const itemsQuery = usePricelistItems(pricelistId);
-  const categoriesQuery = useCategories();
+  const categories = useCategories().data ?? [];
   const saveMut = useSavePrices();
   const pricelist = plQuery.data;
   const isChannel = pricelist?.type === 'channel';
 
   /** variantId → giá mới (null là bỏ giá) */
   const [draft, setDraft] = useState<Map<string, number | null>>(new Map());
-  /** Lỗi BE trả theo dòng: errors["items.<variantId>"] */
+  /** Ô đang gõ dở chưa hợp lệ: variantId → chữ và lỗi */
+  const [invalid, setInvalid] = useState<Map<string, { text: string; error: string }>>(new Map());
+  /** Lỗi BE trả theo dòng: errors["items.<variantId>"] (AC-G9) */
   const [rowErrors, setRowErrors] = useState<Map<string, string>>(new Map());
-  const [selection, setSelection] = useState<GridRowSelectionModel>([]);
+  const [selection, setSelection] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [onlyChanged, setOnlyChanged] = useState(false);
-  const [toast, setToast] = useState<Toast | null>(
-    () => (location.state as { toast?: Toast } | null)?.toast ?? null,
-  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  // Thông báo từ trang tạo chỉ hiện một lần
-  useEffect(() => {
-    if (location.state) navigate(location.pathname, { replace: true, state: null });
-  }, [location.state, location.pathname, navigate]);
+  const dirty = draft.size > 0 || invalid.size > 0;
 
-  const dirty = draft.size > 0;
-
-  // Rời trang khi còn giá chưa lưu: hỏi trước (đổi route và đóng tab)
+  // Rời trang khi còn giá chưa lưu: hỏi trước (đổi route và đóng tab) (AC-G11)
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname,
   );
@@ -124,7 +143,7 @@ export function PricelistDetailPage() {
   const original = useMemo(() => new Map(items.map((i) => [i.variantId, i.price])), [items]);
 
   const current = useCallback(
-    (variantId: string) => (draft.has(variantId) ? draft.get(variantId)! : original.get(variantId) ?? null),
+    (variantId: string) => (draft.has(variantId) ? draft.get(variantId)! : (original.get(variantId) ?? null)),
     [draft, original],
   );
 
@@ -139,14 +158,24 @@ export function PricelistDetailPage() {
         });
         return next;
       });
-      setRowErrors((prev) => {
+      const clear = <T,>(prev: Map<string, T>) => {
         const next = new Map(prev);
         changes.forEach((_, variantId) => next.delete(variantId));
-        return next;
-      });
+        return next.size === prev.size ? prev : next;
+      };
+      setInvalid(clear);
+      setRowErrors(clear);
     },
     [original],
   );
+
+  const onValid = useCallback(
+    (variantId: string, price: number | null) => applyChanges(new Map([[variantId, price]])),
+    [applyChanges],
+  );
+  const onInvalid = useCallback((variantId: string, text: string, error: string) => {
+    setInvalid((prev) => new Map(prev).set(variantId, { text, error }));
+  }, []);
 
   const rows: Row[] = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -157,19 +186,36 @@ export function PricelistDetailPage() {
           (!q || r.productName.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q)) &&
           (!categoryId || r.categoryId === categoryId) &&
           (!onlyMissing || r.current === null) &&
-          (!onlyChanged || draft.has(r.variantId) || rowErrors.has(r.variantId)),
+          (!onlyChanged || draft.has(r.variantId) || invalid.has(r.variantId) || rowErrors.has(r.variantId)),
       );
-  }, [items, current, search, categoryId, onlyMissing, onlyChanged, draft, rowErrors]);
+  }, [items, current, search, categoryId, onlyMissing, onlyChanged, draft, invalid, rowErrors]);
 
-  const selectedRows = useMemo(() => {
-    const ids = new Set(selection);
-    return items.filter((i) => ids.has(i.variantId));
-  }, [items, selection]);
+  // Phân trang tại chỗ: API trả cả bảng (docs/21 mục 6)
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const withReset =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPage(1);
+    };
+
+  const selectedRows = useMemo(() => items.filter((i) => selection.has(i.variantId)), [items, selection]);
+  const allFilteredSelected = rows.length > 0 && rows.every((r) => selection.has(r.variantId));
+  const someFilteredSelected = rows.some((r) => selection.has(r.variantId));
 
   const pricedCount = items.filter((i) => current(i.variantId) !== null).length;
 
   const save = async () => {
-    if (!pricelist || !dirty) return;
+    if (!pricelist || !draft.size) return;
+    if (invalid.size) {
+      setOnlyChanged(true);
+      setPage(1);
+      toast.error(`Còn ${invalid.size} ô giá chưa hợp lệ, sửa trước khi lưu`);
+      return;
+    }
     try {
       const saved = await saveMut.mutateAsync({
         id: pricelist.id,
@@ -180,16 +226,15 @@ export function PricelistDetailPage() {
       setDraft(new Map());
       setRowErrors(new Map());
       setOnlyChanged(false);
-      setToast({ severity: 'success', msg: `Đã lưu ${n} giá của ${saved.name}` });
+      toast.success(`Đã lưu ${n} giá của ${saved.name}`);
     } catch (e) {
       const problem = getProblem(e);
       if (problem?.code === 'version_conflict') {
-        // Nạp giá mới nhất nhưng giữ bản nháp để người dùng kiểm lại (UC-CP-03 luồng 409)
+        // Nạp giá mới nhất nhưng giữ bản nháp để người dùng kiểm lại (AC-G10)
         await Promise.all([plQuery.refetch(), itemsQuery.refetch()]);
-        setToast({
-          severity: 'warning',
-          msg: 'Bảng giá vừa được người khác sửa. Đã nạp giá mới nhất, thay đổi của bạn vẫn giữ: kiểm lại rồi bấm Lưu.',
-        });
+        toast.warning(
+          'Bảng giá vừa được người khác sửa. Đã nạp giá mới nhất, thay đổi của bạn vẫn giữ: kiểm lại rồi bấm Lưu.',
+        );
         return;
       }
       const errors = problem?.errors ?? {};
@@ -201,265 +246,299 @@ export function PricelistDetailPage() {
       if (byRow.size) {
         setRowErrors(byRow);
         setOnlyChanged(true);
-        setToast({ severity: 'error', msg: `${byRow.size} giá chưa hợp lệ, xem cột Ghi chú` });
+        setPage(1);
+        toast.error(`${byRow.size} giá chưa hợp lệ, xem cột Ghi chú`);
       } else {
-        setToast({ severity: 'error', msg: errors.items ?? getErrorMessage(e) });
+        toast.error(errors.items ?? problemMessage(e));
       }
     }
   };
 
-  const columns: GridColDef<Row>[] = useMemo(
-    () => [
-      {
-        field: 'productName',
-        headerName: 'Sản phẩm',
-        flex: 1.4,
-        minWidth: 240,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ height: '100%' }}>
-            <Avatar variant="rounded" src={row.thumbnailUrl ?? undefined} sx={{ width: 36, height: 36 }}>
-              {row.productName[0]}
-            </Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="body2" noWrap>
-                {row.productName}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap component="div">
-                {row.attributesLabel || 'Không có thuộc tính'}
-              </Typography>
-            </Box>
-          </Stack>
+  const discard = () => {
+    setDraft(new Map());
+    setInvalid(new Map());
+    setRowErrors(new Map());
+    setDiscardOpen(false);
+  };
+
+  const columns = useMemo<ColumnDef<Row>[]>(() => {
+    const cols: ColumnDef<Row>[] = [];
+    if (canManage) {
+      cols.push({
+        id: 'select',
+        meta: { className: 'w-10' },
+        header: () => (
+          <Checkbox
+            aria-label="Chọn tất cả dòng đang lọc"
+            checked={allFilteredSelected ? true : someFilteredSelected ? 'indeterminate' : false}
+            onCheckedChange={(v) =>
+              setSelection((prev) => {
+                const next = new Set(prev);
+                rows.forEach((r) => (v === true ? next.add(r.variantId) : next.delete(r.variantId)));
+                return next;
+              })
+            }
+          />
         ),
-      },
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label={`Chọn ${row.original.sku}`}
+            checked={selection.has(row.original.variantId)}
+            onCheckedChange={(v) =>
+              setSelection((prev) => {
+                const next = new Set(prev);
+                if (v === true) next.add(row.original.variantId);
+                else next.delete(row.original.variantId);
+                return next;
+              })
+            }
+          />
+        ),
+      });
+    }
+    cols.push(
       {
-        field: 'sku',
-        headerName: 'SKU',
-        width: 170,
-        renderCell: ({ value }) => <Box sx={{ fontFamily: 'monospace' }}>{value}</Box>,
-      },
-      ...(isChannel
-        ? [
-            {
-              field: 'standardPrice',
-              headerName: 'Giá chuẩn',
-              width: 140,
-              align: 'right',
-              headerAlign: 'right',
-              valueFormatter: (value: number | null) => priceText(value),
-            } satisfies GridColDef<Row>,
-          ]
-        : []),
-      {
-        field: 'current',
-        headerName: isChannel ? 'Giá gian hàng' : 'Giá bán',
-        width: 170,
-        align: 'right',
-        headerAlign: 'right',
-        editable: canManage,
-        // Ô sửa nhận chữ; số đã kiểm ở preProcessEditCellProps nên valueSetter chỉ đổi kiểu
-        valueGetter: (value: number | null) => (value === null ? '' : String(value)),
-        valueSetter: (value: string, row) => {
-          const parsed = parsePrice(value);
-          return { ...row, current: parsed.ok ? parsed.value : row.current };
-        },
-        preProcessEditCellProps: ({ props }) => {
-          const parsed = parsePrice(String(props.value ?? ''));
-          return { ...props, error: parsed.ok ? false : parsed.error };
-        },
-        renderEditCell: (params) => <PriceEditCell {...(params as GridRenderEditCellParams<Row, string>)} />,
-        cellClassName: ({ row }) =>
-          rowErrors.has(row.variantId) ? 'price-error' : draft.has(row.variantId) ? 'price-dirty' : '',
-        renderCell: ({ row }) =>
-          row.current !== null ? (
-            priceText(row.current)
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              {isChannel ? 'theo giá chuẩn' : 'chưa có giá'}
-            </Typography>
-          ),
-      },
-      {
-        field: 'note',
-        headerName: 'Ghi chú',
-        flex: 1,
-        minWidth: 180,
-        sortable: false,
-        renderCell: ({ row }) => {
-          const err = rowErrors.get(row.variantId);
-          if (err) return <Typography variant="body2" color="error">{err}</Typography>;
-          if (!draft.has(row.variantId)) return null;
-          const before = original.get(row.variantId) ?? null;
+        id: 'product',
+        header: 'Sản phẩm',
+        meta: { className: 'min-w-56' },
+        cell: ({ row }) => {
+          const r = row.original;
           return (
-            <Typography variant="body2" color="text.secondary">
-              Trước: {priceText(before)}
-            </Typography>
+            <div className="flex items-center gap-3">
+              <Avatar className="size-9 rounded-md">
+                {r.thumbnailUrl && <AvatarImage src={r.thumbnailUrl} alt={r.productName} className="object-cover" />}
+                <AvatarFallback className="rounded-md">
+                  <ImageIcon className="size-4 text-muted-foreground" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate font-medium">{r.productName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {r.attributesLabel || 'Không có thuộc tính'}
+                </p>
+              </div>
+            </div>
           );
         },
       },
-    ],
-    [isChannel, canManage, draft, rowErrors, original],
-  );
+      {
+        accessorKey: 'sku',
+        header: 'SKU',
+        meta: { className: 'w-40 font-mono text-xs' },
+      },
+    );
+    if (isChannel) {
+      cols.push({
+        id: 'standardPrice',
+        header: 'Giá chuẩn',
+        meta: { className: 'w-32 text-right whitespace-nowrap' },
+        cell: ({ row }) => priceText(row.original.standardPrice),
+      });
+    }
+    cols.push(
+      {
+        id: 'price',
+        header: isChannel ? 'Giá gian hàng' : 'Giá bán',
+        meta: { className: 'w-44 text-right' },
+        cell: ({ row }) => {
+          const r = row.original;
+          const placeholder = isChannel ? 'theo giá chuẩn' : 'chưa có giá';
+          const changed = draft.has(r.variantId);
+          const bad = invalid.get(r.variantId);
+          const wrapper = cn(
+            '-mx-2 rounded-md px-2 py-1',
+            bad || rowErrors.has(r.variantId)
+              ? 'bg-destructive/10'
+              : changed && 'bg-warning/15 font-semibold',
+          );
+          if (!canManage) {
+            return (
+              <div className={wrapper}>
+                {r.current !== null ? (
+                  priceText(r.current)
+                ) : (
+                  <span className="text-muted-foreground italic">{placeholder}</span>
+                )}
+              </div>
+            );
+          }
+          return (
+            <div className={wrapper} data-dirty={changed || undefined}>
+              <PriceCell
+                row={r}
+                invalidText={bad?.text}
+                error={bad?.error}
+                placeholder={placeholder}
+                onValid={onValid}
+                onInvalid={onInvalid}
+              />
+            </div>
+          );
+        },
+      },
+      {
+        id: 'note',
+        header: 'Ghi chú',
+        meta: { className: 'min-w-40' },
+        cell: ({ row }) => {
+          const r = row.original;
+          const err = rowErrors.get(r.variantId);
+          if (err) return <span className="text-destructive" data-testid="row-error">{err}</span>;
+          if (!draft.has(r.variantId)) return null;
+          return <span className="text-muted-foreground">Trước: {priceText(original.get(r.variantId) ?? null)}</span>;
+        },
+      },
+    );
+    return cols;
+  }, [
+    canManage,
+    isChannel,
+    draft,
+    invalid,
+    rowErrors,
+    original,
+    selection,
+    rows,
+    allFilteredSelected,
+    someFilteredSelected,
+    onValid,
+    onInvalid,
+  ]);
+
+  const backToList = () => navigate(ROUTES.company.pricing(companyId));
 
   if (plQuery.isError) {
     return (
-      <Box>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {getErrorMessage(plQuery.error)}
-        </Alert>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(ROUTES.company.pricing(companyId))}>
+      <div className="grid justify-items-start gap-4">
+        <AlertMessage severity="error">{getErrorMessage(plQuery.error)}</AlertMessage>
+        <Button variant="outline" onClick={backToList}>
+          <ArrowLeft />
           Về danh sách bảng giá
         </Button>
-      </Box>
+      </div>
     );
   }
 
+  const filtered = Boolean(search.trim() || categoryId || onlyMissing || onlyChanged);
+
   return (
-    <Box>
+    <div>
       <PageHeader
         title={pricelist?.name ?? 'Bảng giá'}
         subtitle={
           !pricelist
             ? undefined
             : pricelist.type === 'standard'
-              ? 'Bảng giá chuẩn, áp dụng mặc định cho mọi đơn'
+              ? 'Bảng giá chuẩn, áp dụng mặc định cho mọi đơn.'
               : pricelist.shop
-                ? `Giá riêng cho gian hàng ${pricelist.shop.shopName} (${PLATFORM_LABELS[pricelist.shop.platform]}); ô trống lấy giá chuẩn`
-                : 'Gian hàng của bảng giá này đã bị xoá'
+                ? `Giá riêng cho gian hàng ${pricelist.shop.shopName} (${PLATFORM_LABELS[pricelist.shop.platform]}); ô trống lấy giá chuẩn.`
+                : 'Gian hàng của bảng giá này đã bị xoá.'
         }
         action={
-          <Stack direction="row" spacing={1}>
-            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(ROUTES.company.pricing(companyId))}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={backToList}>
+              <ArrowLeft />
               Danh sách
             </Button>
             {canManage && (
               <>
                 <Button
-                  startIcon={<UndoIcon />}
+                  variant="outline"
                   disabled={!dirty || saveMut.isPending}
                   onClick={() => setDiscardOpen(true)}
                 >
+                  <Undo2 />
                   Huỷ thay đổi
                 </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  disabled={!dirty || saveMut.isPending || !pricelist}
-                  onClick={save}
-                >
-                  {saveMut.isPending ? 'Đang lưu...' : dirty ? `Lưu ${draft.size} thay đổi` : 'Lưu thay đổi'}
+                <Button disabled={!draft.size || saveMut.isPending || !pricelist} onClick={save}>
+                  <Save />
+                  {saveMut.isPending
+                    ? 'Đang lưu...'
+                    : draft.size
+                      ? `Lưu ${draft.size} thay đổi`
+                      : 'Lưu thay đổi'}
                 </Button>
               </>
             )}
-          </Stack>
+          </div>
         }
       />
 
       {!canManage && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <AlertMessage severity="info" className="mb-4">
           Bạn chỉ có quyền xem bảng giá.
-        </Alert>
+        </AlertMessage>
       )}
       {itemsQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(itemsQuery.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }} sx={{ mb: 2 }}>
-        <TextField
-          size="small"
-          placeholder="Tìm theo tên sản phẩm hoặc SKU"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ minWidth: 280 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-        <TextField
-          select
-          size="small"
-          label="Danh mục"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          sx={{ minWidth: 200 }}
+      {canManage && selection.size > 0 && (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-info/30 bg-info/10 px-4 py-2 text-sm"
+          role="status"
         >
-          <MenuItem value="">Tất cả danh mục</MenuItem>
-          {(categoriesQuery.data ?? []).map((c) => (
-            <MenuItem key={c.id} value={c.id}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <FormControlLabel
-          control={<Switch checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} />}
-          label={isChannel ? 'Chưa có giá riêng' : 'Chưa có giá'}
-        />
-        {canManage && (
-          <FormControlLabel
-            control={<Switch checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />}
-            label="Chỉ dòng đã sửa"
+          <span>Đã chọn {selection.size} biến thể</span>
+          <div className="ms-auto flex gap-2">
+            <Button size="sm" onClick={() => setBulkOpen(true)}>
+              <ListChecks />
+              Sửa giá hàng loạt
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setSelection(new Set())}>
+              Bỏ chọn
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput
+            value={search}
+            onChange={withReset(setSearch)}
+            placeholder="Tìm theo tên sản phẩm hoặc SKU..."
           />
-        )}
-        <Box sx={{ flex: 1 }} />
-        <Chip label={`Đã gán giá ${pricedCount} / ${items.length}`} variant="outlined" />
-      </Stack>
-
-      {canManage && selection.length > 0 && (
-        <Alert
-          severity="info"
-          sx={{ mb: 2 }}
-          action={
-            <Stack direction="row" spacing={1}>
-              <Button color="inherit" size="small" startIcon={<EditNoteIcon />} onClick={() => setBulkOpen(true)}>
-                Sửa giá hàng loạt
-              </Button>
-              <Button color="inherit" size="small" onClick={() => setSelection([])}>
-                Bỏ chọn
-              </Button>
-            </Stack>
-          }
-        >
-          Đã chọn {selection.length} biến thể
-        </Alert>
-      )}
-
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <DataGrid
-          rows={rows}
+          <FilterSelect
+            label="Danh mục"
+            value={categoryId}
+            onChange={withReset(setCategoryId)}
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
+          <div className="flex items-center gap-2 md:h-9">
+            <Switch id="only-missing" checked={onlyMissing} onCheckedChange={withReset(setOnlyMissing)} />
+            <Label htmlFor="only-missing">{isChannel ? 'Chưa có giá riêng' : 'Chưa có giá'}</Label>
+          </div>
+          {canManage && (
+            <div className="flex items-center gap-2 md:h-9">
+              <Switch id="only-changed" checked={onlyChanged} onCheckedChange={withReset(setOnlyChanged)} />
+              <Label htmlFor="only-changed">Đã sửa</Label>
+            </div>
+          )}
+          <Badge variant="outline" className="md:ms-auto md:mb-2" data-testid="priced-summary">
+            Đã gán giá {pricedCount} / {items.length}
+          </Badge>
+        </FilterBar>
+        <DataTable
           columns={columns}
+          data={pageRows}
           getRowId={(r) => r.variantId}
           loading={itemsQuery.isLoading || plQuery.isLoading}
-          checkboxSelection={canManage}
-          keepNonExistentRowsSelected
-          rowSelectionModel={selection}
-          onRowSelectionModelChange={setSelection}
-          disableRowSelectionOnClick
-          disableColumnMenu
-          rowHeight={56}
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 50 } } }}
-          processRowUpdate={(newRow: Row) => {
-            applyChanges(new Map([[newRow.variantId, newRow.current]]));
-            return newRow;
+          fetching={itemsQuery.isFetching}
+          empty={items.length || filtered ? 'Không có biến thể khớp bộ lọc' : 'Công ty chưa có biến thể đang bán'}
+          pagination={{
+            page: safePage,
+            pageSize,
+            total: rows.length,
+            pageSizes: [25, 50, 100],
+            onChange: (p, size) => {
+              setPage(size === pageSize ? p : 1);
+              setPageSize(size);
+            },
           }}
-          onProcessRowUpdateError={(e) => setToast({ severity: 'error', msg: getErrorMessage(e) })}
-          localeText={{
-            noRowsLabel: items.length ? 'Không có biến thể khớp bộ lọc' : 'Công ty chưa có biến thể đang bán',
-            footerRowSelected: (n) => `Đã chọn ${n} dòng`,
-            MuiTablePagination: { labelRowsPerPage: 'Số dòng' },
-          }}
-          sx={(theme) => ({
-            minHeight: 400,
-            '& .price-dirty': { bgcolor: alpha(theme.palette.warning.main, 0.16), fontWeight: 600 },
-            '& .price-error': { bgcolor: alpha(theme.palette.error.main, 0.16), fontWeight: 600 },
-          })}
         />
-      </Paper>
+      </Card>
 
       <BulkPriceDialog
         open={bulkOpen}
@@ -470,46 +549,29 @@ export function PricelistDetailPage() {
         onApply={({ changes }) => {
           applyChanges(changes);
           setBulkOpen(false);
-          setToast({ severity: 'success', msg: `Đã đổi ${changes.size} giá. Bấm Lưu để ghi lại.` });
+          toast.success(`Đã đổi ${changes.size} giá. Bấm Lưu để ghi lại.`);
         }}
       />
       <ConfirmDialog
         open={discardOpen}
         title="Huỷ thay đổi?"
-        message={`Bỏ ${draft.size} giá chưa lưu và quay về giá đang áp dụng.`}
+        message={`Bỏ ${draft.size + invalid.size} giá chưa lưu và quay về giá đang áp dụng.`}
         confirmLabel="Huỷ thay đổi"
         cancelLabel="Giữ lại"
         destructive
-        onConfirm={() => {
-          setDraft(new Map());
-          setRowErrors(new Map());
-          setDiscardOpen(false);
-        }}
+        onConfirm={discard}
         onClose={() => setDiscardOpen(false)}
       />
       <ConfirmDialog
         open={blocker.state === 'blocked'}
         title="Rời trang khi chưa lưu?"
-        message={`Còn ${draft.size} giá chưa lưu sẽ bị bỏ.`}
+        message={`Còn ${draft.size + invalid.size} giá chưa lưu sẽ bị bỏ.`}
         confirmLabel="Rời trang"
         cancelLabel="Ở lại"
         destructive
         onConfirm={() => blocker.proceed?.()}
         onClose={() => blocker.reset?.()}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={6000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

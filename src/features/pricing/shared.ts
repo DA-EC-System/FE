@@ -2,8 +2,6 @@ import { z } from 'zod';
 import { formatCurrency } from '@/utils/format';
 import type { PricelistItem } from '@/types/pricing';
 
-export type Toast = { severity: 'success' | 'error' | 'warning'; msg: string };
-
 /** Giá là số nguyên đồng, không âm (UC-CP-03 bước 8) */
 export const MAX_PRICE = 10_000_000_000;
 
@@ -12,12 +10,17 @@ export const MAX_PRICE = 10_000_000_000;
  * Ô trống là chưa có giá (null).
  */
 export const priceTextSchema = z.string().transform((raw, ctx): number | null => {
-  const text = raw.trim().replace(/[\s.,₫]|đ$/gi, '');
-  if (!text) return null;
+  const compact = raw.trim().replace(/\s|₫|đ$/gi, '');
+  if (!compact) return null;
   const fail = (message: string) => {
     ctx.addIssue({ code: 'custom', message });
     return z.NEVER;
   };
+  // "150.000" hay "150,000" là phân cách nghìn; "150000.5" là giá lẻ, không bỏ dấu
+  if (/[.,]/.test(compact) && !/^-?\d{1,3}([.,]\d{3})+$/.test(compact)) {
+    return fail('Giá phải là số nguyên đồng, vd 150000');
+  }
+  const text = compact.replace(/[.,]/g, '');
   if (/^-\d+$/.test(text)) return fail('Giá không được âm');
   if (!/^\d+$/.test(text)) return fail('Giá phải là số nguyên đồng, vd 150000');
   const value = Number(text);

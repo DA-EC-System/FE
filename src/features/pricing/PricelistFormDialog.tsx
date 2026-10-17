@@ -1,21 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { FormTextField } from '@/components/common/FormTextField';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Alert,
-  Button,
-  Checkbox,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  FormControlLabel,
-  MenuItem,
-  Stack,
-  TextField,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCreatePricelist, useUpdatePricelist } from '@/api/pricing.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
 import type { Shop } from '@/types/shop';
@@ -39,19 +55,11 @@ interface CreateDialogProps {
 export function CreatePricelistDialog({ open, shops, onClose, onDone }: CreateDialogProps) {
   const createMut = useCreatePricelist();
   const [error, setError] = useState<string | null>(null);
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    getValues,
-    setError: setFieldError,
-    formState: { errors },
-  } = useForm<PricelistCreateForm>({
+  const form = useForm<PricelistCreateForm>({
     resolver: zodResolver(pricelistCreateSchema),
     defaultValues: { name: '', shopId: '', copyFromStandard: true },
   });
+  const { control, reset, setValue, getValues, setError: setFieldError } = form;
 
   useEffect(() => {
     if (open) {
@@ -60,91 +68,103 @@ export function CreatePricelistDialog({ open, shops, onClose, onDone }: CreateDi
     }
   }, [open, reset]);
 
-  const onSubmit = handleSubmit(async (values) => {
+  const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
       onDone(await createMut.mutateAsync(values));
     } catch (e) {
       const problem = getProblem(e);
-      if (problem?.errors?.name) setFieldError('name', { message: problem.errors.name });
-      if (problem?.errors?.shopId) setFieldError('shopId', { message: problem.errors.shopId });
-      if (!problem?.errors) setError(getErrorMessage(e));
+      const fields = problem?.errors ?? {};
+      if (problem?.code === 'name_taken') {
+        setFieldError('name', { message: fields.name ?? 'Đã có bảng giá cùng tên' });
+        return;
+      }
+      if (fields.name) setFieldError('name', { message: fields.name });
+      if (fields.shopId) setFieldError('shopId', { message: fields.shopId });
+      if (!fields.name && !fields.shopId) setError(problemMessage(e));
     }
   });
 
+  const busy = createMut.isPending;
+
   return (
-    <Dialog open={open} onClose={createMut.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Tạo bảng giá theo gian hàng</DialogTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <DialogContent dividers>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          {!shops.length && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Mọi gian hàng đang kết nối đều đã có bảng giá.
-            </Alert>
-          )}
-          <Stack spacing={2}>
-            <Controller
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Tạo bảng giá theo gian hàng</DialogTitle>
+          <DialogDescription>Đơn từ gian hàng được chọn sẽ lấy giá trong bảng mới.</DialogDescription>
+        </DialogHeader>
+
+        {error && <AlertMessage severity="error">{error}</AlertMessage>}
+        {!shops.length && (
+          <AlertMessage severity="info">Mọi gian hàng đang kết nối đều đã có bảng giá.</AlertMessage>
+        )}
+
+        <Form {...form}>
+          <form onSubmit={onSubmit} noValidate className="grid gap-4">
+            <FormField
+              control={control}
               name="shopId"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label="Gian hàng"
-                  fullWidth
-                  disabled={!shops.length}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    // Gợi ý tên theo gian hàng nếu người dùng chưa gõ
-                    const shop = shops.find((s) => s.id === e.target.value);
-                    if (shop && !getValues('name').trim()) {
-                      setValue('name', `Giá ${shop.shopName}`, { shouldValidate: true });
-                    }
-                  }}
-                  error={Boolean(errors.shopId)}
-                  helperText={errors.shopId?.message ?? 'Đơn từ gian hàng này lấy giá trong bảng mới'}
-                >
-                  {shops.map((s) => (
-                    <MenuItem key={s.id} value={s.id}>
-                      {s.shopName} ({PLATFORM_LABELS[s.platform]})
-                    </MenuItem>
-                  ))}
-                </TextField>
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormLabel>Gian hàng</FormLabel>
+                  <Select
+                    value={field.value}
+                    disabled={!shops.length}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Gợi ý tên theo gian hàng nếu người dùng chưa gõ
+                      const shop = shops.find((s) => s.id === value);
+                      if (shop && !getValues('name').trim()) {
+                        setValue('name', `Giá ${shop.shopName}`, { shouldValidate: true });
+                      }
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full" aria-label="Gian hàng">
+                        <SelectValue placeholder="Chọn gian hàng" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {shops.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.shopName} ({PLATFORM_LABELS[s.platform]})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.error ? (
+                    <FormMessage />
+                  ) : (
+                    <FormDescription>Chỉ hiện gian hàng còn kết nối và chưa có bảng giá.</FormDescription>
+                  )}
+                </FormItem>
               )}
             />
-            <TextField
-              label="Tên bảng giá"
-              fullWidth
-              {...register('name')}
-              error={Boolean(errors.name)}
-              helperText={errors.name?.message}
-            />
-            <Controller
+            <FormTextField control={control} name="name" label="Tên bảng giá" />
+            <FormField
+              control={control}
               name="copyFromStandard"
-              control={control}
               render={({ field }) => (
-                <FormControlLabel
-                  control={<Checkbox checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                  label="Chép giá từ bảng giá chuẩn"
-                />
+                <FormItem className="flex flex-row items-center gap-2">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                  </FormControl>
+                  <FormLabel className="font-normal">Chép giá từ bảng giá chuẩn</FormLabel>
+                </FormItem>
               )}
             />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} disabled={createMut.isPending}>
-            Huỷ
-          </Button>
-          <Button type="submit" variant="contained" disabled={createMut.isPending || !shops.length}>
-            {createMut.isPending ? 'Đang tạo...' : 'Tạo'}
-          </Button>
-        </DialogActions>
-      </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                Huỷ
+              </Button>
+              <Button type="submit" disabled={busy || !shops.length}>
+                {busy ? 'Đang tạo...' : 'Tạo'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
     </Dialog>
   );
 }
@@ -159,16 +179,11 @@ export function RenamePricelistDialog({ pricelist, onClose, onDone }: RenameDial
   const updateMut = useUpdatePricelist();
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setError: setFieldError,
-    formState: { errors },
-  } = useForm<PricelistRenameForm>({
+  const form = useForm<PricelistRenameForm>({
     resolver: zodResolver(pricelistRenameSchema),
     defaultValues: { name: '' },
   });
+  const { control, reset, setError: setFieldError } = form;
 
   useEffect(() => {
     if (pricelist) {
@@ -178,7 +193,7 @@ export function RenamePricelistDialog({ pricelist, onClose, onDone }: RenameDial
     }
   }, [pricelist, reset]);
 
-  const onSubmit = handleSubmit(async (values) => {
+  const onSubmit = form.handleSubmit(async (values) => {
     if (!pricelist) return;
     setError(null);
     try {
@@ -193,39 +208,36 @@ export function RenamePricelistDialog({ pricelist, onClose, onDone }: RenameDial
         setError('Bảng giá vừa được người khác sửa. Form đã hiện tên mới nhất, chưa có gì thay đổi.');
         return;
       }
-      if (problem?.errors?.name) setFieldError('name', { message: problem.errors.name });
-      else setError(getErrorMessage(e));
+      const name = problem?.errors?.name ?? (problem?.code === 'name_taken' ? 'Đã có bảng giá cùng tên' : null);
+      if (name) setFieldError('name', { message: name });
+      else setError(problemMessage(e));
     }
   });
 
+  const busy = updateMut.isPending;
+
   return (
-    <Dialog open={Boolean(pricelist)} onClose={updateMut.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Đổi tên bảng giá</DialogTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <DialogContent dividers>
-          {error && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <TextField
-            label="Tên bảng giá"
-            fullWidth
-            autoFocus
-            {...register('name')}
-            error={Boolean(errors.name)}
-            helperText={errors.name?.message}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} disabled={updateMut.isPending}>
-            Huỷ
-          </Button>
-          <Button type="submit" variant="contained" disabled={updateMut.isPending}>
-            {updateMut.isPending ? 'Đang lưu...' : 'Lưu'}
-          </Button>
-        </DialogActions>
-      </form>
+    <Dialog open={Boolean(pricelist)} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Đổi tên bảng giá</DialogTitle>
+          <DialogDescription>Tên bảng giá không trùng trong công ty.</DialogDescription>
+        </DialogHeader>
+        {error && <AlertMessage severity="warning">{error}</AlertMessage>}
+        <Form {...form}>
+          <form onSubmit={onSubmit} noValidate className="grid gap-4">
+            <FormTextField control={control} name="name" label="Tên bảng giá" autoFocus />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                Huỷ
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
     </Dialog>
   );
 }

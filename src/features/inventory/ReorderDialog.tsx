@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useSetReorderRule } from '@/api/inventory.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -41,6 +42,7 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
 
   const submit = async () => {
     if (!level) return;
+    // Kiểm ở FE trước, số sai không gửi request (AC-K5)
     const parsed = minQtySchema.safeParse(value);
     if (!parsed.success) {
       setFieldError(parsed.error.issues[0]?.message ?? 'Ngưỡng sai định dạng');
@@ -72,53 +74,56 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
     }
   };
 
+  const busy = setMut.isPending;
+
   return (
-    <Dialog open={Boolean(level)} onClose={setMut.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Ngưỡng tồn tối thiểu</DialogTitle>
-      <DialogContent dividers>
-        {notice && (
-          <Alert severity={notice.severity} sx={{ mb: 2 }}>
-            {notice.msg}
-          </Alert>
-        )}
+    <Dialog open={Boolean(level)} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Ngưỡng tồn tối thiểu</DialogTitle>
+          {level && (
+            <DialogDescription>
+              <span className="font-medium text-foreground">{level.sku}</span> · {level.productName}
+              {level.attributesLabel && ` · ${level.attributesLabel}`}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        {notice && <AlertMessage severity={notice.severity}>{notice.msg}</AlertMessage>}
         {level && (
-          <Stack spacing={2}>
-            <div>
-              <Typography fontWeight={600}>{level.sku}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {level.productName}
-                {level.attributesLabel && ` · ${level.attributesLabel}`}
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                Khả dụng hiện tại: <strong>{formatQty(level.available)}</strong>
-              </Typography>
+          <div className="grid gap-4">
+            <p className="text-sm">
+              Khả dụng hiện tại: <strong>{formatQty(level.available)}</strong>
+            </p>
+            <div className="grid gap-1.5">
+              <Label htmlFor="min-qty">Ngưỡng tối thiểu</Label>
+              <Input
+                id="min-qty"
+                value={value}
+                autoFocus
+                inputMode="numeric"
+                aria-invalid={Boolean(fieldError)}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                  setFieldError(null);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+              />
+              <p className={fieldError ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
+                {fieldError ??
+                  'Khả dụng dưới ngưỡng thì Nhân viên kho và Admin nhận thông báo. Để trống là bỏ ngưỡng.'}
+              </p>
             </div>
-            <TextField
-              label="Ngưỡng tối thiểu"
-              value={value}
-              autoFocus
-              inputProps={{ inputMode: 'numeric' }}
-              onChange={(e) => {
-                setValue(e.target.value);
-                setFieldError(null);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && submit()}
-              error={Boolean(fieldError)}
-              helperText={
-                fieldError ?? 'Khả dụng dưới ngưỡng thì Nhân viên kho và Admin nhận thông báo. Để trống là bỏ ngưỡng.'
-              }
-            />
-          </Stack>
+          </div>
         )}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+            Huỷ
+          </Button>
+          <Button type="button" onClick={submit} disabled={busy}>
+            {busy ? 'Đang lưu...' : 'Lưu'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} disabled={setMut.isPending}>
-          Huỷ
-        </Button>
-        <Button variant="contained" onClick={submit} disabled={setMut.isPending}>
-          {setMut.isPending ? 'Đang lưu...' : 'Lưu'}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

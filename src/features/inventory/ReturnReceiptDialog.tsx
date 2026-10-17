@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { useCreateReturnReceipt } from '@/api/inventory.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { formatDateTime } from '@/utils/format';
@@ -39,7 +38,7 @@ const toForm = (order: ReturnOrder): ReturnFormInput => ({
  */
 export function ReturnReceiptDialog({ order, onClose, onDone }: ReturnReceiptDialogProps) {
   const mutation = useCreateReturnReceipt();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ severity: 'warning' | 'error'; msg: string } | null>(null);
   const {
     control,
     register,
@@ -82,91 +81,89 @@ export function ReturnReceiptDialog({ order, onClose, onDone }: ReturnReceiptDia
       }
       setError(
         problem?.code === 'already_processed'
-          ? (problem.detail ?? 'Đơn đã được xử lý') + ' Đóng hộp thoại để xem danh sách mới.'
-          : (fieldErrors.lines ?? getErrorMessage(e)),
+          ? {
+              severity: 'warning',
+              msg: (problem.detail ?? 'Đơn đã được xử lý') + ' Đóng hộp thoại để xem danh sách mới.',
+            }
+          : { severity: 'error', msg: fieldErrors.lines ?? getErrorMessage(e) },
       );
     }
   });
 
+  const busy = mutation.isPending;
   const linesError = errors.lines?.root?.message ?? errors.lines?.message;
 
   return (
-    <Dialog open={Boolean(order)} onClose={mutation.isPending ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Nhập hoàn đơn {order?.orderCode}</DialogTitle>
-      <DialogContent>
-        {order && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {order.customerName} · vận đơn {order.shipmentCode} · giao không thành công lúc{' '}
-            {formatDateTime(order.failedAt)} ({order.failedReason})
-          </Typography>
-        )}
-        {error && (
-          <Alert severity={getProblem(mutation.error)?.code === 'already_processed' ? 'warning' : 'error'} sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {linesError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {linesError}
-          </Alert>
-        )}
-        <Table size="small" sx={{ mb: 2 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Biến thể</TableCell>
-              <TableCell align="right">Đã xuất</TableCell>
-              <TableCell align="right" sx={{ width: 150 }}>
-                Thực nhận
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {fields.map((f, i) => {
-              const line = order?.lines[i];
-              return (
-                <TableRow key={f.key}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600}>
-                      {line?.sku}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {line?.productName}
-                      {line?.attributesLabel && ` · ${line.attributesLabel}`}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">{formatQty(f.shipped)}</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      {...register(`lines.${i}.quantity`)}
-                      inputProps={{ inputMode: 'numeric', style: { textAlign: 'right' } }}
-                      error={Boolean(errors.lines?.[i]?.quantity)}
-                      helperText={errors.lines?.[i]?.quantity?.message}
-                    />
-                  </TableCell>
+    <Dialog open={Boolean(order)} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Nhập hoàn đơn {order?.orderCode}</DialogTitle>
+          {order && (
+            <DialogDescription>
+              {order.customerName} · vận đơn {order.shipmentCode} · giao không thành công lúc{' '}
+              {formatDateTime(order.failedAt)} ({order.failedReason})
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        {error && <AlertMessage severity={error.severity}>{error.msg}</AlertMessage>}
+        {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
+        <form onSubmit={onSubmit} noValidate className="grid gap-4">
+          <div className="max-h-80 overflow-y-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Biến thể</TableHead>
+                  <TableHead className="text-right">Đã xuất</TableHead>
+                  <TableHead className="w-36 text-right">Thực nhận</TableHead>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        <TextField
-          label="Ghi chú"
-          fullWidth
-          multiline
-          minRows={2}
-          {...register('note')}
-          error={Boolean(errors.note)}
-          helperText={errors.note?.message ?? 'Bắt buộc khi số thực nhận khác số đã xuất (thiếu, hỏng, thất lạc)'}
-        />
+              </TableHeader>
+              <TableBody>
+                {fields.map((f, i) => {
+                  const line = order?.lines[i];
+                  const qtyError = errors.lines?.[i]?.quantity?.message;
+                  return (
+                    <TableRow key={f.key} className="align-top">
+                      <TableCell>
+                        <p className="font-medium">{line?.sku}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {line?.productName}
+                          {line?.attributesLabel && ` · ${line.attributesLabel}`}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-right">{formatQty(f.shipped)}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          {...register(`lines.${i}.quantity`)}
+                          aria-label={`Thực nhận ${line?.sku ?? ''}`}
+                          inputMode="numeric"
+                          aria-invalid={Boolean(qtyError)}
+                          className="h-8 text-right"
+                        />
+                        {qtyError && <p className="mt-1 text-xs text-destructive">{qtyError}</p>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="return-note">Ghi chú</Label>
+            <Textarea id="return-note" rows={2} aria-invalid={Boolean(errors.note)} {...register('note')} />
+            <p className={errors.note ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
+              {errors.note?.message ?? 'Bắt buộc khi số thực nhận khác số đã xuất (thiếu, hỏng, thất lạc)'}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+              Đóng
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? 'Đang lập...' : 'Lập phiếu nhập hoàn'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={mutation.isPending}>
-          Đóng
-        </Button>
-        <Button variant="contained" onClick={onSubmit} disabled={mutation.isPending}>
-          Lập phiếu nhập hoàn
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

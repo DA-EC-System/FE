@@ -1,20 +1,12 @@
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useReturnOrders } from '@/api/inventory.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,14 +14,10 @@ import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { ReturnOrder } from '@/types/inventory';
 import { ReturnReceiptDialog } from './ReturnReceiptDialog';
-import { formatQty, type Toast } from './shared';
-
-interface ReturnsTabProps {
-  onToast: (toast: Toast) => void;
-}
+import { formatQty } from './shared';
 
 /** UC-IN-03: đơn giao không thành công chờ nhập hoàn; mỗi đơn chỉ nhập hoàn một lần */
-export function ReturnsTab({ onToast }: ReturnsTabProps) {
+export function ReturnsTab() {
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const query = useReturnOrders();
@@ -37,83 +25,63 @@ export function ReturnsTab({ onToast }: ReturnsTabProps) {
   const orders = query.data ?? [];
 
   return (
-    <Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+    <div className="grid gap-4">
+      <p className="text-sm text-muted-foreground">
         Đơn giao không thành công, hàng đã quay về kho. Kiểm số thực nhận rồi lập phiếu nhập hoàn; phiếu được ghi sổ
         ngay và cộng lại tồn theo giá vốn hiện tại.
-      </Typography>
-      {query.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {getErrorMessage(query.error)}
-        </Alert>
-      )}
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider', overflowX: 'auto' }}>
+      </p>
+      {query.isError && <AlertMessage severity="error">{getErrorMessage(query.error)}</AlertMessage>}
+      <Card className="gap-0 overflow-x-auto py-0">
         {query.isLoading ? (
-          <Stack alignItems="center" sx={{ py: 6 }}>
-            <CircularProgress />
-          </Stack>
+          <div className="flex justify-center py-12">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
         ) : (
-          <Table size="small">
-            <TableHead>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell>Đơn</TableCell>
-                <TableCell>Khách hàng</TableCell>
-                <TableCell>Giao không thành công</TableCell>
-                <TableCell align="right">Số lượng</TableCell>
-                <TableCell align="right" sx={{ width: 200 }} />
+                <TableHead className="ps-4">Đơn</TableHead>
+                <TableHead>Khách hàng</TableHead>
+                <TableHead>Giao không thành công</TableHead>
+                <TableHead className="text-right">Số lượng</TableHead>
+                <TableHead className="w-52 pe-4" />
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {!orders.length && (
                 <TableRow>
-                  <TableCell colSpan={5}>
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-                      Không có đơn nào chờ nhập hoàn.
-                    </Typography>
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    Không có đơn nào chờ nhập hoàn.
                   </TableCell>
                 </TableRow>
               )}
               {orders.map((o) => (
-                <TableRow key={o.orderId}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600}>
-                      {o.orderCode}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Vận đơn {o.shipmentCode}
-                    </Typography>
+                <TableRow key={o.orderId} data-row-id={o.orderId}>
+                  <TableCell className="ps-4">
+                    <p className="font-medium">{o.orderCode}</p>
+                    <p className="text-xs text-muted-foreground">Vận đơn {o.shipmentCode}</p>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">{o.customerName}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {o.customerPhone}
-                    </Typography>
+                    <p>{o.customerName}</p>
+                    <p className="text-xs text-muted-foreground">{o.customerPhone}</p>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">{formatDateTime(o.failedAt)}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {o.failedReason}
-                    </Typography>
+                    <p>{formatDateTime(o.failedAt)}</p>
+                    <p className="text-xs text-muted-foreground">{o.failedReason}</p>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell className="text-right">
                     {formatQty(o.lines.reduce((s, l) => s + l.quantity, 0))}
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      {o.lines.length} biến thể
-                    </Typography>
+                    <p className="text-xs text-muted-foreground">{o.lines.length} biến thể</p>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell className="pe-4 text-right">
                     {o.receipt ? (
-                      <Chip
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                        label={`Đã xử lý · ${o.receipt.number}`}
-                        component={RouterLink}
-                        to={ROUTES.company.inventoryDoc(companyId, o.receipt.id)}
-                        clickable
-                      />
+                      <Badge variant="success" asChild>
+                        <Link to={ROUTES.company.inventoryDoc(companyId, o.receipt.id)}>
+                          Đã xử lý · {o.receipt.number}
+                        </Link>
+                      </Badge>
                     ) : (
-                      <Button size="small" variant="contained" onClick={() => setProcessing(o)}>
+                      <Button size="sm" onClick={() => setProcessing(o)}>
                         Nhập hoàn
                       </Button>
                     )}
@@ -123,7 +91,7 @@ export function ReturnsTab({ onToast }: ReturnsTabProps) {
             </TableBody>
           </Table>
         )}
-      </Paper>
+      </Card>
 
       <ReturnReceiptDialog
         order={processing}
@@ -133,9 +101,9 @@ export function ReturnsTab({ onToast }: ReturnsTabProps) {
         }}
         onDone={(doc) => {
           setProcessing(null);
-          onToast({ severity: 'success', msg: `Đã lập và ghi sổ ${doc.number}; tồn kho đã cộng lại` });
+          toast.success(`Đã lập và ghi sổ ${doc.number}; tồn kho đã cộng lại`);
         }}
       />
-    </Box>
+    </div>
   );
 }

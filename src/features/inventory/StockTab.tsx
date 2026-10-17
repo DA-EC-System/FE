@@ -1,24 +1,16 @@
 import { useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Chip,
-  FormControlLabel,
-  IconButton,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Stack,
-  Switch,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
-import EditIcon from '@mui/icons-material/Edit';
-import HistoryIcon from '@mui/icons-material/History';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { History, Pencil, TriangleAlert } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { DataTable } from '@/components/common/DataTable';
+import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { RowAction } from '@/components/common/RowAction';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useStock } from '@/api/inventory.api';
 import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
@@ -26,51 +18,42 @@ import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency } from '@/utils/format';
+import { cn } from '@/lib/utils';
 import type { StockLevel } from '@/types/inventory';
 import { ReorderDialog } from './ReorderDialog';
 import { StockDetailDrawer } from './StockDetailDrawer';
-import { formatQty, type Toast } from './shared';
+import { formatQty } from './shared';
 
-interface StockTabProps {
-  onToast: (toast: Toast) => void;
-}
-
-function SummaryCard({
-  label,
-  value,
-  tone,
-  onClick,
-  active,
-}: {
+interface SummaryCardProps {
   label: string;
   value: string;
   tone?: 'error';
   onClick?: () => void;
   active?: boolean;
-}) {
-  return (
-    <Paper
-      elevation={0}
-      onClick={onClick}
-      sx={{
-        p: 2,
-        border: 1,
-        borderColor: active ? 'error.main' : 'divider',
-        cursor: onClick ? 'pointer' : 'default',
-      }}
-    >
-      <Typography variant="body2" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="h5" fontWeight={600} color={tone === 'error' ? 'error.main' : undefined}>
-        {value}
-      </Typography>
-    </Paper>
+}
+
+function SummaryCard({ label, value, tone, onClick, active }: SummaryCardProps) {
+  const body = (
+    <>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className={cn('text-2xl font-semibold', tone === 'error' && 'text-destructive')}>{value}</p>
+    </>
+  );
+  const className = cn(
+    'rounded-xl border bg-card p-4 text-start',
+    active && 'border-destructive ring-1 ring-destructive',
+  );
+  return onClick ? (
+    <button type="button" className={cn(className, 'hover:bg-muted/50')} aria-pressed={active} onClick={onClick}>
+      {body}
+    </button>
+  ) : (
+    <div className={className}>{body}</div>
   );
 }
 
 /** UC-IN-01 tồn theo biến thể, UC-IN-02 đặt ngưỡng ngay trên dòng */
-export function StockTab({ onToast }: StockTabProps) {
+export function StockTab() {
   const can = useCan();
   const canReorder = can(PERMISSIONS.reorderManage);
   const canCost = can(PERMISSIONS.costView);
@@ -79,13 +62,14 @@ export function StockTab({ onToast }: StockTabProps) {
   const debouncedSearch = useDebounce(search.trim());
   const [categoryId, setCategoryId] = useState('');
   const [belowMin, setBelowMin] = useState(false);
-  const [pagination, setPagination] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [editing, setEditing] = useState<StockLevel | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
 
   const stockQuery = useStock({
-    page: pagination.page + 1,
-    pageSize: pagination.pageSize,
+    page,
+    pageSize,
     search: debouncedSearch || undefined,
     categoryId: categoryId || undefined,
     belowMin: belowMin || undefined,
@@ -94,122 +78,120 @@ export function StockTab({ onToast }: StockTabProps) {
   const summary = stockQuery.data?.summary;
   const filtered = Boolean(debouncedSearch || categoryId || belowMin);
 
-  const resetPage = () => setPagination((p) => ({ ...p, page: 0 }));
+  const withReset =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPage(1);
+    };
 
-  const columns: GridColDef<StockLevel>[] = useMemo(
+  const columns = useMemo<ColumnDef<StockLevel>[]>(
     () => [
       {
-        field: 'sku',
-        headerName: 'Biến thể',
-        flex: 1.6,
-        minWidth: 240,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack justifyContent="center" sx={{ height: '100%', lineHeight: 1.3 }}>
-            <Typography variant="body2" fontWeight={600}>
-              {row.sku}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {row.productName}
-              {row.attributesLabel && ` · ${row.attributesLabel}`}
-            </Typography>
-          </Stack>
-        ),
+        id: 'variant',
+        header: 'Biến thể',
+        meta: { className: 'min-w-60' },
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="min-w-0">
+              <p className="font-medium">{r.sku}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {r.productName}
+                {r.attributesLabel && ` · ${r.attributesLabel}`}
+              </p>
+            </div>
+          );
+        },
       },
       {
-        field: 'category',
-        headerName: 'Danh mục',
-        width: 120,
-        sortable: false,
-        valueGetter: (value: StockLevel['category']) => value.name,
+        id: 'category',
+        header: 'Danh mục',
+        meta: { className: 'w-32' },
+        cell: ({ row }) => row.original.category.name,
       },
       {
-        field: 'onHand',
-        headerName: 'Tồn thực',
-        type: 'number',
-        width: 100,
-        sortable: false,
-        valueFormatter: (value: number) => formatQty(value),
+        id: 'onHand',
+        header: 'Tồn thực',
+        meta: { className: 'w-24 text-right' },
+        cell: ({ row }) => formatQty(row.original.onHand),
       },
       {
-        field: 'reserved',
-        headerName: 'Đang giữ',
-        type: 'number',
-        width: 100,
-        sortable: false,
-        valueFormatter: (value: number) => formatQty(value),
+        id: 'reserved',
+        header: 'Đang giữ',
+        meta: { className: 'w-24 text-right' },
+        cell: ({ row }) => formatQty(row.original.reserved),
       },
       {
-        field: 'available',
-        headerName: 'Khả dụng',
-        type: 'number',
-        width: 120,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5} sx={{ height: '100%' }}>
-            {row.belowMin && (
-              <Tooltip title={`Dưới ngưỡng ${formatQty(row.minQty ?? 0)}`}>
-                <WarningAmberIcon fontSize="small" color="error" />
-              </Tooltip>
-            )}
-            <Typography variant="body2" fontWeight={600} color={row.belowMin ? 'error.main' : undefined}>
-              {formatQty(row.available)}
-            </Typography>
-          </Stack>
-        ),
+        id: 'available',
+        header: 'Khả dụng',
+        meta: { className: 'w-28 text-right' },
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {r.belowMin && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TriangleAlert
+                      className="size-4 text-destructive"
+                      aria-label={`Dưới ngưỡng ${formatQty(r.minQty ?? 0)}`}
+                      data-testid="below-min"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Dưới ngưỡng {formatQty(r.minQty ?? 0)}</TooltipContent>
+                </Tooltip>
+              )}
+              <span className={cn('font-semibold', r.belowMin && 'text-destructive')}>{formatQty(r.available)}</span>
+            </div>
+          );
+        },
       },
       {
-        field: 'minQty',
-        headerName: 'Ngưỡng',
-        type: 'number',
-        width: 110,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5} sx={{ height: '100%' }}>
-            <Typography variant="body2" color={row.minQty === null ? 'text.secondary' : undefined}>
-              {row.minQty === null ? '—' : formatQty(row.minQty)}
-            </Typography>
-            {canReorder && (
-              <Tooltip title="Đặt ngưỡng">
-                <IconButton size="small" onClick={() => setEditing(row)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Stack>
-        ),
+        id: 'minQty',
+        header: 'Ngưỡng',
+        meta: { className: 'w-28 text-right' },
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <span className={cn(r.minQty === null && 'text-muted-foreground')} data-testid="min-qty">
+                {r.minQty === null ? '—' : formatQty(r.minQty)}
+              </span>
+              {canReorder && (
+                <RowAction label="Đặt ngưỡng" onClick={() => setEditing(r)}>
+                  <Pencil />
+                </RowAction>
+              )}
+            </div>
+          );
+        },
       },
+      // Giá vốn chỉ người có quyền thấy; không có quyền thì không có cột (AC-K3)
       ...(canCost
         ? ([
             {
-              field: 'avgCost',
-              headerName: 'Giá vốn BQ',
-              type: 'number',
-              width: 130,
-              sortable: false,
-              valueFormatter: (value: number | null) => (value === null ? '—' : formatCurrency(value)),
+              id: 'avgCost',
+              header: 'Giá vốn BQ',
+              meta: { className: 'w-32 text-right whitespace-nowrap' },
+              cell: ({ row }) => (row.original.avgCost === null ? '—' : formatCurrency(row.original.avgCost)),
             },
             {
-              field: 'stockValue',
-              headerName: 'Giá trị tồn',
-              type: 'number',
-              width: 140,
-              sortable: false,
-              valueFormatter: (value: number | null) => (value === null ? '—' : formatCurrency(value)),
+              id: 'stockValue',
+              header: 'Giá trị tồn',
+              meta: { className: 'w-36 text-right whitespace-nowrap' },
+              cell: ({ row }) => (row.original.stockValue === null ? '—' : formatCurrency(row.original.stockValue)),
             },
-          ] satisfies GridColDef<StockLevel>[])
+          ] satisfies ColumnDef<StockLevel>[])
         : []),
       {
-        field: 'actions',
-        headerName: '',
-        width: 60,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Tooltip title="Lịch sử biến động">
-            <IconButton size="small" onClick={() => setViewing(row.variantId)}>
-              <HistoryIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+        id: 'actions',
+        header: '',
+        meta: { className: 'w-12 text-right' },
+        cell: ({ row }) => (
+          <RowAction label="Lịch sử biến động" onClick={() => setViewing(row.original.variantId)}>
+            <History />
+          </RowAction>
         ),
       },
     ],
@@ -217,25 +199,15 @@ export function StockTab({ onToast }: StockTabProps) {
   );
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: `repeat(${canCost ? 3 : 2}, minmax(0, 1fr))` },
-          gap: 2,
-          mb: 2,
-        }}
-      >
+    <div>
+      <div className={cn('mb-4 grid gap-4', canCost ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
         <SummaryCard label="Biến thể đang bán" value={summary ? formatQty(summary.variantCount) : '—'} />
         <SummaryCard
           label="Dưới ngưỡng tồn"
           value={summary ? formatQty(summary.belowMinCount) : '—'}
           tone={summary?.belowMinCount ? 'error' : undefined}
           active={belowMin}
-          onClick={() => {
-            setBelowMin((b) => !b);
-            resetPage();
-          }}
+          onClick={() => withReset(setBelowMin)(!belowMin)}
         />
         {canCost && (
           <SummaryCard
@@ -243,98 +215,66 @@ export function StockTab({ onToast }: StockTabProps) {
             value={summary?.totalValue != null ? formatCurrency(summary.totalValue) : '—'}
           />
         )}
-      </Box>
-
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }} alignItems={{ md: 'center' }}>
-        <TextField
-          size="small"
-          placeholder="Tìm theo tên sản phẩm hoặc SKU"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            resetPage();
-          }}
-          sx={{ minWidth: 300 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-        <TextField
-          select
-          size="small"
-          label="Danh mục"
-          value={categoryId}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
-            resetPage();
-          }}
-          sx={{ minWidth: 180 }}
-        >
-          <MenuItem value="">Tất cả</MenuItem>
-          {categories.map((c) => (
-            <MenuItem key={c.id} value={c.id}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={belowMin}
-              onChange={(e) => {
-                setBelowMin(e.target.checked);
-                resetPage();
-              }}
-            />
-          }
-          label="Chỉ hiện dưới ngưỡng"
-        />
-        {!canCost && (
-          <Chip size="small" variant="outlined" label="Giá vốn chỉ hiện với người có quyền" sx={{ ml: { md: 'auto' } }} />
-        )}
-      </Stack>
+      </div>
 
       {stockQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(stockQuery.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <DataGrid
-          rows={stockQuery.data?.items ?? []}
-          getRowId={(row) => row.variantId}
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput
+            value={search}
+            onChange={withReset(setSearch)}
+            placeholder="Tìm theo tên sản phẩm hoặc SKU"
+          />
+          <FilterSelect
+            label="Danh mục"
+            value={categoryId}
+            onChange={withReset(setCategoryId)}
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          />
+          <div className="flex items-center gap-2 md:h-9">
+            <Switch id="below-min" checked={belowMin} onCheckedChange={withReset(setBelowMin)} />
+            <Label htmlFor="below-min">Chỉ hiện dưới ngưỡng</Label>
+          </div>
+          {!canCost && (
+            <Badge variant="outline" className="md:ms-auto md:mb-2">
+              Giá vốn chỉ hiện với người có quyền
+            </Badge>
+          )}
+        </FilterBar>
+        <DataTable
           columns={columns}
-          loading={stockQuery.isFetching}
-          rowCount={stockQuery.data?.total ?? 0}
-          paginationMode="server"
-          paginationModel={pagination}
-          onPaginationModelChange={setPagination}
-          pageSizeOptions={[25, 50, 100]}
-          disableRowSelectionOnClick
-          disableColumnMenu
-          rowHeight={60}
-          onRowDoubleClick={({ row }) => setViewing(row.variantId)}
-          sx={{ minHeight: 320 }}
-          localeText={{
-            noRowsLabel: filtered ? 'Không tìm thấy biến thể phù hợp' : 'Chưa có biến thể đang bán',
+          data={stockQuery.data?.items ?? []}
+          getRowId={(r) => r.variantId}
+          loading={stockQuery.isLoading}
+          fetching={stockQuery.isFetching}
+          empty={filtered ? 'Không tìm thấy biến thể phù hợp' : 'Chưa có biến thể đang bán'}
+          pagination={{
+            page,
+            pageSize,
+            total: stockQuery.data?.total ?? 0,
+            pageSizes: [25, 50, 100],
+            onChange: (p, size) => {
+              setPage(size === pageSize ? p : 1);
+              setPageSize(size);
+            },
           }}
         />
-      </Paper>
+      </Card>
 
       <ReorderDialog
         level={editing}
         onClose={() => setEditing(null)}
         onDone={(msg) => {
           setEditing(null);
-          onToast({ severity: 'success', msg });
+          toast.success(msg);
         }}
       />
       <StockDetailDrawer variantId={viewing} canCost={canCost} onClose={() => setViewing(null)} />
-    </Box>
+    </div>
   );
 }

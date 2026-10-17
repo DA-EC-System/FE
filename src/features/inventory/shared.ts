@@ -2,8 +2,6 @@ import { z } from 'zod';
 import { priceTextSchema } from '@/features/pricing/shared';
 import type { StockDocKind, StockDocStatus, StockDocType } from '@/types/inventory';
 
-export type { Toast } from '@/features/pricing/shared';
-
 export const MAX_QTY = 1_000_000;
 
 /** Ô số lượng nhập chữ: số nguyên trong [min, max], cho phép dấu phân cách nghìn */
@@ -125,10 +123,10 @@ export const DOC_KIND_LABELS: Record<StockDocKind, string> = {
   order: 'Xuất theo đơn',
 };
 
-export const DOC_STATUS: Record<StockDocStatus, { label: string; color: 'default' | 'success' | 'warning' }> = {
-  draft: { label: 'Nháp', color: 'warning' },
-  done: { label: 'Đã ghi sổ', color: 'success' },
-  cancelled: { label: 'Đã huỷ', color: 'default' },
+export const DOC_STATUS: Record<StockDocStatus, { label: string; variant: 'secondary' | 'success' | 'warning' }> = {
+  draft: { label: 'Nháp', variant: 'warning' },
+  done: { label: 'Đã ghi sổ', variant: 'success' },
+  cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const formatQty = (n: number) => n.toLocaleString('vi-VN');

@@ -1,28 +1,16 @@
-import { Link as RouterLink } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Chip,
-  CircularProgress,
-  Divider,
-  Drawer,
-  IconButton,
-  Link,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useStockDetail } from '@/api/inventory.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDateTime } from '@/utils/format';
+import { cn } from '@/lib/utils';
 import { DOC_KIND_LABELS, formatQty } from './shared';
 
 interface StockDetailDrawerProps {
@@ -33,14 +21,10 @@ interface StockDetailDrawerProps {
 
 function Figure({ label, value, tone }: { label: string; value: string; tone?: 'error' }) {
   return (
-    <Paper elevation={0} sx={{ p: 1.5, border: 1, borderColor: 'divider' }}>
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="h6" color={tone === 'error' ? 'error.main' : undefined}>
-        {value}
-      </Typography>
-    </Paper>
+    <div className="rounded-lg border p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={cn('text-lg font-semibold', tone === 'error' && 'text-destructive')}>{value}</p>
+    </div>
   );
 }
 
@@ -53,127 +37,105 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
   const moves = query.data?.moves ?? [];
 
   return (
-    <Drawer anchor="right" open={Boolean(variantId)} onClose={onClose}>
-      <Box sx={{ width: { xs: '100vw', sm: 560 }, p: 3 }}>
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
-          <Box>
-            <Typography variant="h6">{level?.sku ?? 'Tồn kho'}</Typography>
-            {level && (
-              <Typography variant="body2" color="text.secondary">
-                {level.productName}
-                {level.attributesLabel && ` · ${level.attributesLabel}`}
-              </Typography>
-            )}
-          </Box>
-          <IconButton onClick={onClose} aria-label="Đóng">
-            <CloseIcon />
-          </IconButton>
-        </Stack>
+    <Sheet open={Boolean(variantId)} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle>{level?.sku ?? 'Tồn kho'}</SheetTitle>
+          <SheetDescription>
+            {level ? `${level.productName}${level.attributesLabel ? ` · ${level.attributesLabel}` : ''}` : ' '}
+          </SheetDescription>
+        </SheetHeader>
 
-        {query.isLoading && (
-          <Stack alignItems="center" sx={{ py: 6 }}>
-            <CircularProgress />
-          </Stack>
-        )}
-        {query.isError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {getErrorMessage(query.error)}
-          </Alert>
-        )}
+        <div className="grid gap-4 px-4 pb-6">
+          {query.isLoading && (
+            <div className="flex justify-center py-12">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {query.isError && <AlertMessage severity="error">{getErrorMessage(query.error)}</AlertMessage>}
 
-        {level && (
-          <>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                gap: 1.5,
-                mt: 2,
-              }}
-            >
-              <Figure label="Tồn thực" value={formatQty(level.onHand)} />
-              <Figure label="Đang giữ cho đơn" value={formatQty(level.reserved)} />
-              <Figure
-                label="Khả dụng"
-                value={formatQty(level.available)}
-                tone={level.belowMin ? 'error' : undefined}
-              />
-            </Box>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
-              <Chip
-                size="small"
-                color={level.belowMin ? 'error' : 'default'}
-                label={
-                  level.minQty === null
+          {level && (
+            <>
+              <div className="grid grid-cols-3 gap-3" data-testid="stock-figures">
+                <Figure label="Tồn thực" value={formatQty(level.onHand)} />
+                <Figure label="Đang giữ cho đơn" value={formatQty(level.reserved)} />
+                <Figure
+                  label="Khả dụng"
+                  value={formatQty(level.available)}
+                  tone={level.belowMin ? 'error' : undefined}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={level.belowMin ? 'destructive' : 'secondary'}>
+                  {level.minQty === null
                     ? 'Chưa đặt ngưỡng'
-                    : `Ngưỡng ${formatQty(level.minQty)}${level.belowMin ? ' · dưới ngưỡng' : ''}`
-                }
-              />
-              {canCost && level.avgCost !== null && (
-                <Chip size="small" label={`Giá vốn BQ ${formatCurrency(level.avgCost)}`} />
-              )}
-              {canCost && level.stockValue !== null && (
-                <Chip size="small" label={`Giá trị tồn ${formatCurrency(level.stockValue)}`} />
-              )}
-            </Stack>
+                    : `Ngưỡng ${formatQty(level.minQty)}${level.belowMin ? ' · dưới ngưỡng' : ''}`}
+                </Badge>
+                {canCost && level.avgCost !== null && (
+                  <Badge variant="outline">Giá vốn BQ {formatCurrency(level.avgCost)}</Badge>
+                )}
+                {canCost && level.stockValue !== null && (
+                  <Badge variant="outline">Giá trị tồn {formatCurrency(level.stockValue)}</Badge>
+                )}
+              </div>
 
-            <Divider sx={{ my: 2.5 }} />
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Lịch sử biến động
-            </Typography>
-            {!moves.length ? (
-              <Typography variant="body2" color="text.secondary">
-                Chưa có biến động nào.
-              </Typography>
-            ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Thời gian</TableCell>
-                    <TableCell>Chứng từ</TableCell>
-                    <TableCell align="right">Biến động</TableCell>
-                    <TableCell align="right">Tồn sau</TableCell>
-                    {canCost && <TableCell align="right">Đơn giá vốn</TableCell>}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {moves.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        {formatDateTime(m.doneAt)}
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {m.doneBy}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Link component={RouterLink} to={ROUTES.company.inventoryDoc(companyId, m.document.id)}>
-                          {m.document.number}
-                        </Link>
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {DOC_KIND_LABELS[m.document.kind]}
-                        </Typography>
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{ fontWeight: 600, color: m.qtyChange > 0 ? 'success.main' : 'error.main' }}
-                      >
-                        {m.qtyChange > 0 ? '+' : '−'}
-                        {formatQty(Math.abs(m.qtyChange))}
-                      </TableCell>
-                      <TableCell align="right">{formatQty(m.onHandAfter)}</TableCell>
-                      {canCost && (
-                        <TableCell align="right">
-                          {m.unitCost === null ? '—' : formatCurrency(m.unitCost)}
-                        </TableCell>
-                      )}
+              <Separator />
+              <h3 className="font-semibold">Lịch sử biến động</h3>
+              {!moves.length ? (
+                <p className="text-sm text-muted-foreground">Chưa có biến động nào.</p>
+              ) : (
+                <Table data-testid="stock-moves">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Thời gian</TableHead>
+                      <TableHead>Chứng từ</TableHead>
+                      <TableHead className="text-right">Biến động</TableHead>
+                      <TableHead className="text-right">Tồn sau</TableHead>
+                      {canCost && <TableHead className="text-right">Đơn giá vốn</TableHead>}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </>
-        )}
-      </Box>
-    </Drawer>
+                  </TableHeader>
+                  <TableBody>
+                    {moves.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {formatDateTime(m.doneAt)}
+                          <span className="block text-xs text-muted-foreground">{m.doneBy}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            to={ROUTES.company.inventoryDoc(companyId, m.document.id)}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {m.document.number}
+                          </Link>
+                          <span className="block text-xs text-muted-foreground">
+                            {DOC_KIND_LABELS[m.document.kind]}
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            'text-right font-semibold',
+                            m.qtyChange > 0 ? 'text-success' : 'text-destructive',
+                          )}
+                        >
+                          {m.qtyChange > 0 ? '+' : '−'}
+                          {formatQty(Math.abs(m.qtyChange))}
+                        </TableCell>
+                        <TableCell className="text-right">{formatQty(m.onHandAfter)}</TableCell>
+                        {canCost && (
+                          <TableCell className="text-right">
+                            {m.unitCost === null ? '—' : formatCurrency(m.unitCost)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
