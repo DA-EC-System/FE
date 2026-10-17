@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
 import type { ChangePasswordRequest, LoginRequest, LoginResponse } from '@/types/auth';
 import { authApi } from '@/api/auth.api';
+import { refreshAccessToken } from '@/api/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useAuth() {
+  const status = useAuthStore((s) => s.status);
   const token = useAuthStore((s) => s.accessToken);
   const account = useAuthStore((s) => s.account);
   const memberships = useAuthStore((s) => s.memberships);
@@ -12,7 +14,7 @@ export function useAuth() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const clear = useAuthStore((s) => s.clear);
 
-  return { token, account, memberships, companyContext, isAuthenticated, clear };
+  return { status, token, account, memberships, companyContext, isAuthenticated, clear };
 }
 
 function useStartSession() {
@@ -57,13 +59,45 @@ export function useChangePassword() {
   });
 }
 
+/**
+ * Mở hoặc tải lại trang: access token không còn trong bộ nhớ nên xin token mới bằng cookie
+ * refresh rồi lấy lại tài khoản (docs/21 A1). Không có cookie hoặc cookie hết hạn thì coi như
+ * chưa đăng nhập. Công ty đang làm việc do RequireCompany chọn lại theo URL.
+ */
+let bootstrapping: Promise<void> | null = null;
+export function bootstrapSession(): Promise<void> {
+  bootstrapping ??= (async () => {
+    const store = useAuthStore.getState();
+    try {
+      const token = await refreshAccessToken();
+      store.setToken(token);
+      const me = await authApi.me();
+      store.setSession(token, me.account, me.memberships);
+    } catch {
+      store.clear();
+    } finally {
+      store.setReady();
+    }
+  })();
+  return bootstrapping;
+}
+
+/**
+ * Đăng xuất: BE thu hồi refresh token và xoá cookie (docs/21 A3). Dùng `replace` để nút Back
+ * không quay về trang trong công ty; dù có quay về, tải lại trang cũng không còn cookie để vào lại.
+ */
 export function useLogout() {
   const clear = useAuthStore((s) => s.clear);
   const qc = useQueryClient();
-  return () => {
+  return async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Phiên ở BE đã hết thì vẫn xoá phiên ở FE
+    }
     clear();
     qc.clear();
-    window.location.assign('/login');
+    window.location.replace('/login');
   };
 }
 

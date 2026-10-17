@@ -108,7 +108,7 @@ export function ChangePasswordPage() {
               {change.isPending ? 'Đang lưu...' : 'Lưu mật khẩu mới'}
             </Button>
             {forced ? (
-              <Button type="button" variant="ghost" onClick={logout}>
+              <Button type="button" variant="ghost" onClick={() => void logout()}>
                 Đăng xuất
               </Button>
             ) : (

@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
-import { Alert, Box, Button, CircularProgress, Stack } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { PageSpinner } from '@/components/common/PageSpinner';
+import { Button } from '@/components/ui/button';
 import { useAuth, useSelectCompany } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
 import { hasPermission, isModuleEnabled } from '@/utils/permissions';
@@ -105,22 +106,18 @@ export function RequireCompany() {
 
   if (switchFailed) {
     return (
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
-        <Stack spacing={2} sx={{ maxWidth: 480 }}>
-          <Alert severity="error">{getErrorMessage(select.error)}</Alert>
-          <Button component={RouterLink} to={ROUTES.selectCompany} variant="contained">
-            Chọn công ty khác
+      <div className="flex justify-center p-8">
+        <div className="grid w-full max-w-md gap-4">
+          <AlertMessage severity="error">{getErrorMessage(select.error)}</AlertMessage>
+          <Button asChild>
+            <Link to={ROUTES.selectCompany}>Chọn công ty khác</Link>
           </Button>
-        </Stack>
-      </Box>
+        </div>
+      </div>
     );
   }
   if (needsSwitch) {
-    return (
-      <Box sx={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <PageSpinner />;
   }
   return <Outlet />;
 }
