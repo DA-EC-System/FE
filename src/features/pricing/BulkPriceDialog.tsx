@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  InputAdornment,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { PricelistItem } from '@/types/pricing';
 import { applyBulk, bulkFormSchema, type BulkForm, type BulkMode, type BulkResult } from './shared';
 
@@ -35,7 +41,7 @@ const MODES: { value: BulkMode; label: string; channelOnly?: boolean }[] = [
 
 const EMPTY: BulkForm = { mode: 'set', value: '', roundTo: 1000 };
 
-/** UC-CP-03 bước 6: sửa giá hàng loạt các dòng đã chọn; chỉ đổi bản nháp, bấm "Lưu thay đổi" mới gửi */
+/** UC-CP-03 bước 6: sửa giá hàng loạt các dòng đã chọn; chỉ đổi bản nháp, bấm Lưu mới gửi (AC-G8) */
 export function BulkPriceDialog({ open, rows, isChannel, current, onClose, onApply }: BulkPriceDialogProps) {
   const [form, setForm] = useState<BulkForm>(EMPTY);
   const [touched, setTouched] = useState(false);
@@ -48,12 +54,14 @@ export function BulkPriceDialog({ open, rows, isChannel, current, onClose, onApp
   }, [open]);
 
   const parsed = bulkFormSchema.safeParse(form);
-  const error = parsed.success ? null : parsed.error.issues[0]?.message ?? 'Dữ liệu chưa hợp lệ';
+  const error = parsed.success ? null : (parsed.error.issues[0]?.message ?? 'Dữ liệu chưa hợp lệ');
   // Vài nghìn dòng: tính lại mỗi lần gõ vẫn nhanh
   const preview = parsed.success ? applyBulk(rows, current, parsed.data, isChannel) : null;
 
   const needsValue = form.mode === 'set' || form.mode === 'percent' || form.mode === 'amount';
   const canRound = form.mode === 'percent' || form.mode === 'amount';
+  const valueLabel = form.mode === 'set' ? 'Giá mới' : form.mode === 'percent' ? 'Phần trăm' : 'Số tiền';
+  const showError = touched && error;
 
   const submit = () => {
     setTouched(true);
@@ -61,81 +69,105 @@ export function BulkPriceDialog({ open, rows, isChannel, current, onClose, onApp
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Sửa giá {rows.length} biến thể</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2}>
-          <TextField
-            select
-            label="Cách sửa"
-            value={form.mode}
-            onChange={(e) => {
-              setForm({ ...form, mode: e.target.value as BulkMode, value: '' });
-              setTouched(false);
-            }}
-          >
-            {MODES.filter((m) => isChannel || !m.channelOnly).map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          {needsValue && (
-            <TextField
-              label={form.mode === 'set' ? 'Giá mới' : form.mode === 'percent' ? 'Phần trăm' : 'Số tiền'}
-              value={form.value}
-              autoFocus
-              onChange={(e) => setForm({ ...form, value: e.target.value })}
-              onBlur={() => setTouched(true)}
-              onKeyDown={(e) => e.key === 'Enter' && submit()}
-              error={touched && Boolean(error)}
-              helperText={
-                touched && error
-                  ? error
-                  : form.mode === 'set'
-                    ? 'Số nguyên đồng, vd 150000'
-                    : 'Số âm để giảm, vd -10'
-              }
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">{form.mode === 'percent' ? '%' : 'đ'}</InputAdornment>
-                ),
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Sửa giá {rows.length} biến thể</DialogTitle>
+          <DialogDescription>Giá mới chỉ được ghi lại khi bấm Lưu trên trang bảng giá.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="bulk-mode">Cách sửa</Label>
+            <Select
+              value={form.mode}
+              onValueChange={(mode) => {
+                setForm({ ...form, mode: mode as BulkMode, value: '' });
+                setTouched(false);
               }}
-            />
-          )}
-          {canRound && (
-            <TextField
-              select
-              label="Làm tròn"
-              value={form.roundTo}
-              onChange={(e) => setForm({ ...form, roundTo: Number(e.target.value) as BulkForm['roundTo'] })}
             >
-              <MenuItem value={1}>Không làm tròn</MenuItem>
-              <MenuItem value={100}>Tới 100 đ</MenuItem>
-              <MenuItem value={1000}>Tới 1.000 đ</MenuItem>
-            </TextField>
+              <SelectTrigger id="bulk-mode" className="w-full" aria-label="Cách sửa">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODES.filter((m) => isChannel || !m.channelOnly).map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {needsValue && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="bulk-value">{valueLabel}</Label>
+              <div className="relative">
+                <Input
+                  id="bulk-value"
+                  value={form.value}
+                  autoFocus
+                  inputMode="decimal"
+                  aria-invalid={Boolean(showError)}
+                  className="pe-8 text-right"
+                  onChange={(e) => setForm({ ...form, value: e.target.value })}
+                  onBlur={() => setTouched(true)}
+                  onKeyDown={(e) => e.key === 'Enter' && submit()}
+                />
+                <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  {form.mode === 'percent' ? '%' : 'đ'}
+                </span>
+              </div>
+              <p className={showError ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
+                {showError || (form.mode === 'set' ? 'Số nguyên đồng, vd 150000' : 'Số âm để giảm, vd -10')}
+              </p>
+            </div>
+          )}
+
+          {canRound && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="bulk-round">Làm tròn</Label>
+              <Select
+                value={String(form.roundTo)}
+                onValueChange={(v) => setForm({ ...form, roundTo: Number(v) as BulkForm['roundTo'] })}
+              >
+                <SelectTrigger id="bulk-round" className="w-full" aria-label="Làm tròn">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Không làm tròn</SelectItem>
+                  <SelectItem value="100">Tới 100 đ</SelectItem>
+                  <SelectItem value="1000">Tới 1.000 đ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
           {canRound && isChannel && (
-            <Typography variant="body2" color="text.secondary">
-              Dòng chưa có giá riêng lấy giá chuẩn làm gốc.
-            </Typography>
+            <p className="text-sm text-muted-foreground">Dòng chưa có giá riêng lấy giá chuẩn làm gốc.</p>
           )}
+
           {preview && (
-            <Alert severity={preview.changes.size ? 'info' : 'warning'}>
-              Sẽ đổi giá {preview.changes.size} biến thể
-              {preview.noBase > 0 && `; bỏ qua ${preview.noBase} biến thể chưa có giá để tính`}
-              {preview.outOfRange > 0 && `; bỏ qua ${preview.outOfRange} biến thể vì giá ra âm hoặc quá 10 tỷ`}
-              .
-            </Alert>
+            <AlertMessage severity={preview.changes.size ? 'info' : 'warning'}>
+              <span data-testid="bulk-preview">
+                Sẽ đổi giá {preview.changes.size} biến thể
+                {preview.noBase > 0 && `; bỏ qua ${preview.noBase} biến thể chưa có giá để tính`}
+                {preview.outOfRange > 0 &&
+                  `; bỏ qua ${preview.outOfRange} biến thể vì giá ra âm hoặc quá 10 tỷ`}
+                .
+              </span>
+            </AlertMessage>
           )}
-        </Stack>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Huỷ
+          </Button>
+          <Button type="button" onClick={submit} disabled={Boolean(preview && !preview.changes.size)}>
+            Áp dụng
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose}>Huỷ</Button>
-        <Button variant="contained" onClick={submit} disabled={Boolean(preview && !preview.changes.size)}>
-          Áp dụng
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

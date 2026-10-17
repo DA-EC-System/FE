@@ -1,34 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Snackbar,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SaveIcon from '@mui/icons-material/Save';
-import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import BlockIcon from '@mui/icons-material/Block';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { toast } from 'sonner';
+import { ArrowLeft, Ban, CircleCheckBig, Loader2, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { RowAction } from '@/components/common/RowAction';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import {
   useCreateStockDoc,
   useStockDoc,
@@ -42,6 +28,7 @@ import { useCan } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
+import { cn } from '@/lib/utils';
 import type { StockDoc, StockDocLineInput, StockDocType } from '@/types/inventory';
 import {
   DOC_KIND_LABELS,
@@ -51,7 +38,6 @@ import {
   formatQty,
   type DocFormInput,
   type DocFormOutput,
-  type Toast,
 } from './shared';
 import { VariantPicker } from './VariantPicker';
 
@@ -74,13 +60,21 @@ const toLines = (values: DocFormOutput): StockDocLineInput[] =>
     ...(l.unitCost === null ? {} : { unitCost: l.unitCost }),
   }));
 
+function Info({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="text-sm">{children}</div>
+    </div>
+  );
+}
+
 /**
  * Lập, sửa phiếu nhập/xuất lập tay rồi ghi sổ. Ghi sổ mới đổi tồn (QT-14, QT-15);
  * phiếu đã ghi sổ hoặc đã huỷ chỉ xem. `/inventory/documents/new?type=receipt|issue` là phiếu mới.
  */
 export function StockDocPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { docId = '' } = useParams();
   const [searchParams] = useSearchParams();
   const isNew = docId === 'new';
@@ -93,6 +87,7 @@ export function StockDocPage() {
   const doc = docQuery.data;
   const type: StockDocType = doc?.type ?? (searchParams.get('type') === 'issue' ? 'issue' : 'receipt');
   const isReceipt = type === 'receipt';
+  // Phiếu đã ghi sổ, đã huỷ, hoặc sinh từ đơn hàng chỉ xem (AC-K11)
   const editable = canManage && (isNew || (doc?.status === 'draft' && doc.kind === 'manual'));
 
   const createMut = useCreateStockDoc();
@@ -119,17 +114,10 @@ export function StockDocPage() {
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<{ severity: 'warning' | 'error'; msg: string } | null>(null);
   const [confirm, setConfirm] = useState<'post' | 'cancel' | null>(null);
-  const [toast, setToast] = useState<Toast | null>(
-    () => (location.state as { toast?: Toast } | null)?.toast ?? null,
-  );
   /** Id phiếu đang nạp trên form: chỉ nạp lại khi đổi phiếu hoặc khi cần lấy bản mới nhất */
   const loaded = useRef<string | null>(null);
   /** Chuyển từ /new sang /<id> sau khi lưu: không hỏi rời trang */
   const skipBlock = useRef(false);
-
-  useEffect(() => {
-    if (location.state) navigate(location.pathname + location.search, { replace: true, state: null });
-  }, [location.state, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (doc && loaded.current !== doc.id) {
@@ -161,7 +149,7 @@ export function StockDocPage() {
 
   const taken = useMemo(() => new Set(fields.map((f) => f.variantId)), [fields]);
 
-  /** Lỗi 409/422 từ BE: hiện tại ô, hoặc nạp bản mới nhất khi phiếu vừa bị người khác đổi */
+  /** Lỗi 409/422 từ BE: hiện tại ô, hoặc nạp bản mới nhất khi phiếu vừa bị người khác đổi (AC-K9, AC-K10) */
   const handleError = (e: unknown) => {
     const problem = getProblem(e);
     const latest = conflictCurrent<StockDoc>(e);
@@ -178,19 +166,27 @@ export function StockDocPage() {
       docQuery.refetch();
     }
     const fieldErrors = problem?.errors ?? {};
-    let placed = false;
+    let placed = 0;
     for (const [path, message] of Object.entries(fieldErrors)) {
       const m = /^lines\.(\d+)\.(variantId|quantity|unitCost)$/.exec(path);
       if (m) {
         setError(`lines.${Number(m[1])}.${m[2] as 'quantity'}`, { message });
-        placed = true;
+        placed++;
       } else if (path === 'note') {
         setError('note', { message });
-        placed = true;
+        placed++;
       }
     }
+    if (problem?.code === 'insufficient_stock') {
+      // Phiếu vẫn ở nháp; dòng thiếu hàng báo đỏ tại ô số lượng
+      toast.warning(
+        fieldErrors.lines ??
+          `${placed || 'Có'} dòng vượt số khả dụng, phiếu vẫn ở nháp. Sửa số lượng rồi ghi sổ lại.`,
+      );
+      return;
+    }
     setNotice({
-      severity: problem?.code === 'insufficient_stock' ? 'warning' : 'error',
+      severity: 'error',
       msg:
         fieldErrors.lines ??
         (placed ? `${problem?.title ?? 'Dữ liệu không hợp lệ'}. Xem các ô báo đỏ.` : getErrorMessage(e)),
@@ -221,7 +217,7 @@ export function StockDocPage() {
 
   const onSave = handleSubmit(async (values) => {
     const saved = await save(values);
-    if (saved) setToast({ severity: 'success', msg: `Đã lưu nháp ${saved.number}` });
+    if (saved) toast.success(`Đã lưu nháp ${saved.number}`);
   });
 
   /** Ghi sổ: lưu thay đổi trước (nếu có) rồi ghi sổ bằng version mới */
@@ -231,7 +227,7 @@ export function StockDocPage() {
     try {
       const posted = await postMut.mutateAsync({ id: saved.id, version: saved.version });
       load(posted);
-      setToast({ severity: 'success', msg: `Đã ghi sổ ${posted.number}; tồn kho đã cập nhật` });
+      toast.success(`Đã ghi sổ ${posted.number}; tồn kho đã cập nhật`);
     } catch (e) {
       handleError(e);
     }
@@ -244,7 +240,7 @@ export function StockDocPage() {
     try {
       const cancelled = await cancelMut.mutateAsync({ id: doc.id, version });
       load(cancelled);
-      setToast({ severity: 'success', msg: `Đã huỷ ${cancelled.number}` });
+      toast.success(`Đã huỷ ${cancelled.number}`);
     } catch (e) {
       handleError(e);
     }
@@ -254,33 +250,31 @@ export function StockDocPage() {
 
   if (isNew && !canManage) {
     return (
-      <Box>
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Bạn không có quyền lập phiếu kho.
-        </Alert>
-        <Button startIcon={<ArrowBackIcon />} onClick={backToList}>
+      <div className="grid justify-items-start gap-4">
+        <AlertMessage severity="warning">Bạn không có quyền lập phiếu kho.</AlertMessage>
+        <Button variant="outline" onClick={backToList}>
+          <ArrowLeft />
           Về danh sách phiếu
         </Button>
-      </Box>
+      </div>
     );
   }
   if (docQuery.isError) {
     return (
-      <Box>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {getErrorMessage(docQuery.error)}
-        </Alert>
-        <Button startIcon={<ArrowBackIcon />} onClick={backToList}>
+      <div className="grid justify-items-start gap-4">
+        <AlertMessage severity="error">{getErrorMessage(docQuery.error)}</AlertMessage>
+        <Button variant="outline" onClick={backToList}>
+          <ArrowLeft />
           Về danh sách phiếu
         </Button>
-      </Box>
+      </div>
     );
   }
   if (!isNew && !doc) {
     return (
-      <Stack alignItems="center" sx={{ py: 8 }}>
-        <CircularProgress />
-      </Stack>
+      <div className="flex justify-center py-16">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
@@ -288,9 +282,11 @@ export function StockDocPage() {
     ? editable || Boolean(doc?.lines.some((l) => l.unitCost !== null))
     : Boolean(doc?.lines.some((l) => l.unitCost !== null));
   const title = doc ? `${DOC_TYPE_LABELS[doc.type]} ${doc.number}` : `Lập ${DOC_TYPE_LABELS[type].toLowerCase()}`;
+  const noteLabel = isReceipt ? 'Ghi chú' : 'Lý do xuất kho';
+  const linesError = errors.lines?.root?.message ?? errors.lines?.message;
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title={title}
         subtitle={
@@ -299,104 +295,80 @@ export function StockDocPage() {
             : 'Phiếu xuất tay (hàng hỏng, điều chỉnh) chỉ lấy phần khả dụng, không đụng hàng đang giữ cho đơn.'
         }
         action={
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button startIcon={<ArrowBackIcon />} onClick={backToList}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={backToList}>
+              <ArrowLeft />
               Danh sách
             </Button>
             {editable && !isNew && (
-              <Button color="error" startIcon={<BlockIcon />} disabled={busy} onClick={() => setConfirm('cancel')}>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={busy}
+                onClick={() => setConfirm('cancel')}
+              >
+                <Ban />
                 Huỷ phiếu
               </Button>
             )}
             {editable && (
               <>
-                <Button variant="outlined" startIcon={<SaveIcon />} disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
+                <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
+                  <Save />
                   Lưu nháp
                 </Button>
-                <Button variant="contained" startIcon={<TaskAltIcon />} disabled={busy} onClick={() => setConfirm('post')}>
+                <Button disabled={busy} onClick={() => setConfirm('post')}>
+                  <CircleCheckBig />
                   {isNew || isDirty ? 'Lưu và ghi sổ' : 'Ghi sổ'}
                 </Button>
               </>
             )}
-          </Stack>
+          </div>
         }
       />
 
       {notice && (
-        <Alert severity={notice.severity} sx={{ mb: 2 }} onClose={() => setNotice(null)}>
+        <AlertMessage severity={notice.severity} className="mb-4" onClose={() => setNotice(null)}>
           {notice.msg}
-        </Alert>
+        </AlertMessage>
       )}
 
       {doc && (
-        <Paper elevation={0} sx={{ p: 2, mb: 2, border: 1, borderColor: 'divider' }}>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, minmax(0, 1fr))' },
-              gap: 2,
-            }}
-          >
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Trạng thái
-              </Typography>
-              <Box>
-                <Chip size="small" label={DOC_STATUS[doc.status].label} color={DOC_STATUS[doc.status].color} />
-              </Box>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Loại
-              </Typography>
-              <Typography variant="body2">
-                {DOC_KIND_LABELS[doc.kind]}
-                {doc.reference && ` · đơn ${doc.reference}`}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Người lập
-              </Typography>
-              <Typography variant="body2">
-                {doc.createdBy} · {formatDateTime(doc.createdAt)}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Ghi sổ
-              </Typography>
-              <Typography variant="body2">
-                {doc.postedAt ? `${doc.postedBy} · ${formatDateTime(doc.postedAt)}` : '—'}
-              </Typography>
-            </Box>
-          </Box>
-        </Paper>
+        <Card className="mb-4 py-4">
+          <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Info label="Trạng thái">
+              <Badge variant={DOC_STATUS[doc.status].variant} data-testid="doc-status">
+                {DOC_STATUS[doc.status].label}
+              </Badge>
+            </Info>
+            <Info label="Loại">
+              {DOC_KIND_LABELS[doc.kind]}
+              {doc.reference && ` · đơn ${doc.reference}`}
+            </Info>
+            <Info label="Người lập">
+              {doc.createdBy} · {formatDateTime(doc.createdAt)}
+            </Info>
+            <Info label="Ghi sổ">{doc.postedAt ? `${doc.postedBy} · ${formatDateTime(doc.postedAt)}` : '—'}</Info>
+          </CardContent>
+        </Card>
       )}
 
-      <Paper elevation={0} sx={{ p: 2, border: 1, borderColor: 'divider' }}>
-        {editable ? (
-          <TextField
-            label={isReceipt ? 'Ghi chú' : 'Lý do xuất kho'}
-            fullWidth
-            multiline
-            minRows={2}
-            {...register('note')}
-            error={Boolean(errors.note)}
-            helperText={errors.note?.message ?? (isReceipt ? 'Vd nguồn hàng, số hoá đơn nhà cung cấp' : 'Vd hàng lỗi, mất, kiểm kê lệch')}
-            sx={{ mb: 2 }}
-          />
-        ) : (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              {isReceipt ? 'Ghi chú' : 'Lý do xuất kho'}
-            </Typography>
-            <Typography variant="body2">{doc?.note || '—'}</Typography>
-          </Box>
-        )}
+      <Card className="py-4">
+        <CardContent className="grid gap-4">
+          {editable ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="doc-note">{noteLabel}</Label>
+              <Textarea id="doc-note" rows={2} aria-invalid={Boolean(errors.note)} {...register('note')} />
+              <p className={errors.note ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
+                {errors.note?.message ??
+                  (isReceipt ? 'Vd nguồn hàng, số hoá đơn nhà cung cấp' : 'Vd hàng lỗi, mất, kiểm kê lệch')}
+              </p>
+            </div>
+          ) : (
+            <Info label={noteLabel}>{doc?.note || '—'}</Info>
+          )}
 
-        {editable && (
-          <Box sx={{ mb: 2 }}>
+          {editable && (
             <VariantPicker
               taken={taken}
               disabled={busy}
@@ -411,99 +383,108 @@ export function StockDocPage() {
                 })
               }
             />
-          </Box>
-        )}
-        {errors.lines?.root?.message || errors.lines?.message ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {errors.lines?.root?.message ?? errors.lines?.message}
-          </Alert>
-        ) : null}
+          )}
+          {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
 
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Biến thể</TableCell>
-              <TableCell align="right" sx={{ width: 160 }}>
-                Số lượng
-              </TableCell>
-              {showCost && (
-                <TableCell align="right" sx={{ width: 200 }}>
-                  {isReceipt && doc?.kind !== 'delivery_return' ? 'Giá nhập' : 'Giá vốn'}
-                </TableCell>
-              )}
-              {editable && <TableCell sx={{ width: 56 }} />}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {!fields.length && (
-              <TableRow>
-                <TableCell colSpan={4}>
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                    {editable ? 'Tìm và thêm biến thể vào phiếu.' : 'Phiếu không có dòng nào.'}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {fields.map((f, i) => {
-              const lineErrors = errors.lines?.[i];
-              const docLine = doc?.lines[i];
-              return (
-                <TableRow key={f.key}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600}>
-                      {f.sku}
-                    </Typography>
-                    <Typography variant="caption" color={lineErrors?.variantId ? 'error' : 'text.secondary'}>
-                      {lineErrors?.variantId?.message ??
-                        `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    {editable ? (
-                      <TextField
-                        size="small"
-                        {...register(`lines.${i}.quantity`)}
-                        inputProps={{ inputMode: 'numeric', style: { textAlign: 'right' } }}
-                        error={Boolean(lineErrors?.quantity)}
-                        helperText={lineErrors?.quantity?.message}
-                      />
-                    ) : (
-                      formatQty(docLine?.quantity ?? 0)
-                    )}
-                  </TableCell>
+          <div className="overflow-x-auto rounded-md border">
+            <Table data-testid="doc-lines">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Biến thể</TableHead>
+                  <TableHead className="w-40 text-right">Số lượng</TableHead>
                   {showCost && (
-                    <TableCell align="right">
-                      {editable ? (
-                        <TextField
-                          size="small"
-                          {...register(`lines.${i}.unitCost`)}
-                          inputProps={{ inputMode: 'numeric', style: { textAlign: 'right' } }}
-                          InputProps={{ endAdornment: <InputAdornment position="end">đ</InputAdornment> }}
-                          error={Boolean(lineErrors?.unitCost)}
-                          helperText={lineErrors?.unitCost?.message}
-                        />
-                      ) : docLine?.unitCost === null || docLine?.unitCost === undefined ? (
-                        '—'
-                      ) : (
-                        formatCurrency(docLine.unitCost)
-                      )}
-                    </TableCell>
+                    <TableHead className="w-52 text-right">
+                      {isReceipt && doc?.kind !== 'delivery_return' ? 'Giá nhập' : 'Giá vốn'}
+                    </TableHead>
                   )}
-                  {editable && (
-                    <TableCell>
-                      <Tooltip title="Bỏ dòng">
-                        <IconButton size="small" onClick={() => remove(i)} disabled={busy}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  )}
+                  {editable && <TableHead className="w-12" />}
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Paper>
+              </TableHeader>
+              <TableBody>
+                {!fields.length && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                      {editable ? 'Tìm và thêm biến thể vào phiếu.' : 'Phiếu không có dòng nào.'}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {fields.map((f, i) => {
+                  const lineErrors = errors.lines?.[i];
+                  const docLine = doc?.lines[i];
+                  return (
+                    <TableRow key={f.key} data-row-id={f.variantId} className="align-top">
+                      <TableCell>
+                        <p className="font-medium">{f.sku}</p>
+                        <p
+                          className={cn(
+                            'text-xs',
+                            lineErrors?.variantId ? 'text-destructive' : 'text-muted-foreground',
+                          )}
+                        >
+                          {lineErrors?.variantId?.message ??
+                            `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {editable ? (
+                          <div className="grid gap-1">
+                            <Input
+                              {...register(`lines.${i}.quantity`)}
+                              aria-label={`Số lượng ${f.sku}`}
+                              inputMode="numeric"
+                              aria-invalid={Boolean(lineErrors?.quantity)}
+                              className="h-8 text-right"
+                            />
+                            {lineErrors?.quantity && (
+                              <p className="text-xs text-destructive">{lineErrors.quantity.message}</p>
+                            )}
+                          </div>
+                        ) : (
+                          formatQty(docLine?.quantity ?? 0)
+                        )}
+                      </TableCell>
+                      {showCost && (
+                        <TableCell className="text-right">
+                          {editable ? (
+                            <div className="grid gap-1">
+                              <div className="relative">
+                                <Input
+                                  {...register(`lines.${i}.unitCost`)}
+                                  aria-label={`${isReceipt ? 'Giá nhập' : 'Giá vốn'} ${f.sku}`}
+                                  inputMode="numeric"
+                                  aria-invalid={Boolean(lineErrors?.unitCost)}
+                                  className="h-8 pe-6 text-right"
+                                />
+                                <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                  đ
+                                </span>
+                              </div>
+                              {lineErrors?.unitCost && (
+                                <p className="text-xs text-destructive">{lineErrors.unitCost.message}</p>
+                              )}
+                            </div>
+                          ) : docLine?.unitCost === null || docLine?.unitCost === undefined ? (
+                            '—'
+                          ) : (
+                            formatCurrency(docLine.unitCost)
+                          )}
+                        </TableCell>
+                      )}
+                      {editable && (
+                        <TableCell>
+                          <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                            <Trash2 />
+                          </RowAction>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <ConfirmDialog
         open={confirm === 'post'}
@@ -543,19 +524,6 @@ export function StockDocPage() {
         onConfirm={() => blocker.proceed?.()}
         onClose={() => blocker.reset?.()}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

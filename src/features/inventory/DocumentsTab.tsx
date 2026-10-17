@@ -1,21 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  InputAdornment,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
-import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
-import OutboxIcon from '@mui/icons-material/Outbox';
+import type { ColumnDef } from '@tanstack/react-table';
+import { PackageMinus, PackagePlus } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { DataTable } from '@/components/common/DataTable';
+import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useStockDocs } from '@/api/inventory.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -38,97 +30,88 @@ export function DocumentsTab() {
   const debouncedSearch = useDebounce(search.trim());
   const [type, setType] = useState<StockDocType | ''>('');
   const [status, setStatus] = useState<StockDocStatus | ''>('');
-  const [pagination, setPagination] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const docsQuery = useStockDocs({
-    page: pagination.page + 1,
-    pageSize: pagination.pageSize,
+    page,
+    pageSize,
     search: debouncedSearch || undefined,
     type: type || undefined,
     status: status || undefined,
   });
   const filtered = Boolean(debouncedSearch || type || status);
-  const resetPage = () => setPagination((p) => ({ ...p, page: 0 }));
+  const withReset =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPage(1);
+    };
   const open = (id: string) => navigate(ROUTES.company.inventoryDoc(companyId, id));
 
-  const columns: GridColDef<StockDocSummary>[] = useMemo(
+  const columns = useMemo<ColumnDef<StockDocSummary>[]>(
     () => [
       {
-        field: 'number',
-        headerName: 'Số phiếu',
-        width: 150,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack justifyContent="center" sx={{ height: '100%', lineHeight: 1.3 }}>
-            <Typography variant="body2" fontWeight={600}>
-              {row.number}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {DOC_TYPE_LABELS[row.type]}
-            </Typography>
-          </Stack>
+        id: 'number',
+        header: 'Số phiếu',
+        meta: { className: 'w-36' },
+        cell: ({ row }) => (
+          <div>
+            <p className="font-medium">{row.original.number}</p>
+            <p className="text-xs text-muted-foreground">{DOC_TYPE_LABELS[row.original.type]}</p>
+          </div>
         ),
       },
       {
-        field: 'kind',
-        headerName: 'Loại',
-        width: 150,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack justifyContent="center" sx={{ height: '100%', lineHeight: 1.3 }}>
-            <Typography variant="body2">{DOC_KIND_LABELS[row.kind]}</Typography>
-            {row.reference && (
-              <Typography variant="caption" color="text.secondary">
-                Đơn {row.reference}
-              </Typography>
+        id: 'kind',
+        header: 'Loại',
+        meta: { className: 'w-36' },
+        cell: ({ row }) => (
+          <div>
+            <p>{DOC_KIND_LABELS[row.original.kind]}</p>
+            {row.original.reference && (
+              <p className="text-xs text-muted-foreground">Đơn {row.original.reference}</p>
             )}
-          </Stack>
+          </div>
         ),
       },
       {
-        field: 'note',
-        headerName: 'Ghi chú',
-        flex: 1,
-        minWidth: 180,
-        sortable: false,
-        valueFormatter: (value: string) => value || '—',
+        id: 'note',
+        header: 'Ghi chú',
+        meta: { className: 'min-w-44' },
+        cell: ({ row }) => row.original.note || '—',
       },
       {
-        field: 'totalQty',
-        headerName: 'Số lượng',
-        type: 'number',
-        width: 120,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack justifyContent="center" alignItems="flex-end" sx={{ height: '100%', lineHeight: 1.3 }}>
-            <Typography variant="body2">{formatQty(row.totalQty)}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {row.lineCount} dòng
-            </Typography>
-          </Stack>
+        id: 'totalQty',
+        header: 'Số lượng',
+        meta: { className: 'w-28 text-right' },
+        cell: ({ row }) => (
+          <div>
+            <p>{formatQty(row.original.totalQty)}</p>
+            <p className="text-xs text-muted-foreground">{row.original.lineCount} dòng</p>
+          </div>
         ),
       },
       {
-        field: 'status',
-        headerName: 'Trạng thái',
-        width: 120,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Chip size="small" label={DOC_STATUS[row.status].label} color={DOC_STATUS[row.status].color} />
-        ),
+        id: 'status',
+        header: 'Trạng thái',
+        meta: { className: 'w-28' },
+        cell: ({ row }) => {
+          const s = DOC_STATUS[row.original.status];
+          return <Badge variant={s.variant}>{s.label}</Badge>;
+        },
       },
       {
-        field: 'createdAt',
-        headerName: 'Lập / ghi sổ',
-        width: 190,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack justifyContent="center" sx={{ height: '100%', lineHeight: 1.3 }}>
-            <Typography variant="body2">{formatDateTime(row.postedAt ?? row.createdAt)}</Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {row.postedBy ?? row.createdBy}
-            </Typography>
-          </Stack>
+        id: 'createdAt',
+        header: 'Lập / ghi sổ',
+        meta: { className: 'w-44' },
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <p className="whitespace-nowrap">{formatDateTime(row.original.postedAt ?? row.original.createdAt)}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {row.original.postedBy ?? row.original.createdBy}
+            </p>
+          </div>
         ),
       },
     ],
@@ -136,102 +119,71 @@ export function DocumentsTab() {
   );
 
   return (
-    <Box>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }} alignItems={{ md: 'center' }}>
-        <TextField
-          size="small"
-          placeholder="Tìm số phiếu, mã đơn, ghi chú"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            resetPage();
-          }}
-          sx={{ minWidth: 280 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-        <TextField
-          select
-          size="small"
-          label="Loại phiếu"
-          value={type}
-          onChange={(e) => {
-            setType(e.target.value as StockDocType | '');
-            resetPage();
-          }}
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">Tất cả</MenuItem>
-          <MenuItem value="receipt">Phiếu nhập</MenuItem>
-          <MenuItem value="issue">Phiếu xuất</MenuItem>
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label="Trạng thái"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as StockDocStatus | '');
-            resetPage();
-          }}
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">Tất cả</MenuItem>
-          {(Object.keys(DOC_STATUS) as StockDocStatus[]).map((s) => (
-            <MenuItem key={s} value={s}>
-              {DOC_STATUS[s].label}
-            </MenuItem>
-          ))}
-        </TextField>
-        {canManage && (
-          <Stack direction="row" spacing={1} sx={{ ml: { md: 'auto' } }}>
-            <Button
-              variant="contained"
-              startIcon={<MoveToInboxIcon />}
-              onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, 'receipt'))}
-            >
-              Lập phiếu nhập
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<OutboxIcon />}
-              onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, 'issue'))}
-            >
-              Lập phiếu xuất
-            </Button>
-          </Stack>
-        )}
-      </Stack>
-
+    <div>
       {docsQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(docsQuery.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <DataGrid
-          rows={docsQuery.data?.items ?? []}
+      <Card className="gap-0 py-0">
+        <FilterBar>
+          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số phiếu, mã đơn, ghi chú" />
+          <FilterSelect
+            label="Loại phiếu"
+            value={type}
+            onChange={withReset((v: string) => setType(v as StockDocType | ''))}
+            options={[
+              { value: 'receipt', label: 'Phiếu nhập' },
+              { value: 'issue', label: 'Phiếu xuất' },
+            ]}
+          />
+          <FilterSelect
+            label="Trạng thái"
+            value={status}
+            onChange={withReset((v: string) => setStatus(v as StockDocStatus | ''))}
+            options={(Object.keys(DOC_STATUS) as StockDocStatus[]).map((s) => ({
+              value: s,
+              label: DOC_STATUS[s].label,
+            }))}
+          />
+          {/* Chỉ người có quyền lập phiếu mới thấy nút (AC-K12) */}
+          {canManage && (
+            <div className="flex gap-2 md:ms-auto">
+              <Button onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, 'receipt'))}>
+                <PackagePlus />
+                Lập phiếu nhập
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, 'issue'))}
+              >
+                <PackageMinus />
+                Lập phiếu xuất
+              </Button>
+            </div>
+          )}
+        </FilterBar>
+        <DataTable
           columns={columns}
-          loading={docsQuery.isFetching}
-          rowCount={docsQuery.data?.total ?? 0}
-          paginationMode="server"
-          paginationModel={pagination}
-          onPaginationModelChange={setPagination}
-          pageSizeOptions={[25, 50, 100]}
-          disableRowSelectionOnClick
-          disableColumnMenu
-          rowHeight={60}
-          onRowClick={({ row }) => open(row.id)}
-          sx={{ minHeight: 320, '& .MuiDataGrid-row': { cursor: 'pointer' } }}
-          localeText={{ noRowsLabel: filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu nào' }}
+          data={docsQuery.data?.items ?? []}
+          getRowId={(r) => r.id}
+          loading={docsQuery.isLoading}
+          fetching={docsQuery.isFetching}
+          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu nào'}
+          onRowClick={(r) => open(r.id)}
+          pagination={{
+            page,
+            pageSize,
+            total: docsQuery.data?.total ?? 0,
+            pageSizes: [25, 50, 100],
+            onChange: (p, size) => {
+              setPage(size === pageSize ? p : 1);
+              setPageSize(size);
+            },
+          }}
         />
-      </Paper>
-    </Box>
+      </Card>
+    </div>
   );
 }
