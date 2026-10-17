@@ -113,6 +113,19 @@ const shops: Shop[] = [
     createdAt: '2026-02-10T09:00:00.000Z',
     updatedAt: '2026-10-14T07:45:00.000Z',
   },
+  {
+    // Gian hàng đã ngắt nhưng còn bảng giá cũ: xoá được bảng giá (UC-CP-03)
+    id: 'shp-008',
+    companyId: 'cmp-001',
+    platform: 'tiktok',
+    externalShopId: 'tiktok-abc-outlet',
+    shopName: 'ABC Outlet TikTok',
+    region: 'VN',
+    status: 'disconnected',
+    lastOrderSyncAt: '2026-08-30T10:00:00.000Z',
+    createdAt: '2026-03-01T09:00:00.000Z',
+    updatedAt: '2026-09-01T09:00:00.000Z',
+  },
   // cmp-002 — XYZ Cosmetics
   {
     id: 'shp-004',

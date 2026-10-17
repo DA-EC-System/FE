@@ -2010,14 +2010,20 @@ function priceLines(companyId: string, prices: Record<string, number | null>) {
   );
 }
 
-function validatePricelistName(name: string | undefined, companyId: string, exceptId?: string) {
+function validatePricelistName(name: string | undefined) {
   const value = name?.trim() ?? '';
   if (!value) return 'Nhập tên bảng giá';
   if (value.length > 60) return 'Tên bảng giá tối đa 60 ký tự';
-  if (pricing.pricelists.some((p) => p.companyId === companyId && p.id !== exceptId && sameText(p.name, value))) {
-    return 'Đã có bảng giá cùng tên';
-  }
   return null;
+}
+
+/** Tên trùng trong công ty: 409 name_taken kèm errors.name (docs/21 V24) */
+function pricelistNameTaken(name: string | undefined, companyId: string, exceptId?: string) {
+  const value = name?.trim() ?? '';
+  if (!pricing.pricelists.some((p) => p.companyId === companyId && p.id !== exceptId && sameText(p.name, value))) {
+    return null;
+  }
+  return problem(409, 'Tên đã được dùng', { code: 'name_taken', errors: { name: 'Đã có bảng giá cùng tên' } });
 }
 
 const pricingHandlers = [
@@ -2075,7 +2081,7 @@ const pricingHandlers = [
     const companyId = guard.value.companyId;
     const body = (await request.json()) as PricelistCreateInput;
     const errors: Record<string, string> = {};
-    const nameError = validatePricelistName(body.name, companyId);
+    const nameError = validatePricelistName(body.name);
     if (nameError) errors.name = nameError;
     const shop = db.shops.find((s) => s.id === body.shopId && s.companyId === companyId);
     if (!body.shopId) errors.shopId = 'Chọn gian hàng';
@@ -2086,6 +2092,8 @@ const pricingHandlers = [
       if (taken) errors.shopId = `Gian hàng đã có bảng giá "${taken.name}"`;
     }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+    const taken = pricelistNameTaken(body.name, companyId);
+    if (taken) return taken;
     const standard = ensureStandard(companyId);
     const pl: MockPricelist = {
       id: rid('pl'),
@@ -2113,8 +2121,10 @@ const pricingHandlers = [
     if (body.version !== pl.version) {
       return versionConflict(toPricelist(pl), 'Bảng giá vừa được người khác sửa.');
     }
-    const nameError = validatePricelistName(body.name, pl.companyId, pl.id);
+    const nameError = validatePricelistName(body.name);
     if (nameError) return problem(422, 'Dữ liệu chưa hợp lệ', { errors: { name: nameError } });
+    const taken = pricelistNameTaken(body.name, pl.companyId, pl.id);
+    if (taken) return taken;
     const before = pricelistSnapshot(pl);
     pl.name = body.name.trim();
     pl.version += 1;

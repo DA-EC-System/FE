@@ -48,6 +48,17 @@ export const pricelists: MockPricelist[] = [
     updatedAt: T0,
   },
   {
+    // Gian hàng đã ngắt: bảng giá không còn dùng, xoá được
+    id: 'pl-shp-008',
+    companyId: 'cmp-001',
+    name: 'Giá Outlet cũ',
+    type: 'channel',
+    shopId: 'shp-008',
+    prices: { 'prd-001-v1': 120000 },
+    version: 1,
+    updatedAt: T0,
+  },
+  {
     id: 'pl-std-002',
     companyId: 'cmp-002',
     name: 'Bảng giá chuẩn',
