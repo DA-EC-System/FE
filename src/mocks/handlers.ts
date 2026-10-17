@@ -27,7 +27,7 @@ import type {
 } from '@/types/auth';
 import * as catalog from './catalogData';
 import type { MockCategory, MockAttribute, MockProduct, MockVariant } from './catalogData';
-import { skuPatternError } from '@/utils/sku';
+import { skuPatternError, valueCode } from '@/utils/sku';
 import * as pricing from './pricingData';
 import type { MockPricelist } from './pricingData';
 import { formatCurrency } from '@/utils/format';
@@ -120,8 +120,10 @@ function problem(
     [key: string]: unknown;
   } = {},
 ) {
+  // docs/21 V45: 422 kiểm dữ liệu không có mã riêng thì là validation_failed
+  const code = extra.code ?? (status === 422 ? 'validation_failed' : undefined);
   return HttpResponse.json(
-    { type: 'about:blank', title, status, ...extra },
+    { type: 'about:blank', title, status, ...extra, ...(code ? { code } : {}) },
     { status, headers: { 'Content-Type': 'application/problem+json' } },
   );
 }
@@ -1383,7 +1385,10 @@ function toProductDetail(p: MockProduct): ProductDetail {
 const categoryEntity = (c: MockCategory) => ({ type: 'catalog.categories', id: c.id, label: c.name });
 const categorySnapshot = (c: MockCategory) => ({ name: c.name, skuPattern: c.skuPattern });
 const attributeEntity = (a: MockAttribute) => ({ type: 'catalog.attributes', id: a.id, label: a.name });
-const attributeSnapshot = (a: MockAttribute) => ({ name: a.name, values: a.values.map((v) => v.value) });
+const attributeSnapshot = (a: MockAttribute) => ({
+  name: a.name,
+  values: a.values.map((v) => `${v.value} (${v.code})`),
+});
 const productEntity = (p: MockProduct) => ({ type: 'catalog.products', id: p.id, label: p.name });
 function productSnapshot(p: MockProduct) {
   return {
@@ -1395,7 +1400,7 @@ function productSnapshot(p: MockProduct) {
   };
 }
 
-/** Đối tượng không có: 404; của công ty khác: 403 (UC-CP-01, UC-CP-02 ngoại lệ) */
+/** Không có hoặc của công ty khác đều 404 not_found, không lộ là bản ghi tồn tại (docs/21 C4) */
 function findOwned<T extends { id: string; companyId: string }>(
   list: T[],
   id: unknown,
@@ -1403,11 +1408,15 @@ function findOwned<T extends { id: string; companyId: string }>(
   what: string,
 ): { ok: true; value: T } | { ok: false; response: Response } {
   const item = list.find((x) => x.id === id);
-  if (!item) return { ok: false, response: problem(404, `Không tìm thấy ${what}`) };
-  if (item.companyId !== companyId) {
-    return { ok: false, response: problem(403, `${what[0].toUpperCase()}${what.slice(1)} thuộc công ty khác`) };
+  if (!item || item.companyId !== companyId) {
+    return { ok: false, response: problem(404, `Không tìm thấy ${what}`, { code: 'not_found' }) };
   }
   return { ok: true, value: item };
+}
+
+/** Tên trùng trong công ty: 409 name_taken kèm errors.name (docs/21 V24) */
+function nameTaken(message: string) {
+  return problem(409, 'Tên đã được dùng', { code: 'name_taken', errors: { name: message } });
 }
 
 function staleVersion(url: URL, current: number) {
@@ -1420,14 +1429,13 @@ function validateCategory(body: CategoryInput, companyId: string, exceptId?: str
   const name = body.name?.trim() ?? '';
   if (!name) errors.name = 'Nhập tên danh mục';
   else if (name.length > 60) errors.name = 'Tên danh mục tối đa 60 ký tự';
-  else if (
-    catalog.categories.some((c) => c.companyId === companyId && c.id !== exceptId && sameText(c.name, name))
-  ) {
-    errors.name = 'Đã có danh mục cùng tên';
-  }
   const patternError = skuPatternError(body.skuPattern ?? '');
   if (patternError) errors.skuPattern = patternError;
-  return Object.keys(errors).length ? problem(422, 'Dữ liệu chưa hợp lệ', { errors }) : null;
+  if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+  if (catalog.categories.some((c) => c.companyId === companyId && c.id !== exceptId && sameText(c.name, name))) {
+    return nameTaken('Đã có danh mục cùng tên');
+  }
+  return null;
 }
 
 function validateAttribute(body: AttributeInput, companyId: string, exceptId?: string) {
@@ -1435,18 +1443,28 @@ function validateAttribute(body: AttributeInput, companyId: string, exceptId?: s
   const name = body.name?.trim() ?? '';
   if (!name) errors.name = 'Nhập tên thuộc tính';
   else if (name.length > 40) errors.name = 'Tên thuộc tính tối đa 40 ký tự';
-  else if (
-    catalog.attributes.some((a) => a.companyId === companyId && a.id !== exceptId && sameText(a.name, name))
-  ) {
-    errors.name = 'Đã có thuộc tính cùng tên';
-  }
   const values = (body.values ?? []).map((v) => v.value.trim());
   if (!values.length) errors.values = 'Thêm ít nhất một giá trị';
   else if (values.some((v) => !v || v.length > 40)) errors.values = 'Mỗi giá trị từ 1 đến 40 ký tự';
   else if (new Set(values.map((v) => v.toLowerCase())).size !== values.length) {
     errors.values = 'Có giá trị bị trùng';
   }
-  return Object.keys(errors).length ? problem(422, 'Dữ liệu chưa hợp lệ', { errors }) : null;
+  // V21: mã bỏ trống thì sinh từ giá trị; trùng mã trong một thuộc tính báo tại ô của dòng sau
+  const seen = new Set<string>();
+  attributeCodes(body).forEach((code, i) => {
+    if (!/^[A-Z0-9]{1,6}$/.test(code)) errors[`values.${i}.code`] = 'Mã chỉ gồm A-Z, 0-9, tối đa 6 ký tự';
+    else if (seen.has(code)) errors[`values.${i}.code`] = 'Mã bị trùng';
+    seen.add(code);
+  });
+  if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+  if (catalog.attributes.some((a) => a.companyId === companyId && a.id !== exceptId && sameText(a.name, name))) {
+    return nameTaken('Đã có thuộc tính cùng tên');
+  }
+  return null;
+}
+
+function attributeCodes(body: AttributeInput) {
+  return (body.values ?? []).map((v) => v.code?.trim().toUpperCase() || valueCode(v.value));
 }
 
 /** Tập thuộc tính của một tổ hợp; null nếu có giá trị lạ hoặc hai giá trị cùng thuộc tính */
@@ -1481,7 +1499,14 @@ function validateImages(companyId: string, ids: string[] | undefined, errors: Re
     })
   ) {
     errors.images = 'Có ảnh chưa tải xong hoặc không thuộc công ty';
+  } else {
+    const big = list.map((id) => catalog.files.find((x) => x.id === id)!).find((f) => f.sizeBytes > MAX_IMAGE_BYTES);
+    if (big) errors.images = `Ảnh ${big.fileName} lớn hơn 5 MB`;
   }
+}
+
+function productNameTaken(companyId: string, name: string, exceptId?: string) {
+  return companyProducts(companyId).some((p) => !p.archivedAt && p.id !== exceptId && sameText(p.name, name));
 }
 
 function validateProductText(body: { name?: string; description?: string }, errors: Record<string, string>) {
@@ -1595,7 +1620,7 @@ const catalogHandlers = [
       id: rid('att'),
       companyId: guard.value.companyId,
       name: body.name.trim(),
-      values: body.values.map((v) => ({ id: rid('val'), value: v.value.trim() })),
+      values: body.values.map((v, i) => ({ id: rid('val'), value: v.value.trim(), code: attributeCodes(body)[i] })),
       version: 1,
     };
     catalog.attributes.push(attribute);
@@ -1631,7 +1656,9 @@ const catalogHandlers = [
     }
     const before = attributeSnapshot(attribute);
     attribute.name = body.name.trim();
-    attribute.values = body.values.map((v) => ({ id: v.id ?? rid('val'), value: v.value.trim() }));
+    const codes = attributeCodes(body);
+    // Đổi mã chỉ ảnh hưởng SKU sinh sau này; SKU đã cấp giữ nguyên
+    attribute.values = body.values.map((v, i) => ({ id: v.id ?? rid('val'), value: v.value.trim(), code: codes[i] }));
     attribute.version += 1;
     writeCompanyLog(guard.value, 'update', attributeEntity(attribute), before, attributeSnapshot(attribute));
     return HttpResponse.json(toAttribute(attribute));
@@ -1716,6 +1743,7 @@ const catalogHandlers = [
       errors.variants = 'Có tổ hợp thuộc tính bị trùng';
     }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+    if (productNameTaken(companyId, body.name)) return nameTaken('Đã có sản phẩm cùng tên');
 
     const product: MockProduct = {
       id: rid('prd'),
@@ -1758,6 +1786,9 @@ const catalogHandlers = [
     validateProductText(body, errors);
     validateImages(guard.value.companyId, body.imageFileIds, errors);
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+    if (productNameTaken(guard.value.companyId, body.name, product.id)) {
+      return nameTaken('Đã có sản phẩm cùng tên');
+    }
     const before = productSnapshot(product);
     product.name = body.name.trim();
     product.description = body.description ?? '';
@@ -1853,7 +1884,9 @@ const catalogHandlers = [
     if (!found.ok) return found.response;
     const product = found.value;
     const variant = product.variants.find((v) => v.id === params.variantId);
-    if (!variant || variant.archivedAt) return problem(404, 'Không tìm thấy biến thể đang bán');
+    if (!variant || variant.archivedAt) {
+      return problem(404, 'Không tìm thấy biến thể đang bán', { code: 'not_found' });
+    }
     if (product.variants.filter((v) => !v.archivedAt).length === 1) {
       return problem(409, 'Cần giữ ít nhất một biến thể', {
         code: 'last_variant',
@@ -1905,6 +1938,8 @@ const catalogHandlers = [
       binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     }
     file.url = `data:${file.contentType};base64,${btoa(binary)}`;
+    // Kích thước thật có thể khác khai báo khi xin vé (V26)
+    file.sizeBytes = bytes.length;
     return new HttpResponse(null, { status: 200 });
   }),
 ];

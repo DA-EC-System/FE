@@ -1,25 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Plus, Trash2 } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { FormTextField } from '@/components/common/FormTextField';
+import { RowAction } from '@/components/common/RowAction';
+import { Button } from '@/components/ui/button';
 import {
-  Alert,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  FormHelperText,
-  IconButton,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
+} from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { useCreateAttribute, useUpdateAttribute } from '@/api/catalog.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
+import { valueCode } from '@/utils/sku';
 import type { Attribute } from '@/types/catalog';
 import { attributeSchema, type AttributeForm } from './shared';
 
@@ -33,27 +34,26 @@ interface AttributeFormDialogProps {
 
 const toForm = (a: Attribute | null): AttributeForm => ({
   name: a?.name ?? '',
-  values: a?.values.map((v) => ({ id: v.id, value: v.value })) ?? [{ value: '' }],
+  values: a?.values.map((v) => ({ id: v.id, value: v.value, code: v.code })) ?? [
+    { value: '', code: '' },
+  ],
 });
 
-/** UC-CP-01: thuộc tính và danh sách giá trị; giá trị đã có biến thể dùng thì không xoá được */
+/**
+ * UC-CP-01: thuộc tính và danh sách giá trị kèm mã dùng trong SKU (V21, AC-16).
+ * Giá trị đã có biến thể dùng thì không xoá được.
+ */
 export function AttributeFormDialog({ open, attribute, onClose, onDone }: AttributeFormDialogProps) {
   const createMut = useCreateAttribute();
   const updateMut = useUpdateAttribute();
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<Attribute | null>(attribute);
 
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    setError: setFieldError,
-    formState: { errors },
-  } = useForm<AttributeForm>({
+  const form = useForm<AttributeForm>({
     resolver: zodResolver(attributeSchema),
     defaultValues: toForm(null),
   });
+  const { control, reset, getValues, setValue, setError: setFieldError, formState } = form;
   const { fields, append, remove } = useFieldArray({ control, name: 'values', keyName: 'key' });
 
   useEffect(() => {
@@ -69,7 +69,15 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
     [current],
   );
 
-  const onSubmit = handleSubmit(async (values) => {
+  /** Gõ giá trị thì mã tự sinh theo bảng 9.2, trừ khi người dùng đã tự đặt mã khác */
+  const onValueChange = (i: number, next: string, prev: string) => {
+    const code = getValues(`values.${i}.code`);
+    if (!code || code === valueCode(prev)) {
+      setValue(`values.${i}.code`, valueCode(next), { shouldValidate: formState.isSubmitted });
+    }
+  };
+
+  const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
       if (current) {
@@ -88,86 +96,145 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
         setError('Thuộc tính vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
         return;
       }
-      if (problem?.errors?.name) setFieldError('name', { message: problem.errors.name });
-      if (problem?.errors?.values) setFieldError('values', { message: problem.errors.values });
-      if (!problem?.errors) setError(getErrorMessage(e));
+      const fields = problem?.errors ?? {};
+      if (problem?.code === 'name_taken') {
+        setFieldError('name', { message: fields.name ?? 'Đã có thuộc tính cùng tên' });
+        return;
+      }
+      // values.<i>.code, values.<i>.value gắn đúng ô (V21)
+      let placed = false;
+      for (const [key, message] of Object.entries(fields)) {
+        if (key === 'name' || key === 'values' || /^values\.\d+\.(value|code)$/.test(key)) {
+          setFieldError(key as FieldPath<AttributeForm>, { message });
+          placed = true;
+        }
+      }
+      if (!placed) setError(problemMessage(e));
     }
   });
 
   const busy = createMut.isPending || updateMut.isPending;
-  const valuesError = errors.values?.message ?? errors.values?.root?.message;
+  const valuesError = formState.errors.values?.message ?? formState.errors.values?.root?.message;
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{attribute ? 'Sửa thuộc tính' : 'Thêm thuộc tính'}</DialogTitle>
-      <form onSubmit={onSubmit} noValidate>
-        <DialogContent dividers>
-          {error && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <TextField
-            label="Tên thuộc tính"
-            placeholder="Màu sắc"
-            fullWidth
-            autoFocus
-            sx={{ mb: 2 }}
-            {...register('name')}
-            error={Boolean(errors.name)}
-            helperText={errors.name?.message}
-          />
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Giá trị
-          </Typography>
-          <Stack spacing={1}>
-            {fields.map((f, i) => {
-              const locked = Boolean(f.id && inUse.has(f.id));
-              return (
-                <Stack key={f.key} direction="row" spacing={1} alignItems="flex-start">
-                  <TextField
-                    size="small"
-                    fullWidth
-                    placeholder={`Giá trị ${i + 1}`}
-                    {...register(`values.${i}.value`)}
-                    error={Boolean(errors.values?.[i]?.value)}
-                    helperText={errors.values?.[i]?.value?.message}
-                  />
-                  <Tooltip title={locked ? 'Đã có biến thể dùng, không xoá được' : 'Xoá giá trị'}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        disabled={locked || fields.length === 1}
-                        onClick={() => remove(i)}
-                        sx={{ mt: 0.5 }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Stack>
-              );
-            })}
-          </Stack>
-          {valuesError && <FormHelperText error>{valuesError}</FormHelperText>}
-          <Button size="small" startIcon={<AddIcon />} sx={{ mt: 1 }} onClick={() => append({ value: '' })}>
-            Thêm giá trị
-          </Button>
-          {inUse.size > 0 && (
-            <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
-              Đổi chữ của giá trị đang dùng không đổi SKU đã sinh.
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} disabled={busy}>
-            Huỷ
-          </Button>
-          <Button type="submit" variant="contained" disabled={busy}>
-            {busy ? 'Đang lưu...' : 'Lưu'}
-          </Button>
-        </DialogActions>
-      </form>
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{attribute ? 'Sửa thuộc tính' : 'Thêm thuộc tính'}</DialogTitle>
+          <DialogDescription>
+            Mã của giá trị dùng trong {'{VAL}'} của SKU; bỏ trống thì tự sinh từ giá trị.
+          </DialogDescription>
+        </DialogHeader>
+
+        {error && <AlertMessage severity="warning">{error}</AlertMessage>}
+
+        <Form {...form}>
+          <form onSubmit={onSubmit} noValidate className="grid min-h-0 gap-4">
+            <FormTextField
+              control={control}
+              name="name"
+              label="Tên thuộc tính"
+              placeholder="Màu sắc"
+              autoFocus
+            />
+            <div className="grid gap-2">
+              <div className="grid grid-cols-[1fr_7rem_2rem] gap-2 text-sm font-medium">
+                <span>Giá trị</span>
+                <span>Mã</span>
+              </div>
+              <div className="grid max-h-[45vh] gap-2 overflow-y-auto">
+                {fields.map((f, i) => {
+                  const locked = Boolean(f.id && inUse.has(f.id));
+                  return (
+                    <div
+                      key={f.key}
+                      className="grid grid-cols-[1fr_7rem_2rem] items-start gap-2"
+                      data-value-row={i}
+                    >
+                      <FormField
+                        control={control}
+                        name={`values.${i}.value`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder={`Giá trị ${i + 1}`}
+                                aria-label={`Giá trị ${i + 1}`}
+                                onChange={(e) => {
+                                  onValueChange(i, e.target.value, field.value);
+                                  field.onChange(e);
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={control}
+                        name={`values.${i}.code`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value ?? ''}
+                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                maxLength={6}
+                                aria-label={`Mã giá trị ${i + 1}`}
+                                className="font-mono"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="pt-0.5">
+                        <RowAction
+                          label="Xoá giá trị"
+                          destructive
+                          reason={
+                            locked
+                              ? 'Đã có biến thể dùng, không xoá được'
+                              : fields.length === 1
+                                ? 'Cần ít nhất một giá trị'
+                                : null
+                          }
+                          onClick={() => remove(i)}
+                        >
+                          <Trash2 />
+                        </RowAction>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {valuesError && <p className="text-sm text-destructive">{valuesError}</p>}
+              <div>
+                <Button type="button" variant="ghost" size="sm" onClick={() => append({ value: '', code: '' })}>
+                  <Plus />
+                  Thêm giá trị
+                </Button>
+              </div>
+              {inUse.size > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Đổi chữ hoặc mã của giá trị đang dùng không đổi SKU đã sinh; mã mới chỉ áp dụng cho
+                  biến thể tạo sau.
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                Huỷ
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
     </Dialog>
   );
 }

@@ -1,5 +1,6 @@
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import axios from 'axios';
 import { router } from '@/router';
 import { AppThemeProvider } from '@/theme/ColorModeContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -17,7 +18,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
+      // Lỗi 4xx (404, 403...) thử lại cũng vậy, chỉ làm chậm thông báo
+      retry: (count, error) => {
+        const status = axios.isAxiosError(error) ? (error.response?.status ?? 0) : 0;
+        return count < 1 && !(status >= 400 && status < 500);
+      },
       staleTime: 30_000,
     },
   },

@@ -1,21 +1,11 @@
 import { useRef, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import CloseIcon from '@mui/icons-material/Close';
+import { ChevronLeft, ChevronRight, ImagePlus, Loader2, X } from 'lucide-react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { uploadProductImage } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
+import { cn } from '@/lib/utils';
 import { IMAGE_TYPES, MAX_IMAGES, imageFileError } from './shared';
 
 export interface ImageItem {
@@ -30,13 +20,21 @@ interface ProductImagesFieldProps {
   /** Đang tải lên: form chặn nút Lưu */
   onBusyChange: (busy: boolean) => void;
   disabled?: boolean;
+  /** Lỗi errors.images từ BE (V26) */
+  error?: string;
 }
 
 /** UC-CP-02, commerio-backend#14: nhiều ảnh, ảnh đầu là ảnh đại diện, đổi thứ tự bằng ←/→ */
-export function ProductImagesField({ value, onChange, onBusyChange, disabled }: ProductImagesFieldProps) {
+export function ProductImagesField({
+  value,
+  onChange,
+  onBusyChange,
+  disabled,
+  error,
+}: ProductImagesFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
-  const [errors, setErrors] = useState<string[]>([]);
+  const [problems, setProblems] = useState<string[]>([]);
   // Trong lúc tải, người dùng vẫn đổi thứ tự hoặc bỏ ảnh: nối vào danh sách mới nhất
   const latest = useRef(value);
   latest.current = value;
@@ -51,14 +49,16 @@ export function ProductImagesField({ value, onChange, onBusyChange, disabled }: 
   const pick = async (list: FileList | null) => {
     if (!list?.length) return;
     const files = Array.from(list);
-    const problems: string[] = [];
-    const room = MAX_IMAGES - value.length;
-    if (files.length > room) problems.push(`Chỉ thêm được ${room} ảnh nữa (tối đa ${MAX_IMAGES} ảnh)`);
-    const accepted = files.slice(0, Math.max(room, 0)).filter((f) => {
+    const found: string[] = [];
+    // Kiểm từng tệp trước, tệp hợp lệ mới tính vào chỗ còn trống (AC-10)
+    const valid = files.filter((f) => {
       const message = imageFileError(f);
-      if (message) problems.push(message);
+      if (message) found.push(message);
       return !message;
     });
+    const room = Math.max(MAX_IMAGES - value.length, 0);
+    valid.slice(room).forEach((f) => found.push(`${f.name}: vượt quá ${MAX_IMAGES} ảnh mỗi sản phẩm`));
+    const accepted = valid.slice(0, room);
 
     setUploading(accepted.length);
     onBusyChange(accepted.length > 0);
@@ -66,99 +66,94 @@ export function ProductImagesField({ value, onChange, onBusyChange, disabled }: 
     const added: ImageItem[] = [];
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') added.push({ fileId: r.value, url: URL.createObjectURL(accepted[i]) });
-      else problems.push(`${accepted[i].name}: ${getErrorMessage(r.reason)}`);
+      else found.push(`${accepted[i].name}: ${getErrorMessage(r.reason)}`);
     });
     setUploading(0);
     onBusyChange(false);
-    setErrors(problems);
+    setProblems(found);
     if (added.length) onChange([...latest.current, ...added]);
   };
 
   return (
-    <Box>
-      <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+    <div className="grid gap-2">
+      <div className="flex flex-wrap gap-3" data-testid="product-images">
         {value.map((img, i) => (
-          <Box
+          <div
             key={img.fileId}
-            sx={{
-              position: 'relative',
-              width: 120,
-              height: 120,
-              borderRadius: 1,
-              overflow: 'hidden',
-              border: 1,
-              borderColor: i === 0 ? 'primary.main' : 'divider',
-            }}
-          >
-            <Box component="img" src={img.url} alt={`Ảnh ${i + 1}`} sx={{ width: 1, height: 1, objectFit: 'cover' }} />
-            {i === 0 && (
-              <Chip size="small" color="primary" label="Đại diện" sx={{ position: 'absolute', top: 4, left: 4 }} />
+            data-image-id={img.fileId}
+            className={cn(
+              'relative size-30 overflow-hidden rounded-md border',
+              i === 0 && 'border-2 border-primary',
             )}
+          >
+            <img src={img.url} alt={`Ảnh ${i + 1}`} className="size-full object-cover" />
+            {i === 0 && <Badge className="absolute top-1 left-1">Đại diện</Badge>}
             {!disabled && (
               <>
-                <IconButton
-                  size="small"
-                  aria-label="Bỏ ảnh"
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  aria-label={`Bỏ ảnh ${i + 1}`}
+                  className="absolute top-1 right-1 size-6"
                   onClick={() => onChange(value.filter((_, j) => j !== i))}
-                  sx={{ position: 'absolute', top: 2, right: 2, bgcolor: 'background.paper' }}
                 >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, bgcolor: 'rgba(0,0,0,0.45)' }}
-                >
-                  <Tooltip title="Đưa lên trước">
-                    <span>
-                      <IconButton size="small" disabled={i === 0} onClick={() => move(i, i - 1)} sx={{ color: '#fff' }}>
-                        <ChevronLeftIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Đưa ra sau">
-                    <span>
-                      <IconButton
-                        size="small"
-                        disabled={i === value.length - 1}
-                        onClick={() => move(i, i + 1)}
-                        sx={{ color: '#fff' }}
-                      >
-                        <ChevronRightIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Stack>
+                  <X />
+                </Button>
+                <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/45">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Đưa ảnh ${i + 1} lên trước`}
+                    title="Đưa lên trước"
+                    className="size-7 text-white hover:bg-white/20 hover:text-white"
+                    disabled={i === 0}
+                    onClick={() => move(i, i - 1)}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Đưa ảnh ${i + 1} ra sau`}
+                    title="Đưa ra sau"
+                    className="size-7 text-white hover:bg-white/20 hover:text-white"
+                    disabled={i === value.length - 1}
+                    onClick={() => move(i, i + 1)}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </div>
               </>
             )}
-          </Box>
+          </div>
         ))}
 
         {!disabled && value.length < MAX_IMAGES && (
           <Button
-            variant="outlined"
+            type="button"
+            variant="outline"
+            className="size-30 flex-col border-dashed text-xs"
             onClick={() => inputRef.current?.click()}
             disabled={uploading > 0}
-            sx={{ width: 120, height: 120, flexDirection: 'column', borderStyle: 'dashed' }}
           >
             {uploading > 0 ? (
               <>
-                <CircularProgress size={24} />
-                <Typography variant="caption" sx={{ mt: 1 }}>
-                  Đang tải {uploading} ảnh
-                </Typography>
+                <Loader2 className="size-6 animate-spin" />
+                Đang tải {uploading} ảnh
               </>
             ) : (
               <>
-                <AddPhotoAlternateIcon />
-                <Typography variant="caption" sx={{ mt: 1 }}>
-                  Thêm ảnh
-                </Typography>
+                <ImagePlus className="size-6" />
+                Thêm ảnh
               </>
             )}
           </Button>
         )}
-      </Stack>
+        {disabled && value.length === 0 && <p className="text-sm text-muted-foreground">Chưa có ảnh.</p>}
+      </div>
 
       <input
         ref={inputRef}
@@ -166,6 +161,7 @@ export function ProductImagesField({ value, onChange, onBusyChange, disabled }: 
         hidden
         multiple
         accept={IMAGE_TYPES.join(',')}
+        data-testid="image-input"
         onChange={(e) => {
           void pick(e.target.files);
           e.target.value = '';
@@ -173,17 +169,18 @@ export function ProductImagesField({ value, onChange, onBusyChange, disabled }: 
       />
 
       {!disabled && (
-        <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
+        <p className="text-xs text-muted-foreground">
           JPG, PNG hoặc WebP, tối đa 5 MB mỗi ảnh, {MAX_IMAGES} ảnh. Ảnh đầu tiên là ảnh đại diện.
-        </Typography>
+        </p>
       )}
-      {errors.length > 0 && (
-        <Alert severity="warning" sx={{ mt: 1 }} onClose={() => setErrors([])}>
-          {errors.map((m) => (
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {problems.length > 0 && (
+        <AlertMessage severity="warning" onClose={() => setProblems([])}>
+          {problems.map((m) => (
             <div key={m}>{m}</div>
           ))}
-        </Alert>
+        </AlertMessage>
       )}
-    </Box>
+    </div>
   );
 }

@@ -1,45 +1,39 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Paper,
-  Snackbar,
-  Stack,
-  Tab,
-  Tabs,
-  Tooltip,
-} from '@mui/material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { useMemo, useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { DataTable } from '@/components/common/DataTable';
+import { RowAction } from '@/components/common/RowAction';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useAttributes,
   useCategories,
   useDeleteAttribute,
   useDeleteCategory,
 } from '@/api/catalog.api';
-import { getErrorMessage, getProblem } from '@/api/client';
+import { getErrorMessage } from '@/api/client';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useCan } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { Attribute, Category } from '@/types/catalog';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { AttributeFormDialog } from './AttributeFormDialog';
-import type { Toast } from './shared';
 
 type Deleting = { kind: 'category'; item: Category } | { kind: 'attribute'; item: Attribute };
+type TabKey = 'categories' | 'attributes';
 
 /** UC-CP-01: danh mục kèm quy tắc SKU, thuộc tính và giá trị */
 export function CatalogSetupPage() {
   const can = useCan();
   const canManage = can(PERMISSIONS.catalogSetup);
-  const [tab, setTab] = useState<'categories' | 'attributes'>('categories');
+  const [tab, setTab] = useState<TabKey>('categories');
 
   const categoriesQuery = useCategories();
   const attributesQuery = useAttributes();
@@ -49,142 +43,146 @@ export function CatalogSetupPage() {
   const [categoryForm, setCategoryForm] = useState<{ item: Category | null } | null>(null);
   const [attributeForm, setAttributeForm] = useState<{ item: Attribute | null } | null>(null);
   const [deleting, setDeleting] = useState<Deleting | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
 
-  const handleDelete = useCallback(async () => {
+  const handleDelete = async () => {
     if (!deleting) return;
     const { id, version, name } = deleting.item;
     try {
       if (deleting.kind === 'category') await deleteCategory.mutateAsync({ id, version });
       else await deleteAttribute.mutateAsync({ id, version });
-      setToast({ severity: 'success', msg: `Đã xoá ${name}` });
+      toast.success(`Đã xoá ${name}`);
     } catch (e) {
-      const code = getProblem(e)?.code;
-      setToast({
-        severity: code === 'in_use' || code === 'version_conflict' ? 'warning' : 'error',
-        msg: getErrorMessage(e),
-      });
+      const code = problemCode(e);
+      if (code === 'in_use') {
+        // V25: kể cả khi chỉ còn sản phẩm đã lưu trữ
+        toast.warning(`Không thể xoá ${name} vì đang được sử dụng.`);
+      } else if (code === 'version_conflict') {
+        toast.warning(`${name} vừa được người khác sửa. Chưa có gì thay đổi, hãy thử lại.`);
+      } else {
+        toast.error(problemMessage(e));
+      }
     }
     setDeleting(null);
-  }, [deleting, deleteCategory, deleteAttribute]);
+  };
 
-  const actions = useCallback(
-    (onEdit: () => void, onDelete: () => void, inUse: number) => (
-      <Stack direction="row" spacing={0.5}>
-        <Tooltip title="Sửa">
-          <IconButton size="small" onClick={onEdit}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={inUse ? `Đang có ${inUse} sản phẩm dùng, không xoá được` : 'Xoá'}>
-          <span>
-            <IconButton size="small" color="error" disabled={inUse > 0} onClick={onDelete}>
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-      </Stack>
-    ),
-    [],
-  );
+  const inUseReason = (count: number) =>
+    count > 0 ? `Đang có ${count} sản phẩm dùng (kể cả đã lưu trữ), không xoá được` : null;
 
-  const categoryColumns: GridColDef<Category>[] = useMemo(
+  const categoryColumns = useMemo<ColumnDef<Category>[]>(
     () => [
-      { field: 'name', headerName: 'Danh mục', flex: 1, minWidth: 160 },
+      { accessorKey: 'name', header: 'Danh mục', meta: { className: 'min-w-40 font-medium' } },
       {
-        field: 'skuPattern',
-        headerName: 'Quy tắc SKU',
-        flex: 1,
-        minWidth: 180,
-        renderCell: ({ value }) => <Box sx={{ fontFamily: 'monospace' }}>{value as string}</Box>,
+        accessorKey: 'skuPattern',
+        header: 'Quy tắc SKU',
+        meta: { className: 'min-w-44 font-mono' },
       },
-      { field: 'skuNextSeq', headerName: 'Số kế tiếp', width: 110 },
-      { field: 'productCount', headerName: 'Số sản phẩm', width: 120 },
+      { accessorKey: 'skuNextSeq', header: 'Số kế tiếp', meta: { className: 'w-28 text-right' } },
+      { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
       {
-        field: 'updatedAt',
-        headerName: 'Cập nhật',
-        width: 150,
-        valueGetter: (value) => formatDateTime(value as string),
+        id: 'updatedAt',
+        header: 'Cập nhật',
+        meta: { className: 'w-40 whitespace-nowrap' },
+        cell: ({ row }) => formatDateTime(row.original.updatedAt),
       },
       ...(canManage
         ? [
             {
-              field: 'actions',
-              headerName: 'Hành động',
-              width: 110,
-              sortable: false,
-              renderCell: ({ row }) =>
-                actions(
-                  () => setCategoryForm({ item: row }),
-                  () => setDeleting({ kind: 'category', item: row }),
-                  row.productCount,
-                ),
-            } satisfies GridColDef<Category>,
+              id: 'actions',
+              header: '',
+              meta: { className: 'w-24 text-right' },
+              cell: ({ row }) => (
+                <div className="flex justify-end gap-1">
+                  <RowAction label="Sửa" onClick={() => setCategoryForm({ item: row.original })}>
+                    <Pencil />
+                  </RowAction>
+                  <RowAction
+                    label="Xoá"
+                    destructive
+                    reason={inUseReason(row.original.productCount)}
+                    onClick={() => setDeleting({ kind: 'category', item: row.original })}
+                  >
+                    <Trash2 />
+                  </RowAction>
+                </div>
+              ),
+            } satisfies ColumnDef<Category>,
           ]
         : []),
     ],
-    [actions, canManage],
+    [canManage],
   );
 
-  const attributeColumns: GridColDef<Attribute>[] = useMemo(
+  const attributeColumns = useMemo<ColumnDef<Attribute>[]>(
     () => [
-      { field: 'name', headerName: 'Thuộc tính', width: 180 },
+      { accessorKey: 'name', header: 'Thuộc tính', meta: { className: 'w-44 font-medium' } },
       {
-        field: 'values',
-        headerName: 'Giá trị',
-        flex: 1,
-        minWidth: 260,
-        sortable: false,
-        renderCell: ({ row }) => (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center" sx={{ height: '100%' }}>
-            {row.values.map((v) => (
-              <Chip key={v.id} size="small" label={v.value} variant={v.inUse ? 'filled' : 'outlined'} />
+        id: 'values',
+        header: 'Giá trị (mã)',
+        meta: { className: 'min-w-64' },
+        cell: ({ row }) => (
+          <div className="flex flex-wrap gap-1">
+            {row.original.values.map((v) => (
+              <Badge
+                key={v.id}
+                variant={v.inUse ? 'secondary' : 'outline'}
+                title={v.inUse ? 'Đã có biến thể dùng' : undefined}
+              >
+                {v.value}
+                <span className="font-mono text-muted-foreground">{v.code}</span>
+              </Badge>
             ))}
-          </Stack>
+          </div>
         ),
       },
-      { field: 'productCount', headerName: 'Số sản phẩm', width: 120 },
+      { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
       ...(canManage
         ? [
             {
-              field: 'actions',
-              headerName: 'Hành động',
-              width: 110,
-              sortable: false,
-              renderCell: ({ row }) =>
-                actions(
-                  () => setAttributeForm({ item: row }),
-                  () => setDeleting({ kind: 'attribute', item: row }),
-                  row.productCount,
-                ),
-            } satisfies GridColDef<Attribute>,
+              id: 'actions',
+              header: '',
+              meta: { className: 'w-24 text-right' },
+              cell: ({ row }) => (
+                <div className="flex justify-end gap-1">
+                  <RowAction label="Sửa" onClick={() => setAttributeForm({ item: row.original })}>
+                    <Pencil />
+                  </RowAction>
+                  <RowAction
+                    label="Xoá"
+                    destructive
+                    reason={inUseReason(row.original.productCount)}
+                    onClick={() => setDeleting({ kind: 'attribute', item: row.original })}
+                  >
+                    <Trash2 />
+                  </RowAction>
+                </div>
+              ),
+            } satisfies ColumnDef<Attribute>,
           ]
         : []),
     ],
-    [actions, canManage],
+    [canManage],
   );
 
   const query = tab === 'categories' ? categoriesQuery : attributesQuery;
-  const done = (msg: string) => {
+  const done = (message: string) => {
     setCategoryForm(null);
     setAttributeForm(null);
-    setToast({ severity: 'success', msg });
+    toast.success(message);
   };
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Danh mục & thuộc tính"
         subtitle="Danh mục quyết định quy tắc SKU; thuộc tính dùng để tạo tổ hợp biến thể."
         action={
           canManage ? (
             <Button
-              variant="contained"
-              startIcon={<AddIcon />}
               onClick={() =>
                 tab === 'categories' ? setCategoryForm({ item: null }) : setAttributeForm({ item: null })
               }
             >
+              <Plus />
               {tab === 'categories' ? 'Thêm danh mục' : 'Thêm thuộc tính'}
             </Button>
           ) : null
@@ -192,38 +190,39 @@ export function CatalogSetupPage() {
       />
 
       {query.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(query.error)}
-        </Alert>
+        </AlertMessage>
       )}
 
-      <Paper elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Tab value="categories" label="Danh mục" />
-          <Tab value="attributes" label="Thuộc tính" />
-        </Tabs>
-        {tab === 'categories' ? (
-          <DataGrid
-            rows={categoriesQuery.data ?? []}
-            columns={categoryColumns}
-            loading={categoriesQuery.isLoading}
-            disableRowSelectionOnClick
-            hideFooter
-            autoHeight
-          />
-        ) : (
-          <DataGrid
-            rows={attributesQuery.data ?? []}
-            columns={attributeColumns}
-            loading={attributesQuery.isLoading}
-            disableRowSelectionOnClick
-            hideFooter
-            autoHeight
-            getRowHeight={() => 'auto'}
-            sx={{ '& .MuiDataGrid-cell': { py: 1 } }}
-          />
-        )}
-      </Paper>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+        <TabsList>
+          <TabsTrigger value="categories">Danh mục</TabsTrigger>
+          <TabsTrigger value="attributes">Thuộc tính</TabsTrigger>
+        </TabsList>
+        <TabsContent value="categories">
+          <Card className="py-0">
+            <DataTable
+              columns={categoryColumns}
+              data={categoriesQuery.data ?? []}
+              getRowId={(r) => r.id}
+              loading={categoriesQuery.isLoading}
+              empty="Chưa có danh mục"
+            />
+          </Card>
+        </TabsContent>
+        <TabsContent value="attributes">
+          <Card className="py-0">
+            <DataTable
+              columns={attributeColumns}
+              data={attributesQuery.data ?? []}
+              getRowId={(r) => r.id}
+              loading={attributesQuery.isLoading}
+              empty="Chưa có thuộc tính"
+            />
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <CategoryFormDialog
         open={Boolean(categoryForm)}
@@ -252,19 +251,6 @@ export function CatalogSetupPage() {
         onConfirm={handleDelete}
         onClose={() => setDeleting(null)}
       />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {toast ? (
-          <Alert severity={toast.severity} onClose={() => setToast(null)} variant="filled">
-            {toast.msg}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

@@ -3,7 +3,7 @@
  * SKU sinh bằng utils/sku.ts giống màn hình xem trước.
  */
 
-import { renderSku } from '@/utils/sku';
+import { renderSku, valueCode } from '@/utils/sku';
 
 export interface MockCategory {
   id: string;
@@ -19,7 +19,8 @@ export interface MockAttribute {
   id: string;
   companyId: string;
   name: string;
-  values: { id: string; value: string }[];
+  /** code: mã dùng trong {VAL} của SKU (D27, docs/21 V21) */
+  values: { id: string; value: string; code: string }[];
   version: number;
 }
 
@@ -67,8 +68,12 @@ export const categories: MockCategory[] = [
   { id: 'cat-quan', companyId: 'cmp-001', name: 'Quần', skuPattern: 'QU-{SEQ:4}-{VAL}', skuNextSeq: 1, version: 1, updatedAt: T0 },
   { id: 'cat-pk', companyId: 'cmp-001', name: 'Phụ kiện', skuPattern: 'PK-{SEQ:4}', skuNextSeq: 1, version: 1, updatedAt: T0 },
   { id: 'cat-vo', companyId: 'cmp-001', name: 'Vớ', skuPattern: 'VO-{SEQ:3}-{VAL}', skuNextSeq: 1, version: 1, updatedAt: T0 },
+  // Chỉ còn sản phẩm đã lưu trữ: vẫn không xoá được (V25)
+  { id: 'cat-somi', companyId: 'cmp-001', name: 'Sơ mi', skuPattern: 'SM-{SEQ:3}-{VAL}', skuNextSeq: 1, version: 1, updatedAt: T0 },
   { id: 'cat-mp-gao', companyId: 'cmp-002', name: 'Gạo', skuPattern: 'GAO{SEQ:5}', skuNextSeq: 1, version: 1, updatedAt: T0 },
 ];
+
+const v = (id: string, value: string, code = valueCode(value)) => ({ id, value, code });
 
 export const attributes: MockAttribute[] = [
   {
@@ -76,10 +81,10 @@ export const attributes: MockAttribute[] = [
     companyId: 'cmp-001',
     name: 'Màu sắc',
     values: [
-      { id: 'val-den', value: 'Đen' },
-      { id: 'val-trang', value: 'Trắng' },
-      { id: 'val-do', value: 'Đỏ' },
-      { id: 'val-navy', value: 'Xanh navy' },
+      v('val-den', 'Đen'),
+      v('val-trang', 'Trắng'),
+      v('val-do', 'Đỏ'),
+      v('val-navy', 'Xanh navy', 'NAVY'),
     ],
     version: 1,
   },
@@ -88,10 +93,10 @@ export const attributes: MockAttribute[] = [
     companyId: 'cmp-001',
     name: 'Kích cỡ',
     values: [
-      { id: 'val-s', value: 'S' },
-      { id: 'val-m', value: 'M' },
-      { id: 'val-l', value: 'L' },
-      { id: 'val-xl', value: 'XL' },
+      v('val-s', 'S'),
+      v('val-m', 'M'),
+      v('val-l', 'L'),
+      v('val-xl', 'XL'),
     ],
     version: 1,
   },
@@ -100,8 +105,8 @@ export const attributes: MockAttribute[] = [
     companyId: 'cmp-001',
     name: 'Chất liệu',
     values: [
-      { id: 'val-cotton', value: 'Cotton' },
-      { id: 'val-kaki', value: 'Kaki' },
+      v('val-cotton', 'Cotton'),
+      v('val-kaki', 'Kaki'),
     ],
     version: 1,
   },
@@ -110,8 +115,8 @@ export const attributes: MockAttribute[] = [
     companyId: 'cmp-002',
     name: 'Khối lượng',
     values: [
-      { id: 'val-mp-5kg', value: '5kg' },
-      { id: 'val-mp-10kg', value: '10kg' },
+      v('val-mp-5kg', '5kg'),
+      v('val-mp-10kg', '10kg'),
     ],
     version: 1,
   },
@@ -130,15 +135,15 @@ export const products: MockProduct[] = [];
 /** Sản phẩm còn đơn hàng đang xử lý: không xoá được (UC-CP-02 ngoại lệ bước 11) */
 export const productsWithActiveOrders = new Set<string>(['prd-001']);
 
-function valueName(id: string) {
-  return attributes.flatMap((a) => a.values).find((v) => v.id === id)?.value ?? '';
+function codeOf(id: string) {
+  return attributes.flatMap((a) => a.values).find((x) => x.id === id)?.code ?? '';
 }
 
 /** Sinh biến thể theo quy tắc của danh mục, tăng số thứ tự; dùng chung cho seed và handler */
 export function makeVariant(category: MockCategory, valueIds: string[], id: string): MockVariant {
   const variant = {
     id,
-    sku: renderSku(category.skuPattern, category.skuNextSeq, valueIds.map(valueName)),
+    sku: renderSku(category.skuPattern, category.skuNextSeq, valueIds.map(codeOf)),
     valueIds,
     archivedAt: null,
   };
@@ -150,13 +155,18 @@ function seed(
   p: Omit<MockProduct, 'variants' | 'archivedAt' | 'version' | 'updatedAt'> & {
     combos: string[][];
     archived?: boolean;
+    /** Vị trí các biến thể đã ngừng bán */
+    stopped?: number[];
   },
 ) {
   const category = categories.find((c) => c.id === p.categoryId)!;
-  const { combos, archived, ...rest } = p;
+  const { combos, archived, stopped = [], ...rest } = p;
   products.push({
     ...rest,
-    variants: combos.map((ids, i) => makeVariant(category, ids, `${p.id}-v${i + 1}`)),
+    variants: combos.map((ids, i) => ({
+      ...makeVariant(category, ids, `${p.id}-v${i + 1}`),
+      archivedAt: stopped.includes(i) ? '2026-09-01T02:00:00.000Z' : null,
+    })),
     archivedAt: archived ? '2026-09-15T02:00:00.000Z' : null,
     updatedAt: T0,
     version: 1,
@@ -198,12 +208,42 @@ seed({
 seed({
   id: 'prd-004',
   companyId: 'cmp-001',
-  categoryId: 'cat-ao',
-  name: 'Áo sơ mi caro (ngừng bán)',
+  categoryId: 'cat-somi',
+  name: 'Áo sơ mi caro',
   description: '',
   imageFileIds: [],
   combos: [['val-do', 'val-m']],
   archived: true,
+});
+seed({
+  id: 'prd-005',
+  companyId: 'cmp-001',
+  categoryId: 'cat-ao',
+  name: 'Áo polo nam',
+  description: 'Vải cá sấu, cổ bẻ.',
+  imageFileIds: [],
+  combos: [
+    ['val-den', 'val-m'],
+    ['val-den', 'val-l'],
+    ['val-trang', 'val-m'],
+    ['val-do', 'val-l'],
+  ],
+  stopped: [3],
+});
+seed({
+  id: 'prd-006',
+  companyId: 'cmp-001',
+  categoryId: 'cat-ao',
+  name: 'Áo khoác gió',
+  description: '',
+  imageFileIds: [],
+  combos: [
+    ['val-navy', 'val-m'],
+    ['val-navy', 'val-l'],
+    ['val-navy', 'val-xl'],
+    // AO-0012-DEN-XL như dòng đầu bảng 9.1
+    ['val-den', 'val-xl'],
+  ],
 });
 seed({
   id: 'prd-101',
