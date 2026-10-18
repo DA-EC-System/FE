@@ -19,6 +19,8 @@ export const PERMISSIONS = {
   shopUpdate: 'channel.shop.update',
   shopDisconnect: 'channel.shop.disconnect',
   shopSync: 'channel.shop.sync',
+  /** Ghép SKU, đẩy sản phẩm và giá lên sàn (UC-CH-02) */
+  listingManage: 'channel.listing.manage',
   productView: 'catalog.product.view',
   productManage: 'catalog.product.manage',
   /** Danh mục, thuộc tính, quy tắc SKU (UC-CP-01) */

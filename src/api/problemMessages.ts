@@ -29,6 +29,13 @@ const MESSAGES: Record<string, string> = {
   product_archived: 'Sản phẩm đã lưu trữ nên không sửa được.',
   file_type_not_allowed: 'Chỉ nhận ảnh JPG, PNG hoặc WebP.',
   file_too_large: 'Ảnh lớn hơn 5 MB.',
+  // FE#8, chờ commerio-backend#19
+  shop_not_connected: 'Gian hàng chưa kết nối hoặc đã mất uỷ quyền. Kết nối lại rồi thử lại.',
+  invalid_state: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
+  shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
+  sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
+  marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
+  price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
 };
 
 export function problemCode(error: unknown): string | undefined {
