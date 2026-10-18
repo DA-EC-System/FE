@@ -4,6 +4,7 @@ import {
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
+  type ColumnDefTemplate,
   type RowData,
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -122,7 +123,7 @@ export function DataTable<T>({
                       key={cell.id}
                       className={cn('whitespace-normal', cell.column.columnDef.meta?.className)}
                     >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {renderCell(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -134,6 +135,15 @@ export function DataTable<T>({
       {pagination && <PaginationBar {...pagination} />}
     </div>
   );
+}
+
+/**
+ * Gọi thẳng hàm `cell` thay vì flexRender: flexRender coi hàm là component, nên khi `columns`
+ * tạo lại (vd lưới giá đổi bản nháp) React gắn lại cả ô và ô nhập mất focus sau mỗi phím.
+ * Vì vậy hàm `cell` không được dùng hook.
+ */
+function renderCell<TProps extends object>(cell: ColumnDefTemplate<TProps> | undefined, props: TProps): ReactNode {
+  return typeof cell === 'function' ? (cell as (p: TProps) => ReactNode)(props) : cell;
 }
 
 function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 50] }: ServerPagination) {
