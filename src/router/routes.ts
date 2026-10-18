@@ -12,6 +12,10 @@ export const ROUTES = {
   register: '/register',
   changePassword: '/change-password',
   selectCompany: '/select-company',
+  /** redirect_uri của OAuth sàn: cố định, không chứa companyId */
+  shopOAuthCallback: '/channel/oauth/callback',
+  /** Trang uỷ quyền của sàn giả lập (chỉ dùng với mock) */
+  mockOAuth: '/mock-oauth/authorize',
   platform: {
     root: '/platform',
     overview: '/platform/overview',
@@ -21,6 +25,8 @@ export const ROUTES = {
   company: {
     root: (companyId: string) => `/c/${companyId}`,
     shops: (companyId: string) => `/c/${companyId}/channel/shops`,
+    shop: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}`,
+    shopOAuthCallback: (companyId: string) => `/c/${companyId}/channel/shops/oauth-callback`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
     catalogProduct: (companyId: string, productId: string) =>

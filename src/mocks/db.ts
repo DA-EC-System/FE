@@ -75,7 +75,10 @@ const companies: Company[] = [
   },
 ];
 
-const shops: Shop[] = [
+/** channel.shops; listingCount tính từ channel_listings khi trả về */
+export type MockShop = Omit<Shop, 'listingCount'>;
+
+const shops: MockShop[] = [
   // cmp-001 — ABC Fashion
   {
     id: 'shp-001',
@@ -85,9 +88,11 @@ const shops: Shop[] = [
     shopName: 'ABC Fashion Official',
     region: 'VN',
     status: 'connected',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:30:00.000Z',
     createdAt: '2026-01-20T08:00:00.000Z',
     updatedAt: '2026-10-14T08:30:00.000Z',
+    version: 1,
   },
   {
     id: 'shp-002',
@@ -97,9 +102,11 @@ const shops: Shop[] = [
     shopName: 'ABC Fashion TikTok Shop',
     region: 'VN',
     status: 'expiring',
+    accessExpiresAt: '2026-10-25T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-13T20:00:00.000Z',
     createdAt: '2026-04-15T10:00:00.000Z',
     updatedAt: '2026-10-13T20:00:00.000Z',
+    version: 1,
   },
   {
     id: 'shp-003',
@@ -109,9 +116,11 @@ const shops: Shop[] = [
     shopName: 'ABC Fashion LazMall',
     region: 'VN',
     status: 'connected',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T07:45:00.000Z',
     createdAt: '2026-02-10T09:00:00.000Z',
     updatedAt: '2026-10-14T07:45:00.000Z',
+    version: 1,
   },
   {
     // Gian hàng đã ngắt nhưng còn bảng giá cũ: xoá được bảng giá (UC-CP-03)
@@ -122,9 +131,11 @@ const shops: Shop[] = [
     shopName: 'ABC Outlet TikTok',
     region: 'VN',
     status: 'disconnected',
+    accessExpiresAt: null,
     lastOrderSyncAt: '2026-08-30T10:00:00.000Z',
     createdAt: '2026-03-01T09:00:00.000Z',
     updatedAt: '2026-09-01T09:00:00.000Z',
+    version: 1,
   },
   // cmp-002 — XYZ Cosmetics
   {
@@ -135,9 +146,11 @@ const shops: Shop[] = [
     shopName: 'XYZ Beauty Shopee',
     region: 'VN',
     status: 'connected',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:00:00.000Z',
     createdAt: '2026-03-25T08:00:00.000Z',
     updatedAt: '2026-10-14T08:00:00.000Z',
+    version: 1,
   },
   {
     id: 'shp-005',
@@ -147,9 +160,11 @@ const shops: Shop[] = [
     shopName: 'XYZ — sàn giả lập',
     region: 'VN',
     status: 'connected',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:15:00.000Z',
     createdAt: '2026-05-01T10:00:00.000Z',
     updatedAt: '2026-10-14T08:15:00.000Z',
+    version: 1,
   },
   // cmp-005 — An Toàn Toys
   {
@@ -160,9 +175,11 @@ const shops: Shop[] = [
     shopName: 'An Toàn Toys Shopee',
     region: 'VN',
     status: 'connected',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:00:00.000Z',
     createdAt: '2026-10-06T10:00:00.000Z',
     updatedAt: '2026-10-14T08:00:00.000Z',
+    version: 1,
   },
 ];
 
@@ -196,6 +213,7 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.shopUpdate, module: 'channel', label: 'Sửa gian hàng' },
   { code: P.shopDisconnect, module: 'channel', label: 'Ngắt gian hàng' },
   { code: P.shopSync, module: 'channel', label: 'Đồng bộ gian hàng' },
+  { code: P.listingManage, module: 'channel', label: 'Ghép SKU, đẩy sản phẩm và giá lên sàn' },
   { code: 'inbox.conversation.reply', module: 'inbox', label: 'Trả lời tin nhắn' },
   { code: 'assistant.chat.use', module: 'assistant', label: 'Dùng Trợ lý AI' },
   { code: 'report.dashboard.view', module: 'report', label: 'Xem báo cáo' },
@@ -225,6 +243,7 @@ const ADMIN_PERMISSIONS = [
   P.shopUpdate,
   P.shopDisconnect,
   P.shopSync,
+  P.listingManage,
   'inbox.conversation.reply',
   'report.dashboard.view',
 ];

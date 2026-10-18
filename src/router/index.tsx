@@ -22,6 +22,8 @@ import { ModuleSettingsPage } from '@/features/company/ModuleSettingsPage';
 import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
+import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
+import { MockOAuthPage, ShopOAuthCallbackPage, ShopOAuthRedirect } from '@/features/channel/ShopOAuthPages';
 import { StaffListPage } from '@/features/identity/StaffListPage';
 import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
@@ -38,6 +40,8 @@ import { PERMISSIONS } from '@/utils/permissions';
 export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
   { path: ROUTES.login, element: <LoginPage /> },
+  // Trang uỷ quyền của sàn giả lập: đứng ngoài app như trang của sàn thật
+  { path: ROUTES.mockOAuth, element: <MockOAuthPage /> },
   {
     element: <RequireGuest />,
     children: [{ path: ROUTES.register, element: <RegisterPage /> }],
@@ -54,6 +58,8 @@ export const router = createBrowserRouter([
             element: <RequireStaff />,
             children: [{ path: ROUTES.selectCompany, element: <SelectCompanyPage /> }],
           },
+          // redirect_uri của sàn: URL cố định, chưa có companyId
+          { path: ROUTES.shopOAuthCallback, element: <ShopOAuthRedirect /> },
 
           // Quản trị nền tảng — không có dữ liệu kinh doanh (QT-03)
           {
@@ -86,6 +92,22 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.shopView}>
                         <ShopListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/shops/oauth-callback',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopConnect}>
+                        <ShopOAuthCallbackPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/shops/:shopId',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopView}>
+                        <ShopListingsPage />
                       </RequireModule>
                     ),
                   },

@@ -16,6 +16,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'access.roles': 'Vai trò',
   'platform.company_modules': 'Phân hệ',
   'channel.shops': 'Gian hàng',
+  'channel.channel_listings': 'Ghép SKU',
   'catalog.categories': 'Danh mục',
   'catalog.attributes': 'Thuộc tính',
   'catalog.products': 'Sản phẩm',
