@@ -25,6 +25,10 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'inventory.reorder_rules': 'Ngưỡng tồn',
   'inventory.stock_receipts': 'Phiếu nhập',
   'inventory.stock_issues': 'Phiếu xuất',
+  'sales.customers': 'Khách hàng',
+  'sales.orders': 'Đơn hàng',
+  'payment.gateway_configs': 'Cổng thanh toán',
+  'payment.payment_links': 'Mã thanh toán',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;

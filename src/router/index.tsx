@@ -33,7 +33,13 @@ import { PricelistListPage } from '@/features/pricing/PricelistListPage';
 import { PricelistDetailPage } from '@/features/pricing/PricelistDetailPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
-import { PlaceholderPage } from '@/components/common/PlaceholderPage';
+import { OrderListPage } from '@/features/sales/OrderListPage';
+import { OrderCreatePage } from '@/features/sales/OrderCreatePage';
+import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
+import { CustomerListPage } from '@/features/sales/CustomerListPage';
+import { CustomerDetailPage } from '@/features/sales/CustomerDetailPage';
+import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
+import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
 
@@ -42,6 +48,8 @@ export const router = createBrowserRouter([
   { path: ROUTES.login, element: <LoginPage /> },
   // Trang uỷ quyền của sàn giả lập: đứng ngoài app như trang của sàn thật
   { path: ROUTES.mockOAuth, element: <MockOAuthPage /> },
+  // Khách được cổng thanh toán trả về đây, không có phiên đăng nhập
+  { path: ROUTES.paymentResult, element: <PaymentResultPage /> },
   {
     element: <RequireGuest />,
     children: [{ path: ROUTES.register, element: <RegisterPage /> }],
@@ -209,8 +217,52 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'orders',
-                    element: <PlaceholderPage title="Đơn hàng" />,
+                    path: 'sales/orders',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.orderView}>
+                        <OrderListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/orders/new',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.orderCreate}>
+                        <OrderCreatePage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/orders/:orderId',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.orderView}>
+                        <OrderDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/customers',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.customerView}>
+                        <CustomerListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/customers/:customerId',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.customerView}>
+                        <CustomerDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'settings/payment-gateways',
+                    element: (
+                      <RequireModule module="payment" permission={PERMISSIONS.gatewayManage}>
+                        <PaymentGatewaysPage />
+                      </RequireModule>
+                    ),
                   },
                 ],
               },

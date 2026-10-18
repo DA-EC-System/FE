@@ -7,6 +7,8 @@ import {
   ScrollText,
   ShieldCheck,
   ShoppingCart,
+  CreditCard,
+  Contact,
   SlidersHorizontal,
   Store,
   Tags,
@@ -70,7 +72,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: ShoppingCart,
           module: 'sales',
           permission: PERMISSIONS.orderView,
-          disabled: true,
+        },
+        {
+          to: ROUTES.company.customers(companyId),
+          label: 'Khách hàng',
+          icon: Contact,
+          module: 'sales',
+          permission: PERMISSIONS.customerView,
         },
         {
           to: ROUTES.company.shops(companyId),
@@ -144,6 +152,18 @@ export function companyNav(companyId: string): NavSection[] {
           icon: ScrollText,
           module: 'platform',
           permission: PERMISSIONS.auditView,
+        },
+      ],
+    },
+    {
+      title: 'Cài đặt',
+      items: [
+        {
+          to: ROUTES.company.paymentGateways(companyId),
+          label: 'Cổng thanh toán',
+          icon: CreditCard,
+          module: 'payment',
+          permission: PERMISSIONS.gatewayManage,
         },
       ],
     },

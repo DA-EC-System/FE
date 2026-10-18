@@ -36,6 +36,13 @@ const MESSAGES: Record<string, string> = {
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
+  // FE#9, chờ commerio-backend#24 và #23
+  insufficient_stock: 'Không đủ tồn khả dụng để giữ hàng cho đơn. Chưa giữ dòng nào.',
+  invalid_transition: 'Đơn không còn ở trạng thái cho phép thao tác này.',
+  not_allowed_for_source: 'Đơn sàn tự xác nhận khi giữ được hàng, không xác nhận tay.',
+  payment_not_allowed: 'Đơn này không tạo được mã thanh toán.',
+  gateway_not_configured: 'Cổng thanh toán này chưa được cấu hình khoá.',
+  gateway_unavailable: 'Cổng thanh toán đang lỗi, thử lại sau ít phút hoặc chọn cổng khác.',
 };
 
 export function problemCode(error: unknown): string | undefined {
