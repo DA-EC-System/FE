@@ -11,7 +11,8 @@
     "test": "vitest run",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "e2e": "cypress run",
-    "e2e:open": "cypress open"
+    "e2e:open": "cypress open",
+    "e2e:be": "cypress run --env be=1"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
