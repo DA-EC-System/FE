@@ -202,11 +202,14 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.reorderManage, module: 'inventory', label: 'Đặt ngưỡng tồn' },
   { code: P.costView, module: 'inventory', label: 'Xem giá vốn, giá trị tồn' },
   { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
-  { code: 'sales.order.create', module: 'sales', label: 'Tạo đơn hàng' },
+  { code: P.orderCreate, module: 'sales', label: 'Tạo đơn hàng, xác nhận đơn' },
+  { code: P.customerView, module: 'sales', label: 'Xem khách hàng' },
   { code: 'fulfillment.order.approve', module: 'fulfillment', label: 'Duyệt đơn, giao hàng' },
   { code: 'finance.invoice.view', module: 'finance', label: 'Xem hoá đơn, sổ quỹ' },
   { code: 'finance.voucher.create', module: 'finance', label: 'Lập phiếu thu, phiếu chi' },
   { code: 'payment.transaction.view', module: 'payment', label: 'Xem giao dịch thanh toán' },
+  { code: P.paymentLinkCreate, module: 'payment', label: 'Tạo mã thanh toán cho đơn' },
+  { code: P.gatewayManage, module: 'payment', label: 'Cấu hình khoá cổng thanh toán' },
   { code: 'purchasing.order.manage', module: 'purchasing', label: 'Quản lý đơn mua hàng' },
   { code: P.shopView, module: 'channel', label: 'Xem gian hàng' },
   { code: P.shopConnect, module: 'channel', label: 'Kết nối gian hàng' },
@@ -237,7 +240,10 @@ const ADMIN_PERMISSIONS = [
   P.stockView,
   P.reorderManage,
   P.orderView,
-  'sales.order.create',
+  P.orderCreate,
+  P.customerView,
+  P.paymentLinkCreate,
+  P.gatewayManage,
   P.shopView,
   P.shopConnect,
   P.shopUpdate,
@@ -282,7 +288,16 @@ const roles: MockRole[] = [
     id: 'role-sale',
     companyId: null,
     name: 'Sale',
-    permissions: [P.shopView, P.productView, P.pricelistView, P.orderView, 'sales.order.create', 'inbox.conversation.reply'],
+    permissions: [
+      P.shopView,
+      P.productView,
+      P.pricelistView,
+      P.orderView,
+      P.orderCreate,
+      P.customerView,
+      P.paymentLinkCreate,
+      'inbox.conversation.reply',
+    ],
     version: 1,
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
@@ -356,6 +371,13 @@ const accounts: Account[] = [
     isPlatformAdmin: false,
     mustChangePassword: false,
   },
+  {
+    id: 'acc-007',
+    email: 'cskh@commerio.vn',
+    fullName: 'Phan Thị Chăm Sóc',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
 ];
 
 export interface MockMembership {
@@ -394,6 +416,8 @@ const memberships: MockMembership[] = [
   // Admin của ABC: không gán được vai trò Nhân viên kho (có quyền kho Admin không có)
   member('acc-005', 'cmp-001', ['role-admin']),
   member('acc-006', 'cmp-001', ['role-sale', 'role-cskh-cmp-001'], 'locked'),
+  // Vai trò tuỳ biến chỉ xem đơn: không tạo đơn, không tạo mã thanh toán (FE#9 AC-R3)
+  member('acc-007', 'cmp-001', ['role-cskh-cmp-001']),
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -425,6 +449,7 @@ export const passwords: Record<string, string> = {
   'moi@commerio.vn': 'moi12345',
   'admin@commerio.vn': 'admin',
   'nghi@commerio.vn': 'nghi',
+  'cskh@commerio.vn': 'cskh',
 };
 
 /** Nhật ký thao tác trong công ty: audit.audit_logs có company_id (UC-PI-07) */

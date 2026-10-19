@@ -36,6 +36,13 @@ export const PERMISSIONS = {
   /** Giá vốn, giá trị tồn (UC-IN-01: chỉ CEO) */
   costView: 'inventory.cost.view',
   orderView: 'sales.order.view',
+  /** Tạo đơn tay, xác nhận đơn (UC-SF-01, UC-SF-04) */
+  orderCreate: 'sales.order.create',
+  customerView: 'sales.customer.view',
+  /** Tạo mã QR, link thanh toán cho đơn (UC-PF-01) */
+  paymentLinkCreate: 'payment.link.create',
+  /** Cấu hình khoá cổng thanh toán (UC-PF-11) */
+  gatewayManage: 'payment.gateway.manage',
 } as const;
 
 /**

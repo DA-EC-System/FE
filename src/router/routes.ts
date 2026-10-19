@@ -16,6 +16,8 @@ export const ROUTES = {
   shopOAuthCallback: '/channel/oauth/callback',
   /** Trang uỷ quyền của sàn giả lập (chỉ dùng với mock) */
   mockOAuth: '/mock-oauth/authorize',
+  /** Cổng trả khách về sau khi trả tiền: trang tĩnh, không cần đăng nhập (Documents/21 T7) */
+  paymentResult: '/thanh-toan/ket-qua',
   platform: {
     root: '/platform',
     overview: '/platform/overview',
@@ -40,7 +42,12 @@ export const ROUTES = {
     inventoryDoc: (companyId: string, docId: string) => `/c/${companyId}/inventory/documents/${docId}`,
     inventoryDocNew: (companyId: string, type: 'receipt' | 'issue') =>
       `/c/${companyId}/inventory/documents/new?type=${type}`,
-    orders: (companyId: string) => `/c/${companyId}/orders`,
+    orders: (companyId: string) => `/c/${companyId}/sales/orders`,
+    orderNew: (companyId: string) => `/c/${companyId}/sales/orders/new`,
+    order: (companyId: string, orderId: string) => `/c/${companyId}/sales/orders/${orderId}`,
+    customers: (companyId: string) => `/c/${companyId}/sales/customers`,
+    customer: (companyId: string, customerId: string) => `/c/${companyId}/sales/customers/${customerId}`,
+    paymentGateways: (companyId: string) => `/c/${companyId}/settings/payment-gateways`,
     staff: (companyId: string) => `/c/${companyId}/admin/staff`,
     roles: (companyId: string) => `/c/${companyId}/admin/roles`,
     modules: (companyId: string) => `/c/${companyId}/admin/modules`,
