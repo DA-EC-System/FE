@@ -3,7 +3,7 @@
  * trạng thái tiền của đơn (payment.order_payments). Khoá chỉ là chuỗi giả; BE thật mã hoá AES-256-GCM.
  */
 
-import type { Gateway, LinkStatus, PaymentStatus, RefundStatus } from '@/types/payment';
+import type { Gateway, LinkStatus, PaymentStatus, RefundStatus, TransactionSource, TransactionStatus } from '@/types/payment';
 import type { PaymentMethod } from '@/types/sales';
 
 export const GATEWAYS: Gateway[] = ['vnpay', 'momo', 'zalopay', 'vietqr'];
@@ -58,6 +58,25 @@ export interface MockOrderPayment {
   status: PaymentStatus;
   refundStatus: RefundStatus;
   paidAt: string | null;
+  /** Fulfillment ghi khi giao xong; đơn COD chỉ hiện ở tab Chờ thu khi đã có (#27 AC-25) */
+  deliveredAt?: string | null;
+  /** Lúc chuyển chờ hoàn tiền (BE lấy `updated_at` của dòng) */
+  refundRequestedAt?: string | null;
+}
+
+/** payment.payment_transactions: giao dịch cổng báo về qua webhook, tra cứu hoặc SePay */
+export interface MockTransaction {
+  id: string;
+  companyId: string;
+  gateway: Gateway;
+  gatewayTxnId: string;
+  paymentCode: string | null;
+  orderId: string | null;
+  amount: number;
+  source: TransactionSource;
+  status: TransactionStatus;
+  occurredAt: string;
+  rawPayload: Record<string, unknown>;
 }
 
 export const gatewayConfigs: MockGatewayConfig[] = [
@@ -124,6 +143,34 @@ export const links: MockPaymentLink[] = [
     createdAt: '2026-10-16T02:04:00.000Z',
     createdBy: 'acc-002',
   },
+  {
+    id: 'pl-0003',
+    companyId: 'cmp-001',
+    orderId: 'ord-1022',
+    gateway: 'vnpay',
+    paymentCode: 'CMH8D2KQ4NZA',
+    amount: 350000,
+    payUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=CMH8D2KQ4NZA',
+    qrContent: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=CMH8D2KQ4NZA',
+    expiresAt: '2026-10-12T02:30:00.000Z',
+    status: 'paid',
+    createdAt: '2026-10-12T02:15:00.000Z',
+    createdBy: 'acc-002',
+  },
+  {
+    id: 'pl-0004',
+    companyId: 'cmp-001',
+    orderId: 'ord-1024',
+    gateway: 'momo',
+    paymentCode: 'CMP3W7XEY5RB',
+    amount: 180000,
+    payUrl: 'https://test-payment.momo.vn/v2/gateway/pay?orderId=CMP3W7XEY5RB',
+    qrContent: 'https://test-payment.momo.vn/v2/gateway/pay?orderId=CMP3W7XEY5RB',
+    expiresAt: '2026-10-06T02:30:00.000Z',
+    status: 'paid',
+    createdAt: '2026-10-06T02:15:00.000Z',
+    createdBy: 'acc-002',
+  },
 ];
 
 /** Đơn chưa có dòng ở đây thì trạng thái suy từ đơn (A8) */
@@ -139,6 +186,175 @@ export const orderPayments: MockOrderPayment[] = [
   { companyId: 'cmp-001', orderId: 'ord-1016', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
   { companyId: 'cmp-001', orderId: 'ord-1017', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
   { companyId: 'cmp-002', orderId: 'ord-2001', method: 'cod', status: 'not_collected', refundStatus: 'none', paidAt: null },
+  // FE#12: COD đã giao chờ thu, đã thu
+  ...(['ord-1018', 'ord-1019', 'ord-1020'] as const).map<MockOrderPayment>((orderId, i) => ({
+    companyId: 'cmp-001',
+    orderId,
+    method: 'cod',
+    status: 'cod_pending',
+    refundStatus: 'none',
+    paidAt: null,
+    deliveredAt: `2026-10-${11 + i}T09:00:00.000Z`,
+  })),
+  {
+    companyId: 'cmp-001',
+    orderId: 'ord-1021',
+    method: 'cod',
+    status: 'cod_collected',
+    refundStatus: 'none',
+    paidAt: '2026-10-08T03:00:00.000Z',
+    deliveredAt: '2026-10-07T09:00:00.000Z',
+  },
+  // FE#12: trả trước đã thu rồi huỷ
+  {
+    companyId: 'cmp-001',
+    orderId: 'ord-1022',
+    method: 'prepaid',
+    status: 'paid',
+    refundStatus: 'pending_refund',
+    paidAt: '2026-10-12T02:18:00.000Z',
+    refundRequestedAt: '2026-10-13T03:00:00.000Z',
+  },
+  {
+    companyId: 'cmp-001',
+    orderId: 'ord-1023',
+    method: 'prepaid',
+    status: 'paid',
+    refundStatus: 'pending_refund',
+    paidAt: '2026-10-13T08:30:00.000Z',
+    refundRequestedAt: '2026-10-14T03:00:00.000Z',
+  },
+  {
+    companyId: 'cmp-001',
+    orderId: 'ord-1024',
+    method: 'prepaid',
+    status: 'paid',
+    refundStatus: 'refunded',
+    paidAt: '2026-10-06T02:20:00.000Z',
+  },
+];
+
+const sandbox = (fields: Record<string, unknown>) => ({ ...fields, sandbox: true });
+
+/** Đủ bốn cổng, bốn trạng thái; giao dịch `needs_review` nối với khoản thu chưa khớp ở financeData */
+export const transactions: MockTransaction[] = [
+  {
+    id: 'txn-0001',
+    companyId: 'cmp-001',
+    gateway: 'vnpay',
+    gatewayTxnId: '14612345',
+    paymentCode: 'CMQ7H3K9TW2B',
+    orderId: 'ord-1006',
+    amount: 320000,
+    source: 'webhook',
+    status: 'succeeded',
+    occurredAt: '2026-10-15T02:09:00.000Z',
+    rawPayload: sandbox({ vnp_TxnRef: 'CMQ7H3K9TW2B', vnp_Amount: '32000000', vnp_ResponseCode: '00', vnp_TransactionNo: '14612345', vnp_BankCode: 'NCB' }),
+  },
+  {
+    id: 'txn-0002',
+    companyId: 'cmp-001',
+    gateway: 'vnpay',
+    gatewayTxnId: '14600871',
+    paymentCode: 'CMH8D2KQ4NZA',
+    orderId: 'ord-1022',
+    amount: 350000,
+    source: 'webhook',
+    status: 'succeeded',
+    occurredAt: '2026-10-12T02:18:00.000Z',
+    rawPayload: sandbox({ vnp_TxnRef: 'CMH8D2KQ4NZA', vnp_Amount: '35000000', vnp_ResponseCode: '00', vnp_TransactionNo: '14600871', vnp_BankCode: 'NCB' }),
+  },
+  {
+    id: 'txn-0003',
+    companyId: 'cmp-001',
+    gateway: 'momo',
+    gatewayTxnId: '4088123456',
+    paymentCode: 'CMP3W7XEY5RB',
+    orderId: 'ord-1024',
+    amount: 180000,
+    source: 'webhook',
+    status: 'succeeded',
+    occurredAt: '2026-10-06T02:20:00.000Z',
+    rawPayload: sandbox({ orderId: 'CMP3W7XEY5RB', amount: 180000, resultCode: 0, transId: 4088123456, payType: 'qr' }),
+  },
+  {
+    id: 'txn-0004',
+    companyId: 'cmp-001',
+    gateway: 'momo',
+    gatewayTxnId: '4088200001',
+    paymentCode: 'CMR4XN8PAD6E',
+    orderId: 'ord-1007',
+    amount: 170000,
+    source: 'query',
+    status: 'failed',
+    occurredAt: '2026-10-16T02:12:00.000Z',
+    rawPayload: sandbox({ orderId: 'CMR4XN8PAD6E', amount: 170000, resultCode: 1006, message: 'Người dùng từ chối giao dịch' }),
+  },
+  {
+    id: 'txn-0005',
+    companyId: 'cmp-001',
+    gateway: 'zalopay',
+    gatewayTxnId: '261018_000123',
+    paymentCode: null,
+    orderId: 'ord-1014',
+    amount: 350000,
+    source: 'query',
+    status: 'pending',
+    occurredAt: '2026-10-18T04:00:00.000Z',
+    rawPayload: sandbox({ app_trans_id: '261018_000123', amount: 350000, return_code: 3, return_message: 'Giao dịch đang xử lý' }),
+  },
+  {
+    id: 'txn-0006',
+    companyId: 'cmp-001',
+    gateway: 'vietqr',
+    gatewayTxnId: 'SP-91822',
+    paymentCode: null,
+    orderId: null,
+    amount: 170000,
+    source: 'sepay',
+    status: 'needs_review',
+    occurredAt: '2026-10-18T07:30:00.000Z',
+    rawPayload: sandbox({ id: 91822, gateway: 'Vietcombank', transferAmount: 170000, content: 'CHUYEN TIEN MUA AO CHAU', transferType: 'in' }),
+  },
+  {
+    id: 'txn-0007',
+    companyId: 'cmp-001',
+    gateway: 'vietqr',
+    gatewayTxnId: 'SP-91840',
+    paymentCode: null,
+    orderId: null,
+    amount: 300000,
+    source: 'sepay',
+    status: 'needs_review',
+    occurredAt: '2026-10-18T09:10:00.000Z',
+    rawPayload: sandbox({ id: 91840, gateway: 'Vietcombank', transferAmount: 300000, content: 'DH1014 TRAN MINH CHAU', transferType: 'in' }),
+  },
+  {
+    id: 'txn-0008',
+    companyId: 'cmp-001',
+    gateway: 'vietqr',
+    gatewayTxnId: 'SP-91512',
+    paymentCode: null,
+    orderId: null,
+    amount: 180000,
+    source: 'sepay',
+    status: 'needs_review',
+    occurredAt: '2026-10-13T08:00:00.000Z',
+    rawPayload: sandbox({ id: 91512, gateway: 'Vietcombank', transferAmount: 180000, content: 'GIA DUNG CK DON AO', transferType: 'in' }),
+  },
+  {
+    id: 'txn-0009',
+    companyId: 'cmp-002',
+    gateway: 'momo',
+    gatewayTxnId: '4099000001',
+    paymentCode: null,
+    orderId: null,
+    amount: 115000,
+    source: 'webhook',
+    status: 'needs_review',
+    occurredAt: '2026-10-14T02:00:00.000Z',
+    rawPayload: sandbox({ orderId: 'CMZZZZZZZZZZ', amount: 115000, resultCode: 0 }),
+  },
 ];
 
 /** Hạn của mã (T9) */

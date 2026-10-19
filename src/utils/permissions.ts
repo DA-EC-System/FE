@@ -49,6 +49,12 @@ export const PERMISSIONS = {
   paymentLinkCreate: 'payment.link.create',
   /** Cấu hình khoá cổng thanh toán (UC-PF-11) */
   gatewayManage: 'payment.gateway.manage',
+  /** Xem giao dịch cổng (UC-PF-03) */
+  transactionView: 'payment.transaction.view',
+  /** Xem hoá đơn, phiếu thu, phiếu chi, COD, hoàn tiền, khoản thu chưa khớp (UC-PF-04..07) */
+  financeView: 'finance.invoice.view',
+  /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
+  voucherCreate: 'finance.voucher.create',
 } as const;
 
 /**

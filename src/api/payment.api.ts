@@ -3,16 +3,41 @@
  * Hợp đồng theo Documents/21 mục 12 (đã chốt), BE ở commerio-backend#23.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
-import type { Gateway, GatewayAvailability, GatewayConfig, OrderPayment, PaymentLink } from '@/types/payment';
+import type { PageResult } from './types';
+import type { UnpaidOrder } from '@/types/finance';
+import type {
+  Gateway,
+  GatewayAvailability,
+  GatewayConfig,
+  OrderPayment,
+  PaymentLink,
+  PaymentTransaction,
+  PaymentTransactionDetail,
+  TransactionStatus,
+} from '@/types/payment';
 
 export const paymentKeys = {
   all: (companyId: string) => ['company', companyId, 'payment'] as const,
   gateways: (companyId: string) => [...paymentKeys.all(companyId), 'gateways'] as const,
   order: (companyId: string, orderId: string) => [...paymentKeys.all(companyId), 'order', orderId] as const,
+  unpaid: (companyId: string, search: string) => [...paymentKeys.all(companyId), 'unpaid', search] as const,
+  transactions: (companyId: string, params: TransactionListParams) =>
+    [...paymentKeys.all(companyId), 'transactions', params] as const,
+  transaction: (companyId: string, id: string) => [...paymentKeys.all(companyId), 'transaction', id] as const,
 };
+
+export interface TransactionListParams {
+  page?: number;
+  pageSize?: number;
+  gateway?: Gateway;
+  status?: TransactionStatus;
+  from?: string;
+  to?: string;
+  search?: string;
+}
 
 function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
@@ -76,5 +101,47 @@ export function useCreatePaymentLink(orderId: string) {
       return { link: res.data, reused: res.status === 200 };
     },
     onSettled: () => qc.invalidateQueries({ queryKey: paymentKeys.order(companyId, orderId) }),
+  });
+}
+
+/** Đơn chưa thu cho hộp gán khoản thu chưa khớp; cần finance.voucher.create (#27 R1) */
+export function useUnpaidOrders(search: string, options: { enabled?: boolean } = {}) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: paymentKeys.unpaid(companyId, search),
+    enabled: Boolean(companyId) && (options.enabled ?? true),
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResult<UnpaidOrder>>('/payment/orders', {
+        params: { status: 'unpaid', search: search || undefined, pageSize: 20 },
+      });
+      return data;
+    },
+  });
+}
+
+/** Giao dịch cổng, chỉ xem (UC-PF-03) */
+export function useTransactions(params: TransactionListParams) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: paymentKeys.transactions(companyId, params),
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResult<PaymentTransaction>>('/payment/transactions', { params });
+      return data;
+    },
+  });
+}
+
+export function useTransaction(id: string) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: paymentKeys.transaction(companyId, id),
+    enabled: Boolean(companyId && id),
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaymentTransactionDetail>(`/payment/transactions/${id}`);
+      return data;
+    },
   });
 }
