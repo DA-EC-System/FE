@@ -65,3 +65,18 @@
     height: 0;
   }
 }
+
+/* In danh sách nhặt (FE#10 AC-B4): chỉ in vùng .print-area */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 0 auto 0;
+  }
+}

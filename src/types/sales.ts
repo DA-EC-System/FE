@@ -100,11 +100,17 @@ export interface OrderLine {
   available: number;
 }
 
+/** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
+export type StatusChangeSource = 'user' | 'marketplace' | 'system';
+
 export interface OrderStatusChange {
   from: OrderStatus | null;
   to: OrderStatus;
   at: string;
   by: UserRef | null;
+  source: StatusChangeSource;
+  /** Lý do huỷ, giao không thành công */
+  reason: string | null;
 }
 
 export interface Order extends OrderSummary {

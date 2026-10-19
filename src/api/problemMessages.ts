@@ -43,6 +43,10 @@ const MESSAGES: Record<string, string> = {
   payment_not_allowed: 'Đơn này không tạo được mã thanh toán.',
   gateway_not_configured: 'Cổng thanh toán này chưa được cấu hình khoá.',
   gateway_unavailable: 'Cổng thanh toán đang lỗi, thử lại sau ít phút hoặc chọn cổng khác.',
+  // FE#10, chờ commerio-backend#25
+  payment_required: 'Đơn trả trước chưa thanh toán đủ, chưa xuất được.',
+  already_in_batch: 'Có đơn đã nằm trong lô khác.',
+  not_reserved: 'Đơn chưa giữ hàng nên chưa xuất được.',
 };
 
 export function problemCode(error: unknown): string | undefined {

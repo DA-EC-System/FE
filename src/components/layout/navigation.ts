@@ -1,4 +1,5 @@
 import {
+  Boxes,
   Building2,
   History,
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   SlidersHorizontal,
   Store,
   Tags,
+  Truck,
   Users,
   Warehouse,
   type LucideIcon,
@@ -119,6 +121,25 @@ export function companyNav(companyId: string): NavSection[] {
           icon: Warehouse,
           module: 'inventory',
           permission: PERMISSIONS.stockView,
+        },
+      ],
+    },
+    {
+      title: 'Giao vận',
+      items: [
+        {
+          to: ROUTES.company.fulfillmentOrders(companyId),
+          label: 'Xử lý đơn',
+          icon: Truck,
+          module: 'fulfillment',
+          permission: PERMISSIONS.fulfillmentProcess,
+        },
+        {
+          to: ROUTES.company.batches(companyId),
+          label: 'Lô nhặt hàng',
+          icon: Boxes,
+          module: 'fulfillment',
+          permission: PERMISSIONS.fulfillmentProcess,
         },
       ],
     },

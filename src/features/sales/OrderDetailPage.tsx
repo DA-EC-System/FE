@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -17,15 +17,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
+import { orderActions } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { ShortLine } from '@/types/sales';
 import { ORDER_STATUS, PAYMENT_METHOD_LABELS, sourceLabel } from './shared';
 import { Info } from './Info';
 import { PaymentPanel } from './PaymentPanel';
+import { CancelOrderDialog } from './CancelOrderDialog';
+import { DeliveryDialog } from './DeliveryDialog';
+import { StatusTimeline } from './StatusTimeline';
 
 type ConfirmNotice = { kind: 'short'; lines: ShortLine[] } | { kind: 'error'; message: string };
 
-/** UC-SF-04 — Chi tiết đơn: dòng hàng, tiền, lịch sử trạng thái, xác nhận đơn, thanh toán */
+/** UC-SF-04, 06, 09 — Chi tiết đơn: dòng hàng, tiền, lịch sử trạng thái, xác nhận, huỷ, cập nhật giao, thanh toán */
 export function OrderDetailPage() {
   const navigate = useNavigate();
   const { orderId = '' } = useParams();
@@ -36,6 +40,7 @@ export function OrderDetailPage() {
   const order = query.data;
   const confirmMut = useConfirmOrder();
   const [notice, setNotice] = useState<ConfirmNotice | null>(null);
+  const [dialog, setDialog] = useState<'cancel' | 'delivery' | null>(null);
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ms-2" onClick={() => navigate(ROUTES.company.orders(companyId))}>
@@ -68,7 +73,13 @@ export function OrderDetailPage() {
 
   const status = ORDER_STATUS[order.status];
   const isMarketplace = order.source === 'marketplace';
-  const canConfirm = can(PERMISSIONS.orderCreate) && !isMarketplace && order.status === 'pending_confirmation';
+  const actions = orderActions(order, can);
+
+  /** AC-A2: hook đã tải lại đơn sau khi gọi xong, nút đổi theo trạng thái mới */
+  const onConflict = () => {
+    setDialog(null);
+    setNotice({ kind: 'error', message: 'Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.' });
+  };
 
   const confirm = async () => {
     setNotice(null);
@@ -80,8 +91,7 @@ export function OrderDetailPage() {
       if (problem?.code === 'insufficient_stock') {
         setNotice({ kind: 'short', lines: problem.shortLines ?? [] });
       } else if (problem?.code === 'version_conflict' || problem?.code === 'invalid_transition') {
-        // Hook đã tải lại đơn sau khi gọi xong
-        setNotice({ kind: 'error', message: 'Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.' });
+        onConflict();
       } else {
         setNotice({ kind: 'error', message: problemMessage(e) });
       }
@@ -95,11 +105,27 @@ export function OrderDetailPage() {
         title={`Đơn ${order.code}`}
         subtitle={`${sourceLabel(order)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
         action={
-          canConfirm ? (
-            <Button onClick={confirm} disabled={confirmMut.isPending}>
-              <CheckCircle2 />
-              {confirmMut.isPending ? 'Đang xác nhận...' : 'Xác nhận đơn'}
-            </Button>
+          actions.confirm || actions.cancel || actions.delivery ? (
+            <div className="flex flex-wrap gap-2">
+              {actions.cancel && (
+                <Button variant="outline" onClick={() => setDialog('cancel')}>
+                  <XCircle />
+                  Huỷ đơn
+                </Button>
+              )}
+              {actions.delivery && (
+                <Button onClick={() => setDialog('delivery')}>
+                  <Truck />
+                  Cập nhật giao
+                </Button>
+              )}
+              {actions.confirm && (
+                <Button onClick={confirm} disabled={confirmMut.isPending}>
+                  <CheckCircle2 />
+                  {confirmMut.isPending ? 'Đang xác nhận...' : 'Xác nhận đơn'}
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -108,9 +134,9 @@ export function OrderDetailPage() {
         {order.isShortStock && <Badge variant="destructive">Thiếu hàng</Badge>}
       </div>
 
-      {isMarketplace && order.status === 'pending_confirmation' && (
+      {actions.note && (
         <AlertMessage severity="info" className="mb-4">
-          Đơn sàn tự xác nhận khi giữ được hàng.
+          {actions.note}
         </AlertMessage>
       )}
       {notice?.kind === 'short' && (
@@ -225,18 +251,7 @@ export function OrderDetailPage() {
               <CardTitle className="text-base">Lịch sử trạng thái</CardTitle>
             </CardHeader>
             <CardContent>
-              <ol className="grid gap-2 text-sm" data-testid="status-history">
-                {[...order.statusHistory].reverse().map((h, i) => (
-                  <li key={`${h.at}-${i}`} className="flex flex-wrap justify-between gap-2">
-                    <span>
-                      {h.from ? `${ORDER_STATUS[h.from].label} → ` : ''}
-                      <span className="font-medium">{ORDER_STATUS[h.to].label}</span>
-                      {h.by && <span className="text-muted-foreground"> · {h.by.name}</span>}
-                    </span>
-                    <span className="text-muted-foreground">{formatDateTime(h.at)}</span>
-                  </li>
-                ))}
-              </ol>
+              <StatusTimeline history={order.statusHistory} />
             </CardContent>
           </Card>
         </div>
@@ -244,6 +259,19 @@ export function OrderDetailPage() {
         {/* Đơn sàn do sàn thu hộ, không gọi API thanh toán (AC-P1) */}
         {!isMarketplace && <PaymentPanel order={order} />}
       </div>
+
+      <CancelOrderDialog
+        order={order}
+        open={dialog === 'cancel'}
+        onClose={() => setDialog(null)}
+        onConflict={onConflict}
+      />
+      <DeliveryDialog
+        order={order}
+        open={dialog === 'delivery'}
+        onClose={() => setDialog(null)}
+        onConflict={onConflict}
+      />
     </div>
   );
 }
