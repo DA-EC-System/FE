@@ -47,6 +47,11 @@ const MESSAGES: Record<string, string> = {
   payment_required: 'Đơn trả trước chưa thanh toán đủ, chưa xuất được.',
   already_in_batch: 'Có đơn đã nằm trong lô khác.',
   not_reserved: 'Đơn chưa giữ hàng nên chưa xuất được.',
+  // FE#12, commerio-backend#27; `already_processed` nơi gọi ưu tiên `detail` vì có số phiếu
+  already_processed: 'Chứng từ gốc đã được xử lý.',
+  payment_state_changed: 'Trạng thái thanh toán của đơn vừa thay đổi.',
+  not_draft: 'Chỉ sửa, xoá, ghi sổ được phiếu chi nháp.',
+  amount_mismatch: 'Tổng đơn khác số tiền khoản thu.',
 };
 
 export function problemCode(error: unknown): string | undefined {

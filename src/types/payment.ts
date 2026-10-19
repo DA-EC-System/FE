@@ -79,3 +79,27 @@ export interface OrderPayment {
   /** Mới nhất trước, tối đa 20 */
   links: PaymentLinkHistory[];
 }
+
+export type TransactionStatus = 'pending' | 'succeeded' | 'failed' | 'needs_review';
+
+export type TransactionSource = 'webhook' | 'query' | 'sepay';
+
+/** Giao dịch cổng ghi nhận qua webhook, tra cứu hoặc SePay (UC-PF-03, chỉ xem) */
+export interface PaymentTransaction {
+  id: string;
+  gateway: Gateway;
+  gatewayTxnId: string;
+  paymentCode: string | null;
+  order: { id: string; code: string; customerName: string | null } | null;
+  amount: number;
+  source: TransactionSource;
+  status: TransactionStatus;
+  occurredAt: string;
+  receipt: { id: string; number: string } | null;
+  unmatchedReceiptId: string | null;
+}
+
+/** Payload của cổng, BE đã bỏ trường chữ ký */
+export interface PaymentTransactionDetail extends PaymentTransaction {
+  rawPayload: unknown;
+}

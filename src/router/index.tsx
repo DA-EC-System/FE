@@ -43,6 +43,14 @@ import { BatchListPage } from '@/features/fulfillment/BatchListPage';
 import { BatchDetailPage } from '@/features/fulfillment/BatchDetailPage';
 import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
 import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
+import { TransactionsPage } from '@/features/payment/TransactionsPage';
+import { FinanceDocumentsPage } from '@/features/finance/FinanceDocumentsPage';
+import { InvoiceDetailPage } from '@/features/finance/InvoiceDetailPage';
+import { ReceiptDetailPage } from '@/features/finance/ReceiptDetailPage';
+import { PaymentVoucherDetailPage } from '@/features/finance/PaymentVoucherDetailPage';
+import { CodPage } from '@/features/finance/CodPage';
+import { RefundsPage } from '@/features/finance/RefundsPage';
+import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
 
@@ -280,6 +288,70 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
                         <BatchDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/documents',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <FinanceDocumentsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/invoices/:id',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <InvoiceDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/receipts/:id',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <ReceiptDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/payment-vouchers/:id',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <PaymentVoucherDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/cod',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <CodPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/refunds',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <RefundsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/unmatched',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <UnmatchedPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'payment/transactions',
+                    element: (
+                      <RequireModule module="payment" permission={PERMISSIONS.transactionView}>
+                        <TransactionsPage />
                       </RequireModule>
                     ),
                   },

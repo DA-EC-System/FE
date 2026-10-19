@@ -323,6 +323,23 @@ const roles: MockRole[] = [
     version: 1,
     updatedAt: '2026-04-10T00:00:00.000Z',
   },
+  // Không có vai trò Kế toán dựng sẵn (Documents/21 mục 8): công ty tự tạo (FE#12)
+  {
+    id: 'role-ketoan-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Kế toán',
+    permissions: [P.financeView, P.voucherCreate, P.orderView],
+    version: 1,
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'role-kiemsoat-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Kiểm soát',
+    permissions: [P.financeView, P.transactionView],
+    version: 1,
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
 ];
 
 const accounts: Account[] = [
@@ -383,6 +400,20 @@ const accounts: Account[] = [
     isPlatformAdmin: false,
     mustChangePassword: false,
   },
+  {
+    id: 'acc-008',
+    email: 'ketoan@commerio.vn',
+    fullName: 'Đặng Thu Ngân',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
+  {
+    id: 'acc-009',
+    email: 'kiemsoat@commerio.vn',
+    fullName: 'Bùi Văn Soát',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
 ];
 
 export interface MockMembership {
@@ -423,6 +454,9 @@ const memberships: MockMembership[] = [
   member('acc-006', 'cmp-001', ['role-sale', 'role-cskh-cmp-001'], 'locked'),
   // Vai trò tuỳ biến chỉ xem đơn: không tạo đơn, không tạo mã thanh toán (FE#9 AC-R3)
   member('acc-007', 'cmp-001', ['role-cskh-cmp-001']),
+  // FE#12: Kế toán ghi tiền, Kiểm soát chỉ xem chứng từ và giao dịch cổng
+  member('acc-008', 'cmp-001', ['role-ketoan-cmp-001']),
+  member('acc-009', 'cmp-001', ['role-kiemsoat-cmp-001']),
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -455,6 +489,8 @@ export const passwords: Record<string, string> = {
   'admin@commerio.vn': 'admin',
   'nghi@commerio.vn': 'nghi',
   'cskh@commerio.vn': 'cskh',
+  'ketoan@commerio.vn': 'ketoan',
+  'kiemsoat@commerio.vn': 'kiemsoat',
 };
 
 /** Nhật ký thao tác trong công ty: audit.audit_logs có company_id (UC-PI-07) */
