@@ -132,6 +132,12 @@ export const orderPayments: MockOrderPayment[] = [
   { companyId: 'cmp-001', orderId: 'ord-1006', method: 'prepaid', status: 'paid', refundStatus: 'none', paidAt: '2026-10-15T02:09:00.000Z' },
   { companyId: 'cmp-001', orderId: 'ord-1007', method: 'prepaid', status: 'unpaid', refundStatus: 'none', paidAt: null },
   { companyId: 'cmp-001', orderId: 'ord-1008', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
+  { companyId: 'cmp-001', orderId: 'ord-1010', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
+  { companyId: 'cmp-001', orderId: 'ord-1011', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
+  { companyId: 'cmp-001', orderId: 'ord-1013', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
+  { companyId: 'cmp-001', orderId: 'ord-1014', method: 'prepaid', status: 'unpaid', refundStatus: 'none', paidAt: null },
+  { companyId: 'cmp-001', orderId: 'ord-1016', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
+  { companyId: 'cmp-001', orderId: 'ord-1017', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },
   { companyId: 'cmp-002', orderId: 'ord-2001', method: 'cod', status: 'not_collected', refundStatus: 'none', paidAt: null },
 ];
 

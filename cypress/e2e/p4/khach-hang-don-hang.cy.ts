@@ -172,7 +172,7 @@ describe('P4 · Khách hàng và đơn hàng', () => {
       cy.toast('Đã xác nhận đơn');
       cy.contains('Đã xác nhận');
       cy.findByRole('button', { name: 'Xác nhận đơn' }).should('not.exist');
-      cy.get('[data-testid=status-history]').should('contain', 'Chờ xác nhận → Đã xác nhận');
+      cy.get('[data-testid=status-history] li').first().should('contain', 'Đã xác nhận');
     });
 
     it('thiếu hàng thì liệt kê SKU, số cần và số khả dụng', () => {

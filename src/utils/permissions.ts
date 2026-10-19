@@ -39,6 +39,12 @@ export const PERMISSIONS = {
   /** Tạo đơn tay, xác nhận đơn (UC-SF-01, UC-SF-04) */
   orderCreate: 'sales.order.create',
   customerView: 'sales.customer.view',
+  /** Huỷ đơn tạo tay, hộp thư (UC-SF-06) */
+  orderCancel: 'sales.order.cancel',
+  /** Tạo lô nhặt, nhặt xong, xuất kho đơn (UC-SF-07, UC-SF-08) */
+  fulfillmentProcess: 'fulfillment.order.process',
+  /** Cập nhật giao đơn tạo tay, hộp thư (UC-SF-09) */
+  deliveryUpdate: 'fulfillment.delivery.update',
   /** Tạo mã QR, link thanh toán cho đơn (UC-PF-01) */
   paymentLinkCreate: 'payment.link.create',
   /** Cấu hình khoá cổng thanh toán (UC-PF-11) */

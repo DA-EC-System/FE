@@ -38,6 +38,9 @@ import { OrderCreatePage } from '@/features/sales/OrderCreatePage';
 import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
 import { CustomerListPage } from '@/features/sales/CustomerListPage';
 import { CustomerDetailPage } from '@/features/sales/CustomerDetailPage';
+import { FulfillmentOrdersPage } from '@/features/fulfillment/FulfillmentOrdersPage';
+import { BatchListPage } from '@/features/fulfillment/BatchListPage';
+import { BatchDetailPage } from '@/features/fulfillment/BatchDetailPage';
 import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
 import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
@@ -253,6 +256,30 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="sales" permission={PERMISSIONS.customerView}>
                         <CustomerDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'fulfillment/orders',
+                    element: (
+                      <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
+                        <FulfillmentOrdersPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'fulfillment/batches',
+                    element: (
+                      <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
+                        <BatchListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'fulfillment/batches/:batchId',
+                    element: (
+                      <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
+                        <BatchDetailPage />
                       </RequireModule>
                     ),
                   },
