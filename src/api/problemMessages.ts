@@ -52,6 +52,8 @@ const MESSAGES: Record<string, string> = {
   payment_state_changed: 'Trạng thái thanh toán của đơn vừa thay đổi.',
   not_draft: 'Chỉ sửa, xoá, ghi sổ được phiếu chi nháp.',
   amount_mismatch: 'Tổng đơn khác số tiền khoản thu.',
+  // FE#13, Documents/21 §12.6
+  run_in_progress: 'Lần đối soát trước chưa chạy xong, thử lại sau.',
 };
 
 export function problemCode(error: unknown): string | undefined {

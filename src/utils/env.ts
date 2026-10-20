@@ -8,3 +8,6 @@ export const USE_MOCKS = import.meta.env.DEV
 
 /** Client ID OAuth của Google Identity Services (docs/21 A6). Trống thì khoá nút Google khi gọi BE thật. */
 export const GOOGLE_CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+
+/** Nút "Đối soát ngay" (FE#13 AC-S4): BE chưa có `POST /finance/settlements/run` nên chỉ hiện với mock, hoặc khi bật cờ */
+export const SETTLEMENT_RUN: boolean = USE_MOCKS || import.meta.env.VITE_SETTLEMENT_RUN === 'true';

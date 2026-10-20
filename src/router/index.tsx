@@ -51,6 +51,9 @@ import { PaymentVoucherDetailPage } from '@/features/finance/PaymentVoucherDetai
 import { CodPage } from '@/features/finance/CodPage';
 import { RefundsPage } from '@/features/finance/RefundsPage';
 import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
+import { SettlementsPage } from '@/features/finance/SettlementsPage';
+import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
+import { ReportPage } from '@/features/report/ReportPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
 
@@ -344,6 +347,30 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="finance" permission={PERMISSIONS.financeView}>
                         <UnmatchedPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/settlements',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.financeView}>
+                        <SettlementsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/settlements/:id',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.financeView}>
+                        <SettlementDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'reports',
+                    element: (
+                      <RequireModule module="report" permission={[PERMISSIONS.reportView, PERMISSIONS.financeView]}>
+                        <ReportPage />
                       </RequireModule>
                     ),
                   },

@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  ChartLine,
   Boxes,
   Building2,
   History,
@@ -14,6 +15,7 @@ import {
   FileText,
   HandCoins,
   Inbox,
+  Scale,
   Undo2,
   SlidersHorizontal,
   Store,
@@ -36,8 +38,8 @@ export interface NavItem {
   disabled?: boolean;
   /** Ẩn khi công ty chưa bật phân hệ này */
   module?: ModuleKey;
-  /** Ẩn khi thiếu quyền này */
-  permission?: string;
+  /** Ẩn khi thiếu quyền này; danh sách là cần đủ mọi quyền */
+  permission?: string | readonly string[];
 }
 
 export interface NavSection {
@@ -180,6 +182,13 @@ export function companyNav(companyId: string): NavSection[] {
           permission: PERMISSIONS.financeView,
         },
         {
+          to: ROUTES.company.settlements(companyId),
+          label: 'Đối soát sàn',
+          icon: Scale,
+          module: 'channel',
+          permission: PERMISSIONS.financeView,
+        },
+        {
           to: ROUTES.company.transactions(companyId),
           label: 'Giao dịch cổng',
           icon: ArrowLeftRight,
@@ -230,6 +239,18 @@ export function companyNav(companyId: string): NavSection[] {
           icon: CreditCard,
           module: 'payment',
           permission: PERMISSIONS.gatewayManage,
+        },
+      ],
+    },
+    {
+      title: 'Báo cáo',
+      items: [
+        {
+          to: ROUTES.company.reports(companyId),
+          label: 'Báo cáo kinh doanh',
+          icon: ChartLine,
+          module: 'report',
+          permission: [PERMISSIONS.reportView, PERMISSIONS.financeView],
         },
       ],
     },

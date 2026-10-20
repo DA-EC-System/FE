@@ -55,6 +55,10 @@ export const PERMISSIONS = {
   financeView: 'finance.invoice.view',
   /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
   voucherCreate: 'finance.voucher.create',
+  /** Xem báo cáo kinh doanh; cần thêm `finance.invoice.view` (UC-RP-01, D18) */
+  reportView: 'report.dashboard.view',
+  /** Xuất báo cáo ra CSV (UC-RP-02) */
+  reportExport: 'report.dashboard.export',
 } as const;
 
 /**
@@ -67,6 +71,11 @@ export function hasPermission(
   permission: string,
 ): boolean {
   return Boolean(context?.permissions.includes(permission));
+}
+
+/** Có đủ mọi quyền trong danh sách; báo cáo cần cả `report.dashboard.view` và `finance.invoice.view` (D18) */
+export function hasAllPermissions(context: CompanyContext | null, permission: string | readonly string[]): boolean {
+  return (typeof permission === 'string' ? [permission] : permission).every((p) => hasPermission(context, p));
 }
 
 export function isModuleEnabled(
