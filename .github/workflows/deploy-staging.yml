@@ -1,0 +1,82 @@
+# Staging trên k3s (repo backend, deploy/k8s): PR vào develop chỉ build image để kiểm;
+# merge vào develop → đẩy ghcr.io/da-ec-system/commerio-fe:sha-<7 ký tự> và :develop → đổi image của Deployment fe.
+# Đổi image qua SSH vào tài khoản ci-deploy trên VPS: khoá này chỉ chạy được lệnh deploy của fe
+# (forced command, xem deploy/k8s/README.md của repo backend), không có shell.
+# Biến repo: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_GOOGLE_CLIENT_ID (tuỳ chọn).
+# Secret repo: STAGING_SSH_KEY (khoá riêng ed25519), STAGING_SSH_KNOWN_HOSTS (dòng ssh-keyscan của VPS).
+name: Deploy staging
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+# Mỗi lúc một lần deploy; lần mới chờ lần đang chạy xong. PR có nhóm riêng, đẩy commit mới thì huỷ lần cũ.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'deploy-staging' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/da-ec-system/commerio-fe
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Bước build Node chạy trên amd64 của runner (BUILDPLATFORM); chỉ tầng Caddy là theo từng kiến trúc.
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            VITE_GOOGLE_CLIENT_ID=${{ vars.STAGING_GOOGLE_CLIENT_ID }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.IMAGE }}:develop
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Không chạy trên PR. Chưa có VPS: biến STAGING_SSH_HOST trống nên job bị bỏ qua (không đỏ).
+  deploy:
+    needs: image
+    if: github.event_name != 'pull_request' && vars.STAGING_SSH_HOST != ''
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ vars.STAGING_SSH_HOST }}
+      SSH_USER: ${{ vars.STAGING_SSH_USER }}
+    steps:
+      - name: Khoá SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+      # Lệnh gửi đi chỉ là tag; VPS kiểm dạng sha-<7 ký tự>, set image rồi chờ rollout xong (đỏ nếu pod mới không lên).
+      - name: Đổi image của Deployment fe
+        run: ssh "$SSH_USER@$HOST" "${{ needs.image.outputs.tag }}"
