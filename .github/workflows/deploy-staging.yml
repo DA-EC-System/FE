@@ -2,7 +2,8 @@
 # merge vào develop → đẩy ghcr.io/da-ec-system/commerio-fe:sha-<7 ký tự> và :develop → đổi image của Deployment fe.
 # Đổi image qua SSH vào tài khoản ci-deploy trên VPS: khoá này chỉ chạy được lệnh deploy của fe
 # (forced command, xem deploy/k8s/README.md của repo backend), không có shell.
-# Biến repo: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_GOOGLE_CLIENT_ID (tuỳ chọn).
+# Biến repo: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_GOOGLE_CLIENT_ID (tuỳ chọn),
+# STAGING_USE_MOCKS (true: staging chạy MSW, dữ liệu giả; khác true: gọi backend thật). Đổi biến rồi chạy lại workflow.
 # Secret repo: STAGING_SSH_KEY (khoá riêng ed25519), STAGING_SSH_KNOWN_HOSTS (dòng ssh-keyscan của VPS).
 name: Deploy staging
 
@@ -51,6 +52,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           build-args: |
             VITE_GOOGLE_CLIENT_ID=${{ vars.STAGING_GOOGLE_CLIENT_ID }}
+            VITE_USE_MOCKS=${{ vars.STAGING_USE_MOCKS == 'true' && 'true' || 'false' }}
           tags: |
             ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
             ${{ env.IMAGE }}:develop
