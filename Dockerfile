@@ -7,9 +7,10 @@ RUN npm install -g pnpm@11.1.3
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-# Gọi backend thật qua /api cùng origin, không bật MSW.
+# Mặc định gọi backend thật qua /api cùng origin. VITE_USE_MOCKS=true: bật MSW, dữ liệu giả, không gọi backend.
 ARG VITE_GOOGLE_CLIENT_ID=
-ENV VITE_USE_MOCKS=false VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ARG VITE_USE_MOCKS=false
+ENV VITE_USE_MOCKS=$VITE_USE_MOCKS VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN pnpm build && find dist -name '*.map' -delete
 
 FROM caddy:2.10-alpine
