@@ -51,6 +51,7 @@ import { skuPatternError, valueCode } from '@/utils/sku';
 import * as pricing from './pricingData';
 import type { MockPricelist } from './pricingData';
 import { formatCurrency } from '@/utils/format';
+import { appPath } from '@/utils/env';
 import * as inventory from './inventoryData';
 import type { MockReturnOrder, MockStockDoc, MockStockDocLine } from './inventoryData';
 import type {
@@ -802,13 +803,13 @@ const shopHandlers = [
     const params = new URLSearchParams({
       platform,
       state,
-      redirect_uri: `${window.location.origin}/channel/oauth/callback`,
+      redirect_uri: `${window.location.origin}${appPath('channel/oauth/callback')}`,
     });
     if (shop) {
       params.set('shop_id', shop.externalShopId);
       params.set('shop_name', shop.shopName);
     }
-    return HttpResponse.json({ authorizeUrl: `/mock-oauth/authorize?${params}` });
+    return HttpResponse.json({ authorizeUrl: `${appPath('mock-oauth/authorize')}?${params}` });
   }),
 
   http.post(`${API}/channel/shops/oauth/callback`, async ({ request }) => {

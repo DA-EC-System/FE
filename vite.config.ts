@@ -5,6 +5,8 @@ import path from 'node:path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Staging có bản mock ở /mock/ (Dockerfile, BASE_PATH); mặc định chạy ở gốc.
+  base: process.env.BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
