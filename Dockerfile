@@ -10,7 +10,9 @@ COPY . .
 # Mặc định gọi backend thật qua /api cùng origin. VITE_USE_MOCKS=true: bật MSW, dữ liệu giả, không gọi backend.
 ARG VITE_GOOGLE_CLIENT_ID=
 ARG VITE_USE_MOCKS=false
-ENV VITE_USE_MOCKS=$VITE_USE_MOCKS VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+# Đường dẫn gốc của app: / cho bản chính, /mock/ cho bản mock (Caddy của cụm bỏ tiền tố trước khi chuyển vào).
+ARG BASE_PATH=/
+ENV VITE_USE_MOCKS=$VITE_USE_MOCKS VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID BASE_PATH=$BASE_PATH
 RUN pnpm build && find dist -name '*.map' -delete
 
 FROM caddy:2.10-alpine

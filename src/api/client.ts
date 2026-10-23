@@ -5,6 +5,7 @@ import axios, {
 } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import type { RefreshResponse, SelectCompanyResponse } from '@/types/auth';
+import { appPath } from '@/utils/env';
 
 /** Mọi đường dẫn tính từ `/api/v1` (docs/21 mục 0). FE và API cùng domain qua Caddy (V38). */
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -100,7 +101,7 @@ apiClient.interceptors.response.use(
       !config?.url?.startsWith('/identity/select-company')
     ) {
       useAuthStore.getState().leaveCompany();
-      window.location.assign('/select-company');
+      window.location.assign(appPath('select-company'));
     } else if (status === 403 && code === 'password_change_required') {
       // BE chặn mọi chức năng khi còn mật khẩu trong thư mời; guard sẽ mở trang đổi mật khẩu
       const account = useAuthStore.getState().account;

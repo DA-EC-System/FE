@@ -53,6 +53,7 @@ import { RefundsPage } from '@/features/finance/RefundsPage';
 import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
+import { BASE_PATH } from '@/utils/env';
 
 export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
@@ -372,4 +373,4 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <NotFoundPage /> },
-]);
+], { basename: BASE_PATH.replace(/\/$/, '') || '/' });

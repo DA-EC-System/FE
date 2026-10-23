@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Account, CompanyContext, Membership } from '@/types/auth';
 import type { ModuleKey } from '@/utils/modules';
+import { appPath } from '@/utils/env';
 
 /**
  * - `loading`: vừa mở hoặc tải lại trang, đang xin access token mới bằng cookie refresh.
@@ -79,5 +80,5 @@ function announce(accountId: string | null) {
 
 channel?.addEventListener('message', (e: MessageEvent<{ accountId: string | null }>) => {
   const current = useAuthStore.getState().account?.id ?? null;
-  if (e.data.accountId !== current) window.location.assign('/');
+  if (e.data.accountId !== current) window.location.assign(appPath(''));
 });
