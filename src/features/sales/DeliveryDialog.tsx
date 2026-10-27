@@ -10,20 +10,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { useUpdateDelivery } from '@/api/fulfillment.api';
+import { usePackageCommand } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
-import { DELIVERY_LABELS, deliveryOptions } from '@/features/fulfillment/shared';
-import type { DeliveryStatus } from '@/types/fulfillment';
-import type { Order } from '@/types/sales';
+import { DELIVERY_ACTIONS, PACKAGE_ACTION_LABELS, packageButtons } from '@/features/fulfillment/shared';
+import { useTransitionActor } from '@/hooks/usePermission';
+import type { DeliveryAction, PackageAction, PackageSummary } from '@/types/fulfillment';
 import { CONFLICT_CODES } from './CancelOrderDialog';
 
 const deliverySchema = z
   .object({
-    status: z.enum(['in_transit', 'delivered', 'delivery_failed'], { message: 'Chọn trạng thái giao' }),
+    action: z.enum(['deliver', 'fail', 'redeliver', 'return'], { message: 'Chọn trạng thái giao' }),
     reason: z.string().trim().max(500, 'Lý do tối đa 500 ký tự'),
   })
-  .refine((v) => v.status !== 'delivery_failed' || v.reason.length > 0, {
+  .refine((v) => v.action !== 'fail' || v.reason.length > 0, {
     path: ['reason'],
     message: 'Nhập lý do giao không thành công',
   });
@@ -31,42 +31,46 @@ const deliverySchema = z
 type DeliveryForm = z.input<typeof deliverySchema>;
 
 interface DeliveryDialogProps {
-  order: Order;
+  pkg: PackageSummary;
   open: boolean;
   onClose: () => void;
   onConflict: () => void;
 }
 
-/** UC-SF-09 — Cập nhật giao đơn tạo tay, hộp thư (AC-G1, AC-G2) */
-export function DeliveryDialog({ order, open, onClose, onConflict }: DeliveryDialogProps) {
-  const mutation = useUpdateDelivery();
+/** Giao lại tự giao vẫn gửi `redeliver`; mock chọn nhánh theo kiện */
+const toDelivery = (a: PackageAction): DeliveryAction => (a === 'redeliver_self' ? 'redeliver' : (a as DeliveryAction));
+
+/** Cập nhật giao một kiện của đơn tạo tay, hộp thư (sơ đồ D2); đơn sàn lấy trạng thái từ sàn */
+export function DeliveryDialog({ pkg, open, onClose, onConflict }: DeliveryDialogProps) {
+  const mutation = usePackageCommand();
+  const actor = useTransitionActor();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<DeliveryForm>({
     resolver: zodResolver(deliverySchema),
-    defaultValues: { status: undefined, reason: '' },
+    defaultValues: { action: undefined, reason: '' },
   });
   const { reset } = form;
-  const options = deliveryOptions(order.status);
-  const failed = form.watch('status') === 'delivery_failed';
+  const options = packageButtons(pkg, actor).actions.filter((a) => DELIVERY_ACTIONS.includes(a));
+  const failed = form.watch('action') === 'fail';
 
   useEffect(() => {
     if (open) {
-      reset({ status: undefined, reason: '' });
+      reset({ action: undefined, reason: '' });
       setError(null);
     }
   }, [open, reset]);
 
   const submit = async (v: DeliveryForm) => {
     setError(null);
-    const status = v.status as DeliveryStatus;
+    const action = v.action as DeliveryAction;
     try {
       await mutation.mutateAsync({
-        id: order.id,
-        version: order.version,
-        status,
-        reason: status === 'delivery_failed' ? v.reason.trim() : undefined,
+        id: pkg.id,
+        version: pkg.version,
+        command: { kind: 'delivery', action, reason: action === 'fail' ? v.reason.trim() : undefined },
       });
-      toast.success(`Đã cập nhật đơn ${order.code}: ${DELIVERY_LABELS[status]}`);
+      const label = options.find((a) => toDelivery(a) === action);
+      toast.success(`Đã cập nhật kiện ${pkg.code}: ${label ? PACKAGE_ACTION_LABELS[label] : ''}`);
       onClose();
     } catch (e) {
       const problem = getProblem(e);
@@ -81,24 +85,24 @@ export function DeliveryDialog({ order, open, onClose, onConflict }: DeliveryDia
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Cập nhật giao đơn {order.code}</DialogTitle>
+          <DialogTitle>Cập nhật giao kiện {pkg.code}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
             {error && <AlertMessage severity="error">{error}</AlertMessage>}
             <FormField
               control={form.control}
-              name="status"
+              name="action"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Trạng thái giao</FormLabel>
                   <FormControl>
                     <RadioGroup value={field.value ?? ''} onValueChange={field.onChange} className="grid gap-2">
-                      {options.map((s) => (
-                        <div key={s} className="flex items-center gap-2">
-                          <RadioGroupItem id={`delivery-${s}`} value={s} />
-                          <Label htmlFor={`delivery-${s}`} className="font-normal">
-                            {DELIVERY_LABELS[s]}
+                      {options.map((a) => (
+                        <div key={a} className="flex items-center gap-2">
+                          <RadioGroupItem id={`delivery-${a}`} value={toDelivery(a)} />
+                          <Label htmlFor={`delivery-${a}`} className="font-normal">
+                            {PACKAGE_ACTION_LABELS[a]}
                           </Label>
                         </div>
                       ))}

@@ -1,7 +1,6 @@
 import {
   ArrowLeftRight,
   ChartLine,
-  Boxes,
   Building2,
   ClipboardList,
   History,
@@ -147,16 +146,9 @@ export function companyNav(companyId: string): NavSection[] {
       title: 'Giao vận',
       items: [
         {
-          to: ROUTES.company.fulfillmentOrders(companyId),
-          label: 'Xử lý đơn',
+          to: ROUTES.company.packages(companyId),
+          label: 'Kiện hàng',
           icon: Truck,
-          module: 'fulfillment',
-          permission: PERMISSIONS.fulfillmentProcess,
-        },
-        {
-          to: ROUTES.company.batches(companyId),
-          label: 'Lô nhặt hàng',
-          icon: Boxes,
           module: 'fulfillment',
           permission: PERMISSIONS.fulfillmentProcess,
         },

@@ -38,16 +38,22 @@ const MESSAGES: Record<string, string> = {
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
   // FE#9, chờ commerio-backend#24 và #23
-  insufficient_stock: 'Không đủ tồn khả dụng để giữ hàng cho đơn. Chưa giữ dòng nào.',
   invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
-  not_allowed_for_source: 'Đơn sàn tự xác nhận khi giữ được hàng, không xác nhận tay.',
+  not_allowed_for_source: 'Đơn sàn lấy trạng thái từ sàn, không cập nhật tay được.',
   payment_not_allowed: 'Đơn này không tạo được mã thanh toán.',
   gateway_not_configured: 'Cổng thanh toán này chưa được cấu hình khoá.',
   gateway_unavailable: 'Cổng thanh toán đang lỗi, thử lại sau ít phút hoặc chọn cổng khác.',
-  // FE#10, chờ commerio-backend#25
-  payment_required: 'Đơn trả trước chưa thanh toán đủ, chưa xuất được.',
-  already_in_batch: 'Có đơn đã nằm trong lô khác.',
-  not_reserved: 'Đơn chưa giữ hàng nên chưa xuất được.',
+  // FE#59, lib/machines/order.ts (Documents/21 mục 19)
+  payment_required: 'Đơn trả trước sang Đang xử lý khi khách thanh toán, không xác nhận tay.',
+  already_handed_over: 'Đơn đã có kiện bàn giao, không huỷ được nữa.',
+  order_not_processing: 'Đơn chưa ở Đang xử lý (chưa thanh toán hoặc chưa xác nhận) nên chưa đóng gói được.',
+  self_delivery: 'Kiện tự giao, không báo sàn sẵn sàng.',
+  carrier_delivery: 'Kiện giao qua đơn vị vận chuyển, không tự giao.',
+  scan_mismatch: 'Số món quét chưa khớp với kiện.',
+  package_mismatch: 'Mã quét không phải kiện này.',
+  package_sealed: 'Kiện đã đóng gói, mở kiện trước khi chia.',
+  already_reported: 'Kiện đã được báo thất lạc.',
+  not_reported: 'Chưa ai báo thất lạc kiện này.',
   // FE#12, commerio-backend#27; `already_processed` nơi gọi ưu tiên `detail` vì có số phiếu
   already_processed: 'Chứng từ gốc đã được xử lý.',
   payment_state_changed: 'Trạng thái thanh toán của đơn vừa thay đổi.',

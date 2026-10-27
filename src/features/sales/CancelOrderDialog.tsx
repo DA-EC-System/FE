@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCancelOrder } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
+import { isSealed } from '@/lib/machines/order';
 import type { Order } from '@/types/sales';
 
 const cancelSchema = z.object({
@@ -20,7 +21,7 @@ const cancelSchema = z.object({
 type CancelForm = z.infer<typeof cancelSchema>;
 
 /** 409 trạng thái hoặc phiên bản đã đổi: nơi gọi báo và tải lại đơn (AC-A2) */
-export const CONFLICT_CODES = ['invalid_transition', 'version_conflict', 'not_allowed_for_source'];
+export const CONFLICT_CODES = ['invalid_transition', 'version_conflict', 'not_allowed_for_source', 'already_handed_over'];
 
 interface CancelOrderDialogProps {
   order: Order;
@@ -29,12 +30,13 @@ interface CancelOrderDialogProps {
   onConflict: () => void;
 }
 
-/** UC-SF-06 — Huỷ đơn tạo tay, hộp thư; lý do bắt buộc (AC-H1 đến AC-H3) */
+/** Huỷ đơn tạo tay, hộp thư khi chưa kiện nào rời kho (sơ đồ D1); lý do bắt buộc */
 export function CancelOrderDialog({ order, open, onClose, onConflict }: CancelOrderDialogProps) {
   const mutation = useCancelOrder();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<CancelForm>({ resolver: zodResolver(cancelSchema), defaultValues: { reason: '' } });
   const { reset } = form;
+  const sealed = order.packages.filter((p) => isSealed(p.status)).length;
 
   useEffect(() => {
     if (open) {
@@ -46,8 +48,10 @@ export function CancelOrderDialog({ order, open, onClose, onConflict }: CancelOr
   const submit = async ({ reason }: CancelForm) => {
     setError(null);
     try {
-      await mutation.mutateAsync({ id: order.id, version: order.version, reason });
-      toast.success(`Đã huỷ đơn ${order.code}`);
+      const r = await mutation.mutateAsync({ id: order.id, version: order.version, reason });
+      toast.success(
+        r.pendingOpen > 0 ? `Đã huỷ đơn ${order.code}, còn ${r.pendingOpen} kiện chờ mở` : `Đã huỷ đơn ${order.code}`,
+      );
       onClose();
     } catch (e) {
       const problem = getProblem(e);
@@ -69,7 +73,12 @@ export function CancelOrderDialog({ order, open, onClose, onConflict }: CancelOr
             <AlertMessage severity="warning">
               Sau khi huỷ:
               <ul className="mt-1 list-disc ps-5">
-                {order.status !== 'pending_confirmation' && <li>Nhả số hàng đang giữ cho đơn.</li>}
+                <li>Kiện chưa đóng gói huỷ ngay, nhả số hàng đang giữ.</li>
+                {sealed > 0 && (
+                  <li>
+                    {sealed} kiện đã đóng gói phải mở để trả hàng về kệ; đơn mang cờ Đang huỷ tới khi mở xong.
+                  </li>
+                )}
                 {order.paymentMethod === 'prepaid' && (
                   <>
                     <li>Mã thanh toán còn hiệu lực (nếu có) bị huỷ.</li>

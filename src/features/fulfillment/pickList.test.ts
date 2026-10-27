@@ -10,26 +10,26 @@ const line = (variantId: string, sku: string, quantity: number): FulfillmentLine
   quantity,
 });
 
-describe('buildPickList (AC-B4)', () => {
-  it('gộp theo biến thể, cộng số lượng, đếm số đơn, sắp theo SKU', () => {
+describe('buildPickList (FE#59)', () => {
+  it('gộp theo biến thể, cộng số lượng, đếm số kiện, sắp theo SKU', () => {
     const list = buildPickList([
       { lines: [line('v1', 'B-01', 1), line('v2', 'A-01', 1)] },
       { lines: [line('v1', 'B-01', 2)] },
       { lines: [line('v1', 'B-01', 1), line('v3', 'C-01', 1)] },
     ]);
-    expect(list.map((l) => [l.sku, l.quantity, l.orderCount])).toEqual([
+    expect(list.map((l) => [l.sku, l.quantity, l.packageCount])).toEqual([
       ['A-01', 1, 1],
       ['B-01', 4, 3],
       ['C-01', 1, 1],
     ]);
   });
 
-  it('một đơn có hai dòng cùng biến thể chỉ đếm một đơn', () => {
+  it('một kiện có hai dòng cùng biến thể chỉ đếm một kiện', () => {
     const [row] = buildPickList([{ lines: [line('v1', 'A', 1), line('v1', 'A', 2)] }]);
-    expect(row).toMatchObject({ quantity: 3, orderCount: 1 });
+    expect(row).toMatchObject({ quantity: 3, packageCount: 1 });
   });
 
-  it('lô rỗng ra danh sách rỗng', () => {
+  it('không có kiện ra danh sách rỗng', () => {
     expect(buildPickList([])).toEqual([]);
   });
 });

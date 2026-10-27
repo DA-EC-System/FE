@@ -57,9 +57,9 @@ export const ROUTES = {
     order: (companyId: string, orderId: string) => `/c/${companyId}/sales/orders/${orderId}`,
     customers: (companyId: string) => `/c/${companyId}/sales/customers`,
     customer: (companyId: string, customerId: string) => `/c/${companyId}/sales/customers/${customerId}`,
-    fulfillmentOrders: (companyId: string) => `/c/${companyId}/fulfillment/orders`,
-    batches: (companyId: string) => `/c/${companyId}/fulfillment/batches`,
-    batch: (companyId: string, batchId: string) => `/c/${companyId}/fulfillment/batches/${batchId}`,
+    packages: (companyId: string) => `/c/${companyId}/fulfillment/packages`,
+    package: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}`,
+    packScan: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}/pack`,
     financeDocuments: (companyId: string, tab: 'invoices' | 'receipts' | 'vouchers' = 'invoices') =>
       tab === 'invoices' ? `/c/${companyId}/finance/documents` : `/c/${companyId}/finance/documents?tab=${tab}`,
     invoice: (companyId: string, id: string) => `/c/${companyId}/finance/invoices/${id}`,
@@ -103,6 +103,8 @@ export function docRefPath(
       return c.supplierReturn(companyId, ref.id);
     case 'purchase_request':
       return c.purchaseRequest(companyId, ref.id);
+    case 'package':
+      return c.package(companyId, ref.id);
     default:
       return null;
   }

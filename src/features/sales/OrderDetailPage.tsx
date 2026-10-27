@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Scissors, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { FlagChips } from '@/components/common/FlagChips';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,16 +13,20 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useConfirmOrder, useOrder } from '@/api/sales.api';
-import { getProblem, type ProblemDetails } from '@/api/client';
+import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
-import { useCan } from '@/hooks/usePermission';
+import { useCan, useTransitionActor } from '@/hooks/usePermission';
+import { orderMachine } from '@/lib/machines/order';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
-import { orderActions } from '@/features/fulfillment/shared';
+import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, packageButtons } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
-import type { ShortLine } from '@/types/sales';
-import { ORDER_STATUS, PAYMENT_METHOD_LABELS, sourceLabel } from './shared';
+import type { PackageSummary } from '@/types/fulfillment';
+import type { Order } from '@/types/sales';
+import { COMPLETION_BLOCKER_LABELS, ORDER_STATUS, PAYMENT_METHOD_LABELS, sourceLabel } from './shared';
+import { OrderStage } from './OrderStage';
+import { SplitPackageDialog } from './SplitPackageDialog';
 import { Info } from './Info';
 import { PaymentPanel } from './PaymentPanel';
 import { CancelOrderDialog } from './CancelOrderDialog';
@@ -28,20 +34,27 @@ import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { SettlementBadges } from '@/features/finance/SettlementBadges';
 
-type ConfirmNotice = { kind: 'short'; lines: ShortLine[] } | { kind: 'error'; message: string };
+const orderRecord = (o: Order) => ({
+  source: o.source,
+  paymentMethod: o.paymentMethod,
+  packages: o.packages.map((p) => p.status),
+});
 
-/** UC-SF-04, 06, 09 — Chi tiết đơn: dòng hàng, tiền, lịch sử trạng thái, xác nhận, huỷ, cập nhật giao, thanh toán */
+/** Chi tiết đơn (sơ đồ D1): kiện, dòng hàng, tiền, lịch sử; xác nhận, huỷ, chia kiện, cập nhật giao theo kiện */
 export function OrderDetailPage() {
   const navigate = useNavigate();
   const { orderId = '' } = useParams();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
+  const actor = useTransitionActor();
   const query = useOrder(orderId);
   const order = query.data;
   const confirmMut = useConfirmOrder();
-  const [notice, setNotice] = useState<ConfirmNotice | null>(null);
-  const [dialog, setDialog] = useState<'cancel' | 'delivery' | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<'cancel' | null>(null);
+  const [delivering, setDelivering] = useState<PackageSummary | null>(null);
+  const [splitting, setSplitting] = useState<PackageSummary | null>(null);
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ms-2" onClick={() => navigate(ROUTES.company.orders(companyId))}>
@@ -72,14 +85,24 @@ export function OrderDetailPage() {
     );
   }
 
-  const status = ORDER_STATUS[order.status];
   const isMarketplace = order.source === 'marketplace';
-  const actions = orderActions(order, can);
+  const available = orderMachine.available(order.status, actor, orderRecord(order)).map((t) => t.action);
+  const canConfirm = available.includes('confirm');
+  const canCancel = available.includes('cancel');
+  const canProcess = can(PERMISSIONS.fulfillmentProcess);
+  const note =
+    isMarketplace && (order.status === 'unpaid' || order.status === 'processing')
+      ? 'Đơn sàn: trạng thái thanh toán, giao và huỷ lấy từ sàn.'
+      : order.status === 'unpaid' && order.paymentMethod === 'prepaid'
+        ? 'Đơn trả trước sang Đang xử lý khi khách thanh toán.'
+        : null;
 
   /** AC-A2: hook đã tải lại đơn sau khi gọi xong, nút đổi theo trạng thái mới */
   const onConflict = () => {
     setDialog(null);
-    setNotice({ kind: 'error', message: 'Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.' });
+    setDelivering(null);
+    setSplitting(null);
+    setNotice('Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.');
   };
 
   const confirm = async () => {
@@ -88,14 +111,9 @@ export function OrderDetailPage() {
       await confirmMut.mutateAsync({ id: order.id, version: order.version });
       toast.success('Đã xác nhận đơn');
     } catch (e) {
-      const problem = getProblem(e) as (ProblemDetails & { shortLines?: ShortLine[] }) | undefined;
-      if (problem?.code === 'insufficient_stock') {
-        setNotice({ kind: 'short', lines: problem.shortLines ?? [] });
-      } else if (problem?.code === 'version_conflict' || problem?.code === 'invalid_transition') {
-        onConflict();
-      } else {
-        setNotice({ kind: 'error', message: problemMessage(e) });
-      }
+      const problem = getProblem(e);
+      if (problem?.code === 'version_conflict' || problem?.code === 'invalid_transition') onConflict();
+      else setNotice(problemMessage(e));
     }
   };
 
@@ -106,21 +124,15 @@ export function OrderDetailPage() {
         title={`Đơn ${order.code}`}
         subtitle={`${sourceLabel(order)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
         action={
-          actions.confirm || actions.cancel || actions.delivery ? (
+          canConfirm || canCancel ? (
             <div className="flex flex-wrap gap-2">
-              {actions.cancel && (
+              {canCancel && (
                 <Button variant="outline" onClick={() => setDialog('cancel')}>
                   <XCircle />
                   Huỷ đơn
                 </Button>
               )}
-              {actions.delivery && (
-                <Button onClick={() => setDialog('delivery')}>
-                  <Truck />
-                  Cập nhật giao
-                </Button>
-              )}
-              {actions.confirm && (
+              {canConfirm && (
                 <Button onClick={confirm} disabled={confirmMut.isPending}>
                   <CheckCircle2 />
                   {confirmMut.isPending ? 'Đang xác nhận...' : 'Xác nhận đơn'}
@@ -130,32 +142,29 @@ export function OrderDetailPage() {
           ) : undefined
         }
       />
-      <div className="mb-4 flex flex-wrap gap-1">
-        <Badge variant={status.variant}>{status.label}</Badge>
-        {order.isShortStock && <Badge variant="destructive">Thiếu hàng</Badge>}
+      <div className="mb-4 flex flex-wrap items-center gap-1" data-testid="order-status">
+        <StatusBadge status={order.status} statuses={ORDER_STATUS} />
+        <OrderStage order={order} />
+        {order.rawMarketplaceStatus && <Badge variant="outline">Sàn: {order.rawMarketplaceStatus}</Badge>}
         {isMarketplace && <SettlementBadges orderId={order.id} />}
       </div>
 
-      {actions.note && (
+      {note && (
         <AlertMessage severity="info" className="mb-4">
-          {actions.note}
+          {note}
         </AlertMessage>
       )}
-      {notice?.kind === 'short' && (
-        <AlertMessage severity="error" className="mb-4" onClose={() => setNotice(null)}>
-          <p className="font-medium">Không đủ hàng</p>
-          <ul className="mt-1 list-disc ps-5" data-testid="short-lines">
-            {notice.lines.map((l) => (
-              <li key={l.variantId}>
-                {l.sku}: cần {l.requested}, khả dụng {l.available}
-              </li>
-            ))}
-          </ul>
+      {order.completionBlocker && (
+        <AlertMessage severity="info" className="mb-4">
+          Chưa hoàn tất: {COMPLETION_BLOCKER_LABELS[order.completionBlocker] ?? order.completionBlocker}
+          {order.returnWindowEndsAt && order.completionBlocker === 'return_window'
+            ? ` (hết hạn trả hàng ${formatDateTime(order.returnWindowEndsAt)})`
+            : ''}
         </AlertMessage>
       )}
-      {notice?.kind === 'error' && (
+      {notice && (
         <AlertMessage severity="error" className="mb-4" onClose={() => setNotice(null)}>
-          {notice.message}
+          {notice}
         </AlertMessage>
       )}
 
@@ -200,7 +209,6 @@ export function OrderDetailPage() {
                     <TableHead>Sản phẩm</TableHead>
                     <TableHead className="w-28 text-right">Đơn giá</TableHead>
                     <TableHead className="w-24 text-right">Số lượng</TableHead>
-                    <TableHead className="w-28 text-right">Khả dụng</TableHead>
                     <TableHead className="w-32 text-right">Thành tiền</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -208,7 +216,8 @@ export function OrderDetailPage() {
                   {order.lines.map((l) => (
                     <TableRow key={l.id} data-row-id={l.variantId}>
                       <TableCell>
-                        <p className="font-medium">{l.sku}</p>
+                        <p className="font-medium">{l.sku || l.externalSku}</p>
+                        {l.externalSku && !l.variantId && <Badge variant="destructive">Chưa ghép SKU</Badge>}
                         <p className="text-xs text-muted-foreground">
                           {l.productName}
                           {l.attributesLabel && ` · ${l.attributesLabel}`}
@@ -216,15 +225,6 @@ export function OrderDetailPage() {
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(l.unitPrice)}</TableCell>
                       <TableCell className="text-right">{l.quantity}</TableCell>
-                      <TableCell
-                        className={
-                          order.status === 'pending_confirmation' && l.available < l.quantity
-                            ? 'text-right text-destructive'
-                            : 'text-right'
-                        }
-                      >
-                        {l.available}
-                      </TableCell>
                       <TableCell className="text-right">{formatCurrency(l.lineTotal)}</TableCell>
                     </TableRow>
                   ))}
@@ -250,6 +250,69 @@ export function OrderDetailPage() {
 
           <Card className="py-4">
             <CardHeader>
+              <CardTitle className="text-base">Kiện ({order.packages.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table data-testid="order-packages">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-32">Mã kiện</TableHead>
+                    <TableHead>Hàng</TableHead>
+                    <TableHead className="w-48">Trạng thái</TableHead>
+                    <TableHead className="w-48 text-right" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.packages.map((p) => {
+                    const delivery = packageButtons(p, actor).actions.some((a) => DELIVERY_ACTIONS.includes(a));
+                    const splittable =
+                      canProcess && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
+                    return (
+                      <TableRow key={p.id} data-row-id={p.code}>
+                        <TableCell className="font-medium">
+                          {canProcess ? (
+                            <Link to={ROUTES.company.package(companyId, p.id)} className="text-primary hover:underline">
+                              {p.code}
+                            </Link>
+                          ) : (
+                            p.code
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-normal text-sm">
+                          {p.lines.map((l) => `${l.sku} × ${l.quantity}`).join(', ')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            <StatusBadge status={p.status} statuses={PACKAGE_STATUS} />
+                            <FlagChips flags={p.flags} meta={PACKAGE_FLAGS} />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {splittable && (
+                              <Button size="sm" variant="outline" onClick={() => setSplitting(p)}>
+                                <Scissors />
+                                Chia kiện
+                              </Button>
+                            )}
+                            {delivery && (
+                              <Button size="sm" onClick={() => setDelivering(p)}>
+                                <Truck />
+                                Cập nhật giao
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card className="py-4">
+            <CardHeader>
               <CardTitle className="text-base">Lịch sử trạng thái</CardTitle>
             </CardHeader>
             <CardContent>
@@ -268,12 +331,10 @@ export function OrderDetailPage() {
         onClose={() => setDialog(null)}
         onConflict={onConflict}
       />
-      <DeliveryDialog
-        order={order}
-        open={dialog === 'delivery'}
-        onClose={() => setDialog(null)}
-        onConflict={onConflict}
-      />
+      {delivering && (
+        <DeliveryDialog pkg={delivering} open onClose={() => setDelivering(null)} onConflict={onConflict} />
+      )}
+      <SplitPackageDialog pkg={splitting} onClose={() => setSplitting(null)} onConflict={onConflict} />
     </div>
   );
 }

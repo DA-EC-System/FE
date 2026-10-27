@@ -6,10 +6,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOrders } from '@/api/sales.api';
 import { problemMessage } from '@/api/problemMessages';
@@ -18,25 +15,16 @@ import { useCan } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
-import type { OrderSource, OrderStatus, OrderSummary, PaymentMethod } from '@/types/sales';
-import { ORDER_STATUS, PAYMENT_METHOD_LABELS, SOURCE_LABELS, sourceLabel } from './shared';
+import type { OrderFlag, OrderSource, OrderStage as Stage, OrderStatus, OrderSummary, PaymentMethod } from '@/types/sales';
+import { ORDER_FLAGS, ORDER_STAGE, ORDER_STATUS, PAYMENT_METHOD_LABELS, SOURCE_LABELS, sourceLabel } from './shared';
+import { OrderStage } from './OrderStage';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 
 const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';
-const STATUS_TABS: OrderStatus[] = [
-  'pending_confirmation',
-  'confirmed',
-  'picking',
-  'packing',
-  'issued',
-  'in_transit',
-  'delivered',
-  'delivery_failed',
-  'cancelled',
-];
+const STATUS_TABS: OrderStatus[] = ['unpaid', 'processing', 'completed', 'cancelled'];
 
-/** UC-SF-04 — Đơn hàng từ mọi nguồn; tab mặc định là đơn chờ xác nhận */
+/** Đơn hàng từ mọi nguồn: tab theo 4 trạng thái (sơ đồ D1), lọc theo giai đoạn suy từ kiện và cờ */
 export function OrderListPage() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -44,10 +32,11 @@ export function OrderListPage() {
   const canCreate = useCan()(PERMISSIONS.orderCreate);
   const f = useUrlFilters(PAGE_SIZES);
   const statusParam = f.params.get('status');
-  const status = statusParam === ALL ? '' : ((statusParam as OrderStatus | null) ?? 'pending_confirmation');
+  const status = STATUS_TABS.includes(statusParam as OrderStatus) ? (statusParam as OrderStatus) : '';
   const source = (f.params.get('source') ?? '') as OrderSource | '';
   const paymentMethod = (f.params.get('paymentMethod') ?? '') as PaymentMethod | '';
-  const shortStock = f.params.get('shortStock') === 'true';
+  const stage = (f.params.get('stage') ?? '') as Stage | '';
+  const flag = (f.params.get('flag') ?? '') as OrderFlag | '';
   const from = f.params.get('from') ?? '';
   const to = f.params.get('to') ?? '';
 
@@ -58,11 +47,12 @@ export function OrderListPage() {
     status: status || undefined,
     source: source || undefined,
     paymentMethod: paymentMethod || undefined,
-    shortStock: shortStock || undefined,
+    stage: stage || undefined,
+    flag: flag || undefined,
     from: from || undefined,
     to: to || undefined,
   });
-  const filtered = Boolean(f.q || source || paymentMethod || shortStock || from || to);
+  const filtered = Boolean(f.q || source || paymentMethod || stage || flag || from || to);
 
   const columns = useMemo<ColumnDef<OrderSummary>[]>(
     () => [
@@ -95,16 +85,8 @@ export function OrderListPage() {
       {
         id: 'status',
         header: 'Trạng thái',
-        meta: { className: 'w-44' },
-        cell: ({ row }) => {
-          const s = ORDER_STATUS[row.original.status];
-          return (
-            <div className="flex flex-wrap gap-1">
-              <Badge variant={s.variant}>{s.label}</Badge>
-              {row.original.isShortStock && <Badge variant="destructive">Thiếu hàng</Badge>}
-            </div>
-          );
-        },
+        meta: { className: 'w-56' },
+        cell: ({ row }) => <OrderStage order={row.original} />,
       },
       {
         id: 'paymentMethod',
@@ -132,15 +114,15 @@ export function OrderListPage() {
         actionIcon={<Plus />}
         onAction={() => navigate(ROUTES.company.orderNew(companyId))}
       />
-      <Tabs value={status || ALL} onValueChange={(v) => f.update({ status: v, page: undefined })}>
+      <Tabs value={status || ALL} onValueChange={(v) => f.update({ status: v === ALL ? undefined : v, page: undefined })}>
         <div className="mb-2 overflow-x-auto">
           <TabsList>
+            <TabsTrigger value={ALL}>Tất cả</TabsTrigger>
             {STATUS_TABS.map((s) => (
               <TabsTrigger key={s} value={s}>
                 {ORDER_STATUS[s].label}
               </TabsTrigger>
             ))}
-            <TabsTrigger value={ALL}>Tất cả</TabsTrigger>
           </TabsList>
         </div>
       </Tabs>
@@ -169,14 +151,18 @@ export function OrderListPage() {
           />
           <DateFilter label="Từ ngày" value={from} max={to || undefined} onChange={f.setFilter('from')} />
           <DateFilter label="Đến ngày" value={to} min={from || undefined} onChange={f.setFilter('to')} />
-          <div className="flex h-9 items-center gap-2">
-            <Checkbox
-              id="short-stock"
-              checked={shortStock}
-              onCheckedChange={(v) => f.setFilter('shortStock')(v === true ? 'true' : '')}
-            />
-            <Label htmlFor="short-stock">Chỉ đơn thiếu hàng</Label>
-          </div>
+          <FilterSelect
+            label="Giai đoạn"
+            value={stage}
+            onChange={f.setFilter('stage')}
+            options={(Object.keys(ORDER_STAGE) as Stage[]).map((s) => ({ value: s, label: ORDER_STAGE[s].label }))}
+          />
+          <FilterSelect
+            label="Cờ"
+            value={flag}
+            onChange={f.setFilter('flag')}
+            options={(Object.keys(ORDER_FLAGS) as OrderFlag[]).map((x) => ({ value: x, label: ORDER_FLAGS[x].label }))}
+          />
         </FilterBar>
         <DataTable
           columns={columns}

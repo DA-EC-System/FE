@@ -3,15 +3,40 @@ import { db } from '../db';
 import { PERMISSIONS } from '@/utils/permissions';
 import * as sales from '../salesData';
 import * as payment from '../paymentData';
-import type { Customer, CustomerChannel, CustomerSummary, CreateOrderInput, Order, OrderSummary, OrderVariantOption, ShippingAddress, UserRef } from '@/types/sales';
-import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
+import * as fulfillment from '../fulfillmentData';
+import type {
+  Customer,
+  CustomerChannel,
+  CustomerSummary,
+  CreateOrderInput,
+  Order,
+  OrderFlag,
+  OrderSummary,
+  OrderVariantOption,
+  ShippingAddress,
+  StatusChangeSource,
+  UserRef,
+} from '@/types/sales';
+import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, findOwned, rid } from './catalog';
 import { ensureStandard, sellableVariants } from './pricing';
 import { isQty, stockLevelOf, variantLabel } from './inventory';
 import { availableOf as stockAvailable } from '../engine/stock';
+import type { StatusChange } from '@/lib/stateMachine';
+import { newPackage, placePackage, toPackageSummary } from './fulfillment';
+import {
+  RETURN_WINDOW_DAYS,
+  completionBlocker,
+  isDueSoon,
+  isStopped,
+  orderMachine,
+  outcomeOf,
+  stageOf,
+  type OrderRecord,
+} from '@/lib/machines/order';
 
-// ---------- Bán hàng: khách hàng, đơn (UC-SF-01, 02, 04; hợp đồng đề xuất ở commerio-backend#24) ----------
+// ---------- Bán hàng: khách hàng, đơn (UC-SF-01, 02; đơn theo sơ đồ D1, FE#59) ----------
 
 export const PHONE_RE = /^0\d{9}$/;
 export const MAX_LINE_QTY = 9999;
@@ -58,9 +83,106 @@ export const toCustomer = (c: sales.MockCustomer): Customer => ({
   version: c.version,
 });
 
+export const packagesOf = (o: sales.MockOrder) => fulfillment.packages.filter((p) => p.orderId === o.id);
+
+export const orderRecord = (o: sales.MockOrder): OrderRecord => ({
+  source: o.source,
+  paymentMethod: o.paymentMethod,
+  packages: packagesOf(o).map((p) => p.status),
+});
+
+export function toStatusChange<S extends string>(h: sales.MockStatusChange<S>, source: sales.MockOrder['source']): StatusChange<S> {
+  return {
+    at: h.at,
+    from: h.from,
+    to: h.to,
+    by: userRef(h.by),
+    source: h.source ?? (h.by ? 'user' : source === 'marketplace' ? 'marketplace' : 'system'),
+    reason: h.reason ?? null,
+  };
+}
+
+export function pushOrderHistory(
+  o: sales.MockOrder,
+  to: sales.MockOrder['status'],
+  at: string,
+  by: string | null,
+  source?: StatusChangeSource,
+  reason: string | null = null,
+) {
+  o.history.push({ from: o.status, to, at, by, source: source ?? (by ? 'user' : 'system'), reason });
+  o.status = to;
+  o.version += 1;
+}
+
+/** Khách trả tiền (cổng thanh toán, gán khoản thu, sàn báo): đơn chưa thanh toán sang Đang xử lý */
+export function payOrder(o: sales.MockOrder, at: string, source: StatusChangeSource = 'system') {
+  if (!orderMachine.check(o.status, 'pay').ok) return;
+  pushOrderHistory(o, 'processing', at, null, source);
+}
+
+/** Đơn đang huỷ đã mở hết kiện đóng gói, hoặc huỷ ngay: chuyển Đã huỷ, hoàn tiền nếu đã trả */
+export function finishCancel(o: sales.MockOrder, at: string, by: string | null = null, source?: StatusChangeSource) {
+  o.flags = o.flags.filter((f) => f !== 'cancelling');
+  pushOrderHistory(o, 'cancelled', at, by, source, o.cancelReason);
+  for (const link of payment.links) {
+    if (link.orderId === o.id && link.status === 'active') link.status = 'cancelled';
+  }
+  const row = payment.orderPayments.find((p) => p.orderId === o.id);
+  if (row?.status === 'paid') {
+    row.refundStatus = 'pending_refund';
+    row.refundRequestedAt = at;
+  }
+}
+
+/** Đơn COD của người bán (tạo tay, hộp thư) đã giao mà kế toán chưa xác nhận tiền */
+const codUnconfirmed = (o: sales.MockOrder, delivered: boolean) =>
+  o.source !== 'marketplace' &&
+  o.paymentMethod === 'cod' &&
+  delivered &&
+  payment.orderPayments.find((p) => p.orderId === o.id)?.status !== 'cod_collected';
+
+const lastDeliveredAt = (o: sales.MockOrder) =>
+  packagesOf(o).reduce<string | null>((max, p) => (p.deliveredAt && (!max || p.deliveredAt > max) ? p.deliveredAt : max), null);
+
+function blockerOf(o: sales.MockOrder, now: number) {
+  const own = packagesOf(o);
+  const statuses = own.map((p) => p.status);
+  return completionBlocker({
+    packages: statuses,
+    lastDeliveredAt: lastDeliveredAt(o),
+    openReturnRequests: 0,
+    codUnconfirmed: codUnconfirmed(o, statuses.includes('delivered')),
+    now,
+  });
+}
+
+/** Job hoàn tất (và sau mỗi lần kiện dừng, kế toán xác nhận COD): đủ điều kiện thì hoàn tất; trả về đã hoàn tất hay chưa */
+export function tryComplete(o: sales.MockOrder, now: number) {
+  if (o.status !== 'processing' || o.flags.includes('cancelling') || blockerOf(o, now)) return false;
+  o.outcome = outcomeOf(packagesOf(o).map((p) => p.status));
+  o.flags = o.flags.filter((f) => f !== 'platform_cancelled');
+  pushOrderHistory(o, 'completed', new Date(now).toISOString(), null, 'system');
+  return true;
+}
+
+/** Cờ lưu cộng cờ suy ra lúc đọc */
+function flagsOf(o: sales.MockOrder, now: number): OrderFlag[] {
+  const flags = new Set(o.flags);
+  const own = packagesOf(o);
+  const open = o.status === 'unpaid' || o.status === 'processing';
+  if (open && own.some((p) => p.needsAttention)) flags.add('needs_attention');
+  if (open && isDueSoon(o.shipBy, own.map((p) => p.status), now)) flags.add('due_soon');
+  const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
+  if (open && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected')) flags.add('shop_disconnected');
+  return [...flags];
+}
+
 export function toOrderSummary(o: sales.MockOrder): OrderSummary {
   const customer = o.customerId ? sales.customers.find((c) => c.id === o.customerId) : undefined;
   const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
+  const statuses = packagesOf(o).map((p) => p.status);
+  const live = statuses.filter((s) => s !== 'cancelled');
   return {
     id: o.id,
     code: o.code,
@@ -68,8 +190,16 @@ export function toOrderSummary(o: sales.MockOrder): OrderSummary {
     shop: shop ? { id: shop.id, shopName: shop.shopName, platform: shop.platform } : null,
     customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : null,
     status: o.status,
-    isShortStock: o.isShortStock,
+    display: {
+      stage: stageOf({ status: o.status, source: o.source, paymentMethod: o.paymentMethod, flags: o.flags, packages: statuses }),
+      delivered: live.filter((s) => s === 'delivered').length,
+      packages: live.length,
+    },
+    flags: flagsOf(o, Date.now()),
+    outcome: o.outcome,
+    rawMarketplaceStatus: o.rawMarketplaceStatus,
     paymentMethod: o.paymentMethod,
+    shipBy: o.shipBy,
     total: sales.totalOf(o),
     lineCount: o.lines.length,
     createdAt: o.createdAt,
@@ -79,6 +209,9 @@ export function toOrderSummary(o: sales.MockOrder): OrderSummary {
 }
 
 export function toOrder(o: sales.MockOrder): Order {
+  const own = packagesOf(o);
+  const last = lastDeliveredAt(o);
+  const allStopped = own.length > 0 && own.every((p) => isStopped(p.status));
   return {
     ...toOrderSummary(o),
     shippingAddress: o.shippingAddress,
@@ -95,16 +228,13 @@ export function toOrder(o: sales.MockOrder): Order {
       quantity: l.quantity,
       unitPrice: l.unitPrice,
       lineTotal: l.quantity * l.unitPrice,
-      available: availableOf(o.companyId, l.variantId),
+      available: l.variantId ? availableOf(o.companyId, l.variantId) : 0,
+      externalSku: l.externalSku ?? null,
     })),
-    statusHistory: o.history.map((h) => ({
-      from: h.from,
-      to: h.to,
-      at: h.at,
-      by: userRef(h.by),
-      source: h.source ?? (h.by ? 'user' : o.source === 'marketplace' ? 'marketplace' : 'system'),
-      reason: h.reason ?? null,
-    })),
+    packages: own.map(toPackageSummary),
+    returnWindowEndsAt: last ? new Date(Date.parse(last) + RETURN_WINDOW_DAYS * 24 * 3600_000).toISOString() : null,
+    completionBlocker: o.status === 'processing' && allStopped ? blockerOf(o, Date.now()) : null,
+    statusHistory: o.history.map((h) => toStatusChange(h, o.source)),
   };
 }
 
@@ -178,10 +308,11 @@ export const salesHandlers = [
             Boolean(o.customer?.name.toLowerCase().includes(search)) ||
             Boolean(o.customer?.phone.includes(search))) &&
           (!q('status') || o.status === q('status')) &&
+          (!q('stage') || o.display.stage === q('stage')) &&
+          (!q('flag') || o.flags.includes(q('flag') as OrderFlag)) &&
           (!q('source') || o.source === q('source')) &&
           (!q('shopId') || o.shop?.id === q('shopId')) &&
           (!q('paymentMethod') || o.paymentMethod === q('paymentMethod')) &&
-          (q('shortStock') !== 'true' || o.isShortStock) &&
           (!q('customerId') || o.customer?.id === q('customerId')) &&
           (!q('from') || vnDate(o.createdAt) >= q('from')!) &&
           (!q('to') || vnDate(o.createdAt) <= q('to')!),
@@ -265,6 +396,7 @@ export const salesHandlers = [
     const fee = body.shippingFee;
     if (typeof fee !== 'number' || !Number.isInteger(fee) || fee < 0) errors.shippingFee = 'Phí giao là số nguyên không âm';
     if (body.paymentMethod !== 'prepaid' && body.paymentMethod !== 'cod') errors.paymentMethod = 'Chọn cách thanh toán';
+    if (body.selfDelivery !== undefined && typeof body.selfDelivery !== 'boolean') errors.selfDelivery = 'Chọn cách giao';
 
     if (Object.keys(errors).length > 0) {
       return problem(422, 'Dữ liệu không hợp lệ', { errors, ...(priceMissing ? { code: 'price_missing' } : {}) });
@@ -305,8 +437,11 @@ export const salesHandlers = [
       source: 'manual',
       shopId: null,
       customerId: customer.id,
-      status: 'pending_confirmation',
-      isShortStock: false,
+      status: 'unpaid',
+      flags: [],
+      outcome: null,
+      rawMarketplaceStatus: null,
+      shipBy: null,
       paymentMethod: body.paymentMethod!,
       shippingAddress: {
         name: body.shippingAddress!.name.trim(),
@@ -328,12 +463,28 @@ export const salesHandlers = [
           unitPrice: prices[l.variantId] as number,
         };
       }),
-      history: [{ from: null, to: 'pending_confirmation', at, by: actorId }],
+      history: [{ from: null, to: 'unpaid', at, by: actorId }],
       createdAt: at,
       createdBy: actorId,
       version: 1,
     };
     sales.orders.push(order);
+    // Một kiện mặc định, giữ hàng ngay nếu đủ (đơn chưa thanh toán bị lấy lại trước)
+    placePackage(
+      newPackage(order, order.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })), body.selfDelivery === true, at),
+      at,
+    );
+    // Trả trước: chờ khách trả (mã thanh toán, chuyển khoản); COD tạo dòng khi xác nhận
+    if (order.paymentMethod === 'prepaid') {
+      payment.orderPayments.push({
+        companyId,
+        orderId: order.id,
+        method: 'prepaid',
+        status: 'unpaid',
+        refundStatus: 'none',
+        paidAt: null,
+      });
+    }
     writeCompanyLog(guard.value, 'create', orderEntity(order), null, orderSnapshot(order));
     return HttpResponse.json(toOrder(order), { status: 201 });
   }),
@@ -347,46 +498,18 @@ export const salesHandlers = [
     if (!found.ok) return found.response;
     const order = found.value;
     const body = (await request.json()) as { version?: number };
-    if (order.source === 'marketplace') {
-      return problem(409, 'Đơn sàn tự xác nhận', {
-        code: 'not_allowed_for_source',
-        detail: 'Đơn sàn tự xác nhận khi giữ được hàng.',
-      });
-    }
     if (body.version !== order.version) return versionConflict(toOrder(order), 'Đơn vừa được người khác cập nhật.');
-    if (order.status !== 'pending_confirmation') {
-      return problem(409, 'Đơn không còn chờ xác nhận', { code: 'invalid_transition', current: toOrder(order) });
-    }
-    // Giữ hàng tất cả hoặc không dòng nào (UC-SF-04)
-    const shortLines = order.lines
-      .map((l) => ({ variantId: l.variantId, sku: l.sku, requested: l.quantity, available: availableOf(companyId, l.variantId) }))
-      .filter((l) => l.available < l.requested);
+    // Chỉ đơn COD của người bán; trả trước sang Đang xử lý khi khách trả. Thiếu hàng vẫn xác nhận được, kiện chờ hàng
+    const next = checkTransition(orderMachine, order.status, 'confirm', guard.value, orderRecord(order));
+    if (!next.ok) return next.response;
     const before = orderSnapshot(order);
-    if (shortLines.length > 0) {
-      if (!order.isShortStock) {
-        order.isShortStock = true;
-        order.version += 1;
-      }
-      return problem(409, 'Không đủ hàng', {
-        code: 'insufficient_stock',
-        detail: 'Có sản phẩm không đủ tồn khả dụng.',
-        shortLines,
-        current: toOrder(order),
-      });
-    }
-    const at = db.now();
-    for (const l of order.lines) stockLevelOf(companyId, l.variantId).reserved += l.quantity;
-    order.status = 'confirmed';
-    order.isShortStock = false;
-    order.version += 1;
-    order.history.push({ from: 'pending_confirmation', to: 'confirmed', at, by: guard.value.account.id });
-    // payment.initOrderPayment: payment tự tạo dòng nếu Sale đã tạo mã trước đó (A8)
-    if (order.paymentMethod && !payment.orderPayments.some((p) => p.orderId === order.id)) {
+    pushOrderHistory(order, next.value, db.now(), guard.value.account.id);
+    if (!payment.orderPayments.some((p) => p.orderId === order.id)) {
       payment.orderPayments.push({
         companyId,
         orderId: order.id,
-        method: order.paymentMethod,
-        status: order.paymentMethod === 'cod' ? 'cod_pending' : 'unpaid',
+        method: 'cod',
+        status: 'cod_pending',
         refundStatus: 'none',
         paidAt: null,
       });

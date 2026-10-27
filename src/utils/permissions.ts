@@ -41,10 +41,12 @@ export const PERMISSIONS = {
   customerView: 'sales.customer.view',
   /** Huỷ đơn tạo tay, hộp thư (UC-SF-06) */
   orderCancel: 'sales.order.cancel',
-  /** Tạo lô nhặt, nhặt xong, xuất kho đơn (UC-SF-07, UC-SF-08) */
+  /** Đóng gói, báo sàn, bàn giao, mở kiện, chia kiện, quét nhận hàng hoàn (sơ đồ D2) */
   fulfillmentProcess: 'fulfillment.order.process',
-  /** Cập nhật giao đơn tạo tay, hộp thư (UC-SF-09) */
+  /** Tự giao, cập nhật giao kiện đơn tạo tay, hộp thư (sơ đồ D2) */
   deliveryUpdate: 'fulfillment.delivery.update',
+  /** Đảo bàn giao: cộng lại tồn thực (sơ đồ D2, CEO) */
+  handoverRevert: 'fulfillment.handover.revert',
   /** Tạo mã QR, link thanh toán cho đơn (UC-PF-01) */
   paymentLinkCreate: 'payment.link.create',
   /** Cấu hình khoá cổng thanh toán (UC-PF-11) */

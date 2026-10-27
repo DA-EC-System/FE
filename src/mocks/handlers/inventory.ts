@@ -382,23 +382,20 @@ function lockForApproval(doc: MockStockDoc): Errors {
   return errors;
 }
 
+type Allocator = (companyId: string, variantIds: string[]) => void;
+let allocator: Allocator | null = null;
+
+/** Giao vận đăng ký cách chia hàng theo kiện (handlers/fulfillment.ts); tránh import vòng */
+export function registerAllocator(fn: Allocator) {
+  allocator = fn;
+}
+
 /**
  * Khả dụng tăng: chia cho kiện Thiếu hàng trước rồi mới đẩy tồn (sơ đồ B2).
- * Tồn thực xuống dưới đang giữ: lấy lại phần giữ. Kiện thật ở FE#59 sẽ dùng allocate/reclaim
- * của engine/stock; ở đây chuyển số giữa đang giữ và hàng Thiếu hàng cần.
+ * Tồn thực xuống dưới đang giữ: lấy lại phần giữ của kiện chưa đóng gói.
  */
 export function rebalance(companyId: string, variantIds: string[]) {
-  for (const variantId of new Set(variantIds)) {
-    const level = stockLevelOf(companyId, variantId);
-    const give = Math.min(level.backordered, availableOf(level));
-    level.reserved += give;
-    level.backordered -= give;
-    const over = level.reserved - Math.max(level.onHand, 0);
-    if (over > 0) {
-      level.reserved -= over;
-      level.backordered += over;
-    }
-  }
+  allocator?.(companyId, variantIds);
 }
 
 /** Ghi sổ: Template Method ở BE — đổi tồn, ghi thẻ kho, chia hàng cho kiện thiếu, đẩy khả dụng lên sàn (QT-46) */

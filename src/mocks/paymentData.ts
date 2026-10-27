@@ -176,6 +176,8 @@ export const links: MockPaymentLink[] = [
 /** Đơn chưa có dòng ở đây thì trạng thái suy từ đơn (A8) */
 export const orderPayments: MockOrderPayment[] = [
   { companyId: 'cmp-001', orderId: 'ord-1001', method: 'cod', status: 'not_collected', refundStatus: 'none', paidAt: null },
+  // Đơn tay trả trước có dòng chờ trả ngay khi tạo (FE#59)
+  { companyId: 'cmp-001', orderId: 'ord-1003', method: 'prepaid', status: 'unpaid', refundStatus: 'none', paidAt: null },
   { companyId: 'cmp-001', orderId: 'ord-1006', method: 'prepaid', status: 'paid', refundStatus: 'none', paidAt: '2026-10-15T02:09:00.000Z' },
   { companyId: 'cmp-001', orderId: 'ord-1007', method: 'prepaid', status: 'unpaid', refundStatus: 'none', paidAt: null },
   { companyId: 'cmp-001', orderId: 'ord-1008', method: 'cod', status: 'cod_pending', refundStatus: 'none', paidAt: null },

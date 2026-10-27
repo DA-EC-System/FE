@@ -11,7 +11,7 @@ import { API, CompanyActor, LATENCY, pageParams, paginate, problem, requireCompa
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid } from './catalog';
 import { variantLabel } from './inventory';
-import { userRef, vnDate } from './sales';
+import { payOrder, tryComplete, userRef, vnDate } from './sales';
 import { toOrderPayment } from './payment';
 
 // ---------- Tài chính: chứng từ, phiếu chi, COD, hoàn tiền, khoản thu chưa khớp (UC-PF-03..07; commerio-backend#27) ----------
@@ -604,6 +604,8 @@ export const financeHandlers = [
       row!.status = 'cod_collected';
       row!.paidAt = at;
       const r = pushReceipt(guard.value, { source: 'cod', orderId: own[i]!.id, amount: sales.totalOf(own[i]!) });
+      // Kế toán xác nhận tiền COD là điều kiện cuối để đơn hoàn tất (sơ đồ D1)
+      tryComplete(own[i]!, Date.parse(at));
       return { orderId: own[i]!.id, receipt: { id: r.id, number: r.number } };
     });
     return HttpResponse.json({ receipts: result }, { status: 201 });
@@ -703,6 +705,7 @@ export const financeHandlers = [
     }
     row.status = 'paid';
     row.paidAt = db.now();
+    payOrder(o, row.paidAt);
     for (const link of payment.links) {
       if (link.orderId === o.id && link.status === 'active') link.status = 'cancelled';
     }

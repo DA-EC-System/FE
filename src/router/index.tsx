@@ -43,9 +43,9 @@ import { OrderCreatePage } from '@/features/sales/OrderCreatePage';
 import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
 import { CustomerListPage } from '@/features/sales/CustomerListPage';
 import { CustomerDetailPage } from '@/features/sales/CustomerDetailPage';
-import { FulfillmentOrdersPage } from '@/features/fulfillment/FulfillmentOrdersPage';
-import { BatchListPage } from '@/features/fulfillment/BatchListPage';
-import { BatchDetailPage } from '@/features/fulfillment/BatchDetailPage';
+import { PackageQueuePage } from '@/features/fulfillment/PackageQueuePage';
+import { PackageDetailPage } from '@/features/fulfillment/PackageDetailPage';
+import { PackScanPage } from '@/features/fulfillment/PackScanPage';
 import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
 import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
 import { TransactionsPage } from '@/features/payment/TransactionsPage';
@@ -318,26 +318,26 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'fulfillment/orders',
+                    path: 'fulfillment/packages',
                     element: (
                       <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
-                        <FulfillmentOrdersPage />
+                        <PackageQueuePage />
                       </RequireModule>
                     ),
                   },
                   {
-                    path: 'fulfillment/batches',
+                    path: 'fulfillment/packages/:packageId',
                     element: (
                       <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
-                        <BatchListPage />
+                        <PackageDetailPage />
                       </RequireModule>
                     ),
                   },
                   {
-                    path: 'fulfillment/batches/:batchId',
+                    path: 'fulfillment/packages/:packageId/pack',
                     element: (
                       <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
-                        <BatchDetailPage />
+                        <PackScanPage />
                       </RequireModule>
                     ),
                   },

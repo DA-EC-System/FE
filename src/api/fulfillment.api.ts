@@ -1,27 +1,24 @@
 /**
- * API giao vận: huỷ đơn, lô nhặt, xuất kho, cập nhật giao (UC-SF-06 đến UC-SF-09).
- * Hợp đồng đề xuất ở FE#10, chờ commerio-backend#25.
+ * API giao vận theo kiện (sơ đồ D2, FE#59): hàng đợi kiện, đóng gói, bàn giao, giao, hoàn, thất lạc; huỷ đơn.
+ * Hợp đồng ở Documents/21 mục 19.
  */
 
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
-import type { PageResult } from './types';
-import type { Order } from '@/types/sales';
+import type { CancelOrderResult, Order } from '@/types/sales';
 import type {
-  Batch,
-  BatchIssueResult,
-  BatchStatus,
-  BatchSummary,
-  DeliveryStatus,
-  FulfillmentOrder,
-  IssueOrderResult,
+  DeliveryAction,
+  HandOverResult,
+  Package,
+  PackageQueue,
+  PackageTab,
+  PickListLine,
+  SplitInput,
 } from '@/types/fulfillment';
 
-export type FulfillmentTab = 'confirmed' | 'picking' | 'packing' | 'issued';
-
-export interface FulfillmentOrderParams {
-  status: FulfillmentTab;
+export interface PackageQueueParams {
+  tab: PackageTab;
   page?: number;
   pageSize?: number;
   search?: string;
@@ -29,154 +26,121 @@ export interface FulfillmentOrderParams {
   shopId?: string;
 }
 
-export interface BatchListParams {
-  page?: number;
-  pageSize?: number;
-  status?: BatchStatus;
-}
-
 export const fulfillmentKeys = {
   all: (companyId: string) => ['company', companyId, 'fulfillment'] as const,
-  orders: (companyId: string, params: FulfillmentOrderParams) =>
-    [...fulfillmentKeys.all(companyId), 'orders', params] as const,
-  batches: (companyId: string, params: BatchListParams) =>
-    [...fulfillmentKeys.all(companyId), 'batches', params] as const,
-  batch: (companyId: string, id: string) => [...fulfillmentKeys.all(companyId), 'batch', id] as const,
+  queue: (companyId: string, params: PackageQueueParams) => [...fulfillmentKeys.all(companyId), 'queue', params] as const,
+  package: (companyId: string, id: string) => [...fulfillmentKeys.all(companyId), 'package', id] as const,
+  pickList: (companyId: string, ids: string[]) => [...fulfillmentKeys.all(companyId), 'pick-list', ids] as const,
 };
 
 function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-/** Đổi trạng thái đơn chạm tới đơn, lô, tồn kho, thanh toán → làm mới mọi dữ liệu của công ty */
+/** Kiện đổi chạm tới đơn, tồn kho, thanh toán, phiếu kho → làm mới mọi dữ liệu của công ty */
 function useInvalidateCompany() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
   return () => qc.invalidateQueries({ queryKey: ['company', companyId] });
 }
 
-export function useFulfillmentOrders(params: FulfillmentOrderParams) {
+export function usePackageQueue(params: PackageQueueParams) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: fulfillmentKeys.orders(companyId, params),
+    queryKey: fulfillmentKeys.queue(companyId, params),
     enabled: Boolean(companyId),
     queryFn: async () => {
-      const { data } = await apiClient.get<PageResult<FulfillmentOrder>>('/fulfillment/orders', { params });
+      const { data } = await apiClient.get<PackageQueue>('/fulfillment/packages', { params });
       return data;
     },
   });
 }
 
-/** Số đơn mỗi tab: hỏi từng tab với pageSize 1 rồi lấy total */
-export function useFulfillmentCounts(tabs: FulfillmentTab[]) {
-  const companyId = useCompanyId();
-  const results = useQueries({
-    queries: tabs.map((status) => {
-      const params: FulfillmentOrderParams = { status, page: 1, pageSize: 1 };
-      return {
-        queryKey: fulfillmentKeys.orders(companyId, params),
-        enabled: Boolean(companyId),
-        queryFn: async () => {
-          const { data } = await apiClient.get<PageResult<FulfillmentOrder>>('/fulfillment/orders', { params });
-          return data;
-        },
-      };
-    }),
-  });
-  return Object.fromEntries(tabs.map((tab, i) => [tab, results[i].data?.total])) as Record<
-    FulfillmentTab,
-    number | undefined
-  >;
-}
-
-export function useBatches(params: BatchListParams) {
+export function usePackage(id: string) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: fulfillmentKeys.batches(companyId, params),
-    enabled: Boolean(companyId),
-    queryFn: async () => {
-      const { data } = await apiClient.get<PageResult<BatchSummary>>('/fulfillment/batches', { params });
-      return data;
-    },
-  });
-}
-
-export function useBatch(id: string) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: fulfillmentKeys.batch(companyId, id),
+    queryKey: fulfillmentKeys.package(companyId, id),
     enabled: Boolean(companyId && id),
     queryFn: async () => {
-      const { data } = await apiClient.get<Batch>(`/fulfillment/batches/${id}`);
+      const { data } = await apiClient.get<Package>(`/fulfillment/packages/${id}`);
       return data;
     },
   });
 }
 
-/** 409 already_in_batch, invalid_transition, version_conflict kèm orderIds */
-export function useCreateBatch() {
+/** Danh sách nhặt gộp theo biến thể; không chọn kiện thì lấy mọi kiện Cần đóng gói */
+export function usePickList(ids: string[], enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: fulfillmentKeys.pickList(companyId, ids),
+    enabled: Boolean(companyId) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PickListLine[]>('/fulfillment/pick-list', {
+        params: ids.length ? { ids: ids.join(',') } : {},
+      });
+      return data;
+    },
+  });
+}
+
+/** Thao tác một kiện; thân gửi kèm version, lỗi 409 trả `current` là kiện mới nhất */
+export type PackageCommand =
+  | { kind: 'pack'; lines: { variantId: string; quantity: number }[] }
+  | { kind: 'ready' }
+  | { kind: 'undo-handover'; reason: string }
+  | { kind: 'open' }
+  | { kind: 'self-deliver' }
+  | { kind: 'delivery'; action: DeliveryAction; reason?: string }
+  | { kind: 'receive-return'; code: string }
+  | { kind: 'report-lost'; claimCode: string }
+  | { kind: 'confirm-lost' }
+  | { kind: 'found' };
+
+export function usePackageCommand() {
   const invalidate = useInvalidateCompany();
   return useMutation({
-    mutationFn: async (orders: { id: string; version: number }[]) => {
-      const { data } = await apiClient.post<Batch>('/fulfillment/batches', { orders });
+    mutationFn: async ({ id, version, command }: { id: string; version: number; command: PackageCommand }) => {
+      const { kind, ...body } = command;
+      const { data } = await apiClient.post<Package>(`/fulfillment/packages/${id}/${kind}`, { version, ...body });
       return data;
     },
     onSettled: invalidate,
   });
 }
 
-export function useMarkBatchPicked() {
+/** Bàn giao hàng loạt: kiện bị chặn nằm ở `failed`, kiện khác vẫn bàn giao */
+export function useHandOver() {
   const invalidate = useInvalidateCompany();
   return useMutation({
-    mutationFn: async ({ id, version }: { id: string; version: number }) => {
-      const { data } = await apiClient.post<Batch>(`/fulfillment/batches/${id}/picked`, { version });
+    mutationFn: async (packages: { id: string; version: number }[]) => {
+      const { data } = await apiClient.post<HandOverResult>('/fulfillment/packages/hand-over', { packages });
       return data;
     },
     onSettled: invalidate,
   });
 }
 
-export function useIssueBatch() {
+/** Chia kiện chưa đóng gói; trả về đơn với danh sách kiện mới */
+export function useSplitPackage() {
   const invalidate = useInvalidateCompany();
   return useMutation({
-    mutationFn: async ({ id, version }: { id: string; version: number }) => {
-      const { data } = await apiClient.post<BatchIssueResult>(`/fulfillment/batches/${id}/issue`, { version });
+    mutationFn: async ({ id, ...body }: SplitInput & { id: string }) => {
+      const { data } = await apiClient.post<Order>(`/fulfillment/packages/${id}/split`, body);
       return data;
     },
     onSettled: invalidate,
   });
 }
 
-/** 409 payment_required với đơn trả trước chưa trả đủ */
-export function useIssueOrder() {
-  const invalidate = useInvalidateCompany();
-  return useMutation({
-    mutationFn: async ({ id, version }: { id: string; version: number }) => {
-      const { data } = await apiClient.post<IssueOrderResult>(`/fulfillment/orders/${id}/issue`, { version });
-      return data;
-    },
-    onSettled: invalidate,
-  });
-}
-
-/** Nhả hàng đang giữ, huỷ mã thanh toán còn hiệu lực; đơn đã trả thì chờ hoàn tiền */
+/**
+ * Huỷ đơn: kiện chưa đóng gói huỷ ngay, nhả hàng; kiện đã đóng gói chờ mở (`pendingOpen`), đơn mang cờ Đang huỷ.
+ * Mã thanh toán còn hiệu lực bị huỷ; đơn đã trả chờ hoàn tiền.
+ */
 export function useCancelOrder() {
   const invalidate = useInvalidateCompany();
   return useMutation({
     mutationFn: async ({ id, version, reason }: { id: string; version: number; reason: string }) => {
-      const { data } = await apiClient.post<Order>(`/sales/orders/${id}/cancel`, { version, reason });
-      return data;
-    },
-    onSettled: invalidate,
-  });
-}
-
-export function useUpdateDelivery() {
-  const invalidate = useInvalidateCompany();
-  return useMutation({
-    mutationFn: async (input: { id: string; version: number; status: DeliveryStatus; reason?: string }) => {
-      const { id, ...body } = input;
-      const { data } = await apiClient.post<Order>(`/fulfillment/orders/${id}/delivery`, body);
+      const { data } = await apiClient.post<CancelOrderResult>(`/sales/orders/${id}/cancel`, { version, reason });
       return data;
     },
     onSettled: invalidate,

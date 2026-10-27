@@ -33,7 +33,9 @@ export interface OrderListParams {
   source?: string;
   shopId?: string;
   paymentMethod?: string;
-  shortStock?: boolean;
+  /** Giai đoạn hiển thị (OrderStage) */
+  stage?: string;
+  flag?: string;
   customerId?: string;
   from?: string;
   to?: string;
@@ -133,7 +135,7 @@ export function useCreateOrder() {
   });
 }
 
-/** Giữ hàng tất cả dòng hoặc không dòng nào; 409 insufficient_stock kèm shortLines */
+/** Xác nhận đơn COD tạo tay: unpaid → processing (sơ đồ D1); hàng đã giữ theo kiện từ lúc tạo */
 export function useConfirmOrder() {
   const invalidate = useInvalidateSales();
   return useMutation({

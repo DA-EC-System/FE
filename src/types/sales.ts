@@ -1,26 +1,60 @@
 /**
  * Sales types — khớp với sales.customers, sales.orders, sales.order_lines trong DBML.
- * Khách hàng, tạo đơn tay, xác nhận đơn (UC-SF-01, UC-SF-02, UC-SF-04).
- * Hợp đồng API đề xuất ở commerio-backend#24, chờ chốt vào Documents/21 mục 13.
+ * Khách hàng, tạo đơn tay (UC-SF-01, UC-SF-02). Đơn theo sơ đồ D1 (FE#59): 4 trạng thái lưu,
+ * giai đoạn chi tiết suy từ kiện. Hợp đồng API ở Documents/21 mục 13 và 19.
  */
 
+import type { StatusChange } from '@/lib/stateMachine';
+import type { PackageStatus, PackageSummary } from './fulfillment';
 import type { Marketplace } from './shop';
 
 export type OrderSource = 'marketplace' | 'inbox' | 'manual';
 
 export type PaymentMethod = 'prepaid' | 'cod';
 
-/** fulfillment_status trong DBML */
-export type OrderStatus =
-  | 'pending_confirmation'
-  | 'confirmed'
-  | 'picking'
-  | 'packing'
-  | 'issued'
-  | 'in_transit'
-  | 'delivered'
-  | 'delivery_failed'
-  | 'cancelled';
+/** Trạng thái lưu của đơn (sơ đồ D1) */
+export type OrderStatus = 'unpaid' | 'processing' | 'completed' | 'cancelled';
+
+export type OrderAction = 'confirm' | 'pay' | 'complete' | 'cancel' | 'platform_cancel';
+
+/**
+ * Cờ trên đơn, không phải trạng thái. Đang huỷ: đã huỷ nhưng còn kiện đóng gói chờ mở.
+ * Sàn đã huỷ: sàn huỷ khi kiện đã bàn giao, kiện chạy tiếp tới khi dừng.
+ */
+export type OrderFlag =
+  | 'needs_attention'
+  | 'unmapped_sku'
+  | 'cancel_requested'
+  | 'cancelling'
+  | 'platform_cancelled'
+  | 'due_soon'
+  | 'return_requested'
+  | 'cod_mismatch'
+  | 'shop_disconnected';
+
+/** Kết quả khi hoàn tất: Giao đủ, Giao một phần, Không giao được */
+export type OrderOutcome = 'full' | 'partial' | 'none';
+
+/**
+ * Giai đoạn hiển thị, suy từ trạng thái đơn và các kiện: nhánh lỗi trước (thất lạc, giao thất bại, đang hoàn),
+ * rồi kiện chậm nhất
+ */
+export type OrderStage =
+  | 'awaiting_payment'
+  | 'awaiting_confirmation'
+  | 'unmapped'
+  | 'cancelling'
+  | 'awaiting_completion'
+  | 'completed'
+  | 'cancelled'
+  | Exclude<PackageStatus, 'cancelled'>;
+
+export interface OrderDisplay {
+  stage: OrderStage;
+  /** Kiện đã giao / kiện chưa huỷ: "x/y kiện đã giao" khi đơn có nhiều kiện */
+  delivered: number;
+  packages: number;
+}
 
 /** Kênh của khách: sàn nơi khách mua, hoặc tạo tay */
 export type CustomerChannel = Marketplace | 'manual';
@@ -76,9 +110,15 @@ export interface OrderSummary {
   /** null với đơn sàn chưa có khách */
   customer: { id: string; name: string; phone: string } | null;
   status: OrderStatus;
-  isShortStock: boolean;
+  display: OrderDisplay;
+  flags: OrderFlag[];
+  outcome: OrderOutcome | null;
+  /** Trạng thái gốc trên sàn, hiện cạnh trạng thái của app */
+  rawMarketplaceStatus: string | null;
   /** null với đơn sàn (sàn thu hộ) */
   paymentMethod: PaymentMethod | null;
+  /** Hạn bàn giao; còn dưới 24 giờ mà chưa bàn giao thì cờ Sắp trễ hạn */
+  shipBy: string | null;
   total: number;
   lineCount: number;
   createdAt: string;
@@ -98,20 +138,14 @@ export interface OrderLine {
   lineTotal: number;
   /** Tồn khả dụng hiện tại của biến thể */
   available: number;
+  /** SKU sàn khi dòng chưa ghép (cờ Chưa ghép SKU); variantId rỗng */
+  externalSku: string | null;
 }
 
 /** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
 export type StatusChangeSource = 'user' | 'marketplace' | 'system';
 
-export interface OrderStatusChange {
-  from: OrderStatus | null;
-  to: OrderStatus;
-  at: string;
-  by: UserRef | null;
-  source: StatusChangeSource;
-  /** Lý do huỷ, giao không thành công */
-  reason: string | null;
-}
+export type OrderStatusChange = StatusChange<OrderStatus>;
 
 export interface Order extends OrderSummary {
   shippingAddress: ShippingAddress;
@@ -120,6 +154,11 @@ export interface Order extends OrderSummary {
   note: string;
   cancelReason: string | null;
   lines: OrderLine[];
+  packages: PackageSummary[];
+  /** Hết hạn trả hàng (tính từ kiện giao cuối); null khi chưa giao kiện nào */
+  returnWindowEndsAt: string | null;
+  /** Lý do chưa hoàn tất được khi mọi kiện đã dừng */
+  completionBlocker: string | null;
   statusHistory: OrderStatusChange[];
 }
 
@@ -144,13 +183,13 @@ export interface CreateOrderInput {
   lines: { variantId: string; quantity: number }[];
   shippingFee: number;
   paymentMethod: PaymentMethod;
+  /** Người của cửa hàng tự giao, không qua đơn vị vận chuyển */
+  selfDelivery?: boolean;
   note?: string;
 }
 
-/** 409 insufficient_stock khi xác nhận */
-export interface ShortLine {
-  variantId: string;
-  sku: string;
-  requested: number;
-  available: number;
+/** Huỷ đơn: huỷ ngay, hay chờ mở các kiện đã đóng gói (cờ Đang huỷ) */
+export interface CancelOrderResult {
+  order: Order;
+  pendingOpen: number;
 }
