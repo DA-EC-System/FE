@@ -4,6 +4,7 @@
  */
 
 import { renderSku, valueCode } from '@/utils/sku';
+import type { VariantBusinessStatus } from '@/types/catalog';
 
 export interface MockCategory {
   id: string;
@@ -28,7 +29,10 @@ export interface MockVariant {
   id: string;
   sku: string;
   valueIds: string[];
+  /** Có giá trị khi `businessStatus = archived` */
   archivedAt: string | null;
+  /** Sơ đồ Sản phẩm (B1): SKU mới luôn `selling` */
+  businessStatus: VariantBusinessStatus;
 }
 
 export interface MockProduct {
@@ -132,9 +136,6 @@ export const files: MockFile[] = [
 
 export const products: MockProduct[] = [];
 
-/** Sản phẩm còn đơn hàng đang xử lý: không xoá được (UC-CP-02 ngoại lệ bước 11) */
-export const productsWithActiveOrders = new Set<string>(['prd-001']);
-
 function codeOf(id: string) {
   return attributes.flatMap((a) => a.values).find((x) => x.id === id)?.code ?? '';
 }
@@ -146,6 +147,7 @@ export function makeVariant(category: MockCategory, valueIds: string[], id: stri
     sku: renderSku(category.skuPattern, category.skuNextSeq, valueIds.map(codeOf)),
     valueIds,
     archivedAt: null,
+    businessStatus: 'selling' as const,
   };
   category.skuNextSeq += 1;
   return variant;
@@ -155,18 +157,22 @@ function seed(
   p: Omit<MockProduct, 'variants' | 'archivedAt' | 'version' | 'updatedAt'> & {
     combos: string[][];
     archived?: boolean;
-    /** Vị trí các biến thể đã ngừng bán */
-    stopped?: number[];
+    /** Trạng thái kinh doanh theo vị trí biến thể; không ghi là `selling` */
+    statuses?: Record<number, VariantBusinessStatus>;
   },
 ) {
   const category = categories.find((c) => c.id === p.categoryId)!;
-  const { combos, archived, stopped = [], ...rest } = p;
+  const { combos, archived, statuses = {}, ...rest } = p;
   products.push({
     ...rest,
-    variants: combos.map((ids, i) => ({
-      ...makeVariant(category, ids, `${p.id}-v${i + 1}`),
-      archivedAt: stopped.includes(i) ? '2026-09-01T02:00:00.000Z' : null,
-    })),
+    variants: combos.map((ids, i) => {
+      const businessStatus = archived ? 'archived' : (statuses[i] ?? 'selling');
+      return {
+        ...makeVariant(category, ids, `${p.id}-v${i + 1}`),
+        businessStatus,
+        archivedAt: businessStatus === 'archived' ? '2026-09-01T02:00:00.000Z' : null,
+      };
+    }),
     archivedAt: archived ? '2026-09-15T02:00:00.000Z' : null,
     updatedAt: T0,
     version: 1,
@@ -228,7 +234,8 @@ seed({
     ['val-trang', 'val-m'],
     ['val-do', 'val-l'],
   ],
-  stopped: [3],
+  // Đen L tạm ngừng, Trắng M ngừng nhập, Đỏ L đã lưu trữ
+  statuses: { 1: 'paused', 2: 'discontinued', 3: 'archived' },
 });
 seed({
   id: 'prd-006',
@@ -254,3 +261,14 @@ seed({
   imageFileIds: ['fil-005'],
   combos: [['val-mp-5kg'], ['val-mp-10kg']],
 });
+
+/** Hàng về SKU đã lưu trữ (khách trả, NCC bù): SKU quay về Ngừng nhập, cha hiện lại (sơ đồ B1 "khôi phục / hàng về") */
+export function reviveOnArrival(variantId: string) {
+  for (const p of products) {
+    const v = p.variants.find((x) => x.id === variantId);
+    if (v?.businessStatus !== 'archived') continue;
+    v.businessStatus = 'discontinued';
+    v.archivedAt = null;
+    p.archivedAt = null;
+  }
+}

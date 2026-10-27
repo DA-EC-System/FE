@@ -1,6 +1,12 @@
 // P2 · Sản phẩm, danh mục, thuộc tính (UC-CP-01, 02; FE#5, commerio-backend#12, #14)
 
 const tenCot = () => cy.get('tbody tr[data-row-id]');
+/** Mở menu trạng thái của sản phẩm trên danh sách rồi xác nhận */
+const doiTrangThai = (ten: string, thaoTac: string) => {
+  cy.findByRole('button', { name: `Đổi trạng thái ${ten}` }).click();
+  cy.findByRole('menuitem', { name: thaoTac }).click();
+  cy.findByRole('alertdialog').findByRole('button', { name: thaoTac }).click();
+};
 
 describe('P2 · Sản phẩm', () => {
   beforeEach(() => {
@@ -80,16 +86,50 @@ describe('P2 · Sản phẩm', () => {
     cy.contains('[role=status]', 'vừa được người khác sửa');
   });
 
-  it('xoá sản phẩm đã có đơn thì chuyển sang lưu trữ, chỉ còn xem', () => {
-    cy.contains('tbody tr', 'Áo khoác gió').findByRole('button', { name: 'Xoá' }).click();
-    cy.findByRole('alertdialog').findByRole('button', { name: 'Xoá' }).click();
-    cy.toast('Đã chuyển Áo khoác gió sang Đã lưu trữ');
+  it('ngừng nhập rồi lưu trữ cả sản phẩm, lưu trữ thì chỉ còn xem (B1)', () => {
+    doiTrangThai('Áo khoác gió', 'Ngừng nhập');
+    cy.toast('Ngừng nhập: 4 SKU của Áo khoác gió');
+    cy.contains('tbody tr', 'Áo khoác gió').findByTestId('product-status').should('contain', 'Ngừng nhập');
+
+    doiTrangThai('Áo khoác gió', 'Lưu trữ');
+    cy.toast('Lưu trữ: 4 SKU của Áo khoác gió');
     tenCot().should('not.contain', 'Áo khoác gió');
     cy.chon('Trạng thái', 'Đã lưu trữ');
     cy.contains('tbody tr', 'Áo khoác gió').click();
     cy.contains('[role=status]', 'chỉ xem được');
     cy.findByRole('button', { name: 'Lưu' }).should('not.exist');
     cy.findByRole('button', { name: 'Thêm biến thể' }).should('not.exist');
+  });
+
+  it('SKU còn tồn và chứng từ mở thì Lưu trữ bị khoá, báo lý do (B1)', () => {
+    cy.contains('tbody tr', 'Quần kaki ống suông').click();
+    const dong = () => cy.get('[data-testid=variants] tr[data-row-id=prd-002-v1]');
+    dong().findByRole('button', { name: /^Đổi trạng thái/ }).click();
+    cy.findByRole('menuitem', { name: 'Ngừng nhập' }).click();
+    cy.findByRole('alertdialog').findByRole('button', { name: 'Ngừng nhập' }).click();
+    dong().findByTestId('variant-status').should('contain', 'Ngừng nhập');
+
+    dong().findByRole('button', { name: /^Đổi trạng thái/ }).click();
+    cy.findByRole('menuitem', { name: /^Lưu trữ/ })
+      .should('have.attr', 'aria-disabled', 'true')
+      .findByTestId('archive-blockers')
+      .should('contain', 'tồn thực')
+      .and('contain', 'Còn chứng từ mở');
+  });
+
+  it('tạm ngừng một SKU rồi bỏ tạm ngừng (B1)', () => {
+    cy.contains('tbody tr', 'Áo thun basic cổ tròn').click();
+    const dong = () => cy.get('[data-testid=variants] tr[data-row-id=prd-001-v1]');
+    dong().findByTestId('variant-status').should('contain', 'Đang bán');
+    dong().findByRole('button', { name: /^Đổi trạng thái/ }).click();
+    cy.findByRole('menuitem', { name: 'Tạm ngừng' }).click();
+    cy.findByRole('alertdialog').should('contain', 'Listing trên các sàn bị ẩn').findByRole('button', { name: 'Tạm ngừng' }).click();
+    dong().findByTestId('variant-status').should('contain', 'Tạm ngừng');
+    dong().findByRole('button', { name: /^Đổi trạng thái/ }).click();
+    cy.findByRole('menuitem', { name: 'Lưu trữ' }).should('not.exist');
+    cy.findByRole('menuitem', { name: 'Bỏ tạm ngừng' }).click();
+    cy.findByRole('alertdialog').findByRole('button', { name: 'Bỏ tạm ngừng' }).click();
+    dong().findByTestId('variant-status').should('contain', 'Đang bán');
   });
 
   it('danh mục: quy tắc SKU sai báo ngay, tên trùng báo tại ô', () => {

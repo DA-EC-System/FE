@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Ban, Plus } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FormTextField } from '@/components/common/FormTextField';
-import { RowAction } from '@/components/common/RowAction';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +38,6 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  useArchiveVariant,
   useAttributes,
   useCategories,
   useCreateProduct,
@@ -55,11 +53,26 @@ import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import type { ProductDetail, ProductVariant } from '@/types/catalog';
+import { mainLabel, variantMachine } from '@/lib/machines/product';
+import type { ProductDetail, ProductVariant, VariantPresence } from '@/types/catalog';
 import { ProductImagesField, type ImageItem } from './ProductImagesField';
 import { VariantBuilder, emptyPlan, planCombos, planError, type VariantPlan } from './VariantBuilder';
 import { AddVariantDialog } from './AddVariantDialog';
 import { comboKey, productSchema, type ProductForm } from './shared';
+import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
+
+const PRESENCE_LABELS: Record<VariantPresence, string> = {
+  live: 'Đang bán',
+  pending: 'Chờ sàn',
+  error: 'Có lỗi',
+  not_listed: 'Chưa đăng',
+};
+
+/** Thao tác trên một SKU; lưu trữ bị khoá kèm lý do khi còn tồn hoặc chứng từ mở */
+const variantChoices = (v: ProductVariant): ActionChoice[] =>
+  variantMachine.transitions
+    .filter((t) => (typeof t.from === 'string' ? t.from === v.businessStatus : t.from.includes(v.businessStatus)))
+    .map((t) => ({ action: t.action, blocked: t.action === 'archive' ? v.archiveBlockers : undefined }));
 
 const toImages = (p: ProductDetail): ImageItem[] =>
   [...p.images].sort((a, b) => a.position - b.position).map((i) => ({ fileId: i.fileId, url: i.url }));
@@ -79,10 +92,11 @@ export function ProductFormPage() {
   const attributes = useAttributes().data ?? [];
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
-  const archiveVariantMut = useArchiveVariant();
+  const business = useBusinessAction();
 
   const archived = product?.status === 'archived';
-  const readOnly = !can(PERMISSIONS.productManage) || archived;
+  const canManage = can(PERMISSIONS.productManage);
+  const readOnly = !canManage || archived;
 
   const [images, setImages] = useState<ImageItem[]>([]);
   const [imagesError, setImagesError] = useState<string | undefined>();
@@ -92,7 +106,6 @@ export function ProductFormPage() {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [stopping, setStopping] = useState<ProductVariant | null>(null);
 
   const form = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
@@ -173,22 +186,6 @@ export function ProductFormPage() {
     }
   });
 
-  const stopVariant = async () => {
-    if (!stopping || !productId) return;
-    try {
-      await archiveVariantMut.mutateAsync({ productId, variantId: stopping.id });
-      toast.success(`Đã ngừng bán ${stopping.sku}`);
-    } catch (e) {
-      toast.warning(problemMessage(e));
-    }
-    setStopping(null);
-  };
-
-  const activeVariants = useMemo(
-    () => product?.variants.filter((v) => !v.archivedAt).length ?? 0,
-    [product],
-  );
-
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={backToList}>
       <ArrowLeft />
@@ -238,7 +235,7 @@ export function ProductFormPage() {
 
         {archived && (
           <AlertMessage severity="info" className="mb-4">
-            Sản phẩm đã lưu trữ nên chỉ xem được. SKU của sản phẩm không cấp lại cho sản phẩm khác.
+            Sản phẩm đã lưu trữ nên chỉ xem được; Khôi phục từng SKU để bán tiếp. SKU của sản phẩm không cấp lại cho sản phẩm khác.
           </AlertMessage>
         )}
         {error && (
@@ -364,7 +361,9 @@ export function ProductFormPage() {
                           <TableHead>SKU</TableHead>
                           <TableHead>Thuộc tính</TableHead>
                           <TableHead>Trạng thái</TableHead>
-                          {!readOnly && <TableHead className="w-16" />}
+                          <TableHead>Hoàn thiện</TableHead>
+                          <TableHead>Trên sàn</TableHead>
+                          {canManage && <TableHead className="w-16" />}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -372,36 +371,46 @@ export function ProductFormPage() {
                           <TableRow
                             key={v.id}
                             data-row-id={v.id}
-                            className={cn(v.archivedAt && 'text-muted-foreground')}
+                            className={cn(v.businessStatus === 'archived' && 'text-muted-foreground')}
                           >
-                            <TableCell className={cn('font-mono', v.archivedAt && 'line-through')}>
+                            <TableCell className={cn('font-mono', v.businessStatus === 'archived' && 'line-through')}>
                               {v.sku}
                             </TableCell>
                             <TableCell>
                               {v.attributes.map((a) => `${a.attributeName}: ${a.value}`).join(', ') ||
                                 'Mặc định'}
                             </TableCell>
-                            <TableCell>
-                              <Badge variant={v.archivedAt ? 'secondary' : 'success'}>
-                                {v.archivedAt ? 'Ngừng bán' : 'Đang bán'}
-                              </Badge>
+                            <TableCell data-testid="variant-status">
+                              <StatusBadge status={mainLabel(v.businessStatus, v.presence)} statuses={MAIN_LABEL_META} />
                             </TableCell>
-                            {!readOnly && (
+                            <TableCell>
+                              {v.businessStatus === 'archived' ? null : v.readiness === 'ready' ? (
+                                <span className="text-muted-foreground">Sẵn sàng</span>
+                              ) : (
+                                <Badge variant="warning" title={`Thiếu: ${v.missing.join(', ')}`}>
+                                  Chờ hoàn thiện
+                                </Badge>
+                              )}
+                              {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
+                                <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {v.missing.join(', ').toLowerCase()}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {v.businessStatus === 'archived'
+                                ? null
+                                : v.listingCount
+                                  ? `${PRESENCE_LABELS[v.presence]} · ${v.listingCount} gian hàng`
+                                  : PRESENCE_LABELS[v.presence]}
+                            </TableCell>
+                            {canManage && (
                               <TableCell className="text-right">
-                                {!v.archivedAt && (
-                                  <RowAction
-                                    label={`Ngừng bán ${v.sku}`}
-                                    destructive
-                                    reason={
-                                      activeVariants === 1
-                                        ? 'Sản phẩm cần ít nhất một biến thể đang bán'
-                                        : null
-                                    }
-                                    onClick={() => setStopping(v)}
-                                  >
-                                    <Ban />
-                                  </RowAction>
-                                )}
+                                <BusinessActionMenu
+                                  label={`Đổi trạng thái ${v.sku}`}
+                                  choices={variantChoices(v)}
+                                  onSelect={(action) =>
+                                    business.request({ productId: product.id, name: v.sku, action, variantIds: [v.id] })
+                                  }
+                                />
                               </TableCell>
                             )}
                           </TableRow>
@@ -430,21 +439,7 @@ export function ProductFormPage() {
           />
         )}
 
-        <ConfirmDialog
-          open={Boolean(stopping)}
-          title="Ngừng bán biến thể?"
-          message={
-            <>
-              Biến thể <strong>{stopping?.sku}</strong> sẽ ngừng bán. SKU được giữ lại; thêm lại đúng
-              tổ hợp này sẽ bán lại với SKU cũ.
-            </>
-          }
-          confirmLabel="Ngừng bán"
-          destructive
-          loading={archiveVariantMut.isPending}
-          onConfirm={stopVariant}
-          onClose={() => setStopping(null)}
-        />
+        {business.dialog}
       </form>
     </Form>
   );

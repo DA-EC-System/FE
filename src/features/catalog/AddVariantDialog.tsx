@@ -76,7 +76,7 @@ export function AddVariantDialog({
     setError(null);
     try {
       const variant = await addMut.mutateAsync({ productId: product.id, attributeValueIds: ids });
-      onDone(existing ? `Đã bán lại biến thể ${variant.sku}` : `Đã thêm biến thể ${variant.sku}`);
+      onDone(`Đã thêm biến thể ${variant.sku}`);
     } catch (e) {
       // V23: thiếu hoặc thừa thuộc tính so với các biến thể đang có
       setError(getProblem(e)?.errors?.attributeValueIds ?? problemMessage(e));
@@ -126,12 +126,12 @@ export function AddVariantDialog({
               </p>
               <p className="font-mono text-sm">{preview}</p>
             </div>
-            {existing && !existing.archivedAt && (
+            {existing && existing.businessStatus !== 'archived' && (
               <AlertMessage severity="warning">Biến thể đã tồn tại ({existing.sku}).</AlertMessage>
             )}
-            {existing?.archivedAt && (
+            {existing?.businessStatus === 'archived' && (
               <AlertMessage severity="info">
-                Tổ hợp này từng ngừng bán; lưu sẽ bán lại với SKU cũ.
+                Tổ hợp này là biến thể đã lưu trữ. Đóng hộp này và dùng Khôi phục ở dòng {existing.sku} để bán lại với SKU cũ.
               </AlertMessage>
             )}
           </div>
@@ -145,9 +145,9 @@ export function AddVariantDialog({
           <Button
             type="button"
             onClick={submit}
-            disabled={!complete || Boolean(existing && !existing.archivedAt) || busy}
+            disabled={!complete || Boolean(existing) || busy}
           >
-            {busy ? 'Đang lưu...' : existing ? 'Bán lại' : 'Thêm'}
+            {busy ? 'Đang lưu...' : 'Thêm'}
           </Button>
         </DialogFooter>
       </DialogContent>

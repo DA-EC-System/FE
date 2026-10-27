@@ -45,6 +45,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, nextVariant, rid } from './catalog';
+import { purchasable } from '@/lib/machines/product';
 import { MAX_QTY, accountName, createQuarantineWriteOff, findVariant, isQty, rebalance, stockLevelOf, variantLabel } from './inventory';
 
 // ---------- Nhập hàng (sơ đồ A1, A2, B4; FE#17) ----------
@@ -263,7 +264,7 @@ function buildRequestLines(companyId: string, body: PurchaseRequestInput, old: M
     } else {
       const found = findVariant(String(l.variantId ?? ''));
       if (!found || found.product.companyId !== companyId) errors[`${path}.variantId`] = 'Chọn sản phẩm';
-      else if (found.product.archivedAt || found.variant.archivedAt) errors[`${path}.variantId`] = 'Sản phẩm đã ngừng bán';
+      else if (!purchasable(found.variant.businessStatus)) errors[`${path}.variantId`] = 'SKU đã ngừng nhập';
       else if (seen.has(found.variant.id)) errors[`${path}.variantId`] = 'Sản phẩm bị lặp';
       else {
         variantId = found.variant.id;
@@ -770,9 +771,8 @@ export const purchasingHandlers = [
     const body = (await request.json()) as AddRequestLineInput;
     const errors: Errors = {};
     const found = findVariant(String(body.variantId ?? ''));
-    if (!found || found.product.companyId !== companyId || found.variant.archivedAt || found.product.archivedAt) {
-      errors.variantId = 'Sản phẩm không còn bán';
-    }
+    if (!found || found.product.companyId !== companyId) errors.variantId = 'Sản phẩm không còn bán';
+    else if (!purchasable(found.variant.businessStatus)) errors.variantId = 'SKU đã ngừng nhập';
     if (!isQty(body.quantity, 1)) errors.quantity = 'Số lượng phải từ 1';
     let req: MockPurchaseRequest | null = null;
     if (body.requestId) {

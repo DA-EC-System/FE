@@ -9,6 +9,7 @@ import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './u
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, rid, staleVersion, variantAttributes } from './catalog';
 import { ensureStandard, sellableVariants, skuOf } from './pricing';
+import { hidesListings } from '@/lib/machines/product';
 import { appPath } from '@/utils/env';
 
 // ---------- Channel: gian hàng và ghép SKU của công ty đang chọn (UC-CH-01, UC-CH-02) ----------
@@ -342,6 +343,7 @@ export const shopHandlers = [
       externalSkuId: sku.externalSkuId,
       lastPushedAt: existing?.externalSkuId === sku.externalSkuId ? existing.lastPushedAt : null,
       lastPushedPrice: existing?.externalSkuId === sku.externalSkuId ? existing.lastPushedPrice : null,
+      hidden: hidesListings(target.variant.businessStatus),
       version: (existing?.version ?? 0) + 1,
     };
     if (existing) channel.listings[idx] = next;
@@ -437,6 +439,7 @@ export const shopHandlers = [
         externalSkuId: created.externalSkuId,
         lastPushedAt: db.now(),
         lastPushedPrice: price,
+        hidden: hidesListings(target.variant.businessStatus),
         version: 1,
       });
       return { variantId, sku, outcome: 'created', externalSkuId: created.externalSkuId };

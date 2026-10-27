@@ -6,6 +6,7 @@
 import type { StatusChange } from '@/lib/stateMachine';
 import type { DocRef, RejectDecision, StockArea, StockDocKind, StockDocStatus, StockDocType } from '@/types/inventory';
 import type { StockNumbers } from './engine/stock';
+import { reviveOnArrival } from './catalogData';
 
 export interface MockStockLevel extends StockNumbers {
   companyId: string;
@@ -366,6 +367,7 @@ export function postMove(
   by: string,
 ) {
   if (!qtyChange) return;
+  if (qtyChange > 0) reviveOnArrival(variantId);
   const level = levelOf(companyId, variantId);
   if (area === 'stock') level.onHand += qtyChange;
   else level.quarantine += qtyChange;
