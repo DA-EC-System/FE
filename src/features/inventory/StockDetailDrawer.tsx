@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useStockDetail } from '@/api/inventory.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ROUTES } from '@/router/routes';
+import { docRefPath } from '@/router/routes';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { AREA_LABELS, DOC_TYPE_LABELS, formatQty } from './shared';
+import { AREA_LABELS, MOVE_DOC_LABELS, formatQty } from './shared';
 import { StockChips } from './StockChips';
 
 interface StockDetailDrawerProps {
@@ -113,13 +113,18 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
                         </TableCell>
                         <TableCell>
                           <Link
-                            to={ROUTES.company.inventoryDoc(companyId, m.document.id)}
+                            to={docRefPath(companyId, {
+                              type: m.document.type === 'goods_receipt' || m.document.type === 'supplier_return'
+                                ? m.document.type
+                                : 'stock_document',
+                              id: m.document.id,
+                            })!}
                             className="font-medium text-primary hover:underline"
                           >
                             {m.document.number}
                           </Link>
                           <span className="block text-xs text-muted-foreground">
-                            {DOC_TYPE_LABELS[m.document.type]}
+                            {MOVE_DOC_LABELS[m.document.type]}
                           </span>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">{AREA_LABELS[m.area]}</TableCell>

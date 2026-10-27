@@ -78,6 +78,9 @@ export interface StockListResult {
 }
 
 /** Một dòng sổ inventory.stock_moves, kèm số chứng từ để đọc */
+/** Thẻ kho gắn phiếu kho, phiếu nhận hoặc phiếu trả NCC */
+export type StockMoveDocType = StockDocType | 'goods_receipt' | 'supplier_return';
+
 export interface StockMove {
   id: string;
   /** Dương là nhập, âm là xuất */
@@ -87,7 +90,7 @@ export interface StockMove {
   /** Số của khu vực sau biến động */
   onHandAfter: number;
   /** Chứng từ gốc */
-  document: { id: string; number: string; type: StockDocType; kind: StockDocKind };
+  document: { id: string; number: string; type: StockMoveDocType; kind: StockDocKind };
   /** null khi không có quyền xem giá vốn */
   unitCost: number | null;
   doneAt: string;
@@ -157,7 +160,7 @@ export interface StockDocLine {
 }
 
 export interface DocRef {
-  type: 'order' | 'package' | 'return_request' | 'stock_document' | 'goods_receipt' | 'supplier_return';
+  type: 'order' | 'package' | 'return_request' | 'stock_document' | 'goods_receipt' | 'supplier_return' | 'purchase_request';
   id: string;
   number: string;
 }

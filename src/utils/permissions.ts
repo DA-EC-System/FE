@@ -88,6 +88,19 @@ export function hasAllPermissions(context: CompanyContext | null, permission: st
   return (typeof permission === 'string' ? [permission] : permission).every((p) => hasPermission(context, p));
 }
 
+/** Có ít nhất một quyền trong danh sách; trang Mua hàng mở cho mọi vai có một quyền mua hàng */
+export function hasAnyPermission(context: CompanyContext | null, permissions: readonly string[]): boolean {
+  return permissions.some((p) => hasPermission(context, p));
+}
+
+/** Mọi quyền của phân hệ Mua hàng (sơ đồ A1, A2, B4) */
+export const PURCHASING_PERMISSIONS = [
+  PERMISSIONS.purchaseRequestManage,
+  PERMISSIONS.purchaseRequestApprove,
+  PERMISSIONS.goodsReceiptManage,
+  PERMISSIONS.supplierReturnManage,
+] as const;
+
 export function isModuleEnabled(
   context: CompanyContext | null,
   module: ModuleKey,

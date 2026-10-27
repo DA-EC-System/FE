@@ -74,6 +74,8 @@ export interface MockStockMove {
   qtyChange: number;
   onHandAfter: number;
   docId: string;
+  /** Chứng từ ngoài phiếu kho (phiếu nhận, phiếu trả NCC; FE#17) */
+  ref?: DocRef;
   unitCost: number;
   doneAt: string;
   doneBy: string;
@@ -108,8 +110,8 @@ export const docs: MockStockDoc[] = [
     note: 'Tồn đầu kỳ',
     lines: [
       { variantId: 'prd-001-v1', quantity: 40, unitCost: 80000 },
-      { variantId: 'prd-001-v2', quantity: 40, unitCost: 80000 },
-      { variantId: 'prd-001-v3', quantity: 30, unitCost: 80000 },
+      { variantId: 'prd-001-v2', quantity: 18, unitCost: 80000 },
+      { variantId: 'prd-001-v3', quantity: 22, unitCost: 80000 },
       { variantId: 'prd-001-v4', quantity: 10, unitCost: 80000 },
       { variantId: 'prd-002-v1', quantity: 25, unitCost: 190000 },
       { variantId: 'prd-002-v2', quantity: 20, unitCost: 190000 },
@@ -352,23 +354,45 @@ export function levelOf(companyId: string, variantId: string): MockStockLevel {
   return level;
 }
 
-function move(doc: MockStockDoc, variantId: string, area: StockArea, qtyChange: number, unitCost: number, at: string, by: string) {
+/** Đổi số một khu vực và ghi thẻ kho; ref khi chứng từ không phải phiếu kho */
+export function postMove(
+  companyId: string,
+  source: { docId: string; ref?: DocRef },
+  variantId: string,
+  area: StockArea,
+  qtyChange: number,
+  unitCost: number,
+  at: string,
+  by: string,
+) {
   if (!qtyChange) return;
-  const level = levelOf(doc.companyId, variantId);
+  const level = levelOf(companyId, variantId);
   if (area === 'stock') level.onHand += qtyChange;
   else level.quarantine += qtyChange;
   moves.push({
     id: `mv-${moves.length + 1}`,
-    companyId: doc.companyId,
+    companyId,
     variantId,
     area,
     qtyChange,
     onHandAfter: area === 'stock' ? level.onHand : level.quarantine,
-    docId: doc.id,
+    ...source,
     unitCost,
     doneAt: at,
     doneBy: by,
   });
+}
+
+function move(doc: MockStockDoc, variantId: string, area: StockArea, qtyChange: number, unitCost: number, at: string, by: string) {
+  postMove(doc.companyId, { docId: doc.id }, variantId, area, qtyChange, unitCost, at, by);
+}
+
+/** Nhận hàng mua về tồn thực: tính lại giá vốn bình quân theo giá nhập (QT-15) */
+export function receiveStock(companyId: string, ref: DocRef, variantId: string, qty: number, price: number, at: string, by: string) {
+  const level = levelOf(companyId, variantId);
+  const total = level.onHand + qty;
+  level.avgCost = total > 0 ? Math.round((level.onHand * level.avgCost + qty * price) / total) : price;
+  postMove(companyId, { docId: ref.id, ref }, variantId, 'stock', qty, price, at, by);
 }
 
 /** Gỡ tạm khoá của phiếu giảm (khi ghi sổ hoặc từ chối) */
@@ -451,12 +475,10 @@ const RESERVED: Record<string, number> = {
   'prd-002-v3': 2,
   'prd-003-v1': 4,
 };
-// Còn chờ của đề nghị nhập (FE#17 sẽ tính từ đề nghị), hàng kiện Thiếu hàng cần (FE#59 tính từ kiện)
-const INCOMING: Record<string, number> = { 'prd-001-v4': 20, 'prd-002-v3': 6 };
+// Hàng kiện Thiếu hàng cần (FE#59 tính từ kiện); đang về do purchasingData tính từ đề nghị nhập
 const BACKORDERED: Record<string, number> = { 'prd-001-v4': 8 };
 for (const level of levels) {
   level.reserved = RESERVED[level.variantId] ?? 0;
-  level.incoming = INCOMING[level.variantId] ?? 0;
   level.backordered = BACKORDERED[level.variantId] ?? 0;
 }
 // Lần đẩy gần nhất sàn trả số khác

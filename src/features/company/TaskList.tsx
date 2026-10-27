@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTasks } from '@/api/tasks.api';
 import { problemMessage } from '@/api/problemMessages';
-import { ROUTES } from '@/router/routes';
+import { docRefPath } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { TaskItem, TaskSeverity } from '@/types/tasks';
 
@@ -16,18 +16,7 @@ const SEVERITY: Record<TaskSeverity, StatusMeta> = {
 };
 
 /** Đường dẫn tới bản ghi; loại chưa có trang thì hiện chữ thường */
-function linkOf(companyId: string, ref: TaskItem['ref']): string | null {
-  switch (ref.type) {
-    case 'shop':
-      return ROUTES.company.shop(companyId, ref.id);
-    case 'order':
-      return ROUTES.company.order(companyId, ref.id);
-    case 'stock_document':
-      return ROUTES.company.inventoryDoc(companyId, ref.id);
-    default:
-      return null;
-  }
-}
+const linkOf = (companyId: string, ref: TaskItem['ref']) => docRefPath(companyId, ref);
 
 /** Việc cần làm theo hạn, gom từ mọi phân hệ người xem có quyền */
 export function TaskList({ companyId }: { companyId: string }) {

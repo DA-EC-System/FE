@@ -5,6 +5,7 @@ import type { MockProduct, MockVariant } from '../catalogData';
 import { formatCurrency } from '@/utils/format';
 import * as inventory from '../inventoryData';
 import type { MockStockDoc, MockStockDocLine } from '../inventoryData';
+import * as purchasing from '../purchasingData';
 import { availableOf, needsReorder, shortageOf, stockState, violations } from '../engine/stock';
 import { dueState, registerTaskSource, REMIND } from '../engine/tasks';
 import { isDecreaseDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
@@ -25,6 +26,7 @@ import type {
   StockLevel,
   StockListResult,
   StockMove,
+  StockMoveDocType,
 } from '@/types/inventory';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
@@ -383,7 +385,7 @@ function lockForApproval(doc: MockStockDoc): Errors {
  * Tồn thực xuống dưới đang giữ: lấy lại phần giữ. Kiện thật ở FE#59 sẽ dùng allocate/reclaim
  * của engine/stock; ở đây chuyển số giữa đang giữ và hàng Thiếu hàng cần.
  */
-function rebalance(companyId: string, variantIds: string[]) {
+export function rebalance(companyId: string, variantIds: string[]) {
   for (const variantId of new Set(variantIds)) {
     const level = stockLevelOf(companyId, variantId);
     const give = Math.min(level.backordered, availableOf(level));
@@ -404,34 +406,69 @@ function postDoc(doc: MockStockDoc, actor: CompanyActor, at: string) {
   doc.postedAt = at;
   rebalance(doc.companyId, doc.lines.map((l) => l.variantId));
   if (doc.type !== 'return_inspection') return;
-  // Phần hỏng sinh phiếu xuất huỷ nháp từ chờ xử lý; phần trả NCC chờ phiếu trả NCC (FE#17)
+  // Phần trả NCC sinh phiếu trả NCC nháp, mua hàng chọn NCC (FE#17)
+  const toSupplier = doc.lines.filter((l) => (l.toSupplier ?? 0) > 0);
+  if (toSupplier.length) {
+    const ret = purchasing.createSupplierReturnDraft(
+      doc.companyId,
+      docRef(doc),
+      null,
+      toSupplier.map((l) => ({ variantId: l.variantId, quantity: l.toSupplier ?? 0, unitCost: l.unitCost })),
+      `Hàng trả NCC từ ${doc.number}`,
+      at,
+    );
+    doc.followUps.push(purchasing.returnRef(ret));
+  }
+  // Phần hỏng sinh phiếu xuất huỷ nháp từ chờ xử lý
   const damaged = doc.lines.filter((l) => (l.damaged ?? 0) > 0);
   if (damaged.length) {
-    const writeOff: MockStockDoc = {
-      id: rid('sd'),
-      companyId: doc.companyId,
-      number: nextDocNumber(doc.companyId, 'write_off'),
-      type: 'write_off',
-      kind: 'auto',
-      status: 'draft',
-      area: 'quarantine',
-      note: `Hàng hỏng từ ${doc.number}`,
-      orderId: doc.orderId,
-      source: docRef(doc),
-      claimFlag: false,
-      lines: damaged.map((l) => ({ variantId: l.variantId, quantity: l.damaged ?? 0, unitCost: null })),
-      createdBy: actor.account.id,
-      createdAt: at,
-      postedBy: null,
-      postedAt: null,
-      version: 1,
-      statusHistory: [{ at, from: null, to: 'draft', by: null, source: 'system' }],
-      followUps: [],
-      rejectDecision: null,
-    };
-    inventory.docs.push(writeOff);
+    const writeOff = createQuarantineWriteOff(
+      doc.companyId,
+      docRef(doc),
+      damaged.map((l) => ({ variantId: l.variantId, quantity: l.damaged ?? 0 })),
+      `Hàng hỏng từ ${doc.number}`,
+      at,
+      actor.account.id,
+      doc.orderId,
+    );
     doc.followUps.push(docRef(writeOff));
   }
+}
+
+/** Phiếu xuất huỷ nháp từ chờ xử lý: hàng hỏng của kiểm hàng về, phiếu trả NCC bị huỷ (FE#17) */
+export function createQuarantineWriteOff(
+  companyId: string,
+  source: DocRef,
+  lines: { variantId: string; quantity: number }[],
+  note: string,
+  at: string,
+  by: string,
+  orderId: string | null = null,
+): MockStockDoc {
+  const writeOff: MockStockDoc = {
+    id: rid('sd'),
+    companyId,
+    number: nextDocNumber(companyId, 'write_off'),
+    type: 'write_off',
+    kind: 'auto',
+    status: 'draft',
+    area: 'quarantine',
+    note,
+    orderId,
+    source,
+    claimFlag: false,
+    lines: lines.map((l) => ({ ...l, unitCost: null })),
+    createdBy: by,
+    createdAt: at,
+    postedBy: null,
+    postedAt: null,
+    version: 1,
+    statusHistory: [{ at, from: null, to: 'draft', by: null, source: 'system' }],
+    followUps: [],
+    rejectDecision: null,
+  };
+  inventory.docs.push(writeOff);
+  return writeOff;
 }
 
 const recordOf = (doc: MockStockDoc): StockDocRecord => ({
@@ -536,13 +573,15 @@ export const inventoryHandlers = [
       .sort((a, b) => b.doneAt.localeCompare(a.doneAt) || Number(b.id.slice(3)) - Number(a.id.slice(3)))
       .slice(0, 100)
       .map((m) => {
-        const doc = inventory.docs.find((d) => d.id === m.docId)!;
+        const doc = m.ref ? null : inventory.docs.find((d) => d.id === m.docId)!;
         return {
           id: m.id,
           qtyChange: m.qtyChange,
           area: m.area,
           onHandAfter: m.onHandAfter,
-          document: { id: doc.id, number: doc.number, type: doc.type, kind: doc.kind },
+          document: doc
+            ? { id: doc.id, number: doc.number, type: doc.type, kind: doc.kind }
+            : { id: m.ref!.id, number: m.ref!.number, type: m.ref!.type as StockMoveDocType, kind: 'purchase' as const },
           unitCost: canCost ? m.unitCost : null,
           doneAt: m.doneAt,
           doneBy: accountName(m.doneBy),
@@ -758,7 +797,18 @@ export const inventoryHandlers = [
       inventory.restockFromQuarantine(doc, at, guard.value.account.id);
       rebalance(companyId, doc.lines.map((l) => l.variantId));
     }
-    // Trả NCC: hàng nằm lại chờ xử lý tới khi lập phiếu trả NCC (FE#17)
+    if (body.decision === 'supplier_return') {
+      // Hàng nằm lại chờ xử lý, sinh phiếu trả NCC nháp (FE#17)
+      const ret = purchasing.createSupplierReturnDraft(
+        companyId,
+        docRef(doc),
+        null,
+        doc.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity, unitCost: l.unitCost })),
+        `Xuất huỷ ${doc.number} bị từ chối, trả NCC`,
+        at,
+      );
+      doc.followUps.push(purchasing.returnRef(ret));
+    }
     doc.version += 1;
     writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
     return HttpResponse.json(toStockDoc(doc, permissions));

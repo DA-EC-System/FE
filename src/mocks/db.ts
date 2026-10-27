@@ -22,7 +22,7 @@ const companies: Company[] = [
     taxCode: '0312456789',
     ceoName: 'Lê Hoàng Minh',
     ceoEmail: 'ceo@commerio.vn',
-    optionalModules: ['channel', 'inbox', 'report'],
+    optionalModules: ['channel', 'inbox', 'purchasing', 'report'],
     status: 'active',
     createdAt: '2026-01-15T08:00:00.000Z',
     version: 1,
@@ -679,7 +679,7 @@ moduleStates['cmp-001:report'] = {
  */
 const moduleData: Partial<Record<OptionalModuleKey, string[]>> = {
   inbox: ['cmp-001'],
-  purchasing: ['cmp-004'],
+  purchasing: ['cmp-001', 'cmp-004'],
 };
 
 export const db = {

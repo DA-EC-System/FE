@@ -33,6 +33,10 @@ import { PricelistListPage } from '@/features/pricing/PricelistListPage';
 import { PricelistDetailPage } from '@/features/pricing/PricelistDetailPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
+import { PurchasingPage } from '@/features/purchasing/PurchasingPage';
+import { PurchaseRequestPage } from '@/features/purchasing/PurchaseRequestPage';
+import { GoodsReceiptPage } from '@/features/purchasing/GoodsReceiptPage';
+import { SupplierReturnPage } from '@/features/purchasing/SupplierReturnPage';
 import { OrderListPage } from '@/features/sales/OrderListPage';
 import { OrderCreatePage } from '@/features/sales/OrderCreatePage';
 import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
@@ -56,7 +60,7 @@ import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { ReportPage } from '@/features/report/ReportPage';
 import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
-import { PERMISSIONS } from '@/utils/permissions';
+import { PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 export const router = createBrowserRouter([
@@ -229,6 +233,38 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="inventory" permission={PERMISSIONS.stockView}>
                         <StockDocPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'purchasing',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <PurchasingPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'purchasing/requests/:requestId',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <PurchaseRequestPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'purchasing/receipts/:receiptId',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <GoodsReceiptPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'purchasing/returns/:returnId',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <SupplierReturnPage />
                       </RequireModule>
                     ),
                   },
