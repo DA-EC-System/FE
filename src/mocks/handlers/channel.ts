@@ -9,6 +9,7 @@ import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './u
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, rid, staleVersion, variantAttributes } from './catalog';
 import { ensureStandard, sellableVariants, skuOf } from './pricing';
+import { appPath } from '@/utils/env';
 
 // ---------- Channel: gian hàng và ghép SKU của công ty đang chọn (UC-CH-01, UC-CH-02) ----------
 export const shopEntity = (s: MockShop) => ({ type: 'channel.shops', id: s.id, label: s.shopName });
@@ -139,13 +140,13 @@ export const shopHandlers = [
     const params = new URLSearchParams({
       platform,
       state,
-      redirect_uri: `${window.location.origin}/channel/oauth/callback`,
+      redirect_uri: `${window.location.origin}${appPath('channel/oauth/callback')}`,
     });
     if (shop) {
       params.set('shop_id', shop.externalShopId);
       params.set('shop_name', shop.shopName);
     }
-    return HttpResponse.json({ authorizeUrl: `/mock-oauth/authorize?${params}` });
+    return HttpResponse.json({ authorizeUrl: `${appPath('mock-oauth/authorize')}?${params}` });
   }),
 
   http.post(`${API}/channel/shops/oauth/callback`, async ({ request }) => {

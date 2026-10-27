@@ -57,7 +57,7 @@ import { ReportPage } from '@/features/report/ReportPage';
 import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
-import { USE_MOCKS } from '@/utils/env';
+import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
@@ -413,4 +413,4 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <NotFoundPage /> },
-]);
+], { basename: BASE_PATH.replace(/\/$/, '') || '/' });
