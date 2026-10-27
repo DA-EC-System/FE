@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { History, Pencil, TriangleAlert } from 'lucide-react';
+import { ClipboardPlus, History, Pencil, TriangleAlert } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
@@ -14,12 +15,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useStock } from '@/api/inventory.api';
 import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
-import { useCan } from '@/hooks/usePermission';
+import { useAuth } from '@/hooks/useAuth';
+import { useCan, useModuleEnabled } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import type { StockLevel } from '@/types/inventory';
+import { AddToRequestDialog } from '@/features/purchasing/AddToRequestDialog';
+import { ROUTES } from '@/router/routes';
 import { ReorderDialog } from './ReorderDialog';
 import { StockDetailDrawer } from './StockDetailDrawer';
 import { formatQty } from './shared';
@@ -58,6 +62,11 @@ export function StockTab() {
   const can = useCan();
   const canReorder = can(PERMISSIONS.reorderManage);
   const canCost = can(PERMISSIONS.costView);
+  // Thêm vào đề nghị nhập chỉ khi bật Mua hàng và có quyền lập đề nghị
+  const purchasingOn = useModuleEnabled('purchasing');
+  const canRequest = purchasingOn && can(PERMISSIONS.purchaseRequestManage);
+  const navigate = useNavigate();
+  const { companyContext } = useAuth();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
@@ -68,6 +77,7 @@ export function StockTab() {
   const [pageSize, setPageSize] = useState(25);
   const [editing, setEditing] = useState<StockLevel | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState<StockLevel | null>(null);
 
   const stockQuery = useStock({
     page,
@@ -201,15 +211,22 @@ export function StockTab() {
       {
         id: 'actions',
         header: '',
-        meta: { className: 'w-12 text-right' },
+        meta: { className: 'w-20 text-right' },
         cell: ({ row }) => (
-          <RowAction label="Lịch sử biến động" onClick={() => setViewing(row.original.variantId)}>
-            <History />
-          </RowAction>
+          <div className="flex justify-end gap-1">
+            {canRequest && row.original.belowMin && (
+              <RowAction label="Thêm vào đề nghị nhập" onClick={() => setRequesting(row.original)}>
+                <ClipboardPlus />
+              </RowAction>
+            )}
+            <RowAction label="Lịch sử biến động" onClick={() => setViewing(row.original.variantId)}>
+              <History />
+            </RowAction>
+          </div>
         ),
       },
     ],
-    [canReorder, canCost],
+    [canReorder, canCost, canRequest],
   );
 
   return (
@@ -303,6 +320,21 @@ export function StockTab() {
           toast.success(msg);
         }}
       />
+      {canRequest && (
+        <AddToRequestDialog
+          level={requesting}
+          onClose={() => setRequesting(null)}
+          onDone={(request) => {
+            setRequesting(null);
+            toast.success(`Đã thêm vào ${request.number}`, {
+              action: {
+                label: 'Mở',
+                onClick: () => navigate(ROUTES.company.purchaseRequest(companyContext?.companyId ?? '', request.id)),
+              },
+            });
+          }}
+        />
+      )}
       <StockDetailDrawer variantId={viewing} canCost={canCost} onClose={() => setViewing(null)} />
     </div>
   );

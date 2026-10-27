@@ -63,6 +63,18 @@ const MESSAGES: Record<string, string> = {
   no_shortage: 'Phiếu không có phần thiếu, ghi sổ thẳng được.',
   stock_insufficient: 'Không đủ hàng ở khu vực này để giảm. Xem lại số trên phiếu.',
   decision_made: 'Phiếu đã chọn cách xử lý hàng rồi.',
+  // FE#17, lib/machines/purchasing.ts
+  all_lines_excluded: 'Đề nghị phải còn ít nhất một dòng không bị loại.',
+  has_receipts: 'Đề nghị đã có phiếu nhận nên không huỷ được. Dùng Đóng thiếu nếu NCC không giao tiếp.',
+  receipt_counting: 'Còn phiếu nhận đang kiểm. Ghi sổ hoặc huỷ phiếu đó trước khi đóng thiếu.',
+  has_shortage: 'Phiếu có phần thiếu. Bấm Ghi sổ, báo giao thiếu.',
+  supplier_required: 'Chọn nhà cung cấp trước khi gửi duyệt.',
+  over_outstanding: 'Số nhận đạt và lỗi giữ lại vượt số còn chờ của dòng.',
+  resolution_recorded: 'Phiếu đã ghi kết quả giao thiếu rồi.',
+  refund_required: 'Nhập số tiền NCC hoàn.',
+  cancel_decision_required: 'Chọn cách xử lý hàng: nhập lại tồn hoặc lập phiếu xuất huỷ.',
+  follow_up_invalid: 'Không tìm thấy phiếu nhận bù cùng đề nghị.',
+  supplier_inactive: 'Nhà cung cấp đã ngừng giao dịch.',
 };
 
 export function problemCode(error: unknown): string | undefined {

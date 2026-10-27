@@ -5,7 +5,7 @@ import { PageSpinner } from '@/components/common/PageSpinner';
 import { Button } from '@/components/ui/button';
 import { useAuth, useSelectCompany } from '@/hooks/useAuth';
 import { authErrorMessage } from '@/features/auth/authErrors';
-import { hasAllPermissions, isModuleEnabled } from '@/utils/permissions';
+import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { MODULE_LABELS, type ModuleKey } from '@/utils/modules';
 import { ForbiddenPage } from '@/components/common/ForbiddenPage';
 import { ROUTES } from './routes';
@@ -126,11 +126,13 @@ interface RequireModuleProps {
   module: ModuleKey;
   /** Danh sách là cần đủ mọi quyền */
   permission?: string | readonly string[];
+  /** Cần ít nhất một quyền trong danh sách */
+  anyPermission?: readonly string[];
   children: ReactNode;
 }
 
 /** Chặn trang khi phân hệ chưa bật hoặc thiếu quyền. BE vẫn kiểm lại mọi yêu cầu. */
-export function RequireModule({ module, permission, children }: RequireModuleProps) {
+export function RequireModule({ module, permission, anyPermission, children }: RequireModuleProps) {
   const { companyContext } = useAuth();
   const backTo = companyContext ? ROUTES.company.root(companyContext.companyId) : ROUTES.home;
 
@@ -144,7 +146,10 @@ export function RequireModule({ module, permission, children }: RequireModulePro
       />
     );
   }
-  if (permission && !hasAllPermissions(companyContext, permission)) {
+  if (
+    (permission && !hasAllPermissions(companyContext, permission)) ||
+    (anyPermission && !hasAnyPermission(companyContext, anyPermission))
+  ) {
     return (
       <ForbiddenPage
         message="Vai trò của bạn trong công ty này không có quyền mở trang này."

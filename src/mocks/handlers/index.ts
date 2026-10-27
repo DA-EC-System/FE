@@ -16,6 +16,7 @@ import { companySettingsHandlers } from './companySettings';
 import { catalogHandlers } from './catalog';
 import { pricingHandlers } from './pricing';
 import { inventoryHandlers } from './inventory';
+import { purchasingHandlers } from './purchasing';
 import { shopHandlers } from './channel';
 import { salesHandlers } from './sales';
 import { paymentHandlers } from './payment';
@@ -34,6 +35,7 @@ export const handlers = [
   ...catalogHandlers,
   ...pricingHandlers,
   ...inventoryHandlers,
+  ...purchasingHandlers,
   ...shopHandlers,
   ...salesHandlers,
   ...paymentHandlers,

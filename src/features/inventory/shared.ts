@@ -7,13 +7,14 @@ import type {
   StockDocLineInput,
   StockDocStatus,
   StockDocType,
+  StockMoveDocType,
   StockState,
 } from '@/types/inventory';
 
 export const MAX_QTY = 1_000_000;
 
 /** Ô số lượng nhập chữ: số nguyên trong [min, max], cho phép dấu phân cách nghìn */
-const qtyText = (min: number, max: number, label = 'Số lượng') =>
+export const qtyText = (min: number, max: number, label = 'Số lượng') =>
   z.string().transform((raw, ctx): number => {
     const trimmed = raw.trim();
     // "1.200" hay "1 200" là một nghìn hai trăm; "1.5" không phải số nguyên
@@ -143,6 +144,13 @@ export const DOC_TYPE_LABELS: Record<StockDocType, string> = {
   write_off: 'Xuất huỷ',
   to_quarantine: 'Chuyển chờ xử lý',
   return_inspection: 'Kiểm hàng về',
+};
+
+/** Loại chứng từ trên thẻ kho */
+export const MOVE_DOC_LABELS: Record<StockMoveDocType, string> = {
+  ...DOC_TYPE_LABELS,
+  goods_receipt: 'Phiếu nhận',
+  supplier_return: 'Trả NCC',
 };
 
 export const DOC_TYPE_HELP: Record<StockDocType, string> = {

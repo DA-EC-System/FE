@@ -3,6 +3,7 @@ import {
   ChartLine,
   Boxes,
   Building2,
+  ClipboardList,
   History,
   LayoutDashboard,
   Package,
@@ -27,7 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes';
-import { PERMISSIONS } from '@/utils/permissions';
+import { PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
 import { USE_MOCKS } from '@/utils/env';
 
@@ -42,6 +43,8 @@ export interface NavItem {
   module?: ModuleKey;
   /** Ẩn khi thiếu quyền này; danh sách là cần đủ mọi quyền */
   permission?: string | readonly string[];
+  /** Ẩn khi không có quyền nào trong danh sách */
+  anyPermission?: readonly string[];
 }
 
 export interface NavSection {
@@ -130,6 +133,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: Warehouse,
           module: 'inventory',
           permission: PERMISSIONS.stockView,
+        },
+        {
+          to: ROUTES.company.purchasing(companyId),
+          label: 'Mua hàng',
+          icon: ClipboardList,
+          module: 'purchasing',
+          anyPermission: PURCHASING_PERMISSIONS,
         },
       ],
     },

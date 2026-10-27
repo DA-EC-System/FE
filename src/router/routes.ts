@@ -42,6 +42,15 @@ export const ROUTES = {
     inventoryDoc: (companyId: string, docId: string) => `/c/${companyId}/inventory/documents/${docId}`,
     inventoryDocNew: (companyId: string, type: 'stocktake' | 'write_off' | 'to_quarantine') =>
       `/c/${companyId}/inventory/documents/new?type=${type}`,
+    purchasing: (companyId: string, tab?: 'receipts' | 'returns' | 'suppliers') =>
+      tab ? `/c/${companyId}/purchasing?tab=${tab}` : `/c/${companyId}/purchasing`,
+    purchaseRequest: (companyId: string, id: string) => `/c/${companyId}/purchasing/requests/${id}`,
+    /** from: phiếu trả NCC bù hàng, điền sẵn NCC và dòng */
+    purchaseRequestNew: (companyId: string, from?: string) =>
+      from ? `/c/${companyId}/purchasing/requests/new?from=${from}` : `/c/${companyId}/purchasing/requests/new`,
+    goodsReceipt: (companyId: string, id: string) => `/c/${companyId}/purchasing/receipts/${id}`,
+    supplierReturn: (companyId: string, id: string) => `/c/${companyId}/purchasing/returns/${id}`,
+    supplierReturnNew: (companyId: string) => `/c/${companyId}/purchasing/returns/new`,
     orders: (companyId: string) => `/c/${companyId}/sales/orders`,
     orderNew: (companyId: string) => `/c/${companyId}/sales/orders/new`,
     order: (companyId: string, orderId: string) => `/c/${companyId}/sales/orders/${orderId}`,
@@ -73,3 +82,27 @@ export const ROUTES = {
     devMarketplace: (companyId: string) => `/c/${companyId}/dev/marketplace`,
   },
 } as const;
+
+/** Link tới chứng từ gốc hoặc chứng từ sinh tiếp */
+export function docRefPath(
+  companyId: string,
+  ref: { type: string; id: string },
+): string | null {
+  const c = ROUTES.company;
+  switch (ref.type) {
+    case 'shop':
+      return c.shop(companyId, ref.id);
+    case 'stock_document':
+      return c.inventoryDoc(companyId, ref.id);
+    case 'order':
+      return c.order(companyId, ref.id);
+    case 'goods_receipt':
+      return c.goodsReceipt(companyId, ref.id);
+    case 'supplier_return':
+      return c.supplierReturn(companyId, ref.id);
+    case 'purchase_request':
+      return c.purchaseRequest(companyId, ref.id);
+    default:
+      return null;
+  }
+}

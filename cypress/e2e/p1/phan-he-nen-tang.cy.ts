@@ -35,10 +35,11 @@ describe('P1 · Phân hệ, nhật ký (CEO)', () => {
       status: 409,
       title: 'Conflict',
       code: 'module_state_changed',
-      current: { code: 'purchasing', enabled: true, hasData: false, enabledAt: '2026-10-18T00:00:00.000Z', enabledBy: null, aiConsentAt: null, aiConsentBy: null },
+      current: { code: 'assistant', enabled: false, hasData: false, enabledAt: null, enabledBy: null, aiConsentAt: null, aiConsentBy: null },
     });
-    cy.get('[data-module="purchasing"]').findByRole('button', { name: 'Bật' }).click();
-    cy.toast('vừa được người khác bật');
+    cy.get('[data-module="assistant"]').findByRole('button', { name: 'Tắt' }).click();
+    cy.findByRole('alertdialog').findByRole('button', { name: 'Tắt' }).click();
+    cy.toast('vừa được người khác tắt');
   });
 
   it('nhật ký: lọc theo thao tác, xem trước/sau (AC-13)', () => {
