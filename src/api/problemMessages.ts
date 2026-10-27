@@ -57,6 +57,12 @@ const MESSAGES: Record<string, string> = {
   // FE#55, lib/stateMachine.ts
   second_person_required: 'Người lập không tự duyệt hay ghi sổ được. Cần người thứ hai.',
   reason_required: 'Thao tác này cần ghi lý do.',
+  // FE#56, lib/machines/stockDocument.ts
+  empty_document: 'Phiếu chưa có dòng nào.',
+  shortage_needs_review: 'Phiếu có phần thiếu nên cần người thứ hai duyệt. Bấm Gửi duyệt phần thiếu.',
+  no_shortage: 'Phiếu không có phần thiếu, ghi sổ thẳng được.',
+  stock_insufficient: 'Không đủ hàng ở khu vực này để giảm. Xem lại số trên phiếu.',
+  decision_made: 'Phiếu đã chọn cách xử lý hàng rồi.',
 };
 
 export function problemCode(error: unknown): string | undefined {

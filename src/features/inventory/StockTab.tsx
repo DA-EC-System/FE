@@ -23,6 +23,7 @@ import type { StockLevel } from '@/types/inventory';
 import { ReorderDialog } from './ReorderDialog';
 import { StockDetailDrawer } from './StockDetailDrawer';
 import { formatQty } from './shared';
+import { StockChips } from './StockChips';
 
 interface SummaryCardProps {
   label: string;
@@ -52,7 +53,7 @@ function SummaryCard({ label, value, tone, onClick, active }: SummaryCardProps) 
   );
 }
 
-/** UC-IN-01 tồn theo biến thể, UC-IN-02 đặt ngưỡng ngay trên dòng */
+/** Tồn theo biến thể (sơ đồ B2): bảy con số, nhãn suy ra; đặt ngưỡng ngay trên dòng */
 export function StockTab() {
   const can = useCan();
   const canReorder = can(PERMISSIONS.reorderManage);
@@ -62,6 +63,7 @@ export function StockTab() {
   const debouncedSearch = useDebounce(search.trim());
   const [categoryId, setCategoryId] = useState('');
   const [belowMin, setBelowMin] = useState(false);
+  const [quarantine, setQuarantine] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [editing, setEditing] = useState<StockLevel | null>(null);
@@ -73,10 +75,11 @@ export function StockTab() {
     search: debouncedSearch || undefined,
     categoryId: categoryId || undefined,
     belowMin: belowMin || undefined,
+    quarantine: quarantine || undefined,
   });
   const categories = useCategories().data ?? [];
   const summary = stockQuery.data?.summary;
-  const filtered = Boolean(debouncedSearch || categoryId || belowMin);
+  const filtered = Boolean(debouncedSearch || categoryId || belowMin || quarantine);
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -100,6 +103,7 @@ export function StockTab() {
                 {r.productName}
                 {r.attributesLabel && ` · ${r.attributesLabel}`}
               </p>
+              <StockChips level={r} />
             </div>
           );
         },
@@ -114,13 +118,21 @@ export function StockTab() {
         id: 'onHand',
         header: 'Tồn thực',
         meta: { className: 'w-24 text-right' },
-        cell: ({ row }) => formatQty(row.original.onHand),
+        cell: ({ row }) => (
+          <span className={cn(row.original.negative && 'font-semibold text-destructive')}>{formatQty(row.original.onHand)}</span>
+        ),
       },
       {
         id: 'reserved',
         header: 'Đang giữ',
         meta: { className: 'w-24 text-right' },
         cell: ({ row }) => formatQty(row.original.reserved),
+      },
+      {
+        id: 'locked',
+        header: 'Tạm khoá',
+        meta: { className: 'w-24 text-right' },
+        cell: ({ row }) => (row.original.locked ? formatQty(row.original.locked) : '—'),
       },
       {
         id: 'available',
@@ -135,11 +147,13 @@ export function StockTab() {
                   <TooltipTrigger asChild>
                     <TriangleAlert
                       className="size-4 text-destructive"
-                      aria-label={`Dưới ngưỡng ${formatQty(r.minQty ?? 0)}`}
+                      aria-label="Nên nhập lại"
                       data-testid="below-min"
                     />
                   </TooltipTrigger>
-                  <TooltipContent>Dưới ngưỡng {formatQty(r.minQty ?? 0)}</TooltipContent>
+                  <TooltipContent>
+                    Khả dụng + đang về − đang thiếu ≤ ngưỡng {formatQty(r.minQty ?? 0)}: nên nhập lại
+                  </TooltipContent>
                 </Tooltip>
               )}
               <span className={cn('font-semibold', r.belowMin && 'text-destructive')}>{formatQty(r.available)}</span>
@@ -200,14 +214,25 @@ export function StockTab() {
 
   return (
     <div>
-      <div className={cn('mb-4 grid gap-4', canCost ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+      <div className={cn('mb-4 grid gap-4 sm:grid-cols-2', canCost ? 'lg:grid-cols-5' : 'lg:grid-cols-4')}>
         <SummaryCard label="Biến thể đang bán" value={summary ? formatQty(summary.variantCount) : '—'} />
         <SummaryCard
-          label="Dưới ngưỡng tồn"
+          label="Nên nhập lại"
           value={summary ? formatQty(summary.belowMinCount) : '—'}
           tone={summary?.belowMinCount ? 'error' : undefined}
           active={belowMin}
           onClick={() => withReset(setBelowMin)(!belowMin)}
+        />
+        <SummaryCard
+          label="Có hàng chờ xử lý"
+          value={summary ? formatQty(summary.quarantineCount) : '—'}
+          active={quarantine}
+          onClick={() => withReset(setQuarantine)(!quarantine)}
+        />
+        <SummaryCard
+          label="Tồn âm"
+          value={summary ? formatQty(summary.negativeCount) : '—'}
+          tone={summary?.negativeCount ? 'error' : undefined}
         />
         {canCost && (
           <SummaryCard
@@ -238,7 +263,11 @@ export function StockTab() {
           />
           <div className="flex items-center gap-2 md:h-9">
             <Switch id="below-min" checked={belowMin} onCheckedChange={withReset(setBelowMin)} />
-            <Label htmlFor="below-min">Chỉ hiện dưới ngưỡng</Label>
+            <Label htmlFor="below-min">Chỉ hiện nên nhập lại</Label>
+          </div>
+          <div className="flex items-center gap-2 md:h-9">
+            <Switch id="quarantine-only" checked={quarantine} onCheckedChange={withReset(setQuarantine)} />
+            <Label htmlFor="quarantine-only">Có hàng chờ xử lý</Label>
           </div>
           {!canCost && (
             <Badge variant="outline" className="md:ms-auto md:mb-2">

@@ -42,8 +42,8 @@ describe('P2 · Phân quyền', () => {
     cy.dong('prd-001-v1').should('exist');
     cy.get('thead').should('not.contain', 'Giá vốn BQ').and('not.contain', 'Giá trị tồn');
     cy.findByRole('button', { name: 'Đặt ngưỡng' }).should('not.exist');
-    cy.findByRole('tab', { name: 'Phiếu nhập/xuất' }).click();
-    cy.findByRole('button', { name: 'Lập phiếu nhập' }).should('exist');
+    cy.findByRole('tab', { name: 'Phiếu kho' }).click();
+    cy.findByRole('button', { name: 'Kiểm kê' }).should('exist');
     cy.visit('/c/cmp-001/pricing');
     cy.contains(KHONG_CO_QUYEN);
   });
@@ -56,12 +56,12 @@ describe('P2 · Phân quyền', () => {
     cy.get('main').should('not.contain', 'Giá trị tồn');
     cy.dong('prd-001-v1').findByRole('button', { name: 'Đặt ngưỡng' }).should('exist');
     cy.findByRole('tab', { name: 'Nhập hoàn' }).should('not.exist');
-    cy.findByRole('tab', { name: 'Phiếu nhập/xuất' }).click();
-    cy.findByRole('button', { name: /Lập phiếu/ }).should('not.exist');
-    cy.contains('tbody tr', 'PN-000003').click();
+    cy.findByRole('tab', { name: 'Phiếu kho' }).click();
+    cy.findByRole('button', { name: /Kiểm kê|Xuất huỷ|Chuyển chờ xử lý/ }).should('not.exist');
+    cy.contains('tbody tr', 'PN-000001').click();
     cy.findByTestId('doc-lines').should('exist');
-    cy.findByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu/ }).should('not.exist');
-    cy.visit('/c/cmp-001/inventory/documents/new?type=receipt');
+    cy.findByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu|Gửi duyệt/ }).should('not.exist');
+    cy.visit('/c/cmp-001/inventory/documents/new?type=stocktake');
     cy.get('main').should('contain', 'Bạn không có quyền lập phiếu kho.');
   });
 
@@ -70,8 +70,8 @@ describe('P2 · Phân quyền', () => {
     coMenu('Danh mục & thuộc tính');
     cy.menu('Kho');
     cy.get('thead').should('contain', 'Giá vốn BQ').and('contain', 'Giá trị tồn');
-    cy.findByRole('tab', { name: 'Phiếu nhập/xuất' }).click();
-    cy.findByRole('button', { name: 'Lập phiếu nhập' }).should('exist');
-    cy.findByRole('button', { name: 'Lập phiếu xuất' }).should('exist');
+    cy.findByRole('tab', { name: 'Phiếu kho' }).click();
+    cy.findByRole('button', { name: 'Kiểm kê' }).should('exist');
+    cy.findByRole('button', { name: 'Xuất huỷ' }).should('exist');
   });
 });

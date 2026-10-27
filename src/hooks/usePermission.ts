@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import type { TransitionActor } from '@/lib/stateMachine';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, isModuleEnabled } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
@@ -10,6 +11,13 @@ export function useCan() {
     (permission: string) => hasPermission(context, permission),
     [context],
   );
+}
+
+/** Người đang thao tác, để hỏi bảng chuyển trạng thái (lib/stateMachine) nút nào hiện */
+export function useTransitionActor(): TransitionActor {
+  const accountId = useAuthStore((s) => s.account?.id ?? '');
+  const permissions = useAuthStore((s) => s.companyContext?.permissions);
+  return useMemo(() => ({ accountId, permissions: permissions ?? [] }), [accountId, permissions]);
 }
 
 export function useModuleEnabled(module: ModuleKey): boolean {

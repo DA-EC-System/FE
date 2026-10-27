@@ -37,10 +37,10 @@ export const ROUTES = {
     pricing: (companyId: string) => `/c/${companyId}/pricing`,
     pricelist: (companyId: string, pricelistId: string) => `/c/${companyId}/pricing/${pricelistId}`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,
-    inventoryTab: (companyId: string, tab: 'stock' | 'documents' | 'returns') =>
+    inventoryTab: (companyId: string, tab: 'stock' | 'documents') =>
       tab === 'stock' ? `/c/${companyId}/inventory` : `/c/${companyId}/inventory?tab=${tab}`,
     inventoryDoc: (companyId: string, docId: string) => `/c/${companyId}/inventory/documents/${docId}`,
-    inventoryDocNew: (companyId: string, type: 'receipt' | 'issue') =>
+    inventoryDocNew: (companyId: string, type: 'stocktake' | 'write_off' | 'to_quarantine') =>
       `/c/${companyId}/inventory/documents/new?type=${type}`,
     orders: (companyId: string) => `/c/${companyId}/sales/orders`,
     orderNew: (companyId: string) => `/c/${companyId}/sales/orders/new`,

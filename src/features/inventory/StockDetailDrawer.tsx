@@ -11,7 +11,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { DOC_KIND_LABELS, formatQty } from './shared';
+import { AREA_LABELS, DOC_TYPE_LABELS, formatQty } from './shared';
+import { StockChips } from './StockChips';
 
 interface StockDetailDrawerProps {
   variantId: string | null;
@@ -28,7 +29,7 @@ function Figure({ label, value, tone }: { label: string; value: string; tone?: '
   );
 }
 
-/** UC-IN-01 bước 4: số tồn, đang giữ, khả dụng và lịch sử biến động của một biến thể */
+/** Bảy con số tồn của một biến thể và thẻ kho (sổ biến động theo khu vực, gắn chứng từ gốc) */
 export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDrawerProps) {
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
@@ -56,20 +57,28 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
 
           {level && (
             <>
-              <div className="grid grid-cols-3 gap-3" data-testid="stock-figures">
-                <Figure label="Tồn thực" value={formatQty(level.onHand)} />
-                <Figure label="Đang giữ cho đơn" value={formatQty(level.reserved)} />
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4" data-testid="stock-figures">
+                <Figure label="Tồn thực" value={formatQty(level.onHand)} tone={level.negative ? 'error' : undefined} />
+                <Figure label="Đang giữ cho kiện" value={formatQty(level.reserved)} />
+                <Figure label="Tạm khoá" value={formatQty(level.locked)} />
                 <Figure
                   label="Khả dụng"
                   value={formatQty(level.available)}
-                  tone={level.belowMin ? 'error' : undefined}
+                  tone={level.state === 'in_stock' ? undefined : 'error'}
                 />
+                <Figure label="Đang về" value={formatQty(level.incoming)} />
+                <Figure label="Chờ xử lý" value={formatQty(level.quarantine)} />
+                <Figure label="Đang thiếu" value={formatQty(level.shortage)} tone={level.shortage ? 'error' : undefined} />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Tồn thực = khả dụng + đang giữ + tạm khoá. Chờ xử lý không bán được và không thuộc tồn thực.
+              </p>
+              <StockChips level={level} />
               <div className="flex flex-wrap gap-2">
                 <Badge variant={level.belowMin ? 'destructive' : 'secondary'}>
                   {level.minQty === null
                     ? 'Chưa đặt ngưỡng'
-                    : `Ngưỡng ${formatQty(level.minQty)}${level.belowMin ? ' · dưới ngưỡng' : ''}`}
+                    : `Ngưỡng ${formatQty(level.minQty)}${level.belowMin ? ' · nên nhập lại' : ''}`}
                 </Badge>
                 {canCost && level.avgCost !== null && (
                   <Badge variant="outline">Giá vốn BQ {formatCurrency(level.avgCost)}</Badge>
@@ -80,7 +89,7 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
               </div>
 
               <Separator />
-              <h3 className="font-semibold">Lịch sử biến động</h3>
+              <h3 className="font-semibold">Thẻ kho</h3>
               {!moves.length ? (
                 <p className="text-sm text-muted-foreground">Chưa có biến động nào.</p>
               ) : (
@@ -89,6 +98,7 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
                     <TableRow>
                       <TableHead>Thời gian</TableHead>
                       <TableHead>Chứng từ</TableHead>
+                      <TableHead>Khu vực</TableHead>
                       <TableHead className="text-right">Biến động</TableHead>
                       <TableHead className="text-right">Tồn sau</TableHead>
                       {canCost && <TableHead className="text-right">Đơn giá vốn</TableHead>}
@@ -109,9 +119,10 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
                             {m.document.number}
                           </Link>
                           <span className="block text-xs text-muted-foreground">
-                            {DOC_KIND_LABELS[m.document.kind]}
+                            {DOC_TYPE_LABELS[m.document.type]}
                           </span>
                         </TableCell>
+                        <TableCell className="whitespace-nowrap">{AREA_LABELS[m.area]}</TableCell>
                         <TableCell
                           className={cn(
                             'text-right font-semibold',

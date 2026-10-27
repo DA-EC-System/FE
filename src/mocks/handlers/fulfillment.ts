@@ -13,7 +13,7 @@ import * as finance from '../financeData';
 import { API, CompanyActor, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid } from './catalog';
-import { nextDocNumber, stockDocEntity, stockDocSnapshot, stockLevelOf, variantLabel } from './inventory';
+import { createReturnInspection, nextDocNumber, stockDocEntity, stockDocSnapshot, stockLevelOf, variantLabel } from './inventory';
 import { orderEntity, orderSnapshot, toOrder, toOrderSummary, userRef } from './sales';
 import { toOrderPayment } from './payment';
 
@@ -124,16 +124,21 @@ export function issueOrder(actor: CompanyActor, o: sales.MockOrder) {
     number: nextDocNumber(o.companyId, 'issue'),
     type: 'issue',
     kind: 'order',
-    status: 'done',
+    status: 'posted',
+    area: null,
     note: '',
     orderId: o.id,
-    reference: o.code,
+    source: { type: 'order', id: o.id, number: o.code },
+    claimFlag: false,
     lines: o.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity, unitCost: null })),
     createdBy: by,
     createdAt: at,
     postedBy: by,
     postedAt: at,
     version: 1,
+    statusHistory: [{ at, from: null, to: 'posted', by: { id: by, name: actor.account.fullName }, source: 'system' }],
+    followUps: [],
+    rejectDecision: null,
   };
   inventory.applyDoc(doc, at, by);
   inventory.docs.push(doc);
@@ -246,19 +251,14 @@ export const fulfillmentHandlers = [
     if (row?.method === 'cod' && next === 'delivered') row.deliveredAt = at;
     if (row?.method === 'cod' && next === 'delivery_failed') row.status = 'not_collected';
     if (next === 'delivery_failed') {
-      const customer = sales.customers.find((c) => c.id === order.customerId);
-      // Đơn hiện ở tab Nhập hoàn của Kho (UC-IN-03)
-      inventory.returnOrders.push({
-        orderId: order.id,
-        companyId: order.companyId,
-        orderCode: order.code,
-        customerName: customer?.name ?? order.shippingAddress.name,
-        customerPhone: customer?.phone ?? order.shippingAddress.phone,
-        shipmentCode: `GHN-${order.code.replace(/\D/g, '')}`,
-        failedReason: reason,
-        failedAt: at,
-        lines: order.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
-      });
+      // Hàng quay về kho: hệ thống lập phiếu kiểm hàng về (sơ đồ B3); kho quét rồi chia bán lại, hỏng, trả NCC
+      createReturnInspection(
+        order.companyId,
+        { type: 'order', id: order.id, number: order.code },
+        order.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+        reason,
+        at,
+      );
     }
     writeCompanyLog(guard.value, 'update', orderEntity(order), before, orderSnapshot(order));
     return HttpResponse.json(toOrder(order));
