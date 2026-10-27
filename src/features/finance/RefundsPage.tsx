@@ -17,7 +17,7 @@ import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { RefundItem, RefundListStatus } from '@/types/finance';
 import { Info } from '@/features/sales/Info';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { REFUND_STATUS, paidViaLabel } from './shared';
 import { DocLink, OrderCode, PayoutDialog, payoutFieldErrors, useCanWrite, useCompanyId, voucherNumberIn } from './parts';
 

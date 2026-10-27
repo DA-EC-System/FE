@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/utils/format';
 import { SETTLEMENT_RUN } from '@/utils/env';
 import type { DiscrepancyReason, SettlementLine, SettlementStatement } from '@/types/settlement';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { labelOptions } from './shared';
 import { DISCREPANCY_REASON_LABELS, LINE_KIND_LABELS, PAYMENT_STATUS_OPTIONS, paymentStatusOf, shopText } from './settlementShared';
 import { LineOrder } from './SettlementDetailPage';

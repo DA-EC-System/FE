@@ -20,7 +20,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { OrderSource, OrderStatus, OrderSummary, PaymentMethod } from '@/types/sales';
 import { ORDER_STATUS, PAYMENT_METHOD_LABELS, SOURCE_LABELS, sourceLabel } from './shared';
-import { useUrlFilters } from './useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 
 const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';

@@ -25,7 +25,7 @@ import { Info } from './Info';
 import { PaymentPanel } from './PaymentPanel';
 import { CancelOrderDialog } from './CancelOrderDialog';
 import { DeliveryDialog } from './DeliveryDialog';
-import { StatusTimeline } from './StatusTimeline';
+import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { SettlementBadges } from '@/features/finance/SettlementBadges';
 
 type ConfirmNotice = { kind: 'short'; lines: ShortLine[] } | { kind: 'error'; message: string };
@@ -253,7 +253,7 @@ export function OrderDetailPage() {
               <CardTitle className="text-base">Lịch sử trạng thái</CardTitle>
             </CardHeader>
             <CardContent>
-              <StatusTimeline history={order.statusHistory} />
+              <StatusTimeline history={order.statusHistory} statuses={ORDER_STATUS} />
             </CardContent>
           </Card>
         </div>

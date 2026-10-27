@@ -59,6 +59,16 @@ export const PERMISSIONS = {
   reportView: 'report.dashboard.view',
   /** Xuất báo cáo ra CSV (UC-RP-02) */
   reportExport: 'report.dashboard.export',
+  /** Duyệt, ghi sổ phiếu kho (kiểm kê, xuất huỷ, chờ xử lý, kiểm hàng về); người thứ hai (FE#55) */
+  stockDocApprove: 'inventory.document.approve',
+  /** Lập, gửi, rút đề nghị nhập; đặt NCC (sơ đồ A1) */
+  purchaseRequestManage: 'purchasing.request.manage',
+  /** Duyệt, trả về, từ chối đề nghị nhập (sơ đồ A1, CEO) */
+  purchaseRequestApprove: 'purchasing.request.approve',
+  /** Kiểm đếm, ghi sổ phiếu nhận (sơ đồ A2) */
+  goodsReceiptManage: 'purchasing.receipt.manage',
+  /** Lập, gửi phiếu trả NCC, ghi kết quả (sơ đồ B4) */
+  supplierReturnManage: 'purchasing.return.manage',
 } as const;
 
 /**

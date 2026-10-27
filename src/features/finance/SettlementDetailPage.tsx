@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/utils/format';
 import type { MatchStatus, SettlementLine, SettlementStatement } from '@/types/settlement';
 import { Info } from '@/features/sales/Info';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import {
   DISCREPANCY_REASON_LABELS,
   FEE_KEYS,

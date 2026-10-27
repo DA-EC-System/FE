@@ -13,6 +13,7 @@ import {
   CreditCard,
   Contact,
   FileText,
+  FlaskConical,
   HandCoins,
   Inbox,
   Scale,
@@ -28,6 +29,7 @@ import {
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
+import { USE_MOCKS } from '@/utils/env';
 
 export interface NavItem {
   to: string;
@@ -254,5 +256,21 @@ export function companyNav(companyId: string): NavSection[] {
         },
       ],
     },
+    ...(USE_MOCKS
+      ? [
+          {
+            title: 'Dữ liệu giả',
+            items: [
+              {
+                to: ROUTES.company.devMarketplace(companyId),
+                label: 'Sàn giả lập',
+                icon: FlaskConical,
+                module: 'channel',
+                permission: PERMISSIONS.shopView,
+              } satisfies NavItem,
+            ],
+          },
+        ]
+      : []),
   ];
 }

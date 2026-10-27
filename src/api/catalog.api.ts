@@ -235,13 +235,18 @@ export function useArchiveVariant() {
  * không gắn token của Commerio vào URL của kho lưu trữ.
  */
 export async function uploadProductImage(file: File): Promise<string> {
+  return uploadFile(file, 'product_image');
+}
+
+/** `attachment`: tệp đính kèm chứng từ, mọi thành viên công ty tải được (FE#55) */
+export async function uploadFile(file: File, purpose: 'product_image' | 'attachment'): Promise<string> {
   const { data: ticket } = await apiClient.post<UploadTicket>('/files/uploads', {
     fileName: file.name,
     contentType: file.type,
     sizeBytes: file.size,
-    purpose: 'product_image',
+    purpose,
   });
   const res = await fetch(ticket.uploadUrl, { method: 'PUT', headers: ticket.headers, body: file });
-  if (!res.ok) throw new Error(`Tải ảnh ${file.name} thất bại (${res.status})`);
+  if (!res.ok) throw new Error(`Tải ${file.name} thất bại (${res.status})`);
   return ticket.fileId;
 }

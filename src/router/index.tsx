@@ -54,9 +54,10 @@ import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
 import { SettlementsPage } from '@/features/finance/SettlementsPage';
 import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { ReportPage } from '@/features/report/ReportPage';
+import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PERMISSIONS } from '@/utils/permissions';
-import { BASE_PATH } from '@/utils/env';
+import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
@@ -391,6 +392,18 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
+                  ...(USE_MOCKS
+                    ? [
+                        {
+                          path: 'dev/marketplace',
+                          element: (
+                            <RequireModule module="channel" permission={PERMISSIONS.shopView}>
+                              <MarketplaceSimulatorPage />
+                            </RequireModule>
+                          ),
+                        },
+                      ]
+                    : []),
                 ],
               },
             ],
