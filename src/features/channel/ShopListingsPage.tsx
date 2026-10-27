@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { ArrowLeft, ImageIcon, Link2, PlugZap, Unlink, Upload } from 'lucide-react';
+import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RotateCcw, Unlink, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  useDelistListing,
   useMatchListing,
   usePushListings,
   useRemoteSkus,
@@ -30,9 +31,18 @@ import { priceText } from '@/features/pricing/shared';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import type { ListingRow, RemoteSku } from '@/types/shop';
+import type { ListingRow, ListingStatus, RemoteSku } from '@/types/shop';
+import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
-import { isUsable, PLATFORM_LABELS, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
+import {
+  isUsable,
+  LISTING_STATUS_LABELS,
+  LISTING_STATUS_VARIANTS,
+  PLATFORM_LABELS,
+  STATUS_LABELS,
+  STATUS_VARIANTS,
+  STOCK_SYNC_LABELS,
+} from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 
 type MatchFilter = '' | 'matched' | 'unmatched' | 'stale';
@@ -43,9 +53,23 @@ const MATCH_FILTERS: { value: Exclude<MatchFilter, ''>; label: string }[] = [
   { value: 'stale', label: 'Giá chưa đẩy' },
 ];
 
+/** Lọc theo trạng thái listing (sơ đồ C2); chưa có listing là "Chưa lên sàn" */
+const LISTING_FILTERS: { value: ListingStatus | 'not_listed'; label: string }[] = [
+  { value: 'not_listed', label: 'Chưa lên sàn' },
+  ...(Object.entries(LISTING_STATUS_LABELS) as [ListingStatus, string][]).map(([value, label]) => ({ value, label })),
+];
+
 /** Đã ghép nhưng chưa đẩy, hoặc giá đã đổi sau lần đẩy cuối */
 const isStale = (r: ListingRow) =>
-  Boolean(r.listing) && (r.listing!.lastPushedAt === null || r.price !== r.listing!.lastPushedPrice);
+  Boolean(r.listing) &&
+  onPlatform(r.listing!.status) &&
+  (r.listing!.lastPushedAt === null || r.price !== r.listing!.lastPushedPrice);
+
+/** Đẩy lại sau khi sửa: lỗi đẩy, sàn từ chối, hoặc đưa lại listing đã gỡ */
+const RETRY_STATUSES: ListingStatus[] = ['push_failed', 'rejected', 'delisted'];
+
+/** Gỡ được khi listing còn trên sàn và không đang đẩy */
+const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
 
 /** Hộp ghép đang mở: bắt đầu từ biến thể (chọn SKU sàn) hoặc từ SKU sàn (chọn biến thể) */
 type Matching = { from: 'variant'; row: ListingRow } | { from: 'remote'; sku: RemoteSku };
@@ -62,17 +86,21 @@ export function ShopListingsPage() {
   const shop = shopQuery.data;
   const usable = shop ? isUsable(shop.status) : false;
   const canManage = can(PERMISSIONS.listingManage) && usable;
-  const canReconnect = can(PERMISSIONS.shopConnect) && shop && shop.status !== 'connected';
+  const canReconnect =
+    can(PERMISSIONS.shopConnect) && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected');
 
   const listingsQuery = useShopListings(shopId);
   const remoteQuery = useRemoteSkus(shopId, usable);
   const matchMut = useMatchListing();
   const unmatchMut = useUnmatchListing();
   const pushMut = usePushListings();
+  const delistMut = useDelistListing();
   const connector = useStartConnect();
 
   const [search, setSearch] = useState('');
   const [matchFilter, setMatchFilter] = useState<MatchFilter>('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [delisting, setDelisting] = useState<ListingRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -98,9 +126,10 @@ export function ShopListingsPage() {
         (matchFilter === '' ||
           (matchFilter === 'matched' && r.listing) ||
           (matchFilter === 'unmatched' && !r.listing) ||
-          (matchFilter === 'stale' && isStale(r))),
+          (matchFilter === 'stale' && isStale(r))) &&
+        (statusFilter === '' || (r.listing?.status ?? 'not_listed') === statusFilter),
     );
-  }, [items, search, matchFilter]);
+  }, [items, search, matchFilter, statusFilter]);
 
   // Phân trang tại chỗ: API trả mọi biến thể đang bán
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -197,6 +226,22 @@ export function ShopListingsPage() {
       }
     }
     setUnmatching(null);
+  };
+
+  const handleDelist = async () => {
+    if (!delisting?.listing) return;
+    try {
+      await delistMut.mutateAsync({ shopId, variantId: delisting.variantId, version: delisting.listing.version });
+      toast.success(`Đã gỡ ${delisting.sku} khỏi sàn`);
+    } catch (e) {
+      if (problemCode(e) === 'version_conflict') {
+        toast.warning(`Listing của ${delisting.sku} vừa đổi trạng thái. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        void listingsQuery.refetch();
+      } else {
+        toast.error(problemMessage(e));
+      }
+    }
+    setDelisting(null);
   };
 
   /** Biến thể chưa có SKU sàn sẽ được tạo mới: hỏi trước (ngoại lệ 7a) */
@@ -336,20 +381,48 @@ export function ShopListingsPage() {
             );
           }
           const l = r.listing;
-          if (!l) return <span className="text-muted-foreground">Chưa có trên sàn</span>;
-          if (l.lastPushedAt === null) return <Badge variant="warning">Chưa đẩy</Badge>;
-          if (r.price !== l.lastPushedPrice) {
-            return (
-              <div className="grid justify-items-start gap-1">
-                <Badge variant="warning">Giá đã đổi, chưa đẩy</Badge>
-                <span className="text-xs text-muted-foreground">Trên sàn: {priceText(l.lastPushedPrice)}</span>
-              </div>
-            );
-          }
+          if (!l) return <span className="text-muted-foreground">Chưa lên sàn</span>;
+          const live = onPlatform(l.status);
+          const note =
+            l.status === 'rejected'
+              ? l.rejectReason
+              : l.status === 'push_failed' || l.status === 'pushing'
+                ? l.pushError
+                : l.status === 'hidden'
+                  ? l.hiddenBy === 'zero_stock'
+                    ? 'Sàn không ẩn riêng phân loại: đã đẩy tồn 0'
+                    : 'Đã ẩn trên sàn'
+                  : null;
           return (
             <div className="grid justify-items-start gap-1">
-              <Badge variant="success">Đã đẩy</Badge>
-              <span className="text-xs text-muted-foreground">{formatDateTime(l.lastPushedAt)}</span>
+              <Badge variant={LISTING_STATUS_VARIANTS[l.status]} data-testid="listing-status">
+                {LISTING_STATUS_LABELS[l.status]}
+              </Badge>
+              {note && (
+                <span
+                  className={l.status === 'hidden' ? 'text-xs text-muted-foreground' : 'text-xs text-destructive'}
+                  data-testid="listing-note"
+                >
+                  {note}
+                </span>
+              )}
+              {live &&
+                (l.lastPushedAt === null ? (
+                  <Badge variant="warning">Chưa đẩy</Badge>
+                ) : r.price !== l.lastPushedPrice ? (
+                  <>
+                    <Badge variant="warning">Giá đã đổi, chưa đẩy</Badge>
+                    <span className="text-xs text-muted-foreground">Trên sàn: {priceText(l.lastPushedPrice)}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Đã đẩy {formatDateTime(l.lastPushedAt)}</span>
+                ))}
+              {live && l.stockSync !== 'synced' && (
+                <Badge variant={l.stockSync === 'error' ? 'destructive' : 'outline'} data-testid="stock-sync">
+                  {STOCK_SYNC_LABELS[l.stockSync]}
+                  {l.stockSync === 'error' && l.platformStock !== null && ` (sàn ${l.platformStock})`}
+                </Badge>
+              )}
             </div>
           );
         },
@@ -359,9 +432,12 @@ export function ShopListingsPage() {
       cols.push({
         id: 'actions',
         header: '',
-        meta: { className: 'w-32 text-right' },
+        meta: { className: 'w-40 text-right' },
         cell: ({ row }) => {
           const r = row.original;
+          const status = r.listing?.status;
+          const busy =
+            status === 'pushing' ? 'Đang đẩy, chờ sàn phản hồi' : status === 'platform_hold' ? 'Sàn đang khoá listing' : null;
           return (
             <div className="flex justify-end gap-1">
               <RowAction
@@ -376,13 +452,28 @@ export function ShopListingsPage() {
                   <Unlink />
                 </RowAction>
               )}
-              <RowAction
-                label={r.listing ? 'Đẩy lên sàn' : 'Đẩy sản phẩm mới'}
-                reason={pushMut.isPending ? 'Đang đẩy...' : null}
-                onClick={() => requestPush([r])}
-              >
-                <Upload />
-              </RowAction>
+              {status && RETRY_STATUSES.includes(status) ? (
+                <RowAction
+                  label="Đẩy lại"
+                  reason={pushMut.isPending ? 'Đang đẩy...' : null}
+                  onClick={() => requestPush([r])}
+                >
+                  <RotateCcw />
+                </RowAction>
+              ) : (
+                <RowAction
+                  label={r.listing ? 'Đẩy lên sàn' : 'Đẩy sản phẩm mới'}
+                  reason={pushMut.isPending ? 'Đang đẩy...' : busy}
+                  onClick={() => requestPush([r])}
+                >
+                  <Upload />
+                </RowAction>
+              )}
+              {status && canDelist(status) && (
+                <RowAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
+                  <CloudOff />
+                </RowAction>
+              )}
             </div>
           );
         },
@@ -443,7 +534,7 @@ export function ShopListingsPage() {
   }
 
   const newCount = pushing?.filter((r) => !r.listing).length ?? 0;
-  const filtered = Boolean(search.trim() || matchFilter);
+  const filtered = Boolean(search.trim() || matchFilter || statusFilter);
 
   return (
     <div>
@@ -518,6 +609,12 @@ export function ShopListingsPage() {
             value={matchFilter}
             onChange={withReset((v: string) => setMatchFilter(v as MatchFilter))}
             options={MATCH_FILTERS}
+          />
+          <FilterSelect
+            label="Trạng thái"
+            value={statusFilter}
+            onChange={withReset(setStatusFilter)}
+            options={LISTING_FILTERS}
           />
           <p className="text-sm text-muted-foreground md:ms-auto md:self-center" data-testid="match-summary">
             Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
@@ -607,6 +704,21 @@ export function ShopListingsPage() {
         loading={unmatchMut.isPending}
         onConfirm={handleUnmatch}
         onClose={() => setUnmatching(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(delisting)}
+        title="Gỡ khỏi sàn?"
+        message={
+          <>
+            Gỡ <strong>{delisting?.sku}</strong> khỏi {shop?.shopName}. Khách không đặt được SKU này trên sàn nữa; ghép SKU
+            vẫn giữ để đẩy lại sau.
+          </>
+        }
+        confirmLabel="Gỡ khỏi sàn"
+        destructive
+        loading={delistMut.isPending}
+        onConfirm={handleDelist}
+        onClose={() => setDelisting(null)}
       />
       <ConfirmDialog
         open={Boolean(pushing)}

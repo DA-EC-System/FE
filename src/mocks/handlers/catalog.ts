@@ -13,6 +13,8 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@/utils/files';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
+import { delistVariant, setListingsHidden } from './channel';
+import { onPlatform, presenceFrom } from '@/lib/machines/channel';
 
 // ---------- Catalog (UC-CP-01, UC-CP-02) và ảnh qua module files ----------
 export const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -115,14 +117,13 @@ function missingOf(p: MockProduct, v: MockVariant): string[] {
   ].filter((x): x is string => Boolean(x));
 }
 
+/** Listing còn trên sàn của SKU (bỏ listing đã gỡ) */
 const listingsOf = (companyId: string, variantId: string) =>
-  channel.listings.filter((l) => l.companyId === companyId && l.variantId === variantId);
+  channel.listings.filter((l) => l.companyId === companyId && l.variantId === variantId && onPlatform(l.status));
 
-/** Hiện diện trên sàn: có listing đã đẩy thì đang bán, ghép mà chưa đẩy thì chờ sàn. "Có lỗi" đến từ FE#58 */
+/** Hiện diện trên sàn suy từ trạng thái listing (sơ đồ C2) */
 function presenceOf(companyId: string, variantId: string): VariantPresence {
-  const ls = listingsOf(companyId, variantId);
-  if (!ls.length) return 'not_listed';
-  return ls.some((l) => l.lastPushedAt) ? 'live' : 'pending';
+  return presenceFrom(listingsOf(companyId, variantId).map((l) => l.status));
 }
 
 export const toVariant = (p: MockProduct, v: MockVariant): ProductVariant => {
@@ -153,17 +154,8 @@ function applyBusinessStatus(p: MockProduct, v: MockVariant, to: VariantBusiness
   const from = v.businessStatus;
   v.businessStatus = to;
   v.archivedAt = to === 'archived' ? at : null;
-  if (to === 'archived') {
-    for (let i = channel.listings.length - 1; i >= 0; i--) {
-      const l = channel.listings[i];
-      if (l.companyId === p.companyId && l.variantId === v.id) channel.listings.splice(i, 1);
-    }
-  } else if (hidesListings(from) !== hidesListings(to)) {
-    for (const l of listingsOf(p.companyId, v.id)) {
-      l.hidden = hidesListings(to);
-      l.version += 1;
-    }
-  }
+  if (to === 'archived') delistVariant(p.companyId, v.id);
+  else if (hidesListings(from) !== hidesListings(to)) setListingsHidden(p.companyId, v.id, hidesListings(to));
   syncProductArchived(p, at);
 }
 

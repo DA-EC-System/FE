@@ -1,34 +1,12 @@
 import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
 import { PERMISSIONS } from '@/utils/permissions';
-import {
-  fireMarketplaceEvent,
-  marketplaceEventLog,
-  marketplaceEventTypes,
-  registerMarketplaceEvent,
-} from '../engine/marketplace';
+import { fireMarketplaceEvent, marketplaceEventLog, marketplaceEventTypes } from '../engine/marketplace';
 import type { FireMarketplaceEventInput } from '@/types/devMarketplace';
 import { API, LATENCY, problem, requireCompany } from './utils';
 
 // ---------- Sàn giả lập (FE#55): chỉ có ở mock, BE không làm route này ----------
-
-// Sàn thu hồi quyền: Shopee/Lazada refresh token hết hạn, Shopify webhook app/uninstalled
-registerMarketplaceEvent({
-  type: 'shop.deauthorized',
-  label: 'Sàn thu hồi quyền',
-  description: 'Token hết hạn hoặc chủ shop gỡ ứng dụng trên sàn. Gian hàng cần kết nối lại.',
-  group: 'Gian hàng',
-  needsShop: true,
-  run({ shop }) {
-    if (!shop) throw new Error('Chọn gian hàng');
-    if (shop.status === 'disconnected') throw new Error('Gian hàng đã ngắt');
-    shop.status = 'deauthorized';
-    shop.accessExpiresAt = new Date().toISOString();
-    shop.version += 1;
-    shop.updatedAt = new Date().toISOString();
-    return `${shop.shopName} chuyển sang cần kết nối lại`;
-  },
-});
+// Sự kiện của từng phân hệ đăng ký trong handler của phân hệ đó (gian hàng, listing: channel.ts)
 
 export const devMarketplaceHandlers = [
   http.get(`${API}/dev/marketplace/events`, async ({ request }) => {

@@ -14,8 +14,6 @@ export interface MockStockLevel extends StockNumbers {
   avgCost: number;
   /** Hàng các kiện Thiếu hàng cần; kiện (FE#59) sẽ tính thay số này */
   backordered: number;
-  /** Số trên sàn khác khả dụng sau lần đẩy gần nhất */
-  drift: boolean;
 }
 
 export interface MockReorderRule {
@@ -348,7 +346,6 @@ export function levelOf(companyId: string, variantId: string): MockStockLevel {
       incoming: 0,
       avgCost: 0,
       backordered: 0,
-      drift: false,
     };
     levels.push(level);
   }
@@ -484,7 +481,6 @@ for (const level of levels) {
   level.backordered = BACKORDERED[level.variantId] ?? 0;
 }
 // Lần đẩy gần nhất sàn trả số khác
-levelOf('cmp-001', 'prd-003-v1').drift = true;
 
 export const reorderRules: MockReorderRule[] = [
   // prd-001-v4: khả dụng 4 + đang về 20 − thiếu 4 = 20 > 5 → không gợi ý nhập dù sắp hết

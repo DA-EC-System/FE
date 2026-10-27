@@ -76,7 +76,10 @@ const companies: Company[] = [
 ];
 
 /** channel.shops; listingCount tính từ channel_listings khi trả về */
-export type MockShop = Omit<Shop, 'listingCount'>;
+export type MockShop = Omit<Shop, 'listingCount'> & {
+  /** Sàn giả lập đang lỗi tạm: đẩy listing nằm ở "Đang đẩy" và thử lại */
+  outage?: boolean;
+};
 
 const shops: MockShop[] = [
   // cmp-001 — ABC Fashion
@@ -87,9 +90,11 @@ const shops: MockShop[] = [
     externalShopId: 'shopee-abc-fashion',
     shopName: 'ABC Fashion Official',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
     accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:30:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-01-20T08:00:00.000Z',
     updatedAt: '2026-10-14T08:30:00.000Z',
     version: 1,
@@ -101,9 +106,11 @@ const shops: MockShop[] = [
     externalShopId: 'tiktok-abc-fashion',
     shopName: 'ABC Fashion TikTok Shop',
     region: 'VN',
-    status: 'expiring',
-    accessExpiresAt: '2026-10-25T00:00:00.000Z',
+    status: 'needs_reauth',
+    accessExpiresAt: '2026-10-13T20:00:00.000Z',
     lastOrderSyncAt: '2026-10-13T20:00:00.000Z',
+    orderCutoffAt: '2026-04-15T00:00:00.000Z',
+    pendingJobs: 3,
     createdAt: '2026-04-15T10:00:00.000Z',
     updatedAt: '2026-10-13T20:00:00.000Z',
     version: 1,
@@ -115,9 +122,12 @@ const shops: MockShop[] = [
     externalShopId: 'lazada-abc-fashion',
     shopName: 'ABC Fashion LazMall',
     region: 'VN',
-    status: 'connected',
-    accessExpiresAt: '2027-01-10T00:00:00.000Z',
+    status: 'active',
+    // Token còn 3 ngày: nhãn phụ "Sắp hết hạn"
+    accessExpiresAt: new Date(Date.now() + 3 * 24 * 3600_000).toISOString(),
     lastOrderSyncAt: '2026-10-14T07:45:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-02-10T09:00:00.000Z',
     updatedAt: '2026-10-14T07:45:00.000Z',
     version: 1,
@@ -133,6 +143,8 @@ const shops: MockShop[] = [
     status: 'disconnected',
     accessExpiresAt: null,
     lastOrderSyncAt: '2026-08-30T10:00:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-03-01T09:00:00.000Z',
     updatedAt: '2026-09-01T09:00:00.000Z',
     version: 1,
@@ -145,9 +157,11 @@ const shops: MockShop[] = [
     externalShopId: 'shopee-xyz-beauty',
     shopName: 'XYZ Beauty Shopee',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
     accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:00:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-03-25T08:00:00.000Z',
     updatedAt: '2026-10-14T08:00:00.000Z',
     version: 1,
@@ -159,9 +173,11 @@ const shops: MockShop[] = [
     externalShopId: 'mock-xyz-internal',
     shopName: 'XYZ — sàn giả lập',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
     accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:15:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-05-01T10:00:00.000Z',
     updatedAt: '2026-10-14T08:15:00.000Z',
     version: 1,
@@ -174,9 +190,11 @@ const shops: MockShop[] = [
     externalShopId: 'shopee-antoan-toys',
     shopName: 'An Toàn Toys Shopee',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
     accessExpiresAt: '2027-01-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:00:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-10-06T10:00:00.000Z',
     updatedAt: '2026-10-14T08:00:00.000Z',
     version: 1,
@@ -636,8 +654,8 @@ const companyAuditLogs: MockCompanyAuditLog[] = [
     entityType: 'channel.shops',
     entityId: 'shp-001',
     entityLabel: 'ABC Fashion Official',
-    before: { status: 'expiring' },
-    after: { status: 'connected' },
+    before: { status: 'needs_reauth' },
+    after: { status: 'active' },
     createdAt: '2026-08-01T04:00:00.000Z',
   },
 ];

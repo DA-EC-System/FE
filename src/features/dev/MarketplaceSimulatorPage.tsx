@@ -6,6 +6,7 @@ import { PageSpinner } from '@/components/common/PageSpinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFireMarketplaceEvent, useMarketplaceEvents } from '@/api/devMarketplace.api';
@@ -24,6 +25,7 @@ export function MarketplaceSimulatorPage() {
   const shops = useShops({ pageSize: 100 });
   const fire = useFireMarketplaceEvent();
   const [shopId, setShopId] = useState('');
+  const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const shop = shops.data?.items.find((s) => s.id === shopId);
   const shopName = (id: string | null) => shops.data?.items.find((s) => s.id === id)?.shopName;
 
@@ -41,7 +43,12 @@ export function MarketplaceSimulatorPage() {
 
   const onFire = async (t: MarketplaceEventType) => {
     try {
-      const entry = await fire.mutateAsync({ type: t.type, shopId: shop?.id });
+      const value = paramValues[t.type]?.trim();
+      const entry = await fire.mutateAsync({
+        type: t.type,
+        shopId: shop?.id,
+        params: t.param && value ? { [t.param.key]: value } : undefined,
+      });
       toast.success(entry.message);
     } catch (e) {
       toast.error(problemMessage(e));
@@ -84,15 +91,26 @@ export function MarketplaceSimulatorPage() {
                         <span className="font-medium">{t.label}</span>
                         <span className="text-sm text-muted-foreground">{t.description}</span>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={Boolean(reason) || fire.isPending}
-                        title={reason ?? undefined}
-                        onClick={() => onFire(t)}
-                      >
-                        Phát
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {t.param && (
+                          <Input
+                            className="h-8 w-48"
+                            aria-label={`${t.param.label} (${t.label})`}
+                            placeholder={t.param.placeholder ?? t.param.label}
+                            value={paramValues[t.type] ?? ''}
+                            onChange={(e) => setParamValues((v) => ({ ...v, [t.type]: e.target.value }))}
+                          />
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={Boolean(reason) || fire.isPending}
+                          title={reason ?? undefined}
+                          onClick={() => onFire(t)}
+                        >
+                          Phát
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}

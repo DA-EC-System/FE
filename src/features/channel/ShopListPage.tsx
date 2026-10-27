@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Link2, PlugZap, RefreshCw, Store, Unplug } from 'lucide-react';
+import { Link2, PlugZap, RefreshCw, Settings2, Store, Unplug } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -21,6 +21,9 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDate, formatDateTime } from '@/utils/format';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { tokenExpiringSoon } from '@/lib/machines/channel';
 import type { Marketplace, Shop } from '@/types/shop';
 import { isUsable, PLATFORM_LABELS, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
@@ -49,6 +52,7 @@ export function ShopListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
+  const [zeroStock, setZeroStock] = useState(false);
 
   const shopsQuery = useShops({
     page,
@@ -68,7 +72,18 @@ export function ShopListPage() {
       setPage(1);
     };
 
-  const openListings = (s: Shop) => navigate(ROUTES.company.shop(companyId, s.id));
+  // Gian hàng đang thiết lập mở thẳng wizard (chỉ người có quyền kết nối)
+  const openListings = (s: Shop) =>
+    navigate(
+      s.status === 'connecting' && canConnect
+        ? ROUTES.company.shopSetup(companyId, s.id)
+        : ROUTES.company.shop(companyId, s.id),
+    );
+  const askDisconnect = (s: Shop) => {
+    setZeroStock(false);
+    setDisconnecting(s);
+  };
+  const needsReauth = (shopsQuery.data?.items ?? []).filter((s) => s.status === 'needs_reauth');
 
   const sync = async (s: Shop) => {
     try {
@@ -82,8 +97,10 @@ export function ShopListPage() {
   const handleDisconnect = async () => {
     if (!disconnecting) return;
     try {
-      await disconnectMut.mutateAsync({ id: disconnecting.id, version: disconnecting.version });
-      toast.success(`Đã ngắt kết nối ${disconnecting.shopName}`);
+      await disconnectMut.mutateAsync({ id: disconnecting.id, version: disconnecting.version, zeroStock });
+      toast.success(
+        `Đã ngắt kết nối ${disconnecting.shopName}${zeroStock ? ', tồn trên sàn đã về 0' : ''}`,
+      );
     } catch (e) {
       if (problemCode(e) === 'version_conflict') {
         toast.warning(`${disconnecting.shopName} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại danh sách.`);
@@ -125,8 +142,13 @@ export function ShopListPage() {
               <Badge variant={STATUS_VARIANTS[s.status]} data-testid="shop-status">
                 {STATUS_LABELS[s.status]}
               </Badge>
-              {s.status === 'expiring' && s.accessExpiresAt && (
-                <span className="text-xs text-muted-foreground">Hết hạn {formatDate(s.accessExpiresAt)}</span>
+              {tokenExpiringSoon(s.status, s.accessExpiresAt) && (
+                <span className="text-xs text-warning" data-testid="shop-expiring">
+                  Sắp hết hạn · Hết hạn {formatDate(s.accessExpiresAt)}
+                </span>
+              )}
+              {s.status === 'needs_reauth' && s.pendingJobs > 0 && (
+                <span className="text-xs text-muted-foreground">{s.pendingJobs} việc đang chờ</span>
               )}
             </div>
           );
@@ -157,9 +179,15 @@ export function ShopListPage() {
           const usable = isUsable(s.status);
           return (
             <div className="flex justify-end gap-1">
-              <RowAction label="Ghép SKU" onClick={() => openListings(s)}>
-                <Link2 />
-              </RowAction>
+              {s.status === 'connecting' && canConnect ? (
+                <RowAction label="Thiết lập" onClick={() => openListings(s)}>
+                  <Settings2 />
+                </RowAction>
+              ) : (
+                <RowAction label="Ghép SKU" onClick={() => openListings(s)}>
+                  <Link2 />
+                </RowAction>
+              )}
               {canSync && usable && (
                 <RowAction
                   label="Đồng bộ đơn"
@@ -169,7 +197,7 @@ export function ShopListPage() {
                   <RefreshCw />
                 </RowAction>
               )}
-              {canConnect && s.status !== 'connected' && (
+              {canConnect && (s.status === 'needs_reauth' || s.status === 'disconnected') && (
                 <RowAction
                   label="Kết nối lại"
                   reason={connector.pending ? 'Đang chuyển sang sàn...' : null}
@@ -179,7 +207,7 @@ export function ShopListPage() {
                 </RowAction>
               )}
               {canDisconnect && s.status !== 'disconnected' && (
-                <RowAction label="Ngắt kết nối" destructive onClick={() => setDisconnecting(s)}>
+                <RowAction label="Ngắt kết nối" destructive onClick={() => askDisconnect(s)}>
                   <Unplug />
                 </RowAction>
               )}
@@ -233,6 +261,30 @@ export function ShopListPage() {
           </CardContent>
         </Card>
       )}
+
+      {needsReauth.map((s) => (
+        <div key={s.id} className="mb-4" data-testid="reauth-banner">
+          <AlertMessage severity="warning">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                <strong>{s.shopName}</strong> cần kết nối lại: sàn đã thu hồi quyền, chưa kéo đơn và chưa đẩy tồn được.
+                {s.pendingJobs > 0 && ` ${s.pendingJobs} việc đang chờ, sẽ chạy ngay khi kết nối lại.`}
+              </span>
+              {canConnect && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={connector.pending}
+                  onClick={() => connector.start({ platform: s.platform, shopId: s.id })}
+                >
+                  <PlugZap />
+                  Kết nối lại
+                </Button>
+              )}
+            </div>
+          </AlertMessage>
+        </div>
+      ))}
 
       {shopsQuery.isError && (
         <AlertMessage severity="error" className="mb-4">
@@ -290,8 +342,24 @@ export function ShopListPage() {
         message={
           <>
             Ngắt <strong>{disconnecting?.shopName}</strong> ({disconnecting && PLATFORM_LABELS[disconnecting.platform]}).
-            Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này. Đơn và ghép SKU cũ vẫn giữ để xem; kết nối
-            lại bất cứ lúc nào.
+            Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; listing trên sàn được gỡ. Đơn và ghép SKU
+            cũ vẫn giữ; kết nối lại thì listing được đưa lên lại.
+            <div className="mt-3 flex items-start gap-2">
+              <Checkbox
+                id="zero-stock"
+                checked={zeroStock}
+                disabled={!disconnecting || !isUsable(disconnecting.status)}
+                onCheckedChange={(v) => setZeroStock(v === true)}
+              />
+              <Label htmlFor="zero-stock" className="grid gap-0.5 font-normal text-foreground">
+                Đặt tồn trên sàn về 0
+                <span className="text-xs text-muted-foreground">
+                  {disconnecting && !isUsable(disconnecting.status)
+                    ? 'Không làm được: sàn đã thu hồi quyền.'
+                    : 'Tránh khách đặt hàng trong lúc gỡ listing.'}
+                </span>
+              </Label>
+            </div>
           </>
         }
         confirmLabel="Ngắt kết nối"
