@@ -49,6 +49,7 @@ interface FilterSelectProps {
   options: { value: string; label: string }[];
   allLabel?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 /** Ô chọn một giá trị lọc; chuỗi rỗng là không lọc */
@@ -59,11 +60,12 @@ export function FilterSelect({
   options,
   allLabel = 'Tất cả',
   className,
+  disabled,
 }: FilterSelectProps) {
   return (
     <div className={cn('grid gap-1.5', className)}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)}>
+      <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)} disabled={disabled}>
         <SelectTrigger className="w-full md:min-w-40" aria-label={label}>
           <SelectValue />
         </SelectTrigger>

@@ -26,6 +26,7 @@ import { PaymentPanel } from './PaymentPanel';
 import { CancelOrderDialog } from './CancelOrderDialog';
 import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from './StatusTimeline';
+import { SettlementBadges } from '@/features/finance/SettlementBadges';
 
 type ConfirmNotice = { kind: 'short'; lines: ShortLine[] } | { kind: 'error'; message: string };
 
@@ -132,6 +133,7 @@ export function OrderDetailPage() {
       <div className="mb-4 flex flex-wrap gap-1">
         <Badge variant={status.variant}>{status.label}</Badge>
         {order.isShortStock && <Badge variant="destructive">Thiếu hàng</Badge>}
+        {isMarketplace && <SettlementBadges orderId={order.id} />}
       </div>
 
       {actions.note && (

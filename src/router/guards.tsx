@@ -5,7 +5,7 @@ import { PageSpinner } from '@/components/common/PageSpinner';
 import { Button } from '@/components/ui/button';
 import { useAuth, useSelectCompany } from '@/hooks/useAuth';
 import { authErrorMessage } from '@/features/auth/authErrors';
-import { hasPermission, isModuleEnabled } from '@/utils/permissions';
+import { hasAllPermissions, isModuleEnabled } from '@/utils/permissions';
 import { MODULE_LABELS, type ModuleKey } from '@/utils/modules';
 import { ForbiddenPage } from '@/components/common/ForbiddenPage';
 import { ROUTES } from './routes';
@@ -124,7 +124,8 @@ export function RequireCompany() {
 
 interface RequireModuleProps {
   module: ModuleKey;
-  permission?: string;
+  /** Danh sách là cần đủ mọi quyền */
+  permission?: string | readonly string[];
   children: ReactNode;
 }
 
@@ -143,7 +144,7 @@ export function RequireModule({ module, permission, children }: RequireModulePro
       />
     );
   }
-  if (permission && !hasPermission(companyContext, permission)) {
+  if (permission && !hasAllPermissions(companyContext, permission)) {
     return (
       <ForbiddenPage
         message="Vai trò của bạn trong công ty này không có quyền mở trang này."

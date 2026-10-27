@@ -222,6 +222,7 @@ export const permissionCatalog: PermissionDef[] = [
   { code: 'inbox.conversation.reply', module: 'inbox', label: 'Trả lời tin nhắn' },
   { code: 'assistant.chat.use', module: 'assistant', label: 'Dùng Trợ lý AI' },
   { code: 'report.dashboard.view', module: 'report', label: 'Xem báo cáo' },
+  { code: 'report.dashboard.export', module: 'report', label: 'Xuất báo cáo ra tệp' },
 ];
 
 /**
@@ -255,6 +256,7 @@ const ADMIN_PERMISSIONS = [
   P.listingManage,
   'inbox.conversation.reply',
   'report.dashboard.view',
+  'report.dashboard.export',
 ];
 
 export interface MockRole {
@@ -340,6 +342,15 @@ const roles: MockRole[] = [
     version: 1,
     updatedAt: '2026-09-01T00:00:00.000Z',
   },
+  // FE#13: xem báo cáo nhưng không có giá vốn, không xuất tệp
+  {
+    id: 'role-phantich-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Phân tích',
+    permissions: [P.reportView, P.financeView],
+    version: 1,
+    updatedAt: '2026-10-01T00:00:00.000Z',
+  },
 ];
 
 const accounts: Account[] = [
@@ -414,6 +425,13 @@ const accounts: Account[] = [
     isPlatformAdmin: false,
     mustChangePassword: false,
   },
+  {
+    id: 'acc-010',
+    email: 'phantich@commerio.vn',
+    fullName: 'Lý Thị Phân Tích',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
 ];
 
 export interface MockMembership {
@@ -457,6 +475,8 @@ const memberships: MockMembership[] = [
   // FE#12: Kế toán ghi tiền, Kiểm soát chỉ xem chứng từ và giao dịch cổng
   member('acc-008', 'cmp-001', ['role-ketoan-cmp-001']),
   member('acc-009', 'cmp-001', ['role-kiemsoat-cmp-001']),
+  // FE#13: Phân tích xem báo cáo, không thấy giá vốn, lãi
+  member('acc-010', 'cmp-001', ['role-phantich-cmp-001']),
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -491,6 +511,7 @@ export const passwords: Record<string, string> = {
   'cskh@commerio.vn': 'cskh',
   'ketoan@commerio.vn': 'ketoan',
   'kiemsoat@commerio.vn': 'kiemsoat',
+  'phantich@commerio.vn': 'phantich',
 };
 
 /** Nhật ký thao tác trong công ty: audit.audit_logs có company_id (UC-PI-07) */
