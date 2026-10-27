@@ -10,6 +10,8 @@ import type { PageResult } from './types';
 import type {
   Attribute,
   AttributeInput,
+  BusinessStatusInput,
+  BusinessStatusResult,
   Category,
   CategoryInput,
   ProductCreateInput,
@@ -186,17 +188,6 @@ export function useUpdateProduct() {
   });
 }
 
-/** Xoá = lưu trữ (archived_at); BE từ chối khi sản phẩm còn đơn hàng đang xử lý */
-export function useArchiveProduct() {
-  const invalidate = useInvalidateCatalog();
-  return useMutation({
-    mutationFn: async ({ id, version }: { id: string; version: number }) => {
-      await apiClient.delete(`/catalog/products/${id}`, { params: { version } });
-    },
-    onSuccess: invalidate,
-  });
-}
-
 export function useAddVariant() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
@@ -217,12 +208,19 @@ export function useAddVariant() {
   });
 }
 
-/** Ngừng bán biến thể (archived_at); SKU giữ nguyên, không cấp lại */
-export function useArchiveVariant() {
+/**
+ * Đổi trạng thái kinh doanh (sơ đồ B1). Không truyền `variantIds` thì áp cho mọi SKU con;
+ * SKU không làm được thao tác này nằm trong `skipped` kèm lý do.
+ */
+export function useChangeBusinessStatus() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
-    mutationFn: async ({ productId, variantId }: { productId: string; variantId: string }) => {
-      await apiClient.delete(`/catalog/products/${productId}/variants/${variantId}`);
+    mutationFn: async ({ productId, ...body }: BusinessStatusInput & { productId: string }) => {
+      const { data } = await apiClient.post<BusinessStatusResult>(
+        `/catalog/products/${productId}/business-status`,
+        body,
+      );
+      return data;
     },
     onSuccess: invalidate,
   });

@@ -24,8 +24,9 @@ const MESSAGES: Record<string, string> = {
   in_use: 'Không thể xoá vì đang được sử dụng.',
   name_taken: 'Tên này đã được dùng trong công ty.',
   variant_exists: 'Biến thể đã tồn tại.',
-  last_variant: 'Không ngừng bán được biến thể cuối cùng. Sản phẩm cần ít nhất một biến thể đang bán.',
-  product_has_active_orders: 'Không xoá được vì sản phẩm còn đơn hàng chưa hoàn tất.',
+  // FE#57, sơ đồ Sản phẩm B1
+  archive_blocked: 'Chưa lưu trữ được: SKU còn tồn, hàng đang về, hàng chờ xử lý hoặc chứng từ mở.',
+  variant_archived: 'Tổ hợp này là biến thể đã lưu trữ. Dùng Khôi phục để bán lại với SKU cũ.',
   product_archived: 'Sản phẩm đã lưu trữ nên không sửa được.',
   file_type_not_allowed: 'Chỉ nhận ảnh JPG, PNG hoặc WebP.',
   file_too_large: 'Ảnh lớn hơn 5 MB.',

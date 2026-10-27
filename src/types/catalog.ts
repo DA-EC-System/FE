@@ -48,7 +48,22 @@ export interface AttributeInput {
   values: { id?: string; value: string; code?: string }[];
 }
 
+/** `archived`: mọi SKU đã lưu trữ */
 export type ProductStatus = 'active' | 'archived';
+
+/** Trạng thái kinh doanh của SKU (sơ đồ Sản phẩm B1, FE#57). SKU mới luôn là `selling` */
+export type VariantBusinessStatus = 'selling' | 'paused' | 'discontinued' | 'archived';
+
+export type VariantBusinessAction = 'pause' | 'unpause' | 'discontinue' | 'reactivate' | 'archive' | 'restore';
+
+/** Độ hoàn thiện (tính): thiếu ảnh, mô tả hoặc giá chuẩn thì Chờ hoàn thiện */
+export type VariantReadiness = 'incomplete' | 'ready';
+
+/** Hiện diện trên sàn (tính từ listing): live đang bán, pending chờ sàn, error có lỗi, not_listed chưa đăng */
+export type VariantPresence = 'live' | 'pending' | 'error' | 'not_listed';
+
+/** Nhãn chính của SKU: Lưu trữ → Ngừng nhập → Tạm ngừng → hiện diện trên sàn */
+export type VariantMainLabel = 'archived' | 'discontinued' | 'paused' | 'live' | 'pending' | 'not_listed';
 
 export interface ProductImage {
   id: string;
@@ -69,15 +84,31 @@ export interface ProductVariant {
   id: string;
   sku: string;
   attributes: VariantAttribute[];
+  /** Có giá trị khi `businessStatus = archived` */
   archivedAt: string | null;
+  businessStatus: VariantBusinessStatus;
+  readiness: VariantReadiness;
+  /** Phần còn thiếu khi Chờ hoàn thiện, vd ["Ảnh", "Giá chuẩn"] */
+  missing: string[];
+  presence: VariantPresence;
+  /** Số listing trên sàn, kể cả listing đang ẩn do tạm ngừng */
+  listingCount: number;
+  /** Lý do chưa lưu trữ được (tồn, đang về, chờ xử lý, chứng từ mở); rỗng là lưu trữ được */
+  archiveBlockers: string[];
 }
 
 export interface ProductListItem {
   id: string;
   name: string;
   category: { id: string; name: string };
-  /** Số biến thể đang bán */
+  /** Số SKU chưa lưu trữ */
   variantCount: number;
+  /** Mọi SKU, kể cả đã lưu trữ */
+  variantTotal: number;
+  /** Số SKU theo nhãn chính, để suy nhãn cha ("Đang bán 4/6") */
+  labelCounts: Record<VariantMainLabel, number>;
+  incompleteCount: number;
+  errorCount: number;
   thumbnailUrl: string | null;
   status: ProductStatus;
   updatedAt: string;
@@ -97,6 +128,8 @@ export interface ProductListParams {
   search?: string;
   categoryId?: string;
   status?: ProductStatus;
+  /** Có ít nhất một SKU ở trạng thái này */
+  businessStatus?: Exclude<VariantBusinessStatus, 'archived'>;
 }
 
 export interface ProductCreateInput {
@@ -114,6 +147,20 @@ export interface ProductUpdateInput {
   description: string;
   imageFileIds: string[];
   version: number;
+}
+
+/** Đổi trạng thái kinh doanh. Bỏ `variantIds` là áp cho mọi SKU con của sản phẩm */
+export interface BusinessStatusInput {
+  action: VariantBusinessAction;
+  variantIds?: string[];
+}
+
+export interface BusinessStatusResult {
+  product: ProductDetail;
+  /** SKU đã đổi */
+  applied: string[];
+  /** SKU bỏ qua: không ở trạng thái làm được thao tác này, hoặc bị chặn lưu trữ */
+  skipped: { variantId: string; sku: string; code: string; reasons: string[] }[];
 }
 
 /** Vé tải lên module files (presigned URL, commerio-backend#14) */

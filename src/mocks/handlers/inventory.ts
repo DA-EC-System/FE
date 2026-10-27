@@ -33,6 +33,7 @@ import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCo
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid, variantAttributes } from './catalog';
 import { sellableVariants, skuOf } from './pricing';
+import { purchasable } from '@/lib/machines/product';
 
 // ---------- Tồn kho, phiếu kho (UC-IN-01..03; sơ đồ B2, B3, FE#56) ----------
 export const MAX_QTY = 1_000_000;
@@ -95,7 +96,7 @@ export function toStockLevel(product: MockProduct, variant: MockVariant, canCost
     shortage,
     minQty,
     state: stockState(available, minQty),
-    belowMin: needsReorder(level, shortage, minQty),
+    belowMin: purchasable(variant.businessStatus) && needsReorder(level, shortage, minQty),
     negative: violations(level).length > 0,
     drift: level.drift,
     reorderVersion: rule?.version ?? 0,

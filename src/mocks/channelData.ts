@@ -14,6 +14,8 @@ export interface MockListing {
   externalSkuId: string;
   lastPushedAt: string | null;
   lastPushedPrice: number | null;
+  /** Đang ẩn trên sàn vì SKU tạm ngừng (FE#57) */
+  hidden: boolean;
   version: number;
 }
 
@@ -84,6 +86,7 @@ function listing(
     externalSkuId: r.externalSkuId,
     lastPushedAt: pushed === null ? null : T0,
     lastPushedPrice: pushed,
+    hidden: false,
     version: 1,
   };
 }
