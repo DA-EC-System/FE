@@ -18,6 +18,8 @@ export const REMIND = {
   supplierReturnSent: 14 * DAY,
   /** Đơn còn chờ xử lý */
   orderPending: 24 * HOUR,
+  /** Phiếu kho chờ duyệt, kiểm hàng về chưa ghi sổ */
+  stockDocPending: 24 * HOUR,
 } as const;
 
 /** Còn ít hơn phần này của hạn thì tính là sắp tới hạn */

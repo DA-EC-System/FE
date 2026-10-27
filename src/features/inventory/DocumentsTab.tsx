@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { PackageMinus, PackagePlus } from 'lucide-react';
+import { ClipboardList, PackageX, ShieldAlert } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,10 +17,16 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import type { StockDocStatus, StockDocSummary, StockDocType } from '@/types/inventory';
-import { DOC_KIND_LABELS, DOC_STATUS, DOC_TYPE_LABELS, formatQty } from './shared';
+import type { ManualStockDocType, StockDocStatus, StockDocSummary, StockDocType } from '@/types/inventory';
+import { AREA_LABELS, DOC_KIND_LABELS, DOC_STATUS, DOC_TYPE_LABELS, formatQty } from './shared';
 
-/** Phiếu nhập, phiếu xuất của kho: lập nháp rồi ghi sổ */
+const NEW_DOCS: { type: ManualStockDocType; label: string; icon: typeof ClipboardList }[] = [
+  { type: 'stocktake', label: 'Kiểm kê', icon: ClipboardList },
+  { type: 'write_off', label: 'Xuất huỷ', icon: PackageX },
+  { type: 'to_quarantine', label: 'Chuyển chờ xử lý', icon: ShieldAlert },
+];
+
+/** Phiếu kho (sơ đồ B3): nhập, xuất theo đơn chỉ xem; kiểm kê, xuất huỷ, chuyển chờ xử lý lập nháp rồi gửi duyệt */
 export function DocumentsTab() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -58,19 +65,25 @@ export function DocumentsTab() {
         cell: ({ row }) => (
           <div>
             <p className="font-medium">{row.original.number}</p>
-            <p className="text-xs text-muted-foreground">{DOC_TYPE_LABELS[row.original.type]}</p>
+            <p className="text-xs text-muted-foreground">
+              {DOC_TYPE_LABELS[row.original.type]}
+              {row.original.area && ` · ${AREA_LABELS[row.original.area]}`}
+            </p>
           </div>
         ),
       },
       {
         id: 'kind',
-        header: 'Loại',
-        meta: { className: 'w-36' },
+        header: 'Nguồn',
+        meta: { className: 'w-40' },
         cell: ({ row }) => (
           <div>
             <p>{DOC_KIND_LABELS[row.original.kind]}</p>
-            {row.original.reference && (
-              <p className="text-xs text-muted-foreground">Đơn {row.original.reference}</p>
+            {row.original.source && (
+              <p className="text-xs text-muted-foreground">
+                {row.original.source.type === 'order' ? 'Đơn ' : ''}
+                {row.original.source.number}
+              </p>
             )}
           </div>
         ),
@@ -95,11 +108,13 @@ export function DocumentsTab() {
       {
         id: 'status',
         header: 'Trạng thái',
-        meta: { className: 'w-28' },
-        cell: ({ row }) => {
-          const s = DOC_STATUS[row.original.status];
-          return <Badge variant={s.variant}>{s.label}</Badge>;
-        },
+        meta: { className: 'w-36' },
+        cell: ({ row }) => (
+          <div className="flex flex-wrap gap-1">
+            <StatusBadge status={row.original.status} statuses={DOC_STATUS} />
+            {row.original.claimFlag && <Badge variant="destructive">Khiếu nại</Badge>}
+          </div>
+        ),
       },
       {
         id: 'createdAt',
@@ -128,15 +143,15 @@ export function DocumentsTab() {
 
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số phiếu, mã đơn, ghi chú" />
+          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số phiếu, chứng từ gốc, ghi chú" />
           <FilterSelect
             label="Loại phiếu"
             value={type}
             onChange={withReset((v: string) => setType(v as StockDocType | ''))}
-            options={[
-              { value: 'receipt', label: 'Phiếu nhập' },
-              { value: 'issue', label: 'Phiếu xuất' },
-            ]}
+            options={(Object.keys(DOC_TYPE_LABELS) as StockDocType[]).map((t) => ({
+              value: t,
+              label: DOC_TYPE_LABELS[t],
+            }))}
           />
           <FilterSelect
             label="Trạng thái"
@@ -149,18 +164,17 @@ export function DocumentsTab() {
           />
           {/* Chỉ người có quyền lập phiếu mới thấy nút (AC-K12) */}
           {canManage && (
-            <div className="flex gap-2 md:ms-auto">
-              <Button onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, 'receipt'))}>
-                <PackagePlus />
-                Lập phiếu nhập
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, 'issue'))}
-              >
-                <PackageMinus />
-                Lập phiếu xuất
-              </Button>
+            <div className="flex flex-wrap gap-2 md:ms-auto">
+              {NEW_DOCS.map(({ type: t, label, icon: Icon }, i) => (
+                <Button
+                  key={t}
+                  variant={i === 0 ? 'default' : 'outline'}
+                  onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, t))}
+                >
+                  <Icon />
+                  {label}
+                </Button>
+              ))}
             </div>
           )}
         </FilterBar>

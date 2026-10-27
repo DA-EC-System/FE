@@ -4,21 +4,41 @@ import * as catalog from '../catalogData';
 import type { MockProduct, MockVariant } from '../catalogData';
 import { formatCurrency } from '@/utils/format';
 import * as inventory from '../inventoryData';
-import type { MockReturnOrder, MockStockDoc, MockStockDocLine } from '../inventoryData';
-import type { ReorderRuleInput, ReturnOrder, ReturnReceiptInput, StockDetail, StockDoc, StockDocCreateInput, StockDocLineInput, StockDocSummary, StockDocType, StockDocUpdateInput, StockLevel, StockListResult, StockMove } from '@/types/inventory';
+import type { MockStockDoc, MockStockDocLine } from '../inventoryData';
+import { availableOf, needsReorder, shortageOf, stockState, violations } from '../engine/stock';
+import { dueState, registerTaskSource, REMIND } from '../engine/tasks';
+import { isDecreaseDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
+import type {
+  DocRef,
+  RejectDecision,
+  ReorderRuleInput,
+  StockArea,
+  StockDetail,
+  StockDoc,
+  StockDocAction,
+  StockDocCreateInput,
+  StockDocLineInput,
+  StockDocStatus,
+  StockDocSummary,
+  StockDocType,
+  StockDocUpdateInput,
+  StockLevel,
+  StockListResult,
+  StockMove,
+} from '@/types/inventory';
 import { PERMISSIONS } from '@/utils/permissions';
-import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid, variantAttributes } from './catalog';
-import { MAX_PRICE, sellableVariants, skuOf } from './pricing';
+import { sellableVariants, skuOf } from './pricing';
 
-// ---------- Inventory (UC-IN-01..03) ----------
+// ---------- Tồn kho, phiếu kho (UC-IN-01..03; sơ đồ B2, B3, FE#56) ----------
 export const MAX_QTY = 1_000_000;
 export const isQty = (n: unknown, min: number, max = MAX_QTY): n is number =>
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
 
 export const accountName = (id: string | null) =>
-  (id && db.accounts.find((a) => a.id === id)?.fullName) || '—';
+  id === 'system' ? 'Hệ thống' : (id && db.accounts.find((a) => a.id === id)?.fullName) || '—';
 
 /** Biến thể (kể cả đã lưu trữ) của công ty; null nếu không có ở công ty nào */
 export function findVariant(variantId: string) {
@@ -42,21 +62,16 @@ export function variantLabel(companyId: string, variantId: string) {
   };
 }
 
-export function stockLevelOf(companyId: string, variantId: string) {
-  let level = inventory.levels.find((l) => l.companyId === companyId && l.variantId === variantId);
-  if (!level) {
-    level = { companyId, variantId, onHand: 0, reserved: 0, avgCost: 0 };
-    inventory.levels.push(level);
-  }
-  return level;
-}
+export const stockLevelOf = inventory.levelOf;
 
 export function toStockLevel(product: MockProduct, variant: MockVariant, canCost: boolean): StockLevel {
   const level = stockLevelOf(product.companyId, variant.id);
   const rule = inventory.reorderRules.find(
     (r) => r.companyId === product.companyId && r.variantId === variant.id,
   );
-  const available = level.onHand - level.reserved;
+  const available = availableOf(level);
+  const shortage = shortageOf(level, level.backordered);
+  const minQty = rule?.minQty ?? null;
   return {
     variantId: variant.id,
     productId: product.id,
@@ -71,9 +86,16 @@ export function toStockLevel(product: MockProduct, variant: MockVariant, canCost
     },
     onHand: level.onHand,
     reserved: level.reserved,
+    locked: level.locked,
     available,
-    minQty: rule?.minQty ?? null,
-    belowMin: rule ? available < rule.minQty : false,
+    incoming: level.incoming,
+    quarantine: level.quarantine,
+    shortage,
+    minQty,
+    state: stockState(available, minQty),
+    belowMin: needsReorder(level, shortage, minQty),
+    negative: violations(level).length > 0,
+    drift: level.drift,
     reorderVersion: rule?.version ?? 0,
     avgCost: canCost ? level.avgCost : null,
     stockValue: canCost ? level.onHand * level.avgCost : null,
@@ -90,15 +112,18 @@ export function ownedVariant(variantId: unknown, companyId: string) {
   return { ok: true as const, value: found };
 }
 
-/** Phiếu nhập tay và nhận hàng: người lập phiếu thấy giá nhập; còn lại là giá vốn, cần quyền giá vốn */
+/** Phiếu nhập: người lập phiếu thấy giá nhập; còn lại là giá vốn, cần quyền giá vốn */
 export function canSeeLineCost(doc: MockStockDoc, permissions: string[]) {
   if (permissions.includes(PERMISSIONS.costView)) return true;
-  return (
-    doc.type === 'receipt' &&
-    doc.kind !== 'delivery_return' &&
-    permissions.includes(PERMISSIONS.stockDocManage)
-  );
+  return doc.type === 'receipt' && permissions.includes(PERMISSIONS.stockDocManage);
 }
+
+/** Tổng số dự kiến − số quét của phiếu kiểm hàng về, tính theo từng dòng */
+const missingOf = (doc: MockStockDoc) =>
+  doc.lines.reduce((s, l) => s + Math.max(0, (l.expected ?? 0) - l.quantity), 0);
+
+const needsDecision = (doc: MockStockDoc) =>
+  doc.type === 'write_off' && doc.area === 'quarantine' && doc.status === 'rejected' && !doc.rejectDecision;
 
 export function toStockDocSummary(doc: MockStockDoc): StockDocSummary {
   return {
@@ -107,11 +132,14 @@ export function toStockDocSummary(doc: MockStockDoc): StockDocSummary {
     type: doc.type,
     kind: doc.kind,
     status: doc.status,
+    area: doc.area,
     note: doc.note,
-    reference: doc.reference,
+    source: doc.source,
+    claimFlag: doc.claimFlag,
     lineCount: doc.lines.length,
     totalQty: doc.lines.reduce((s, l) => s + l.quantity, 0),
     createdBy: accountName(doc.createdBy),
+    createdById: doc.type === 'return_inspection' ? doc.scannedBy ?? doc.createdBy : doc.createdBy,
     createdAt: doc.createdAt,
     postedBy: doc.postedBy ? accountName(doc.postedBy) : null,
     postedAt: doc.postedAt,
@@ -127,93 +155,338 @@ export function toStockDoc(doc: MockStockDoc, permissions: string[]): StockDoc {
       variantId: l.variantId,
       ...variantLabel(doc.companyId, l.variantId),
       quantity: l.quantity,
+      bookQty: l.bookQty,
+      counted: l.counted,
+      expected: l.expected,
+      resell: l.resell,
+      damaged: l.damaged,
+      toSupplier: l.toSupplier,
+      locked: l.locked,
       unitCost: showCost ? l.unitCost : null,
     })),
+    statusHistory: doc.statusHistory,
+    followUps: doc.followUps,
+    rejectDecision: doc.rejectDecision,
+    needsDecision: needsDecision(doc),
   };
 }
 
 export const stockDocEntity = (d: MockStockDoc) => ({
-  type: d.type === 'receipt' ? 'inventory.stock_receipts' : 'inventory.stock_issues',
+  type: 'inventory.stock_documents',
   id: d.id,
   label: d.number,
 });
 export function stockDocSnapshot(d: MockStockDoc) {
+  const lineText = (l: MockStockDocLine) => {
+    const sku = skuOf(d.companyId, l.variantId);
+    if (d.type === 'stocktake') return `${sku}: đếm ${l.counted} (sổ ${l.bookQty})`;
+    if (d.type === 'return_inspection') {
+      return `${sku}: quét ${l.quantity}/${l.expected ?? 0} (bán lại ${l.resell ?? 0}, hỏng ${l.damaged ?? 0}, trả NCC ${l.toSupplier ?? 0})`;
+    }
+    return (
+      `${sku}: ${l.quantity}` +
+      (d.type === 'receipt' && d.kind === 'manual' && l.unitCost !== null ? ` × ${formatCurrency(l.unitCost)}` : '')
+    );
+  };
   return {
     status: d.status,
+    area: d.area,
     note: d.note,
-    lines: d.lines.map(
-      (l) =>
-        `${skuOf(d.companyId, l.variantId)}: ${l.quantity}` +
-        (d.type === 'receipt' && d.kind === 'manual' && l.unitCost !== null
-          ? ` × ${formatCurrency(l.unitCost)}`
-          : ''),
-    ),
+    lines: d.lines.map(lineText),
+    ...(d.rejectDecision ? { rejectDecision: d.rejectDecision } : {}),
   };
 }
 
+const DOC_PREFIX: Record<StockDocType, string> = {
+  receipt: 'PN',
+  issue: 'PX',
+  stocktake: 'KK',
+  write_off: 'XH',
+  to_quarantine: 'CXL',
+  return_inspection: 'KHV',
+};
+
 export function nextDocNumber(companyId: string, type: StockDocType) {
   const count = inventory.docs.filter((d) => d.companyId === companyId && d.type === type).length;
-  return `${type === 'receipt' ? 'PN' : 'PX'}-${String(count + 1).padStart(6, '0')}`;
+  return `${DOC_PREFIX[type]}-${String(count + 1).padStart(6, '0')}`;
 }
 
-/** Kiểm dòng phiếu nhập tay, xuất tay; lỗi theo đường dẫn "lines.<i>.<trường>" */
-export function validateDocInput(
-  type: StockDocType,
-  body: { note?: string; lines?: StockDocLineInput[] },
+const docRef = (d: MockStockDoc): DocRef => ({ type: 'stock_document', id: d.id, number: d.number });
+
+function pushStatus(doc: MockStockDoc, to: StockDocStatus, actor: CompanyActor | null, at: string, reason?: string | null) {
+  doc.statusHistory.push({
+    at,
+    from: doc.status,
+    to,
+    by: actor ? { id: actor.account.id, name: actor.account.fullName } : null,
+    source: actor ? 'user' : 'system',
+    reason: reason ?? null,
+  });
+  doc.status = to;
+}
+
+/** Kiểm hàng về (sơ đồ B3): hệ thống lập khi kiện hoàn về hoặc nhận hàng trả; kho quét và chia */
+export function createReturnInspection(
   companyId: string,
+  source: DocRef,
+  lines: { variantId: string; quantity: number }[],
+  note: string,
+  at: string,
+): MockStockDoc {
+  const doc: MockStockDoc = {
+    id: rid('sd'),
+    companyId,
+    number: nextDocNumber(companyId, 'return_inspection'),
+    type: 'return_inspection',
+    kind: 'auto',
+    status: 'draft',
+    area: null,
+    note,
+    orderId: source.type === 'order' ? source.id : null,
+    source,
+    claimFlag: false,
+    lines: lines.map((l) => ({
+      variantId: l.variantId,
+      quantity: 0,
+      expected: l.quantity,
+      resell: 0,
+      damaged: 0,
+      toSupplier: 0,
+      unitCost: null,
+    })),
+    createdBy: 'system',
+    createdAt: at,
+    postedBy: null,
+    postedAt: null,
+    version: 1,
+    statusHistory: [{ at, from: null, to: 'draft', by: null, source: 'system' }],
+    followUps: [],
+    rejectDecision: null,
+  };
+  inventory.docs.push(doc);
+  return doc;
+}
+
+type Errors = Record<string, string>;
+
+/** Biến thể đang bán của công ty, không lặp; lỗi theo đường dẫn "lines.<i>.variantId" */
+function checkVariant(line: StockDocLineInput, i: number, companyId: string, seen: Set<string>, errors: Errors) {
+  const found = findVariant(String(line.variantId));
+  if (!found || found.product.companyId !== companyId || found.product.archivedAt || found.variant.archivedAt) {
+    errors[`lines.${i}.variantId`] = 'Biến thể không còn bán';
+  } else if (seen.has(line.variantId)) {
+    errors[`lines.${i}.variantId`] = 'Biến thể bị lặp';
+  }
+  seen.add(line.variantId);
+}
+
+/** Số của khu vực trên sổ lúc này */
+const bookOf = (companyId: string, variantId: string, area: StockArea) => {
+  const level = stockLevelOf(companyId, variantId);
+  return area === 'stock' ? level.onHand : level.quarantine;
+};
+
+/**
+ * Kiểm và dựng dòng phiếu lập tay. Kiểm kê chụp tồn sổ lúc lưu và tính Δ; xuất huỷ, chuyển chờ
+ * xử lý nhận số lượng. Kiểm hàng về giữ số dự kiến, nhận thêm dòng SKU thực nhận khi sai mẫu.
+ */
+function buildLines(
+  doc: Pick<MockStockDoc, 'type' | 'companyId' | 'lines'>,
+  area: StockArea,
+  body: { note?: string; lines?: StockDocLineInput[] },
 ) {
-  const errors: Record<string, string> = {};
+  const errors: Errors = {};
   const note = body.note?.trim() ?? '';
   if (note.length > 500) errors.note = 'Ghi chú tối đa 500 ký tự';
-  else if (type === 'issue' && !note) errors.note = 'Nhập lý do xuất kho';
-  const lines = Array.isArray(body.lines) ? body.lines : [];
-  if (!lines.length) errors.lines = 'Thêm ít nhất một dòng';
-  if (lines.length > 200) errors.lines = 'Tối đa 200 dòng một phiếu';
+  else if ((doc.type === 'write_off' || doc.type === 'to_quarantine') && !note) errors.note = 'Nhập lý do';
+  const input = Array.isArray(body.lines) ? body.lines : [];
+  if (input.length > 200) errors.lines = 'Tối đa 200 dòng một phiếu';
+  if (!input.length && doc.type !== 'return_inspection') errors.lines = 'Thêm ít nhất một dòng';
   const seen = new Set<string>();
-  lines.forEach((line, i) => {
-    const found = findVariant(String(line.variantId));
-    if (
-      !found ||
-      found.product.companyId !== companyId ||
-      found.product.archivedAt ||
-      found.variant.archivedAt
-    ) {
-      errors[`lines.${i}.variantId`] = 'Biến thể không còn bán';
-    } else if (seen.has(line.variantId)) {
-      errors[`lines.${i}.variantId`] = 'Biến thể bị lặp';
-    }
-    seen.add(line.variantId);
-    if (!isQty(line.quantity, 1)) errors[`lines.${i}.quantity`] = 'Số lượng là số nguyên từ 1';
-    if (type === 'receipt' && !isQty(line.unitCost, 0, MAX_PRICE)) {
-      errors[`lines.${i}.unitCost`] = 'Giá nhập là số nguyên đồng, không âm';
+  const lines: MockStockDocLine[] = [];
+
+  if (doc.type === 'return_inspection') {
+    // Dòng dự kiến luôn còn; dòng thêm là SKU thực nhận khi sai mẫu (dự kiến 0)
+    const expected = doc.lines.filter((l) => (l.expected ?? 0) > 0);
+    const extra = input.filter((l) => !expected.some((e) => e.variantId === l.variantId));
+    const all = [...expected.map((e) => input.find((l) => l.variantId === e.variantId) ?? { variantId: e.variantId }), ...extra];
+    all.forEach((line, i) => {
+      const exp = expected.find((e) => e.variantId === line.variantId)?.expected ?? 0;
+      if (!exp) checkVariant(line, i, doc.companyId, seen, errors);
+      else seen.add(line.variantId);
+      const scanned = line.scanned ?? 0;
+      const parts = [line.resell ?? 0, line.damaged ?? 0, line.toSupplier ?? 0];
+      if (!isQty(scanned, 0)) errors[`lines.${i}.scanned`] = 'Số quét là số nguyên không âm';
+      else if (!exp && scanned < 1) errors[`lines.${i}.scanned`] = 'Dòng sai mẫu cần số quét từ 1';
+      if (!parts.every((p) => isQty(p, 0))) errors[`lines.${i}.resell`] = 'Số chia là số nguyên không âm';
+      else if (parts[0] + parts[1] + parts[2] !== scanned) {
+        errors[`lines.${i}.resell`] = 'Bán lại + hỏng + trả NCC phải bằng số quét';
+      }
+      lines.push({
+        variantId: line.variantId,
+        quantity: scanned,
+        expected: exp,
+        resell: parts[0],
+        damaged: parts[1],
+        toSupplier: parts[2],
+        unitCost: null,
+      });
+    });
+    return { errors, note, lines };
+  }
+
+  input.forEach((line, i) => {
+    checkVariant(line, i, doc.companyId, seen, errors);
+    if (doc.type === 'stocktake') {
+      if (!isQty(line.counted, 0)) errors[`lines.${i}.counted`] = 'Số đếm là số nguyên không âm';
+      const bookQty = bookOf(doc.companyId, line.variantId, area);
+      const counted = line.counted ?? 0;
+      lines.push({ variantId: line.variantId, quantity: counted - bookQty, counted, bookQty, unitCost: null });
+    } else {
+      if (!isQty(line.quantity, 1)) errors[`lines.${i}.quantity`] = 'Số lượng là số nguyên từ 1';
+      lines.push({ variantId: line.variantId, quantity: line.quantity ?? 0, unitCost: null });
     }
   });
   return { errors, note, lines };
 }
 
-export const toDocLines = (type: StockDocType, lines: StockDocLineInput[]): MockStockDocLine[] =>
-  lines.map((l) => ({
-    variantId: l.variantId,
-    quantity: l.quantity,
-    unitCost: type === 'receipt' ? l.unitCost ?? 0 : null,
-  }));
+/** Phiếu giảm lấy từ đâu: xuất huỷ theo khu vực, chuyển chờ xử lý luôn từ tồn */
+const sourceArea = (doc: MockStockDoc): StockArea => (doc.type === 'write_off' ? doc.area ?? 'stock' : 'stock');
 
-export function toReturnOrder(o: MockReturnOrder): ReturnOrder {
-  const receipt = inventory.docs.find(
-    (d) => d.kind === 'delivery_return' && d.orderId === o.orderId && d.status !== 'cancelled',
-  );
-  return {
-    orderId: o.orderId,
-    orderCode: o.orderCode,
-    customerName: o.customerName,
-    customerPhone: o.customerPhone,
-    shipmentCode: o.shipmentCode,
-    failedReason: o.failedReason,
-    failedAt: o.failedAt,
-    lines: o.lines.map((l) => ({ variantId: l.variantId, ...variantLabel(o.companyId, l.variantId), quantity: l.quantity })),
-    receipt: receipt ? { id: receipt.id, number: receipt.number } : null,
-  };
+/**
+ * Gửi duyệt phiếu giảm: đủ hàng thì tạm khoá phần lấy từ tồn thực (khả dụng giảm ngay).
+ * Kiểm kê thiếu không chặn: CEO duyệt vẫn ghi sổ, tạm khoá tối đa phần khả dụng.
+ */
+function lockForApproval(doc: MockStockDoc): Errors {
+  const errors: Errors = {};
+  const area = sourceArea(doc);
+  doc.lines.forEach((l, i) => {
+    const level = stockLevelOf(doc.companyId, l.variantId);
+    const need = doc.type === 'stocktake' ? Math.max(0, -l.quantity) : l.quantity;
+    if (!need || doc.type === 'stocktake') return;
+    const has = area === 'stock' ? availableOf(level) : level.quarantine;
+    if (need > has) errors[`lines.${i}.quantity`] = `Chỉ còn ${has} ${area === 'stock' ? 'khả dụng' : 'chờ xử lý'}`;
+  });
+  if (Object.keys(errors).length || doc.area === 'quarantine') return errors;
+  for (const l of doc.lines) {
+    const level = stockLevelOf(doc.companyId, l.variantId);
+    const need = doc.type === 'stocktake' ? Math.max(0, -l.quantity) : l.quantity;
+    const lock = Math.min(need, availableOf(level));
+    l.locked = lock;
+    level.locked += lock;
+  }
+  return errors;
 }
+
+/**
+ * Khả dụng tăng: chia cho kiện Thiếu hàng trước rồi mới đẩy tồn (sơ đồ B2).
+ * Tồn thực xuống dưới đang giữ: lấy lại phần giữ. Kiện thật ở FE#59 sẽ dùng allocate/reclaim
+ * của engine/stock; ở đây chuyển số giữa đang giữ và hàng Thiếu hàng cần.
+ */
+function rebalance(companyId: string, variantIds: string[]) {
+  for (const variantId of new Set(variantIds)) {
+    const level = stockLevelOf(companyId, variantId);
+    const give = Math.min(level.backordered, availableOf(level));
+    level.reserved += give;
+    level.backordered -= give;
+    const over = level.reserved - Math.max(level.onHand, 0);
+    if (over > 0) {
+      level.reserved -= over;
+      level.backordered += over;
+    }
+  }
+}
+
+/** Ghi sổ: Template Method ở BE — đổi tồn, ghi thẻ kho, chia hàng cho kiện thiếu, đẩy khả dụng lên sàn (QT-46) */
+function postDoc(doc: MockStockDoc, actor: CompanyActor, at: string) {
+  inventory.applyDoc(doc, at, actor.account.id);
+  doc.postedBy = actor.account.id;
+  doc.postedAt = at;
+  rebalance(doc.companyId, doc.lines.map((l) => l.variantId));
+  if (doc.type !== 'return_inspection') return;
+  // Phần hỏng sinh phiếu xuất huỷ nháp từ chờ xử lý; phần trả NCC chờ phiếu trả NCC (FE#17)
+  const damaged = doc.lines.filter((l) => (l.damaged ?? 0) > 0);
+  if (damaged.length) {
+    const writeOff: MockStockDoc = {
+      id: rid('sd'),
+      companyId: doc.companyId,
+      number: nextDocNumber(doc.companyId, 'write_off'),
+      type: 'write_off',
+      kind: 'auto',
+      status: 'draft',
+      area: 'quarantine',
+      note: `Hàng hỏng từ ${doc.number}`,
+      orderId: doc.orderId,
+      source: docRef(doc),
+      claimFlag: false,
+      lines: damaged.map((l) => ({ variantId: l.variantId, quantity: l.damaged ?? 0, unitCost: null })),
+      createdBy: actor.account.id,
+      createdAt: at,
+      postedBy: null,
+      postedAt: null,
+      version: 1,
+      statusHistory: [{ at, from: null, to: 'draft', by: null, source: 'system' }],
+      followUps: [],
+      rejectDecision: null,
+    };
+    inventory.docs.push(writeOff);
+    doc.followUps.push(docRef(writeOff));
+  }
+}
+
+const recordOf = (doc: MockStockDoc): StockDocRecord => ({
+  // Kiểm hàng về: người thứ hai là khác người quét
+  createdBy: doc.type === 'return_inspection' ? doc.scannedBy ?? doc.createdBy : doc.createdBy,
+  lineCount: doc.lines.length,
+  missing: missingOf(doc),
+});
+
+const ACTIONS: StockDocAction[] = ['submit', 'approve', 'reject', 'post', 'cancel'];
+const DECISIONS: RejectDecision[] = ['restock', 'supplier_return'];
+
+registerTaskSource({
+  kind: 'stock_document.approve',
+  permission: PERMISSIONS.stockDocApprove,
+  collect: (companyId, now) =>
+    inventory.docs
+      .filter((d) => d.companyId === companyId && d.status === 'pending' && d.type !== 'return_inspection')
+      .map((d) => ({
+        id: `stock_document.approve:${d.id}`,
+        kind: 'stock_document.approve',
+        group: 'Kho',
+        title: `Duyệt phiếu ${d.number}`,
+        detail: d.note || 'Phiếu kho đang chờ duyệt, hàng đang tạm khoá.',
+        ...dueState(d.statusHistory.at(-1)?.at ?? d.createdAt, REMIND.stockDocPending, now),
+        ref: { type: 'stock_document', id: d.id },
+      })),
+});
+
+registerTaskSource({
+  kind: 'stock_document.inspection',
+  permission: PERMISSIONS.stockDocManage,
+  collect: (companyId, now) =>
+    inventory.docs
+      .filter(
+        (d) =>
+          d.companyId === companyId &&
+          ((d.type === 'return_inspection' && (d.status === 'draft' || d.status === 'pending')) || needsDecision(d)),
+      )
+      .map((d) => ({
+        id: `stock_document.inspection:${d.id}`,
+        kind: 'stock_document.inspection',
+        group: 'Kho',
+        title: needsDecision(d)
+          ? `Chọn cách xử lý hàng của ${d.number}`
+          : d.status === 'pending'
+            ? `Duyệt phần thiếu ${d.number}`
+            : `Kiểm hàng về ${d.number}`,
+        detail: needsDecision(d)
+          ? 'Xuất huỷ bị từ chối: nhập lại tồn hoặc trả NCC.'
+          : `${d.source?.number ?? ''} ${d.note}`.trim(),
+        ...dueState(d.createdAt, REMIND.stockDocPending, now),
+        ref: { type: 'stock_document', id: d.id },
+      })),
+});
 
 export const inventoryHandlers = [
   http.get(`${API}/inventory/stock`, async ({ request }) => {
@@ -227,18 +500,22 @@ export const inventoryHandlers = [
     const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
     const categoryId = url.searchParams.get('categoryId');
     const belowMin = url.searchParams.get('belowMin') === 'true';
+    const quarantine = url.searchParams.get('quarantine') === 'true';
     const all = sellableVariants(companyId).map(({ product, variant }) => toStockLevel(product, variant, canCost));
     const items = all.filter(
       (l) =>
         (!search || l.productName.toLowerCase().includes(search) || l.sku.toLowerCase().includes(search)) &&
         (!categoryId || l.category.id === categoryId) &&
-        (!belowMin || l.belowMin),
+        (!belowMin || l.belowMin) &&
+        (!quarantine || l.quarantine > 0),
     );
     const result: StockListResult = {
       ...paginate(items, page, pageSize),
       summary: {
         variantCount: all.length,
         belowMinCount: all.filter((l) => l.belowMin).length,
+        quarantineCount: all.filter((l) => l.quarantine > 0).length,
+        negativeCount: all.filter((l) => l.negative).length,
         totalValue: canCost ? all.reduce((s, l) => s + (l.stockValue ?? 0), 0) : null,
       },
     };
@@ -263,6 +540,7 @@ export const inventoryHandlers = [
         return {
           id: m.id,
           qtyChange: m.qtyChange,
+          area: m.area,
           onHandAfter: m.onHandAfter,
           document: { id: doc.id, number: doc.number, type: doc.type, kind: doc.kind },
           unitCost: canCost ? m.unitCost : null,
@@ -323,7 +601,7 @@ export const inventoryHandlers = [
         after,
       );
     }
-    // Dưới ngưỡng thì BE phát sự kiện để báo Nhân viên kho, Admin (QT-16); mock không gửi thông báo
+    // Cần nhập lại thì BE phát sự kiện để báo Nhân viên kho, Admin (QT-16); mock không gửi thông báo
     return HttpResponse.json(toStockLevel(product, variant, canCost));
   }),
 
@@ -345,7 +623,7 @@ export const inventoryHandlers = [
           (!search ||
             d.number.toLowerCase().includes(search) ||
             d.note.toLowerCase().includes(search) ||
-            (d.reference ?? '').toLowerCase().includes(search)),
+            (d.source?.number ?? '').toLowerCase().includes(search)),
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(toStockDocSummary);
@@ -361,40 +639,58 @@ export const inventoryHandlers = [
     return HttpResponse.json(toStockDoc(found.value, guard.value.permissions));
   }),
 
+  /** Lập phiếu kiểm kê, xuất huỷ, chuyển chờ xử lý (nháp) */
   http.post(`${API}/inventory/documents`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.stockDocManage);
     if (!guard.ok) return guard.response;
     const { companyId } = guard.value;
     const body = (await request.json()) as StockDocCreateInput;
-    if (body.type !== 'receipt' && body.type !== 'issue') {
-      return problem(422, 'Dữ liệu không hợp lệ', { errors: { type: 'Chọn phiếu nhập hoặc phiếu xuất' } });
+    if (body.type !== 'stocktake' && body.type !== 'write_off' && body.type !== 'to_quarantine') {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        errors: { type: 'Chọn kiểm kê, xuất huỷ hoặc chuyển chờ xử lý' },
+      });
     }
-    const { errors, note, lines } = validateDocInput(body.type, body, companyId);
+    const area: StockArea = body.type === 'to_quarantine' ? 'stock' : body.area === 'quarantine' ? 'quarantine' : 'stock';
+    const { errors, note, lines } = buildLines({ type: body.type, companyId, lines: [] }, area, body);
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors });
+    const at = db.now();
     const doc: MockStockDoc = {
       id: rid('sd'),
       companyId,
       number: nextDocNumber(companyId, body.type),
       type: body.type,
-      // Phiếu nhập theo đơn mua lập ở UC-PU-05, phiếu xuất theo đơn ở UC-SF-08
       kind: 'manual',
       status: 'draft',
+      area: body.type === 'to_quarantine' ? null : area,
       note,
       orderId: null,
-      reference: null,
-      lines: toDocLines(body.type, lines),
+      source: null,
+      claimFlag: false,
+      lines,
       createdBy: guard.value.account.id,
-      createdAt: db.now(),
+      createdAt: at,
       postedBy: null,
       postedAt: null,
       version: 1,
+      statusHistory: [
+        {
+          at,
+          from: null,
+          to: 'draft',
+          by: { id: guard.value.account.id, name: accountName(guard.value.account.id) },
+          source: 'user',
+        },
+      ],
+      followUps: [],
+      rejectDecision: null,
     };
     inventory.docs.push(doc);
     writeCompanyLog(guard.value, 'create', stockDocEntity(doc), null, stockDocSnapshot(doc));
     return HttpResponse.json(toStockDoc(doc, guard.value.permissions), { status: 201 });
   }),
 
+  /** Sửa phiếu nháp; kiểm hàng về: ghi số quét và cách chia */
   http.put(`${API}/inventory/documents/:id`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.stockDocManage);
@@ -407,24 +703,35 @@ export const inventoryHandlers = [
     if (body.version !== doc.version) {
       return versionConflict(toStockDoc(doc, permissions), 'Phiếu vừa được người khác sửa hoặc ghi sổ.');
     }
-    if (doc.status !== 'draft' || doc.kind !== 'manual') {
+    if (doc.status !== 'draft' || doc.type === 'receipt' || doc.type === 'issue') {
       return problem(409, 'Phiếu không còn sửa được', {
         code: 'not_draft',
-        detail: 'Chỉ sửa được phiếu nháp lập tay.',
+        detail: 'Chỉ sửa được phiếu nháp.',
       });
     }
-    const { errors, note, lines } = validateDocInput(doc.type, body, companyId);
+    const area: StockArea =
+      doc.type === 'stocktake' || (doc.type === 'write_off' && doc.kind === 'manual')
+        ? body.area === 'quarantine'
+          ? 'quarantine'
+          : 'stock'
+        : doc.area ?? 'stock';
+    const { errors, note, lines } = buildLines(doc, area, body);
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors });
     const before = stockDocSnapshot(doc);
+    if (doc.area) doc.area = area;
     doc.note = note;
-    doc.lines = toDocLines(doc.type, lines);
+    doc.lines = lines;
+    if (doc.type === 'return_inspection') {
+      doc.scannedBy = guard.value.account.id;
+      doc.claimFlag = missingOf(doc) > 0;
+    }
     doc.version += 1;
     writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
     return HttpResponse.json(toStockDoc(doc, permissions));
   }),
 
-  /** Ghi sổ: Template Method ở BE — kiểm, cập nhật stock_levels, ghi stock_moves, đẩy tồn lên sàn (QT-46) */
-  http.post(`${API}/inventory/documents/:id/post`, async ({ params, request }) => {
+  /** Xuất huỷ hàng chờ xử lý bị từ chối: kho chọn nhập lại tồn hoặc trả NCC */
+  http.post(`${API}/inventory/documents/:id/decide`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.stockDocManage);
     if (!guard.ok) return guard.response;
@@ -432,129 +739,81 @@ export const inventoryHandlers = [
     const found = findOwned(inventory.docs, params.id, companyId, 'phiếu kho');
     if (!found.ok) return found.response;
     const doc = found.value;
-    const body = (await request.json()) as { version: number };
+    const body = (await request.json()) as { decision: RejectDecision; version: number };
     if (body.version !== doc.version) {
-      return versionConflict(toStockDoc(doc, permissions), 'Phiếu vừa được người khác sửa hoặc ghi sổ.');
+      return versionConflict(toStockDoc(doc, permissions), 'Phiếu vừa được người khác xử lý.');
     }
-    if (doc.status !== 'draft') {
-      return problem(409, 'Phiếu đã ghi sổ hoặc đã huỷ', { code: 'not_draft' });
-    }
-    if (doc.type === 'issue') {
-      // Xuất tay chỉ lấy phần khả dụng, không đụng hàng đang giữ cho đơn (QT-14)
-      const errors: Record<string, string> = {};
-      doc.lines.forEach((l, i) => {
-        const level = stockLevelOf(companyId, l.variantId);
-        const available = level.onHand - level.reserved;
-        if (l.quantity > available) errors[`lines.${i}.quantity`] = `Chỉ còn ${Math.max(available, 0)} khả dụng`;
+    if (!needsDecision(doc)) {
+      return problem(409, 'Phiếu không cần chọn cách xử lý', {
+        code: doc.rejectDecision ? 'decision_made' : 'invalid_transition',
       });
+    }
+    if (!DECISIONS.includes(body.decision)) {
+      return problem(422, 'Dữ liệu không hợp lệ', { errors: { decision: 'Chọn nhập lại tồn hoặc trả NCC' } });
+    }
+    const before = stockDocSnapshot(doc);
+    const at = db.now();
+    doc.rejectDecision = body.decision;
+    if (body.decision === 'restock') {
+      inventory.restockFromQuarantine(doc, at, guard.value.account.id);
+      rebalance(companyId, doc.lines.map((l) => l.variantId));
+    }
+    // Trả NCC: hàng nằm lại chờ xử lý tới khi lập phiếu trả NCC (FE#17)
+    doc.version += 1;
+    writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
+    return HttpResponse.json(toStockDoc(doc, permissions));
+  }),
+
+  /** Chuyển trạng thái theo lib/machines/stockDocument: submit, approve, reject, post, cancel */
+  http.post(`${API}/inventory/documents/:id/:action`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, null);
+    if (!guard.ok) return guard.response;
+    const { companyId, permissions } = guard.value;
+    const found = findOwned(inventory.docs, params.id, companyId, 'phiếu kho');
+    if (!found.ok) return found.response;
+    const doc = found.value;
+    const action = params.action as StockDocAction;
+    if (!ACTIONS.includes(action)) return problem(404, 'Không có thao tác này');
+    const body = (await request.json()) as { version: number; reason?: string | null };
+    if (body.version !== doc.version) {
+      return versionConflict(toStockDoc(doc, permissions), 'Phiếu vừa được người khác sửa hoặc xử lý.');
+    }
+    const reason = body.reason?.trim() || null;
+    const next = checkTransition(stockDocMachine(doc.type), doc.status, action, guard.value, recordOf(doc), reason);
+    if (!next.ok) return next.response;
+    const before = stockDocSnapshot(doc);
+    const at = db.now();
+
+    if (action === 'submit' && isDecreaseDoc(doc.type)) {
+      const errors = lockForApproval(doc);
       if (Object.keys(errors).length) {
-        return problem(422, 'Không đủ hàng khả dụng để xuất', { code: 'insufficient_stock', errors });
+        return problem(422, 'Không đủ hàng để giảm', { code: 'stock_insufficient', errors });
       }
     }
-    const before = stockDocSnapshot(doc);
-    const at = db.now();
-    inventory.applyDoc(doc, at, guard.value.account.id);
-    doc.status = 'done';
-    doc.postedBy = guard.value.account.id;
-    doc.postedAt = at;
+    if (action === 'submit' && doc.type === 'return_inspection') {
+      // Gửi phiếu chưa sửa gì: người gửi là người quét, phần thiếu bật cờ khiếu nại
+      doc.scannedBy ??= guard.value.account.id;
+      doc.claimFlag = missingOf(doc) > 0;
+    }
+    if (action === 'approve' || action === 'post') {
+      if (doc.type === 'write_off' && doc.area === 'quarantine') {
+        const errors: Errors = {};
+        doc.lines.forEach((l, i) => {
+          const has = stockLevelOf(companyId, l.variantId).quarantine;
+          if (l.quantity > has) errors[`lines.${i}.quantity`] = `Chỉ còn ${has} chờ xử lý`;
+        });
+        if (Object.keys(errors).length) {
+          return problem(422, 'Không đủ hàng chờ xử lý', { code: 'stock_insufficient', errors });
+        }
+      }
+      postDoc(doc, guard.value, at);
+    }
+    if (action === 'reject' && doc.type !== 'return_inspection') inventory.unlockDoc(doc);
+
+    pushStatus(doc, next.value, guard.value, at, reason);
     doc.version += 1;
     writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
     return HttpResponse.json(toStockDoc(doc, permissions));
-  }),
-
-  http.post(`${API}/inventory/documents/:id/cancel`, async ({ params, request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.stockDocManage);
-    if (!guard.ok) return guard.response;
-    const { companyId, permissions } = guard.value;
-    const found = findOwned(inventory.docs, params.id, companyId, 'phiếu kho');
-    if (!found.ok) return found.response;
-    const doc = found.value;
-    const body = (await request.json()) as { version: number };
-    if (body.version !== doc.version) {
-      return versionConflict(toStockDoc(doc, permissions), 'Phiếu vừa được người khác sửa hoặc ghi sổ.');
-    }
-    if (doc.status !== 'draft') {
-      return problem(409, 'Chỉ huỷ được phiếu nháp', {
-        code: 'not_draft',
-        detail: 'Phiếu đã ghi sổ thì lập phiếu ngược lại để điều chỉnh.',
-      });
-    }
-    const before = stockDocSnapshot(doc);
-    doc.status = 'cancelled';
-    doc.version += 1;
-    writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
-    return HttpResponse.json(toStockDoc(doc, permissions));
-  }),
-
-  http.get(`${API}/inventory/returns`, async ({ request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.stockDocManage);
-    if (!guard.ok) return guard.response;
-    const list = inventory.returnOrders
-      .filter((o) => o.companyId === guard.value.companyId)
-      .map(toReturnOrder)
-      // Chưa xử lý lên đầu, mới nhất trước
-      .sort((a, b) => Number(Boolean(a.receipt)) - Number(Boolean(b.receipt)) || b.failedAt.localeCompare(a.failedAt));
-    return HttpResponse.json(list);
-  }),
-
-  /** UC-IN-03: lập và ghi sổ ngay phiếu nhập hoàn, tăng tồn khả dụng (QT-31) */
-  http.post(`${API}/inventory/returns`, async ({ request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.stockDocManage);
-    if (!guard.ok) return guard.response;
-    const { companyId, permissions } = guard.value;
-    const body = (await request.json()) as ReturnReceiptInput;
-    const order = inventory.returnOrders.find((o) => o.orderId === body.orderId);
-    if (!order) return problem(404, 'Không tìm thấy đơn giao không thành công');
-    if (order.companyId !== companyId) return problem(403, 'Đơn thuộc công ty khác');
-    const done = toReturnOrder(order).receipt;
-    if (done) {
-      return problem(409, 'Đơn đã được xử lý', {
-        code: 'already_processed',
-        detail: `Đơn ${order.orderCode} đã có phiếu nhập hoàn ${done.number}.`,
-      });
-    }
-    const errors: Record<string, string> = {};
-    const input = Array.isArray(body.lines) ? body.lines : [];
-    const lines = order.lines.map((ol, i) => {
-      const got = input.find((l) => l.variantId === ol.variantId);
-      if (!got || !isQty(got.quantity, 0, ol.quantity)) {
-        errors[`lines.${i}.quantity`] = `Số nguyên từ 0 đến ${ol.quantity}`;
-      }
-      return { variantId: ol.variantId, quantity: got?.quantity ?? 0, shipped: ol.quantity };
-    });
-    const note = body.note?.trim() ?? '';
-    if (!Object.keys(errors).length) {
-      if (lines.every((l) => l.quantity === 0)) errors.lines = 'Không có hàng nào quay về thì không lập phiếu';
-      else if (lines.some((l) => l.quantity !== l.shipped) && !note) {
-        errors.note = 'Ghi lý do số thực nhận khác số đã xuất';
-      }
-    }
-    if (note.length > 500) errors.note = 'Ghi chú tối đa 500 ký tự';
-    if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors });
-    const at = db.now();
-    const doc: MockStockDoc = {
-      id: rid('sd'),
-      companyId,
-      number: nextDocNumber(companyId, 'receipt'),
-      type: 'receipt',
-      kind: 'delivery_return',
-      status: 'done',
-      note,
-      orderId: order.orderId,
-      reference: order.orderCode,
-      lines: lines.filter((l) => l.quantity > 0).map((l) => ({ variantId: l.variantId, quantity: l.quantity, unitCost: null })),
-      createdBy: guard.value.account.id,
-      createdAt: at,
-      postedBy: guard.value.account.id,
-      postedAt: at,
-      version: 1,
-    };
-    inventory.applyDoc(doc, at, guard.value.account.id);
-    inventory.docs.push(doc);
-    writeCompanyLog(guard.value, 'create', stockDocEntity(doc), null, stockDocSnapshot(doc));
-    return HttpResponse.json(toStockDoc(doc, permissions), { status: 201 });
   }),
 ];

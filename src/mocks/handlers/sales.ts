@@ -9,6 +9,7 @@ import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, findOwned, rid } from './catalog';
 import { ensureStandard, sellableVariants } from './pricing';
 import { isQty, stockLevelOf, variantLabel } from './inventory';
+import { availableOf as stockAvailable } from '../engine/stock';
 
 // ---------- Bán hàng: khách hàng, đơn (UC-SF-01, 02, 04; hợp đồng đề xuất ở commerio-backend#24) ----------
 
@@ -24,10 +25,8 @@ export const userRef = (accountId: string | null): UserRef | null => {
   return a ? { id: a.id, name: a.fullName } : null;
 };
 
-export const availableOf = (companyId: string, variantId: string) => {
-  const level = stockLevelOf(companyId, variantId);
-  return level.onHand - level.reserved;
-};
+/** Khả dụng = tồn thực − đang giữ − tạm khoá (sơ đồ B2) */
+export const availableOf = (companyId: string, variantId: string) => stockAvailable(stockLevelOf(companyId, variantId));
 
 export function customerStats(c: sales.MockCustomer) {
   const own = sales.orders.filter((o) => o.customerId === c.id);
