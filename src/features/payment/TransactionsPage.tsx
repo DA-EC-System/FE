@@ -13,7 +13,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { Gateway, PaymentTransaction, TransactionStatus } from '@/types/payment';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { GATEWAY_LABELS, TRANSACTION_SOURCE_LABELS, TRANSACTION_STATUS, labelOptions } from '@/features/finance/shared';
 import { DocLink, OrderCode, useCompanyId } from '@/features/finance/parts';
 import { TransactionSheet } from './TransactionSheet';

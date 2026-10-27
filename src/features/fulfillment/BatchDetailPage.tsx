@@ -18,7 +18,7 @@ import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { BatchIssueFailure } from '@/types/fulfillment';
 import { ORDER_STATUS, sourceLabel } from '@/features/sales/shared';
-import { StatusTimeline } from '@/features/sales/StatusTimeline';
+import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { BATCH_STATUS, issueFailureLabel } from './shared';
 import { IssueOrderButton, waitingPayment } from './IssueOrderButton';
 
@@ -272,7 +272,7 @@ export function BatchDetailPage() {
                                   </li>
                                 ))}
                               </ul>
-                              <StatusTimeline history={o.statusHistory} />
+                              <StatusTimeline history={o.statusHistory} statuses={ORDER_STATUS} />
                             </div>
                           </TableCell>
                         </TableRow>

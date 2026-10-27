@@ -3,7 +3,8 @@ import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
 import type { CustomerChannel, OrderSource, OrderStatus, OrderSummary, PaymentMethod } from '@/types/sales';
 import type { Gateway, LinkStatus, PaymentStatus, RefundStatus } from '@/types/payment';
 
-export type BadgeVariant = 'secondary' | 'success' | 'warning' | 'info' | 'destructive' | 'outline';
+export type { BadgeVariant } from '@/components/common/StatusBadge';
+import type { BadgeVariant } from '@/components/common/StatusBadge';
 
 export const MAX_LINE_QTY = 9999;
 export const PHONE_RE = /^0\d{9}$/;

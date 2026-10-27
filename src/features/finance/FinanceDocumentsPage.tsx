@@ -22,7 +22,7 @@ import type {
   VoucherPurpose,
   VoucherStatus,
 } from '@/types/finance';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import {
   CREATABLE_PURPOSES,
   DOC_STATUS,

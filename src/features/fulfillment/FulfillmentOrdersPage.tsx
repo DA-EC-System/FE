@@ -30,7 +30,7 @@ import { formatDateTime } from '@/utils/format';
 import type { FulfillmentOrder } from '@/types/fulfillment';
 import type { OrderSource } from '@/types/sales';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS, SOURCE_LABELS, sourceLabel } from '@/features/sales/shared';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { IssueOrderButton } from './IssueOrderButton';
 
 const PAGE_SIZES = [25, 50, 100];

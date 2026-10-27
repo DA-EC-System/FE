@@ -14,7 +14,7 @@ import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDate } from '@/utils/format';
 import type { CustomerChannel, CustomerSummary } from '@/types/sales';
 import { CHANNEL_LABELS } from './shared';
-import { useUrlFilters } from './useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 
 const PAGE_SIZES = [25, 50, 100];
 const CHANNELS: CustomerChannel[] = ['manual', 'tiktok', 'shopee', 'lazada'];

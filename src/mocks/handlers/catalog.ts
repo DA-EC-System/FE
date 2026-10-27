@@ -5,6 +5,7 @@ import type { MockCategory, MockAttribute, MockProduct, MockVariant } from '../c
 import { skuPatternError, valueCode } from '@/utils/sku';
 import type { Attribute, AttributeInput, Category, CategoryInput, ProductCreateInput, ProductDetail, ProductListItem, ProductUpdateInput, ProductVariant, UploadTicket, VariantAttribute } from '@/types/catalog';
 import { PERMISSIONS } from '@/utils/permissions';
+import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@/utils/files';
 import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 
@@ -633,14 +634,23 @@ export const catalogHandlers = [
   // ----- Ảnh: vé tải lên (presigned) và nơi nhận file thay cho SeaweedFS/S3 -----
   http.post(`${API}/files/uploads`, async ({ request }) => {
     await delay(150);
-    const guard = requireCompany(request, PERMISSIONS.productManage);
+    const { purpose, ...body } = (await request.json()) as {
+      fileName: string;
+      contentType: string;
+      sizeBytes: number;
+      purpose?: string;
+    };
+    // Đính kèm chứng từ (FE#55): mọi thành viên, nhận cả PDF, tối đa 10 MB
+    const attachment = purpose === 'attachment';
+    const guard = requireCompany(request, attachment ? null : PERMISSIONS.productManage);
     if (!guard.ok) return guard.response;
-    const body = (await request.json()) as { fileName: string; contentType: string; sizeBytes: number };
-    if (!IMAGE_TYPES.includes(body.contentType)) {
-      return problem(422, 'Chỉ nhận ảnh JPG, PNG hoặc WebP', { code: 'file_type_not_allowed' });
+    if (attachment ? !ATTACHMENT_TYPES.includes(body.contentType) : !IMAGE_TYPES.includes(body.contentType)) {
+      return problem(422, attachment ? 'Chỉ nhận ảnh JPG, PNG, WebP hoặc PDF' : 'Chỉ nhận ảnh JPG, PNG hoặc WebP', {
+        code: 'file_type_not_allowed',
+      });
     }
-    if (body.sizeBytes > MAX_IMAGE_BYTES) {
-      return problem(422, 'Ảnh tối đa 5 MB', { code: 'file_too_large' });
+    if (body.sizeBytes > (attachment ? MAX_ATTACHMENT_BYTES : MAX_IMAGE_BYTES)) {
+      return problem(422, attachment ? 'Tệp tối đa 10 MB' : 'Ảnh tối đa 5 MB', { code: 'file_too_large' });
     }
     const id = rid('fil');
     catalog.files.push({ id, companyId: guard.value.companyId, ...body, url: null });

@@ -23,6 +23,8 @@ import { fulfillmentHandlers } from './fulfillment';
 import { financeHandlers } from './finance';
 import { reportHandlers } from './report';
 import { settlementHandlers } from './settlement';
+import { devMarketplaceHandlers } from './devMarketplace';
+import { taskHandlers } from './tasks';
 
 export const handlers = [
   ...authHandlers,
@@ -39,4 +41,6 @@ export const handlers = [
   ...financeHandlers,
   ...reportHandlers,
   ...settlementHandlers,
+  ...devMarketplaceHandlers,
+  ...taskHandlers,
 ];

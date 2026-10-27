@@ -3,6 +3,7 @@ import { db, type MockMembership, type MockRole } from '../db';
 import type { Account, CompanyContext, LoginResponse, Membership } from '@/types/auth';
 import type { PlatformAuditAction } from '@/types/audit';
 import { CORE_MODULES } from '@/utils/modules';
+import type { OwnedRecord, StateMachine } from '@/lib/stateMachine';
 
 export const API = '/api/v1';
 
@@ -186,7 +187,8 @@ export interface CompanyActor {
   permissions: string[];
 }
 
-export function requireCompany(request: Request, permission: string): Guard<CompanyActor> {
+/** `permission` null: chỉ cần là thành viên công ty (trang Tổng quan, Việc cần làm) */
+export function requireCompany(request: Request, permission: string | null): Guard<CompanyActor> {
   const token = readToken(request);
   if (!token) return { ok: false, response: problem(401, 'Chưa đăng nhập') };
   const blocked = passwordChangeRequired(token.account);
@@ -214,11 +216,11 @@ export function requireCompany(request: Request, permission: string): Guard<Comp
     };
   }
   const context = buildContext(membership);
-  const module = permission.split('.')[0];
-  if (!context.enabledModules.includes(module as never)) {
+  const module = permission?.split('.')[0];
+  if (module && !context.enabledModules.includes(module as never)) {
     return { ok: false, response: problem(403, 'Phân hệ chưa bật', { code: 'module_disabled' }) };
   }
-  if (!context.permissions.includes(permission)) {
+  if (permission && !context.permissions.includes(permission)) {
     return { ok: false, response: problem(403, 'Không có quyền thực hiện') };
   }
   return {
@@ -248,4 +250,30 @@ export function writePlatformLog(
     reason,
     createdAt: db.now(),
   });
+}
+
+/**
+ * Kiểm thao tác theo bảng chuyển trạng thái (lib/stateMachine.ts) trước khi ghi.
+ * Sai trạng thái trả 409 kèm trạng thái hiện tại; thiếu quyền 403; người lập tự duyệt 409; thiếu lý do 422.
+ */
+export function checkTransition<S extends string, A extends string, R extends OwnedRecord>(
+  machine: StateMachine<S, A, R>,
+  from: S,
+  action: A,
+  actor: CompanyActor,
+  record: R,
+  reason?: string | null,
+): Guard<S> {
+  const result = machine.check(from, action, {
+    actor: { accountId: actor.account.id, permissions: actor.permissions },
+    record,
+    reason,
+  });
+  if (result.ok) return { ok: true, value: result.to };
+  const { code } = result;
+  if (code === 'forbidden') return { ok: false, response: problem(403, 'Không có quyền', { code }) };
+  if (code === 'reason_required') {
+    return { ok: false, response: problem(422, 'Thiếu lý do', { code, errors: { reason: 'Nhập lý do' } }) };
+  }
+  return { ok: false, response: problem(409, 'Không chuyển được trạng thái', { code, current: from }) };
 }

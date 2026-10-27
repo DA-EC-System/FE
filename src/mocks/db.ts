@@ -212,7 +212,11 @@ export const permissionCatalog: PermissionDef[] = [
   { code: 'payment.transaction.view', module: 'payment', label: 'Xem giao dịch thanh toán' },
   { code: P.paymentLinkCreate, module: 'payment', label: 'Tạo mã thanh toán cho đơn' },
   { code: P.gatewayManage, module: 'payment', label: 'Cấu hình khoá cổng thanh toán' },
-  { code: 'purchasing.order.manage', module: 'purchasing', label: 'Quản lý đơn mua hàng' },
+  { code: P.purchaseRequestManage, module: 'purchasing', label: 'Lập đề nghị nhập, đặt nhà cung cấp' },
+  { code: P.purchaseRequestApprove, module: 'purchasing', label: 'Duyệt đề nghị nhập' },
+  { code: P.goodsReceiptManage, module: 'purchasing', label: 'Kiểm đếm, ghi sổ phiếu nhận' },
+  { code: P.supplierReturnManage, module: 'purchasing', label: 'Lập, gửi phiếu trả nhà cung cấp' },
+  { code: P.stockDocApprove, module: 'inventory', label: 'Duyệt, ghi sổ phiếu kho của người khác' },
   { code: P.shopView, module: 'channel', label: 'Xem gian hàng' },
   { code: P.shopConnect, module: 'channel', label: 'Kết nối gian hàng' },
   { code: P.shopUpdate, module: 'channel', label: 'Sửa gian hàng' },
@@ -313,9 +317,24 @@ const roles: MockRole[] = [
     id: `role-kho-${companyId}`,
     companyId,
     name: 'Nhân viên kho',
-    permissions: [P.productView, P.stockView, P.stockDocManage, P.fulfillmentProcess],
+    permissions: [P.productView, P.stockView, P.stockDocManage, P.fulfillmentProcess, P.goodsReceiptManage],
     version: 1,
     updatedAt: '2026-03-01T00:00:00.000Z',
+  })),
+  // FE#55: vai Mua hàng theo sơ đồ A1, B4; duyệt đề nghị nhập vẫn là CEO
+  ...['cmp-001', 'cmp-004'].map<MockRole>((companyId) => ({
+    id: `role-muahang-${companyId}`,
+    companyId,
+    name: 'Mua hàng',
+    permissions: [
+      P.productView,
+      P.stockView,
+      P.costView,
+      P.purchaseRequestManage,
+      P.supplierReturnManage,
+    ],
+    version: 1,
+    updatedAt: '2026-10-20T00:00:00.000Z',
   })),
   {
     id: 'role-cskh-cmp-001',
@@ -431,6 +450,12 @@ const accounts: Account[] = [
     fullName: 'Lý Thị Phân Tích',
     isPlatformAdmin: false,
     mustChangePassword: false,
+  },  {
+    id: 'acc-011',
+    email: 'muahang@commerio.vn',
+    fullName: 'Trịnh Văn Mua',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
   },
 ];
 
@@ -477,6 +502,8 @@ const memberships: MockMembership[] = [
   member('acc-009', 'cmp-001', ['role-kiemsoat-cmp-001']),
   // FE#13: Phân tích xem báo cáo, không thấy giá vốn, lãi
   member('acc-010', 'cmp-001', ['role-phantich-cmp-001']),
+  // FE#55: vai Mua hàng
+  member('acc-011', 'cmp-001', ['role-muahang-cmp-001']),
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -512,6 +539,7 @@ export const passwords: Record<string, string> = {
   'ketoan@commerio.vn': 'ketoan',
   'kiemsoat@commerio.vn': 'kiemsoat',
   'phantich@commerio.vn': 'phantich',
+  'muahang@commerio.vn': 'muahang',
 };
 
 /** Nhật ký thao tác trong công ty: audit.audit_logs có company_id (UC-PI-07) */

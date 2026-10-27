@@ -18,7 +18,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { CodConflictOrder, CodOrder, CodStatus } from '@/types/finance';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { COD_STATUS, MAX_COD_BATCH, codSelection, numberRange } from './shared';
 import { DocLink, OrderCode, useCanWrite, useCompanyId } from './parts';
 

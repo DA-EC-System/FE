@@ -38,7 +38,7 @@ const MESSAGES: Record<string, string> = {
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
   // FE#9, chờ commerio-backend#24 và #23
   insufficient_stock: 'Không đủ tồn khả dụng để giữ hàng cho đơn. Chưa giữ dòng nào.',
-  invalid_transition: 'Đơn không còn ở trạng thái cho phép thao tác này.',
+  invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
   not_allowed_for_source: 'Đơn sàn tự xác nhận khi giữ được hàng, không xác nhận tay.',
   payment_not_allowed: 'Đơn này không tạo được mã thanh toán.',
   gateway_not_configured: 'Cổng thanh toán này chưa được cấu hình khoá.',
@@ -54,6 +54,9 @@ const MESSAGES: Record<string, string> = {
   amount_mismatch: 'Tổng đơn khác số tiền khoản thu.',
   // FE#13, Documents/21 §12.6
   run_in_progress: 'Lần đối soát trước chưa chạy xong, thử lại sau.',
+  // FE#55, lib/stateMachine.ts
+  second_person_required: 'Người lập không tự duyệt hay ghi sổ được. Cần người thứ hai.',
+  reason_required: 'Thao tác này cần ghi lý do.',
 };
 
 export function problemCode(error: unknown): string | undefined {

@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { BatchStatus, BatchSummary } from '@/types/fulfillment';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { BATCH_STATUS } from './shared';
 
 const PAGE_SIZES = [25, 50, 100];

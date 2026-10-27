@@ -17,7 +17,7 @@ import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { UnmatchedReason, UnmatchedReceipt, UnmatchedStatus } from '@/types/finance';
 import { Info } from '@/features/sales/Info';
-import { useUrlFilters } from '@/features/sales/useUrlFilters';
+import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { GATEWAY_LABELS, UNMATCHED_REASON_LABELS, UNMATCHED_STATUS, labelOptions } from './shared';
 import { DocLink, OrderCode, PayoutDialog, payoutFieldErrors, useCanWrite, useCompanyId } from './parts';
 import { AssignDialog, UNMATCHED_STALE } from './AssignDialog';
