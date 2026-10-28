@@ -42,6 +42,7 @@ import type {
   SupplierReturnInput,
   SupplierReturnSummary,
 } from '@/types/purchasing';
+import type { PageResult } from '@/api/types';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
@@ -645,7 +646,7 @@ export const purchasingHandlers = [
       )
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
       .map(toSupplier);
-    return HttpResponse.json(items);
+    return HttpResponse.json<Supplier[]>(items);
   }),
 
   http.get(`${API}/purchasing/suppliers/report`, async ({ request }) => {
@@ -656,7 +657,7 @@ export const purchasingHandlers = [
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
     if (from && to && from > to) return problem(400, 'Ngày bắt đầu sau ngày kết thúc', { code: 'invalid_period' });
-    return HttpResponse.json(supplierReport(guard.value.companyId, from, to));
+    return HttpResponse.json<SupplierReport[]>(supplierReport(guard.value.companyId, from, to));
   }),
 
   http.post(`${API}/purchasing/suppliers`, async ({ request }) => {
@@ -669,7 +670,7 @@ export const purchasingHandlers = [
     const s: MockSupplier = { id: rid('sup'), companyId, ...value, version: 1, createdAt: db.now() };
     data.suppliers.push(s);
     writeCompanyLog(guard.value, 'create', supplierEntity(s), null, { ...value });
-    return HttpResponse.json(toSupplier(s), { status: 201 });
+    return HttpResponse.json<Supplier>(toSupplier(s), { status: 201 });
   }),
 
   http.put(`${API}/purchasing/suppliers/:id`, async ({ params, request }) => {
@@ -688,7 +689,7 @@ export const purchasingHandlers = [
     Object.assign(s, value);
     s.version += 1;
     writeCompanyLog(guard.value, 'update', supplierEntity(s), before, { ...value });
-    return HttpResponse.json(toSupplier(s));
+    return HttpResponse.json<Supplier>(toSupplier(s));
   }),
 
   // ----- Đề nghị nhập -----
@@ -716,7 +717,7 @@ export const purchasingHandlers = [
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((r) => toRequestSummary(r, permissions));
-    return HttpResponse.json(paginate(items, page, pageSize));
+    return HttpResponse.json<PageResult<PurchaseRequestSummary>>(paginate(items, page, pageSize));
   }),
 
   http.get(`${API}/purchasing/requests/:id`, async ({ params, request }) => {
@@ -725,7 +726,7 @@ export const purchasingHandlers = [
     if (!guard.ok) return guard.response;
     const found = findOwned(data.requests, params.id, guard.value.companyId, 'đề nghị nhập');
     if (!found.ok) return found.response;
-    return HttpResponse.json(toRequest(found.value, guard.value.permissions));
+    return HttpResponse.json<PurchaseRequest>(toRequest(found.value, guard.value.permissions));
   }),
 
   http.post(`${API}/purchasing/requests`, async ({ request }) => {
@@ -765,7 +766,7 @@ export const purchasingHandlers = [
       source.version += 1;
     }
     writeCompanyLog(guard.value, 'create', requestEntity(req), null, requestSnapshot(req));
-    return HttpResponse.json(toRequest(req, permissions), { status: 201 });
+    return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions), { status: 201 });
   }),
 
   /** Gợi ý nhập lại: thêm dòng vào đề nghị nháp có sẵn hoặc lập nháp mới */
@@ -825,7 +826,7 @@ export const purchasingHandlers = [
     }
     req.version += 1;
     writeCompanyLog(guard.value, req.version === 1 ? 'create' : 'update', requestEntity(req), req.version === 1 ? null : before, requestSnapshot(req));
-    return HttpResponse.json(toRequest(req, permissions));
+    return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions));
   }),
 
   http.put(`${API}/purchasing/requests/:id`, async ({ params, request }) => {
@@ -855,7 +856,7 @@ export const purchasingHandlers = [
     req.lines = lines;
     req.version += 1;
     writeCompanyLog(guard.value, 'update', requestEntity(req), before, requestSnapshot(req));
-    return HttpResponse.json(toRequest(req, permissions));
+    return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions));
   }),
 
   /** CEO loại / bỏ loại dòng khi duyệt; phải còn ít nhất một dòng */
@@ -883,7 +884,7 @@ export const purchasingHandlers = [
     target.excluded = !!body.excluded;
     req.version += 1;
     writeCompanyLog(guard.value, 'update', requestEntity(req), before, requestSnapshot(req));
-    return HttpResponse.json(toRequest(req, permissions));
+    return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions));
   }),
 
   /** Chuyển trạng thái theo lib/machines/purchasing */
@@ -918,7 +919,7 @@ export const purchasingHandlers = [
     }
     req.version += 1;
     writeCompanyLog(guard.value, 'update', requestEntity(req), before, requestSnapshot(req));
-    return HttpResponse.json(toRequest(req, permissions));
+    return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions));
   }),
 
   // ----- Phiếu nhận -----
@@ -942,7 +943,7 @@ export const purchasingHandlers = [
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(toReceiptSummary);
-    return HttpResponse.json(paginate(items, page, pageSize));
+    return HttpResponse.json<PageResult<GoodsReceiptSummary>>(paginate(items, page, pageSize));
   }),
 
   http.get(`${API}/purchasing/goods-receipts/:id`, async ({ params, request }) => {
@@ -951,7 +952,7 @@ export const purchasingHandlers = [
     if (!guard.ok) return guard.response;
     const found = findOwned(data.receipts, params.id, guard.value.companyId, 'phiếu nhận');
     if (!found.ok) return found.response;
-    return HttpResponse.json(toReceipt(found.value));
+    return HttpResponse.json<GoodsReceipt>(toReceipt(found.value));
   }),
 
   /** Kho lập phiếu nhận khi hàng tới: dòng lấy từ còn chờ của đề nghị */
@@ -1001,7 +1002,7 @@ export const purchasingHandlers = [
     };
     data.receipts.push(r);
     writeCompanyLog(guard.value, 'create', receiptEntity(r), null, receiptSnapshot(r));
-    return HttpResponse.json(toReceipt(r), { status: 201 });
+    return HttpResponse.json<GoodsReceipt>(toReceipt(r), { status: 201 });
   }),
 
   /** Lưu số kiểm đếm khi phiếu đang kiểm */
@@ -1063,7 +1064,7 @@ export const purchasingHandlers = [
     r.attachmentIds = ids;
     r.version += 1;
     writeCompanyLog(guard.value, 'update', receiptEntity(r), before, receiptSnapshot(r));
-    return HttpResponse.json(toReceipt(r));
+    return HttpResponse.json<GoodsReceipt>(toReceipt(r));
   }),
 
   /** Ghi kết quả giao thiếu: giao bù, đóng thiếu (CEO), NCC nhận sai */
@@ -1120,7 +1121,7 @@ export const purchasingHandlers = [
     }
     r.version += 1;
     writeCompanyLog(guard.value, 'update', receiptEntity(r), before, receiptSnapshot(r));
-    return HttpResponse.json(toReceipt(r));
+    return HttpResponse.json<GoodsReceipt>(toReceipt(r));
   }),
 
   http.post(`${API}/purchasing/goods-receipts/:id/:action`, async ({ params, request }) => {
@@ -1151,7 +1152,7 @@ export const purchasingHandlers = [
     if (next.value === 'short' && requestOf(r).status === 'received') pushStatus(r, 'resolved', null, at);
     r.version += 1;
     writeCompanyLog(guard.value, 'update', receiptEntity(r), before, receiptSnapshot(r));
-    return HttpResponse.json(toReceipt(r));
+    return HttpResponse.json<GoodsReceipt>(toReceipt(r));
   }),
 
   // ----- Phiếu trả NCC -----
@@ -1176,7 +1177,7 @@ export const purchasingHandlers = [
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(toReturnSummary);
-    return HttpResponse.json(paginate(items, page, pageSize));
+    return HttpResponse.json<PageResult<SupplierReturnSummary>>(paginate(items, page, pageSize));
   }),
 
   http.get(`${API}/purchasing/supplier-returns/:id`, async ({ params, request }) => {
@@ -1185,7 +1186,7 @@ export const purchasingHandlers = [
     if (!guard.ok) return guard.response;
     const found = findOwned(data.returns, params.id, guard.value.companyId, 'phiếu trả NCC');
     if (!found.ok) return found.response;
-    return HttpResponse.json(toReturn(found.value, guard.value.permissions));
+    return HttpResponse.json<SupplierReturn>(toReturn(found.value, guard.value.permissions));
   }),
 
   /** Lập tay phiếu trả NCC từ hàng đang ở chờ xử lý */
@@ -1221,7 +1222,7 @@ export const purchasingHandlers = [
     };
     data.returns.push(t);
     writeCompanyLog(guard.value, 'create', returnEntity(t), null, returnSnapshot(t));
-    return HttpResponse.json(toReturn(t, permissions), { status: 201 });
+    return HttpResponse.json<SupplierReturn>(toReturn(t, permissions), { status: 201 });
   }),
 
   http.put(`${API}/purchasing/supplier-returns/:id`, async ({ params, request }) => {
@@ -1248,7 +1249,7 @@ export const purchasingHandlers = [
     t.lines = lines;
     t.version += 1;
     writeCompanyLog(guard.value, 'update', returnEntity(t), before, returnSnapshot(t));
-    return HttpResponse.json(toReturn(t, permissions));
+    return HttpResponse.json<SupplierReturn>(toReturn(t, permissions));
   }),
 
   http.post(`${API}/purchasing/supplier-returns/:id/:action`, async ({ params, request }) => {
@@ -1326,6 +1327,6 @@ export const purchasingHandlers = [
     pushStatus(t, next.value, guard.value, at, reason);
     t.version += 1;
     writeCompanyLog(guard.value, 'update', returnEntity(t), before, returnSnapshot(t));
-    return HttpResponse.json(toReturn(t, permissions));
+    return HttpResponse.json<SupplierReturn>(toReturn(t, permissions));
   }),
 ];
