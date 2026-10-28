@@ -317,6 +317,16 @@ function inspectReturn(p: MockPackage, note: string, at: string) {
   }
 }
 
+/** Sàn báo yêu cầu trả khi kiện chưa giao (sơ đồ D3): nhảy sang Đã giao, bù tồn một lần, gắn cờ Cần xử lý */
+export function deliverForReturn(p: MockPackage, at: string) {
+  const from = p.status;
+  if (stockEffect(from, 'delivered') === 'leave') leaveStock(p, at, null);
+  movePackage(p, 'delivered', at, null, { source: 'marketplace', reason: 'Sàn báo khách yêu cầu trả' });
+  p.deliveredAt = at;
+  p.needsAttention = true;
+  p.flagNote = `Sàn báo yêu cầu trả khi kiện đang ${from}`;
+}
+
 /** Sau mỗi lần kiện đổi: đơn đang huỷ hết kiện đóng gói thì huỷ hẳn; mọi kiện dừng thì thử hoàn tất */
 function settleOrder(o: MockOrder, at: string) {
   if (o.flags.includes('cancelling') && !packagesOf(o).some((p) => isSealed(p.status))) finishCancel(o, at);

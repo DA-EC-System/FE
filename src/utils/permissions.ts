@@ -41,6 +41,10 @@ export const PERMISSIONS = {
   customerView: 'sales.customer.view',
   /** Huỷ đơn tạo tay, hộp thư (UC-SF-06) */
   orderCancel: 'sales.order.cancel',
+  /** Xem yêu cầu trả hàng (sơ đồ D3) */
+  returnView: 'sales.return.view',
+  /** Chấp nhận, từ chối, hoàn tiền, ghi sàn xử, lập yêu cầu trả cho đơn tạo tay (sơ đồ D3) */
+  returnProcess: 'sales.return.process',
   /** Đóng gói, báo sàn, bàn giao, mở kiện, chia kiện, quét nhận hàng hoàn (sơ đồ D2) */
   fulfillmentProcess: 'fulfillment.order.process',
   /** Tự giao, cập nhật giao kiện đơn tạo tay, hộp thư (sơ đồ D2) */

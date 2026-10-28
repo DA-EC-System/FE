@@ -33,6 +33,7 @@ import { CancelOrderDialog } from './CancelOrderDialog';
 import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { SettlementBadges } from '@/features/finance/SettlementBadges';
+import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
 
 const orderRecord = (o: Order) => ({
   source: o.source,
@@ -310,6 +311,8 @@ export function OrderDetailPage() {
               </Table>
             </CardContent>
           </Card>
+
+          <OrderReturnsCard order={order} companyId={companyId} />
 
           <Card className="py-4">
             <CardHeader>

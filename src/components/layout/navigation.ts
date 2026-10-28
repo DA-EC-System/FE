@@ -6,6 +6,7 @@ import {
   History,
   LayoutDashboard,
   Package,
+  PackageX,
   Puzzle,
   ScrollText,
   ShieldCheck,
@@ -92,6 +93,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: Contact,
           module: 'sales',
           permission: PERMISSIONS.customerView,
+        },
+        {
+          to: ROUTES.company.returns(companyId),
+          label: 'Yêu cầu trả',
+          icon: PackageX,
+          module: 'sales',
+          permission: PERMISSIONS.returnView,
         },
         {
           to: ROUTES.company.shops(companyId),
