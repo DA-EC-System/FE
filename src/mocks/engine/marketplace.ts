@@ -9,6 +9,7 @@
 import type { MockShop } from '../db';
 import type { Marketplace } from '@/types/shop';
 import type { MarketplaceEventLog, MarketplaceEventType } from '@/types/devMarketplace';
+import { emitRealtime } from './realtime';
 
 export interface MarketplaceEventContext {
   companyId: string;
@@ -20,7 +21,21 @@ export interface MarketplaceEventContext {
 export interface MarketplaceEventDef extends MarketplaceEventType {
   /** Đổi dữ liệu mock; trả câu mô tả kết quả, hoặc ném Error với câu báo khi không phát được */
   run(ctx: MarketplaceEventContext): string;
+  /**
+   * Sự kiện realtime phát sau khi chạy xong (FE#81). Bỏ trống: suy theo tiền tố của `type`;
+   * `null`: `run` tự phát vì cần payload riêng.
+   */
+  realtime?: string | null;
 }
+
+/** Tiền tố sự kiện sàn → sự kiện realtime BE phát khi xử lý xong (commerio-backend#134) */
+const REALTIME_BY_PREFIX: [prefix: string, type: string][] = [
+  ['shop.', 'channel.shop_status_changed'],
+  ['listing.', 'channel.listing_sync_changed'],
+  ['order.', 'sales.order_status_changed'],
+  ['package.', 'fulfillment.package_status_changed'],
+  ['return.', 'sales.return_status_changed'],
+];
 
 const registry = new Map<string, MarketplaceEventDef>();
 const log: MarketplaceEventLog[] = [];
@@ -64,5 +79,8 @@ export function fireMarketplaceEvent(
     message,
   };
   log.unshift(entry);
+  const realtime =
+    def.realtime === undefined ? REALTIME_BY_PREFIX.find(([prefix]) => type.startsWith(prefix))?.[1] : def.realtime;
+  if (realtime) emitRealtime(ctx.companyId, realtime);
   return { ok: true, entry };
 }

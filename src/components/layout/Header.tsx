@@ -7,7 +7,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { useColorMode } from '@/theme/ColorModeContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useRealtimeStore } from '@/stores/realtimeStore';
+import type { RealtimeStatus } from '@/api/realtime';
 import { ProfileDropdown } from './NavUser';
+
+const REALTIME_LABEL: Record<Exclude<RealtimeStatus, 'off'>, string> = {
+  open: 'Đang nhận cập nhật tức thời',
+  connecting: 'Đang kết nối cập nhật tức thời',
+  reconnecting: 'Mất kết nối, đang nối lại',
+};
 
 /**
  * Header dính ở đầu nội dung (theo shadcn-admin): nút thu gọn sidebar, tên mục,
@@ -16,6 +24,7 @@ import { ProfileDropdown } from './NavUser';
 export function Header({ title }: { title?: string }) {
   const { mode, toggle } = useColorMode();
   const { companyContext } = useAuth();
+  const realtime = useRealtimeStore((s) => s.status);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -42,6 +51,27 @@ export function Header({ title }: { title?: string }) {
               {companyContext.companyName}
             </span>
           </span>
+        )}
+        {realtime !== 'off' && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                data-testid="realtime-status"
+                data-status={realtime}
+                role="status"
+                aria-label={REALTIME_LABEL[realtime]}
+                className="flex size-8 items-center justify-center"
+              >
+                <span
+                  className={cn(
+                    'size-2.5 rounded-full',
+                    realtime === 'open' ? 'bg-emerald-500' : 'animate-pulse bg-amber-500',
+                  )}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{REALTIME_LABEL[realtime]}</TooltipContent>
+          </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger asChild>
