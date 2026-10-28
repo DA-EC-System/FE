@@ -7,8 +7,11 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { AttachmentField, type AttachmentItem } from '@/components/common/AttachmentField';
+import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
+import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Button } from '@/components/ui/button';
@@ -20,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useGoodsReceipt, useGoodsReceiptAction, useShortResolution, useUpdateGoodsReceipt } from '@/api/purchasing.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -29,7 +32,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import type { DeliveryMode, GoodsReceipt, GoodsReceiptAction, ShortResolutionKind } from '@/types/purchasing';
+import type { DeliveryMode, GoodsReceipt, GoodsReceiptAction, GoodsReceiptStatus, ShortResolutionKind } from '@/types/purchasing';
 import {
   DELIVERY_LABELS,
   RECEIPT_STATUS,
@@ -60,6 +63,9 @@ const toForm = (r: GoodsReceipt): ReceiptFormInput => ({
     reason: l.reason,
   })),
 });
+
+/** Đường chính trên thanh tiến trình (PATHS.gr của Test_UI) */
+const RECEIPT_PATH: GoodsReceiptStatus[] = ['counting', 'matched'];
 
 const ACTION_CONFIRM: Partial<Record<GoodsReceiptAction, { title: string; message: string }>> = {
   post: {
@@ -143,8 +149,7 @@ export function GoodsReceiptPage() {
 
   const short = editable ? lines.reduce((s, l) => s + shortOfDraft(l), 0) : (receipt?.shortQty ?? 0);
   const record: GoodsReceiptRecord = { createdBy: receipt?.requestCreatedById ?? '', short };
-  const actions = receipt ? goodsReceiptMachine.available(receipt.status, actor, record) : [];
-  const postBlocked = receipt?.status === 'counting' && canManage && receipt.requestCreatedById === actor.accountId;
+  const options = receipt ? goodsReceiptMachine.options(receipt.status, actor, record) : [];
 
   const handleError = (e: unknown) => {
     const problem = getProblem(e);
@@ -278,16 +283,17 @@ export function GoodsReceiptPage() {
                 Lưu
               </Button>
             )}
-            {actions.map((t) => (
-              <Button
+            {options.map(({ transition: t, blocked }) => (
+              <ActionButton
                 key={t.action}
                 variant={t.action === 'cancel' ? 'outline' : 'default'}
                 className={cn(t.action === 'cancel' && 'text-destructive hover:text-destructive')}
+                blockedReason={blocked && codeMessage(blocked)}
                 disabled={busy}
                 onClick={() => (t.action === 'cancel' ? setCancelling(true) : setConfirm(t.action))}
               >
                 {t.label}
-              </Button>
+              </ActionButton>
             ))}
           </div>
         }
@@ -298,11 +304,6 @@ export function GoodsReceiptPage() {
           {notice.msg}
         </AlertMessage>
       )}
-      {postBlocked && (
-        <AlertMessage severity="info" className="mb-4">
-          Bạn là người lập đề nghị {receipt.request.number} nên không tự ghi sổ phiếu nhận này. Cần người khác ghi sổ.
-        </AlertMessage>
-      )}
       {receipt.status === 'counting' && receipt.deliveryMode === 'left' && (
         <AlertMessage severity="warning" className="mb-4">
           Người giao đã đi: kiểm và ghi sổ trong 24 giờ kể từ khi lập phiếu ({formatDateTime(receipt.createdAt)}).
@@ -310,6 +311,18 @@ export function GoodsReceiptPage() {
       )}
 
       <Card className="mb-4 py-4">
+        <CardContent className="mb-2 border-b pb-4">
+          <LifecycleSteps
+            path={RECEIPT_PATH}
+            current={receipt.status}
+            history={receipt.statusHistory}
+            statuses={RECEIPT_STATUS}
+            isFinal={goodsReceiptMachine.isFinal}
+            blocked={options.flatMap(({ transition: t, blocked }) =>
+              blocked === 'second_person_required' ? [{ label: t.label, reason: codeMessage(blocked) }] : [],
+            )}
+          />
+        </CardContent>
         <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Info label="Trạng thái">
             <div data-testid="receipt-status">
@@ -522,15 +535,19 @@ export function GoodsReceiptPage() {
         </Card>
       )}
 
-      <ConfirmDialog
+      <SecondPersonDialog
         open={Boolean(confirmText)}
         title={`${confirmText?.title ?? ''} ${receipt.number}?`}
-        message={confirmText?.message ?? ''}
+        ownerLabel="Người lập đề nghị"
+        createdByName={receipt.request.number}
+        selfApproval={receipt.requestCreatedById === actor.accountId}
         confirmLabel={confirmText?.title}
         loading={busy}
         onConfirm={() => confirm && onConfirmAction(confirm)}
         onClose={() => setConfirm(null)}
-      />
+      >
+        {confirmText?.message}
+      </SecondPersonDialog>
       <ReasonDialog
         open={cancelling}
         title={`Huỷ phiếu ${receipt.number}`}

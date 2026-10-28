@@ -27,9 +27,9 @@ describe('P2 · Mua hàng', () => {
     it('người gửi phiếu trả không tự ghi kết quả từ NCC (B4)', () => {
       moTab('Trả NCC', 'TN-000001');
       cy.findByTestId('return-status').should('contain', 'Đã gửi');
-      cy.contains('không tự ghi kết quả');
+      cy.findByTestId('lifecycle-blocked').should('contain', 'Cần người thứ hai');
       for (const label of ['NCC hoàn tiền', 'NCC bù hàng', 'NCC không nhận']) {
-        cy.findByRole('button', { name: label }).should('not.exist');
+        cy.findByRole('button', { name: label }).should('have.attr', 'aria-disabled', 'true');
       }
     });
 
