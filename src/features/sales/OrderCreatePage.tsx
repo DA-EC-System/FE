@@ -11,6 +11,7 @@ import { RowAction } from '@/components/common/RowAction';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -49,6 +50,7 @@ const EMPTY: OrderFormInput = {
   address: '',
   shippingFee: '0',
   paymentMethod: '',
+  selfDelivery: false,
   note: '',
   lines: [],
 };
@@ -84,6 +86,7 @@ function toInput(v: OrderFormOutput): CreateOrderInput {
     lines: v.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
     shippingFee: v.shippingFee,
     paymentMethod: v.paymentMethod,
+    ...(v.selfDelivery ? { selfDelivery: true } : {}),
     ...(v.note ? { note: v.note } : {}),
   };
 }
@@ -560,6 +563,16 @@ export function OrderCreatePage() {
               <p className={errors.paymentMethod ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
                 {errors.paymentMethod?.message ?? 'Trả trước: tạo mã thanh toán ở chi tiết đơn sau khi tạo.'}
               </p>
+              <Controller
+                control={control}
+                name="selfDelivery"
+                render={({ field }) => (
+                  <div className="flex items-center gap-2 pt-2">
+                    <Checkbox id="self-delivery" checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} />
+                    <Label htmlFor="self-delivery">Cửa hàng tự giao (không qua đơn vị vận chuyển)</Label>
+                  </div>
+                )}
+              />
             </CardContent>
           </Card>
         </div>

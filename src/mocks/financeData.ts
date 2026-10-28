@@ -5,7 +5,7 @@
 
 import type { Gateway } from '@/types/payment';
 import type { DocStatus, ReceiptSource, UnmatchedReason, UnmatchedStatus, VoucherPurpose, VoucherStatus } from '@/types/finance';
-import { orders } from './salesData';
+import { orders, seedPackages } from './salesData';
 
 export interface MockInvoice {
   id: string;
@@ -80,10 +80,14 @@ export function nextFinanceNumber(companyId: string, kind: DocKind) {
   return `${PREFIX[kind]}-${String(counters[kind]).padStart(6, '0')}`;
 }
 
+/** Lần bàn giao kiện đầu tiên của đơn */
 const issuedAtOf = (orderId: string) =>
-  orders.find((o) => o.id === orderId)?.history.find((h) => h.to === 'issued')?.at ?? null;
+  seedPackages
+    .filter((p) => p.orderId === orderId && p.handedOverAt)
+    .map((p) => p.handedOverAt!)
+    .sort()[0] ?? null;
 
-/** Hoá đơn tự sinh khi xuất kho: mỗi đơn đã qua `issued` một hoá đơn, đánh số theo lúc xuất */
+/** Hoá đơn tự sinh khi bàn giao kiện đầu tiên của đơn, đánh số theo lúc bàn giao */
 export const invoices: MockInvoice[] = orders
   .filter((o) => issuedAtOf(o.id))
   .sort((a, b) => issuedAtOf(a.id)!.localeCompare(issuedAtOf(b.id)!))

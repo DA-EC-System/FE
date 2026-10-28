@@ -1,12 +1,54 @@
 /**
- * Giao vận: lô nhặt, xuất kho đơn, cập nhật giao (UC-SF-06 đến UC-SF-09).
- * Hợp đồng API đề xuất ở commerio-backend#25.
+ * Kiện (sơ đồ D2, FE#59): đơn chia thành một hoặc nhiều kiện; giữ hàng, đóng gói, bàn giao, giao, hoàn theo kiện.
+ * Thay lô nhặt và xuất kho theo đơn của FE#10. Hợp đồng API ở Documents/21 mục 19.
  */
 
+import type { StatusChange } from '@/lib/stateMachine';
 import type { PaymentStatus } from './payment';
-import type { OrderShopRef, OrderSource, OrderStatus, OrderStatusChange, PaymentMethod, UserRef } from './sales';
+import type { OrderShopRef, OrderSource, OrderStatus, PaymentMethod, UserRef } from './sales';
 
-export type BatchStatus = 'picking' | 'packed' | 'done';
+export type PackageStatus =
+  | 'backordered'
+  | 'reserved'
+  | 'packed'
+  | 'awaiting_pickup'
+  | 'in_transit'
+  | 'self_delivering'
+  | 'delivered'
+  | 'delivery_failed'
+  | 'returning'
+  | 'returned'
+  | 'lost'
+  | 'cancelled';
+
+export type PackageAction =
+  | 'hold'
+  | 'reclaim'
+  | 'pack'
+  | 'mark_ready'
+  | 'hand_over'
+  | 'undo_handover'
+  | 'open'
+  | 'open_cancel'
+  | 'cancel'
+  | 'self_deliver'
+  | 'deliver'
+  | 'fail'
+  | 'redeliver'
+  | 'redeliver_self'
+  | 'return'
+  | 'receive_return'
+  | 'lose'
+  | 'found';
+
+/**
+ * Cờ trên kiện: Chờ mở kiện (kiện đã đóng cần huỷ, sửa, chia lại; vẫn giữ hàng),
+ * Cần xử lý (sàn báo chuyển không có trong bảng), Báo thất lạc (chờ người thứ hai xác nhận)
+ */
+export type PackageFlag = 'needs_open' | 'needs_attention' | 'lost_reported';
+
+/** Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ */
+export type OpenPurpose = 'cancel' | 'edit' | 'resplit';
 
 export interface FulfillmentLine {
   variantId: string;
@@ -16,52 +58,54 @@ export interface FulfillmentLine {
   quantity: number;
 }
 
-/** Đơn ở màn Xử lý đơn: không có giá */
-export interface FulfillmentOrder {
+export interface LostReport {
+  by: UserRef;
+  at: string;
+  claimCode: string;
+}
+
+/** Kiện ở hàng đợi kho: không có giá */
+export interface PackageSummary {
   id: string;
   code: string;
+  order: { id: string; code: string; status: OrderStatus };
   source: OrderSource;
   shop: OrderShopRef | null;
   customerName: string | null;
-  status: OrderStatus;
-  /** null với đơn sàn */
+  status: PackageStatus;
+  flags: PackageFlag[];
+  /** Ghi chú cho cờ Cần xử lý hoặc Chờ mở kiện */
+  flagNote: string | null;
+  openPurpose: OpenPurpose | null;
+  /** Đơn tạo tay, hộp thư giao bằng người của cửa hàng */
+  selfDelivery: boolean;
   paymentMethod: PaymentMethod | null;
-  /** Trả trước mà `unpaid` thì chưa xuất được */
+  /** Đơn tạo tay trả trước chưa trả thì chưa bàn giao */
   paymentStatus: PaymentStatus | null;
-  batch: { id: string; code: string } | null;
-  lineCount: number;
-  totalQty: number;
-  createdAt: string;
-  confirmedAt: string | null;
-  version: number;
+  /** Mã vận đơn (in vận đơn giả khi báo sàn sẵn sàng) */
+  trackingCode: string | null;
+  /** Mã kiện trên sàn (`package_number` Shopee, package_id Lazada) */
+  platformPackageCode: string | null;
+  /** Hạn bàn giao; kiện hạn sớm được chia hàng trước */
+  shipBy: string | null;
   lines: FulfillmentLine[];
+  totalQty: number;
+  handedOverAt: string | null;
+  deliveredAt: string | null;
+  /** Người tự giao: người xác nhận thất lạc phải khác người này */
+  deliveredBy: UserRef | null;
+  lostReport: LostReport | null;
+  createdAt: string;
+  version: number;
 }
 
-export interface BatchSummary {
-  id: string;
-  code: string;
-  status: BatchStatus;
-  orderCount: number;
-  totalQty: number;
-  createdAt: string;
-  createdBy: UserRef | null;
-  version: number;
+export interface Package extends PackageSummary {
+  statusHistory: StatusChange<PackageStatus>[];
 }
 
 export interface PickListLine extends FulfillmentLine {
-  /** Số đơn trong lô có biến thể này */
-  orderCount: number;
-}
-
-/** Kho không có quyền xem đơn nên lịch sử trạng thái đi kèm lô (AC-L1) */
-export interface BatchOrder extends FulfillmentOrder {
-  statusHistory: OrderStatusChange[];
-}
-
-export interface Batch extends BatchSummary {
-  /** Gộp theo biến thể, sắp theo SKU */
-  pickList: PickListLine[];
-  orders: BatchOrder[];
+  /** Số kiện có biến thể này */
+  packageCount: number;
 }
 
 export interface DocRef {
@@ -69,22 +113,42 @@ export interface DocRef {
   number: string;
 }
 
-export interface IssueOrderResult {
-  order: FulfillmentOrder;
-  issue: DocRef;
-  invoice: DocRef | null;
-}
-
-export interface BatchIssueFailure {
-  orderId: string;
+export interface BulkFailure {
+  packageId: string;
   code: string;
   detail: string;
 }
 
-export interface BatchIssueResult {
-  issued: { id: string; code: string; issue: DocRef }[];
-  failed: BatchIssueFailure[];
-  batch: BatchSummary;
+/** Bàn giao hàng loạt: từng kiện riêng, kiện bị chặn không làm hỏng kiện khác */
+export interface HandOverResult {
+  handedOver: { id: string; code: string; issue: DocRef }[];
+  failed: BulkFailure[];
 }
 
-export type DeliveryStatus = 'in_transit' | 'delivered' | 'delivery_failed';
+/** Chia đơn: mỗi kiện mới là một nhóm dòng; dòng không nêu ở lại kiện cũ */
+export interface SplitInput {
+  version: number;
+  parts: { variantId: string; quantity: number }[][];
+}
+
+export type PackageTab =
+  | 'backordered'
+  | 'reserved'
+  | 'packed'
+  | 'awaiting_pickup'
+  | 'shipping'
+  | 'delivery_failed'
+  | 'returning'
+  | 'needs_open';
+
+/** Hàng đợi kiện: kèm số kiện từng tab để hiện trên tab */
+export interface PackageQueue {
+  items: PackageSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: Record<PackageTab, number>;
+}
+
+/** Cập nhật giao của đơn tạo tay, hộp thư (đơn sàn lấy từ sàn) */
+export type DeliveryAction = 'deliver' | 'fail' | 'redeliver' | 'return';

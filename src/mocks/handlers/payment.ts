@@ -7,7 +7,7 @@ import type { Gateway, GatewayConfig, OrderPayment, PaymentLink, PaymentStatus }
 import { API, LATENCY, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid } from './catalog';
-import { userRef } from './sales';
+import { payOrder, userRef } from './sales';
 import { recordGatewayPayment } from './finance';
 
 // ---------- Thanh toán: cổng, mã thanh toán (UC-PF-01, UC-PF-11; Documents/21 mục 12.3) ----------
@@ -287,6 +287,8 @@ export const paymentHandlers = [
       if (row) {
         row.status = 'paid';
         row.paidAt = db.now();
+        const o = sales.orders.find((x) => x.id === link.orderId);
+        if (o) payOrder(o, row.paidAt);
       }
       recordGatewayPayment(link);
     }

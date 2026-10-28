@@ -48,17 +48,18 @@ describe('P4 · Khách hàng và đơn hàng', () => {
       cy.menu('Đơn hàng');
     });
 
-    it('mặc định là tab chờ xác nhận, lọc đơn thiếu hàng', () => {
-      cy.dong('ord-1003').should('contain', 'Chờ xác nhận');
-      cy.dong('ord-1006').should('not.exist');
-      cy.dong('ord-1005').should('contain', 'Thiếu hàng');
-      cy.findByLabelText('Chỉ đơn thiếu hàng').click();
-      cy.dong('ord-1003').should('not.exist');
-      cy.dong('ord-1005').should('exist');
-      cy.findByRole('tab', { name: 'Tất cả' }).click();
-      cy.findByLabelText('Chỉ đơn thiếu hàng').click();
-      cy.dong('ord-1006').should('exist');
+    it('tab theo 4 trạng thái, giai đoạn suy từ kiện, lọc theo giai đoạn', () => {
+      cy.findByRole('tab', { name: 'Tất cả' }).should('have.attr', 'data-state', 'active');
+      cy.dong('ord-1003').should('contain', 'Chờ thanh toán');
+      cy.dong('ord-1006').should('contain', 'Chờ đóng gói');
       cy.get('tbody').should('not.contain', 'DH-2001');
+      cy.findByRole('tab', { name: 'Chưa thanh toán' }).click();
+      cy.dong('ord-1003').should('exist');
+      cy.dong('ord-1006').should('not.exist');
+      cy.findByRole('tab', { name: 'Tất cả' }).click();
+      cy.chon('Giai đoạn', 'Đang giao');
+      cy.dong('ord-1016').should('exist');
+      cy.dong('ord-1003').should('not.exist');
     });
   });
 
@@ -95,7 +96,7 @@ describe('P4 · Khách hàng và đơn hàng', () => {
       cy.toast(/Đã tạo đơn DH-\d+/);
       cy.location('pathname').should('match', /\/c\/cmp-001\/sales\/orders\/ord-/);
       cy.contains('h1', /Đơn DH-/);
-      cy.contains('Chờ xác nhận');
+      cy.get('[data-testid=order-status]').should('contain', 'Chưa thanh toán').and('contain', 'Chờ thanh toán');
     });
 
     it('sản phẩm chưa có giá không chọn được', () => {
@@ -166,34 +167,33 @@ describe('P4 · Khách hàng và đơn hàng', () => {
   context('xác nhận đơn (UC-SF-04)', () => {
     beforeEach(() => cy.dangNhap('sale@commerio.vn', 'sale'));
 
-    it('xác nhận đơn đủ hàng', () => {
-      cy.visit('/c/cmp-001/sales/orders/ord-1003');
+    it('xác nhận đơn COD thiếu hàng: đơn Đang xử lý, kiện chờ hàng', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1004');
+      cy.get('[data-testid=order-status]').should('contain', 'Chưa thanh toán');
       cy.findByRole('button', { name: 'Xác nhận đơn' }).click();
       cy.toast('Đã xác nhận đơn');
-      cy.contains('Đã xác nhận');
+      cy.get('[data-testid=order-status]').should('contain', 'Đang xử lý').and('contain', 'Thiếu hàng');
       cy.findByRole('button', { name: 'Xác nhận đơn' }).should('not.exist');
-      cy.get('[data-testid=status-history] li').first().should('contain', 'Đã xác nhận');
+      cy.get('[data-testid=status-history] li').first().should('contain', 'Đang xử lý');
     });
 
-    it('thiếu hàng thì liệt kê SKU, số cần và số khả dụng', () => {
-      cy.visit('/c/cmp-001/sales/orders/ord-1004');
-      cy.findByRole('button', { name: 'Xác nhận đơn' }).click();
-      cy.contains('Không đủ hàng');
-      cy.get('[data-testid=short-lines]').should('contain', 'cần 6, khả dụng 4');
-      cy.contains('Thiếu hàng');
+    it('đơn trả trước không có nút xác nhận, chờ khách trả', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1003');
+      cy.contains('Đơn trả trước sang Đang xử lý khi khách thanh toán.');
+      cy.findByRole('button', { name: 'Xác nhận đơn' }).should('not.exist');
     });
 
     it('đơn vừa bị người khác cập nhật thì báo và tải lại', () => {
-      cy.visit('/c/cmp-001/sales/orders/ord-1003');
+      cy.visit('/c/cmp-001/sales/orders/ord-1004');
       cy.findByRole('button', { name: 'Xác nhận đơn' }).should('exist');
-      cy.mockApi('post', '/sales/orders/ord-1003/confirm', 409, { status: 409, code: 'version_conflict' });
+      cy.mockApi('post', '/sales/orders/ord-1004/confirm', 409, { status: 409, code: 'version_conflict' });
       cy.findByRole('button', { name: 'Xác nhận đơn' }).click();
       cy.contains('Đơn vừa được người khác cập nhật');
     });
 
     it('đơn sàn không có nút xác nhận và khung thanh toán', () => {
       cy.visit('/c/cmp-001/sales/orders/ord-1005');
-      cy.contains('Đơn sàn tự xác nhận khi giữ được hàng');
+      cy.contains('Đơn sàn: trạng thái thanh toán, giao và huỷ lấy từ sàn.');
       cy.findByRole('button', { name: 'Xác nhận đơn' }).should('not.exist');
       cy.get('[data-testid=payment-panel]').should('not.exist');
     });

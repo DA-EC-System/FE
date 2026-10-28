@@ -38,13 +38,13 @@ registerTaskSource({
   permission: PERMISSIONS.orderCreate,
   collect: (companyId, now) =>
     sales.orders
-      .filter((o) => o.companyId === companyId && o.status === 'pending_confirmation')
+      .filter((o) => o.companyId === companyId && o.status === 'unpaid' && o.source !== 'marketplace' && o.paymentMethod === 'cod')
       .map((o) => ({
         id: `order.pending:${o.id}`,
         kind: 'order.pending',
         group: 'Bán hàng',
         title: `Xác nhận đơn ${o.code}`,
-        detail: 'Đơn đang chờ xác nhận.',
+        detail: 'Đơn COD đang chờ xác nhận.',
         ...dueState(o.createdAt, REMIND.orderPending, now),
         ref: { type: 'order', id: o.id },
       })),

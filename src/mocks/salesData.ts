@@ -1,12 +1,16 @@
 /**
  * Dữ liệu giả sales.* theo ERD cho MSW: khách hàng, đơn, dòng đơn, lịch sử trạng thái.
  * Đơn DH-1001, DH-1002, DH-2001 trùng với đơn giao không thành công ở inventoryData để số liệu khớp.
- * Đơn đã xác nhận trong seed coi như đã nằm trong số đang giữ của tồn kho, không trừ thêm.
+ * FE#59: seed viết theo trạng thái cũ (9 trạng thái) rồi chuyển sang đơn 4 trạng thái + kiện (sơ đồ D1, D2);
+ * số Đang giữ, Thiếu hàng của tồn kho tính từ kiện.
  */
 
+import type { OpenPurpose, PackageStatus } from '@/types/fulfillment';
 import type {
   CustomerChannel,
   CustomerIdentity,
+  OrderFlag,
+  OrderOutcome,
   OrderSource,
   OrderStatus,
   PaymentMethod,
@@ -31,17 +35,20 @@ export interface MockCustomer {
 
 export interface MockOrderLine {
   id: string;
+  /** Rỗng khi dòng đơn sàn chưa ghép SKU */
   variantId: string;
   /** sku, tên sản phẩm, giá ghi cứng lúc tạo đơn (QT-12) */
   sku: string;
   productName: string;
   quantity: number;
   unitPrice: number;
+  /** SKU sàn khi chưa ghép */
+  externalSku?: string | null;
 }
 
-export interface MockStatusChange {
-  from: OrderStatus | null;
-  to: OrderStatus;
+export interface MockStatusChange<S extends string = OrderStatus> {
+  from: S | null;
+  to: S;
   at: string;
   by: string | null;
   /** Mặc định: có người làm là 'user', không có thì 'marketplace' với đơn sàn, 'system' với đơn khác */
@@ -57,7 +64,12 @@ export interface MockOrder {
   shopId: string | null;
   customerId: string | null;
   status: OrderStatus;
-  isShortStock: boolean;
+  /** Cờ lưu; Sắp trễ hạn, Gian hàng mất kết nối tính lúc đọc */
+  flags: OrderFlag[];
+  outcome: OrderOutcome | null;
+  rawMarketplaceStatus: string | null;
+  /** Hạn bàn giao do sàn đặt; đơn tạo tay không có */
+  shipBy: string | null;
   paymentMethod: PaymentMethod | null;
   shippingAddress: ShippingAddress;
   shippingFee: number;
@@ -69,6 +81,56 @@ export interface MockOrder {
   createdBy: string | null;
   version: number;
 }
+
+export interface MockLostReport {
+  by: string;
+  at: string;
+  claimCode: string;
+}
+
+/** Kiện (sơ đồ D2): giữ hàng nguyên kiện, đóng gói, bàn giao, giao, hoàn */
+export interface MockPackage {
+  id: string;
+  companyId: string;
+  code: string;
+  orderId: string;
+  status: PackageStatus;
+  lines: { variantId: string; quantity: number }[];
+  selfDelivery: boolean;
+  needsOpen: boolean;
+  openPurpose: OpenPurpose | null;
+  needsAttention: boolean;
+  flagNote: string | null;
+  trackingCode: string | null;
+  platformPackageCode: string | null;
+  lostReport: MockLostReport | null;
+  handedOverAt: string | null;
+  handedOverBy: string | null;
+  deliveredAt: string | null;
+  /** Người tự giao */
+  deliveredBy: string | null;
+  createdAt: string;
+  history: MockStatusChange<PackageStatus>[];
+  version: number;
+}
+
+/** Trạng thái đơn trước FE#59, chỉ dùng để viết seed */
+type LegacyStatus =
+  | 'pending_confirmation'
+  | 'confirmed'
+  | 'picking'
+  | 'packing'
+  | 'issued'
+  | 'in_transit'
+  | 'delivered'
+  | 'delivery_failed'
+  | 'cancelled';
+
+type SeedOrder = Omit<MockOrder, 'status' | 'flags' | 'outcome' | 'rawMarketplaceStatus' | 'shipBy' | 'history'> & {
+  status: LegacyStatus;
+  isShortStock: boolean;
+  history: MockStatusChange<LegacyStatus>[];
+};
 
 const SALE = 'acc-002';
 const KHO = 'acc-003';
@@ -157,7 +219,7 @@ function line(n: number, variantId: string, quantity: number, unitPrice: number)
 const ship = (c: MockCustomer): ShippingAddress => ({ name: c.name, phone: c.phone, address: c.address });
 const [an, binh, chau, dung, cuong] = customers;
 
-export const orders: MockOrder[] = [
+const seed: SeedOrder[] = [
   {
     id: 'ord-1001',
     companyId: 'cmp-001',
@@ -226,7 +288,7 @@ export const orders: MockOrder[] = [
     createdBy: SALE,
     version: 1,
   },
-  // Chờ xác nhận, COD, thiếu hàng (prd-001-v4 còn 4): xác nhận bị 409 insufficient_stock
+  // Chờ xác nhận, COD, thiếu hàng (prd-001-v4 tồn 10, cần 12): kiện Thiếu hàng
   {
     id: 'ord-1004',
     companyId: 'cmp-001',
@@ -241,13 +303,13 @@ export const orders: MockOrder[] = [
     shippingFee: 25000,
     note: '',
     cancelReason: null,
-    lines: [line(5, 'prd-001-v4', 6, 150000), line(6, 'prd-002-v1', 1, 320000)],
+    lines: [line(5, 'prd-001-v4', 12, 150000), line(6, 'prd-002-v1', 1, 320000)],
     history: [{ from: null, to: 'pending_confirmation', at: '2026-10-17T06:00:00.000Z', by: SALE }],
     createdAt: '2026-10-17T06:00:00.000Z',
     createdBy: SALE,
     version: 1,
   },
-  // Đơn sàn thiếu hàng: không có nút xác nhận, không có khung thanh toán
+  // Đơn sàn đã giữ đủ hàng, chờ đóng gói: không có nút xác nhận, không có khung thanh toán
   {
     id: 'ord-1005',
     companyId: 'cmp-001',
@@ -770,6 +832,185 @@ export const orders: MockOrder[] = [
     version: 3,
   },
 ];
+
+// ---------- Chuyển seed sang đơn + kiện (FE#59) ----------
+
+const HOUR = 3600_000;
+const plus = (at: string, hours: number) => new Date(Date.parse(at) + hours * HOUR).toISOString();
+
+/** Đơn trả trước chưa trả: vẫn Chưa thanh toán */
+const UNPAID_PREPAID = new Set(['ord-1007', 'ord-1014']);
+/** Đơn COD đã thu và hết hạn trả: Đã hoàn tất */
+const COMPLETED = new Set(['ord-1021']);
+/** Giờ bàn giao của đơn giao thất bại (khớp phiếu xuất ở inventoryData) */
+const FAILED_HANDOVER: Record<string, string> = {
+  'ord-1001': '2026-10-08T07:00:00.000Z',
+  'ord-1002': '2026-10-09T07:00:00.000Z',
+  'ord-2001': '2026-10-08T07:00:00.000Z',
+};
+/** Trạng thái gốc trên sàn */
+const RAW: Record<string, string> = {
+  'ord-1002': 'TO_RETURN',
+  'ord-1005': 'AWAITING_SHIPMENT',
+  'ord-1012': 'READY_TO_SHIP',
+  'ord-1015': 'AWAITING_COLLECTION',
+};
+
+function orderStatusOf(o: SeedOrder): OrderStatus {
+  if (o.status === 'cancelled') return 'cancelled';
+  if (COMPLETED.has(o.id)) return 'completed';
+  if (o.source === 'marketplace') return 'processing';
+  if (o.status === 'pending_confirmation' || UNPAID_PREPAID.has(o.id)) return 'unpaid';
+  return 'processing';
+}
+
+function orderHistory(o: SeedOrder, status: OrderStatus): MockStatusChange[] {
+  const first = o.source === 'marketplace' ? 'processing' : 'unpaid';
+  const h: MockStatusChange[] = [{ from: null, to: first, at: o.createdAt, by: o.createdBy }];
+  const confirm = o.history.find((x) => x.from === 'pending_confirmation' && x.to === 'confirmed');
+  if (first === 'unpaid' && confirm && status !== 'unpaid') {
+    // Trả trước: chuyển khi khách trả; COD: người bán xác nhận
+    h.push(
+      o.paymentMethod === 'prepaid'
+        ? { from: 'unpaid', to: 'processing', at: confirm.at, by: null, source: 'system' }
+        : { from: 'unpaid', to: 'processing', at: confirm.at, by: confirm.by },
+    );
+  }
+  const cancel = o.history.find((x) => x.to === 'cancelled');
+  if (cancel) h.push({ from: h[h.length - 1].to, to: 'cancelled', at: cancel.at, by: cancel.by, reason: cancel.reason });
+  const delivered = o.history.find((x) => x.to === 'delivered');
+  if (status === 'completed' && delivered) {
+    h.push({ from: 'processing', to: 'completed', at: plus(delivered.at, 24 * 7 + 1), by: null, source: 'system' });
+  }
+  return h;
+}
+
+let packageSeq = 0;
+const packageCode = () => `KH-${String(++packageSeq).padStart(6, '0')}`;
+
+function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageStatus): MockPackage {
+  const at = (s: LegacyStatus) => o.history.find((x) => x.to === s)?.at ?? null;
+  const confirmAt = at('confirmed') ?? o.createdAt;
+  const selfDelivery = o.source === 'inbox';
+  const h: MockStatusChange<PackageStatus>[] = [];
+  const step = (to: PackageStatus, when: string, by: string | null, reason?: string | null) =>
+    h.push({ from: h.length ? h[h.length - 1].to : null, to, at: when, by, reason });
+  const held = target !== 'backordered';
+  step(held ? 'reserved' : 'backordered', o.createdAt, null);
+  const pkg: MockPackage = {
+    id: `pkg-${o.id.slice(4)}${lines === o.lines ? '' : `-${packageSeq + 1}`}`,
+    companyId: o.companyId,
+    code: packageCode(),
+    orderId: o.id,
+    status: target,
+    lines: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+    selfDelivery,
+    needsOpen: false,
+    openPurpose: null,
+    needsAttention: false,
+    flagNote: null,
+    trackingCode: null,
+    platformPackageCode: o.source === 'marketplace' ? `PK${o.code.slice(3)}${packageSeq}` : null,
+    lostReport: null,
+    handedOverAt: null,
+    handedOverBy: null,
+    deliveredAt: null,
+    deliveredBy: null,
+    createdAt: o.createdAt,
+    history: h,
+    version: 1,
+  };
+  if (target === 'cancelled') {
+    step('cancelled', at('cancelled') ?? confirmAt, null, 'Huỷ đơn');
+  }
+  const RANK: PackageStatus[] = ['packed', 'awaiting_pickup', 'in_transit', 'self_delivering', 'delivered', 'returned'];
+  if (!RANK.includes(target)) return finish(pkg);
+
+  const handover = FAILED_HANDOVER[o.id] ?? at('issued') ?? plus(confirmAt, 20);
+  step('packed', plus(handover, -1), KHO);
+  if (target === 'packed') return finish(pkg);
+  if (selfDelivery) {
+    const left = at('in_transit') ?? handover;
+    step('self_delivering', left, SALE);
+    pkg.handedOverAt = left;
+    pkg.handedOverBy = SALE;
+    pkg.deliveredBy = SALE;
+  } else {
+    step('awaiting_pickup', plus(handover, -0.5), KHO);
+    pkg.trackingCode = `VD${o.code.slice(3)}${packageSeq}`;
+    if (target === 'awaiting_pickup') return finish(pkg);
+    step('in_transit', handover, KHO);
+    pkg.handedOverAt = handover;
+    pkg.handedOverBy = KHO;
+  }
+  const deliveredAt = at('delivered');
+  if (target === 'delivered' && deliveredAt) {
+    step('delivered', deliveredAt, o.source === 'marketplace' ? null : SALE);
+    pkg.deliveredAt = deliveredAt;
+  }
+  const failed = o.history.find((x) => x.to === 'delivery_failed');
+  if (target === 'returned' && failed) {
+    step('delivery_failed', failed.at, failed.by, failed.reason);
+    step('returning', plus(failed.at, 1), null);
+    step('returned', plus(failed.at, 24), KHO);
+  }
+  return finish(pkg);
+}
+
+/** Phiên bản bằng số lần chuyển trạng thái */
+function finish(p: MockPackage) {
+  p.version = p.history.length;
+  return p;
+}
+
+function packageStatusOf(o: SeedOrder): PackageStatus {
+  switch (o.status) {
+    case 'pending_confirmation':
+      return o.id === 'ord-1004' ? 'backordered' : 'reserved';
+    case 'confirmed':
+    case 'picking':
+      return 'reserved';
+    case 'packing':
+      return o.source === 'marketplace' ? 'awaiting_pickup' : 'reserved';
+    case 'issued':
+      return 'in_transit';
+    case 'in_transit':
+      return o.source === 'inbox' ? 'self_delivering' : 'in_transit';
+    case 'delivered':
+      return 'delivered';
+    case 'delivery_failed':
+      return 'returned';
+    case 'cancelled':
+      return 'cancelled';
+  }
+}
+
+export const seedPackages: MockPackage[] = [];
+
+export const orders: MockOrder[] = seed.map((o) => {
+  const status = orderStatusOf(o);
+  if (o.id === 'ord-1012') {
+    // Đơn sàn chia hai kiện: áo đã đóng gói, quần còn chờ đóng gói
+    const a = seedPackage(o, [o.lines[0]], 'packed');
+    const b = seedPackage(o, [o.lines[1]], 'reserved');
+    seedPackages.push(a, b);
+  } else {
+    seedPackages.push(seedPackage(o, o.lines, packageStatusOf(o)));
+  }
+  const { isShortStock: _short, history: _legacy, status: _legacyStatus, ...rest } = o;
+  return {
+    ...rest,
+    status,
+    flags: [],
+    outcome: status === 'completed' ? 'full' : null,
+    rawMarketplaceStatus: RAW[o.id] ?? null,
+    shipBy: o.source === 'marketplace' ? plus(o.createdAt, 48) : null,
+    history: orderHistory(o, status),
+  };
+});
+
+/** Mã kiện đánh chung mọi công ty (KH-000001), tiếp sau seed */
+export const nextPackageCode = packageCode;
 
 /** Bộ đếm mã đơn theo công ty (đề xuất DH-000001); seed đã dùng tới 1024 */
 export const orderCounters: Record<string, number> = { 'cmp-001': 1024, 'cmp-002': 2001 };

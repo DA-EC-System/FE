@@ -7,6 +7,7 @@ import type { StatusChange } from '@/lib/stateMachine';
 import type { DocRef, RejectDecision, StockArea, StockDocKind, StockDocStatus, StockDocType } from '@/types/inventory';
 import type { StockNumbers } from './engine/stock';
 import { reviveOnArrival } from './catalogData';
+import { seedPackages } from './salesData';
 
 export interface MockStockLevel extends StockNumbers {
   companyId: string;
@@ -466,24 +467,21 @@ for (const d of docs.filter((x) => x.status === 'pending')) {
   for (const l of d.lines) levelOf(d.companyId, l.variantId).locked += l.locked ?? 0;
 }
 
-// Hàng đang giữ cho các đơn đã xác nhận chưa xuất kho (QT-14, D8)
-const RESERVED: Record<string, number> = {
-  'prd-001-v1': 5,
-  'prd-001-v4': 6,
-  'prd-002-v1': 3,
-  'prd-002-v3': 2,
-  'prd-003-v1': 4,
-};
-// Hàng kiện Thiếu hàng cần (FE#59 tính từ kiện); đang về do purchasingData tính từ đề nghị nhập
-const BACKORDERED: Record<string, number> = { 'prd-001-v4': 8 };
-for (const level of levels) {
-  level.reserved = RESERVED[level.variantId] ?? 0;
-  level.backordered = BACKORDERED[level.variantId] ?? 0;
+// Đang giữ: hàng của kiện Đã giữ, Đã đóng gói, Chờ lấy hàng; Thiếu hàng: hàng kiện chờ giữ cần (FE#59).
+// Đang về do purchasingData tính từ đề nghị nhập
+for (const p of seedPackages) {
+  const held = p.status === 'reserved' || p.status === 'packed' || p.status === 'awaiting_pickup';
+  if (!held && p.status !== 'backordered') continue;
+  for (const l of p.lines) {
+    const level = levelOf(p.companyId, l.variantId);
+    if (held) level.reserved += l.quantity;
+    else level.backordered += l.quantity;
+  }
 }
 // Lần đẩy gần nhất sàn trả số khác
 
 export const reorderRules: MockReorderRule[] = [
-  // prd-001-v4: khả dụng 4 + đang về 20 − thiếu 4 = 20 > 5 → không gợi ý nhập dù sắp hết
+  // prd-001-v4: khả dụng 10 + đang về 20 − thiếu 2 = 28 > 5 → không gợi ý nhập dù đang thiếu
   { companyId: 'cmp-001', variantId: 'prd-001-v4', minQty: 5, version: 1, updatedAt: '2026-10-02T03:00:00.000Z' },
   // prd-002-v3: khả dụng 1 + đang về 6 = 7 > 3 → sắp hết, đã có hàng về
   { companyId: 'cmp-001', variantId: 'prd-002-v3', minQty: 3, version: 1, updatedAt: '2026-10-02T03:00:00.000Z' },
