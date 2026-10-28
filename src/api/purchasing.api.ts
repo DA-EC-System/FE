@@ -25,6 +25,7 @@ import type {
   Supplier,
   SupplierInput,
   SupplierReport,
+  SupplierReportParams,
   SupplierReturn,
   SupplierReturnAction,
   SupplierReturnActionInput,
@@ -36,7 +37,8 @@ import type {
 export const purchasingKeys = {
   all: (companyId: string) => ['company', companyId, 'purchasing'] as const,
   suppliers: (companyId: string, params: object = {}) => [...purchasingKeys.all(companyId), 'suppliers', params] as const,
-  supplierReport: (companyId: string) => [...purchasingKeys.all(companyId), 'supplier-report'] as const,
+  supplierReport: (companyId: string, params?: SupplierReportParams) =>
+    [...purchasingKeys.all(companyId), 'supplier-report', params ?? {}] as const,
   requests: (companyId: string, params: PurchaseRequestListParams) =>
     [...purchasingKeys.all(companyId), 'requests', params] as const,
   request: (companyId: string, id: string) => [...purchasingKeys.all(companyId), 'request', id] as const,
@@ -79,13 +81,14 @@ export function useSuppliers(params: { search?: string; active?: boolean } = {},
   });
 }
 
-export function useSupplierReport() {
+export function useSupplierReport(params: SupplierReportParams = {}) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: purchasingKeys.supplierReport(companyId),
+    queryKey: purchasingKeys.supplierReport(companyId, params),
     enabled: Boolean(companyId),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
-      const { data } = await apiClient.get<SupplierReport[]>('/purchasing/suppliers/report');
+      const { data } = await apiClient.get<SupplierReport[]>('/purchasing/suppliers/report', { params });
       return data;
     },
   });

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Pencil, Plus } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
-import { FilterBar, SearchInput } from '@/components/common/FilterBar';
+import { DateFilter, FilterBar, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useSaveSupplier, useSupplierReport, useSuppliers } from '@/api/purchasing.api';
 import { getErrorMessage, getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -36,7 +37,9 @@ export function SuppliersTab() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
   const query = useSuppliers({ search: debouncedSearch || undefined });
-  const report = useSupplierReport();
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const report = useSupplierReport({ from: from || undefined, to: to || undefined });
   const [editing, setEditing] = useState<Supplier | 'new' | null>(null);
 
   const rows = useMemo<Row[]>(
@@ -123,9 +126,16 @@ export function SuppliersTab() {
           {getErrorMessage(query.error)}
         </AlertMessage>
       )}
+      {report.isError && (
+        <AlertMessage severity="error" className="mb-4">
+          {problemMessage(report.error)}
+        </AlertMessage>
+      )}
       <Card className="gap-0 py-0">
         <FilterBar>
           <SearchInput value={search} onChange={setSearch} placeholder="Tìm tên hoặc số điện thoại" />
+          <DateFilter label="Ghi sổ từ ngày" value={from} onChange={setFrom} max={to || undefined} />
+          <DateFilter label="Đến ngày" value={to} onChange={setTo} min={from || undefined} />
           {canManage && (
             <Button className="md:ms-auto" onClick={() => setEditing('new')}>
               <Plus />

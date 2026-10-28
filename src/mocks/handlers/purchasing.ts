@@ -3,6 +3,7 @@ import { db } from '../db';
 import * as catalog from '../catalogData';
 import * as inventory from '../inventoryData';
 import * as data from '../purchasingData';
+import { vnDate } from './sales';
 import type {
   MockGoodsReceipt,
   MockPurchaseRequest,
@@ -142,13 +143,14 @@ function validateSupplier(companyId: string, body: SupplierInput, exceptId?: str
 const supplierEntity = (s: MockSupplier) => ({ type: 'purchasing.suppliers', id: s.id, label: s.name });
 
 /** Báo cáo theo NCC: số phiếu nhận từng giao thiếu, tỉ lệ lỗi trên hàng đã giao */
-function supplierReport(companyId: string): SupplierReport[] {
+function supplierReport(companyId: string, from: string | null, to: string | null): SupplierReport[] {
+  const inPeriod = (postedAt: string) => (!from || vnDate(postedAt) >= from) && (!to || vnDate(postedAt) <= to);
   return data.suppliers
     .filter((s) => s.companyId === companyId)
     .map((s) => {
       const posted = data.receipts.filter((r) => {
         const req = data.requests.find((x) => x.id === r.requestId)!;
-        return r.companyId === companyId && req.supplierId === s.id && r.postedAt;
+        return r.companyId === companyId && req.supplierId === s.id && r.postedAt && inPeriod(r.postedAt);
       });
       const deliveredQty = posted.reduce(
         (sum, r) => sum + r.lines.reduce((x, l) => x + l.accepted + l.defectKept + l.returnedOnSpot, 0),
@@ -650,7 +652,11 @@ export const purchasingHandlers = [
     await delay(LATENCY);
     const guard = requireViewer(request);
     if (!guard.ok) return guard.response;
-    return HttpResponse.json(supplierReport(guard.value.companyId));
+    const url = new URL(request.url);
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+    if (from && to && from > to) return problem(400, 'Ngày bắt đầu sau ngày kết thúc', { code: 'invalid_period' });
+    return HttpResponse.json(supplierReport(guard.value.companyId, from, to));
   }),
 
   http.post(`${API}/purchasing/suppliers`, async ({ request }) => {
