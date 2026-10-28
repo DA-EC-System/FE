@@ -23,12 +23,15 @@ export const shopMachine = defineMachine<ShopStatus, ShopAction>([
 /** Token còn gọi được API sàn: ghép, đẩy, đồng bộ */
 export const shopUsable = (status: ShopStatus) => status === 'active' || status === 'connecting';
 
-/** Còn bao nhiêu ngày thì coi token là sắp hết hạn (nhãn phụ, không phải trạng thái) */
-export const EXPIRING_DAYS = 7;
+/**
+ * Còn bao nhiêu ngày refresh token thì coi là sắp hết hạn (nhãn phụ, không phải trạng thái).
+ * Access token BE tự làm mới, nên chỉ refresh token hết hạn mới buộc người dùng kết nối lại (§18.4).
+ */
+export const EXPIRING_DAYS = 3;
 
-export function tokenExpiringSoon(status: ShopStatus, accessExpiresAt: string | null, now = Date.now()) {
-  if (status !== 'active' || !accessExpiresAt) return false;
-  return new Date(accessExpiresAt).getTime() - now < EXPIRING_DAYS * 24 * 3600_000;
+export function tokenExpiringSoon(status: ShopStatus, refreshExpiresAt: string | null, now = Date.now()) {
+  if (status !== 'active' || !refreshExpiresAt) return false;
+  return new Date(refreshExpiresAt).getTime() - now < EXPIRING_DAYS * 24 * 3600_000;
 }
 
 const manage = PERMISSIONS.listingManage;

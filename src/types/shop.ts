@@ -22,8 +22,10 @@ export interface Shop {
   shopName: string;
   region: string;
   status: ShopStatus;
-  /** Hạn của access token sàn; null khi đã ngắt */
+  /** Hạn của access token sàn; null khi đã ngắt. BE tự làm mới khi còn dưới 24 giờ */
   accessExpiresAt: string | null;
+  /** Hạn của refresh token: quá hạn thì chỉ người dùng kết nối lại được. Null khi đã ngắt hoặc sàn giả lập (§18.4) */
+  refreshExpiresAt: string | null;
   lastOrderSyncAt?: string;
   /** Mốc kéo đơn đặt ở thiết lập lần đầu: chỉ kéo đơn tạo từ mốc này */
   orderCutoffAt: string | null;
@@ -42,6 +44,11 @@ export interface ShopConnectInput {
   shopId?: string;
 }
 
+/** GET /channel/shops/:platform/authorize-url */
+export interface ShopAuthorizeUrl {
+  url: string;
+}
+
 export interface ShopCallbackInput {
   code: string;
   state: string;
@@ -52,7 +59,7 @@ export interface ShopCallbackResult {
   /** false: gian hàng đã có, chỉ cấp lại token */
   created: boolean;
   /** Có khi kết nối lại gian hàng đã có */
-  reconnect?: ShopReconnectSummary;
+  reconnect: ShopReconnectSummary | null;
 }
 
 /**
@@ -86,6 +93,19 @@ export type ListingAction =
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
 
+/** Lỗi lần đẩy gần nhất của riêng một SKU (đẩy theo lô, SKU lỗi không đánh lỗi cả lô). `message` là câu của sàn */
+export interface SyncError {
+  code: string;
+  message: string;
+  at: string;
+}
+
+/** Sàn báo lỗi QC cho sản phẩm (Lazada `GetQCAlertProducts`) */
+export interface QcAlert {
+  reason: string;
+  at: string;
+}
+
 /** channel.channel_listings: biến thể đã ghép với SKU trên sàn */
 export interface ChannelListing {
   id: string;
@@ -104,6 +124,9 @@ export interface ChannelListing {
   hiddenBy: 'platform' | 'zero_stock' | null;
   stockSync: SyncState;
   priceSync: SyncState;
+  stockSyncError: SyncError | null;
+  priceSyncError: SyncError | null;
+  qcAlert: QcAlert | null;
   /** Số trên sàn sau lần đẩy tồn gần nhất */
   platformStock: number | null;
   lastPushedAt: string | null;

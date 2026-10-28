@@ -4,7 +4,7 @@
  */
 
 import { products } from './catalogData';
-import type { ListingStatus, SyncState } from '@/types/shop';
+import type { ListingStatus, QcAlert, SyncError, SyncState } from '@/types/shop';
 
 export interface MockListing {
   id: string;
@@ -22,6 +22,10 @@ export interface MockListing {
   /** Đồng bộ tồn lưu theo lần đẩy; đồng bộ giá tính khi trả về (giá hiện tại so với giá đã đẩy) */
   stockSync: SyncState;
   platformStock: number | null;
+  /** Lỗi đẩy gần nhất của riêng SKU này (§18.4) */
+  stockSyncError?: SyncError | null;
+  priceSyncError?: SyncError | null;
+  qcAlert?: QcAlert | null;
   /** Gỡ vì ngắt gian hàng (không phải người dùng gỡ): kết nối lại thì tạo lại */
   delistedByDisconnect?: boolean;
   lastPushedAt: string | null;
@@ -121,9 +125,15 @@ export const listings: MockListing[] = [
   // TikTok cần kết nối lại: tồn chờ đẩy trong hàng chờ
   listing('shp-002', 'cmp-001', 'prd-001-v1', 'shp-002-sku-001', 150000, { stockSync: 'pending' }),
   // Ghép listing có sẵn: bán ngay, chưa đẩy giá lần nào
-  listing('shp-003', 'cmp-001', 'prd-002-v1', 'shp-003-sku-001', null),
+  listing('shp-003', 'cmp-001', 'prd-002-v1', 'shp-003-sku-001', null, {
+    qcAlert: { reason: 'Mô tả thiếu thông tin chất liệu', at: '2026-10-14T07:30:00.000Z' },
+  }),
   listing('shp-003', 'cmp-001', 'prd-002-v2', 'shp-003-sku-002', 320000, { status: 'under_review' }),
-  listing('shp-003', 'cmp-001', 'prd-003-v1', 'shp-003-sku-005', 250000, { stockSync: 'error', platformStock: 12 }),
+  listing('shp-003', 'cmp-001', 'prd-003-v1', 'shp-003-sku-005', 250000, {
+    stockSync: 'error',
+    platformStock: 12,
+    stockSyncError: { code: 'E0506', message: 'SellerSku is locked by campaign', at: '2026-10-14T07:45:00.000Z' },
+  }),
   listing('shp-003', 'cmp-001', 'prd-001-v3', 'shp-003-sku-009', 150000, {
     status: 'rejected',
     rejectReason: 'Ảnh chính có chữ và logo, vi phạm chính sách hình ảnh',

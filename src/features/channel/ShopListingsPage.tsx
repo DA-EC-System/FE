@@ -423,6 +423,23 @@ export function ShopListingsPage() {
                   {l.stockSync === 'error' && l.platformStock !== null && ` (sàn ${l.platformStock})`}
                 </Badge>
               )}
+              {/* Lỗi đẩy của riêng SKU này: câu của sàn, hiện nguyên văn (§18.4) */}
+              {[
+                { label: 'Đẩy tồn lỗi', err: l.stockSyncError },
+                { label: 'Đẩy giá lỗi', err: l.priceSyncError },
+              ].map(
+                ({ label, err }) =>
+                  err && (
+                    <span key={label} className="text-xs text-destructive" data-testid="sync-error" title={err.code}>
+                      {label}: {err.message} · {formatDateTime(err.at)}
+                    </span>
+                  ),
+              )}
+              {l.qcAlert && (
+                <span className="text-xs text-warning" data-testid="qc-alert">
+                  Sàn cảnh báo QC: {l.qcAlert.reason}
+                </span>
+              )}
             </div>
           );
         },

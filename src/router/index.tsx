@@ -127,7 +127,7 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'channel/shops/oauth-callback',
+                    path: 'channel/shops/oauth-callback/:platform',
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.shopConnect}>
                         <ShopOAuthCallbackPage />

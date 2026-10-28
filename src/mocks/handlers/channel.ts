@@ -10,7 +10,8 @@ import type {
   SetupSuggestion,
   Shop,
   ShopCallbackInput,
-  ShopConnectInput,
+  ShopAuthorizeUrl,
+  ShopCallbackResult,
   ShopDisconnectInput,
   ShopReconnectSummary,
   ShopSetupInput,
@@ -24,6 +25,7 @@ import * as inventory from '../inventoryData';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
+import type { PageResult } from '@/api/types';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, rid, staleVersion, variantAttributes } from './catalog';
@@ -61,7 +63,14 @@ export function findShop(id: unknown, companyId: string) {
 export const MARKETPLACES: Marketplace[] = ['tiktok', 'shopee', 'lazada', 'mock'];
 /** Gian hàng còn token dùng được: gọi được API sàn */
 export const usable = (s: MockShop) => shopUsable(s.status);
-export const TOKEN_TTL_MS = 90 * 24 * 3600_000;
+export const TOKEN_TTL_MS = 7 * 24 * 3600_000;
+/** Refresh token (Lazada khoảng 30 ngày); sàn giả lập không có */
+export const REFRESH_TTL_MS = 30 * 24 * 3600_000;
+/** App Lazada ở chế độ thử chỉ nhận tối đa 5 seller (§18.4 `seller_not_whitelisted`) */
+const LAZADA_TEST_SELLERS = 5;
+
+const marketplaceUnsupported = (platform: string) =>
+  problem(422, 'Sàn chưa hỗ trợ', { code: 'marketplace_unsupported', detail: `Chưa hỗ trợ kết nối sàn ${platform}.` });
 
 export function shopNotConnected(s: MockShop) {
   return problem(409, 'Gian hàng chưa kết nối', {
@@ -116,6 +125,9 @@ export function toListing(l: MockListing): ChannelListing {
     stockSync: l.stockSync,
     // Giá: tính so với giá đã đẩy; chưa đẩy lần nào hoặc giá đổi là đang chờ
     priceSync: l.status === 'push_failed' ? 'error' : price !== null && price === l.lastPushedPrice ? 'synced' : 'pending',
+    stockSyncError: l.stockSync === 'error' ? (l.stockSyncError ?? null) : null,
+    priceSyncError: l.priceSyncError ?? null,
+    qcAlert: l.qcAlert ?? null,
     platformStock: l.platformStock,
     lastPushedAt: l.lastPushedAt,
     lastPushedPrice: l.lastPushedPrice,
@@ -147,6 +159,7 @@ export function settlePush(shop: MockShop, l: MockListing, paused: boolean) {
 function syncStock(l: MockListing) {
   l.platformStock = l.hiddenBy === 'zero_stock' ? 0 : availableFor(l.companyId, l.variantId);
   l.stockSync = 'synced';
+  l.stockSyncError = null;
 }
 
 /** Ẩn listing khi SKU tạm ngừng: sàn ẩn riêng SKU, hoặc đẩy tồn 0 khi sàn không ẩn riêng phân loại */
@@ -354,6 +367,7 @@ registerMarketplaceEvent({
     if (shop.status !== 'active') throw new Error('Chỉ gian hàng đang kết nối mới mất quyền được');
     shop.status = 'needs_reauth';
     shop.accessExpiresAt = new Date().toISOString();
+    if (shop.refreshExpiresAt) shop.refreshExpiresAt = shop.accessExpiresAt;
     for (const l of channel.listings) {
       if (l.shopId !== shop.id || !onPlatform(l.status) || l.stockSync === 'pending') continue;
       bump(l, { stockSync: 'pending' });
@@ -486,23 +500,22 @@ export const shopHandlers = [
     }
     if (platform) items = items.filter((s) => s.platform === platform);
     if (status) items = items.filter((s) => s.status === status);
-    return HttpResponse.json(paginate(items.map(toShop), page, pageSize));
+    return HttpResponse.json<PageResult<Shop>>(paginate(items.map(toShop), page, pageSize));
   }),
 
-  http.post(`${API}/channel/shops/connect`, async ({ request }) => {
+  http.get(`${API}/channel/shops/:platform/authorize-url`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopConnect);
     if (!guard.ok) return guard.response;
-    const body = (await request.json()) as ShopConnectInput;
+    const platform = params.platform as Marketplace;
+    if (!MARKETPLACES.includes(platform)) return marketplaceUnsupported(platform);
+    const shopId = new URL(request.url).searchParams.get('shopId');
     let shop: MockShop | null = null;
-    if (body.shopId) {
-      const found = ownShop(body.shopId, guard.value.companyId);
+    if (shopId) {
+      const found = ownShop(shopId, guard.value.companyId);
       if (!found.ok) return found.response;
       shop = found.value;
-    }
-    const platform = shop?.platform ?? body.platform;
-    if (!MARKETPLACES.includes(platform)) {
-      return problem(422, 'Sàn không hợp lệ', { errors: { platform: 'Chọn sàn để kết nối' } });
+      if (shop.platform !== platform) return marketplaceUnsupported(platform);
     }
     const state = rid('st');
     channel.oauthStates.set(state, {
@@ -512,28 +525,33 @@ export const shopHandlers = [
       shopId: shop?.id ?? null,
     });
     // Sàn thật trả trang uỷ quyền của sàn; mock dùng trang sàn giả lập trong SPA
-    const params = new URLSearchParams({
+    const search = new URLSearchParams({
       platform,
       state,
-      redirect_uri: `${window.location.origin}${appPath('channel/oauth/callback')}`,
+      redirect_uri: `${window.location.origin}${appPath(`channel/${platform}/callback`)}`,
     });
     if (shop) {
-      params.set('shop_id', shop.externalShopId);
-      params.set('shop_name', shop.shopName);
+      search.set('shop_id', shop.externalShopId);
+      search.set('shop_name', shop.shopName);
     }
-    return HttpResponse.json({ authorizeUrl: `${appPath('mock-oauth/authorize')}?${params}` });
+    return HttpResponse.json<ShopAuthorizeUrl>({ url: `${appPath('mock-oauth/authorize')}?${search}` });
   }),
 
-  http.post(`${API}/channel/shops/oauth/callback`, async ({ request }) => {
+  http.post(`${API}/channel/shops/:platform/callback`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopConnect);
     if (!guard.ok) return guard.response;
     const body = (await request.json()) as ShopCallbackInput;
     const pending = channel.oauthStates.get(body.state);
     const companyId = guard.value.companyId;
-    if (!pending || pending.companyId !== companyId || pending.accountId !== guard.value.account.id) {
-      return problem(400, 'Phiên kết nối không hợp lệ', {
-        code: 'invalid_state',
+    if (
+      !pending ||
+      pending.companyId !== companyId ||
+      pending.accountId !== guard.value.account.id ||
+      pending.platform !== params.platform
+    ) {
+      return problem(422, 'Phiên kết nối không hợp lệ', {
+        code: 'oauth_state_invalid',
         detail: 'Phiên kết nối đã hết hạn hoặc không thuộc công ty đang chọn.',
       });
     }
@@ -551,14 +569,33 @@ export const shopHandlers = [
         });
       }
     }
+    const elsewhere = db.shops.find(
+      (s) =>
+        s.companyId !== companyId &&
+        s.platform === platform &&
+        s.externalShopId === granted.externalShopId &&
+        s.status !== 'disconnected',
+    );
+    if (elsewhere) {
+      return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
+    }
+    if (platform === 'lazada') {
+      const sellers = new Set(
+        db.shops.filter((s) => s.platform === 'lazada' && s.status !== 'disconnected').map((s) => s.externalShopId),
+      );
+      if (!sellers.has(granted.externalShopId) && sellers.size >= LAZADA_TEST_SELLERS) {
+        return problem(422, 'Gian hàng chưa được cấp quyền thử', { code: 'seller_not_whitelisted' });
+      }
+    }
     const idx = db.shops.findIndex(
       (s) => s.companyId === companyId && s.externalShopId === granted.externalShopId,
     );
     const expires = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
+    const refreshExpires = platform === 'mock' ? null : new Date(Date.now() + REFRESH_TTL_MS).toISOString();
     if (idx !== -1) {
       const current = db.shops[idx];
       const before = shopSnapshot(current);
-      let reconnect: ShopReconnectSummary | undefined;
+      let reconnect: ShopReconnectSummary | null = null;
       // Dùng lại bản ghi cũ: active, connecting chỉ gia hạn token; mất quyền hoặc đã ngắt thì đi qua kết nối lại
       if (current.status === 'needs_reauth' || current.status === 'disconnected') {
         const step = checkTransition(shopMachine, current.status, 'reconnect', guard.value, shopRecord(current));
@@ -566,9 +603,14 @@ export const shopHandlers = [
         current.status = step.value;
         reconnect = catchUp(current);
       }
-      Object.assign(current, { accessExpiresAt: expires, updatedAt: db.now(), version: current.version + 1 });
+      Object.assign(current, {
+        accessExpiresAt: expires,
+        refreshExpiresAt: refreshExpires,
+        updatedAt: db.now(),
+        version: current.version + 1,
+      });
       writeCompanyLog(guard.value, 'update', shopEntity(current), before, shopSnapshot(current));
-      return HttpResponse.json({ shop: toShop(current), created: false, reconnect });
+      return HttpResponse.json<ShopCallbackResult>({ shop: toShop(current), created: false, reconnect });
     }
     const shop: MockShop = {
       id: rid('shp'),
@@ -580,6 +622,7 @@ export const shopHandlers = [
       // Chưa bán được cho đến khi xong thiết lập lần đầu
       status: 'connecting',
       accessExpiresAt: expires,
+      refreshExpiresAt: refreshExpires,
       orderCutoffAt: null,
       pendingJobs: 0,
       createdAt: db.now(),
@@ -589,7 +632,7 @@ export const shopHandlers = [
     db.shops.unshift(shop);
     channel.seedRemoteForNewShop(shop.id);
     writeCompanyLog(guard.value, 'create', shopEntity(shop), null, shopSnapshot(shop));
-    return HttpResponse.json({ shop: toShop(shop), created: true }, { status: 201 });
+    return HttpResponse.json<ShopCallbackResult>({ shop: toShop(shop), created: true, reconnect: null }, { status: 201 });
   }),
 
   http.get(`${API}/channel/shops/:id`, async ({ params, request }) => {
@@ -598,7 +641,7 @@ export const shopHandlers = [
     if (!guard.ok) return guard.response;
     const found = ownShop(params.id, guard.value.companyId);
     if (!found.ok) return found.response;
-    return HttpResponse.json(toShop(found.value));
+    return HttpResponse.json<Shop>(toShop(found.value));
   }),
 
   http.post(`${API}/channel/shops/:id/disconnect`, async ({ params, request }) => {
@@ -612,7 +655,7 @@ export const shopHandlers = [
     if (version !== current.version) {
       return versionConflict(toShop(current), 'Gian hàng vừa được người khác sửa.');
     }
-    if (current.status === 'disconnected') return HttpResponse.json(toShop(current));
+    if (current.status === 'disconnected') return HttpResponse.json<Shop>(toShop(current));
     const step = checkTransition(shopMachine, current.status, 'disconnect', guard.value, shopRecord(current));
     if (!step.ok) return step.response;
     if (zeroStock && !usable(current)) {
@@ -635,6 +678,7 @@ export const shopHandlers = [
       ...current,
       status: step.value,
       accessExpiresAt: null,
+      refreshExpiresAt: null,
       pendingJobs: 0,
       updatedAt: db.now(),
       version: current.version + 1,
@@ -643,7 +687,7 @@ export const shopHandlers = [
       ...shopSnapshot(db.shops[idx]),
       zeroStock,
     });
-    return HttpResponse.json(toShop(db.shops[idx]));
+    return HttpResponse.json<Shop>(toShop(db.shops[idx]));
   }),
 
   http.post(`${API}/channel/shops/:id/sync`, async ({ params, request }) => {
@@ -654,7 +698,7 @@ export const shopHandlers = [
     if (idx === -1) return problem(404, 'Không tìm thấy gian hàng');
     if (!usable(db.shops[idx])) return shopNotConnected(db.shops[idx]);
     db.shops[idx] = { ...db.shops[idx], lastOrderSyncAt: db.now(), updatedAt: db.now() };
-    return HttpResponse.json({ ok: true, lastOrderSyncAt: db.shops[idx].lastOrderSyncAt });
+    return HttpResponse.json<{ ok: boolean; lastOrderSyncAt?: string }>({ ok: true, lastOrderSyncAt: db.shops[idx].lastOrderSyncAt });
   }),
 
   /** Thiết lập lần đầu (sơ đồ C1): gợi ý ghép listing có sẵn và số tồn hai bên */
@@ -668,7 +712,7 @@ export const shopHandlers = [
     if (shop.status !== 'connecting') {
       return problem(409, 'Gian hàng đã thiết lập', { code: 'invalid_transition', current: shop.status });
     }
-    return HttpResponse.json(setupSuggestions(shop));
+    return HttpResponse.json<ShopSetupPreview>(setupSuggestions(shop));
   }),
 
   http.post(`${API}/channel/shops/:id/setup`, async ({ params, request }) => {
@@ -720,7 +764,7 @@ export const shopHandlers = [
       stocktake: doc?.number ?? null,
     });
     const result: ShopSetupResult = { shop: toShop(shop), matched: picked.length, stocktakeNumber: doc?.number ?? null };
-    return HttpResponse.json(result);
+    return HttpResponse.json<ShopSetupResult>(result);
   }),
 
   http.get(`${API}/channel/shops/:id/listings`, async ({ params, request }) => {
@@ -745,7 +789,7 @@ export const shopHandlers = [
         listing: l ? toListing(l) : null,
       };
     });
-    return HttpResponse.json(rows);
+    return HttpResponse.json<ListingRow[]>(rows);
   }),
 
   http.get(`${API}/channel/shops/:id/remote-skus`, async ({ params, request }) => {
@@ -762,7 +806,7 @@ export const shopHandlers = [
         channel.listings.find((l) => l.shopId === shop.id && l.externalSkuId === r.externalSkuId)?.variantId ??
         null,
     }));
-    return HttpResponse.json(skus);
+    return HttpResponse.json<RemoteSku[]>(skus);
   }),
 
   http.put(`${API}/channel/shops/:id/listings/:variantId`, async ({ params, request }) => {
@@ -819,7 +863,7 @@ export const shopHandlers = [
       existing ? { externalSkuId: existing.externalSkuId } : null,
       { externalSkuId: next.externalSkuId, sellerSku: sku.sellerSku },
     );
-    return HttpResponse.json(toListing(next));
+    return HttpResponse.json<ChannelListing>(toListing(next));
   }),
 
   /** Gỡ khỏi sàn: giữ ghép để đẩy lại sau */
@@ -842,7 +886,7 @@ export const shopHandlers = [
     writeCompanyLog(guard.value, 'update', listingEntity(shop, skuOf(shop.companyId, l.variantId), l.id), before, {
       status: l.status,
     });
-    return HttpResponse.json(toListing(l));
+    return HttpResponse.json<ChannelListing>(toListing(l));
   }),
 
   http.delete(`${API}/channel/shops/:id/listings/:variantId`, async ({ params, request }) => {
@@ -943,6 +987,6 @@ export const shopHandlers = [
         pushed: done.map((r) => `${r.sku}${r.outcome === 'created' ? ' (tạo mới)' : ''}`),
       });
     }
-    return HttpResponse.json({ results });
+    return HttpResponse.json<{ results: PushResult[] }>({ results });
   }),
 ];
