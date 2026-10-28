@@ -5,6 +5,7 @@
 
 import type { StatusChange } from '@/lib/stateMachine';
 import type { DocRef } from './inventory';
+import type { Attachment } from './purchasing';
 import type { UserRef } from './sales';
 
 export type ReturnStatus = 'requested' | 'awaiting_return' | 'received' | 'closed' | 'rejected' | 'refund_only';
@@ -69,6 +70,15 @@ export interface ReturnMoney {
   resellCost: number | null;
 }
 
+/** Trạng thái gốc của đơn ngược trên sàn (§20.1), chỉ để hiện */
+export interface ReturnPlatformInfo {
+  reverseStatus: string;
+  ofcStatus: string | null;
+  /** Khách đang khiếu nại lên sàn */
+  disputeInProgress: boolean;
+  returnTo: 'warehouse' | 'merchant' | null;
+}
+
 export interface ReturnRequest extends ReturnRequestSummary {
   reason: string;
   lines: ReturnLine[];
@@ -79,6 +89,36 @@ export interface ReturnRequest extends ReturnRequestSummary {
   receivedBy: UserRef | null;
   money: ReturnMoney;
   statusHistory: StatusChange<ReturnStatus>[];
+  /** null với yêu cầu tạo tay */
+  platform: ReturnPlatformInfo | null;
+  /** Lý do từ chối chọn theo danh sách của sàn */
+  rejectReason: { id: string; label: string } | null;
+  attachments: Attachment[];
+}
+
+/** Lý do từ chối của sàn; `requiresImage` thì bắt buộc ảnh (§20.1) */
+export interface ReturnReason {
+  id: string;
+  label: string;
+  requiresImage: boolean;
+}
+
+export interface ReturnReasonList {
+  items: ReturnReason[];
+}
+
+export type ReturnReasonAction = 'reject' | 'refuse-refund';
+
+/** Một bước của đơn ngược phía sàn, mới nhất trước */
+export interface PlatformHistoryEntry {
+  at: string;
+  reverseStatus: string;
+  ofcStatus: string | null;
+  note: string | null;
+}
+
+export interface PlatformHistoryList {
+  items: PlatformHistoryEntry[];
 }
 
 export interface ReturnListResponse {

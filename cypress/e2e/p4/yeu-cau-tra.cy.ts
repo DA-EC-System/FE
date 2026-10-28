@@ -20,6 +20,16 @@ const phat = (type: string, value: string) => {
   });
 };
 
+/** Sàn đẩy yêu cầu trả cho DH-1015 rồi mở chi tiết YCT-000003 */
+const yeuCauSan = () => {
+  cy.visit('/c/cmp-001/dev/marketplace');
+  phat('return.requested', 'DH-1015');
+  cy.toast(/YCT-000003 cho DH-1015/);
+  diToi('/c/cmp-001/sales/returns');
+  cy.contains('tr', 'YCT-000003').click();
+  trangThai().should('contain', 'Chờ xử lý');
+};
+
 const quetNhan = (code: string) => {
   cy.findByRole('button', { name: 'Quét nhận hàng trả' }).click();
   cy.findByRole('dialog').within(() => {
@@ -54,6 +64,8 @@ describe('P4 · Yêu cầu trả', () => {
       cy.toast('YCT-000001: Chấp nhận trả hàng');
       trangThai().should('contain', 'Chờ hàng về');
       cy.get('[data-testid=return-actions]').should('contain', 'Khách không gửi hàng').and('not.contain', 'Nhận hàng trả');
+      // Yêu cầu lập tay không có lịch sử phía sàn
+      cy.findByRole('tab', { name: 'Lịch sử phía sàn' }).should('not.exist');
     });
 
     it('từ chối bắt buộc lý do; yêu cầu lập tay không có sàn xử cho khách', () => {
@@ -199,12 +211,16 @@ describe('P4 · Yêu cầu trả', () => {
       cy.findByRole('tab', { name: /Chờ xử lý/ }).should('contain', '2');
       cy.contains('tr', 'YCT-000003').should('contain', 'DH-1015').click();
       cy.get('main').should('contain', 'Sàn ·');
+      cy.get('[data-testid=platform-status]').should('contain', 'REQUEST_INITIATE');
       nut('Từ chối').click();
       cy.findByRole('dialog').within(() => {
-        cy.findByLabelText('Lý do').type('Hàng đã qua sử dụng');
-        cy.findByRole('button', { name: 'Xác nhận' }).click();
+        cy.contains('Từ chối yêu cầu YCT-000003');
+        cy.findByLabelText('Quá hạn trả hàng').click();
+        cy.findByRole('button', { name: 'Từ chối' }).click();
       });
-      trangThai().should('contain', 'Đã từ chối');
+      cy.toast('YCT-000003: Từ chối');
+      trangThai().should('contain', 'Đã từ chối').and('contain', 'Khách đang khiếu nại trên sàn');
+      cy.contains('Lý do từ chối (theo sàn)').parent().should('contain', 'Quá hạn trả hàng');
       cy.contains('Sàn xử cho khách thì yêu cầu mở lại');
       nut('Sàn xử cho khách: trả hàng').should('exist');
 
@@ -213,6 +229,45 @@ describe('P4 · Yêu cầu trả', () => {
       cy.toast('YCT-000003 → awaiting_return');
       diToi('/c/cmp-001/sales/orders/ord-1015');
       cy.get('[data-testid=order-returns]').should('contain', 'YCT-000003').and('contain', 'Chờ hàng về');
+    });
+
+    it('lý do sàn đòi bằng chứng thì bắt buộc ảnh', () => {
+      yeuCauSan();
+      nut('Từ chối').click();
+      cy.findByRole('dialog').within(() => {
+        cy.findByRole('button', { name: 'Từ chối' }).click();
+        cy.contains('Chọn lý do từ chối');
+        cy.findByLabelText(/Hàng bị khách làm hỏng/).click();
+        cy.contains('Ảnh bằng chứng (bắt buộc)');
+        cy.findByRole('button', { name: 'Từ chối' }).click();
+        cy.contains('Lý do này cần ảnh làm bằng chứng');
+        cy.findByLabelText('Ghi chú gửi sàn').type('Vỏ hộp móp, có vết bẩn');
+        cy.get('[data-testid=attachment-input]').selectFile(
+          { contents: Cypress.Buffer.from('anh-bang-chung'), fileName: 'hong.png', mimeType: 'image/png' },
+          { force: true },
+        );
+        cy.get('[data-testid=attachments] li[data-file-id]').should('have.length', 1);
+        cy.findByRole('button', { name: 'Từ chối' }).click();
+      });
+      cy.toast('YCT-000003: Từ chối');
+      cy.contains('Lý do từ chối (theo sàn)').parent().should('contain', 'Hàng bị khách làm hỏng');
+      cy.contains('Hàng bị khách làm hỏng: Vỏ hộp móp, có vết bẩn');
+      cy.contains('Ảnh bằng chứng gửi sàn').parent().find('li[data-file-id]').should('have.length', 1);
+    });
+
+    it('lịch sử phía sàn hiện trạng thái gốc, mới nhất trước', () => {
+      yeuCauSan();
+      nut('Chấp nhận trả hàng').click();
+      cy.findByRole('alertdialog').findByRole('button', { name: 'Chấp nhận trả hàng' }).click();
+      trangThai().should('contain', 'Chờ hàng về');
+      cy.findByRole('tab', { name: 'Lịch sử phía sàn' }).click();
+      cy.get('[data-testid=platform-history] tbody tr').should('have.length', 2);
+      cy.get('[data-testid=platform-history] tbody tr')
+        .first()
+        .should('contain', 'RETURN_PENDING')
+        .and('contain', 'SELLER_AGREE_RETURN')
+        .and('contain', 'agreeReturn');
+      cy.get('[data-testid=platform-history] tbody tr').last().should('contain', 'REQUEST_INITIATE');
     });
 
     it('đơn tạo tay không nhận yêu cầu từ sàn', () => {

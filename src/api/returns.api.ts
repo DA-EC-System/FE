@@ -8,8 +8,11 @@ import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   CreateReturnInput,
+  PlatformHistoryList,
   ReceiveResult,
   ReturnListResponse,
+  ReturnReasonAction,
+  ReturnReasonList,
   ReturnRequest,
   ReturnStatus,
   ReturnableLine,
@@ -32,6 +35,9 @@ export const returnKeys = {
   detail: (companyId: string, id: string) => [...returnKeys.all(companyId), 'detail', id] as const,
   returnable: (companyId: string, orderId: string) => [...returnKeys.all(companyId), 'returnable', orderId] as const,
   unmatched: (companyId: string, status?: UnmatchedStatus) => [...returnKeys.all(companyId), 'unmatched', status] as const,
+  reasons: (companyId: string, id: string, action: ReturnReasonAction) =>
+    [...returnKeys.all(companyId), 'reasons', id, action] as const,
+  platformHistory: (companyId: string, id: string) => [...returnKeys.all(companyId), 'platform-history', id] as const,
 };
 
 function useCompanyId(): string {
@@ -82,6 +88,32 @@ export function useReturnable(orderId: string, enabled = true) {
   });
 }
 
+/** Lý do từ chối theo danh sách của sàn (§20.1); chỉ yêu cầu từ sàn */
+export function useReturnReasons(id: string, action: ReturnReasonAction, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: returnKeys.reasons(companyId, id, action),
+    enabled: Boolean(companyId && id) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<ReturnReasonList>(`/returns/${id}/reasons`, { params: { action } });
+      return data;
+    },
+  });
+}
+
+/** Lịch sử đơn ngược phía sàn, mới nhất trước (§20.1) */
+export function useReturnPlatformHistory(id: string, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: returnKeys.platformHistory(companyId, id),
+    enabled: Boolean(companyId && id) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PlatformHistoryList>(`/returns/${id}/platform-history`);
+      return data;
+    },
+  });
+}
+
 export function useUnmatchedParcels(status?: UnmatchedStatus, enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
@@ -109,6 +141,8 @@ export function useCreateReturn() {
 export type ReturnCommand =
   | { kind: 'accept' }
   | { kind: 'reject'; reason: string }
+  /** Yêu cầu từ sàn: lý do theo danh sách của sàn, ảnh khi lý do bắt buộc (§20.1) */
+  | { kind: 'reject'; reasonId: string; comment?: string; attachmentIds: string[] }
   | { kind: 'refund-only' }
   | { kind: 'platform-reopen' }
   | { kind: 'platform-refund' }

@@ -15,6 +15,14 @@ export interface MockReturnLine {
   unitCost: number;
 }
 
+/** Một bước của đơn ngược phía sàn (Lazada reverse_status, ofc_status) */
+export interface MockPlatformStep {
+  at: string;
+  reverseStatus: string;
+  ofcStatus: string | null;
+  note: string | null;
+}
+
 export interface MockReturnRequest {
   id: string;
   companyId: string;
@@ -34,6 +42,12 @@ export interface MockReturnRequest {
   /** Số bán lại được, ghi khi kiểm hàng về ghi sổ */
   resellQty: number | null;
   history: MockStatusChange<ReturnStatus>[];
+  /** Lý do từ chối theo danh sách của sàn và ảnh kèm (§20.1) */
+  rejectReasonId: string | null;
+  attachmentIds: string[];
+  /** Lịch sử phía sàn, cũ trước; rỗng với yêu cầu tạo tay */
+  platformSteps: MockPlatformStep[];
+  disputeInProgress: boolean;
   createdAt: string;
   createdBy: string | null;
   version: number;
@@ -74,6 +88,10 @@ export const requests: MockReturnRequest[] = [
     receivedBy: null,
     resellQty: null,
     history: [{ from: null, to: 'requested', at: '2026-10-15T03:00:00.000Z', by: SALE }],
+    rejectReasonId: null,
+    attachmentIds: [],
+    platformSteps: [],
+    disputeInProgress: false,
     createdAt: '2026-10-15T03:00:00.000Z',
     createdBy: SALE,
     version: 1,
@@ -98,6 +116,10 @@ export const requests: MockReturnRequest[] = [
       { from: null, to: 'requested', at: '2026-10-14T02:00:00.000Z', by: SALE },
       { from: 'requested', to: 'awaiting_return', at: '2026-10-14T04:00:00.000Z', by: SALE },
     ],
+    rejectReasonId: null,
+    attachmentIds: [],
+    platformSteps: [],
+    disputeInProgress: false,
     createdAt: '2026-10-14T02:00:00.000Z',
     createdBy: SALE,
     version: 2,
