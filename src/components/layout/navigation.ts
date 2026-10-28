@@ -63,7 +63,10 @@ export const PLATFORM_NAV: NavSection[] = [
   },
 ];
 
-/** Menu khu làm việc của công ty; Sidebar lọc theo phân hệ đang bật và quyền. */
+/**
+ * Menu khu làm việc của công ty, nhóm theo bản mẫu Test_UI (FE#70); thêm nhóm Quản trị cho trang riêng của app.
+ * AppLayout lọc theo phân hệ đang bật và quyền.
+ */
 export function companyNav(companyId: string): NavSection[] {
   return [
     {
@@ -75,43 +78,29 @@ export function companyNav(companyId: string): NavSection[] {
           icon: LayoutDashboard,
           end: true,
         },
+        {
+          to: ROUTES.company.reports(companyId),
+          label: 'Báo cáo kinh doanh',
+          icon: ChartLine,
+          module: 'report',
+          permission: [PERMISSIONS.reportView, PERMISSIONS.financeView],
+        },
       ],
     },
     {
-      title: 'Bán hàng',
+      title: 'Nhập hàng',
       items: [
         {
-          to: ROUTES.company.orders(companyId),
-          label: 'Đơn hàng',
-          icon: ShoppingCart,
-          module: 'sales',
-          permission: PERMISSIONS.orderView,
-        },
-        {
-          to: ROUTES.company.customers(companyId),
-          label: 'Khách hàng',
-          icon: Contact,
-          module: 'sales',
-          permission: PERMISSIONS.customerView,
-        },
-        {
-          to: ROUTES.company.returns(companyId),
-          label: 'Yêu cầu trả',
-          icon: PackageX,
-          module: 'sales',
-          permission: PERMISSIONS.returnView,
-        },
-        {
-          to: ROUTES.company.shops(companyId),
-          label: 'Kênh bán',
-          icon: Store,
-          module: 'channel',
-          permission: PERMISSIONS.shopView,
+          to: ROUTES.company.purchasing(companyId),
+          label: 'Mua hàng',
+          icon: ClipboardList,
+          module: 'purchasing',
+          anyPermission: PURCHASING_PERMISSIONS,
         },
       ],
     },
     {
-      title: 'Hàng hoá',
+      title: 'Sản phẩm và kho',
       items: [
         {
           to: ROUTES.company.catalog(companyId),
@@ -141,24 +130,50 @@ export function companyNav(companyId: string): NavSection[] {
           module: 'inventory',
           permission: PERMISSIONS.stockView,
         },
+      ],
+    },
+    {
+      title: 'Bán trên sàn',
+      items: [
         {
-          to: ROUTES.company.purchasing(companyId),
-          label: 'Mua hàng',
-          icon: ClipboardList,
-          module: 'purchasing',
-          anyPermission: PURCHASING_PERMISSIONS,
+          to: ROUTES.company.shops(companyId),
+          label: 'Kênh bán',
+          icon: Store,
+          module: 'channel',
+          permission: PERMISSIONS.shopView,
         },
       ],
     },
     {
-      title: 'Giao vận',
+      title: 'Đơn hàng',
       items: [
+        {
+          to: ROUTES.company.orders(companyId),
+          label: 'Đơn hàng',
+          icon: ShoppingCart,
+          module: 'sales',
+          permission: PERMISSIONS.orderView,
+        },
         {
           to: ROUTES.company.packages(companyId),
           label: 'Kiện hàng',
           icon: Truck,
           module: 'fulfillment',
           permission: PERMISSIONS.fulfillmentProcess,
+        },
+        {
+          to: ROUTES.company.returns(companyId),
+          label: 'Yêu cầu trả',
+          icon: PackageX,
+          module: 'sales',
+          permission: PERMISSIONS.returnView,
+        },
+        {
+          to: ROUTES.company.customers(companyId),
+          label: 'Khách hàng',
+          icon: Contact,
+          module: 'sales',
+          permission: PERMISSIONS.customerView,
         },
       ],
     },
@@ -240,29 +255,12 @@ export function companyNav(companyId: string): NavSection[] {
           module: 'platform',
           permission: PERMISSIONS.auditView,
         },
-      ],
-    },
-    {
-      title: 'Cài đặt',
-      items: [
         {
           to: ROUTES.company.paymentGateways(companyId),
           label: 'Cổng thanh toán',
           icon: CreditCard,
           module: 'payment',
           permission: PERMISSIONS.gatewayManage,
-        },
-      ],
-    },
-    {
-      title: 'Báo cáo',
-      items: [
-        {
-          to: ROUTES.company.reports(companyId),
-          label: 'Báo cáo kinh doanh',
-          icon: ChartLine,
-          module: 'report',
-          permission: [PERMISSIONS.reportView, PERMISSIONS.financeView],
         },
       ],
     },

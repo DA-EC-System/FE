@@ -90,6 +90,11 @@ const MESSAGES: Record<string, string> = {
   parcel_resolved: 'Kiện hàng trả đã được xử lý.',
 };
 
+/** Câu tiếng Việt của một mã lỗi (lý do nút bị chặn); mã lạ hiện nguyên */
+export function codeMessage(code: string): string {
+  return MESSAGES[code] ?? code;
+}
+
 export function problemCode(error: unknown): string | undefined {
   return getProblem(error)?.code;
 }

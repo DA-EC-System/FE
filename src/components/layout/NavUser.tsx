@@ -120,7 +120,7 @@ export function ProfileDropdown() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative size-8 rounded-full" aria-label="Tài khoản">
           <Avatar className="size-8">
-            <AvatarFallback className="bg-primary text-primary-foreground">
+            <AvatarFallback className="bg-white/20 font-semibold text-nav-foreground">
               {initials(account?.fullName)}
             </AvatarFallback>
           </Avatar>

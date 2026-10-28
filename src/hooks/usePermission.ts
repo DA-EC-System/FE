@@ -17,7 +17,11 @@ export function useCan() {
 export function useTransitionActor(): TransitionActor {
   const accountId = useAuthStore((s) => s.account?.id ?? '');
   const permissions = useAuthStore((s) => s.companyContext?.permissions);
-  return useMemo(() => ({ accountId, permissions: permissions ?? [] }), [accountId, permissions]);
+  const canSelfApprove = useAuthStore((s) => Boolean(s.companyContext?.canSelfApprove));
+  return useMemo(
+    () => ({ accountId, permissions: permissions ?? [], canSelfApprove }),
+    [accountId, permissions, canSelfApprove],
+  );
 }
 
 export function useModuleEnabled(module: ModuleKey): boolean {

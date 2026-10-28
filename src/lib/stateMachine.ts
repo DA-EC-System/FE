@@ -7,6 +7,8 @@
 export interface TransitionActor {
   accountId: string;
   permissions: readonly string[];
+  /** CEO, hoặc khách thuê chỉ có một thành viên: được tự làm bước có `allowSelfApproval` (BE `canSelfApprove`) */
+  canSelfApprove?: boolean;
 }
 
 /** Bản ghi có người lập: dùng cho quy tắc người thứ hai */
@@ -24,6 +26,8 @@ export interface Transition<S extends string, A extends string, R = OwnedRecord>
   permission?: string;
   /** Người làm phải khác người lập phiếu */
   needsSecondPerson?: boolean;
+  /** Bước người thứ hai cho người `canSelfApprove` tự làm; BE ghi `self_approved` (chỉ bảng có cột này) */
+  allowSelfApproval?: boolean;
   /** Bắt buộc ghi lý do */
   needsReason?: boolean;
   /** Chỉ hệ thống hoặc sàn làm (không hiện nút) */
@@ -33,7 +37,7 @@ export interface Transition<S extends string, A extends string, R = OwnedRecord>
 }
 
 export type TransitionCheck<S extends string> =
-  | { ok: true; to: S }
+  | { ok: true; to: S; selfApproved?: true }
   | {
       ok: false;
       /** Mã lỗi Problem Details, câu tiếng Việt ở api/problemMessages.ts */
@@ -50,8 +54,19 @@ export interface StateMachine<S extends string, A extends string, R = OwnedRecor
   ): TransitionCheck<S>;
   /** Các thao tác người dùng làm được từ trạng thái hiện tại (bỏ thao tác của hệ thống) */
   available(from: S, actor: TransitionActor, record?: R): Transition<S, A, R>[];
+  /**
+   * Nút cho trạng thái hiện tại theo Test_UI: thiếu quyền thì không có trong danh sách,
+   * bị luật chặn (người thứ hai, guard) thì có kèm `blocked` là mã lỗi để hiện nút mờ và lý do.
+   */
+  options(from: S, actor: TransitionActor, record?: R): TransitionOption<S, A, R>[];
   /** Trạng thái kết thúc: không còn chuyển nào đi ra */
   isFinal(state: S): boolean;
+}
+
+export interface TransitionOption<S extends string, A extends string, R = OwnedRecord> {
+  transition: Transition<S, A, R>;
+  /** Mã lỗi khi bị chặn (câu tiếng Việt ở api/problemMessages.ts), null khi làm được */
+  blocked: string | null;
 }
 
 const fromList = <S extends string>(from: S | readonly S[]): readonly S[] =>
@@ -63,9 +78,12 @@ export function defineMachine<S extends string, A extends string, R extends Owne
   const find = (from: S, action: A) =>
     transitions.find((t) => t.action === action && fromList(t.from).includes(from));
 
+  const isOwner = (t: Transition<S, A, R>, actor?: TransitionActor, record?: R) =>
+    Boolean(actor && t.needsSecondPerson && record?.createdBy && record.createdBy === actor.accountId);
+
   function blocked(t: Transition<S, A, R>, actor?: TransitionActor, record?: R): string | null {
     if (actor && t.permission && !actor.permissions.includes(t.permission)) return 'forbidden';
-    if (actor && t.needsSecondPerson && record?.createdBy && record.createdBy === actor.accountId) {
+    if (isOwner(t, actor, record) && !(t.allowSelfApproval && actor?.canSelfApprove)) {
       return 'second_person_required';
     }
     return (record && t.guard?.(record)) || null;
@@ -79,12 +97,22 @@ export function defineMachine<S extends string, A extends string, R extends Owne
       const code = blocked(t, actor, record);
       if (code) return { ok: false, code };
       if (t.needsReason && !reason?.trim()) return { ok: false, code: 'reason_required' };
-      return { ok: true, to: t.to };
+      return isOwner(t, actor, record) ? { ok: true, to: t.to, selfApproved: true } : { ok: true, to: t.to };
     },
     available(from, actor, record) {
       return transitions.filter(
         (t) => !t.system && fromList(t.from).includes(from) && !blocked(t, actor, record),
       );
+    },
+    options(from, actor, record) {
+      return transitions
+        .filter(
+          (t) =>
+            !t.system &&
+            fromList(t.from).includes(from) &&
+            (!t.permission || actor.permissions.includes(t.permission)),
+        )
+        .map((t) => ({ transition: t, blocked: blocked(t, actor, record) }));
     },
     isFinal(state) {
       return !transitions.some((t) => fromList(t.from).includes(state));
