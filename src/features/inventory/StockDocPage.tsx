@@ -6,9 +6,12 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { RowAction } from '@/components/common/RowAction';
+import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +30,7 @@ import {
   useUpdateStockDoc,
 } from '@/api/inventory.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -42,6 +45,7 @@ import type {
   RejectDecision,
   StockDoc,
   StockDocAction,
+  StockDocStatus,
   StockDocType,
 } from '@/types/inventory';
 import {
@@ -91,6 +95,9 @@ const toForm = (doc: StockDoc): DocFormInput => ({
 
 /** Kiểm hàng về: phần thiếu của một dòng (dự kiến − số quét) */
 const missingOf = (l: DocLineDraft) => Math.max(0, (l.expected ?? 0) - (draftNumber(l.scanned) ?? 0));
+
+/** Đường chính của phiếu kho trên thanh tiến trình; từ chối, huỷ là nhánh rẽ */
+const DOC_PATH: StockDocStatus[] = ['draft', 'pending', 'posted'];
 
 const ACTION_CONFIRM: Partial<Record<StockDocAction, { title: string; message: string }>> = {
   submit: {
@@ -230,7 +237,13 @@ export function StockDocPage() {
     lineCount: lines.length,
     missing,
   };
-  const actions = stockDocMachine(type).available(doc?.status ?? 'draft', actor, record);
+  const machine = stockDocMachine(type);
+  const options = machine.options(doc?.status ?? 'draft', actor, record);
+  const blockedSteps = options.flatMap(({ transition: t, blocked }) =>
+    blocked ? [{ label: t.label, reason: codeMessage(blocked) }] : [],
+  );
+  // Duyệt phiếu kiểm hàng về cần người thứ hai: hộp duyệt nói rõ ai lập
+  const confirmSecondPerson = options.some((o) => o.transition.action === confirm && o.transition.needsSecondPerson);
 
   /** Lỗi 409/422 từ BE: hiện tại ô, hoặc nạp bản mới nhất khi phiếu vừa bị người khác đổi */
   const handleError = (e: unknown) => {
@@ -433,16 +446,17 @@ export function StockDocPage() {
                 Lưu nháp
               </Button>
             )}
-            {(isNew ? actions.filter((a) => a.action === 'submit') : actions).map((t) => (
-              <Button
+            {(isNew ? options.filter((o) => o.transition.action === 'submit') : options).map(({ transition: t, blocked }) => (
+              <ActionButton
                 key={t.action}
                 variant={t.action === 'cancel' || t.action === 'reject' ? 'outline' : 'default'}
                 className={cn((t.action === 'cancel' || t.action === 'reject') && 'text-destructive hover:text-destructive')}
+                blockedReason={blocked && codeMessage(blocked)}
                 disabled={busy}
                 onClick={() => (t.action === 'reject' ? setRejecting(true) : setConfirm(t.action))}
               >
                 {t.label}
-              </Button>
+              </ActionButton>
             ))}
           </div>
         }
@@ -473,6 +487,16 @@ export function StockDocPage() {
 
       {doc && (
         <Card className="mb-4 py-4">
+          <CardContent className="mb-2 border-b pb-4">
+            <LifecycleSteps
+              path={DOC_PATH}
+              current={doc.status}
+              history={doc.statusHistory}
+              statuses={DOC_STATUS}
+              isFinal={machine.isFinal}
+              blocked={blockedSteps}
+            />
+          </CardContent>
           <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Info label="Trạng thái">
               <div className="flex flex-wrap items-center gap-1" data-testid="doc-status">
@@ -716,8 +740,20 @@ export function StockDocPage() {
         </Card>
       )}
 
+      <SecondPersonDialog
+        open={Boolean(confirmText) && confirmSecondPerson}
+        title={`${confirmText?.title ?? ''} ${doc?.number ?? 'phiếu'}?`}
+        createdByName={doc?.createdBy ?? ''}
+        selfApproval={doc?.createdById === actor.accountId}
+        confirmLabel={confirmText?.title}
+        loading={busy}
+        onConfirm={() => confirm && onConfirmAction(confirm)}
+        onClose={() => setConfirm(null)}
+      >
+        {confirmText?.message}
+      </SecondPersonDialog>
       <ConfirmDialog
-        open={Boolean(confirmText)}
+        open={Boolean(confirmText) && !confirmSecondPerson}
         title={`${confirmText?.title ?? ''} ${doc?.number ?? 'phiếu'}?`}
         message={confirmText?.message ?? ''}
         confirmLabel={confirmText?.title}

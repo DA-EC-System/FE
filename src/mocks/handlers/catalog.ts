@@ -11,6 +11,7 @@ import type { Attribute, AttributeInput, BusinessStatusInput, BusinessStatusResu
 import { BUSINESS_ACTIONS, hidesListings, mainLabel, variantMachine } from '@/lib/machines/product';
 import { PERMISSIONS } from '@/utils/permissions';
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@/utils/files';
+import type { PageResult } from '@/api/types';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { delistVariant, setListingsHidden } from './channel';
@@ -342,7 +343,7 @@ export const catalogHandlers = [
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.productView);
     if (!guard.ok) return guard.response;
-    return HttpResponse.json(
+    return HttpResponse.json<Category[]>(
       catalog.categories
         .filter((c) => c.companyId === guard.value.companyId)
         .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
@@ -368,7 +369,7 @@ export const catalogHandlers = [
     };
     catalog.categories.push(category);
     writeCompanyLog(guard.value, 'create', categoryEntity(category), null, categorySnapshot(category));
-    return HttpResponse.json(toCategory(category), { status: 201 });
+    return HttpResponse.json<Category>(toCategory(category), { status: 201 });
   }),
 
   http.put(`${API}/catalog/categories/:id`, async ({ params, request }) => {
@@ -391,7 +392,7 @@ export const catalogHandlers = [
     category.version += 1;
     category.updatedAt = db.now();
     writeCompanyLog(guard.value, 'update', categoryEntity(category), before, categorySnapshot(category));
-    return HttpResponse.json(toCategory(category));
+    return HttpResponse.json<Category>(toCategory(category));
   }),
 
   http.delete(`${API}/catalog/categories/:id`, async ({ params, request }) => {
@@ -421,7 +422,7 @@ export const catalogHandlers = [
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.productView);
     if (!guard.ok) return guard.response;
-    return HttpResponse.json(
+    return HttpResponse.json<Attribute[]>(
       catalog.attributes.filter((a) => a.companyId === guard.value.companyId).map(toAttribute),
     );
   }),
@@ -442,7 +443,7 @@ export const catalogHandlers = [
     };
     catalog.attributes.push(attribute);
     writeCompanyLog(guard.value, 'create', attributeEntity(attribute), null, attributeSnapshot(attribute));
-    return HttpResponse.json(toAttribute(attribute), { status: 201 });
+    return HttpResponse.json<Attribute>(toAttribute(attribute), { status: 201 });
   }),
 
   http.put(`${API}/catalog/attributes/:id`, async ({ params, request }) => {
@@ -478,7 +479,7 @@ export const catalogHandlers = [
     attribute.values = body.values.map((v, i) => ({ id: v.id ?? rid('val'), value: v.value.trim(), code: codes[i] }));
     attribute.version += 1;
     writeCompanyLog(guard.value, 'update', attributeEntity(attribute), before, attributeSnapshot(attribute));
-    return HttpResponse.json(toAttribute(attribute));
+    return HttpResponse.json<Attribute>(toAttribute(attribute));
   }),
 
   http.delete(`${API}/catalog/attributes/:id`, async ({ params, request }) => {
@@ -527,7 +528,7 @@ export const catalogHandlers = [
       );
     }
     items = [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    return HttpResponse.json(paginate(items.map(toProductItem), page, pageSize));
+    return HttpResponse.json<PageResult<ProductListItem>>(paginate(items.map(toProductItem), page, pageSize));
   }),
 
   http.get(`${API}/catalog/products/:id`, async ({ params, request }) => {
@@ -536,7 +537,7 @@ export const catalogHandlers = [
     if (!guard.ok) return guard.response;
     const found = findOwned(catalog.products, params.id, guard.value.companyId, 'sản phẩm');
     if (!found.ok) return found.response;
-    return HttpResponse.json(toProductDetail(found.value));
+    return HttpResponse.json<ProductDetail>(toProductDetail(found.value));
   }),
 
   http.post(`${API}/catalog/products`, async ({ request }) => {
@@ -584,7 +585,7 @@ export const catalogHandlers = [
     });
     catalog.products.unshift(product);
     writeCompanyLog(guard.value, 'create', productEntity(product), null, productSnapshot(product));
-    return HttpResponse.json(toProductDetail(product), { status: 201 });
+    return HttpResponse.json<ProductDetail>(toProductDetail(product), { status: 201 });
   }),
 
   http.put(`${API}/catalog/products/:id`, async ({ params, request }) => {
@@ -615,7 +616,7 @@ export const catalogHandlers = [
     product.version += 1;
     product.updatedAt = db.now();
     writeCompanyLog(guard.value, 'update', productEntity(product), before, productSnapshot(product));
-    return HttpResponse.json(toProductDetail(product));
+    return HttpResponse.json<ProductDetail>(toProductDetail(product));
   }),
 
   // Đổi trạng thái kinh doanh: không có variantIds thì áp cho mọi SKU con (sơ đồ B1: thao tác trên cha áp cho con)
@@ -681,7 +682,7 @@ export const catalogHandlers = [
     }
     if (applied.length) product.updatedAt = at;
     const result: BusinessStatusResult = { product: toProductDetail(product), applied, skipped };
-    return HttpResponse.json(result);
+    return HttpResponse.json<BusinessStatusResult>(result);
   }),
 
   // ----- Biến thể -----
@@ -733,7 +734,7 @@ export const catalogHandlers = [
       null,
       { product: product.name, sku: variant.sku, attributes: variantAttributes(companyId, variant.valueIds).map((a) => a.value) },
     );
-    return HttpResponse.json(toVariant(product, variant), { status: 201 });
+    return HttpResponse.json<ProductVariant>(toVariant(product, variant), { status: 201 });
   }),
 
   // ----- Ảnh: vé tải lên (presigned) và nơi nhận file thay cho SeaweedFS/S3 -----
@@ -764,7 +765,7 @@ export const catalogHandlers = [
       uploadUrl: `${new URL(request.url).origin}${API}/files/uploads/${id}/content`,
       headers: { 'Content-Type': body.contentType },
     };
-    return HttpResponse.json(ticket, { status: 201 });
+    return HttpResponse.json<UploadTicket>(ticket, { status: 201 });
   }),
 
   http.put(`${API}/files/uploads/:id/content`, async ({ params, request }) => {

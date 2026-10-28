@@ -29,6 +29,7 @@ import type {
   StockMoveDocType,
 } from '@/types/inventory';
 import { PERMISSIONS } from '@/utils/permissions';
+import type { PageResult } from '@/api/types';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid, variantAttributes } from './catalog';
@@ -565,7 +566,7 @@ export const inventoryHandlers = [
         totalValue: canCost ? all.reduce((s, l) => s + (l.stockValue ?? 0), 0) : null,
       },
     };
-    return HttpResponse.json(result);
+    return HttpResponse.json<StockListResult>(result);
   }),
 
   http.get(`${API}/inventory/stock/:variantId`, async ({ params, request }) => {
@@ -597,7 +598,7 @@ export const inventoryHandlers = [
         };
       });
     const detail: StockDetail = { level: toStockLevel(product, variant, canCost), moves };
-    return HttpResponse.json(detail);
+    return HttpResponse.json<StockDetail>(detail);
   }),
 
   http.put(`${API}/inventory/stock/:variantId/reorder-rule`, async ({ params, request }) => {
@@ -650,7 +651,7 @@ export const inventoryHandlers = [
       );
     }
     // Cần nhập lại thì BE phát sự kiện để báo Nhân viên kho, Admin (QT-16); mock không gửi thông báo
-    return HttpResponse.json(toStockLevel(product, variant, canCost));
+    return HttpResponse.json<StockLevel>(toStockLevel(product, variant, canCost));
   }),
 
   http.get(`${API}/inventory/documents`, async ({ request }) => {
@@ -675,7 +676,7 @@ export const inventoryHandlers = [
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(toStockDocSummary);
-    return HttpResponse.json(paginate(items, page, pageSize));
+    return HttpResponse.json<PageResult<StockDocSummary>>(paginate(items, page, pageSize));
   }),
 
   http.get(`${API}/inventory/documents/:id`, async ({ params, request }) => {
@@ -684,7 +685,7 @@ export const inventoryHandlers = [
     if (!guard.ok) return guard.response;
     const found = findOwned(inventory.docs, params.id, guard.value.companyId, 'phiếu kho');
     if (!found.ok) return found.response;
-    return HttpResponse.json(toStockDoc(found.value, guard.value.permissions));
+    return HttpResponse.json<StockDoc>(toStockDoc(found.value, guard.value.permissions));
   }),
 
   /** Lập phiếu kiểm kê, xuất huỷ, chuyển chờ xử lý (nháp) */
@@ -735,7 +736,7 @@ export const inventoryHandlers = [
     };
     inventory.docs.push(doc);
     writeCompanyLog(guard.value, 'create', stockDocEntity(doc), null, stockDocSnapshot(doc));
-    return HttpResponse.json(toStockDoc(doc, guard.value.permissions), { status: 201 });
+    return HttpResponse.json<StockDoc>(toStockDoc(doc, guard.value.permissions), { status: 201 });
   }),
 
   /** Sửa phiếu nháp; kiểm hàng về: ghi số quét và cách chia */
@@ -775,7 +776,7 @@ export const inventoryHandlers = [
     }
     doc.version += 1;
     writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
-    return HttpResponse.json(toStockDoc(doc, permissions));
+    return HttpResponse.json<StockDoc>(toStockDoc(doc, permissions));
   }),
 
   /** Xuất huỷ hàng chờ xử lý bị từ chối: kho chọn nhập lại tồn hoặc trả NCC */
@@ -820,7 +821,7 @@ export const inventoryHandlers = [
     }
     doc.version += 1;
     writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
-    return HttpResponse.json(toStockDoc(doc, permissions));
+    return HttpResponse.json<StockDoc>(toStockDoc(doc, permissions));
   }),
 
   /** Chuyển trạng thái theo lib/machines/stockDocument: submit, approve, reject, post, cancel */
@@ -873,6 +874,6 @@ export const inventoryHandlers = [
     pushStatus(doc, next.value, guard.value, at, reason);
     doc.version += 1;
     writeCompanyLog(guard.value, 'update', stockDocEntity(doc), before, stockDocSnapshot(doc));
-    return HttpResponse.json(toStockDoc(doc, permissions));
+    return HttpResponse.json<StockDoc>(toStockDoc(doc, permissions));
   }),
 ];
