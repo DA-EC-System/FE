@@ -27,6 +27,7 @@ import { reportHandlers } from './report';
 import { settlementHandlers } from './settlement';
 import { devMarketplaceHandlers } from './devMarketplace';
 import { taskHandlers } from './tasks';
+import { notificationHandlers } from './notification';
 
 export const handlers = [
   ...authHandlers,
@@ -47,4 +48,5 @@ export const handlers = [
   ...settlementHandlers,
   ...devMarketplaceHandlers,
   ...taskHandlers,
+  ...notificationHandlers,
 ];

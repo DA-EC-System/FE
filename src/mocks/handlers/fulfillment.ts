@@ -25,6 +25,7 @@ import type { CancelOrderResult, StatusChangeSource } from '@/types/sales';
 import { buildPickList } from '@/features/fulfillment/pickList';
 import { allocate, reclaim, release, reserveWhole, type Hold, type StockNumbers } from '../engine/stock';
 import { registerMarketplaceEvent } from '../engine/marketplace';
+import { emitRealtime } from '../engine/realtime';
 import { dueState, registerTaskSource } from '../engine/tasks';
 import {
   cancelPlan,
@@ -798,6 +799,7 @@ registerMarketplaceEvent({
   group: 'Đơn bán',
   needsShop: true,
   param: { key: 'sku', label: 'SKU (người bán)', placeholder: 'Bỏ trống: listing đầu tiên đã ghép' },
+  realtime: null,
   run({ companyId, shop, params }) {
     if (!shop) throw new Error('Chọn gian hàng');
     if (shop.status !== 'active') throw new Error('Gian hàng không ở trạng thái đang kết nối');
@@ -842,6 +844,8 @@ registerMarketplaceEvent({
       version: 1,
     };
     sales.orders.push(o);
+    const total = o.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, o.shippingFee);
+    emitRealtime(companyId, 'sales.order_created', { orderId: o.id, code: o.code, source: o.source, total });
     // Dòng chưa ghép SKU: chưa lập kiện, chờ ghép
     if (!variantId) return `${o.code}: SKU ${o.lines[0]!.externalSku} chưa ghép`;
     const p = newPackage(o, [{ variantId, quantity: 1 }], false, at);

@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Outlet, matchPath, useLocation } from 'react-router-dom';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
+import { useRealtime } from '@/hooks/useRealtime';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { AppSidebar } from './AppSidebar';
 import { AppTitle, CompanySwitcher } from './CompanySwitcher';
@@ -64,6 +65,8 @@ export function PlatformLayout() {
 
 export function CompanyLayout() {
   const { companyContext } = useAuth();
+  // Một stream realtime cho cả không gian công ty (FE#81)
+  useRealtime();
   // RequireCompany đảm bảo đã có companyContext trước khi render layout
   const companyId = companyContext?.companyId ?? '';
   return <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} />;
