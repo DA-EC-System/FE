@@ -12,9 +12,9 @@ const imp = (p: string) => import(pathToFileURL(path.join(BE, p)).href);
 const { Decimal } = await imp('node_modules/decimal.js/decimal.mjs');
 const { eq, inArray } = await imp('node_modules/drizzle-orm/index.js');
 const { withCompany, closeDb } = await imp('src/shared/db/client.ts');
-const { categories, products, productVariants } = await imp('src/modules/catalog/repository/schema.ts');
-const { orders, orderLines } = await imp('src/modules/sales/repository/schema.ts');
-const pay = await imp('src/modules/payment/index.ts');
+const { categories, products, productVariants } = await imp('src/modules/product/catalog/repository/schema.ts');
+const { orders, orderLines } = await imp('src/modules/order/sales/repository/schema.ts');
+const pay = await imp('src/modules/finance/index.ts');
 const fin = await imp('src/modules/finance/index.ts');
 
 const API = 'http://localhost:3000/api/v1';

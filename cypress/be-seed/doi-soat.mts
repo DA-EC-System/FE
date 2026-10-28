@@ -12,11 +12,11 @@ const imp = (p: string) => import(pathToFileURL(path.join(BE, p)).href);
 const { Decimal } = await imp('node_modules/decimal.js/decimal.mjs');
 const pg = (await imp('node_modules/pg/esm/index.mjs')).default;
 const { withCompany, closeDb } = await imp('src/shared/db/client.ts');
-const { categories, products, productVariants } = await imp('src/modules/catalog/repository/schema.ts');
-const { orders, orderLines } = await imp('src/modules/sales/repository/schema.ts');
-const { hashPassword } = await imp('src/modules/identity/service/passwords.ts');
+const { categories, products, productVariants } = await imp('src/modules/product/catalog/repository/schema.ts');
+const { orders, orderLines } = await imp('src/modules/order/sales/repository/schema.ts');
+const { hashPassword } = await imp('src/modules/core/identity/service/passwords.ts');
 const fin = await imp('src/modules/finance/index.ts');
-const { recompute } = await imp('src/modules/report/service/recompute.ts');
+const { recompute } = await imp('src/modules/insight/report/service/recompute.ts');
 
 const API = 'http://localhost:3000/api/v1';
 const RUN = Date.now().toString().slice(-7);
@@ -53,16 +53,16 @@ const role = await http('POST', '/identity/roles', token, {
   name: `Phân tích ${RUN}`,
   permissions: ['report.dashboard.view', 'finance.invoice.view'],
 });
-const account = await db.query('insert into staff.accounts (email, full_name, password_hash) values ($1, $2, $3) returning id', [
+const account = await db.query('insert into core.accounts (email, full_name, password_hash) values ($1, $2, $3) returning id', [
   analyst,
   'Phân Tích Thử',
   await hashPassword(PASSWORD),
 ]);
-const membership = await db.query('insert into staff.memberships (company_id, account_id) values ($1, $2) returning id', [
+const membership = await db.query('insert into core.memberships (company_id, account_id) values ($1, $2) returning id', [
   companyId,
   account.rows[0].id,
 ]);
-await db.query('insert into access.member_roles (membership_id, role_id, company_id) values ($1, $2, $3)', [
+await db.query('insert into core.member_roles (membership_id, role_id, company_id) values ($1, $2, $3)', [
   membership.rows[0].id,
   role.id,
   companyId,
