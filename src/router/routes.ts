@@ -56,6 +56,9 @@ export const ROUTES = {
     orderNew: (companyId: string) => `/c/${companyId}/sales/orders/new`,
     order: (companyId: string, orderId: string) => `/c/${companyId}/sales/orders/${orderId}`,
     customers: (companyId: string) => `/c/${companyId}/sales/customers`,
+    returns: (companyId: string, tab?: string) =>
+      tab ? `/c/${companyId}/sales/returns?tab=${tab}` : `/c/${companyId}/sales/returns`,
+    returnRequest: (companyId: string, id: string) => `/c/${companyId}/sales/returns/${id}`,
     customer: (companyId: string, customerId: string) => `/c/${companyId}/sales/customers/${customerId}`,
     packages: (companyId: string) => `/c/${companyId}/fulfillment/packages`,
     package: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}`,
@@ -105,6 +108,10 @@ export function docRefPath(
       return c.purchaseRequest(companyId, ref.id);
     case 'package':
       return c.package(companyId, ref.id);
+    case 'return_request':
+      return c.returnRequest(companyId, ref.id);
+    case 'return_parcel':
+      return c.returns(companyId, 'unmatched');
     default:
       return null;
   }

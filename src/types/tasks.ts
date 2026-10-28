@@ -3,7 +3,7 @@
 export type TaskSeverity = 'overdue' | 'due_soon' | 'info';
 
 /** Bản ghi mà việc trỏ tới; FE tự dựng đường dẫn theo `type` */
-export type TaskRefType = 'shop' | 'order' | 'stock_document' | 'goods_receipt' | 'purchase_request' | 'supplier_return' | 'package';
+export type TaskRefType = 'shop' | 'order' | 'stock_document' | 'goods_receipt' | 'purchase_request' | 'supplier_return' | 'package' | 'return_request' | 'return_parcel';
 
 export interface TaskItem {
   id: string;

@@ -4,6 +4,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import * as sales from '../salesData';
 import * as payment from '../paymentData';
 import * as fulfillment from '../fulfillmentData';
+import { openRequestsOf } from '../returnsData';
 import type {
   Customer,
   CustomerChannel,
@@ -151,7 +152,7 @@ function blockerOf(o: sales.MockOrder, now: number) {
   return completionBlocker({
     packages: statuses,
     lastDeliveredAt: lastDeliveredAt(o),
-    openReturnRequests: 0,
+    openReturnRequests: openRequestsOf(o.id),
     codUnconfirmed: codUnconfirmed(o, statuses.includes('delivered')),
     now,
   });
@@ -172,6 +173,8 @@ function flagsOf(o: sales.MockOrder, now: number): OrderFlag[] {
   const own = packagesOf(o);
   const open = o.status === 'unpaid' || o.status === 'processing';
   if (open && own.some((p) => p.needsAttention)) flags.add('needs_attention');
+  // Đơn đã hoàn tất vẫn nhận yêu cầu trả: chỉ mang cờ
+  if (openRequestsOf(o.id) > 0) flags.add('return_requested');
   if (open && isDueSoon(o.shipBy, own.map((p) => p.status), now)) flags.add('due_soon');
   const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
   if (open && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected')) flags.add('shop_disconnected');

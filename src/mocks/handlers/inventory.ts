@@ -236,6 +236,7 @@ export function createReturnInspection(
   lines: { variantId: string; quantity: number }[],
   note: string,
   at: string,
+  orderId?: string,
 ): MockStockDoc {
   const doc: MockStockDoc = {
     id: rid('sd'),
@@ -246,7 +247,7 @@ export function createReturnInspection(
     status: 'draft',
     area: null,
     note,
-    orderId: source.type === 'order' ? source.id : null,
+    orderId: orderId ?? (source.type === 'order' ? source.id : null),
     source,
     claimFlag: false,
     lines: lines.map((l) => ({
@@ -390,6 +391,14 @@ export function registerAllocator(fn: Allocator) {
   allocator = fn;
 }
 
+type InspectionPosted = (doc: MockStockDoc, at: string) => void;
+let inspectionPosted: InspectionPosted | null = null;
+
+/** Yêu cầu trả đăng ký việc đóng yêu cầu khi kiểm hàng về đã ghi sổ (handlers/returns.ts); tránh import vòng */
+export function registerInspectionPosted(fn: InspectionPosted) {
+  inspectionPosted = fn;
+}
+
 /**
  * Khả dụng tăng: chia cho kiện Thiếu hàng trước rồi mới đẩy tồn (sơ đồ B2).
  * Tồn thực xuống dưới đang giữ: lấy lại phần giữ của kiện chưa đóng gói.
@@ -405,6 +414,7 @@ function postDoc(doc: MockStockDoc, actor: CompanyActor, at: string) {
   doc.postedAt = at;
   rebalance(doc.companyId, doc.lines.map((l) => l.variantId));
   if (doc.type !== 'return_inspection') return;
+  inspectionPosted?.(doc, at);
   // Phần trả NCC sinh phiếu trả NCC nháp, mua hàng chọn NCC (FE#17)
   const toSupplier = doc.lines.filter((l) => (l.toSupplier ?? 0) > 0);
   if (toSupplier.length) {

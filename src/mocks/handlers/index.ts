@@ -21,6 +21,7 @@ import { shopHandlers } from './channel';
 import { salesHandlers } from './sales';
 import { paymentHandlers } from './payment';
 import { fulfillmentHandlers } from './fulfillment';
+import { returnHandlers } from './returns';
 import { financeHandlers } from './finance';
 import { reportHandlers } from './report';
 import { settlementHandlers } from './settlement';
@@ -40,6 +41,7 @@ export const handlers = [
   ...salesHandlers,
   ...paymentHandlers,
   ...fulfillmentHandlers,
+  ...returnHandlers,
   ...financeHandlers,
   ...reportHandlers,
   ...settlementHandlers,

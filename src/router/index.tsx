@@ -46,6 +46,8 @@ import { CustomerDetailPage } from '@/features/sales/CustomerDetailPage';
 import { PackageQueuePage } from '@/features/fulfillment/PackageQueuePage';
 import { PackageDetailPage } from '@/features/fulfillment/PackageDetailPage';
 import { PackScanPage } from '@/features/fulfillment/PackScanPage';
+import { ReturnListPage } from '@/features/returns/ReturnListPage';
+import { ReturnDetailPage } from '@/features/returns/ReturnDetailPage';
 import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
 import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
 import { TransactionsPage } from '@/features/payment/TransactionsPage';
@@ -314,6 +316,22 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="sales" permission={PERMISSIONS.customerView}>
                         <CustomerDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/returns',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.returnView}>
+                        <ReturnListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/returns/:returnId',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.returnView}>
+                        <ReturnDetailPage />
                       </RequireModule>
                     ),
                   },

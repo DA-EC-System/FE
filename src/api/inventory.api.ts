@@ -37,7 +37,7 @@ function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-/** Ghi sổ đổi tồn, thẻ kho, danh sách phiếu và việc cần làm → làm mới cả nhóm */
+/** Ghi sổ đổi tồn, thẻ kho, danh sách phiếu, việc cần làm và yêu cầu trả → làm mới cả nhóm */
 function useInvalidateInventory() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
@@ -45,6 +45,9 @@ function useInvalidateInventory() {
     Promise.all([
       qc.invalidateQueries({ queryKey: inventoryKeys.all(companyId) }),
       qc.invalidateQueries({ queryKey: ['company', companyId, 'tasks'] }),
+      // Kiểm hàng về ghi sổ thì yêu cầu trả đóng, đơn hết cờ Có yêu cầu trả (FE#60)
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'returns'] }),
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'sales'] }),
     ]);
 }
 

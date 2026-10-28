@@ -82,6 +82,12 @@ const MESSAGES: Record<string, string> = {
   cancel_decision_required: 'Chọn cách xử lý hàng: nhập lại tồn hoặc lập phiếu xuất huỷ.',
   follow_up_invalid: 'Không tìm thấy phiếu nhận bù cùng đề nghị.',
   supplier_inactive: 'Nhà cung cấp đã ngừng giao dịch.',
+  // FE#60, lib/machines/returns.ts
+  not_marketplace: 'Chỉ yêu cầu trả từ sàn mới có sàn xử cho khách.',
+  marketplace_return: 'Yêu cầu trả của đơn sàn do sàn đẩy về, không lập tay.',
+  return_exceeds_delivered: 'Số trả vượt số còn trả được của đơn.',
+  return_not_awaiting: 'Yêu cầu trả không ở trạng thái Chờ hàng về.',
+  parcel_resolved: 'Kiện hàng trả đã được xử lý.',
 };
 
 export function problemCode(error: unknown): string | undefined {
