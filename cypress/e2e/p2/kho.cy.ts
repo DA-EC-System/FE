@@ -185,7 +185,8 @@ describe('P2 · Kho', () => {
 
     it('kiểm hàng về thiếu: cờ khiếu nại, người quét không tự duyệt', () => {
       moPhieu('KHV-000002');
-      cy.findByRole('button', { name: 'Ghi sổ' }).should('not.exist');
+      cy.findByRole('button', { name: 'Ghi sổ' }).should('have.attr', 'aria-disabled', 'true');
+      cy.findByTestId('lifecycle-blocked').should('contain', 'cần người thứ hai duyệt');
       cy.get('main').should('contain', 'Thiếu 1 so với dự kiến');
       cy.findByRole('button', { name: 'Gửi duyệt phần thiếu' }).click();
       cy.findByRole('alertdialog').findByRole('button', { name: 'Gửi duyệt' }).click();
