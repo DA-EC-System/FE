@@ -9,11 +9,20 @@ import { Money } from '@/components/common/Money';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
+import { AttachmentField } from '@/components/common/AttachmentField';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { type ReturnCommand, useReceiveReturn, useReturn, useReturnCommand } from '@/api/returns.api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  type ReturnCommand,
+  useReceiveReturn,
+  useReturn,
+  useReturnCommand,
+  useReturnPlatformHistory,
+} from '@/api/returns.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -26,6 +35,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { ReturnAction, ReturnRequest } from '@/types/returns';
 import { ACTION_MESSAGES, CLOSE_RESULT_LABELS, RETURN_STATUS } from './shared';
+import { PlatformRejectDialog } from './PlatformRejectDialog';
 
 /** Thao tác của bảng chuyển → lệnh gửi API (receive đi qua quét nhận) */
 const COMMANDS: Partial<Record<ReturnAction, ReturnCommand['kind']>> = {
@@ -39,6 +49,37 @@ const COMMANDS: Partial<Record<ReturnAction, ReturnCommand['kind']>> = {
 
 type Pending = { action: ReturnAction; label: string; needsReason: boolean };
 
+/** Lịch sử đơn ngược phía sàn: reverse_status, ofc_status gốc (§20.1) */
+function PlatformHistory({ returnId }: { returnId: string }) {
+  const query = useReturnPlatformHistory(returnId);
+  if (query.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (query.isError) return <AlertMessage severity="error">{problemMessage(query.error)}</AlertMessage>;
+  const items = query.data?.items ?? [];
+  if (!items.length) return <p className="text-sm text-muted-foreground">Sàn chưa ghi bước nào.</p>;
+  return (
+    <Table data-testid="platform-history">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-40">Lúc</TableHead>
+          <TableHead className="w-44">reverse_status</TableHead>
+          <TableHead className="w-52">ofc_status</TableHead>
+          <TableHead>Ghi chú</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((h, i) => (
+          <TableRow key={`${h.at}-${i}`}>
+            <TableCell>{formatDateTime(h.at)}</TableCell>
+            <TableCell className="font-mono text-xs">{h.reverseStatus}</TableCell>
+            <TableCell className="font-mono text-xs">{h.ofcStatus ?? '—'}</TableCell>
+            <TableCell className="whitespace-normal">{h.note ?? '—'}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 /** Chi tiết yêu cầu trả (sơ đồ D3): dòng trả theo kiện, tiền, phiếu kiểm hàng về, nút theo bảng chuyển */
 export function ReturnDetailPage() {
   const { returnId = '' } = useParams();
@@ -51,6 +92,7 @@ export function ReturnDetailPage() {
   const command = useReturnCommand();
   const receive = useReceiveReturn();
   const [pending, setPending] = useState<Pending | null>(null);
+  const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const back = () => navigate(ROUTES.company.returns(companyId));
 
@@ -85,6 +127,11 @@ export function ReturnDetailPage() {
 
   const open = (action: ReturnAction, label: string, needsReason = false) => {
     setError(null);
+    // Yêu cầu từ sàn: lý do từ chối theo danh sách của sàn, kèm ảnh (§20.1)
+    if (action === 'reject' && r.source === 'marketplace') {
+      setRejecting(true);
+      return;
+    }
     setPending({ action, label, needsReason });
   };
 
@@ -107,6 +154,7 @@ export function ReturnDetailPage() {
         <StatusBadge status={r.status} statuses={RETURN_STATUS} />
         {r.closeResult && <Badge variant="outline">{CLOSE_RESULT_LABELS[r.closeResult]}</Badge>}
         {r.rawMarketplaceStatus && <Badge variant="outline">Sàn: {r.rawMarketplaceStatus}</Badge>}
+        {r.platform?.disputeInProgress && <Badge variant="outline">Khách đang khiếu nại trên sàn</Badge>}
       </div>
 
       {r.status === 'rejected' && r.source === 'marketplace' && (
@@ -143,6 +191,15 @@ export function ReturnDetailPage() {
           <Info label="Nguồn">{r.source === 'marketplace' ? `Sàn · ${r.shopName ?? ''}` : 'Lập tay'}</Info>
           <Info label="Khách">{r.customerName ?? '—'}</Info>
           <Info label="Lý do">{r.reason}</Info>
+          {r.rejectReason && <Info label="Lý do từ chối (theo sàn)">{r.rejectReason.label}</Info>}
+          {r.platform && (
+            <Info label="Trạng thái trên sàn">
+              <span className="font-mono text-xs" data-testid="platform-status">
+                {r.platform.reverseStatus}
+                {r.platform.ofcStatus ? ` · ${r.platform.ofcStatus}` : ''}
+              </span>
+            </Info>
+          )}
           <Info label="Mã vận đơn chiều về">{r.returnTrackingCode ?? '—'}</Info>
           <Info label="Tạo lúc">{formatDateTime(r.createdAt)}</Info>
           {r.receivedAt && (
@@ -155,6 +212,13 @@ export function ReturnDetailPage() {
             <Info label="Phiếu kiểm hàng về">
               <DocLink companyId={companyId} docRef={r.inspection} />
             </Info>
+          )}
+          {r.attachments.length > 0 && (
+            <div className="sm:col-span-3">
+              <Info label="Ảnh bằng chứng gửi sàn">
+                <AttachmentField value={r.attachments} onChange={() => undefined} disabled />
+              </Info>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -225,7 +289,22 @@ export function ReturnDetailPage() {
           <CardTitle className="text-base">Lịch sử</CardTitle>
         </CardHeader>
         <CardContent>
-          <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
+          {r.source === 'marketplace' ? (
+            <Tabs defaultValue="app">
+              <TabsList>
+                <TabsTrigger value="app">Trong app</TabsTrigger>
+                <TabsTrigger value="platform">Lịch sử phía sàn</TabsTrigger>
+              </TabsList>
+              <TabsContent value="app" className="pt-2">
+                <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
+              </TabsContent>
+              <TabsContent value="platform" className="pt-2">
+                <PlatformHistory returnId={r.id} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
+          )}
         </CardContent>
       </Card>
 
@@ -259,6 +338,9 @@ export function ReturnDetailPage() {
         onConfirm={(reason) => pending && void run(pending, reason)}
         onClose={() => setPending(null)}
       />
+      {r.source === 'marketplace' && (
+        <PlatformRejectDialog request={r} open={rejecting} onClose={() => setRejecting(false)} />
+      )}
     </div>
   );
 }

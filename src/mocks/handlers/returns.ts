@@ -1,5 +1,6 @@
 import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
+import * as catalog from '../catalogData';
 import * as inventory from '../inventoryData';
 import * as sales from '../salesData';
 import * as fulfillment from '../fulfillmentData';
@@ -13,7 +14,10 @@ import type {
   ReceiveResult,
   ReturnAction,
   ReturnCloseResult,
+  PlatformHistoryList,
   ReturnListResponse,
+  ReturnReason,
+  ReturnReasonList,
   ReturnRequest,
   ReturnRequestSummary,
   ReturnStatus,
@@ -101,6 +105,61 @@ function toRequest(r: MockReturnRequest, canCost: boolean): ReturnRequest {
       resellCost: canCost ? resellCost : null,
     },
     statusHistory: r.history.map((h) => toStatusChange(h, r.source === 'marketplace' ? 'marketplace' : 'manual')),
+    platform: platformOf(r),
+    rejectReason: reasonRef(r.rejectReasonId),
+    attachments: r.attachmentIds.flatMap((id) => {
+      const f = catalog.files.find((x) => x.id === id);
+      return f?.url ? [{ fileId: f.id, name: f.fileName, url: f.url, contentType: f.contentType }] : [];
+    }),
+  };
+}
+
+// ---------- Đơn ngược phía sàn (§20.1, Lazada reverse order) ----------
+
+/** Lý do từ chối của sàn (GetReverseOrderReasonList); lý do có requiresImage bắt buộc ảnh */
+const REJECT_REASONS: ReturnReason[] = [
+  { id: '101', label: 'Hàng khách gửi về không đúng sản phẩm', requiresImage: true },
+  { id: '102', label: 'Hàng bị khách làm hỏng', requiresImage: true },
+  { id: '103', label: 'Khách đã dùng sản phẩm', requiresImage: true },
+  { id: '104', label: 'Quá hạn trả hàng', requiresImage: false },
+];
+
+function reasonRef(id: string | null) {
+  const x = id ? REJECT_REASONS.find((y) => y.id === id) : undefined;
+  return x ? { id: x.id, label: x.label } : null;
+}
+
+/** reverse_status, ofc_status gốc của sàn theo từng bước */
+const PLATFORM: Partial<Record<ReturnAction | 'request', [string, string | null, string]>> = {
+  request: ['REQUEST_INITIATE', null, 'Khách tạo yêu cầu trả'],
+  accept: ['RETURN_PENDING', 'SELLER_AGREE_RETURN', 'Người bán đồng ý trả (agreeReturn)'],
+  reject: ['REQUEST_REJECT', 'SELLER_REFUSE_RETURN', 'Người bán từ chối (refuseReturn)'],
+  refund_only: ['REFUND_SUCCESS', 'SELLER_AGREE_REFUND', 'Hoàn tiền, khách giữ hàng (agreeRefund)'],
+  platform_reopen: ['RETURN_PENDING', 'CS_APPROVE_RETURN', 'Sàn xử cho khách: trả hàng'],
+  platform_refund: ['REFUND_SUCCESS', 'CS_APPROVE_REFUND', 'Sàn xử cho khách: hoàn tiền'],
+  receive: ['RETURN_PENDING', 'SELLER_RECEIVE_ITEM', 'Kho đã nhận hàng, đã báo sàn (confirmDelivery)'],
+  no_show: ['CANCEL_SUCCESS', 'BUYER_NOT_RETURN', 'Khách không gửi hàng'],
+  close: ['REFUND_SUCCESS', 'SELLER_CONFIRM_RECEIVE', 'Kiểm hàng về xong, sàn hoàn tiền khách'],
+  buyer_cancel: ['CANCEL_SUCCESS', 'BUYER_CANCEL', 'Khách rút yêu cầu'],
+};
+
+function platformStep(r: MockReturnRequest, key: ReturnAction | 'request', at: string) {
+  const step = PLATFORM[key];
+  if (r.source !== 'marketplace' || !step) return;
+  const [reverseStatus, ofcStatus, note] = step;
+  r.platformSteps.push({ at, reverseStatus, ofcStatus, note });
+  // Người bán từ chối thì khách khiếu nại lên sàn; sàn xử xong thì hết khiếu nại
+  r.disputeInProgress = key === 'reject';
+}
+
+function platformOf(r: MockReturnRequest): ReturnRequest['platform'] {
+  const last = r.platformSteps.at(-1);
+  if (r.source !== 'marketplace' || !last) return null;
+  return {
+    reverseStatus: last.reverseStatus,
+    ofcStatus: last.ofcStatus,
+    disputeInProgress: r.disputeInProgress,
+    returnTo: 'warehouse',
   };
 }
 
@@ -168,6 +227,7 @@ function receive(r: MockReturnRequest, at: string, by: string, reason: string | 
   r.receivedAt = at;
   r.receivedBy = by;
   if (r.source === 'marketplace') r.rawMarketplaceStatus = RAW.receive!;
+  platformStep(r, 'receive', at);
   move(r, 'received', at, by, { reason });
 }
 
@@ -177,6 +237,7 @@ registerInspectionPosted((doc, at) => {
   if (!r || r.status !== 'received') return;
   r.resellQty = doc.lines.reduce((s, l) => s + (l.resell ?? 0), 0);
   if (r.source === 'marketplace') r.rawMarketplaceStatus = RAW.close!;
+  platformStep(r, 'close', at);
   move(r, 'closed', at, null, { closeResult: 'inspected', reason: `Kiểm hàng về ${doc.number} đã ghi sổ` });
 });
 
@@ -259,10 +320,15 @@ function newRequest(
     receivedBy: null,
     resellQty: null,
     history: [{ from: null, to: 'requested', at, by, source: marketplace ? 'marketplace' : 'user' }],
+    rejectReasonId: null,
+    attachmentIds: [],
+    platformSteps: [],
+    disputeInProgress: false,
     createdAt: at,
     createdBy: by,
     version: 1,
   };
+  platformStep(r, 'request', at);
   returns.requests.push(r);
   o.version += 1;
   return r;
@@ -355,6 +421,30 @@ export const returnHandlers = [
       byVariant.set(s.variantId, row);
     }
     return HttpResponse.json([...byVariant.values()]);
+  }),
+
+  http.get(`${API}/returns/:id/reasons`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, P.returnProcess);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(returns.requests, params.id, guard.value.companyId, 'yêu cầu trả');
+    if (!found.ok) return found.response;
+    if (found.value.source !== 'marketplace') return problem(422, 'Chỉ yêu cầu từ sàn', { code: 'not_marketplace' });
+    const action = new URL(request.url).searchParams.get('action');
+    if (action !== 'reject' && action !== 'refuse-refund') {
+      return problem(422, 'Dữ liệu không hợp lệ', { errors: { action: 'action là reject hoặc refuse-refund' } });
+    }
+    return HttpResponse.json<ReturnReasonList>({ items: REJECT_REASONS });
+  }),
+
+  http.get(`${API}/returns/:id/platform-history`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, P.returnView);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(returns.requests, params.id, guard.value.companyId, 'yêu cầu trả');
+    if (!found.ok) return found.response;
+    if (found.value.source !== 'marketplace') return problem(422, 'Chỉ yêu cầu từ sàn', { code: 'not_marketplace' });
+    return HttpResponse.json<PlatformHistoryList>({ items: [...found.value.platformSteps].reverse() });
   }),
 
   http.get(`${API}/returns/:id`, async ({ params, request }) => {
@@ -522,12 +612,33 @@ export const returnHandlers = [
     const actor = guard.value;
     const body = ((await request.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
     if (body.version !== r.version) return versionConflict(toRequest(r, canCost(actor)), 'Yêu cầu vừa được người khác cập nhật.');
-    const reason = reasonOf(body);
+    let reason = reasonOf(body);
     if (reason.length > MAX_REASON) return tooLong('reason');
+    let rejected: { reasonId: string; attachmentIds: string[] } | null = null;
+    if (action === 'reject' && r.source === 'marketplace') {
+      const picked = REJECT_REASONS.find((x) => x.id === body.reasonId);
+      const comment = reasonOf(body, 'comment');
+      const ids = Array.isArray(body.attachmentIds) ? body.attachmentIds.filter((x): x is string => typeof x === 'string') : [];
+      const errors: Record<string, string> = {};
+      if (!picked) errors.reasonId = 'Chọn lý do từ chối';
+      if (comment.length > MAX_REASON) errors.comment = `Tối đa ${MAX_REASON} ký tự`;
+      if (ids.length > 10) errors.attachmentIds = 'Tối đa 10 tệp';
+      else if (ids.some((id) => !catalog.files.some((f) => f.id === id && f.companyId === r.companyId && f.url))) {
+        errors.attachmentIds = 'Có tệp chưa tải xong hoặc không thuộc công ty';
+      } else if (picked?.requiresImage && !ids.length) errors.attachmentIds = 'Lý do này cần ảnh làm bằng chứng';
+      if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors });
+      reason = comment ? `${picked!.label}: ${comment}` : picked!.label;
+      rejected = { reasonId: picked!.id, attachmentIds: ids };
+    }
     const next = checkTransition(returnMachine, r.status, action, actor, { source: r.source }, reason || null);
     if (!next.ok) return next.response;
     const before = returnSnapshot(r);
     if (r.source === 'marketplace' && RAW[action]) r.rawMarketplaceStatus = RAW[action]!;
+    if (rejected) {
+      r.rejectReasonId = rejected.reasonId;
+      r.attachmentIds = rejected.attachmentIds;
+    }
+    platformStep(r, action, db.now());
     move(r, next.value, db.now(), actor.account.id, {
       reason: reason || null,
       closeResult: action === 'no_show' ? 'no_show' : undefined,
@@ -611,6 +722,7 @@ registerMarketplaceEvent({
     const ok = returnMachine.check(r.status, action, { record: { source: r.source } });
     if (!ok.ok) throw new Error(`${r.code} không ở trạng thái Đã từ chối`);
     r.rawMarketplaceStatus = RAW[action]!;
+    platformStep(r, action, db.now());
     move(r, ok.to, db.now(), null, { source: 'marketplace', reason: 'Sàn xử cho khách' });
     return `${r.code} → ${ok.to}`;
   },
@@ -628,6 +740,7 @@ registerMarketplaceEvent({
     const ok = returnMachine.check(r.status, 'buyer_cancel', { record: { source: r.source } });
     if (!ok.ok) throw new Error(`${r.code} không rút được ở trạng thái hiện tại`);
     r.rawMarketplaceStatus = RAW.buyer_cancel!;
+    platformStep(r, 'buyer_cancel', db.now());
     move(r, 'closed', db.now(), null, { source: 'marketplace', closeResult: 'buyer_cancelled', reason: 'Khách rút yêu cầu' });
     return `${r.code} đã đóng`;
   },
