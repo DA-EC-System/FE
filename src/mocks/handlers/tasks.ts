@@ -16,7 +16,7 @@ registerTaskSource({
       .filter(
         (s) =>
           s.companyId === companyId &&
-          (s.status === 'needs_reauth' || tokenExpiringSoon(s.status, s.accessExpiresAt, now)),
+          (s.status === 'needs_reauth' || tokenExpiringSoon(s.status, s.refreshExpiresAt, now)),
       )
       .map((s) => ({
         id: `shop.reauth:${s.id}`,
@@ -26,8 +26,8 @@ registerTaskSource({
         detail:
           s.status === 'needs_reauth'
             ? `Sàn đã thu hồi quyền. Chưa kéo đơn, chưa đẩy tồn được${s.pendingJobs ? `; ${s.pendingJobs} việc đang chờ` : ''}.`
-            : 'Quyền truy cập sàn sắp hết hạn.',
-        dueAt: s.accessExpiresAt,
+            : 'Quyền truy cập sàn sắp hết hạn, cần kết nối lại.',
+        dueAt: s.status === 'needs_reauth' ? s.accessExpiresAt : s.refreshExpiresAt,
         severity: s.status === 'needs_reauth' ? 'overdue' : 'due_soon',
         ref: { type: 'shop', id: s.id },
       })),

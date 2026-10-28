@@ -42,12 +42,12 @@ describe('Gian hàng (sơ đồ C1)', () => {
     expect(shopUsable('disconnected')).toBe(false);
   });
 
-  it('sắp hết hạn là nhãn phụ của gian hàng đang hoạt động, còn dưới 7 ngày', () => {
+  it('sắp hết hạn là nhãn phụ của gian hàng đang hoạt động, refresh token còn dưới 3 ngày', () => {
     const now = Date.parse('2026-05-01T00:00:00Z');
     const at = (days: number) => new Date(now + days * DAY).toISOString();
-    expect(tokenExpiringSoon('active', at(3), now)).toBe(true);
-    expect(tokenExpiringSoon('active', at(10), now)).toBe(false);
-    expect(tokenExpiringSoon('needs_reauth', at(3), now)).toBe(false);
+    expect(tokenExpiringSoon('active', at(2), now)).toBe(true);
+    expect(tokenExpiringSoon('active', at(4), now)).toBe(false);
+    expect(tokenExpiringSoon('needs_reauth', at(2), now)).toBe(false);
     expect(tokenExpiringSoon('active', null, now)).toBe(false);
   });
 });

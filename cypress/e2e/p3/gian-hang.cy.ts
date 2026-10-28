@@ -37,7 +37,10 @@ describe('P3 · Gian hàng', () => {
       cy.dong('shp-002').should('contain', '3 việc đang chờ');
       // Sắp hết hạn là nhãn phụ của gian hàng đang kết nối, không phải trạng thái
       trangThai('shp-003').should('have.text', 'Đã kết nối');
-      cy.dong('shp-003').find('[data-testid=shop-expiring]').should('contain', 'Sắp hết hạn').and('contain', 'Hết hạn');
+      cy.dong('shp-003').find('[data-testid=shop-expiring]').should('contain', 'Sắp hết hạn').and('contain', 'Kết nối lại trước');
+      cy.dong('shp-001').find('[data-testid=shop-token]').should('contain', 'Access token đến').and('contain', 'refresh token đến');
+      // Refresh token còn xa hạn thì không có nhãn phụ
+      cy.dong('shp-001').find('[data-testid=shop-expiring]').should('not.exist');
       trangThai('shp-008').should('have.text', 'Đã ngắt');
       cy.dong('shp-001').should('contain', '2');
       // Gian hàng của công ty khác không lộ ra
@@ -143,7 +146,7 @@ describe('P3 · Gian hàng', () => {
     it('callback có state lạ thì báo phiên không hợp lệ', () => {
       cy.dong('shp-001').should('exist');
       cy.window().then((win) => {
-        win.history.pushState({}, '', '/channel/oauth/callback?code=abc&state=st-gia');
+        win.history.pushState({}, '', '/channel/lazada/callback?code=abc&state=st-gia');
         win.dispatchEvent(new PopStateEvent('popstate'));
       });
       cy.toast('Phiên kết nối đã hết hạn hoặc không hợp lệ');
@@ -288,6 +291,9 @@ describe('P3 · Gian hàng', () => {
       cy.dong('prd-001-v3').find('[data-testid=listing-note]').should('contain', 'Ảnh chính có chữ và logo');
       cy.dong('prd-001-v3').findByRole('button', { name: 'Đẩy lại' }).should('exist');
       cy.dong('prd-003-v1').find('[data-testid=stock-sync]').should('have.text', 'Lệch tồn sàn (sàn 12)');
+      // Lỗi đẩy theo từng SKU: câu của sàn hiện nguyên văn
+      cy.dong('prd-003-v1').find('[data-testid=sync-error]').should('contain', 'Đẩy tồn lỗi: SellerSku is locked by campaign');
+      cy.dong('prd-002-v1').find('[data-testid=qc-alert]').should('contain', 'Mô tả thiếu thông tin chất liệu');
       cy.chon('Trạng thái', 'Sàn từ chối');
       dongBienThe().should('have.length', 1);
       cy.chon('Trạng thái', 'Chưa lên sàn');

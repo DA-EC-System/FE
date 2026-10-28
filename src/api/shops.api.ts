@@ -13,9 +13,11 @@ import type {
   ChannelListing,
   ListingMatchInput,
   ListingRow,
+  Marketplace,
   PushResult,
   RemoteSku,
   Shop,
+  ShopAuthorizeUrl,
   ShopCallbackInput,
   ShopCallbackResult,
   ShopConnectInput,
@@ -80,11 +82,13 @@ export function useShop(id: string) {
   });
 }
 
-/** Bắt đầu OAuth: BE trả trang uỷ quyền của sàn */
+/** Bắt đầu OAuth: BE sinh state và trả trang uỷ quyền của sàn (§18.4) */
 export function useConnectShop() {
   return useMutation({
-    mutationFn: async (input: ShopConnectInput) => {
-      const { data } = await apiClient.post<{ authorizeUrl: string }>('/channel/shops/connect', input);
+    mutationFn: async ({ platform, shopId }: ShopConnectInput) => {
+      const { data } = await apiClient.get<ShopAuthorizeUrl>(`/channel/shops/${platform}/authorize-url`, {
+        params: shopId ? { shopId } : undefined,
+      });
       return data;
     },
   });
@@ -94,8 +98,8 @@ export function useConnectShop() {
 export function useShopCallback() {
   const invalidate = useInvalidateShops();
   return useMutation({
-    mutationFn: async (input: ShopCallbackInput) => {
-      const { data } = await apiClient.post<ShopCallbackResult>('/channel/shops/oauth/callback', input);
+    mutationFn: async ({ platform, ...input }: ShopCallbackInput & { platform: Marketplace }) => {
+      const { data } = await apiClient.post<ShopCallbackResult>(`/channel/shops/${platform}/callback`, input);
       return data;
     },
     onSuccess: invalidate,

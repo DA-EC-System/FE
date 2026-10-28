@@ -20,7 +20,7 @@ export function useStartConnect() {
 
   const start = async (input: ShopConnectInput) => {
     try {
-      const { authorizeUrl } = await connect.mutateAsync(input);
+      const { url: authorizeUrl } = await connect.mutateAsync(input);
       try {
         sessionStorage.setItem(OAUTH_COMPANY_KEY, companyId);
       } catch {

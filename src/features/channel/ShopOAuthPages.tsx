@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, ShieldCheck, X } from 'lucide-react';
 import { PageSpinner } from '@/components/common/PageSpinner';
@@ -18,11 +18,12 @@ import { formatDateTime } from '@/utils/format';
 import { OAUTH_COMPANY_KEY } from './useStartConnect';
 
 /**
- * redirect_uri cố định của sàn (/channel/oauth/callback): chuyển vào khu của công ty đã bắt đầu
+ * redirect_uri cố định của sàn (/channel/:platform/callback): chuyển vào khu của công ty đã bắt đầu
  * kết nối để có token của đúng công ty, rồi mới gửi code lên BE.
  */
 export function ShopOAuthRedirect() {
   const [params] = useSearchParams();
+  const { platform = '' } = useParams();
   const { companyContext, memberships } = useAuth();
   let saved = '';
   try {
@@ -39,12 +40,13 @@ export function ShopOAuthRedirect() {
   }, [companyId]);
 
   if (!companyId) return <Navigate to={ROUTES.selectCompany} replace />;
-  return <Navigate to={`${ROUTES.company.shopOAuthCallback(companyId)}?${params}`} replace />;
+  return <Navigate to={`${ROUTES.company.shopOAuthCallback(companyId, platform)}?${params}`} replace />;
 }
 
 /** UC-CH-01 bước 6–8: sàn đã cấp code, BE đổi lấy token và lưu gian hàng */
 export function ShopOAuthCallbackPage() {
   const [params] = useSearchParams();
+  const { platform } = useParams();
   const navigate = useNavigate();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
@@ -68,13 +70,13 @@ export function ShopOAuthCallbackPage() {
       back();
       return;
     }
-    if (!code || !state) {
+    if (!code || !state || !platform) {
       toast.error('Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.');
       back();
       return;
     }
     callback
-      .mutateAsync({ code, state })
+      .mutateAsync({ platform: platform as Marketplace, code, state })
       .then(({ shop, created, reconnect }) => {
         if (created) {
           // Gian hàng mới chưa bán được cho đến khi xong thiết lập lần đầu (sơ đồ C1)
@@ -96,7 +98,7 @@ export function ShopOAuthCallbackPage() {
         toast.error(problemMessage(e));
         back();
       });
-  }, [companyId, params, navigate, callback]);
+  }, [companyId, platform, params, navigate, callback]);
 
   return <PageSpinner />;
 }

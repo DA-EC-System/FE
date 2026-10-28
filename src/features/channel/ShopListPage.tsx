@@ -142,9 +142,15 @@ export function ShopListPage() {
               <Badge variant={STATUS_VARIANTS[s.status]} data-testid="shop-status">
                 {STATUS_LABELS[s.status]}
               </Badge>
-              {tokenExpiringSoon(s.status, s.accessExpiresAt) && (
+              {tokenExpiringSoon(s.status, s.refreshExpiresAt) && (
                 <span className="text-xs text-warning" data-testid="shop-expiring">
-                  Sắp hết hạn · Hết hạn {formatDate(s.accessExpiresAt)}
+                  Sắp hết hạn · Kết nối lại trước {formatDate(s.refreshExpiresAt)}
+                </span>
+              )}
+              {s.status === 'active' && s.accessExpiresAt && (
+                <span className="text-xs text-muted-foreground" data-testid="shop-token">
+                  Access token đến {formatDateTime(s.accessExpiresAt)}
+                  {s.refreshExpiresAt && <> · refresh token đến {formatDate(s.refreshExpiresAt)}</>}
                 </span>
               )}
               {s.status === 'needs_reauth' && s.pendingJobs > 0 && (

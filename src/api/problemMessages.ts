@@ -33,6 +33,11 @@ const MESSAGES: Record<string, string> = {
   // FE#8, chờ commerio-backend#19
   shop_not_connected: 'Gian hàng chưa kết nối hoặc đã mất uỷ quyền. Kết nối lại rồi thử lại.',
   invalid_state: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
+  // §18.4, commerio-backend#103
+  oauth_state_invalid: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
+  seller_not_whitelisted: 'Gian hàng chưa được cấp quyền dùng thử ứng dụng. Liên hệ quản trị để thêm vào danh sách.',
+  shop_connected_elsewhere: 'Gian hàng này đã kết nối ở công ty khác.',
+  marketplace_unsupported: 'Sàn này chưa hỗ trợ thao tác này.',
   shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
