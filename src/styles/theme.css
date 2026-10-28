@@ -1,90 +1,108 @@
 /*
- * Bộ màu Commerio (giữ nguyên src/theme/tokens.ts) đặt vào biến của shadcn/ui.
- * Sửa màu ở đây thì sửa cả tokens.ts để các trang MUI còn lại cùng màu.
- *  - primary   = thép brand500 #486A8C; bản tối dùng brand300 trên chữ navy
- *  - nền, chữ, viền theo surface.light / surface.dark
- *  - success, warning, info, destructive theo semantic
+ * Màu theo bản mẫu Test_UI (site/commerio.css), quyết định ở FE#70 ngày 28/10/2026.
+ * src/theme/tokens.ts giữ cùng giá trị cho chỗ cần màu trong JS.
+ *  - primary = xanh #0b5fd1; thanh trên cùng dùng --nav
+ *  - nền, chữ, viền, màu trạng thái và bản nhạt (-soft) theo commerio.css
+ *  - bản tối không có trong Test_UI, pha từ cùng tông xanh
  */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
 
-  --background: #f4f6f8; /* brand50 */
-  --foreground: #0d2143; /* brand900 */
+  --background: #f3f5f8;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #0d2143;
+  --card-foreground: #0f172a;
   --popover: #ffffff;
-  --popover-foreground: #0d2143;
-  --primary: #486a8c; /* brand500 */
+  --popover-foreground: #0f172a;
+  --primary: #0b5fd1;
   --primary-foreground: #ffffff;
-  --secondary: #e5eaef; /* brand100 */
-  --secondary-foreground: #0d2143;
-  --muted: #e5eaef;
-  --muted-foreground: #55657d;
-  --accent: #e5eaef;
-  --accent-foreground: #193052; /* brand800 */
-  --destructive: #c0392b;
-  --success: #2e7d5b;
-  --warning: #a35f0c;
-  --info: #2b7bb9;
-  --border: #e8eaec; /* neutral200 */
-  --input: #d6d9dd; /* neutral300 */
-  --ring: #7f97ae; /* brand400 */
-  --chart-1: #486a8c;
-  --chart-2: #0d2143;
-  --chart-3: #2e7d5b;
-  --chart-4: #a35f0c;
-  --chart-5: #2b7bb9;
+  --secondary: #e8f1fd;
+  --secondary-foreground: #0849a3;
+  --muted: #eef2f6;
+  --muted-foreground: #64748b;
+  --accent: #e8f1fd;
+  --accent-foreground: #0849a3;
+  --destructive: #b91c1c;
+  --success: #15803d;
+  --warning: #b45309;
+  --info: #0369a1;
+  --purple: #6d28d9;
+  --destructive-soft: #fde8e8;
+  --success-soft: #e7f6ec;
+  --warning-soft: #fdf3e2;
+  --info-soft: #e5f3fb;
+  --purple-soft: #efe9fd;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #0b5fd1;
+  --chart-1: #0b5fd1;
+  --chart-2: #15803d;
+  --chart-3: #b45309;
+  --chart-4: #6d28d9;
+  --chart-5: #0369a1;
+
+  --nav: #0b5fd1;
+  --nav-foreground: #ffffff;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #0d2143;
-  --sidebar-primary: #486a8c;
+  --sidebar-foreground: #334155;
+  --sidebar-primary: #0b5fd1;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e5eaef;
-  --sidebar-accent-foreground: #0d2143;
-  --sidebar-border: #e8eaec;
-  --sidebar-ring: #7f97ae;
+  --sidebar-accent: #e8f1fd;
+  --sidebar-accent-foreground: #0849a3;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0b5fd1;
 }
 
 .dark {
-  --background: #081428;
-  --foreground: #e6edf5;
-  --card: #0d1f3c;
-  --card-foreground: #e6edf5;
-  --popover: #0d1f3c;
-  --popover-foreground: #e6edf5;
-  --primary: #abbaca; /* brand300 */
-  --primary-foreground: #0d2143;
-  --secondary: #1e3354;
-  --secondary-foreground: #e6edf5;
-  --muted: #1e3354;
-  --muted-foreground: #9fb0c3;
-  --accent: #1e3354;
-  --accent-foreground: #e6edf5;
-  --destructive: #ef7a6e;
-  --success: #5fbf8f;
-  --warning: #e0a04a;
-  --info: #6aaee0;
-  --border: #1e3354;
-  --input: #284264; /* brand700 */
-  --ring: #7f97ae;
-  --chart-1: #abbaca;
-  --chart-2: #6aaee0;
-  --chart-3: #5fbf8f;
-  --chart-4: #e0a04a;
-  --chart-5: #ef7a6e;
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  --card: #111a2e;
+  --card-foreground: #e2e8f0;
+  --popover: #111a2e;
+  --popover-foreground: #e2e8f0;
+  --primary: #5b9cf0;
+  --primary-foreground: #0b1220;
+  --secondary: #16305a;
+  --secondary-foreground: #dbeafe;
+  --muted: #1a2438;
+  --muted-foreground: #94a3b8;
+  --accent: #16305a;
+  --accent-foreground: #dbeafe;
+  --destructive: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+  --purple: #a78bfa;
+  --destructive-soft: #3a1717;
+  --success-soft: #12301f;
+  --warning-soft: #3a2a10;
+  --info-soft: #0f2c3d;
+  --purple-soft: #2a1f47;
+  --border: #1f2b40;
+  --input: #2a3a55;
+  --ring: #5b9cf0;
+  --chart-1: #5b9cf0;
+  --chart-2: #4ade80;
+  --chart-3: #fbbf24;
+  --chart-4: #a78bfa;
+  --chart-5: #38bdf8;
 
-  --sidebar: #0d1f3c;
-  --sidebar-foreground: #e6edf5;
-  --sidebar-primary: #abbaca;
-  --sidebar-primary-foreground: #0d2143;
-  --sidebar-accent: #1e3354;
-  --sidebar-accent-foreground: #e6edf5;
-  --sidebar-border: #1e3354;
-  --sidebar-ring: #7f97ae;
+  --nav: #0a3f8f;
+  --nav-foreground: #ffffff;
+
+  --sidebar: #111a2e;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-primary: #5b9cf0;
+  --sidebar-primary-foreground: #0b1220;
+  --sidebar-accent: #16305a;
+  --sidebar-accent-foreground: #dbeafe;
+  --sidebar-border: #1f2b40;
+  --sidebar-ring: #5b9cf0;
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  --font-sans: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -108,6 +126,14 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-purple: var(--purple);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success-soft: var(--success-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-info-soft: var(--info-soft);
+  --color-purple-soft: var(--purple-soft);
+  --color-nav: var(--nav);
+  --color-nav-foreground: var(--nav-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -125,15 +151,15 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Thang màu thương hiệu, dùng như bg-brand-900 */
-  --color-brand-50: #f4f6f8;
-  --color-brand-100: #e5eaef;
-  --color-brand-200: #ccd5df;
-  --color-brand-300: #abbaca;
-  --color-brand-400: #7f97ae;
-  --color-brand-500: #486a8c;
-  --color-brand-600: #375678;
-  --color-brand-700: #284264;
-  --color-brand-800: #193052;
-  --color-brand-900: #0d2143;
+  /* Thang màu thương hiệu (xanh #0b5fd1 ở bậc 500), dùng như bg-brand-50 */
+  --color-brand-50: #f3f8fe;
+  --color-brand-100: #e8f1fd;
+  --color-brand-200: #c6dcfa;
+  --color-brand-300: #93bcf4;
+  --color-brand-400: #4f8fe6;
+  --color-brand-500: #0b5fd1;
+  --color-brand-600: #0952b6;
+  --color-brand-700: #0849a3;
+  --color-brand-800: #073a80;
+  --color-brand-900: #062c61;
 }

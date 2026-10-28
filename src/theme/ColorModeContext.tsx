@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { lightTheme, darkTheme } from './index';
-import { brand, surface } from './tokens';
+import { surface } from './tokens';
 
 type Mode = 'light' | 'dark';
 
@@ -33,7 +31,7 @@ function readInitialMode(): Mode {
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>(readInitialMode);
 
-  // Một chế độ màu cho cả hai lớp UI: class `.dark` cho Tailwind/shadcn, theme cho các trang MUI còn lại
+  // Class `.dark` trên <html> đổi biến màu của src/styles/theme.css
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, mode);
     const root = document.documentElement;
@@ -41,7 +39,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.colorScheme = mode;
     document
       .querySelector("meta[name='theme-color']")
-      ?.setAttribute('content', mode === 'dark' ? surface.dark.background : brand[900]);
+      ?.setAttribute('content', mode === 'dark' ? surface.dark.nav : surface.light.nav);
   }, [mode]);
 
   const value = useMemo<ColorModeCtx>(
@@ -54,10 +52,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ColorModeContext.Provider value={value}>
-      <ThemeProvider theme={mode === 'light' ? lightTheme : darkTheme}>
-        <CssBaseline />
-        {children}
-      </ThemeProvider>
+      {children}
     </ColorModeContext.Provider>
   );
 }
