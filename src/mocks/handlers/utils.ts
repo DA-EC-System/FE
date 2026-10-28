@@ -1,5 +1,5 @@
 import { HttpResponse } from 'msw';
-import { db, type MockMembership, type MockRole } from '../db';
+import { CEO_ROLE_ID, db, type MockMembership, type MockRole } from '../db';
 import type { Account, CompanyContext, LoginResponse, Membership } from '@/types/auth';
 import type { PlatformAuditAction } from '@/types/audit';
 import { CORE_MODULES } from '@/utils/modules';
@@ -148,6 +148,10 @@ export function buildContext(m: MockMembership): CompanyContext {
     roles: rolesOfMember(m).map((r) => r.name),
     permissions: permissionsOf(m),
     enabledModules: [...CORE_MODULES, ...company.optionalModules],
+    // Như canSelfApprove của BE: CEO, hoặc công ty chỉ có một thành viên đang hoạt động
+    canSelfApprove:
+      m.roleIds.includes(CEO_ROLE_ID) ||
+      db.memberships.filter((x) => x.companyId === m.companyId && x.status === 'active').length === 1,
   };
 }
 

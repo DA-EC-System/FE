@@ -6,8 +6,11 @@ import { toast } from 'sonner';
 import { ArrowLeft, PackagePlus, Plus, Save, Trash2, Undo2, X } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
+import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
 import { RowAction } from '@/components/common/RowAction';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
@@ -32,7 +35,7 @@ import {
 } from '@/api/purchasing.api';
 import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +51,7 @@ import type {
   PurchaseRequest,
   PurchaseRequestAction,
   PurchaseRequestLineInput,
+  PurchaseRequestStatus,
 } from '@/types/purchasing';
 import {
   DELIVERY_LABELS,
@@ -103,6 +107,9 @@ const toLineInputs = (values: RequestFormOutput): PurchaseRequestLineInput[] =>
     quantity: l.quantity,
     unitCost: l.unitCost,
   }));
+
+/** Đường chính trên thanh tiến trình (PATHS.pr của Test_UI) */
+const REQUEST_PATH = ['draft', 'pending_approval', 'approved', 'ordered', 'received'] as const satisfies readonly PurchaseRequestStatus[];
 
 const ACTION_CONFIRM: Partial<Record<PurchaseRequestAction, { title: string; message: string }>> = {
   submit: { title: 'Gửi duyệt', message: 'Đề nghị chờ CEO duyệt; trong lúc chờ không sửa được, rút lại để sửa.' },
@@ -234,7 +241,7 @@ export function PurchaseRequestPage() {
     receiptCount: req?.receipts.filter((r) => r.status !== 'cancelled').length ?? 0,
     countingReceipts: req?.countingReceipts ?? 0,
   };
-  const actions = purchaseRequestMachine.available(req?.status ?? 'draft', actor, record);
+  const options = purchaseRequestMachine.options(req?.status ?? 'draft', actor, record);
   const canExclude = req?.status === 'pending_approval' && canApprove && req.createdById !== actor.accountId;
   const canCreateReceipt = canReceive && (req?.status === 'ordered' || req?.status === 'partially_received');
 
@@ -411,18 +418,19 @@ export function PurchaseRequestPage() {
                 Lập phiếu nhận
               </Button>
             )}
-            {(isNew ? actions.filter((a) => a.action === 'submit') : actions).map((t) => {
+            {(isNew ? options.filter((o) => o.transition.action === 'submit') : options).map(({ transition: t, blocked }) => {
               const danger = t.action === 'cancel' || t.action === 'reject' || t.action === 'close_short';
               return (
-                <Button
+                <ActionButton
                   key={`${t.action}-${String(t.needsReason)}`}
                   variant={danger || t.action === 'withdraw' || t.action === 'request_changes' ? 'outline' : 'default'}
                   className={cn(danger && 'text-destructive hover:text-destructive')}
+                  blockedReason={blocked && codeMessage(blocked)}
                   disabled={busy}
                   onClick={() => (t.needsReason ? setReasonFor(t) : setConfirm(t.action))}
                 >
                   {t.label}
-                </Button>
+                </ActionButton>
               );
             })}
           </div>
@@ -434,11 +442,6 @@ export function PurchaseRequestPage() {
           {notice.msg}
         </AlertMessage>
       )}
-      {req?.status === 'pending_approval' && req.createdById === actor.accountId && canApprove && (
-        <AlertMessage severity="info" className="mb-4">
-          Bạn là người lập đề nghị này nên không tự duyệt được. Cần người duyệt khác.
-        </AlertMessage>
-      )}
       {source && (
         <AlertMessage severity="info" className="mb-4">
           Đề nghị bù hàng cho phiếu trả {source.number}. Lưu xong, phiếu trả sẽ liên kết tới đề nghị này.
@@ -447,6 +450,18 @@ export function PurchaseRequestPage() {
 
       {req && (
         <Card className="mb-4 py-4">
+          <CardContent className="mb-2 border-b pb-4">
+            <LifecycleSteps
+              path={REQUEST_PATH}
+              current={req.status}
+              history={req.statusHistory}
+              statuses={REQUEST_STATUS}
+              isFinal={purchaseRequestMachine.isFinal}
+              blocked={options.flatMap(({ transition: t, blocked }) =>
+                blocked ? [{ label: t.label, reason: codeMessage(blocked) }] : [],
+              )}
+            />
+          </CardContent>
           <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Info label="Trạng thái">
               <div className="flex flex-wrap items-center gap-1" data-testid="request-status">
@@ -704,8 +719,19 @@ export function PurchaseRequestPage() {
         </Card>
       )}
 
+      <SecondPersonDialog
+        open={confirm === 'approve'}
+        title={`Duyệt ${req?.number ?? 'đề nghị'}?`}
+        createdByName={req?.createdBy ?? ''}
+        selfApproval={req?.createdById === actor.accountId}
+        loading={busy}
+        onConfirm={() => onConfirmAction('approve')}
+        onClose={() => setConfirm(null)}
+      >
+        {confirmText?.message}
+      </SecondPersonDialog>
       <ConfirmDialog
-        open={Boolean(confirmText)}
+        open={Boolean(confirmText) && confirm !== 'approve'}
         title={`${confirmText?.title ?? ''} ${req?.number ?? 'đề nghị'}?`}
         message={confirmText?.message ?? ''}
         confirmLabel={confirmText?.title}
