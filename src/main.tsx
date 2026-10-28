@@ -8,6 +8,7 @@ import '@fontsource/be-vietnam-pro/700.css';
 import './styles/index.css';
 import { USE_MOCKS, appPath, BASE_PATH } from './utils/env';
 import { bootstrapSession } from './hooks/useAuth';
+import './lib/zod';
 
 async function bootstrap() {
   // Bật MSW (xem utils/env.ts)

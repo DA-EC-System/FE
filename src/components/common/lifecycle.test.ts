@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lifecycleSteps } from './LifecycleSteps';
+import { lifecycleSteps } from './lifecycle';
 import type { StatusMeta } from './StatusBadge';
 
 type S = 'draft' | 'pending' | 'approved' | 'received' | 'needs_fix' | 'rejected';

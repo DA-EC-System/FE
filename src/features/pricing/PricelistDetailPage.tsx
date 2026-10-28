@@ -50,9 +50,10 @@ function PriceCell({ row, invalidText, error, placeholder, onValid, onInvalid }:
   const [focused, setFocused] = useState(false);
 
   // Giá đổi từ ngoài (sửa hàng loạt, nạp lại, huỷ thay đổi) khi không gõ dở
+  const current = row.current;
   useEffect(() => {
-    if (!focused && invalidText === undefined) setText(editText(row.current));
-  }, [row.current, focused, invalidText]);
+    if (!focused && invalidText === undefined) setText(editText(current));
+  }, [current, focused, invalidText]);
 
   return (
     <div className="grid gap-1">

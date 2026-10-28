@@ -170,7 +170,7 @@ export function figuresCsv<T extends ReportFigures>(
   const body = rows.map((row) => [...lead.map(([, cell]) => cell(row)), ...figures.map(([, cell]) => cell(row))]);
   const footer = total ? [['Tổng', ...lead.slice(1).map(() => null), ...figures.map(([, cell]) => cell(total))]] : [];
   const all = [[...lead, ...figures].map(([label]) => label), ...body, ...footer];
-  return `﻿${all.map((r) => `${r.map(csvCell).join(',')}\r\n`).join('')}`;
+  return `${String.fromCharCode(0xfeff)}${all.map((r) => `${r.map(csvCell).join(',')}\r\n`).join('')}`;
 }
 
 export const reportHandlers = [
