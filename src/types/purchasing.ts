@@ -24,6 +24,12 @@ export interface SupplierInput {
   version?: number;
 }
 
+/** Kỳ báo cáo theo ngày ghi sổ phiếu nhận, yyyy-mm-dd giờ VN, tính cả hai đầu */
+export interface SupplierReportParams {
+  from?: string;
+  to?: string;
+}
+
 /** Báo cáo theo NCC (sơ đồ A2): số phiếu từng giao thiếu, tỉ lệ hàng lỗi */
 export interface SupplierReport {
   supplierId: string;

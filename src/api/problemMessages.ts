@@ -76,6 +76,7 @@ const MESSAGES: Record<string, string> = {
   receipt_counting: 'Còn phiếu nhận đang kiểm. Ghi sổ hoặc huỷ phiếu đó trước khi đóng thiếu.',
   has_shortage: 'Phiếu có phần thiếu. Bấm Ghi sổ, báo giao thiếu.',
   supplier_required: 'Chọn nhà cung cấp trước khi gửi duyệt.',
+  invalid_period: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.',
   over_outstanding: 'Số nhận đạt và lỗi giữ lại vượt số còn chờ của dòng.',
   resolution_recorded: 'Phiếu đã ghi kết quả giao thiếu rồi.',
   refund_required: 'Nhập số tiền NCC hoàn.',

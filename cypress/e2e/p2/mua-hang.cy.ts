@@ -27,9 +27,9 @@ describe('P2 · Mua hàng', () => {
     it('người gửi phiếu trả không tự ghi kết quả từ NCC (B4)', () => {
       moTab('Trả NCC', 'TN-000001');
       cy.findByTestId('return-status').should('contain', 'Đã gửi');
-      cy.contains('không tự ghi kết quả');
+      cy.findByTestId('lifecycle-blocked').should('contain', 'Cần người thứ hai');
       for (const label of ['NCC hoàn tiền', 'NCC bù hàng', 'NCC không nhận']) {
-        cy.findByRole('button', { name: label }).should('not.exist');
+        cy.findByRole('button', { name: label }).should('have.attr', 'aria-disabled', 'true');
       }
     });
 
@@ -45,6 +45,19 @@ describe('P2 · Mua hàng', () => {
         cy.findByRole('button', { name: 'Thêm vào đề nghị' }).click();
       });
       cy.toast('Đã thêm vào DN-000004');
+    });
+
+    it('báo cáo NCC lọc theo kỳ ghi sổ (A2)', () => {
+      cy.menu('Mua hàng');
+      cy.findByRole('tab', { name: 'Nhà cung cấp' }).click();
+      const phieuNhan = () => cy.contains('tbody tr', 'Xưởng may Thành Công').find('td').eq(1);
+      // NH-000001 ghi sổ ngày 08/10/2026
+      cy.findByLabelText('Ghi sổ từ ngày').type('2026-10-08');
+      cy.findByLabelText('Đến ngày').type('2026-10-08');
+      phieuNhan().should('have.text', '1');
+      cy.findByLabelText('Ghi sổ từ ngày').clear().type('2026-10-09');
+      cy.findByLabelText('Đến ngày').clear().type('2026-10-09');
+      phieuNhan().should('have.text', '0');
     });
   });
 

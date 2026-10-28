@@ -6,7 +6,9 @@ import { toast } from 'sonner';
 import { ArrowLeft, FilePlus2, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { RowAction } from '@/components/common/RowAction';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -22,7 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useSaveSupplierReturn, useSupplierReturn, useSupplierReturnAction, useSuppliers } from '@/api/purchasing.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +38,7 @@ import type {
   SupplierReturn,
   SupplierReturnAction,
   SupplierReturnActionInput,
+  SupplierReturnStatus,
   SupplierReturnCancelDecision,
 } from '@/types/purchasing';
 import {
@@ -62,6 +65,9 @@ const toForm = (r: SupplierReturn): ReturnFormInput => ({
     quantity: String(l.quantity),
   })),
 });
+
+/** Đường chính trên thanh tiến trình (PATHS.sr của Test_UI) */
+const RETURN_PATH: SupplierReturnStatus[] = ['draft', 'pending_approval', 'sent', 'refunded'];
 
 const ACTION_CONFIRM: Partial<Record<SupplierReturnAction, { title: string; message: string }>> = {
   submit: { title: 'Gửi duyệt', message: 'Phiếu chờ CEO duyệt và gửi; trong lúc chờ không sửa được.' },
@@ -148,8 +154,7 @@ export function SupplierReturnPage() {
     lineCount: lines.length,
     hasSupplier: Boolean(supplierId),
   };
-  const actions = supplierReturnMachine.available(ret?.status ?? 'draft', actor, record);
-  const recordBlocked = ret?.status === 'sent' && canManage && ret.sentById === actor.accountId;
+  const options = supplierReturnMachine.options(ret?.status ?? 'draft', actor, record);
 
   const handleError = (e: unknown) => {
     const problem = getProblem(e);
@@ -288,18 +293,19 @@ export function SupplierReturnPage() {
                 Lập đề nghị bù hàng
               </Button>
             )}
-            {(isNew ? actions.filter((a) => a.action === 'submit') : actions).map((t) => {
+            {(isNew ? options.filter((o) => o.transition.action === 'submit') : options).map(({ transition: t, blocked }) => {
               const danger = t.action === 'cancel' || t.action === 'record_rejected';
               return (
-                <Button
+                <ActionButton
                   key={t.action}
                   variant={danger || t.action === 'send_back' ? 'outline' : 'default'}
                   className={cn(danger && 'text-destructive hover:text-destructive')}
+                  blockedReason={blocked && codeMessage(blocked)}
                   disabled={busy}
                   onClick={() => onActionClick(t.action)}
                 >
                   {t.label}
-                </Button>
+                </ActionButton>
               );
             })}
           </div>
@@ -311,14 +317,21 @@ export function SupplierReturnPage() {
           {notice.msg}
         </AlertMessage>
       )}
-      {recordBlocked && (
-        <AlertMessage severity="info" className="mb-4">
-          Bạn là người gửi phiếu này nên không tự ghi kết quả từ NCC. Cần người khác ghi.
-        </AlertMessage>
-      )}
 
       {ret && (
         <Card className="mb-4 py-4">
+          <CardContent className="mb-2 border-b pb-4">
+            <LifecycleSteps
+              path={RETURN_PATH}
+              current={ret.status}
+              history={ret.statusHistory}
+              statuses={RETURN_STATUS}
+              isFinal={supplierReturnMachine.isFinal}
+              blocked={options.flatMap(({ transition: t, blocked }) =>
+                blocked ? [{ label: t.label, reason: codeMessage(blocked) }] : [],
+              )}
+            />
+          </CardContent>
           <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Info label="Trạng thái">
               <div data-testid="return-status">

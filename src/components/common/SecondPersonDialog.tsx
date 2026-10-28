@@ -9,6 +9,8 @@ interface SecondPersonDialogProps {
   title: string;
   /** Người lập chứng từ */
   createdByName: string;
+  /** Vai của người phải khác, ví dụ "Người gửi" hay "Người lập đề nghị" */
+  ownerLabel?: string;
   /** Người duyệt chính là người lập và được tự duyệt (`check()` trả `selfApproved`) */
   selfApproval?: boolean;
   /** Tóm tắt chứng từ để người duyệt soát lại */
@@ -29,6 +31,7 @@ export function SecondPersonDialog({
   open,
   title,
   createdByName,
+  ownerLabel = 'Người lập',
   selfApproval = false,
   children,
   confirmLabel = 'Duyệt',
@@ -59,7 +62,7 @@ export function SecondPersonDialog({
             <p className="flex gap-2 text-foreground">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
               <span>
-                Người lập: <b>{createdByName}</b>. Bạn là người thứ hai kiểm và duyệt.
+                {ownerLabel}: <b>{createdByName}</b>. Bạn là người thứ hai kiểm và duyệt.
               </span>
             </p>
           )}
