@@ -26,12 +26,14 @@ interface AppSidebarProps {
 
 export function AppSidebar({ sections, activeTo, brand }: AppSidebarProps) {
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar collapsible="icon">
       <SidebarHeader>{brand}</SidebarHeader>
       <SidebarContent>
         {sections.map((section) => (
           <SidebarGroup key={section.title}>
-            <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              {section.title}
+            </SidebarGroupLabel>
             <SidebarMenu>
               {section.items.map((item) => (
                 <NavLinkItem key={item.to} item={item} isActive={item.to === activeTo} />

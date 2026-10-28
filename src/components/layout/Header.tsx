@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import type { RealtimeStatus } from '@/api/realtime';
 import { ProfileDropdown } from './NavUser';
+import { TaskBell } from './TaskBell';
 
 const REALTIME_LABEL: Record<Exclude<RealtimeStatus, 'off'>, string> = {
   open: 'Đang nhận cập nhật tức thời',
@@ -18,8 +19,8 @@ const REALTIME_LABEL: Record<Exclude<RealtimeStatus, 'off'>, string> = {
 };
 
 /**
- * Header dính ở đầu nội dung (theo shadcn-admin): nút thu gọn sidebar, tên mục,
- * công ty đang làm việc, đổi sáng/tối, menu tài khoản.
+ * Thanh xanh dính ở đầu nội dung (màu --nav theo Test_UI): nút thu gọn sidebar, tên mục,
+ * công ty đang làm việc, chuông nhắc việc, đổi sáng/tối, menu tài khoản.
  */
 export function Header({ title }: { title?: string }) {
   const { mode, toggle } = useColorMode();
@@ -36,18 +37,18 @@ export function Header({ title }: { title?: string }) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 rounded-t-[inherit] bg-background/80 px-4 backdrop-blur-lg sm:gap-4',
-        scrolled && 'shadow-sm',
+        'sticky top-0 z-10 flex h-13 shrink-0 items-center gap-3 bg-nav px-4 text-nav-foreground sm:gap-4',
+        scrolled && 'shadow-md',
       )}
     >
-      <SidebarTrigger variant="outline" className="max-md:scale-110" />
-      <Separator orientation="vertical" className="h-6!" />
-      <span className="truncate text-sm font-medium">{title}</span>
+      <SidebarTrigger className="text-nav-foreground hover:bg-white/15 hover:text-nav-foreground max-md:scale-110" />
+      <Separator orientation="vertical" className="h-6! bg-white/30" />
+      <span className="truncate text-sm font-semibold">{title}</span>
       <div className="ms-auto flex items-center gap-2">
         {companyContext && (
-          <span className="hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm text-muted-foreground sm:flex">
+          <span className="hidden items-center gap-1.5 rounded-md bg-white/15 px-2.5 py-1 text-sm sm:flex">
             <Building2 className="size-4" />
-            <span className="max-w-56 truncate font-medium text-foreground">
+            <span className="max-w-56 truncate font-medium">
               {companyContext.companyName}
             </span>
           </span>
@@ -65,7 +66,7 @@ export function Header({ title }: { title?: string }) {
                 <span
                   className={cn(
                     'size-2.5 rounded-full',
-                    realtime === 'open' ? 'bg-emerald-500' : 'animate-pulse bg-amber-500',
+                    realtime === 'open' ? 'bg-emerald-400' : 'animate-pulse bg-amber-300',
                   )}
                 />
               </span>
@@ -73,12 +74,13 @@ export function Header({ title }: { title?: string }) {
             <TooltipContent>{REALTIME_LABEL[realtime]}</TooltipContent>
           </Tooltip>
         )}
+        {companyContext && <TaskBell companyId={companyContext.companyId} />}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full"
+              className="rounded-full text-nav-foreground hover:bg-white/15 hover:text-nav-foreground"
               onClick={toggle}
               aria-label="Đổi giao diện"
             >

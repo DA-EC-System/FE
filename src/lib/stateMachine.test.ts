@@ -54,6 +54,32 @@ describe('defineMachine', () => {
     expect(doc.available('pending', checker, record).map((t) => t.action)).toEqual(['approve', 'reject']);
   });
 
+  it('options giữ nút bị luật chặn kèm mã, bỏ nút thiếu quyền', () => {
+    expect(doc.options('pending', maker, record).map((o) => [o.transition.action, o.blocked])).toEqual([
+      ['approve', 'second_person_required'],
+      ['reject', null],
+    ]);
+    expect(doc.options('pending', viewer, record).map((o) => o.transition.action)).toEqual(['reject']);
+  });
+
+  it('allowSelfApproval: người canSelfApprove tự làm bước người thứ hai', () => {
+    const self = defineMachine<S, A>([
+      { from: 'pending', to: 'posted', action: 'approve', label: 'Duyệt', needsSecondPerson: true, allowSelfApproval: true },
+    ]);
+    const ceo = { ...maker, canSelfApprove: true };
+    expect(self.check('pending', 'approve', { actor: maker, record })).toEqual({
+      ok: false,
+      code: 'second_person_required',
+    });
+    expect(self.check('pending', 'approve', { actor: ceo, record })).toEqual({ ok: true, to: 'posted', selfApproved: true });
+    expect(self.check('pending', 'approve', { actor: { ...checker, canSelfApprove: true }, record })).toEqual({
+      ok: true,
+      to: 'posted',
+    });
+    // Bảng không bật allowSelfApproval thì CEO vẫn cần người thứ hai
+    expect(doc.check('pending', 'approve', { actor: ceo, record }).ok).toBe(false);
+  });
+
   it('isFinal', () => {
     expect(doc.isFinal('posted')).toBe(true);
     expect(doc.isFinal('draft')).toBe(false);
