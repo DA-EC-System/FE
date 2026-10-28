@@ -137,6 +137,9 @@ export function finishCancel(o: sales.MockOrder, at: string, by: string | null =
 }
 
 /** Đơn COD của người bán (tạo tay, hộp thư) đã giao mà kế toán chưa xác nhận tiền */
+/** Số hoá đơn tối đa (§19.3) */
+const MAX_INVOICE = 50;
+
 const codUnconfirmed = (o: sales.MockOrder, delivered: boolean) =>
   o.source !== 'marketplace' &&
   o.paymentMethod === 'cod' &&
@@ -222,6 +225,7 @@ export function toOrder(o: sales.MockOrder): Order {
     shippingFee: o.shippingFee,
     note: o.note,
     cancelReason: o.cancelReason,
+    invoiceNumber: o.invoiceNumber,
     lines: o.lines.map((l) => ({
       id: l.id,
       variantId: l.variantId,
@@ -454,6 +458,7 @@ export const salesHandlers = [
       shippingFee: fee as number,
       note: body.note?.trim() ?? '',
       cancelReason: null,
+      invoiceNumber: null,
       // Giá lấy từ bảng giá chuẩn lúc tạo rồi ghi cứng vào dòng; FE không gửi giá
       lines: lines.map((l, i) => {
         const { product, variant } = sellable.get(l.variantId)!;
@@ -519,5 +524,31 @@ export const salesHandlers = [
     }
     writeCompanyLog(guard.value, 'update', orderEntity(order), before, orderSnapshot(order));
     return HttpResponse.json(toOrder(order));
+  }),
+
+  // Số hoá đơn (§19.3); đơn sàn BE gửi lên sàn (Lazada SetInvoiceNumber)
+  http.put(`${API}/sales/orders/:id/invoice-number`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.orderCreate);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
+    if (!found.ok) return found.response;
+    const order = found.value;
+    const body = (await request.json()) as { version?: number; invoiceNumber?: string };
+    const invoiceNumber = body.invoiceNumber?.trim() ?? '';
+    if (!invoiceNumber || invoiceNumber.length > MAX_INVOICE) {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        errors: { invoiceNumber: invoiceNumber ? `Tối đa ${MAX_INVOICE} ký tự` : 'Nhập số hoá đơn' },
+      });
+    }
+    if (body.version !== order.version) return versionConflict(toOrder(order), 'Đơn vừa được người khác cập nhật.');
+    if (order.status === 'cancelled') {
+      return problem(409, 'Đơn đã huỷ', { code: 'invalid_transition', current: toOrder(order) });
+    }
+    const before = { ...orderSnapshot(order), invoiceNumber: order.invoiceNumber };
+    order.invoiceNumber = invoiceNumber;
+    order.version += 1;
+    writeCompanyLog(guard.value, 'update', orderEntity(order), before, { ...orderSnapshot(order), invoiceNumber });
+    return HttpResponse.json<Order>(toOrder(order));
   }),
 ];

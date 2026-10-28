@@ -66,7 +66,7 @@ export function filenameFromDisposition(header: string | null | undefined, fallb
 }
 
 /** Lỗi của lời gọi `responseType: 'blob'` có thân là Blob: đọc lại thành Problem Details để `problemMessage` dùng được */
-async function blobErrorToJson(error: unknown): Promise<never> {
+export async function blobErrorToJson(error: unknown): Promise<never> {
   if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
     try {
       error.response.data = JSON.parse(await error.response.data.text());
@@ -77,7 +77,7 @@ async function blobErrorToJson(error: unknown): Promise<never> {
   throw error;
 }
 
-function saveBlob(blob: Blob, filename: string) {
+export function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

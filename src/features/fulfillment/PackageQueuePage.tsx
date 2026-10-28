@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useHandOver, usePackageQueue, usePickList } from '@/api/fulfillment.api';
+import { useHandOver, usePackageQueue, usePickList, usePrintPackageDocuments } from '@/api/fulfillment.api';
 import { useShops } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,12 +63,15 @@ export function PackageQueuePage() {
   const [showPick, setShowPick] = useState(false);
   const picking = tab === 'reserved';
   const handing = tab === 'awaiting_pickup';
-  const selectable = picking || handing;
+  // In vận đơn hàng loạt ở Đã đóng gói và Chờ lấy hàng (§19.3)
+  const printing = tab === 'packed' || handing;
+  const selectable = picking || printing;
+  const printDocs = usePrintPackageDocuments();
   const pickList = usePickList([...selected.keys()], picking && showPick);
   const items = useMemo(() => query.data?.items ?? [], [query.data]);
   const counts = query.data?.counts;
   const filtered = Boolean(f.q || source || shopId);
-  const tooMany = handing && selected.size > MAX_HANDOVER;
+  const tooMany = printing && selected.size > MAX_HANDOVER;
 
   const toggle = (p: PackageSummary, on: boolean) =>
     setSelected((prev) => {
@@ -87,6 +90,14 @@ export function PackageQueuePage() {
       }
       return next;
     });
+
+  const printSelected = async () => {
+    try {
+      await printDocs.mutateAsync({ ids: [...selected.keys()] });
+    } catch (e) {
+      toast.error(problemMessage(e));
+    }
+  };
 
   const submitHandOver = async () => {
     setFailed(new Map());
@@ -163,11 +174,19 @@ export function PackageQueuePage() {
       <ClipboardList />
       Danh sách nhặt{selected.size > 0 ? ` (${selected.size} kiện)` : ''}
     </Button>
-  ) : handing ? (
-    <Button disabled={selected.size === 0 || tooMany} onClick={() => setConfirmOpen(true)}>
-      <Truck />
-      Bàn giao{selected.size > 0 ? ` (${selected.size})` : ''}
-    </Button>
+  ) : printing ? (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" disabled={selected.size === 0 || tooMany || printDocs.isPending} onClick={printSelected}>
+        <Printer />
+        In vận đơn{selected.size > 0 ? ` (${selected.size})` : ''}
+      </Button>
+      {handing && (
+        <Button disabled={selected.size === 0 || tooMany} onClick={() => setConfirmOpen(true)}>
+          <Truck />
+          Bàn giao{selected.size > 0 ? ` (${selected.size})` : ''}
+        </Button>
+      )}
+    </div>
   ) : undefined;
 
   return (
@@ -199,7 +218,7 @@ export function PackageQueuePage() {
       </Tabs>
       {tooMany && (
         <AlertMessage severity="warning" className="mb-4">
-          Mỗi lần bàn giao tối đa {MAX_HANDOVER} kiện
+          Mỗi lần {handing ? 'bàn giao hoặc in' : 'in'} tối đa {MAX_HANDOVER} kiện
         </AlertMessage>
       )}
       {failed.size > 0 && (

@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { usePackage, usePackageCommand } from '@/api/fulfillment.api';
+import { usePackage, usePackageCarriers, usePackageCommand } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { PageError, PageLoading } from '@/features/purchasing/parts';
@@ -28,6 +29,9 @@ export function PackScanPage() {
   const actor = useTransitionActor();
   const query = usePackage(packageId);
   const command = usePackageCommand();
+  // Kiện sàn: chọn đơn vị vận chuyển sàn cho phép, mặc định theo sàn (§19.3)
+  const carriers = usePackageCarriers(packageId, query.data?.source === 'marketplace');
+  const [carrier, setCarrier] = useState<string | null>(null);
   const [scanned, setScanned] = useState<Record<string, number>>({});
   const [input, setInput] = useState('');
   const [message, setMessage] = useState<{ severity: 'error' | 'warning'; text: string } | null>(null);
@@ -42,6 +46,9 @@ export function PackScanPage() {
   }
 
   const complete = p.lines.every((l) => (scanned[l.variantId] ?? 0) === l.quantity);
+  const carrierItems = p.source === 'marketplace' ? (carriers.data?.items ?? []) : [];
+  const carrierCode = carrier ?? carrierItems.find((c) => c.isDefault)?.code ?? null;
+  const needsCarrier = p.source === 'marketplace' && !carrierCode;
 
   const scan = () => {
     const sku = input.trim().toUpperCase();
@@ -61,7 +68,11 @@ export function PackScanPage() {
       await command.mutateAsync({
         id: p.id,
         version: p.version,
-        command: { kind: 'pack', lines: p.lines.map((l) => ({ variantId: l.variantId, quantity: scanned[l.variantId] ?? 0 })) },
+        command: {
+          kind: 'pack',
+          lines: p.lines.map((l) => ({ variantId: l.variantId, quantity: scanned[l.variantId] ?? 0 })),
+          ...(carrierCode ? { carrierCode } : {}),
+        },
       });
       toast.success(`Đã đóng gói kiện ${p.code}`);
       toDetail();
@@ -142,8 +153,30 @@ export function PackScanPage() {
               })}
             </TableBody>
           </Table>
+          {p.source === 'marketplace' && (
+            <div className="mt-4 grid gap-2" data-testid="pack-carrier">
+              <Label>Đơn vị vận chuyển</Label>
+              {carriers.isError && <AlertMessage severity="error">{problemMessage(carriers.error)}</AlertMessage>}
+              <RadioGroup
+                value={carrierCode ?? ''}
+                onValueChange={setCarrier}
+                aria-label="Đơn vị vận chuyển"
+                className="flex flex-wrap gap-4"
+              >
+                {carrierItems.map((c) => (
+                  <div key={c.code} className="flex items-center gap-2">
+                    <RadioGroupItem id={`carrier-${c.code}`} value={c.code} />
+                    <Label htmlFor={`carrier-${c.code}`} className="font-normal">
+                      {c.name}
+                      {c.isDefault && <span className="text-muted-foreground"> (mặc định)</span>}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
           <div className="mt-4 flex justify-end">
-            <Button disabled={!complete || command.isPending} onClick={pack}>
+            <Button disabled={!complete || needsCarrier || command.isPending} onClick={pack}>
               <PackageCheck />
               Đóng gói
             </Button>

@@ -24,6 +24,7 @@ const pkg = (patch: Partial<PackageSummary> = {}): PackageSummary => ({
   paymentStatus: 'cod_pending',
   trackingCode: null,
   platformPackageCode: null,
+  carrier: null,
   shipBy: null,
   lines: [],
   totalQty: 1,

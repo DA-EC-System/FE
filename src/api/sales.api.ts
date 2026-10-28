@@ -135,6 +135,18 @@ export function useCreateOrder() {
   });
 }
 
+/** Số hoá đơn của đơn (≤ 50 ký tự); đơn sàn BE gửi lên sàn (§19.3) */
+export function useSetInvoiceNumber() {
+  const invalidate = useInvalidateSales();
+  return useMutation({
+    mutationFn: async ({ id, version, invoiceNumber }: { id: string; version: number; invoiceNumber: string }) => {
+      const { data } = await apiClient.put<Order>(`/sales/orders/${id}/invoice-number`, { version, invoiceNumber });
+      return data;
+    },
+    onSettled: invalidate,
+  });
+}
+
 /** Xác nhận đơn COD tạo tay: unpaid → processing (sơ đồ D1); hàng đã giữ theo kiện từ lúc tạo */
 export function useConfirmOrder() {
   const invalidate = useInvalidateSales();

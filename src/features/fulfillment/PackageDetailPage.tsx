@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, PackageCheck } from 'lucide-react';
+import { ArrowLeft, PackageCheck, Printer } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -16,7 +16,13 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { type PackageCommand, useHandOver, usePackage, usePackageCommand } from '@/api/fulfillment.api';
+import {
+  type PackageCommand,
+  useHandOver,
+  usePackage,
+  usePackageCommand,
+  usePrintPackageDocuments,
+} from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -54,6 +60,7 @@ export function PackageDetailPage() {
   const query = usePackage(packageId);
   const command = usePackageCommand();
   const handOver = useHandOver();
+  const printDocs = usePrintPackageDocuments();
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -129,7 +136,9 @@ export function PackageDetailPage() {
           message:
             a === 'open_cancel'
               ? `Mở kiện ${p.code}, trả hàng về kệ. Kiện huỷ, hàng giữ được nhả.`
-              : `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, cần đóng gói lại.`,
+              : `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, cần đóng gói lại.${
+                  p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã và vận đơn mới.' : ''
+                }`,
           label,
           destructive: a === 'open_cancel',
           command: { kind: 'open' },
@@ -158,8 +167,18 @@ export function PackageDetailPage() {
     void run(cmd, pending.field === 'code' ? `Đã nhận hàng hoàn ${p.code}` : `Đã báo thất lạc ${p.code}, chờ người khác xác nhận`);
   };
 
+  const print = async () => {
+    try {
+      await printDocs.mutateAsync({ ids: [p.id] });
+    } catch (e) {
+      toast.error(problemMessage(e));
+    }
+  };
+
   const loading = command.isPending || handOver.isPending;
-  const hasActions = buttons.actions.length > 0 || buttons.reportLost;
+  // Vận đơn của sàn có khi kiện đã có mã kiện sàn (§19.3)
+  const printable = Boolean(p.platformPackageCode) && (p.status === 'packed' || p.status === 'awaiting_pickup');
+  const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable;
 
   return (
     <div className="grid gap-4">
@@ -213,6 +232,12 @@ export function PackageDetailPage() {
                 Báo thất lạc
               </Button>
             )}
+            {printable && (
+              <Button variant="outline" disabled={printDocs.isPending} onClick={print}>
+                <Printer />
+                {printDocs.isPending ? 'Đang lấy vận đơn...' : 'In vận đơn'}
+              </Button>
+            )}
             {buttons.note && <span className="text-sm text-muted-foreground">{buttons.note}</span>}
           </CardContent>
         </Card>
@@ -241,6 +266,18 @@ export function PackageDetailPage() {
             <p className="text-muted-foreground">Mã vận đơn</p>
             <p>{p.trackingCode ?? '—'}</p>
           </div>
+          {p.source === 'marketplace' && (
+            <>
+              <div>
+                <p className="text-muted-foreground">Đơn vị vận chuyển</p>
+                <p data-testid="package-carrier">{p.carrier?.name ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Mã kiện sàn</p>
+                <p>{p.platformPackageCode ?? '—'}</p>
+              </div>
+            </>
+          )}
           <div>
             <p className="text-muted-foreground">Hạn bàn giao</p>
             <p>{p.shipBy ? formatDateTime(p.shipBy) : '—'}</p>
