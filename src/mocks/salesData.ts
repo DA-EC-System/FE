@@ -75,6 +75,7 @@ export interface MockOrder {
   shippingFee: number;
   note: string;
   cancelReason: string | null;
+  invoiceNumber: string | null;
   lines: MockOrderLine[];
   history: MockStatusChange[];
   createdAt: string;
@@ -103,6 +104,8 @@ export interface MockPackage {
   flagNote: string | null;
   trackingCode: string | null;
   platformPackageCode: string | null;
+  /** Đơn vị vận chuyển chọn lúc đóng gói kiện sàn */
+  carrier: { code: string; name: string } | null;
   lostReport: MockLostReport | null;
   handedOverAt: string | null;
   handedOverBy: string | null;
@@ -126,7 +129,7 @@ type LegacyStatus =
   | 'delivery_failed'
   | 'cancelled';
 
-type SeedOrder = Omit<MockOrder, 'status' | 'flags' | 'outcome' | 'rawMarketplaceStatus' | 'shipBy' | 'history'> & {
+type SeedOrder = Omit<MockOrder, 'status' | 'flags' | 'outcome' | 'rawMarketplaceStatus' | 'shipBy' | 'history' | 'invoiceNumber'> & {
   status: LegacyStatus;
   isShortStock: boolean;
   history: MockStatusChange<LegacyStatus>[];
@@ -911,6 +914,7 @@ function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageS
     flagNote: null,
     trackingCode: null,
     platformPackageCode: o.source === 'marketplace' ? `PK${o.code.slice(3)}${packageSeq}` : null,
+    carrier: null,
     lostReport: null,
     handedOverAt: null,
     handedOverBy: null,
@@ -928,6 +932,7 @@ function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageS
 
   const handover = FAILED_HANDOVER[o.id] ?? at('issued') ?? plus(confirmAt, 20);
   step('packed', plus(handover, -1), KHO);
+  if (o.source === 'marketplace') pkg.carrier = SEED_CARRIER[o.shopId ?? ''] ?? null;
   if (target === 'packed') return finish(pkg);
   if (selfDelivery) {
     const left = at('in_transit') ?? handover;
@@ -985,6 +990,18 @@ function packageStatusOf(o: SeedOrder): PackageStatus {
   }
 }
 
+/** Đơn vị vận chuyển của kiện sàn đã đóng gói trong seed, theo gian hàng */
+const SEED_CARRIER: Record<string, MockPackage['carrier']> = {
+  'shp-001': { code: 'SPX', name: 'SPX Express' },
+  'shp-002': { code: 'JT', name: 'J&T Express' },
+  'shp-003': { code: 'LEX', name: 'LEX VN' },
+};
+
+/** Đơn sàn khách đang xin huỷ (§19.3) */
+const CANCEL_REQUESTED = ['ord-1015'];
+/** Số hoá đơn đã nhập */
+const INVOICES: Record<string, string> = { 'ord-1015': 'HD-2026-0015' };
+
 export const seedPackages: MockPackage[] = [];
 
 export const orders: MockOrder[] = seed.map((o) => {
@@ -1001,8 +1018,9 @@ export const orders: MockOrder[] = seed.map((o) => {
   return {
     ...rest,
     status,
-    flags: [],
+    flags: CANCEL_REQUESTED.includes(o.id) ? ['cancel_requested'] : [],
     outcome: status === 'completed' ? 'full' : null,
+    invoiceNumber: INVOICES[o.id] ?? null,
     rawMarketplaceStatus: RAW[o.id] ?? null,
     shipBy: o.source === 'marketplace' ? plus(o.createdAt, 48) : null,
     history: orderHistory(o, status),

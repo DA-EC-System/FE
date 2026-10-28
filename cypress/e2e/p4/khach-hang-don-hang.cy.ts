@@ -193,7 +193,7 @@ describe('P4 · Khách hàng và đơn hàng', () => {
 
     it('đơn sàn không có nút xác nhận và khung thanh toán', () => {
       cy.visit('/c/cmp-001/sales/orders/ord-1005');
-      cy.contains('Đơn sàn: trạng thái thanh toán, giao và huỷ lấy từ sàn.');
+      cy.contains('Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
       cy.findByRole('button', { name: 'Xác nhận đơn' }).should('not.exist');
       cy.get('[data-testid=payment-panel]').should('not.exist');
     });

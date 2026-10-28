@@ -20,6 +20,9 @@ export interface ProblemDetails {
   code?: string;
   /** Lỗi theo field, dùng gắn vào form */
   errors?: Record<string, string>;
+  /** Mã và câu gốc của sàn khi lỗi đến từ sàn (§19.3) */
+  platformCode?: string;
+  platformMessage?: string;
 }
 
 export const apiClient: AxiosInstance = axios.create({

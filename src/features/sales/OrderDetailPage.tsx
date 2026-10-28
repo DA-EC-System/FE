@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Scissors, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Pencil, Scissors, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FlagChips } from '@/components/common/FlagChips';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -13,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useConfirmOrder, useOrder } from '@/api/sales.api';
+import { useCancelRequestDecision } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,13 +25,15 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, packageButtons } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
-import type { Order } from '@/types/sales';
+import type { CancelRequestDecision, Order } from '@/types/sales';
 import { COMPLETION_BLOCKER_LABELS, ORDER_STATUS, PAYMENT_METHOD_LABELS, sourceLabel } from './shared';
 import { OrderStage } from './OrderStage';
 import { SplitPackageDialog } from './SplitPackageDialog';
 import { Info } from './Info';
 import { PaymentPanel } from './PaymentPanel';
-import { CancelOrderDialog } from './CancelOrderDialog';
+import { CONFLICT_CODES, CancelOrderDialog } from './CancelOrderDialog';
+import { PlatformCancelDialog } from './PlatformCancelDialog';
+import { InvoiceNumberDialog } from './InvoiceNumberDialog';
 import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { SettlementBadges } from '@/features/finance/SettlementBadges';
@@ -52,8 +56,9 @@ export function OrderDetailPage() {
   const query = useOrder(orderId);
   const order = query.data;
   const confirmMut = useConfirmOrder();
+  const decisionMut = useCancelRequestDecision();
   const [notice, setNotice] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<'cancel' | null>(null);
+  const [dialog, setDialog] = useState<'cancel' | 'platform-cancel' | 'accept-cancel' | 'invoice' | null>(null);
   const [delivering, setDelivering] = useState<PackageSummary | null>(null);
   const [splitting, setSplitting] = useState<PackageSummary | null>(null);
 
@@ -89,11 +94,17 @@ export function OrderDetailPage() {
   const isMarketplace = order.source === 'marketplace';
   const available = orderMachine.available(order.status, actor, orderRecord(order)).map((t) => t.action);
   const canConfirm = available.includes('confirm');
+  const cancelRequested = order.flags.includes('cancel_requested');
   const canCancel = available.includes('cancel');
+  // Đơn sàn huỷ qua sàn; khách đang xin huỷ thì trả lời yêu cầu thay vì huỷ riêng
+  const canPlatformCancel =
+    available.includes('cancel_on_platform') && !order.flags.includes('cancelling') && !cancelRequested;
+  const canDecide = cancelRequested && can(PERMISSIONS.orderCancel);
+  const canEditInvoice = can(PERMISSIONS.orderCreate) && order.status !== 'cancelled';
   const canProcess = can(PERMISSIONS.fulfillmentProcess);
   const note =
     isMarketplace && (order.status === 'unpaid' || order.status === 'processing')
-      ? 'Đơn sàn: trạng thái thanh toán, giao và huỷ lấy từ sàn.'
+      ? 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.'
       : order.status === 'unpaid' && order.paymentMethod === 'prepaid'
         ? 'Đơn trả trước sang Đang xử lý khi khách thanh toán.'
         : null;
@@ -104,6 +115,22 @@ export function OrderDetailPage() {
     setDelivering(null);
     setSplitting(null);
     setNotice('Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.');
+  };
+
+  const decide = async (decision: CancelRequestDecision) => {
+    setNotice(null);
+    try {
+      await decisionMut.mutateAsync({ id: order.id, version: order.version, decision });
+      toast.success(decision === 'accept' ? `Đã đồng ý huỷ đơn ${order.code}` : 'Đã từ chối yêu cầu huỷ');
+      setDialog(null);
+    } catch (e) {
+      const problem = getProblem(e);
+      if (problem?.code && CONFLICT_CODES.includes(problem.code)) onConflict();
+      else {
+        setDialog(null);
+        setNotice(problemMessage(e));
+      }
+    }
   };
 
   const confirm = async () => {
@@ -125,8 +152,14 @@ export function OrderDetailPage() {
         title={`Đơn ${order.code}`}
         subtitle={`${sourceLabel(order)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
         action={
-          canConfirm || canCancel ? (
+          canConfirm || canCancel || canPlatformCancel ? (
             <div className="flex flex-wrap gap-2">
+              {canPlatformCancel && (
+                <Button variant="outline" onClick={() => setDialog('platform-cancel')}>
+                  <XCircle />
+                  Huỷ đơn
+                </Button>
+              )}
               {canCancel && (
                 <Button variant="outline" onClick={() => setDialog('cancel')}>
                   <XCircle />
@@ -150,6 +183,24 @@ export function OrderDetailPage() {
         {isMarketplace && <SettlementBadges orderId={order.id} />}
       </div>
 
+      {cancelRequested && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm"
+          data-testid="cancel-request"
+        >
+          <span>Khách xin huỷ đơn trên sàn. Trả lời trước khi đóng gói, sàn không cho đóng gói khi chưa trả lời.</span>
+          {canDecide && (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => decide('reject')} disabled={decisionMut.isPending}>
+                Từ chối
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => setDialog('accept-cancel')} disabled={decisionMut.isPending}>
+                Đồng ý huỷ
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       {note && (
         <AlertMessage severity="info" className="mb-4">
           {note}
@@ -199,6 +250,22 @@ export function OrderDetailPage() {
               <Info label="Thanh toán">{order.paymentMethod ? PAYMENT_METHOD_LABELS[order.paymentMethod] : 'Sàn thu hộ'}</Info>
               <Info label="Ghi chú">{order.note || '—'}</Info>
               {order.cancelReason && <Info label="Lý do huỷ">{order.cancelReason}</Info>}
+              <Info label="Số hoá đơn">
+                <span className="inline-flex items-center gap-1" data-testid="invoice-number">
+                  {order.invoiceNumber ?? '—'}
+                  {canEditInvoice && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7"
+                      aria-label="Sửa số hoá đơn"
+                      onClick={() => setDialog('invoice')}
+                    >
+                      <Pencil />
+                    </Button>
+                  )}
+                </span>
+              </Info>
             </CardContent>
           </Card>
 
@@ -333,6 +400,28 @@ export function OrderDetailPage() {
         open={dialog === 'cancel'}
         onClose={() => setDialog(null)}
         onConflict={onConflict}
+      />
+      <PlatformCancelDialog
+        order={order}
+        open={dialog === 'platform-cancel'}
+        onClose={() => setDialog(null)}
+        onConflict={onConflict}
+      />
+      <InvoiceNumberDialog
+        order={order}
+        open={dialog === 'invoice'}
+        onClose={() => setDialog(null)}
+        onConflict={onConflict}
+      />
+      <ConfirmDialog
+        open={dialog === 'accept-cancel'}
+        title={`Đồng ý huỷ đơn ${order.code}?`}
+        message="Đơn huỷ trên sàn theo yêu cầu của khách; kiện đã đóng gói phải mở để trả hàng về kệ."
+        confirmLabel="Đồng ý huỷ"
+        destructive
+        loading={decisionMut.isPending}
+        onConfirm={() => decide('accept')}
+        onClose={() => setDialog(null)}
       />
       {delivering && (
         <DeliveryDialog pkg={delivering} open onClose={() => setDelivering(null)} onConflict={onConflict} />

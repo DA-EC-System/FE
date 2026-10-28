@@ -85,11 +85,104 @@ describe('P4 · Xử lý đơn', () => {
       cy.findByRole('button', { name: 'Huỷ đơn' }).should('not.exist');
     });
 
-    it('đơn sàn không có nút huỷ, có ghi chú', () => {
+    it('đơn sàn khách đang xin huỷ: có ghi chú, chỉ trả lời yêu cầu, không tự huỷ', () => {
       cy.visit('/c/cmp-001/sales/orders/ord-1015');
-      cy.contains('Đơn sàn: trạng thái thanh toán, giao và huỷ lấy từ sàn.');
+      cy.contains('Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
       cy.get('[data-testid=order-status]').should('contain', 'Đang xử lý').and('contain', 'Sàn: AWAITING_COLLECTION');
+      cy.get('[data-testid=cancel-request]').should('contain', 'Khách xin huỷ đơn trên sàn');
       cy.findByRole('button', { name: 'Huỷ đơn' }).should('not.exist');
+    });
+  });
+
+  context('thao tác đơn sàn (§19.3)', () => {
+    beforeEach(() => cy.dangNhap('ceo@commerio.vn', 'ceo'));
+
+    it('huỷ đơn sàn theo lý do của sàn, kiện đã đóng gói chờ mở', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1012');
+      cy.findByRole('button', { name: 'Huỷ đơn' }).click();
+      cy.findByRole('dialog').within(() => {
+        cy.contains('Huỷ đơn sàn DH-1012');
+        cy.findByRole('button', { name: 'Huỷ đơn' }).click();
+        cy.contains('Chọn lý do huỷ');
+        cy.findByLabelText('Hết hàng').click();
+        cy.findByRole('button', { name: 'Huỷ đơn' }).click();
+      });
+      cy.toast('Đã huỷ đơn DH-1012 trên sàn, còn 1 kiện chờ mở');
+      cy.get('[data-testid=order-status]').should('contain', 'Đang huỷ');
+      cy.findByRole('button', { name: 'Huỷ đơn' }).should('not.exist');
+    });
+
+    it('sàn từ chối huỷ thì báo lý do của sàn, không cho chọn', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1012');
+      cy.findByRole('button', { name: 'Huỷ đơn' }).should('exist');
+      cy.mockApi('get', '/sales/orders/ord-1012/cancel-reasons', 409, {
+        status: 409,
+        code: 'marketplace_rejected',
+        platformMessage: 'Order is already packed',
+      });
+      cy.findByRole('button', { name: 'Huỷ đơn' }).click();
+      cy.get('[data-testid=cancel-rejected]').should('contain', 'Sàn báo: Order is already packed');
+      cy.findByRole('dialog').findByLabelText('Hết hàng').should('not.exist');
+    });
+
+    it('đồng ý yêu cầu huỷ của khách', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1015');
+      cy.get('[data-testid=cancel-request]').findByRole('button', { name: 'Đồng ý huỷ' }).click();
+      cy.findByRole('alertdialog').within(() => {
+        cy.contains('Đồng ý huỷ đơn DH-1015?');
+        cy.findByRole('button', { name: 'Đồng ý huỷ' }).click();
+      });
+      cy.toast('Đã đồng ý huỷ đơn DH-1015');
+      cy.get('[data-testid=cancel-request]').should('not.exist');
+      cy.get('[data-testid=order-status]').should('contain', 'huỷ');
+    });
+
+    it('từ chối yêu cầu huỷ thì đơn tiếp tục xử lý', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1015');
+      cy.get('[data-testid=cancel-request]').findByRole('button', { name: 'Từ chối' }).click();
+      cy.toast('Đã từ chối yêu cầu huỷ');
+      cy.get('[data-testid=cancel-request]').should('not.exist');
+      cy.get('[data-testid=order-status]').should('contain', 'Đang xử lý');
+      cy.findByRole('button', { name: 'Huỷ đơn' }).should('exist');
+    });
+
+    it('nhập số hoá đơn', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1015');
+      cy.get('[data-testid=invoice-number]').should('contain', 'HD-2026-0015');
+      cy.findByRole('button', { name: 'Sửa số hoá đơn' }).click();
+      cy.findByRole('dialog').within(() => {
+        cy.findByLabelText('Số hoá đơn').clear();
+        cy.findByRole('button', { name: 'Lưu' }).click();
+        cy.contains('Nhập số hoá đơn');
+        cy.findByLabelText('Số hoá đơn').type('HD-2026-0099');
+        cy.findByRole('button', { name: 'Lưu' }).click();
+      });
+      cy.toast('Đã lưu số hoá đơn HD-2026-0099');
+      cy.get('[data-testid=invoice-number]').should('contain', 'HD-2026-0099');
+    });
+
+    it('đóng gói kiện sàn chọn đơn vị vận chuyển rồi in vận đơn', () => {
+      cy.visit('/c/cmp-001/sales/orders/ord-1012');
+      cy.contains('[data-testid=order-packages] tbody tr', 'Đã giữ hàng').find('a').click();
+      nutKien('Đóng gói').click();
+      cy.get('[data-testid=pack-carrier]').within(() => {
+        cy.contains('(mặc định)');
+        cy.get('[role=radio][data-state=checked]').should('have.length', 1);
+        cy.get('[role=radio][data-state=unchecked]').first().click();
+      });
+      cy.get('[data-testid=pack-carrier] [role=radio][data-state=checked]')
+        .invoke('attr', 'id')
+        .then((id) => cy.get(`label[for="${id}"]`).invoke('text').as('carrier'));
+      quetDu();
+      cy.findByRole('button', { name: 'Đóng gói' }).click();
+      cy.toast(/Đã đóng gói kiện/);
+      trangThaiKien().should('contain', 'Đã đóng gói');
+      cy.get('@carrier').then((name) => cy.get('[data-testid=package-carrier]').should('contain', String(name).trim()));
+      cy.contains('Mã kiện sàn').next().should('not.contain', '—');
+
+      cy.window().then((win) => cy.stub(win, 'open').as('open').returns({}));
+      nutKien('In vận đơn').click();
+      cy.get('@open').should('have.been.calledOnce');
     });
   });
 
@@ -194,6 +287,27 @@ describe('P4 · Xử lý đơn', () => {
       cy.contains('1 kiện chưa bàn giao được');
       cy.dong('pkg-1015').should('contain', 'Kiện vừa được cập nhật');
       cy.findByRole('button', { name: 'Bàn giao (1)' }).should('exist');
+    });
+
+    it('in vận đơn hàng loạt ở Đã đóng gói', () => {
+      cy.findByRole('tab', { name: /Đã đóng gói/ }).click();
+      cy.findByRole('button', { name: /In vận đơn/ }).should('be.disabled');
+      cy.contains('tbody tr', 'DH-1012').find('[role=checkbox]').click();
+      cy.window().then((win) => cy.stub(win, 'open').as('open').returns({}));
+      cy.findByRole('button', { name: 'In vận đơn (1)' }).click();
+      cy.get('@open').should('have.been.calledOnce');
+    });
+
+    it('kiện chưa có mã kiện sàn thì báo chưa in được', () => {
+      cy.findByRole('tab', { name: /Chờ lấy hàng/ }).click();
+      cy.dong('pkg-1015').find('[role=checkbox]').click();
+      cy.mockApi('get', '/fulfillment/packages/documents', 409, {
+        status: 409,
+        code: 'document_not_ready',
+        detail: 'Kiện KH-000015 chưa có mã kiện sàn.',
+      });
+      cy.findByRole('button', { name: 'In vận đơn (1)' }).click();
+      cy.toast(/vận đơn/i);
     });
 
     it('kiện đơn sàn đã đóng gói mở lại về Đã giữ hàng', () => {

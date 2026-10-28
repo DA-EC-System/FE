@@ -9,6 +9,8 @@ import * as payment from '../paymentData';
 import * as fulfillment from '../fulfillmentData';
 import * as finance from '../financeData';
 import type {
+  Carrier,
+  CarrierList,
   DeliveryAction,
   DocRef,
   HandOverResult,
@@ -21,7 +23,7 @@ import type {
   PackageTab,
   SplitInput,
 } from '@/types/fulfillment';
-import type { CancelOrderResult, StatusChangeSource } from '@/types/sales';
+import type { CancelOrderResult, CancelReason, CancelReasonList, Order, StatusChangeSource } from '@/types/sales';
 import { buildPickList } from '@/features/fulfillment/pickList';
 import { allocate, reclaim, release, reserveWhole, type Hold, type StockNumbers } from '../engine/stock';
 import { registerMarketplaceEvent } from '../engine/marketplace';
@@ -113,6 +115,7 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
     paymentStatus: o.source === 'marketplace' ? null : toOrderPayment(o).status,
     trackingCode: p.trackingCode,
     platformPackageCode: p.platformPackageCode,
+    carrier: p.carrier,
     shipBy: o.shipBy,
     lines,
     totalQty: p.lines.reduce((sum, l) => sum + l.quantity, 0),
@@ -196,6 +199,7 @@ export function newPackage(o: MockOrder, lines: MockPackage['lines'], selfDelive
     flagNote: null,
     trackingCode: null,
     platformPackageCode: null,
+    carrier: null,
     lostReport: null,
     handedOverAt: null,
     handedOverBy: null,
@@ -404,6 +408,46 @@ const reasonOf = (body: Ctx['body'], key = 'reason') => (typeof body[key] === 's
 const tooLong = (field: string) =>
   problem(422, 'Dữ liệu không hợp lệ', { errors: { [field]: `Tối đa ${MAX_REASON} ký tự` } });
 
+// ---------- Thao tác riêng của sàn (§19.3) ----------
+
+/** Đơn vị vận chuyển sàn cho phép, mục đầu là mặc định */
+const CARRIERS: Record<string, Carrier[]> = {
+  lazada: [
+    { code: 'LEX', name: 'LEX VN', isDefault: true },
+    { code: 'GHN', name: 'Giao Hàng Nhanh', isDefault: false },
+  ],
+  shopee: [
+    { code: 'SPX', name: 'SPX Express', isDefault: true },
+    { code: 'GHN', name: 'Giao Hàng Nhanh', isDefault: false },
+  ],
+  tiktok: [{ code: 'JT', name: 'J&T Express', isDefault: true }],
+};
+const MOCK_CARRIERS: Carrier[] = [{ code: 'MOCK', name: 'Vận chuyển giả lập', isDefault: true }];
+
+function carriersOf(o: MockOrder): Carrier[] {
+  if (o.source !== 'marketplace') return [];
+  const platform = db.shops.find((s) => s.id === o.shopId)?.platform ?? '';
+  return CARRIERS[platform] ?? MOCK_CARRIERS;
+}
+
+/** Lý do huỷ phía người bán của sàn (Lazada GetCancelReasonList) */
+const CANCEL_REASONS: CancelReason[] = [
+  { id: '15', label: 'Hết hàng' },
+  { id: '16', label: 'Sai giá sản phẩm' },
+  { id: '21', label: 'Khách yêu cầu huỷ' },
+  { id: '22', label: 'Không giao được tới địa chỉ khách' },
+];
+
+/** Sàn kiểm đơn trước khi huỷ (Lazada cancel/validate); trả câu gốc của sàn khi không cho */
+function platformCancelBlocked(o: MockOrder): string | null {
+  if (o.status === 'cancelled' || o.status === 'completed') return 'Order status does not allow cancellation';
+  if (o.flags.includes('cancelling')) return 'Order is being cancelled';
+  if (packagesOf(o).some((p) => isHandedOver(p.status))) return 'Package has been handed over to logistics';
+  return null;
+}
+
+const MAX_DOCUMENTS = 50;
+
 export const fulfillmentHandlers = [
   http.post(`${API}/sales/orders/:id/cancel`, async ({ params, request }) => {
     await delay(LATENCY);
@@ -426,6 +470,118 @@ export const fulfillmentHandlers = [
     const result = startCancel(order, reason, at, guard.value.account.id);
     writeCompanyLog(guard.value, 'update', orderEntity(order), before, orderSnapshot(order));
     return HttpResponse.json({ order: toOrder(order), pendingOpen: result } satisfies CancelOrderResult);
+  }),
+
+  // Lý do huỷ của sàn, sau khi sàn kiểm đơn huỷ được
+  http.get(`${API}/sales/orders/:id/cancel-reasons`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.orderCancel);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
+    if (!found.ok) return found.response;
+    const order = found.value;
+    if (order.source !== 'marketplace') {
+      return problem(422, 'Đơn tạo tay huỷ trực tiếp', { code: 'not_allowed_for_source' });
+    }
+    const blocked = platformCancelBlocked(order);
+    if (blocked) return problem(409, 'Sàn không cho huỷ đơn', { code: 'marketplace_rejected', platformMessage: blocked });
+    return HttpResponse.json<CancelReasonList>({ items: CANCEL_REASONS });
+  }),
+
+  // Huỷ đơn sàn với lý do của sàn; kiện xử lý như huỷ đơn tay
+  http.post(`${API}/sales/orders/:id/platform-cancel`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.orderCancel);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
+    if (!found.ok) return found.response;
+    const order = found.value;
+    const body = (await request.json()) as { version?: number; reasonId?: string };
+    const reason = CANCEL_REASONS.find((r) => r.id === body.reasonId);
+    if (!reason) return problem(422, 'Dữ liệu không hợp lệ', { errors: { reasonId: 'Chọn lý do huỷ' } });
+    if (body.version !== order.version) return versionConflict(toOrder(order), 'Đơn vừa được người khác cập nhật.');
+    const next = checkTransition(orderMachine, order.status, 'cancel_on_platform', guard.value, orderRecord(order));
+    if (!next.ok) return next.response;
+    const blocked = platformCancelBlocked(order);
+    if (blocked) return problem(409, 'Sàn không cho huỷ đơn', { code: 'marketplace_rejected', platformMessage: blocked });
+    const at = db.now();
+    const before = orderSnapshot(order);
+    order.rawMarketplaceStatus = 'canceled';
+    const pendingOpen = startCancel(order, reason.label, at, guard.value.account.id);
+    writeCompanyLog(guard.value, 'update', orderEntity(order), before, orderSnapshot(order));
+    return HttpResponse.json<CancelOrderResult>({ order: toOrder(order), pendingOpen });
+  }),
+
+  // Trả lời khách xin huỷ (Lazada InitReverseOrderCancelDecide)
+  http.post(`${API}/sales/orders/:id/cancel-request`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.orderCancel);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
+    if (!found.ok) return found.response;
+    const order = found.value;
+    const body = (await request.json()) as { version?: number; decision?: string };
+    if (body.decision !== 'accept' && body.decision !== 'reject') {
+      return problem(422, 'Dữ liệu không hợp lệ', { errors: { decision: 'Chọn đồng ý hoặc từ chối' } });
+    }
+    if (body.version !== order.version) return versionConflict(toOrder(order), 'Đơn vừa được người khác cập nhật.');
+    if (!order.flags.includes('cancel_requested')) {
+      return problem(409, 'Đơn không có yêu cầu huỷ', { code: 'invalid_transition', current: toOrder(order) });
+    }
+    const at = db.now();
+    const before = orderSnapshot(order);
+    const version = order.version;
+    order.flags = order.flags.filter((f) => f !== 'cancel_requested');
+    if (body.decision === 'accept') {
+      order.rawMarketplaceStatus = 'canceled';
+      startCancel(order, 'Khách xin huỷ', at, guard.value.account.id);
+    }
+    if (order.version === version) order.version += 1;
+    writeCompanyLog(guard.value, 'update', orderEntity(order), before, orderSnapshot(order));
+    return HttpResponse.json<Order>(toOrder(order));
+  }),
+
+  // In vận đơn từ sàn: đặt trước `packages/:id` để không bị bắt nhầm
+  http.get(`${API}/fulfillment/packages/documents`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.fulfillmentProcess);
+    if (!guard.ok) return guard.response;
+    const ids = new URL(request.url).searchParams.get('ids')?.split(',').filter(Boolean) ?? [];
+    if (!ids.length || ids.length > MAX_DOCUMENTS) {
+      return problem(422, 'Dữ liệu không hợp lệ', { errors: { ids: `Chọn từ 1 đến ${MAX_DOCUMENTS} kiện` } });
+    }
+    const picked: MockPackage[] = [];
+    for (const id of ids) {
+      const found = findOwned(fulfillment.packages, id, guard.value.companyId, 'kiện');
+      if (!found.ok) return found.response;
+      picked.push(found.value);
+    }
+    const notReady = picked.filter((p) => !p.platformPackageCode);
+    if (notReady.length) {
+      return problem(409, 'Chưa in được vận đơn', {
+        code: 'document_not_ready',
+        detail: `Kiện ${notReady.map((p) => p.code).join(', ')} chưa có mã kiện sàn.`,
+      });
+    }
+    const pages = picked.map(
+      (p) =>
+        `<section style="page-break-after:always"><h1>Vận đơn ${p.code}</h1>` +
+        `<p>Mã kiện sàn: ${p.platformPackageCode}</p><p>Mã vận đơn: ${p.trackingCode ?? '—'}</p>` +
+        `<p>Đơn vị vận chuyển: ${p.carrier?.name ?? '—'}</p></section>`,
+    );
+    return new HttpResponse(`<!doctype html><meta charset="utf-8"><title>Vận đơn</title>${pages.join('')}`, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  }),
+
+  // Đơn vị vận chuyển sàn cho phép; kiện đơn tay trả rỗng
+  http.get(`${API}/fulfillment/packages/:id/carriers`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.fulfillmentProcess);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(fulfillment.packages, params.id, guard.value.companyId, 'kiện');
+    if (!found.ok) return found.response;
+    return HttpResponse.json<CarrierList>({ items: carriersOf(orderOf(found.value)) });
   }),
 
   http.get(`${API}/fulfillment/packages`, async ({ request }) => {
@@ -495,7 +651,25 @@ export const fulfillmentHandlers = [
           errors: Object.fromEntries(mismatch.map((v) => [`lines.${v}`, 'Số quét khác số trong kiện'])),
         });
       }
-      return step(c, 'pack');
+      // Sàn không cho đóng gói khi khách đang xin huỷ
+      if (c.o.flags.includes('cancel_requested')) {
+        return problem(409, 'Sàn không cho đóng gói', { code: 'item_not_packable' });
+      }
+      const carriers = carriersOf(c.o);
+      const carrier = carriers.find((x) => x.code === c.body.carrierCode);
+      if (carriers.length && !carrier) {
+        return problem(422, 'Dữ liệu không hợp lệ', { errors: { carrierCode: 'Chọn đơn vị vận chuyển' } });
+      }
+      return step(c, 'pack', {
+        effect: () => {
+          if (!carrier) return;
+          // Đóng gói trên sàn: sàn cấp mã kiện và mã vận đơn
+          const n = c.p.code.replace(/\D/g, '');
+          c.p.carrier = { code: carrier.code, name: carrier.name };
+          c.p.platformPackageCode ??= `PKG${n}`;
+          c.p.trackingCode ??= `VD${n}${String(Date.now()).slice(-4)}`;
+        },
+      });
     }),
   ),
 
@@ -571,6 +745,12 @@ export const fulfillmentHandlers = [
       return step(c, cancel ? 'open_cancel' : 'open', {
         effect: () => {
           if (cancel) releasePackage(c.p);
+          // Kiện sàn đã có mã kiện: mở là repack trên sàn, đóng gói lại sẽ lấy mã mới
+          if (!cancel && c.o.source === 'marketplace') {
+            c.p.platformPackageCode = null;
+            c.p.trackingCode = null;
+            c.p.carrier = null;
+          }
           c.p.needsOpen = false;
           c.p.openPurpose = null;
           c.p.flagNote = null;
@@ -827,6 +1007,7 @@ registerMarketplaceEvent({
       shippingFee: 0,
       note: '',
       cancelReason: null,
+      invoiceNumber: null,
       lines: [
         {
           id: `${rid('orl')}-0`,
@@ -941,6 +1122,25 @@ registerMarketplaceEvent({
     }
     const pending = startCancel(o, 'Sàn huỷ đơn', at, null, 'marketplace');
     return pending ? `${o.code}: Đang huỷ, ${pending} kiện chờ mở` : `${o.code}: đã huỷ`;
+  },
+});
+
+registerMarketplaceEvent({
+  type: 'order.cancel_requested',
+  label: 'Khách xin huỷ',
+  description:
+    'Khách xin huỷ đơn trên sàn: đơn mang cờ Khách xin huỷ, người bán đồng ý hoặc từ chối. Chưa trả lời thì sàn không cho đóng gói.',
+  group: 'Đơn bán',
+  needsShop: false,
+  param: { key: 'code', label: 'Mã đơn', placeholder: 'DH-001012' },
+  run({ companyId, params }) {
+    const o = findOrderByCode(companyId, params.code);
+    if (o.source !== 'marketplace') throw new Error('Chỉ đơn sàn');
+    if (o.status === 'cancelled' || o.status === 'completed') throw new Error('Đơn đã đóng');
+    if (packagesOf(o).some((p) => isHandedOver(p.status))) throw new Error('Kiện đã rời kho, khách không xin huỷ được');
+    if (!o.flags.includes('cancel_requested')) o.flags.push('cancel_requested');
+    o.version += 1;
+    return `${o.code}: Khách xin huỷ`;
   },
 });
 

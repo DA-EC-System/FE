@@ -94,6 +94,12 @@ const MESSAGES: Record<string, string> = {
   return_exceeds_delivered: 'Số trả vượt số còn trả được của đơn.',
   return_not_awaiting: 'Yêu cầu trả không ở trạng thái Chờ hàng về.',
   parcel_resolved: 'Kiện hàng trả đã được xử lý.',
+  // §19.3, commerio-backend#105, #106
+  marketplace_rejected: 'Sàn không cho huỷ đơn này.',
+  package_status_not_allowed: 'Sàn không cho thao tác ở trạng thái hiện tại của kiện, tải lại để xem trạng thái mới.',
+  item_not_packable: 'Có món sàn không cho đóng gói (đã huỷ hoặc đang xin huỷ).',
+  rts_package_not_found: 'Sàn không thấy kiện để báo sẵn sàng giao, đóng gói lại rồi thử lại.',
+  document_not_ready: 'Kiện chưa có mã kiện sàn nên chưa in được vận đơn.',
 };
 
 /** Câu tiếng Việt của một mã lỗi (lý do nút bị chặn); mã lạ hiện nguyên */
@@ -108,5 +114,7 @@ export function problemCode(error: unknown): string | undefined {
 export function problemMessage(error: unknown): string {
   const problem = getProblem(error);
   const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
-  return (code && MESSAGES[code]) || getErrorMessage(error);
+  const message = (code && MESSAGES[code]) || getErrorMessage(error);
+  // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
+  return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
 }

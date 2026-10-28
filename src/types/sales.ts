@@ -15,7 +15,7 @@ export type PaymentMethod = 'prepaid' | 'cod';
 /** Trạng thái lưu của đơn (sơ đồ D1) */
 export type OrderStatus = 'unpaid' | 'processing' | 'completed' | 'cancelled';
 
-export type OrderAction = 'confirm' | 'pay' | 'complete' | 'cancel' | 'platform_cancel';
+export type OrderAction = 'confirm' | 'pay' | 'complete' | 'cancel' | 'platform_cancel' | 'cancel_on_platform';
 
 /**
  * Cờ trên đơn, không phải trạng thái. Đang huỷ: đã huỷ nhưng còn kiện đóng gói chờ mở.
@@ -153,6 +153,8 @@ export interface Order extends OrderSummary {
   shippingFee: number;
   note: string;
   cancelReason: string | null;
+  /** Số hoá đơn gửi lên sàn (Lazada SetInvoiceNumber), §19.3 */
+  invoiceNumber: string | null;
   lines: OrderLine[];
   packages: PackageSummary[];
   /** Hết hạn trả hàng (tính từ kiện giao cuối); null khi chưa giao kiện nào */
@@ -193,3 +195,16 @@ export interface CancelOrderResult {
   order: Order;
   pendingOpen: number;
 }
+
+/** Lý do huỷ do sàn trả về sau khi kiểm đơn huỷ được (§19.3) */
+export interface CancelReason {
+  id: string;
+  label: string;
+}
+
+export interface CancelReasonList {
+  items: CancelReason[];
+}
+
+/** Trả lời khách xin huỷ (cờ `cancel_requested`) */
+export type CancelRequestDecision = 'accept' | 'reject';

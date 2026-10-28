@@ -202,6 +202,16 @@ export const orderMachine = defineMachine<OrderStatus, OrderAction, OrderRecord>
     guard: cancelGuard,
   },
   { from: ['unpaid', 'processing'], to: 'cancelled', action: 'platform_cancel', label: 'Sàn huỷ', system: true },
+  {
+    // Người bán huỷ đơn sàn: gửi lên sàn với lý do trong danh sách của sàn (§19.3)
+    from: ['unpaid', 'processing'],
+    to: 'cancelled',
+    action: 'cancel_on_platform',
+    label: 'Huỷ đơn sàn',
+    permission: PERMISSIONS.orderCancel,
+    guard: (r) =>
+      r.source !== 'marketplace' ? 'not_allowed_for_source' : r.packages.some(isHandedOver) ? 'already_handed_over' : null,
+  },
 ]);
 
 /** Huỷ ngay, hay còn kiện đã đóng gói phải mở trước (cờ Đang huỷ) */

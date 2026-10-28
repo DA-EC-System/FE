@@ -86,6 +86,8 @@ export interface PackageSummary {
   trackingCode: string | null;
   /** Mã kiện trên sàn (`package_number` Shopee, package_id Lazada) */
   platformPackageCode: string | null;
+  /** Đơn vị vận chuyển chọn lúc đóng gói kiện sàn (§19.3) */
+  carrier: CarrierRef | null;
   /** Hạn bàn giao; kiện hạn sớm được chia hàng trước */
   shipBy: string | null;
   lines: FulfillmentLine[];
@@ -102,6 +104,23 @@ export interface PackageSummary {
 export interface Package extends PackageSummary {
   statusHistory: StatusChange<PackageStatus>[];
 }
+
+export interface CarrierRef {
+  code: string;
+  name: string;
+}
+
+/** Đơn vị vận chuyển sàn cho phép với kiện; `isDefault` chọn sẵn */
+export interface Carrier extends CarrierRef {
+  isDefault: boolean;
+}
+
+export interface CarrierList {
+  items: Carrier[];
+}
+
+/** Loại chứng từ in từ sàn: vận đơn */
+export type PackageDocumentKind = 'awb';
 
 export interface PickListLine extends FulfillmentLine {
   /** Số kiện có biến thể này */
