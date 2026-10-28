@@ -28,6 +28,7 @@ export const ROUTES = {
     root: (companyId: string) => `/c/${companyId}`,
     shops: (companyId: string) => `/c/${companyId}/channel/shops`,
     shop: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}`,
+    shopSetup: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}/setup`,
     shopOAuthCallback: (companyId: string) => `/c/${companyId}/channel/shops/oauth-callback`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,

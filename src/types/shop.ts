@@ -6,11 +6,13 @@
 
 export type Marketplace = 'tiktok' | 'shopee' | 'lazada' | 'mock';
 
-export type ShopStatus =
-  | 'connected'
-  | 'expiring'
-  | 'deauthorized'
-  | 'disconnected';
+/**
+ * Sơ đồ Gian hàng (C1, FE#58): connecting (đã uỷ quyền, đang chạy thiết lập lần đầu) → active;
+ * active → needs_reauth khi sàn thu hồi quyền hoặc token hết hạn; → disconnected khi người dùng ngắt.
+ */
+export type ShopStatus = 'connecting' | 'active' | 'needs_reauth' | 'disconnected';
+
+export type ShopAction = 'finish_setup' | 'lose_auth' | 'reconnect' | 'disconnect';
 
 export interface Shop {
   id: string;
@@ -23,6 +25,10 @@ export interface Shop {
   /** Hạn của access token sàn; null khi đã ngắt */
   accessExpiresAt: string | null;
   lastOrderSyncAt?: string;
+  /** Mốc kéo đơn đặt ở thiết lập lần đầu: chỉ kéo đơn tạo từ mốc này */
+  orderCutoffAt: string | null;
+  /** Việc đang chờ trong hàng đợi vì chưa gọi được sàn (đẩy tồn, đẩy giá, ẩn listing) */
+  pendingJobs: number;
   /** Số biến thể đã ghép SKU sàn */
   listingCount: number;
   version: number;
@@ -45,7 +51,40 @@ export interface ShopCallbackResult {
   shop: Shop;
   /** false: gian hàng đã có, chỉ cấp lại token */
   created: boolean;
+  /** Có khi kết nối lại gian hàng đã có */
+  reconnect?: ShopReconnectSummary;
 }
+
+/**
+ * Sơ đồ Listing (C2, FE#58). Chưa có bản ghi là `not_listed`.
+ * pushing → under_review (Lazada, TikTok) hoặc live (Shopee, sàn giả lập); lỗi đẩy → push_failed;
+ * sàn từ chối → rejected; sàn khoá → platform_hold; SKU tạm ngừng → hidden; gỡ khỏi sàn → delisted.
+ */
+export type ListingStatus =
+  | 'pushing'
+  | 'under_review'
+  | 'live'
+  | 'push_failed'
+  | 'rejected'
+  | 'platform_hold'
+  | 'hidden'
+  | 'delisted';
+
+export type ListingAction =
+  | 'push'
+  | 'go_live'
+  | 'send_review'
+  | 'fail'
+  | 'approve'
+  | 'reject'
+  | 'hold'
+  | 'release'
+  | 'hide'
+  | 'unhide'
+  | 'delist';
+
+/** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
+export type SyncState = 'synced' | 'pending' | 'error';
 
 /** channel.channel_listings: biến thể đã ghép với SKU trên sàn */
 export interface ChannelListing {
@@ -54,6 +93,19 @@ export interface ChannelListing {
   externalSkuId: string;
   /** SKU người bán đặt trên sàn */
   sellerSku: string;
+  status: ListingStatus;
+  /** Sàn từ chối: lý do sàn trả về */
+  rejectReason: string | null;
+  /** Đẩy lỗi hoặc đang thử lại: câu báo của lần gần nhất */
+  pushError: string | null;
+  /** Số lần đã thử khi sàn lỗi tạm (tối đa 5, quá 30 phút thì báo lỗi đẩy) */
+  pushAttempts: number;
+  /** Ẩn bằng cách nào: sàn ẩn riêng SKU, hoặc đẩy tồn 0 khi sàn không ẩn riêng phân loại */
+  hiddenBy: 'platform' | 'zero_stock' | null;
+  stockSync: SyncState;
+  priceSync: SyncState;
+  /** Số trên sàn sau lần đẩy tồn gần nhất */
+  platformStock: number | null;
   lastPushedAt: string | null;
   lastPushedPrice: number | null;
   version: number;
@@ -95,7 +147,63 @@ export interface PushResult {
   variantId: string;
   sku: string;
   outcome: 'updated' | 'created' | 'failed';
+  /** Trạng thái listing sau lần đẩy */
+  status?: ListingStatus;
   externalSkuId?: string;
   code?: string;
   message?: string;
+}
+
+/** Gỡ, đẩy lại: thao tác người dùng trên một listing */
+export interface ListingActionInput {
+  action: Extract<ListingAction, 'delist'>;
+  version: number;
+}
+
+/** Gợi ý ghép ở bước 1 thiết lập lần đầu: SKU sàn có SKU người bán trùng SKU biến thể */
+export interface SetupSuggestion {
+  externalSkuId: string;
+  title: string;
+  variantId: string;
+  sku: string;
+  /** Khả dụng ở Commerio và số đang có trên sàn, cho bước kiểm kê đầu kỳ */
+  available: number;
+  platformStock: number;
+}
+
+export interface ShopSetupPreview {
+  suggestions: SetupSuggestion[];
+  /** SKU sàn không gợi ý được, ghép tay sau ở trang ghép SKU */
+  unmatchedRemote: number;
+}
+
+/** push: đẩy khả dụng của Commerio lên sàn; stocktake: lập phiếu kiểm kê nháp cho các SKU lệch */
+export type OpeningStockMode = 'push' | 'stocktake';
+
+export interface ShopSetupInput {
+  externalSkuIds: string[];
+  openingStock: OpeningStockMode;
+  orderCutoffAt: string;
+}
+
+export interface ShopSetupResult {
+  shop: Shop;
+  matched: number;
+  /** Số phiếu kiểm kê nháp vừa lập (khi chọn stocktake và có SKU lệch) */
+  stocktakeNumber: string | null;
+}
+
+export interface ShopDisconnectInput {
+  version: number;
+  /** Đặt tồn trên sàn về 0 trước khi ngắt (chỉ làm được khi token còn dùng được) */
+  zeroStock: boolean;
+}
+
+export interface ShopReconnectSummary {
+  /** Kéo đơn từ mốc này (lần kéo cuối trước khi mất kết nối) */
+  pulledFrom: string | null;
+  /** Listing tạo lại trên sàn sau khi ngắt */
+  relisted: number;
+  /** Việc trong hàng chờ đã chạy */
+  jobsRun: number;
 }

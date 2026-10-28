@@ -23,6 +23,7 @@ import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
+import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
 import { MockOAuthPage, ShopOAuthCallbackPage, ShopOAuthRedirect } from '@/features/channel/ShopOAuthPages';
 import { StaffListPage } from '@/features/identity/StaffListPage';
 import { RolesPage } from '@/features/identity/RolesPage';
@@ -136,6 +137,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.shopView}>
                         <ShopListingsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/shops/:shopId/setup',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopConnect}>
+                        <ShopSetupPage />
                       </RequireModule>
                     ),
                   },

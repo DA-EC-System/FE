@@ -10,6 +10,8 @@ export interface MarketplaceEventType {
   needsShop: boolean;
   /** Bỏ trống: mọi sàn */
   platforms?: Marketplace[];
+  /** Ô nhập thêm (gửi trong params theo key), ví dụ SKU để chỉ áp cho một listing */
+  param?: { key: string; label: string; placeholder?: string };
 }
 
 export interface MarketplaceEventLog {

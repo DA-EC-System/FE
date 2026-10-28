@@ -4,26 +4,31 @@ import * as sales from '../salesData';
 import { PERMISSIONS } from '@/utils/permissions';
 import { collectTasks, dueState, registerTaskSource, REMIND } from '../engine/tasks';
 import { API, LATENCY, requireCompany } from './utils';
+import { tokenExpiringSoon } from '@/lib/machines/channel';
 
 // ---------- Việc cần làm theo hạn (FE#55); phiếu nhận, giao thiếu, trả NCC đăng ký ở các PR sau ----------
 
 registerTaskSource({
   kind: 'shop.reauth',
   permission: PERMISSIONS.shopConnect,
-  collect: (companyId) =>
+  collect: (companyId, now) =>
     db.shops
-      .filter((s) => s.companyId === companyId && (s.status === 'deauthorized' || s.status === 'expiring'))
+      .filter(
+        (s) =>
+          s.companyId === companyId &&
+          (s.status === 'needs_reauth' || tokenExpiringSoon(s.status, s.accessExpiresAt, now)),
+      )
       .map((s) => ({
         id: `shop.reauth:${s.id}`,
         kind: 'shop.reauth',
         group: 'Gian hàng',
         title: `Kết nối lại ${s.shopName}`,
         detail:
-          s.status === 'deauthorized'
-            ? 'Sàn đã thu hồi quyền. Chưa kéo đơn, chưa đẩy tồn được.'
+          s.status === 'needs_reauth'
+            ? `Sàn đã thu hồi quyền. Chưa kéo đơn, chưa đẩy tồn được${s.pendingJobs ? `; ${s.pendingJobs} việc đang chờ` : ''}.`
             : 'Quyền truy cập sàn sắp hết hạn.',
         dueAt: s.accessExpiresAt,
-        severity: s.status === 'deauthorized' ? 'overdue' : 'due_soon',
+        severity: s.status === 'needs_reauth' ? 'overdue' : 'due_soon',
         ref: { type: 'shop', id: s.id },
       })),
 });
