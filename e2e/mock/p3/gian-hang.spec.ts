@@ -75,6 +75,7 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('kết nối gian hàng mới qua sàn giả lập', async ({ page }) => {
+      await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
       await page
         .locator('[data-testid=connect-section]')
         .getByRole('button', { name: 'Kết nối Sàn giả lập (mock)', exact: true })
@@ -116,6 +117,7 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('gian hàng đang thiết lập mở thẳng wizard', async ({ page }) => {
+      await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
       await page.locator('[data-testid=connect-section]').getByRole('button', { name: 'Kết nối Shopee', exact: true }).click();
       await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC Chưa xong');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
@@ -133,6 +135,7 @@ test.describe('P3 · Gian hàng', () => {
       const rows = page.locator('tbody tr[data-row-id]');
       await expect(rows.first()).toBeAttached();
       const n = await rows.count();
+      await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
       await page.locator('[data-testid=connect-section]').getByRole('button', { name: 'Kết nối Shopee', exact: true }).click();
       await page.getByRole('button', { name: 'Từ chối', exact: true }).click();
       await toast(page, 'Bạn đã từ chối uỷ quyền');
@@ -358,7 +361,7 @@ test.describe('P3 · Gian hàng', () => {
   test('Sale chỉ xem: không kết nối, không ghép, không đẩy', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await menu(page, 'Kênh bán');
-    await expect(page.locator('[data-testid=connect-section]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     const shop = dong(page, 'shp-001');
     await expect(shop.getByRole('button', { name: 'Ngắt kết nối', exact: true })).toHaveCount(0);
     await expect(shop.getByRole('button', { name: 'Đồng bộ đơn', exact: true })).toHaveCount(0);

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Link2, PlugZap, RefreshCw, Settings2, Store, Unplug } from 'lucide-react';
+import { KeyRound, Link2, PlugZap, Plus, RefreshCw, Settings2, Store, Unplug } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -11,8 +11,11 @@ import { FilterBar, FilterSelect, SearchInput } from '@/components/common/Filter
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDisconnectShop, useShops, useSyncShop } from '@/api/shops.api';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useDisconnectShop, useShops, useShopPlatforms, useSyncShop } from '@/api/shops.api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { shopPage, shopPlatformOptions } from './shopList';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,16 +27,18 @@ import { formatDate, formatDateTime } from '@/utils/format';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { tokenExpiringSoon } from '@/lib/machines/channel';
-import type { Marketplace, Shop } from '@/types/shop';
+import type { Shop, ShopCallbackResult, ShopPlatform } from '@/types/shop';
 import { isUsable, PLATFORM_LABELS, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
+import { connectedToast } from './connectResult';
+import { ShopTokenForm } from './ShopTokenForm';
 
-const PLATFORMS: { value: Marketplace; hint: string }[] = [
-  { value: 'tiktok', hint: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.' },
-  { value: 'shopee', hint: 'Đăng nhập Shopee Open Platform để uỷ quyền.' },
-  { value: 'lazada', hint: 'Đăng nhập Lazada Seller Center để uỷ quyền.' },
-  { value: 'mock', hint: 'Sàn mô phỏng để thử luồng kết nối, không cần tài khoản sàn.' },
-];
+const PLATFORM_HINTS: Record<string, string | undefined> = {
+  tiktok: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.',
+  shopee: 'Đăng nhập Shopee Open Platform để uỷ quyền.',
+  lazada: 'Đăng nhập Lazada Seller Center để uỷ quyền.',
+  mock: 'Sàn mô phỏng để thử luồng kết nối, không cần tài khoản sàn.',
+};
 
 /** UC-CH-01: gian hàng của công ty và kết nối gian hàng mới qua OAuth */
 export function ShopListPage() {
@@ -53,13 +58,21 @@ export function ShopListPage() {
   const [pageSize, setPageSize] = useState(25);
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
   const [zeroStock, setZeroStock] = useState(false);
+  const [adding, setAdding] = useState(false);
+  // Sàn đang dán token trong hộp thoại; null: đang chọn sàn
+  const [tokenFor, setTokenFor] = useState<ShopPlatform | null>(null);
+  const [tokenBusy, setTokenBusy] = useState(false);
 
-  const shopsQuery = useShops({
+  const shopsQuery = useShops();
+  const platformsQuery = useShopPlatforms({ enabled: canConnect && adding });
+  const platforms = (platformsQuery.data?.items ?? []).filter((p) => p.connectable);
+  const shopOptions = shopPlatformOptions(shopsQuery.data?.items ?? []);
+  const visibleShops = shopPage(shopsQuery.data?.items ?? [], {
     page,
     pageSize,
-    search: debouncedSearch || undefined,
-    platform: platform || undefined,
-    status: status || undefined,
+    search: debouncedSearch,
+    platform,
+    status,
   });
   const syncMut = useSyncShop();
   const disconnectMut = useDisconnectShop();
@@ -79,6 +92,15 @@ export function ShopListPage() {
         ? ROUTES.company.shopSetup(companyId, s.id)
         : ROUTES.company.shop(companyId, s.id),
     );
+  const closeAdding = () => {
+    setAdding(false);
+    setTokenFor(null);
+  };
+  const tokenConnected = (result: ShopCallbackResult) => {
+    toast.success(connectedToast(result));
+    closeAdding();
+    if (result.created) navigate(ROUTES.company.shopSetup(companyId, result.shop.id));
+  };
   const askDisconnect = (s: Shop) => {
     setZeroStock(false);
     setDisconnecting(s);
@@ -129,7 +151,7 @@ export function ShopListPage() {
         id: 'platform',
         header: 'Sàn',
         meta: { className: 'w-40' },
-        cell: ({ row }) => PLATFORM_LABELS[row.original.platform],
+        cell: ({ row }) => PLATFORM_LABELS[row.original.platform] ?? row.original.platform,
       },
       {
         id: 'status',
@@ -178,7 +200,7 @@ export function ShopListPage() {
       },
       {
         id: 'actions',
-        header: '',
+        header: 'Thao tác',
         meta: { className: 'w-40 text-right' },
         cell: ({ row }) => {
           const s = row.original;
@@ -231,42 +253,16 @@ export function ShopListPage() {
       <PageHeader
         title="Gian hàng"
         subtitle="Gian hàng trên các sàn đã kết nối với công ty. Ghép biến thể với SKU sàn để đồng bộ đơn, giá và tồn."
+        action={
+          canConnect ? (
+            <Button onClick={() => setAdding(true)}>
+              <Plus />
+              Thêm gian hàng
+            </Button>
+          ) : null
+        }
       />
 
-      {canConnect && (
-        <Card className="mb-6" data-testid="connect-section">
-          <CardHeader>
-            <CardTitle>Kết nối gian hàng</CardTitle>
-            <CardDescription>
-              Chọn sàn, đăng nhập tài khoản người bán và đồng ý cấp quyền. Commerio không lưu mật khẩu sàn.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {PLATFORMS.map(({ value, hint }) => {
-              const busy = connector.pending && connector.variables?.platform === value && !connector.variables.shopId;
-              return (
-                <div key={value} className="flex flex-col gap-3 rounded-lg border p-4" data-platform={value}>
-                  <div className="flex items-center gap-2 font-medium">
-                    <Store className="size-4 text-primary" />
-                    {PLATFORM_LABELS[value]}
-                  </div>
-                  <p className="flex-1 text-sm text-muted-foreground">{hint}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={connector.pending}
-                    aria-label={`Kết nối ${PLATFORM_LABELS[value]}`}
-                    onClick={() => connector.start({ platform: value })}
-                  >
-                    <PlugZap />
-                    {busy ? 'Đang chuyển...' : 'Kết nối'}
-                  </Button>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
 
       {needsReauth.map((s) => (
         <div key={s.id} className="mb-4" data-testid="reauth-banner">
@@ -309,7 +305,7 @@ export function ShopListPage() {
             label="Sàn"
             value={platform}
             onChange={withReset(setPlatform)}
-            options={PLATFORMS.map((p) => ({ value: p.value, label: PLATFORM_LABELS[p.value] }))}
+            options={shopOptions}
           />
           <FilterSelect
             label="Trạng thái"
@@ -320,20 +316,20 @@ export function ShopListPage() {
         </FilterBar>
         <DataTable
           columns={columns}
-          data={shopsQuery.data?.items ?? []}
+          data={visibleShops.items}
           getRowId={(r) => r.id}
           loading={shopsQuery.isLoading}
           fetching={shopsQuery.isFetching}
           empty={
             debouncedSearch || platform || status
               ? 'Không có gian hàng khớp bộ lọc'
-              : 'Chưa có gian hàng nào. Kết nối gian hàng đầu tiên ở khu phía trên.'
+              : 'Chưa có gian hàng nào. Bấm Thêm gian hàng để kết nối gian hàng đầu tiên.'
           }
           onRowClick={openListings}
           pagination={{
-            page,
+            page: visibleShops.page,
             pageSize,
-            total: shopsQuery.data?.total ?? 0,
+            total: visibleShops.total,
             onChange: (p, size) => {
               setPage(p);
               setPageSize(size);
@@ -341,6 +337,84 @@ export function ShopListPage() {
           }}
         />
       </Card>
+
+      <Dialog open={adding} onOpenChange={(next) => !next && !connector.pending && !tokenBusy && closeAdding()}>
+        <DialogContent className="sm:max-w-2xl" data-testid="connect-section">
+          <DialogHeader>
+            <DialogTitle>Thêm gian hàng</DialogTitle>
+            <DialogDescription>
+              Chọn sàn, đăng nhập tài khoản người bán và đồng ý cấp quyền. Commerio không lưu mật khẩu sàn.
+            </DialogDescription>
+          </DialogHeader>
+          {tokenFor ? (
+            <ShopTokenForm
+              platform={tokenFor.platform}
+              name={tokenFor.name}
+              onBack={() => setTokenFor(null)}
+              onBusyChange={setTokenBusy}
+              onDone={tokenConnected}
+            />
+          ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {platformsQuery.isLoading ? (
+              <div className="col-span-full grid gap-3 sm:grid-cols-2" role="status" aria-label="Đang tải sàn">
+                <Skeleton className="h-32" /><Skeleton className="h-32" />
+              </div>
+            ) : platformsQuery.isError ? (
+              <AlertMessage severity="error" className="col-span-full">
+                <p>{getErrorMessage(platformsQuery.error)}</p>
+                <Button variant="outline" size="sm" disabled={platformsQuery.isFetching} onClick={() => void platformsQuery.refetch()}>
+                  Thử lại
+                </Button>
+              </AlertMessage>
+            ) : platforms.length === 0 ? (
+              <p className="col-span-full text-sm text-muted-foreground">
+                Chưa có sàn nào được bật. Liên hệ quản trị nền tảng để kết nối sàn mới.
+              </p>
+            ) : platforms.map((p) => {
+              const { platform: value, name } = p;
+              const methods = p.methods ?? ['oauth'];
+              const hint = PLATFORM_HINTS[value];
+              const busy = connector.pending && connector.variables?.platform === value && !connector.variables.shopId;
+              return (
+                <div key={value} className="flex flex-col gap-3 rounded-lg border p-4" data-platform={value}>
+                  <div className="flex items-center gap-2 font-medium">
+                    <Store className="size-4 text-primary" />
+                    {name}
+                  </div>
+                  {hint && <p className="flex-1 text-sm text-muted-foreground">{hint}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {methods.includes('oauth') && (
+                      <Button
+                        size="sm"
+                        disabled={connector.pending}
+                        aria-label={`Kết nối ${name}`}
+                        onClick={() => connector.start({ platform: value })}
+                      >
+                        <PlugZap />
+                        {busy ? 'Đang chuyển...' : `Đăng nhập ${name}`}
+                      </Button>
+                    )}
+                    {methods.includes('token') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={connector.pending}
+                        aria-label={`Dán token ${name}`}
+                        onClick={() => setTokenFor(p)}
+                      >
+                        <KeyRound />
+                        Dán token
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={Boolean(disconnecting)}

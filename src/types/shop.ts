@@ -6,6 +6,21 @@
 
 export type Marketplace = 'tiktok' | 'shopee' | 'lazada' | 'mock';
 
+/** Sàn được BE công bố theo adapter và cấu hình (Documents/21 §18.1). */
+export interface ShopPlatform {
+  platform: string;
+  name: string;
+  connectable: boolean;
+  /** Cách kết nối sàn cho phép; BE chưa trả thì coi như chỉ có oauth */
+  methods?: ShopConnectMethod[];
+}
+
+/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
+export type ShopConnectMethod = 'oauth' | 'token';
+
+export interface ShopList { items: Shop[] }
+export interface ShopPlatformList { items: ShopPlatform[] }
+
 /**
  * Sơ đồ Gian hàng (C1, FE#58): connecting (đã uỷ quyền, đang chạy thiết lập lần đầu) → active;
  * active → needs_reauth khi sàn thu hồi quyền hoặc token hết hạn; → disconnected khi người dùng ngắt.
@@ -40,7 +55,7 @@ export interface Shop {
 
 /** Bắt đầu OAuth; shopId khi kết nối lại một gian hàng đã có */
 export interface ShopConnectInput {
-  platform: Marketplace;
+  platform: string;
   shopId?: string;
 }
 
@@ -52,6 +67,12 @@ export interface ShopAuthorizeUrl {
 export interface ShopCallbackInput {
   code: string;
   state: string;
+}
+
+/** POST /channel/shops/:platform/token. Có refreshToken thì BE tự gia hạn, không có thì hết hạn phải kết nối lại */
+export interface ShopTokenInput {
+  accessToken: string;
+  refreshToken?: string;
 }
 
 export interface ShopCallbackResult {
