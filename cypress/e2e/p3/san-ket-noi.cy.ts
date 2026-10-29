@@ -9,6 +9,7 @@ describe('P3 · Danh sách sàn kết nối được', () => {
       { platform: 'shopee', name: 'Shopee', connectable: false },
     ] });
     cy.menu('Kênh bán');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
     cy.get('[data-testid=connect-section] [data-platform]').should('have.length', 2);
     cy.get('[data-testid=connect-section]').within(() => {
       cy.findByRole('button', { name: 'Kết nối Lazada từ API' }).should('exist');
@@ -18,18 +19,22 @@ describe('P3 · Danh sách sàn kết nối được', () => {
     });
   });
 
-  it('rỗng hiện hướng dẫn nhưng bảng gian hàng vẫn còn', () => {
+  it('rỗng hiện hướng dẫn, đóng hộp thoại thì về bảng gian hàng', () => {
     cy.mockApi('get', '/channel/shops/platforms', 200, { items: [] });
     cy.menu('Kênh bán');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
     cy.contains('Chưa có sàn nào được bật. Liên hệ quản trị nền tảng để kết nối sàn mới.').should('be.visible');
     cy.get('[data-testid=connect-section] [data-platform]').should('not.exist');
-    cy.dong('shp-001').should('exist');
+    cy.get('body').type('{esc}');
+    cy.get('[data-testid=connect-section]').should('not.exist');
+    cy.dong('shp-001').should('be.visible');
   });
 
   it('lỗi chỉ ảnh hưởng khu kết nối, thử lại nạp được bốn sàn mock', () => {
     cy.mockApi('get', '/channel/shops/platforms', 503, { status: 503, detail: 'Chưa tải được sàn' });
     cy.menu('Kênh bán');
     cy.dong('shp-001').should('exist');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
     cy.get('[data-testid=connect-section]').within(() => {
       cy.get('[data-platform]').should('not.exist');
       cy.findByRole('button', { name: 'Thử lại' }).click();
@@ -61,11 +66,11 @@ describe('P3 · Danh sách sàn kết nối được', () => {
 });
 
 describe('P3 · Sàn kết nối được: thiếu quyền kết nối', () => {
-  it('Sale xem được bảng gian hàng nhưng không có khu kết nối', () => {
+  it('Sale xem được bảng gian hàng nhưng không có nút Thêm gian hàng', () => {
     cy.dangNhap('sale@commerio.vn', 'sale');
     cy.menu('Kênh bán');
     cy.dong('shp-001').should('exist');
-    cy.get('[data-testid=connect-section]').should('not.exist');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).should('not.exist');
     cy.findByRole('button', { name: /^Kết nối / }).should('not.exist');
   });
 });

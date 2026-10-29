@@ -68,6 +68,7 @@ describe('P3 · Gian hàng', () => {
     });
 
     it('kết nối gian hàng mới qua sàn giả lập', () => {
+      cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
       cy.get('[data-testid=connect-section]').findByRole('button', { name: 'Kết nối Sàn giả lập (mock)' }).click();
       cy.location('pathname').should('eq', '/mock-oauth/authorize');
       cy.contains('Uỷ quyền ứng dụng');
@@ -104,6 +105,7 @@ describe('P3 · Gian hàng', () => {
     });
 
     it('gian hàng đang thiết lập mở thẳng wizard', () => {
+      cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
       cy.get('[data-testid=connect-section]').findByRole('button', { name: 'Kết nối Shopee' }).click();
       cy.findByLabelText('Tên gian hàng').clear().type('ABC Chưa xong');
       cy.findByRole('button', { name: 'Đồng ý' }).click();
@@ -120,6 +122,7 @@ describe('P3 · Gian hàng', () => {
 
     it('từ chối uỷ quyền thì không tạo gian hàng', () => {
       cy.get('tbody tr[data-row-id]').its('length').then((n) => {
+        cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
         cy.get('[data-testid=connect-section]').findByRole('button', { name: 'Kết nối Shopee' }).click();
         cy.findByRole('button', { name: 'Từ chối' }).click();
         cy.toast('Bạn đã từ chối uỷ quyền');
@@ -353,7 +356,7 @@ describe('P3 · Gian hàng', () => {
   it('Sale chỉ xem: không kết nối, không ghép, không đẩy', () => {
     cy.dangNhap('sale@commerio.vn', 'sale');
     cy.menu('Kênh bán');
-    cy.get('[data-testid=connect-section]').should('not.exist');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).should('not.exist');
     cy.dong('shp-001').within(() => {
       cy.findByRole('button', { name: 'Ngắt kết nối' }).should('not.exist');
       cy.findByRole('button', { name: 'Đồng bộ đơn' }).should('not.exist');
