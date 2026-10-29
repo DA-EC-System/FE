@@ -56,6 +56,7 @@ import { InvoiceDetailPage } from '@/features/finance/InvoiceDetailPage';
 import { ReceiptDetailPage } from '@/features/finance/ReceiptDetailPage';
 import { PaymentVoucherDetailPage } from '@/features/finance/PaymentVoucherDetailPage';
 import { CodPage } from '@/features/finance/CodPage';
+import { LedgerPage } from '@/features/finance/LedgerPage';
 import { RefundsPage } from '@/features/finance/RefundsPage';
 import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
 import { SettlementsPage } from '@/features/finance/SettlementsPage';
@@ -388,6 +389,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="finance" permission={PERMISSIONS.financeView}>
                         <PaymentVoucherDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/ledger',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.ledgerView}>
+                        <LedgerPage />
                       </RequireModule>
                     ),
                   },

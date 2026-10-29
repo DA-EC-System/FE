@@ -23,6 +23,7 @@ import { paymentHandlers } from './payment';
 import { fulfillmentHandlers } from './fulfillment';
 import { returnHandlers } from './returns';
 import { financeHandlers } from './finance';
+import { ledgerHandlers } from './ledger';
 import { reportHandlers } from './report';
 import { settlementHandlers } from './settlement';
 import { devMarketplaceHandlers } from './devMarketplace';
@@ -43,6 +44,7 @@ export const handlers = [
   ...paymentHandlers,
   ...fulfillmentHandlers,
   ...returnHandlers,
+  ...ledgerHandlers,
   ...financeHandlers,
   ...reportHandlers,
   ...settlementHandlers,

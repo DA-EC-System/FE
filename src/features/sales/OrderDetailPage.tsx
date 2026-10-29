@@ -38,6 +38,7 @@ import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { SettlementBadges } from '@/features/finance/SettlementBadges';
 import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
+import { OrderProfitCard } from '@/features/finance/OrderProfitCard';
 
 const orderRecord = (o: Order) => ({
   source: o.source,
@@ -380,6 +381,8 @@ export function OrderDetailPage() {
           </Card>
 
           <OrderReturnsCard order={order} companyId={companyId} />
+
+          <OrderProfitCard orderId={order.id} companyId={companyId} />
 
           <Card className="py-4">
             <CardHeader>

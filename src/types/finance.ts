@@ -162,3 +162,107 @@ export interface CodConflictOrder {
   code: string;
   status: string;
 }
+
+// ---------- Sổ tiền (sơ đồ D4.1, FE#76, Documents/21 mục 21.1) ----------
+
+/** `cogs` là giá vốn, không phải tiền; `withdrawal` là rút từ ví sàn về ngân hàng */
+export type LedgerKind =
+  | 'revenue'
+  | 'subsidy'
+  | 'fee_fixed'
+  | 'fee_txn'
+  | 'fee_optional'
+  | 'tax_withheld'
+  | 'return_fee'
+  | 'compensation'
+  | 'refund'
+  | 'penalty'
+  | 'ads'
+  | 'withdrawal'
+  | 'supplier_refund'
+  | 'adjustment'
+  | 'cogs';
+
+/** Dòng sổ không sửa tại chỗ: dòng ước tính bị thay bằng dòng thực tế khi sàn quyết toán */
+export interface LedgerLine {
+  id: string;
+  /** SO-000001 */
+  code: string;
+  at: string;
+  kind: LedgerKind;
+  /** Âm là tiền ra */
+  amount: number;
+  estimated: boolean;
+  replaced: boolean;
+  shopId: string | null;
+  shopName: string | null;
+  orderId: string | null;
+  orderCode: string | null;
+  packageId: string | null;
+  /** Phiên bản cấu hình phí, thuế dùng để ước tính (CH-000001) */
+  configVersion: string | null;
+  /** Mã giao dịch quyết toán của sàn */
+  txnId: string | null;
+  ref: DocRef | null;
+  note: string | null;
+  bankMatched: boolean;
+}
+
+export type LedgerFilter = 'all' | 'estimated' | 'actual' | 'replaced';
+
+export interface LedgerTotals {
+  /** Phải thu sàn: dòng ước tính còn hiệu lực của gian hàng */
+  receivable: number;
+  /** Số dư shop trên ví sàn theo quyết toán */
+  platformBalance: number;
+  withdrawn: number;
+  /** Tiền sẽ ra: đề nghị nhập đã duyệt chưa nhận đủ */
+  committedPurchase: number;
+}
+
+export interface LedgerResponse {
+  items: LedgerLine[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totals: LedgerTotals;
+}
+
+/** Tiền của một đơn, chỉ tính phần đã giao. Không có `inventory.cost.view` thì `cogs`, `gross` là null */
+export interface OrderProfit {
+  /** Thực nhận: doanh thu trừ phí, thuế, hoàn, chưa trừ quảng cáo */
+  net: number;
+  /** Quảng cáo gắn với đơn, số âm */
+  ads: number;
+  cogs: number | null;
+  gross: number | null;
+  /** Còn dòng ước tính chưa được quyết toán */
+  estimated: boolean;
+  /** Thuế khấu trừ thực tế trừ thuế ước tính; null khi chưa quyết toán hoặc khớp */
+  taxMismatch: number | null;
+  lines: LedgerLine[];
+}
+
+export interface OrderProfitRow extends Omit<OrderProfit, 'lines'> {
+  order: OrderRef;
+  shopName: string | null;
+}
+
+export interface OrderProfitList {
+  items: OrderProfitRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface TaxWarning {
+  /** Mốc doanh thu năm: 500 triệu, 3 tỷ */
+  milestone: number;
+  ytdRevenue: number;
+  over: boolean;
+}
+
+export interface TaxWarningList {
+  year: number;
+  items: TaxWarning[];
+}

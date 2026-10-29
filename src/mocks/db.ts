@@ -226,6 +226,8 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.stockDocManage, module: 'inventory', label: 'Lập, ghi sổ phiếu nhập, xuất kho' },
   { code: P.reorderManage, module: 'inventory', label: 'Đặt ngưỡng tồn' },
   { code: P.costView, module: 'inventory', label: 'Xem giá vốn, giá trị tồn' },
+  { code: P.ledgerView, module: 'finance', label: 'Xem sổ tiền, lãi theo đơn' },
+  { code: P.ledgerExport, module: 'finance', label: 'Xuất chứng từ sổ tiền' },
   { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
   { code: P.orderCreate, module: 'sales', label: 'Tạo đơn hàng, xác nhận đơn' },
   { code: P.customerView, module: 'sales', label: 'Xem khách hàng' },
@@ -379,7 +381,8 @@ const roles: MockRole[] = [
     id: 'role-ketoan-cmp-001',
     companyId: 'cmp-001',
     name: 'Kế toán',
-    permissions: [P.financeView, P.voucherCreate, P.orderView],
+    // FE#76: xem sổ tiền nhưng không xem giá vốn
+    permissions: [P.financeView, P.voucherCreate, P.orderView, P.ledgerView, P.ledgerExport],
     version: 1,
     updatedAt: '2026-09-01T00:00:00.000Z',
   },

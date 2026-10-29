@@ -16,6 +16,7 @@ import {
   FileText,
   FlaskConical,
   HandCoins,
+  BookOpenText,
   Inbox,
   Scale,
   Undo2,
@@ -180,6 +181,13 @@ export function companyNav(companyId: string): NavSection[] {
     {
       title: 'Tài chính',
       items: [
+        {
+          to: ROUTES.company.ledger(companyId),
+          label: 'Sổ tiền',
+          icon: BookOpenText,
+          module: 'finance',
+          permission: PERMISSIONS.ledgerView,
+        },
         {
           to: ROUTES.company.financeDocuments(companyId),
           label: 'Chứng từ',
