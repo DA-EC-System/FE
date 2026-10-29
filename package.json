@@ -12,7 +12,9 @@
     "lint": "eslint . --report-unused-disable-directives",
     "e2e": "cypress run",
     "e2e:open": "cypress open",
-    "e2e:be": "cypress run --env be=1"
+    "e2e:be": "cypress run --env be=1",
+    "ci:local": "node scripts/ci-local.mjs",
+    "ci:local:e2e": "node scripts/ci-local.mjs --skip-check"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "^5.2.5",

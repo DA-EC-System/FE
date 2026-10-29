@@ -111,6 +111,27 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 | `pnpm build` | Build production ra `dist/` |
 | `pnpm preview` | Xem thử bản build |
 | `pnpm typecheck` | Chỉ chạy TypeScript check, không build |
+| `pnpm test` | Unit test (Vitest) |
+| `pnpm e2e` | Cypress trên mock, cần `pnpm dev` đang chạy ở 5173 |
+| `pnpm ci:local` | Chạy như CI: lint, typecheck, unit, rồi tự bật Vite mock ở `127.0.0.1:5179`, chạy Cypress, tắt Vite |
+
+### Chạy CI ở máy
+
+GitHub Actions chỉ chạy lint, typecheck, unit trên mỗi PR. E2E (35–90 phút trên runner) chạy ở máy trước khi mở PR:
+
+```bash
+pnpm ci:local                                    # đủ bước, mọi spec mock
+pnpm ci:local --spec "cypress/e2e/p2/*.cy.ts"    # chỉ một nhóm spec
+pnpm ci:local --browser edge                     # Windows không cài Chrome: dùng Edge
+pnpm ci:local --no-e2e                           # chỉ lint, typecheck, unit
+pnpm ci:local:e2e                                # bỏ qua lint, typecheck, unit
+```
+
+Cuối lệnh in bảng tóm tắt từng bước; dán vào mục "Cách kiểm" của PR. Cổng 5179 bận thì thêm `--port <cổng khác>`.
+E2E đầy đủ trên GitHub vẫn chạy khi PR vào `main`, hoặc bấm tay ở Actions → CI → Run workflow.
+
+Thư mục dự án có dấu tiếng Việt trên Windows có thể làm `node_modules` lỗi; khi đó chép `src`, `cypress` sang
+thư mục không dấu đã `pnpm install` rồi chạy `pnpm ci:local` ở đó.
 
 ## Cấu trúc thư mục
 

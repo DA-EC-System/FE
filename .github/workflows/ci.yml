@@ -1,6 +1,8 @@
 # Kiểm mỗi PR và mỗi lần đẩy lên develop, main (FE#69; Documents/26-ke-hoach-kiem-thu.md §2.1):
-#   check: lint (ESLint 9), typecheck, unit test (Vitest)
-#   e2e:   Cypress trên mock MSW (Vite dev, mock bật mặc định), mọi spec ngoài nhóm cypress/e2e/*-be
+#   check: lint (ESLint 9), typecheck, unit test (Vitest), khoảng 1 phút
+#   e2e:   Cypress trên mock MSW, mọi spec ngoài nhóm cypress/e2e/*-be. Trên runner mất 35–90 phút nên
+#          chỉ chạy khi PR vào main (phát hành) hoặc bấm tay (Actions → CI → Run workflow, nhập spec nếu cần).
+#          PR vào develop: chạy ở máy bằng `pnpm ci:local` (scripts/ci-local.mjs), dán tóm tắt vào PR.
 # Chưa chạy `pnpm e2e:be` (BE thật, DB commerio_e2e): cần checkout commerio-backend và PostgreSQL, làm ở bước sau của FE#69.
 name: CI
 
@@ -8,6 +10,12 @@ on:
   push:
     branches: [develop, main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: 'Spec Cypress, cách nhau dấu phẩy (để trống: chạy hết)'
+        required: false
+        default: ''
 
 # Đẩy commit mới lên PR thì huỷ lần chạy cũ của PR đó.
 concurrency:
@@ -38,6 +46,7 @@ jobs:
       - run: pnpm test
 
   e2e:
+    if: github.event_name == 'workflow_dispatch' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -56,6 +65,7 @@ jobs:
           start: pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort
           wait-on: http://127.0.0.1:5173
           wait-on-timeout: 120
+          spec: ${{ inputs.spec }}
         env:
           CYPRESS_BASE_URL: http://127.0.0.1:5173
           VITE_USE_MOCKS: 'true'

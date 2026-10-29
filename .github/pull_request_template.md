@@ -12,8 +12,8 @@ Closes #
 
 ## Checklist
 
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` xanh
-- [ ] `pnpm e2e` (mock) xanh cho spec liên quan; có API thật thì chạy thêm `pnpm e2e:be`
+- [ ] `pnpm ci:local` xanh (lint, typecheck, unit, E2E mock; ít nhất `--spec` các spec liên quan), dán dòng tóm tắt vào "Cách kiểm". GitHub chỉ chạy lint, typecheck, unit
+- [ ] Có API thật thì chạy thêm `pnpm e2e:be`
 - [ ] Kiểu dữ liệu và mock MSW khớp `Documents/21`; bảng chuyển trong `src/lib/machines` trùng sơ đồ
 - [ ] Nút chỉ hiện khi vai trò có quyền (`available`), thử với ít nhất một vai trò không có quyền
 - [ ] Không commit `.env`, token
