@@ -61,6 +61,10 @@ export const PERMISSIONS = {
   financeView: 'finance.invoice.view',
   /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
   voucherCreate: 'finance.voucher.create',
+  /** Xem sổ tiền, lãi theo đơn, cảnh báo mốc doanh thu (sơ đồ D4.1) */
+  ledgerView: 'finance.ledger.view',
+  /** Xuất chứng từ sổ tiền kiểu MISA */
+  ledgerExport: 'finance.ledger.export',
   /** Xem báo cáo kinh doanh; cần thêm `finance.invoice.view` (UC-RP-01, D18) */
   reportView: 'report.dashboard.view',
   /** Xuất báo cáo ra CSV (UC-RP-02) */
