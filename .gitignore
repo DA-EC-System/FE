@@ -50,3 +50,4 @@ cypress/fixtures/*-be.json
 playwright-report
 test-results
 blob-report
+e2e/be/seed/*.json

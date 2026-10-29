@@ -16,5 +16,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["e2e", "playwright.config.ts"]
+  "include": ["e2e", "playwright.config.ts"],
+  // Script dựng dữ liệu BE thật import mã của repo backend, chạy bằng node từ thư mục BE
+  "exclude": ["e2e/be/seed"]
 }

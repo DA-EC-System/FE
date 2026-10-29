@@ -1,7 +1,7 @@
-// Dựng dữ liệu cho cypress/e2e/p4-be/tai-chinh.cy.ts trên database E2E. BE chưa có API tạo đơn (#24, #25) nên đơn ghi thẳng
+// Dựng dữ liệu cho e2e/be/p4/tai-chinh.spec.ts trên database E2E. BE chưa có API tạo đơn (#24, #25) nên đơn ghi thẳng
 // bảng sales và trạng thái thanh toán đổi bằng hàm biên của payment/finance, giống test/integration/finance của BE.
 // Cần API BE chạy ở cổng 3000 với cùng DATABASE_URL và PAYMENT_CREDENTIALS_KEY. Chạy từ thư mục BE, mỗi lần chạy spec một lần:
-//   DATABASE_URL=.../commerio_e2e PAYMENT_CREDENTIALS_KEY=... node --env-file=.env <FE>/cypress/be-seed/tai-chinh.mts <FE>/cypress/fixtures/fe12-be.json
+//   DATABASE_URL=.../commerio_e2e PAYMENT_CREDENTIALS_KEY=... node --env-file=.env <FE>/e2e/be/seed/tai-chinh.mts <FE>/e2e/be/seed/fe12-be.json
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';

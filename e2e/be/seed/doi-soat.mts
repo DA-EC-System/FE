@@ -1,7 +1,7 @@
-// Dựng dữ liệu cho cypress/e2e/p5-be/doi-soat.cy.ts trên database E2E. Gian hàng (#19) và đơn sàn (#21) chưa có luồng thật
+// Dựng dữ liệu cho e2e/be/p5/doi-soat.spec.ts trên database E2E. Gian hàng (#19) và đơn sàn (#21) chưa có luồng thật
 // nên ghi thẳng bảng như test/integration/finance/settlement-helpers.ts của BE; bảng kê đi qua POST /finance/settlements/dev/import.
 // Cần API BE chạy ở cổng 3000 với cùng DATABASE_URL. Chạy từ thư mục BE, mỗi lần chạy spec một lần:
-//   DATABASE_URL=.../commerio_e2e node --env-file=.env <FE>/cypress/be-seed/doi-soat.mts <FE>/cypress/fixtures/fe13-be.json
+//   DATABASE_URL=.../commerio_e2e node --env-file=.env <FE>/e2e/be/seed/doi-soat.mts <FE>/e2e/be/seed/fe13-be.json
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
