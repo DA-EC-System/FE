@@ -2,13 +2,12 @@
  * API gian hàng của công ty đang làm việc (module channel, UC-CH-01, UC-CH-02).
  * Không truyền companyId lên URL: BE lấy công ty từ token đã chọn (RLS theo company_id).
  * companyId chỉ nằm trong query key để cache không lẫn giữa các công ty.
- * Hợp đồng đề xuất ở FE#8, chờ commerio-backend#19.
+ * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
-import type { PageResult } from './types';
 import type {
   ChannelListing,
   ListingMatchInput,
@@ -17,6 +16,8 @@ import type {
   PushResult,
   RemoteSku,
   Shop,
+  ShopList,
+  ShopPlatformList,
   ShopAuthorizeUrl,
   ShopCallbackInput,
   ShopCallbackResult,
@@ -27,18 +28,10 @@ import type {
   ShopSetupResult,
 } from '@/types/shop';
 
-export interface ShopListParams {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  platform?: string;
-  status?: string;
-}
-
 export const shopKeys = {
   all: (companyId: string) => ['company', companyId, 'shops'] as const,
-  list: (companyId: string, params: ShopListParams) =>
-    [...shopKeys.all(companyId), 'list', params] as const,
+  list: (companyId: string) => [...shopKeys.all(companyId), 'list'] as const,
+  platforms: (companyId: string) => [...shopKeys.all(companyId), 'platforms'] as const,
   detail: (companyId: string, id: string) => [...shopKeys.all(companyId), 'detail', id] as const,
   listings: (companyId: string, id: string) => [...shopKeys.all(companyId), 'listings', id] as const,
   remoteSkus: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus', id] as const,
@@ -56,15 +49,26 @@ function useInvalidateShops() {
   return () => qc.invalidateQueries({ queryKey: shopKeys.all(companyId) });
 }
 
-export function useShops(params: ShopListParams, options: { enabled?: boolean } = {}) {
+export function useShops(options: { enabled?: boolean } = {}) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: shopKeys.list(companyId, params),
+    queryKey: shopKeys.list(companyId),
     enabled: Boolean(companyId) && (options.enabled ?? true),
-    queryFn: async (): Promise<PageResult<Shop>> => {
-      const { data } = await apiClient.get<PageResult<Shop>>('/channel/shops', {
-        params,
-      });
+    queryFn: async (): Promise<ShopList> => {
+      const { data } = await apiClient.get<ShopList>('/channel/shops');
+      return data;
+    },
+  });
+}
+
+export function useShopPlatforms(options: { enabled?: boolean } = {}) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.platforms(companyId),
+    enabled: Boolean(companyId) && (options.enabled ?? true),
+    retry: false,
+    queryFn: async (): Promise<ShopPlatformList> => {
+      const { data } = await apiClient.get<ShopPlatformList>('/channel/shops/platforms');
       return data;
     },
   });

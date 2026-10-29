@@ -12,7 +12,9 @@ import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDisconnectShop, useShops, useSyncShop } from '@/api/shops.api';
+import { useDisconnectShop, useShops, useShopPlatforms, useSyncShop } from '@/api/shops.api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { shopPage, shopPlatformOptions } from './shopList';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,16 +26,16 @@ import { formatDate, formatDateTime } from '@/utils/format';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { tokenExpiringSoon } from '@/lib/machines/channel';
-import type { Marketplace, Shop } from '@/types/shop';
+import type { Shop } from '@/types/shop';
 import { isUsable, PLATFORM_LABELS, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 
-const PLATFORMS: { value: Marketplace; hint: string }[] = [
-  { value: 'tiktok', hint: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.' },
-  { value: 'shopee', hint: 'Đăng nhập Shopee Open Platform để uỷ quyền.' },
-  { value: 'lazada', hint: 'Đăng nhập Lazada Seller Center để uỷ quyền.' },
-  { value: 'mock', hint: 'Sàn mô phỏng để thử luồng kết nối, không cần tài khoản sàn.' },
-];
+const PLATFORM_HINTS: Record<string, string | undefined> = {
+  tiktok: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.',
+  shopee: 'Đăng nhập Shopee Open Platform để uỷ quyền.',
+  lazada: 'Đăng nhập Lazada Seller Center để uỷ quyền.',
+  mock: 'Sàn mô phỏng để thử luồng kết nối, không cần tài khoản sàn.',
+};
 
 /** UC-CH-01: gian hàng của công ty và kết nối gian hàng mới qua OAuth */
 export function ShopListPage() {
@@ -54,12 +56,16 @@ export function ShopListPage() {
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
   const [zeroStock, setZeroStock] = useState(false);
 
-  const shopsQuery = useShops({
+  const shopsQuery = useShops();
+  const platformsQuery = useShopPlatforms({ enabled: canConnect });
+  const platforms = (platformsQuery.data?.items ?? []).filter((p) => p.connectable);
+  const shopOptions = shopPlatformOptions(shopsQuery.data?.items ?? []);
+  const visibleShops = shopPage(shopsQuery.data?.items ?? [], {
     page,
     pageSize,
-    search: debouncedSearch || undefined,
-    platform: platform || undefined,
-    status: status || undefined,
+    search: debouncedSearch,
+    platform,
+    status,
   });
   const syncMut = useSyncShop();
   const disconnectMut = useDisconnectShop();
@@ -129,7 +135,7 @@ export function ShopListPage() {
         id: 'platform',
         header: 'Sàn',
         meta: { className: 'w-40' },
-        cell: ({ row }) => PLATFORM_LABELS[row.original.platform],
+        cell: ({ row }) => PLATFORM_LABELS[row.original.platform] ?? row.original.platform,
       },
       {
         id: 'status',
@@ -242,20 +248,36 @@ export function ShopListPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {PLATFORMS.map(({ value, hint }) => {
+            {platformsQuery.isLoading ? (
+              <div className="col-span-full grid gap-3 sm:grid-cols-2" role="status" aria-label="Đang tải sàn">
+                <Skeleton className="h-32" /><Skeleton className="h-32" />
+              </div>
+            ) : platformsQuery.isError ? (
+              <AlertMessage severity="error" className="col-span-full">
+                <p>{getErrorMessage(platformsQuery.error)}</p>
+                <Button variant="outline" size="sm" disabled={platformsQuery.isFetching} onClick={() => void platformsQuery.refetch()}>
+                  Thử lại
+                </Button>
+              </AlertMessage>
+            ) : platforms.length === 0 ? (
+              <p className="col-span-full text-sm text-muted-foreground">
+                Chưa có sàn nào được bật. Liên hệ quản trị nền tảng để kết nối sàn mới.
+              </p>
+            ) : platforms.map(({ platform: value, name }) => {
+              const hint = PLATFORM_HINTS[value];
               const busy = connector.pending && connector.variables?.platform === value && !connector.variables.shopId;
               return (
                 <div key={value} className="flex flex-col gap-3 rounded-lg border p-4" data-platform={value}>
                   <div className="flex items-center gap-2 font-medium">
                     <Store className="size-4 text-primary" />
-                    {PLATFORM_LABELS[value]}
+                    {name}
                   </div>
-                  <p className="flex-1 text-sm text-muted-foreground">{hint}</p>
+                  {hint && <p className="flex-1 text-sm text-muted-foreground">{hint}</p>}
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={connector.pending}
-                    aria-label={`Kết nối ${PLATFORM_LABELS[value]}`}
+                    aria-label={`Kết nối ${name}`}
                     onClick={() => connector.start({ platform: value })}
                   >
                     <PlugZap />
@@ -309,7 +331,7 @@ export function ShopListPage() {
             label="Sàn"
             value={platform}
             onChange={withReset(setPlatform)}
-            options={PLATFORMS.map((p) => ({ value: p.value, label: PLATFORM_LABELS[p.value] }))}
+            options={shopOptions}
           />
           <FilterSelect
             label="Trạng thái"
@@ -320,7 +342,7 @@ export function ShopListPage() {
         </FilterBar>
         <DataTable
           columns={columns}
-          data={shopsQuery.data?.items ?? []}
+          data={visibleShops.items}
           getRowId={(r) => r.id}
           loading={shopsQuery.isLoading}
           fetching={shopsQuery.isFetching}
@@ -331,9 +353,9 @@ export function ShopListPage() {
           }
           onRowClick={openListings}
           pagination={{
-            page,
+            page: visibleShops.page,
             pageSize,
-            total: shopsQuery.data?.total ?? 0,
+            total: visibleShops.total,
             onChange: (p, size) => {
               setPage(p);
               setPageSize(size);

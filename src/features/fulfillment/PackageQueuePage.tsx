@@ -54,7 +54,7 @@ export function PackageQueuePage() {
     shopId: shopId || undefined,
   });
   // Kho không có quyền xem gian hàng nên chỉ lọc theo nguồn
-  const shops = useShops({ pageSize: 100 }, { enabled: canViewShops });
+  const shops = useShops({ enabled: canViewShops });
   const handOver = useHandOver();
 
   const [selected, setSelected] = useState<Map<string, PackageSummary>>(new Map());

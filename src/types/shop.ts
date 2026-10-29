@@ -6,6 +6,16 @@
 
 export type Marketplace = 'tiktok' | 'shopee' | 'lazada' | 'mock';
 
+/** Sàn được BE công bố theo adapter và cấu hình (Documents/21 §18.1). */
+export interface ShopPlatform {
+  platform: string;
+  name: string;
+  connectable: boolean;
+}
+
+export interface ShopList { items: Shop[] }
+export interface ShopPlatformList { items: ShopPlatform[] }
+
 /**
  * Sơ đồ Gian hàng (C1, FE#58): connecting (đã uỷ quyền, đang chạy thiết lập lần đầu) → active;
  * active → needs_reauth khi sàn thu hồi quyền hoặc token hết hạn; → disconnected khi người dùng ngắt.
@@ -40,7 +50,7 @@ export interface Shop {
 
 /** Bắt đầu OAuth; shopId khi kết nối lại một gian hàng đã có */
 export interface ShopConnectInput {
-  platform: Marketplace;
+  platform: string;
   shopId?: string;
 }
 

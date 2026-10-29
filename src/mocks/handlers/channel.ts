@@ -9,6 +9,8 @@ import type {
   RemoteSku,
   SetupSuggestion,
   Shop,
+  ShopList,
+  ShopPlatformList,
   ShopCallbackInput,
   ShopAuthorizeUrl,
   ShopCallbackResult,
@@ -25,8 +27,7 @@ import * as inventory from '../inventoryData';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
-import type { PageResult } from '@/api/types';
-import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
+import { API, LATENCY, checkTransition, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, rid, staleVersion, variantAttributes } from './catalog';
 import { ensureStandard, sellableVariants, skuOf } from './pricing';
@@ -480,27 +481,24 @@ registerMarketplaceEvent({
 });
 
 export const shopHandlers = [
+  http.get(`${API}/channel/shops/platforms`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.shopView);
+    if (!guard.ok) return guard.response;
+    return HttpResponse.json<ShopPlatformList>({ items: [
+      { platform: 'tiktok', name: 'TikTok Shop', connectable: true },
+      { platform: 'shopee', name: 'Shopee', connectable: true },
+      { platform: 'lazada', name: 'Lazada', connectable: true },
+      { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true },
+    ] });
+  }),
   http.get(`${API}/channel/shops`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopView);
     if (!guard.ok) return guard.response;
-    const url = new URL(request.url);
-    const { page, pageSize } = pageParams(url);
-    const search = (url.searchParams.get('search') ?? '').toLowerCase();
-    const platform = url.searchParams.get('platform') ?? '';
-    const status = url.searchParams.get('status') ?? '';
-
-    let items = db.shops.filter((s) => s.companyId === guard.value.companyId);
-    if (search) {
-      items = items.filter(
-        (s) =>
-          s.shopName.toLowerCase().includes(search) ||
-          s.externalShopId.toLowerCase().includes(search),
-      );
-    }
-    if (platform) items = items.filter((s) => s.platform === platform);
-    if (status) items = items.filter((s) => s.status === status);
-    return HttpResponse.json<PageResult<Shop>>(paginate(items.map(toShop), page, pageSize));
+    const items = db.shops.filter((s) => s.companyId === guard.value.companyId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return HttpResponse.json<ShopList>({ items: items.map(toShop) });
   }),
 
   http.get(`${API}/channel/shops/:platform/authorize-url`, async ({ params, request }) => {
