@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'public/mockServiceWorker.js', 'cypress/screenshots', 'cypress/videos'] },
+  { ignores: ['dist', 'public/mockServiceWorker.js', 'cypress/screenshots', 'cypress/videos', 'playwright-report', 'test-results'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -21,8 +21,8 @@ export default tseslint.config(
     },
   },
   {
-    // Cypress, MSW, cấu hình chạy ngoài React
-    files: ['cypress/**/*.ts', 'src/mocks/**/*.ts', '*.config.{ts,mjs,js}'],
+    // E2E, MSW, cấu hình chạy ngoài React
+    files: ['cypress/**/*.ts', 'e2e/**/*.ts', 'src/mocks/**/*.ts', '*.config.{ts,mjs,js}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { 'react-refresh/only-export-components': 'off' },
   },

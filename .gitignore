@@ -45,3 +45,8 @@ cypress/screenshots
 cypress/videos
 cypress/downloads
 cypress/fixtures/*-be.json
+
+# Playwright
+playwright-report
+test-results
+blob-report

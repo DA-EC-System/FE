@@ -18,7 +18,7 @@ import type {
   StatusChangeSource,
   UserRef,
 } from '@/types/sales';
-import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, findOwned, rid } from './catalog';
 import { ensureStandard, sellableVariants } from './pricing';
@@ -338,7 +338,7 @@ export const salesHandlers = [
   }),
 
   http.get(`${API}/sales/order-variants`, async ({ request }) => {
-    await delay(150);
+    await delay(lag(150));
     const guard = requireCompany(request, PERMISSIONS.orderCreate);
     if (!guard.ok) return guard.response;
     const { companyId } = guard.value;

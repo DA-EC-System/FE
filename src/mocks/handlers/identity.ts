@@ -3,7 +3,7 @@ import { CEO_ROLE_ID, db, passwords, permissionCatalog, type MockMembership, typ
 import type { AuditAction } from '@/types/companySettings';
 import type { InviteStaffInput, InviteStaffResult, Role, RoleInput, StaffMember } from '@/types/identity';
 import { PERMISSIONS } from '@/utils/permissions';
-import { API, CompanyActor, LATENCY, enabledModulesOf, pageParams, paginate, problem, requireCompany, rolesOfMember } from './utils';
+import { API, CompanyActor, LATENCY, lag, enabledModulesOf, pageParams, paginate, problem, requireCompany, rolesOfMember } from './utils';
 
 // ---------- Identity: nhân viên và vai trò của công ty đang chọn (UC-PI-05, UC-PI-06) ----------
 export function companyRoles(companyId: string): MockRole[] {
@@ -171,7 +171,7 @@ export function validateRoleInput(body: RoleInput): Response | null {
 
 export const identityHandlers = [
   http.get(`${API}/identity/permissions`, async ({ request }) => {
-    await delay(100);
+    await delay(lag(100));
     const guard = requireCompany(request, PERMISSIONS.roleView);
     if (!guard.ok) return guard.response;
     const enabled = enabledModulesOf(guard.value.companyId);

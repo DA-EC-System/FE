@@ -1,7 +1,7 @@
 import { http, HttpResponse, delay } from 'msw';
 import { CEO_ROLE_ID, db, passwords } from '../db';
 import type { ChangePasswordRequest, GoogleLoginRequest, LoginRequest, MeResponse, RegisterCompanyRequest, RegisterCompanyResponse, SelectCompanyResponse } from '@/types/auth';
-import { API, LATENCY, REFRESH_COOKIE, buildContext, clearRefreshCookie, loginPayload, makeToken, membershipsOf, passwordChangeRequired, problem, readCookie, readRefresh, readToken, revokedRefresh, setRefreshCookie, writePlatformLog } from './utils';
+import { API, LATENCY, lag, REFRESH_COOKIE, buildContext, clearRefreshCookie, loginPayload, makeToken, membershipsOf, passwordChangeRequired, problem, readCookie, readRefresh, readToken, revokedRefresh, setRefreshCookie, writePlatformLog } from './utils';
 
 // ---------- Auth ----------
 export const authHandlers = [
@@ -102,7 +102,7 @@ export const authHandlers = [
 
   // docs/21 A2: đổi cookie refresh lấy access token mới (chưa gắn công ty)
   http.post(`${API}/identity/refresh`, async () => {
-    await delay(100);
+    await delay(lag(100));
     const account = readRefresh();
     if (!account) {
       return problem(401, 'Phiên đăng nhập đã hết hạn', { code: 'refresh_invalid' });
@@ -111,7 +111,7 @@ export const authHandlers = [
   }),
 
   http.post(`${API}/identity/logout`, async () => {
-    await delay(100);
+    await delay(lag(100));
     const value = readCookie(REFRESH_COOKIE);
     if (value) revokedRefresh.add(value);
     clearRefreshCookie();
@@ -119,7 +119,7 @@ export const authHandlers = [
   }),
 
   http.get(`${API}/identity/me`, async ({ request }) => {
-    await delay(100);
+    await delay(lag(100));
     const token = readToken(request);
     if (!token) return problem(401, 'Chưa đăng nhập');
     const payload: MeResponse = {
