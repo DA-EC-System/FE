@@ -15,13 +15,27 @@ describe('P2 · Mua hàng', () => {
   context('CEO', () => {
     beforeEach(() => cy.dangNhap('ceo@commerio.vn', 'ceo'));
 
-    it('duyệt đề nghị chờ duyệt (A1)', () => {
+    it('tự duyệt đề nghị mình lập rồi tự ghi sổ phiếu nhận (A1, A2; FE#93)', () => {
       moTab('Đề nghị nhập', 'DN-000003');
       cy.findByTestId('request-status').should('contain', 'Chờ duyệt');
+      for (const label of ['Duyệt', 'Trả về', 'Từ chối']) {
+        cy.findByRole('button', { name: label }).should('be.visible').and('not.have.attr', 'aria-disabled', 'true');
+      }
       thaoTac('Duyệt');
       cy.toast('DN-000003');
       cy.findByTestId('request-status').should('contain', 'Đã duyệt');
       cy.findByRole('button', { name: 'Duyệt' }).should('not.exist');
+
+      thaoTac('Đã đặt NCC');
+      cy.findByRole('button', { name: 'Lập phiếu nhận' }).click();
+      cy.findByRole('dialog').findByRole('button', { name: 'Lập phiếu' }).click();
+      cy.toast('Đã lập phiếu nhận');
+      cy.findByTestId('receipt-status').should('contain', 'Đang kiểm');
+      cy.findAllByLabelText(/^Báo giao /).first().clear().type('1');
+      cy.findAllByLabelText(/^Đạt /).first().clear().type('1');
+      cy.findByRole('button', { name: 'Ghi sổ' }).should('not.have.attr', 'aria-disabled', 'true');
+      thaoTac('Ghi sổ');
+      cy.findByTestId('receipt-status').should('contain', 'Khớp');
     });
 
     it('người gửi phiếu trả không tự ghi kết quả từ NCC (B4)', () => {

@@ -57,6 +57,7 @@ export const purchaseRequestMachine = defineMachine<PurchaseRequestStatus, Purch
     label: 'Duyệt',
     permission: P.purchaseRequestApprove,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     guard: (r) => (r.activeLines ? null : 'all_lines_excluded'),
   },
   {
@@ -66,6 +67,7 @@ export const purchaseRequestMachine = defineMachine<PurchaseRequestStatus, Purch
     label: 'Trả về',
     permission: P.purchaseRequestApprove,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     needsReason: true,
   },
   {
@@ -75,6 +77,7 @@ export const purchaseRequestMachine = defineMachine<PurchaseRequestStatus, Purch
     label: 'Từ chối',
     permission: P.purchaseRequestApprove,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     needsReason: true,
   },
   { from: 'approved', to: 'ordered', action: 'order', label: 'Đã đặt NCC', permission: P.purchaseRequestManage },
@@ -124,6 +127,7 @@ export const goodsReceiptMachine = defineMachine<GoodsReceiptStatus, GoodsReceip
     label: 'Ghi sổ',
     permission: P.goodsReceiptManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     guard: (r) => (r.short > 0 ? 'has_shortage' : null),
   },
   {
@@ -133,6 +137,7 @@ export const goodsReceiptMachine = defineMachine<GoodsReceiptStatus, GoodsReceip
     label: 'Ghi sổ, báo giao thiếu',
     permission: P.goodsReceiptManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     guard: (r) => (r.short > 0 ? null : 'no_shortage'),
   },
   {

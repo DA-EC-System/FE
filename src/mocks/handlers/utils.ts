@@ -189,6 +189,7 @@ export interface CompanyActor {
   account: Account;
   membership: MockMembership;
   permissions: string[];
+  canSelfApprove: boolean;
 }
 
 /** `permission` null: chỉ cần là thành viên công ty (trang Tổng quan, Việc cần làm) */
@@ -234,6 +235,7 @@ export function requireCompany(request: Request, permission: string | null): Gua
       account: token.account,
       membership,
       permissions: context.permissions,
+      canSelfApprove: Boolean(context.canSelfApprove),
     },
   };
 }
@@ -269,7 +271,11 @@ export function checkTransition<S extends string, A extends string, R extends Ow
   reason?: string | null,
 ): Guard<S> {
   const result = machine.check(from, action, {
-    actor: { accountId: actor.account.id, permissions: actor.permissions },
+    actor: {
+      accountId: actor.account.id,
+      permissions: actor.permissions,
+      canSelfApprove: actor.canSelfApprove,
+    },
     record,
     reason,
   });
