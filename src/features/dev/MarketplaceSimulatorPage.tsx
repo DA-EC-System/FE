@@ -22,7 +22,7 @@ import type { MarketplaceEventType } from '@/types/devMarketplace';
  */
 export function MarketplaceSimulatorPage() {
   const events = useMarketplaceEvents();
-  const shops = useShops({ pageSize: 100 });
+  const shops = useShops();
   const fire = useFireMarketplaceEvent();
   const [shopId, setShopId] = useState('');
   const [paramValues, setParamValues] = useState<Record<string, string>>({});

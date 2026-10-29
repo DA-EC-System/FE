@@ -37,7 +37,7 @@ export function PricelistListPage() {
   const canPickShop = canManage && channelOn && canSeeShops;
 
   const listQuery = usePricelists();
-  const shopsQuery = useShops({ page: 1, pageSize: 100 }, { enabled: canPickShop });
+  const shopsQuery = useShops({ enabled: canPickShop });
   const deleteMut = useDeletePricelist();
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<Pricelist | null>(null);

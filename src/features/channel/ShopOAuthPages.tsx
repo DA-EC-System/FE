@@ -14,8 +14,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import type { Marketplace } from '@/types/shop';
 import { PLATFORM_LABELS } from './shopSchemas';
-import { formatDateTime } from '@/utils/format';
 import { OAUTH_COMPANY_KEY } from './useStartConnect';
+import { connectedToast } from './connectResult';
 
 /**
  * redirect_uri cố định của sàn (/channel/:platform/callback): chuyển vào khu của công ty đã bắt đầu
@@ -77,21 +77,12 @@ export function ShopOAuthCallbackPage() {
     }
     callback
       .mutateAsync({ platform: platform as Marketplace, code, state })
-      .then(({ shop, created, reconnect }) => {
-        if (created) {
-          // Gian hàng mới chưa bán được cho đến khi xong thiết lập lần đầu (sơ đồ C1)
-          toast.success(`Đã kết nối ${shop.shopName}. Hoàn tất thiết lập để bắt đầu bán.`);
-          navigate(ROUTES.company.shopSetup(companyId, shop.id), { replace: true });
+      .then((result) => {
+        toast.success(connectedToast(result));
+        if (result.created) {
+          navigate(ROUTES.company.shopSetup(companyId, result.shop.id), { replace: true });
           return;
         }
-        const caughtUp = reconnect
-          ? [
-              reconnect.jobsRun ? `chạy ${reconnect.jobsRun} việc đang chờ` : null,
-              reconnect.relisted ? `đưa lại ${reconnect.relisted} listing lên sàn` : null,
-              reconnect.pulledFrom ? `kéo đơn từ ${formatDateTime(reconnect.pulledFrom)}` : null,
-            ].filter(Boolean)
-          : [];
-        toast.success(`Đã kết nối lại ${shop.shopName}${caughtUp.length ? `: ${caughtUp.join(', ')}` : ''}`);
         back();
       })
       .catch((e) => {
