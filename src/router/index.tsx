@@ -22,6 +22,9 @@ import { ModuleSettingsPage } from '@/features/company/ModuleSettingsPage';
 import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
+import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
+import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
+import { MockOAuthPage, ShopOAuthCallbackPage, ShopOAuthRedirect } from '@/features/channel/ShopOAuthPages';
 import { StaffListPage } from '@/features/identity/StaffListPage';
 import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
@@ -31,13 +34,45 @@ import { PricelistListPage } from '@/features/pricing/PricelistListPage';
 import { PricelistDetailPage } from '@/features/pricing/PricelistDetailPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
-import { PlaceholderPage } from '@/components/common/PlaceholderPage';
+import { PurchasingPage } from '@/features/purchasing/PurchasingPage';
+import { PurchaseRequestPage } from '@/features/purchasing/PurchaseRequestPage';
+import { GoodsReceiptPage } from '@/features/purchasing/GoodsReceiptPage';
+import { SupplierReturnPage } from '@/features/purchasing/SupplierReturnPage';
+import { OrderListPage } from '@/features/sales/OrderListPage';
+import { OrderCreatePage } from '@/features/sales/OrderCreatePage';
+import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
+import { CustomerListPage } from '@/features/sales/CustomerListPage';
+import { CustomerDetailPage } from '@/features/sales/CustomerDetailPage';
+import { PackageQueuePage } from '@/features/fulfillment/PackageQueuePage';
+import { PackageDetailPage } from '@/features/fulfillment/PackageDetailPage';
+import { PackScanPage } from '@/features/fulfillment/PackScanPage';
+import { ReturnListPage } from '@/features/returns/ReturnListPage';
+import { ReturnDetailPage } from '@/features/returns/ReturnDetailPage';
+import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
+import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
+import { TransactionsPage } from '@/features/payment/TransactionsPage';
+import { FinanceDocumentsPage } from '@/features/finance/FinanceDocumentsPage';
+import { InvoiceDetailPage } from '@/features/finance/InvoiceDetailPage';
+import { ReceiptDetailPage } from '@/features/finance/ReceiptDetailPage';
+import { PaymentVoucherDetailPage } from '@/features/finance/PaymentVoucherDetailPage';
+import { CodPage } from '@/features/finance/CodPage';
+import { RefundsPage } from '@/features/finance/RefundsPage';
+import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
+import { SettlementsPage } from '@/features/finance/SettlementsPage';
+import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
+import { ReportPage } from '@/features/report/ReportPage';
+import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
-import { PERMISSIONS } from '@/utils/permissions';
+import { PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
   { path: ROUTES.login, element: <LoginPage /> },
+  // Trang uỷ quyền của sàn giả lập: đứng ngoài app như trang của sàn thật
+  { path: ROUTES.mockOAuth, element: <MockOAuthPage /> },
+  // Khách được cổng thanh toán trả về đây, không có phiên đăng nhập
+  { path: ROUTES.paymentResult, element: <PaymentResultPage /> },
   {
     element: <RequireGuest />,
     children: [{ path: ROUTES.register, element: <RegisterPage /> }],
@@ -54,6 +89,8 @@ export const router = createBrowserRouter([
             element: <RequireStaff />,
             children: [{ path: ROUTES.selectCompany, element: <SelectCompanyPage /> }],
           },
+          // redirect_uri của sàn: URL cố định, chưa có companyId
+          { path: ROUTES.shopOAuthCallback, element: <ShopOAuthRedirect /> },
 
           // Quản trị nền tảng — không có dữ liệu kinh doanh (QT-03)
           {
@@ -86,6 +123,30 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.shopView}>
                         <ShopListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/shops/oauth-callback/:platform',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopConnect}>
+                        <ShopOAuthCallbackPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/shops/:shopId',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopView}>
+                        <ShopListingsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/shops/:shopId/setup',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.shopConnect}>
+                        <ShopSetupPage />
                       </RequireModule>
                     ),
                   },
@@ -187,9 +248,225 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'orders',
-                    element: <PlaceholderPage title="Đơn hàng" />,
+                    path: 'purchasing',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <PurchasingPage />
+                      </RequireModule>
+                    ),
                   },
+                  {
+                    path: 'purchasing/requests/:requestId',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <PurchaseRequestPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'purchasing/receipts/:receiptId',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <GoodsReceiptPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'purchasing/returns/:returnId',
+                    element: (
+                      <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
+                        <SupplierReturnPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/orders',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.orderView}>
+                        <OrderListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/orders/new',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.orderCreate}>
+                        <OrderCreatePage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/orders/:orderId',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.orderView}>
+                        <OrderDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/customers',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.customerView}>
+                        <CustomerListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/customers/:customerId',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.customerView}>
+                        <CustomerDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/returns',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.returnView}>
+                        <ReturnListPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'sales/returns/:returnId',
+                    element: (
+                      <RequireModule module="sales" permission={PERMISSIONS.returnView}>
+                        <ReturnDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'fulfillment/packages',
+                    element: (
+                      <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
+                        <PackageQueuePage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'fulfillment/packages/:packageId',
+                    element: (
+                      <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
+                        <PackageDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'fulfillment/packages/:packageId/pack',
+                    element: (
+                      <RequireModule module="fulfillment" permission={PERMISSIONS.fulfillmentProcess}>
+                        <PackScanPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/documents',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <FinanceDocumentsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/invoices/:id',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <InvoiceDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/receipts/:id',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <ReceiptDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/payment-vouchers/:id',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <PaymentVoucherDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/cod',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <CodPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/refunds',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <RefundsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/unmatched',
+                    element: (
+                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
+                        <UnmatchedPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/settlements',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.financeView}>
+                        <SettlementsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'finance/settlements/:id',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.financeView}>
+                        <SettlementDetailPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'reports',
+                    element: (
+                      <RequireModule module="report" permission={[PERMISSIONS.reportView, PERMISSIONS.financeView]}>
+                        <ReportPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'payment/transactions',
+                    element: (
+                      <RequireModule module="payment" permission={PERMISSIONS.transactionView}>
+                        <TransactionsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'settings/payment-gateways',
+                    element: (
+                      <RequireModule module="payment" permission={PERMISSIONS.gatewayManage}>
+                        <PaymentGatewaysPage />
+                      </RequireModule>
+                    ),
+                  },
+                  ...(USE_MOCKS
+                    ? [
+                        {
+                          path: 'dev/marketplace',
+                          element: (
+                            <RequireModule module="channel" permission={PERMISSIONS.shopView}>
+                              <MarketplaceSimulatorPage />
+                            </RequireModule>
+                          ),
+                        },
+                      ]
+                    : []),
                 ],
               },
             ],
@@ -199,4 +476,4 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <NotFoundPage /> },
-]);
+], { basename: BASE_PATH.replace(/\/$/, '') || '/' });

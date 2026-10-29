@@ -1,16 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { toast } from 'sonner';
-import { Archive, Eye, ImageIcon, Pencil, Plus, Settings2 } from 'lucide-react';
+import { Eye, ImageIcon, Pencil, Plus, Settings2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -21,17 +18,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useArchiveProduct, useCategories, useProducts } from '@/api/catalog.api';
+import { useCategories, useProducts } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
-import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import type { ProductListItem, ProductStatus } from '@/types/catalog';
+import type { ProductListItem, ProductListParams, ProductStatus } from '@/types/catalog';
 import { PRODUCT_STATUS_LABELS } from './labels';
+import { BUSINESS_STATUS_LABELS, BusinessActionMenu, ParentStatus, parentActions, useBusinessAction } from './businessStatus';
 
 /** UC-CP-02: danh sách sản phẩm của công ty, tìm theo tên hoặc SKU */
 export function ProductListPage() {
@@ -46,9 +43,10 @@ export function ProductListPage() {
   const debouncedSearch = useDebounce(search.trim());
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState<ProductStatus>('active');
+  const [businessStatus, setBusinessStatus] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [archiving, setArchiving] = useState<ProductListItem | null>(null);
+  const business = useBusinessAction();
 
   const productsQuery = useProducts({
     page,
@@ -56,9 +54,9 @@ export function ProductListPage() {
     search: debouncedSearch || undefined,
     categoryId: categoryId || undefined,
     status,
+    businessStatus: status === 'active' && businessStatus ? (businessStatus as ProductListParams['businessStatus']) : undefined,
   });
   const categories = useCategories().data ?? [];
-  const archiveMut = useArchiveProduct();
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -68,24 +66,6 @@ export function ProductListPage() {
     };
 
   const open = (id: string) => navigate(ROUTES.company.catalogProduct(companyId, id));
-
-  const handleArchive = async () => {
-    if (!archiving) return;
-    try {
-      await archiveMut.mutateAsync({ id: archiving.id, version: archiving.version });
-      toast.success(`Đã chuyển ${archiving.name} sang Đã lưu trữ`);
-    } catch (e) {
-      const code = problemCode(e);
-      if (code === 'version_conflict') {
-        toast.warning(`${archiving.name} vừa được người khác sửa. Chưa có gì thay đổi, hãy thử lại.`);
-      } else if (code === 'product_has_active_orders') {
-        toast.warning(`Không xoá được ${archiving.name} vì sản phẩm còn đơn hàng chưa hoàn tất.`);
-      } else {
-        toast.error(problemMessage(e));
-      }
-    }
-    setArchiving(null);
-  };
 
   const columns = useMemo<ColumnDef<ProductListItem>[]>(
     () => [
@@ -119,11 +99,8 @@ export function ProductListPage() {
       {
         id: 'status',
         header: 'Trạng thái',
-        meta: { className: 'w-32' },
-        cell: ({ row }) => {
-          const s = PRODUCT_STATUS_LABELS[row.original.status];
-          return <Badge variant={s.variant}>{s.label}</Badge>;
-        },
+        meta: { className: 'w-48' },
+        cell: ({ row }) => <ParentStatus item={row.original} />,
       },
       {
         id: 'updatedAt',
@@ -143,10 +120,12 @@ export function ProductListPage() {
               <RowAction label={editable ? 'Sửa' : 'Xem'} onClick={() => open(p.id)}>
                 {editable ? <Pencil /> : <Eye />}
               </RowAction>
-              {editable && (
-                <RowAction label="Xoá" destructive onClick={() => setArchiving(p)}>
-                  <Archive />
-                </RowAction>
+              {canManage && (
+                <BusinessActionMenu
+                  label={`Đổi trạng thái ${p.name}`}
+                  choices={parentActions(p).map((action) => ({ action }))}
+                  onSelect={(action) => business.request({ productId: p.id, name: p.name, action })}
+                />
               )}
             </div>
           );
@@ -206,7 +185,7 @@ export function ProductListPage() {
             onChange={withReset(setCategoryId)}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
-          {/* API không có "tất cả": sản phẩm đang bán và đã lưu trữ xem riêng */}
+          {/* API không có "tất cả": sản phẩm chưa lưu trữ và đã lưu trữ xem riêng */}
           <div className="grid gap-1.5">
             <Label className="text-xs text-muted-foreground">Trạng thái</Label>
             <Select value={status} onValueChange={withReset((v: string) => setStatus(v as ProductStatus))}>
@@ -222,6 +201,17 @@ export function ProductListPage() {
               </SelectContent>
             </Select>
           </div>
+          {status === 'active' && (
+            <FilterSelect
+              label="Có SKU"
+              value={businessStatus}
+              onChange={withReset(setBusinessStatus)}
+              options={(['selling', 'paused', 'discontinued'] as const).map((s) => ({
+                value: s,
+                label: BUSINESS_STATUS_LABELS[s],
+              }))}
+            />
+          )}
         </FilterBar>
         <DataTable
           columns={columns}
@@ -243,22 +233,7 @@ export function ProductListPage() {
         />
       </Card>
 
-      <ConfirmDialog
-        open={Boolean(archiving)}
-        title="Xoá sản phẩm?"
-        message={
-          <>
-            <strong>{archiving?.name}</strong> sẽ chuyển sang Đã lưu trữ cùng {archiving?.variantCount}{' '}
-            biến thể và chỉ còn xem được. SKU đã cấp được giữ lại, không cấp cho sản phẩm khác. Sản
-            phẩm còn đơn hàng chưa hoàn tất thì không xoá được.
-          </>
-        }
-        confirmLabel="Xoá"
-        destructive
-        loading={archiveMut.isPending}
-        onConfirm={handleArchive}
-        onClose={() => setArchiving(null)}
-      />
+      {business.dialog}
     </div>
   );
 }

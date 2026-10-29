@@ -5,6 +5,8 @@ import path from 'node:path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Staging có bản mock ở /mock/ (Dockerfile, BASE_PATH); mặc định chạy ở gốc.
+  base: process.env.BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -21,7 +23,9 @@ export default defineConfig({
     },
     // Chạy với backend thật (VITE_USE_MOCKS=false): FE và API cùng origin như sau Caddy (V38),
     // để cookie refresh SameSite=Strict được gửi kèm. Khi bật mock, MSW chặn request trước proxy.
+    // Stream SSE do tiến trình realtime phục vụ (Documents/21 §13.1): phải đứng trước dòng /api.
     proxy: {
+      '/api/v1/notification/stream': process.env.REALTIME_PROXY_TARGET ?? 'http://localhost:3002',
       '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:3000',
     },
   },

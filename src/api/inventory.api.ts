@@ -8,11 +8,11 @@ import { apiClient } from './client';
 import type { PageResult } from './types';
 import { useAuthStore } from '@/stores/authStore';
 import type {
+  RejectDecision,
   ReorderRuleInput,
-  ReturnOrder,
-  ReturnReceiptInput,
   StockDetail,
   StockDoc,
+  StockDocAction,
   StockDocCreateInput,
   StockDocListParams,
   StockDocSummary,
@@ -31,18 +31,24 @@ export const inventoryKeys = {
   docs: (companyId: string, params: StockDocListParams) =>
     [...inventoryKeys.all(companyId), 'docs', params] as const,
   doc: (companyId: string, id: string) => [...inventoryKeys.all(companyId), 'doc', id] as const,
-  returns: (companyId: string) => [...inventoryKeys.all(companyId), 'returns'] as const,
 };
 
 function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-/** Ghi sổ đổi tồn, lịch sử, danh sách phiếu và trạng thái đơn hoàn → làm mới cả nhóm */
+/** Ghi sổ đổi tồn, thẻ kho, danh sách phiếu, việc cần làm và yêu cầu trả → làm mới cả nhóm */
 function useInvalidateInventory() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
-  return () => qc.invalidateQueries({ queryKey: inventoryKeys.all(companyId) });
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: inventoryKeys.all(companyId) }),
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'tasks'] }),
+      // Kiểm hàng về ghi sổ thì yêu cầu trả đóng, đơn hết cờ Có yêu cầu trả (FE#60)
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'returns'] }),
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'sales'] }),
+    ]);
 }
 
 // ---------- Tồn kho, ngưỡng (UC-IN-01, UC-IN-02) ----------
@@ -83,7 +89,7 @@ export function useSetReorderRule() {
   });
 }
 
-// ---------- Phiếu nhập, phiếu xuất ----------
+// ---------- Phiếu kho (sơ đồ B3) ----------
 
 export function useStockDocs(params: StockDocListParams) {
   const companyId = useCompanyId();
@@ -132,37 +138,33 @@ export function useUpdateStockDoc() {
   });
 }
 
-/** Ghi sổ hoặc huỷ phiếu nháp */
-export function useStockDocAction(action: 'post' | 'cancel') {
+/** Chuyển trạng thái phiếu: gửi duyệt, duyệt, từ chối (kèm lý do), ghi sổ, huỷ */
+export function useStockDocAction() {
   const invalidate = useInvalidateInventory();
   return useMutation({
-    mutationFn: async ({ id, version }: { id: string; version: number }) => {
-      const { data } = await apiClient.post<StockDoc>(`/inventory/documents/${id}/${action}`, { version });
+    mutationFn: async ({
+      id,
+      action,
+      ...body
+    }: {
+      id: string;
+      action: StockDocAction;
+      version: number;
+      reason?: string;
+    }) => {
+      const { data } = await apiClient.post<StockDoc>(`/inventory/documents/${id}/${action}`, body);
       return data;
     },
     onSuccess: invalidate,
   });
 }
 
-// ---------- Nhập hoàn (UC-IN-03) ----------
-
-export function useReturnOrders(options: { enabled?: boolean } = {}) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: inventoryKeys.returns(companyId),
-    enabled: Boolean(companyId) && options.enabled !== false,
-    queryFn: async () => {
-      const { data } = await apiClient.get<ReturnOrder[]>('/inventory/returns');
-      return data;
-    },
-  });
-}
-
-export function useCreateReturnReceipt() {
+/** Xuất huỷ hàng chờ xử lý bị từ chối: nhập lại tồn hoặc trả NCC */
+export function useDecideStockDoc() {
   const invalidate = useInvalidateInventory();
   return useMutation({
-    mutationFn: async (body: ReturnReceiptInput) => {
-      const { data } = await apiClient.post<StockDoc>('/inventory/returns', body);
+    mutationFn: async ({ id, ...body }: { id: string; decision: RejectDecision; version: number }) => {
+      const { data } = await apiClient.post<StockDoc>(`/inventory/documents/${id}/decide`, body);
       return data;
     },
     onSuccess: invalidate,

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { History, Pencil, TriangleAlert } from 'lucide-react';
+import { ClipboardPlus, History, Pencil, TriangleAlert } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
@@ -14,15 +15,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useStock } from '@/api/inventory.api';
 import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
-import { useCan } from '@/hooks/usePermission';
+import { useAuth } from '@/hooks/useAuth';
+import { useCan, useModuleEnabled } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import type { StockLevel } from '@/types/inventory';
+import { AddToRequestDialog } from '@/features/purchasing/AddToRequestDialog';
+import { ROUTES } from '@/router/routes';
 import { ReorderDialog } from './ReorderDialog';
 import { StockDetailDrawer } from './StockDetailDrawer';
 import { formatQty } from './shared';
+import { StockChips } from './StockChips';
 
 interface SummaryCardProps {
   label: string;
@@ -52,20 +57,27 @@ function SummaryCard({ label, value, tone, onClick, active }: SummaryCardProps) 
   );
 }
 
-/** UC-IN-01 tồn theo biến thể, UC-IN-02 đặt ngưỡng ngay trên dòng */
+/** Tồn theo biến thể (sơ đồ B2): bảy con số, nhãn suy ra; đặt ngưỡng ngay trên dòng */
 export function StockTab() {
   const can = useCan();
   const canReorder = can(PERMISSIONS.reorderManage);
   const canCost = can(PERMISSIONS.costView);
+  // Thêm vào đề nghị nhập chỉ khi bật Mua hàng và có quyền lập đề nghị
+  const purchasingOn = useModuleEnabled('purchasing');
+  const canRequest = purchasingOn && can(PERMISSIONS.purchaseRequestManage);
+  const navigate = useNavigate();
+  const { companyContext } = useAuth();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
   const [categoryId, setCategoryId] = useState('');
   const [belowMin, setBelowMin] = useState(false);
+  const [quarantine, setQuarantine] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [editing, setEditing] = useState<StockLevel | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState<StockLevel | null>(null);
 
   const stockQuery = useStock({
     page,
@@ -73,10 +85,11 @@ export function StockTab() {
     search: debouncedSearch || undefined,
     categoryId: categoryId || undefined,
     belowMin: belowMin || undefined,
+    quarantine: quarantine || undefined,
   });
   const categories = useCategories().data ?? [];
   const summary = stockQuery.data?.summary;
-  const filtered = Boolean(debouncedSearch || categoryId || belowMin);
+  const filtered = Boolean(debouncedSearch || categoryId || belowMin || quarantine);
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -100,6 +113,7 @@ export function StockTab() {
                 {r.productName}
                 {r.attributesLabel && ` · ${r.attributesLabel}`}
               </p>
+              <StockChips level={r} />
             </div>
           );
         },
@@ -114,13 +128,21 @@ export function StockTab() {
         id: 'onHand',
         header: 'Tồn thực',
         meta: { className: 'w-24 text-right' },
-        cell: ({ row }) => formatQty(row.original.onHand),
+        cell: ({ row }) => (
+          <span className={cn(row.original.negative && 'font-semibold text-destructive')}>{formatQty(row.original.onHand)}</span>
+        ),
       },
       {
         id: 'reserved',
         header: 'Đang giữ',
         meta: { className: 'w-24 text-right' },
         cell: ({ row }) => formatQty(row.original.reserved),
+      },
+      {
+        id: 'locked',
+        header: 'Tạm khoá',
+        meta: { className: 'w-24 text-right' },
+        cell: ({ row }) => (row.original.locked ? formatQty(row.original.locked) : '—'),
       },
       {
         id: 'available',
@@ -135,11 +157,13 @@ export function StockTab() {
                   <TooltipTrigger asChild>
                     <TriangleAlert
                       className="size-4 text-destructive"
-                      aria-label={`Dưới ngưỡng ${formatQty(r.minQty ?? 0)}`}
+                      aria-label="Nên nhập lại"
                       data-testid="below-min"
                     />
                   </TooltipTrigger>
-                  <TooltipContent>Dưới ngưỡng {formatQty(r.minQty ?? 0)}</TooltipContent>
+                  <TooltipContent>
+                    Khả dụng + đang về − đang thiếu ≤ ngưỡng {formatQty(r.minQty ?? 0)}: nên nhập lại
+                  </TooltipContent>
                 </Tooltip>
               )}
               <span className={cn('font-semibold', r.belowMin && 'text-destructive')}>{formatQty(r.available)}</span>
@@ -187,27 +211,45 @@ export function StockTab() {
       {
         id: 'actions',
         header: '',
-        meta: { className: 'w-12 text-right' },
+        meta: { className: 'w-20 text-right' },
         cell: ({ row }) => (
-          <RowAction label="Lịch sử biến động" onClick={() => setViewing(row.original.variantId)}>
-            <History />
-          </RowAction>
+          <div className="flex justify-end gap-1">
+            {canRequest && row.original.belowMin && (
+              <RowAction label="Thêm vào đề nghị nhập" onClick={() => setRequesting(row.original)}>
+                <ClipboardPlus />
+              </RowAction>
+            )}
+            <RowAction label="Lịch sử biến động" onClick={() => setViewing(row.original.variantId)}>
+              <History />
+            </RowAction>
+          </div>
         ),
       },
     ],
-    [canReorder, canCost],
+    [canReorder, canCost, canRequest],
   );
 
   return (
     <div>
-      <div className={cn('mb-4 grid gap-4', canCost ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+      <div className={cn('mb-4 grid gap-4 sm:grid-cols-2', canCost ? 'lg:grid-cols-5' : 'lg:grid-cols-4')}>
         <SummaryCard label="Biến thể đang bán" value={summary ? formatQty(summary.variantCount) : '—'} />
         <SummaryCard
-          label="Dưới ngưỡng tồn"
+          label="Nên nhập lại"
           value={summary ? formatQty(summary.belowMinCount) : '—'}
           tone={summary?.belowMinCount ? 'error' : undefined}
           active={belowMin}
           onClick={() => withReset(setBelowMin)(!belowMin)}
+        />
+        <SummaryCard
+          label="Có hàng chờ xử lý"
+          value={summary ? formatQty(summary.quarantineCount) : '—'}
+          active={quarantine}
+          onClick={() => withReset(setQuarantine)(!quarantine)}
+        />
+        <SummaryCard
+          label="Tồn âm"
+          value={summary ? formatQty(summary.negativeCount) : '—'}
+          tone={summary?.negativeCount ? 'error' : undefined}
         />
         {canCost && (
           <SummaryCard
@@ -238,7 +280,11 @@ export function StockTab() {
           />
           <div className="flex items-center gap-2 md:h-9">
             <Switch id="below-min" checked={belowMin} onCheckedChange={withReset(setBelowMin)} />
-            <Label htmlFor="below-min">Chỉ hiện dưới ngưỡng</Label>
+            <Label htmlFor="below-min">Chỉ hiện nên nhập lại</Label>
+          </div>
+          <div className="flex items-center gap-2 md:h-9">
+            <Switch id="quarantine-only" checked={quarantine} onCheckedChange={withReset(setQuarantine)} />
+            <Label htmlFor="quarantine-only">Có hàng chờ xử lý</Label>
           </div>
           {!canCost && (
             <Badge variant="outline" className="md:ms-auto md:mb-2">
@@ -274,6 +320,21 @@ export function StockTab() {
           toast.success(msg);
         }}
       />
+      {canRequest && (
+        <AddToRequestDialog
+          level={requesting}
+          onClose={() => setRequesting(null)}
+          onDone={(request) => {
+            setRequesting(null);
+            toast.success(`Đã thêm vào ${request.number}`, {
+              action: {
+                label: 'Mở',
+                onClick: () => navigate(ROUTES.company.purchaseRequest(companyContext?.companyId ?? '', request.id)),
+              },
+            });
+          }}
+        />
+      )}
       <StockDetailDrawer variantId={viewing} canCost={canCost} onClose={() => setViewing(null)} />
     </div>
   );

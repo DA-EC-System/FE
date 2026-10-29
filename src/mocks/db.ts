@@ -22,7 +22,7 @@ const companies: Company[] = [
     taxCode: '0312456789',
     ceoName: 'Lê Hoàng Minh',
     ceoEmail: 'ceo@commerio.vn',
-    optionalModules: ['channel', 'inbox', 'report'],
+    optionalModules: ['channel', 'inbox', 'purchasing', 'report'],
     status: 'active',
     createdAt: '2026-01-15T08:00:00.000Z',
     version: 1,
@@ -75,7 +75,13 @@ const companies: Company[] = [
   },
 ];
 
-const shops: Shop[] = [
+/** channel.shops; listingCount tính từ channel_listings khi trả về */
+export type MockShop = Omit<Shop, 'listingCount'> & {
+  /** Sàn giả lập đang lỗi tạm: đẩy listing nằm ở "Đang đẩy" và thử lại */
+  outage?: boolean;
+};
+
+const shops: MockShop[] = [
   // cmp-001 — ABC Fashion
   {
     id: 'shp-001',
@@ -84,10 +90,15 @@ const shops: Shop[] = [
     externalShopId: 'shopee-abc-fashion',
     shopName: 'ABC Fashion Official',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
+    refreshExpiresAt: '2027-02-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:30:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-01-20T08:00:00.000Z',
     updatedAt: '2026-10-14T08:30:00.000Z',
+    version: 1,
   },
   {
     id: 'shp-002',
@@ -96,10 +107,15 @@ const shops: Shop[] = [
     externalShopId: 'tiktok-abc-fashion',
     shopName: 'ABC Fashion TikTok Shop',
     region: 'VN',
-    status: 'expiring',
+    status: 'needs_reauth',
+    accessExpiresAt: '2026-10-13T20:00:00.000Z',
+    refreshExpiresAt: '2026-10-13T20:00:00.000Z',
     lastOrderSyncAt: '2026-10-13T20:00:00.000Z',
+    orderCutoffAt: '2026-04-15T00:00:00.000Z',
+    pendingJobs: 3,
     createdAt: '2026-04-15T10:00:00.000Z',
     updatedAt: '2026-10-13T20:00:00.000Z',
+    version: 1,
   },
   {
     id: 'shp-003',
@@ -108,10 +124,16 @@ const shops: Shop[] = [
     externalShopId: 'lazada-abc-fashion',
     shopName: 'ABC Fashion LazMall',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
+    // Refresh token còn 2 ngày: nhãn phụ "Sắp hết hạn" (access token BE tự làm mới)
+    accessExpiresAt: new Date(Date.now() + 5 * 24 * 3600_000).toISOString(),
+    refreshExpiresAt: new Date(Date.now() + 2 * 24 * 3600_000).toISOString(),
     lastOrderSyncAt: '2026-10-14T07:45:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-02-10T09:00:00.000Z',
     updatedAt: '2026-10-14T07:45:00.000Z',
+    version: 1,
   },
   {
     // Gian hàng đã ngắt nhưng còn bảng giá cũ: xoá được bảng giá (UC-CP-03)
@@ -122,9 +144,14 @@ const shops: Shop[] = [
     shopName: 'ABC Outlet TikTok',
     region: 'VN',
     status: 'disconnected',
+    accessExpiresAt: null,
+    refreshExpiresAt: null,
     lastOrderSyncAt: '2026-08-30T10:00:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-03-01T09:00:00.000Z',
     updatedAt: '2026-09-01T09:00:00.000Z',
+    version: 1,
   },
   // cmp-002 — XYZ Cosmetics
   {
@@ -134,10 +161,15 @@ const shops: Shop[] = [
     externalShopId: 'shopee-xyz-beauty',
     shopName: 'XYZ Beauty Shopee',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
+    refreshExpiresAt: '2027-02-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:00:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-03-25T08:00:00.000Z',
     updatedAt: '2026-10-14T08:00:00.000Z',
+    version: 1,
   },
   {
     id: 'shp-005',
@@ -146,10 +178,15 @@ const shops: Shop[] = [
     externalShopId: 'mock-xyz-internal',
     shopName: 'XYZ — sàn giả lập',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
+    refreshExpiresAt: null,
     lastOrderSyncAt: '2026-10-14T08:15:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-05-01T10:00:00.000Z',
     updatedAt: '2026-10-14T08:15:00.000Z',
+    version: 1,
   },
   // cmp-005 — An Toàn Toys
   {
@@ -159,10 +196,15 @@ const shops: Shop[] = [
     externalShopId: 'shopee-antoan-toys',
     shopName: 'An Toàn Toys Shopee',
     region: 'VN',
-    status: 'connected',
+    status: 'active',
+    accessExpiresAt: '2027-01-10T00:00:00.000Z',
+    refreshExpiresAt: '2027-02-10T00:00:00.000Z',
     lastOrderSyncAt: '2026-10-14T08:00:00.000Z',
+    orderCutoffAt: null,
+    pendingJobs: 0,
     createdAt: '2026-10-06T10:00:00.000Z',
     updatedAt: '2026-10-14T08:00:00.000Z',
+    version: 1,
   },
 ];
 
@@ -185,20 +227,34 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.reorderManage, module: 'inventory', label: 'Đặt ngưỡng tồn' },
   { code: P.costView, module: 'inventory', label: 'Xem giá vốn, giá trị tồn' },
   { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
-  { code: 'sales.order.create', module: 'sales', label: 'Tạo đơn hàng' },
-  { code: 'fulfillment.order.approve', module: 'fulfillment', label: 'Duyệt đơn, giao hàng' },
+  { code: P.orderCreate, module: 'sales', label: 'Tạo đơn hàng, xác nhận đơn' },
+  { code: P.customerView, module: 'sales', label: 'Xem khách hàng' },
+  { code: P.orderCancel, module: 'sales', label: 'Huỷ đơn hàng' },
+  { code: P.returnView, module: 'sales', label: 'Xem yêu cầu trả hàng' },
+  { code: P.returnProcess, module: 'sales', label: 'Xử lý yêu cầu trả hàng' },
+  { code: P.fulfillmentProcess, module: 'fulfillment', label: 'Đóng gói, bàn giao, mở kiện' },
+  { code: P.deliveryUpdate, module: 'fulfillment', label: 'Tự giao, cập nhật trạng thái giao' },
+  { code: P.handoverRevert, module: 'fulfillment', label: 'Đảo bàn giao kiện' },
   { code: 'finance.invoice.view', module: 'finance', label: 'Xem hoá đơn, sổ quỹ' },
   { code: 'finance.voucher.create', module: 'finance', label: 'Lập phiếu thu, phiếu chi' },
   { code: 'payment.transaction.view', module: 'payment', label: 'Xem giao dịch thanh toán' },
-  { code: 'purchasing.order.manage', module: 'purchasing', label: 'Quản lý đơn mua hàng' },
+  { code: P.paymentLinkCreate, module: 'payment', label: 'Tạo mã thanh toán cho đơn' },
+  { code: P.gatewayManage, module: 'payment', label: 'Cấu hình khoá cổng thanh toán' },
+  { code: P.purchaseRequestManage, module: 'purchasing', label: 'Lập đề nghị nhập, đặt nhà cung cấp' },
+  { code: P.purchaseRequestApprove, module: 'purchasing', label: 'Duyệt đề nghị nhập' },
+  { code: P.goodsReceiptManage, module: 'purchasing', label: 'Kiểm đếm, ghi sổ phiếu nhận' },
+  { code: P.supplierReturnManage, module: 'purchasing', label: 'Lập, gửi phiếu trả nhà cung cấp' },
+  { code: P.stockDocApprove, module: 'inventory', label: 'Duyệt, ghi sổ phiếu kho của người khác' },
   { code: P.shopView, module: 'channel', label: 'Xem gian hàng' },
   { code: P.shopConnect, module: 'channel', label: 'Kết nối gian hàng' },
   { code: P.shopUpdate, module: 'channel', label: 'Sửa gian hàng' },
   { code: P.shopDisconnect, module: 'channel', label: 'Ngắt gian hàng' },
   { code: P.shopSync, module: 'channel', label: 'Đồng bộ gian hàng' },
+  { code: P.listingManage, module: 'channel', label: 'Ghép SKU, đẩy sản phẩm và giá lên sàn' },
   { code: 'inbox.conversation.reply', module: 'inbox', label: 'Trả lời tin nhắn' },
   { code: 'assistant.chat.use', module: 'assistant', label: 'Dùng Trợ lý AI' },
   { code: 'report.dashboard.view', module: 'report', label: 'Xem báo cáo' },
+  { code: 'report.dashboard.export', module: 'report', label: 'Xuất báo cáo ra tệp' },
 ];
 
 /**
@@ -219,14 +275,20 @@ const ADMIN_PERMISSIONS = [
   P.stockView,
   P.reorderManage,
   P.orderView,
-  'sales.order.create',
+  P.orderCreate,
+  P.orderCancel,
+  P.customerView,
+  P.paymentLinkCreate,
+  P.gatewayManage,
   P.shopView,
   P.shopConnect,
   P.shopUpdate,
   P.shopDisconnect,
   P.shopSync,
+  P.listingManage,
   'inbox.conversation.reply',
   'report.dashboard.view',
+  'report.dashboard.export',
 ];
 
 export interface MockRole {
@@ -263,7 +325,20 @@ const roles: MockRole[] = [
     id: 'role-sale',
     companyId: null,
     name: 'Sale',
-    permissions: [P.shopView, P.productView, P.pricelistView, P.orderView, 'sales.order.create', 'inbox.conversation.reply'],
+    permissions: [
+      P.shopView,
+      P.productView,
+      P.pricelistView,
+      P.orderView,
+      P.orderCreate,
+      P.orderCancel,
+      P.customerView,
+      P.returnView,
+      P.returnProcess,
+      P.paymentLinkCreate,
+      P.deliveryUpdate,
+      'inbox.conversation.reply',
+    ],
     version: 1,
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
@@ -272,9 +347,24 @@ const roles: MockRole[] = [
     id: `role-kho-${companyId}`,
     companyId,
     name: 'Nhân viên kho',
-    permissions: [P.productView, P.stockView, P.stockDocManage],
+    permissions: [P.productView, P.stockView, P.stockDocManage, P.fulfillmentProcess, P.goodsReceiptManage, P.returnView],
     version: 1,
     updatedAt: '2026-03-01T00:00:00.000Z',
+  })),
+  // FE#55: vai Mua hàng theo sơ đồ A1, B4; duyệt đề nghị nhập vẫn là CEO
+  ...['cmp-001', 'cmp-004'].map<MockRole>((companyId) => ({
+    id: `role-muahang-${companyId}`,
+    companyId,
+    name: 'Mua hàng',
+    permissions: [
+      P.productView,
+      P.stockView,
+      P.costView,
+      P.purchaseRequestManage,
+      P.supplierReturnManage,
+    ],
+    version: 1,
+    updatedAt: '2026-10-20T00:00:00.000Z',
   })),
   {
     id: 'role-cskh-cmp-001',
@@ -283,6 +373,32 @@ const roles: MockRole[] = [
     permissions: [P.orderView, 'inbox.conversation.reply'],
     version: 1,
     updatedAt: '2026-04-10T00:00:00.000Z',
+  },
+  // Không có vai trò Kế toán dựng sẵn (Documents/21 mục 8): công ty tự tạo (FE#12)
+  {
+    id: 'role-ketoan-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Kế toán',
+    permissions: [P.financeView, P.voucherCreate, P.orderView],
+    version: 1,
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  {
+    id: 'role-kiemsoat-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Kiểm soát',
+    permissions: [P.financeView, P.transactionView],
+    version: 1,
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  },
+  // FE#13: xem báo cáo nhưng không có giá vốn, không xuất tệp
+  {
+    id: 'role-phantich-cmp-001',
+    companyId: 'cmp-001',
+    name: 'Phân tích',
+    permissions: [P.reportView, P.financeView],
+    version: 1,
+    updatedAt: '2026-10-01T00:00:00.000Z',
   },
 ];
 
@@ -337,6 +453,40 @@ const accounts: Account[] = [
     isPlatformAdmin: false,
     mustChangePassword: false,
   },
+  {
+    id: 'acc-007',
+    email: 'cskh@commerio.vn',
+    fullName: 'Phan Thị Chăm Sóc',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
+  {
+    id: 'acc-008',
+    email: 'ketoan@commerio.vn',
+    fullName: 'Đặng Thu Ngân',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
+  {
+    id: 'acc-009',
+    email: 'kiemsoat@commerio.vn',
+    fullName: 'Bùi Văn Soát',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
+  {
+    id: 'acc-010',
+    email: 'phantich@commerio.vn',
+    fullName: 'Lý Thị Phân Tích',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },  {
+    id: 'acc-011',
+    email: 'muahang@commerio.vn',
+    fullName: 'Trịnh Văn Mua',
+    isPlatformAdmin: false,
+    mustChangePassword: false,
+  },
 ];
 
 export interface MockMembership {
@@ -375,6 +525,15 @@ const memberships: MockMembership[] = [
   // Admin của ABC: không gán được vai trò Nhân viên kho (có quyền kho Admin không có)
   member('acc-005', 'cmp-001', ['role-admin']),
   member('acc-006', 'cmp-001', ['role-sale', 'role-cskh-cmp-001'], 'locked'),
+  // Vai trò tuỳ biến chỉ xem đơn: không tạo đơn, không tạo mã thanh toán (FE#9 AC-R3)
+  member('acc-007', 'cmp-001', ['role-cskh-cmp-001']),
+  // FE#12: Kế toán ghi tiền, Kiểm soát chỉ xem chứng từ và giao dịch cổng
+  member('acc-008', 'cmp-001', ['role-ketoan-cmp-001']),
+  member('acc-009', 'cmp-001', ['role-kiemsoat-cmp-001']),
+  // FE#13: Phân tích xem báo cáo, không thấy giá vốn, lãi
+  member('acc-010', 'cmp-001', ['role-phantich-cmp-001']),
+  // FE#55: vai Mua hàng
+  member('acc-011', 'cmp-001', ['role-muahang-cmp-001']),
 ];
 
 const auditLogs: PlatformAuditLog[] = [
@@ -406,6 +565,11 @@ export const passwords: Record<string, string> = {
   'moi@commerio.vn': 'moi12345',
   'admin@commerio.vn': 'admin',
   'nghi@commerio.vn': 'nghi',
+  'cskh@commerio.vn': 'cskh',
+  'ketoan@commerio.vn': 'ketoan',
+  'kiemsoat@commerio.vn': 'kiemsoat',
+  'phantich@commerio.vn': 'phantich',
+  'muahang@commerio.vn': 'muahang',
 };
 
 /** Nhật ký thao tác trong công ty: audit.audit_logs có company_id (UC-PI-07) */
@@ -502,8 +666,8 @@ const companyAuditLogs: MockCompanyAuditLog[] = [
     entityType: 'channel.shops',
     entityId: 'shp-001',
     entityLabel: 'ABC Fashion Official',
-    before: { status: 'expiring' },
-    after: { status: 'connected' },
+    before: { status: 'needs_reauth' },
+    after: { status: 'active' },
     createdAt: '2026-08-01T04:00:00.000Z',
   },
 ];
@@ -545,7 +709,7 @@ moduleStates['cmp-001:report'] = {
  */
 const moduleData: Partial<Record<OptionalModuleKey, string[]>> = {
   inbox: ['cmp-001'],
-  purchasing: ['cmp-004'],
+  purchasing: ['cmp-001', 'cmp-004'],
 };
 
 export const db = {

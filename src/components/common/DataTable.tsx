@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -56,6 +56,10 @@ interface DataTableProps<T> {
   empty?: ReactNode;
   onRowClick?: (row: T) => void;
   pagination?: ServerPagination;
+  /** Nội dung mở rộng dưới một dòng; trả `null` là dòng đang đóng */
+  renderExpanded?: (row: T) => ReactNode;
+  /** Lớp CSS thêm cho dòng, vd tô sáng */
+  rowClassName?: (row: T) => string | undefined;
 }
 
 /** Bảng dữ liệu dùng TanStack Table, phân trang phía server (thay DataGrid của MUI). */
@@ -68,6 +72,8 @@ export function DataTable<T>({
   empty = 'Không có dữ liệu',
   onRowClick,
   pagination,
+  renderExpanded,
+  rowClassName,
 }: DataTableProps<T>) {
   const table = useReactTable({
     data,
@@ -111,23 +117,34 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-row-id={row.id}
-                  className={cn(onRowClick && 'cursor-pointer')}
-                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn('whitespace-normal', cell.column.columnDef.meta?.className)}
+              table.getRowModel().rows.map((row) => {
+                const expanded = renderExpanded?.(row.original);
+                return (
+                  <Fragment key={row.id}>
+                    <TableRow
+                      data-row-id={row.id}
+                      className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
+                      onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                     >
-                      {renderCell(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className={cn('whitespace-normal', cell.column.columnDef.meta?.className)}
+                        >
+                          {renderCell(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {expanded && (
+                      <TableRow data-expanded-for={row.id} className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={colCount} className="whitespace-normal">
+                          {expanded}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </TableBody>
         </Table>

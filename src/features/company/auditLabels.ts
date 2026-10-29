@@ -16,6 +16,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'access.roles': 'Vai trò',
   'platform.company_modules': 'Phân hệ',
   'channel.shops': 'Gian hàng',
+  'channel.channel_listings': 'Ghép SKU',
   'catalog.categories': 'Danh mục',
   'catalog.attributes': 'Thuộc tính',
   'catalog.products': 'Sản phẩm',
@@ -24,6 +25,10 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'inventory.reorder_rules': 'Ngưỡng tồn',
   'inventory.stock_receipts': 'Phiếu nhập',
   'inventory.stock_issues': 'Phiếu xuất',
+  'sales.customers': 'Khách hàng',
+  'sales.orders': 'Đơn hàng',
+  'payment.gateway_configs': 'Cổng thanh toán',
+  'payment.payment_links': 'Mã thanh toán',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;

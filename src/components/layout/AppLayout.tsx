@@ -2,7 +2,8 @@ import { useMemo, type ReactNode } from 'react';
 import { Outlet, matchPath, useLocation } from 'react-router-dom';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
-import { hasPermission, isModuleEnabled } from '@/utils/permissions';
+import { useRealtime } from '@/hooks/useRealtime';
+import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { AppSidebar } from './AppSidebar';
 import { AppTitle, CompanySwitcher } from './CompanySwitcher';
 import { Header } from './Header';
@@ -31,7 +32,8 @@ export function AppLayout({ sections, brand }: AppLayoutProps) {
           items: section.items.filter(
             (i) =>
               (!i.module || isModuleEnabled(companyContext, i.module)) &&
-              (!i.permission || hasPermission(companyContext, i.permission)),
+              (!i.permission || hasAllPermissions(companyContext, i.permission)) &&
+              (!i.anyPermission || hasAnyPermission(companyContext, i.anyPermission)),
           ),
         }))
         .filter((section) => section.items.length > 0),
@@ -63,6 +65,8 @@ export function PlatformLayout() {
 
 export function CompanyLayout() {
   const { companyContext } = useAuth();
+  // Một stream realtime cho cả không gian công ty (FE#81)
+  useRealtime();
   // RequireCompany đảm bảo đã có companyContext trước khi render layout
   const companyId = companyContext?.companyId ?? '';
   return <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} />;

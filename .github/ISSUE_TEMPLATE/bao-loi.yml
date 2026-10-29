@@ -1,0 +1,86 @@
+name: Báo lỗi giao diện
+description: Lỗi màn hình, nút, hiển thị, mock MSW. Lỗi API hoặc dữ liệu mở ở commerio-backend.
+title: "[S?][Màn hình] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Quy trình và cách chọn mức độ: `Documents/26-ke-hoach-kiem-thu.md` §2.2, §5. Tìm issue trùng (nhãn `bug`) trước khi mở.
+        Tiêu đề dạng `[S3][Đề nghị nhập] Nút Duyệt vẫn hiện cho người lập`. Sau khi mở: thêm nhãn `mức: S…`, `module: …`, `luồng N: …` và gán Khoa.
+        **Không dán mật khẩu, token.**
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Mức độ
+      options:
+        - S1 Nghiêm trọng (lộ dữ liệu công ty khác, hiện sai tiền hoặc tồn, mất dữ liệu đã nhập)
+        - S2 Cao (màn hình chính không dùng được, không có cách vòng)
+        - S3 Trung bình (sai nhưng có cách vòng, hoặc màn hình phụ)
+        - S4 Thấp (giao diện lệch, chính tả, thông báo khó hiểu)
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Bản FE
+      options:
+        - Bản gọi backend thật (staging hoặc máy)
+        - Bản mock MSW (/mock/ hoặc pnpm dev có mock)
+    validations:
+      required: true
+  - type: input
+    id: case
+    attributes:
+      label: Ca kiểm thử
+      description: Mã ca trong `Documents/kiem-thu/ca-theo-so-do.md`, hoặc bước của issue test luồng.
+      placeholder: "A1-04p, hoặc commerio-backend#122 bước 2"
+  - type: input
+    id: env
+    attributes:
+      label: Môi trường
+      description: Đường dẫn trang, commit FE, trình duyệt.
+      placeholder: "https://116-118-6-7.sslip.io/purchasing/requests/… · 2b4baa1 · Chrome 141"
+    validations:
+      required: true
+  - type: input
+    id: account
+    attributes:
+      label: Tài khoản và vai trò
+      placeholder: "buyer@ của công ty QA, vai trò Mua hàng"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi
+      description: Theo sơ đồ, bản mẫu Test_UI hoặc Definition of Done của issue.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Kết quả thực tế
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Ảnh chụp, lỗi trong Console hoặc tab Network
+      description: Kéo thả ảnh vào đây. Xoá header Authorization trước khi dán request.
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Tần suất
+      options:
+        - Lần nào cũng gặp
+        - Thỉnh thoảng
+        - Gặp một lần, chưa tái hiện lại

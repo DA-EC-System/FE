@@ -19,6 +19,8 @@ export const PERMISSIONS = {
   shopUpdate: 'channel.shop.update',
   shopDisconnect: 'channel.shop.disconnect',
   shopSync: 'channel.shop.sync',
+  /** Ghép SKU, đẩy sản phẩm và giá lên sàn (UC-CH-02) */
+  listingManage: 'channel.listing.manage',
   productView: 'catalog.product.view',
   productManage: 'catalog.product.manage',
   /** Danh mục, thuộc tính, quy tắc SKU (UC-CP-01) */
@@ -34,6 +36,45 @@ export const PERMISSIONS = {
   /** Giá vốn, giá trị tồn (UC-IN-01: chỉ CEO) */
   costView: 'inventory.cost.view',
   orderView: 'sales.order.view',
+  /** Tạo đơn tay, xác nhận đơn (UC-SF-01, UC-SF-04) */
+  orderCreate: 'sales.order.create',
+  customerView: 'sales.customer.view',
+  /** Huỷ đơn tạo tay, hộp thư (UC-SF-06) */
+  orderCancel: 'sales.order.cancel',
+  /** Xem yêu cầu trả hàng (sơ đồ D3) */
+  returnView: 'sales.return.view',
+  /** Chấp nhận, từ chối, hoàn tiền, ghi sàn xử, lập yêu cầu trả cho đơn tạo tay (sơ đồ D3) */
+  returnProcess: 'sales.return.process',
+  /** Đóng gói, báo sàn, bàn giao, mở kiện, chia kiện, quét nhận hàng hoàn (sơ đồ D2) */
+  fulfillmentProcess: 'fulfillment.order.process',
+  /** Tự giao, cập nhật giao kiện đơn tạo tay, hộp thư (sơ đồ D2) */
+  deliveryUpdate: 'fulfillment.delivery.update',
+  /** Đảo bàn giao: cộng lại tồn thực (sơ đồ D2, CEO) */
+  handoverRevert: 'fulfillment.handover.revert',
+  /** Tạo mã QR, link thanh toán cho đơn (UC-PF-01) */
+  paymentLinkCreate: 'payment.link.create',
+  /** Cấu hình khoá cổng thanh toán (UC-PF-11) */
+  gatewayManage: 'payment.gateway.manage',
+  /** Xem giao dịch cổng (UC-PF-03) */
+  transactionView: 'payment.transaction.view',
+  /** Xem hoá đơn, phiếu thu, phiếu chi, COD, hoàn tiền, khoản thu chưa khớp (UC-PF-04..07) */
+  financeView: 'finance.invoice.view',
+  /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
+  voucherCreate: 'finance.voucher.create',
+  /** Xem báo cáo kinh doanh; cần thêm `finance.invoice.view` (UC-RP-01, D18) */
+  reportView: 'report.dashboard.view',
+  /** Xuất báo cáo ra CSV (UC-RP-02) */
+  reportExport: 'report.dashboard.export',
+  /** Duyệt, ghi sổ phiếu kho (kiểm kê, xuất huỷ, chờ xử lý, kiểm hàng về); người thứ hai (FE#55) */
+  stockDocApprove: 'inventory.document.approve',
+  /** Lập, gửi, rút đề nghị nhập; đặt NCC (sơ đồ A1) */
+  purchaseRequestManage: 'purchasing.request.manage',
+  /** Duyệt, trả về, từ chối đề nghị nhập (sơ đồ A1, CEO) */
+  purchaseRequestApprove: 'purchasing.request.approve',
+  /** Kiểm đếm, ghi sổ phiếu nhận (sơ đồ A2) */
+  goodsReceiptManage: 'purchasing.receipt.manage',
+  /** Lập, gửi phiếu trả NCC, ghi kết quả (sơ đồ B4) */
+  supplierReturnManage: 'purchasing.return.manage',
 } as const;
 
 /**
@@ -47,6 +88,24 @@ export function hasPermission(
 ): boolean {
   return Boolean(context?.permissions.includes(permission));
 }
+
+/** Có đủ mọi quyền trong danh sách; báo cáo cần cả `report.dashboard.view` và `finance.invoice.view` (D18) */
+export function hasAllPermissions(context: CompanyContext | null, permission: string | readonly string[]): boolean {
+  return (typeof permission === 'string' ? [permission] : permission).every((p) => hasPermission(context, p));
+}
+
+/** Có ít nhất một quyền trong danh sách; trang Mua hàng mở cho mọi vai có một quyền mua hàng */
+export function hasAnyPermission(context: CompanyContext | null, permissions: readonly string[]): boolean {
+  return permissions.some((p) => hasPermission(context, p));
+}
+
+/** Mọi quyền của phân hệ Mua hàng (sơ đồ A1, A2, B4) */
+export const PURCHASING_PERMISSIONS = [
+  PERMISSIONS.purchaseRequestManage,
+  PERMISSIONS.purchaseRequestApprove,
+  PERMISSIONS.goodsReceiptManage,
+  PERMISSIONS.supplierReturnManage,
+] as const;
 
 export function isModuleEnabled(
   context: CompanyContext | null,

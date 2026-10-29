@@ -39,6 +39,8 @@ export interface CompanyContext {
   /** Mã quyền dạng "<module>.<resource>.<action>", vd "channel.shop.connect" */
   permissions: string[];
   enabledModules: ModuleKey[];
+  /** Được tự làm bước cần người thứ hai (CEO, hoặc công ty một thành viên); BE `canSelfApprove` */
+  canSelfApprove?: boolean;
 }
 
 export interface LoginRequest {
