@@ -19,6 +19,7 @@ import type {
   ShopSetupInput,
   ShopSetupPreview,
   ShopSetupResult,
+  ShopTokenInput,
 } from '@/types/shop';
 import * as channel from '../channelData';
 import type { MockListing, MockRemoteSku } from '../channelData';
@@ -480,16 +481,99 @@ registerMarketplaceEvent({
   },
 });
 
+/** Sàn đã cấp token (qua OAuth hoặc dán token): nối vào gian hàng cũ (200) hoặc tạo mới (201) */
+function attachGranted(
+  actor: CompanyActor,
+  platform: Marketplace,
+  granted: { externalShopId: string; shopName: string },
+  targetShopId: string | null,
+) {
+  const companyId = actor.companyId;
+  if (targetShopId) {
+    const target = db.shops.find((s) => s.id === targetShopId && s.companyId === companyId);
+    if (target && target.externalShopId !== granted.externalShopId) {
+      return problem(409, 'Gian hàng không khớp', {
+        code: 'shop_mismatch',
+        detail: `Bạn vừa uỷ quyền gian hàng ${granted.shopName}, không phải ${target.shopName}.`,
+      });
+    }
+  }
+  const elsewhere = db.shops.find(
+    (s) =>
+      s.companyId !== companyId &&
+      s.platform === platform &&
+      s.externalShopId === granted.externalShopId &&
+      s.status !== 'disconnected',
+  );
+  if (elsewhere) {
+    return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
+  }
+  if (platform === 'lazada') {
+    const sellers = new Set(
+      db.shops.filter((s) => s.platform === 'lazada' && s.status !== 'disconnected').map((s) => s.externalShopId),
+    );
+    if (!sellers.has(granted.externalShopId) && sellers.size >= LAZADA_TEST_SELLERS) {
+      return problem(422, 'Gian hàng chưa được cấp quyền thử', { code: 'seller_not_whitelisted' });
+    }
+  }
+  const idx = db.shops.findIndex(
+    (s) => s.companyId === companyId && s.externalShopId === granted.externalShopId,
+  );
+  const expires = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
+  const refreshExpires = platform === 'mock' ? null : new Date(Date.now() + REFRESH_TTL_MS).toISOString();
+  if (idx !== -1) {
+    const current = db.shops[idx];
+    const before = shopSnapshot(current);
+    let reconnect: ShopReconnectSummary | null = null;
+    // Dùng lại bản ghi cũ: active, connecting chỉ gia hạn token; mất quyền hoặc đã ngắt thì đi qua kết nối lại
+    if (current.status === 'needs_reauth' || current.status === 'disconnected') {
+      const step = checkTransition(shopMachine, current.status, 'reconnect', actor, shopRecord(current));
+      if (!step.ok) return step.response;
+      current.status = step.value;
+      reconnect = catchUp(current);
+    }
+    Object.assign(current, {
+      accessExpiresAt: expires,
+      refreshExpiresAt: refreshExpires,
+      updatedAt: db.now(),
+      version: current.version + 1,
+    });
+    writeCompanyLog(actor, 'update', shopEntity(current), before, shopSnapshot(current));
+    return HttpResponse.json<ShopCallbackResult>({ shop: toShop(current), created: false, reconnect });
+  }
+  const shop: MockShop = {
+    id: rid('shp'),
+    companyId,
+    platform,
+    externalShopId: granted.externalShopId,
+    shopName: granted.shopName,
+    region: 'VN',
+    // Chưa bán được cho đến khi xong thiết lập lần đầu
+    status: 'connecting',
+    accessExpiresAt: expires,
+    refreshExpiresAt: refreshExpires,
+    orderCutoffAt: null,
+    pendingJobs: 0,
+    createdAt: db.now(),
+    updatedAt: db.now(),
+    version: 1,
+  };
+  db.shops.unshift(shop);
+  channel.seedRemoteForNewShop(shop.id);
+  writeCompanyLog(actor, 'create', shopEntity(shop), null, shopSnapshot(shop));
+  return HttpResponse.json<ShopCallbackResult>({ shop: toShop(shop), created: true, reconnect: null }, { status: 201 });
+}
+
 export const shopHandlers = [
   http.get(`${API}/channel/shops/platforms`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopView);
     if (!guard.ok) return guard.response;
     return HttpResponse.json<ShopPlatformList>({ items: [
-      { platform: 'tiktok', name: 'TikTok Shop', connectable: true },
-      { platform: 'shopee', name: 'Shopee', connectable: true },
-      { platform: 'lazada', name: 'Lazada', connectable: true },
-      { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true },
+      { platform: 'tiktok', name: 'TikTok Shop', connectable: true, methods: ['oauth'] },
+      { platform: 'shopee', name: 'Shopee', connectable: true, methods: ['oauth'] },
+      { platform: 'lazada', name: 'Lazada', connectable: true, methods: ['oauth', 'token'] },
+      { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true, methods: ['oauth', 'token'] },
     ] });
   }),
   http.get(`${API}/channel/shops`, async ({ request }) => {
@@ -558,79 +642,27 @@ export const shopHandlers = [
     if (!granted) return problem(400, 'Mã uỷ quyền không hợp lệ', { code: 'invalid_code' });
 
     const platform = pending.platform as Marketplace;
-    if (pending.shopId) {
-      const target = db.shops.find((s) => s.id === pending.shopId && s.companyId === companyId);
-      if (target && target.externalShopId !== granted.externalShopId) {
-        return problem(409, 'Gian hàng không khớp', {
-          code: 'shop_mismatch',
-          detail: `Bạn vừa uỷ quyền gian hàng ${granted.shopName}, không phải ${target.shopName}.`,
-        });
-      }
-    }
-    const elsewhere = db.shops.find(
-      (s) =>
-        s.companyId !== companyId &&
-        s.platform === platform &&
-        s.externalShopId === granted.externalShopId &&
-        s.status !== 'disconnected',
-    );
-    if (elsewhere) {
-      return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
-    }
-    if (platform === 'lazada') {
-      const sellers = new Set(
-        db.shops.filter((s) => s.platform === 'lazada' && s.status !== 'disconnected').map((s) => s.externalShopId),
-      );
-      if (!sellers.has(granted.externalShopId) && sellers.size >= LAZADA_TEST_SELLERS) {
-        return problem(422, 'Gian hàng chưa được cấp quyền thử', { code: 'seller_not_whitelisted' });
-      }
-    }
-    const idx = db.shops.findIndex(
-      (s) => s.companyId === companyId && s.externalShopId === granted.externalShopId,
-    );
-    const expires = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
-    const refreshExpires = platform === 'mock' ? null : new Date(Date.now() + REFRESH_TTL_MS).toISOString();
-    if (idx !== -1) {
-      const current = db.shops[idx];
-      const before = shopSnapshot(current);
-      let reconnect: ShopReconnectSummary | null = null;
-      // Dùng lại bản ghi cũ: active, connecting chỉ gia hạn token; mất quyền hoặc đã ngắt thì đi qua kết nối lại
-      if (current.status === 'needs_reauth' || current.status === 'disconnected') {
-        const step = checkTransition(shopMachine, current.status, 'reconnect', guard.value, shopRecord(current));
-        if (!step.ok) return step.response;
-        current.status = step.value;
-        reconnect = catchUp(current);
-      }
-      Object.assign(current, {
-        accessExpiresAt: expires,
-        refreshExpiresAt: refreshExpires,
-        updatedAt: db.now(),
-        version: current.version + 1,
+    return attachGranted(guard.value, platform, granted, pending.shopId);
+  }),
+
+  // Shop thử không đi OAuth được: dán token lấy trên console của sàn. Mock: token "sai" bị sàn từ chối
+  http.post(`${API}/channel/shops/:platform/token`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.shopConnect);
+    if (!guard.ok) return guard.response;
+    const platform = params.platform as Marketplace;
+    if (platform !== 'lazada' && platform !== 'mock') return marketplaceUnsupported(platform);
+    const body = (await request.json()) as Partial<ShopTokenInput>;
+    const accessToken = body.accessToken?.trim() ?? '';
+    if (!accessToken || accessToken.length > 2000) {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        code: 'validation_failed',
+        errors: { accessToken: 'Nhập access token' },
       });
-      writeCompanyLog(guard.value, 'update', shopEntity(current), before, shopSnapshot(current));
-      return HttpResponse.json<ShopCallbackResult>({ shop: toShop(current), created: false, reconnect });
     }
-    const shop: MockShop = {
-      id: rid('shp'),
-      companyId,
-      platform,
-      externalShopId: granted.externalShopId,
-      shopName: granted.shopName,
-      region: 'VN',
-      // Chưa bán được cho đến khi xong thiết lập lần đầu
-      status: 'connecting',
-      accessExpiresAt: expires,
-      refreshExpiresAt: refreshExpires,
-      orderCutoffAt: null,
-      pendingJobs: 0,
-      createdAt: db.now(),
-      updatedAt: db.now(),
-      version: 1,
-    };
-    db.shops.unshift(shop);
-    channel.seedRemoteForNewShop(shop.id);
-    writeCompanyLog(guard.value, 'create', shopEntity(shop), null, shopSnapshot(shop));
-    return HttpResponse.json<ShopCallbackResult>({ shop: toShop(shop), created: true, reconnect: null }, { status: 201 });
+    if (accessToken === 'sai') return problem(409, 'Sàn từ chối yêu cầu', { code: 'marketplace_rejected' });
+    const seller = accessToken.slice(-6).toUpperCase();
+    return attachGranted(guard.value, platform, { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` }, null);
   }),
 
   http.get(`${API}/channel/shops/:id`, async ({ params, request }) => {

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Link2, PlugZap, Plus, RefreshCw, Settings2, Store, Unplug } from 'lucide-react';
+import { KeyRound, Link2, PlugZap, Plus, RefreshCw, Settings2, Store, Unplug } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -27,9 +27,11 @@ import { formatDate, formatDateTime } from '@/utils/format';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { tokenExpiringSoon } from '@/lib/machines/channel';
-import type { Shop } from '@/types/shop';
+import type { Shop, ShopCallbackResult, ShopPlatform } from '@/types/shop';
 import { isUsable, PLATFORM_LABELS, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
+import { connectedToast } from './connectResult';
+import { ShopTokenForm } from './ShopTokenForm';
 
 const PLATFORM_HINTS: Record<string, string | undefined> = {
   tiktok: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.',
@@ -57,6 +59,9 @@ export function ShopListPage() {
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
   const [zeroStock, setZeroStock] = useState(false);
   const [adding, setAdding] = useState(false);
+  // Sàn đang dán token trong hộp thoại; null: đang chọn sàn
+  const [tokenFor, setTokenFor] = useState<ShopPlatform | null>(null);
+  const [tokenBusy, setTokenBusy] = useState(false);
 
   const shopsQuery = useShops();
   const platformsQuery = useShopPlatforms({ enabled: canConnect && adding });
@@ -87,6 +92,15 @@ export function ShopListPage() {
         ? ROUTES.company.shopSetup(companyId, s.id)
         : ROUTES.company.shop(companyId, s.id),
     );
+  const closeAdding = () => {
+    setAdding(false);
+    setTokenFor(null);
+  };
+  const tokenConnected = (result: ShopCallbackResult) => {
+    toast.success(connectedToast(result));
+    closeAdding();
+    if (result.created) navigate(ROUTES.company.shopSetup(companyId, result.shop.id));
+  };
   const askDisconnect = (s: Shop) => {
     setZeroStock(false);
     setDisconnecting(s);
@@ -324,7 +338,7 @@ export function ShopListPage() {
         />
       </Card>
 
-      <Dialog open={adding} onOpenChange={(next) => !connector.pending && setAdding(next)}>
+      <Dialog open={adding} onOpenChange={(next) => !next && !connector.pending && !tokenBusy && closeAdding()}>
         <DialogContent className="sm:max-w-2xl" data-testid="connect-section">
           <DialogHeader>
             <DialogTitle>Thêm gian hàng</DialogTitle>
@@ -332,6 +346,15 @@ export function ShopListPage() {
               Chọn sàn, đăng nhập tài khoản người bán và đồng ý cấp quyền. Commerio không lưu mật khẩu sàn.
             </DialogDescription>
           </DialogHeader>
+          {tokenFor ? (
+            <ShopTokenForm
+              platform={tokenFor.platform}
+              name={tokenFor.name}
+              onBack={() => setTokenFor(null)}
+              onBusyChange={setTokenBusy}
+              onDone={tokenConnected}
+            />
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {platformsQuery.isLoading ? (
               <div className="col-span-full grid gap-3 sm:grid-cols-2" role="status" aria-label="Đang tải sàn">
@@ -348,7 +371,9 @@ export function ShopListPage() {
               <p className="col-span-full text-sm text-muted-foreground">
                 Chưa có sàn nào được bật. Liên hệ quản trị nền tảng để kết nối sàn mới.
               </p>
-            ) : platforms.map(({ platform: value, name }) => {
+            ) : platforms.map((p) => {
+              const { platform: value, name } = p;
+              const methods = p.methods ?? ['oauth'];
               const hint = PLATFORM_HINTS[value];
               const busy = connector.pending && connector.variables?.platform === value && !connector.variables.shopId;
               return (
@@ -358,20 +383,36 @@ export function ShopListPage() {
                     {name}
                   </div>
                   {hint && <p className="flex-1 text-sm text-muted-foreground">{hint}</p>}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={connector.pending}
-                    aria-label={`Kết nối ${name}`}
-                    onClick={() => connector.start({ platform: value })}
-                  >
-                    <PlugZap />
-                    {busy ? 'Đang chuyển...' : 'Kết nối'}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {methods.includes('oauth') && (
+                      <Button
+                        size="sm"
+                        disabled={connector.pending}
+                        aria-label={`Kết nối ${name}`}
+                        onClick={() => connector.start({ platform: value })}
+                      >
+                        <PlugZap />
+                        {busy ? 'Đang chuyển...' : `Đăng nhập ${name}`}
+                      </Button>
+                    )}
+                    {methods.includes('token') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={connector.pending}
+                        aria-label={`Dán token ${name}`}
+                        onClick={() => setTokenFor(p)}
+                      >
+                        <KeyRound />
+                        Dán token
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
+          )}
         </DialogContent>
       </Dialog>
 

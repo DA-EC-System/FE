@@ -26,6 +26,7 @@ import type {
   ShopSetupInput,
   ShopSetupPreview,
   ShopSetupResult,
+  ShopTokenInput,
 } from '@/types/shop';
 
 export const shopKeys = {
@@ -104,6 +105,18 @@ export function useShopCallback() {
   return useMutation({
     mutationFn: async ({ platform, ...input }: ShopCallbackInput & { platform: Marketplace }) => {
       const { data } = await apiClient.post<ShopCallbackResult>(`/channel/shops/${platform}/callback`, input);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Shop thử không đi OAuth được: dán token, BE lấy thông tin shop rồi tạo (201) hoặc nối lại (200) */
+export function useConnectShopByToken() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ platform, ...input }: ShopTokenInput & { platform: string }) => {
+      const { data } = await apiClient.post<ShopCallbackResult>(`/channel/shops/${platform}/token`, input);
       return data;
     },
     onSuccess: invalidate,

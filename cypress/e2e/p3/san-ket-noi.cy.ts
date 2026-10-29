@@ -16,7 +16,46 @@ describe('P3 · Danh sách sàn kết nối được', () => {
       cy.findByRole('button', { name: 'Kết nối Sàn mới' }).should('exist');
       cy.contains('Shopee').should('not.exist');
       cy.contains('TikTok').should('not.exist');
+      // API chưa trả methods thì chỉ có đăng nhập sàn
+      cy.findByRole('button', { name: /^Dán token/ }).should('not.exist');
     });
+  });
+
+  it('nút trên thẻ theo methods: chỉ token thì không có Đăng nhập', () => {
+    cy.mockApi('get', '/channel/shops/platforms', 200, { items: [
+      { platform: 'lazada', name: 'Lazada', connectable: true, methods: ['oauth', 'token'] },
+      { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true, methods: ['token'] },
+    ] });
+    cy.menu('Kênh bán');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
+    cy.get('[data-platform=lazada]').within(() => {
+      cy.findByRole('button', { name: 'Kết nối Lazada' }).should('contain', 'Đăng nhập Lazada');
+      cy.findByRole('button', { name: 'Dán token Lazada' }).should('exist');
+    });
+    cy.get('[data-platform=mock]').within(() => {
+      cy.findByRole('button', { name: /^Kết nối/ }).should('not.exist');
+      cy.findByRole('button', { name: 'Dán token Sàn giả lập (mock)' }).should('exist');
+    });
+  });
+
+  it('dán token: bắt buộc access token, sàn từ chối thì ở lại, đúng thì sang thiết lập', () => {
+    cy.menu('Kênh bán');
+    cy.findByRole('button', { name: 'Thêm gian hàng' }).click();
+    cy.findByRole('button', { name: 'Dán token Sàn giả lập (mock)' }).click();
+    cy.get('[data-testid=token-form]').within(() => {
+      cy.findByRole('button', { name: 'Kết nối' }).click();
+      cy.contains('Nhập access token').should('be.visible');
+      cy.findByLabelText('Access token').type('sai');
+      cy.findByRole('button', { name: 'Kết nối' }).click();
+      cy.contains('Sàn từ chối token này').should('be.visible');
+      cy.findByRole('button', { name: 'Chọn sàn khác' }).click();
+    });
+    cy.get('[data-testid=token-form]').should('not.exist');
+    cy.findByRole('button', { name: 'Dán token Sàn giả lập (mock)' }).click();
+    cy.findByLabelText('Access token').type('tok-abc123');
+    cy.get('[data-testid=token-form]').findByRole('button', { name: 'Kết nối' }).click();
+    cy.toast('Đã kết nối Shop thử ABC123. Hoàn tất thiết lập để bắt đầu bán.');
+    cy.location('pathname').should('match', /\/setup$/);
   });
 
   it('rỗng hiện hướng dẫn, đóng hộp thoại thì về bảng gian hàng', () => {

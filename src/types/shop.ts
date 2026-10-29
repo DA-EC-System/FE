@@ -11,7 +11,12 @@ export interface ShopPlatform {
   platform: string;
   name: string;
   connectable: boolean;
+  /** Cách kết nối sàn cho phép; BE chưa trả thì coi như chỉ có oauth */
+  methods?: ShopConnectMethod[];
 }
+
+/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
+export type ShopConnectMethod = 'oauth' | 'token';
 
 export interface ShopList { items: Shop[] }
 export interface ShopPlatformList { items: ShopPlatform[] }
@@ -62,6 +67,12 @@ export interface ShopAuthorizeUrl {
 export interface ShopCallbackInput {
   code: string;
   state: string;
+}
+
+/** POST /channel/shops/:platform/token. Có refreshToken thì BE tự gia hạn, không có thì hết hạn phải kết nối lại */
+export interface ShopTokenInput {
+  accessToken: string;
+  refreshToken?: string;
 }
 
 export interface ShopCallbackResult {
