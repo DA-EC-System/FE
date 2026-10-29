@@ -103,7 +103,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
 
     test('sản phẩm chưa có giá không chọn được', async ({ page }) => {
       await page.getByLabel('Thêm sản phẩm', { exact: true }).fill('Quần');
-      // Cypress bấm được cả mục aria-disabled; Playwright coi là bị khoá nên cần force
+      // Mục aria-disabled: Playwright coi là bị khoá nên bấm bằng force để kiểm bấm vào cũng không thêm được
       await chua(page, 'Chưa có giá', '[role=option][aria-disabled=true]').click({ force: true });
       await expect(page.locator('[data-testid=order-lines]')).toContainText('Tìm và thêm sản phẩm vào đơn.');
     });

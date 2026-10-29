@@ -111,6 +111,41 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 | `pnpm build` | Build production ra `dist/` |
 | `pnpm preview` | Xem thử bản build |
 | `pnpm typecheck` | Chỉ chạy TypeScript check, không build |
+| `pnpm lint` | ESLint |
+| `pnpm test` | Unit test (Vitest) |
+| `pnpm e2e` | E2E Playwright trên mock (project `mock`) |
+| `pnpm e2e:ui` | Như trên, mở giao diện Playwright để chạy từng test, xem từng bước |
+| `pnpm e2e:be` | E2E với BE thật (project `be`), xem mục dưới |
+| `pnpm e2e:report` | Mở báo cáo HTML của lần chạy gần nhất |
+
+## Kiểm thử E2E (Playwright, FE#69)
+
+Spec nằm trong `e2e/`: `mock/p1` … `mock/p5` chạy trên MSW, `be/p1`, `be/p4`, `be/p5` chạy với BE thật;
+hàm dùng chung (đăng nhập, menu, toast, chọn Select, giả lập phản hồi BE) ở `e2e/fixtures.ts`.
+Cấu hình ở `playwright.config.ts`.
+
+Lần đầu tải trình duyệt: `pnpm exec playwright install chromium`. Sau đó:
+
+```bash
+pnpm e2e                                   # mọi spec mock, song song
+pnpm e2e e2e/mock/p4/tai-chinh.spec.ts     # một file
+pnpm e2e -g "tạo đơn"                      # theo tên test
+pnpm e2e --repeat-each=3                   # bắt test chập chờn trước khi mở PR
+```
+
+- Playwright tự bật Vite ở `127.0.0.1:5173` với `VITE_USE_MOCKS=true` (thắng `.env.local`) và tắt khi xong.
+  Đang có server ở cổng 5173 thì dùng luôn server đó, nên server đó phải bật mock.
+- Khi chạy E2E, mock không trễ (trình duyệt tự động hoá có `navigator.webdriver`). Test cần thấy trạng thái loading
+  thì đặt `window.__commerioMock = { latencyMs: 350 }` bằng `page.addInitScript` trước khi tải trang.
+- Test hỏng thì xem trace: `pnpm exec playwright show-trace test-results/<tên test>/trace.zip`.
+  Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày).
+
+**Với BE thật** (chạy lần lượt một worker, test sau dùng dữ liệu test trước để lại):
+
+1. BE chạy ở cổng 3000 với database riêng cho E2E (vd `commerio_e2e`, đã `npm run db:migrate`).
+2. Dựng dữ liệu cho `be/p4`, `be/p5` từ thư mục BE (lệnh đầy đủ ở đầu `e2e/be/seed/tai-chinh.mts`, `doi-soat.mts`);
+   kết quả ghi ra `e2e/be/seed/*.json`. Mỗi lần chạy spec dựng lại một lần.
+3. `VITE_USE_MOCKS=false pnpm e2e:be` (PowerShell: `$env:VITE_USE_MOCKS='false'; pnpm e2e:be`).
 
 ## Cấu trúc thư mục
 
@@ -179,7 +214,6 @@ tới khi chuyển xong, sau đó gỡ MUI. Component mới viết bằng shadcn
 - Module Sales (đơn hàng, lịch sử trạng thái, hồ sơ khách).
 - Module Fulfillment, Finance, Payment, Inbox, Assistant, Report.
 - Kết nối backend thật, bỏ MSW.
-- E2E test với Cypress.
 
 ## Bộ màu thương hiệu
 

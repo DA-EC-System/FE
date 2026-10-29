@@ -7,7 +7,7 @@ const CHAN_QUYEN = 'Vai trò của bạn trong công ty này không có quyền 
 const trangThai = (page: Page) => page.locator('[data-testid=return-status]');
 const nut = (page: Page, name: string) => page.locator('[data-testid=return-actions]').getByRole('button', { name, exact: true });
 const tien = (page: Page) => page.locator('[data-testid=return-money]');
-/** Cha của phần tử chứa chữ (như `cy.contains(text).parent()`) */
+/** Cha của phần tử chứa chữ (khối nhãn và giá trị) */
 const chaCua = (page: Page, text: string) => chua(page, text).locator('..');
 
 const diToi = (page: Page, path: string) =>

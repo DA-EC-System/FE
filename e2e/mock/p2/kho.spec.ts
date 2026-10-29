@@ -172,7 +172,7 @@ test.describe('P2 · Kho', () => {
     });
 
     // Ca cuối sai từ FE#72: nút bị luật chặn vẫn hiện, mờ kèm lý do (ActionButton, aria-disabled), nên không thể
-    // "không tồn tại". Bên Cypress chỉ qua nhờ kiểm đúng lúc hộp xác nhận đang đóng (trang còn aria-hidden).
+    // "không tồn tại". Bộ E2E cũ chỉ qua nhờ kiểm đúng lúc hộp xác nhận đang đóng (trang còn aria-hidden).
     // Không sửa nội dung kiểm khi chuyển (FE#69); sửa ở PR riêng.
     test.fixme('kiểm hàng về thiếu: cờ khiếu nại, người quét không tự duyệt', async ({ page }) => {
       await moPhieu(page, 'KHV-000002');

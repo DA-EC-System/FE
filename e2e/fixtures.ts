@@ -1,10 +1,11 @@
 /**
- * Hàm dùng chung cho E2E (thay `cypress/support/commands.ts`). Dữ liệu mock nằm trong bộ nhớ trang nên mỗi lần
+ * Hàm dùng chung cho E2E. Dữ liệu mock nằm trong bộ nhớ trang nên mỗi lần
  * `page.goto` là một bộ dữ liệu mới: mỗi test tự đăng nhập, không phụ thuộc test trước.
  *
- * Quy ước khi viết spec (giữ nghĩa của Testing Library bên Cypress):
+ * Quy ước khi viết spec:
  * - Tên vai trò, nhãn là chuỗi thì so khớp nguyên chuỗi: `getByRole('button', { name: 'Lưu', exact: true })`.
- * - Tìm theo chữ dùng `chu('…')` (phân biệt hoa thường như `cy.contains`), không truyền chuỗi trần vào `hasText`.
+ * - Tìm theo chữ dùng `chu('…')` (chuỗi con, phân biệt hoa thường), không truyền chuỗi trần vào `hasText`
+ *   (Playwright so chuỗi trần không phân biệt hoa thường).
  */
 import { expect, type Locator, type Page } from '@playwright/test';
 
@@ -27,17 +28,17 @@ interface MswBridge {
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Chuỗi con, phân biệt hoa thường (như `cy.contains`); RegExp giữ nguyên */
+/** Chuỗi con, phân biệt hoa thường; RegExp giữ nguyên */
 export const chu = (text: string | RegExp) => (typeof text === 'string' ? new RegExp(escape(text)) : text);
 
-/** Đường dẫn hiện tại, dùng với `expect.poll` thay `cy.location('pathname')` */
+/** Đường dẫn hiện tại, dùng với `expect.poll(() => duongDan(page))` */
 export const duongDan = (page: Page) => new URL(page.url()).pathname;
 
-/** Phần tử đầu tiên có chữ (như `cy.contains(text)` / `cy.contains(selector, text)`) */
+/** Phần tử đầu tiên chứa chữ; có `selector` thì chỉ xét phần tử khớp selector */
 export const chua = (scope: Scope, text: string | RegExp, selector?: string) =>
   (selector ? scope.locator(selector, { hasText: chu(text) }) : scope.getByText(chu(text))).first();
 
-/** Có phần tử chứa chữ (như `cy.contains(text)` không kèm assertion) */
+/** Có phần tử chứa chữ trong trang (không cần đang hiện) */
 export const thayChu = async (scope: Scope, text: string | RegExp, selector?: string) =>
   expect(chua(scope, text, selector)).toBeAttached();
 
@@ -49,7 +50,7 @@ export const gan = (el: Locator, attr: string, value: string) =>
 export const loi = (scope: Scope, name: string) =>
   gan(scope.locator(`[name="${name}"]`), 'data-slot', 'form-item').locator('[data-slot="form-message"]');
 
-/** Mọi phần tử khớp đều thoả `check` (chờ tới khi có ít nhất một phần tử), như `.should(($els) => …each…)` */
+/** Mọi phần tử khớp đều thoả `check`, thử lại tới khi có ít nhất một phần tử và đều thoả */
 export const moiPhanTu = async (els: Locator, check: (text: string) => void) =>
   expect(async () => {
     const texts = await els.allInnerTexts();

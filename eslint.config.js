@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'public/mockServiceWorker.js', 'cypress/screenshots', 'cypress/videos', 'playwright-report', 'test-results'] },
+  { ignores: ['dist', 'public/mockServiceWorker.js', 'playwright-report', 'test-results'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -22,14 +22,9 @@ export default tseslint.config(
   },
   {
     // E2E, MSW, cấu hình chạy ngoài React
-    files: ['cypress/**/*.ts', 'e2e/**/*.ts', 'src/mocks/**/*.ts', '*.config.{ts,mjs,js}'],
+    files: ['e2e/**/*.ts', 'src/mocks/**/*.ts', '*.config.{ts,mjs,js}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { 'react-refresh/only-export-components': 'off' },
-  },
-  {
-    // chai: expect(x).to.exist là biểu thức
-    files: ['cypress/**/*.ts'],
-    rules: { '@typescript-eslint/no-unused-expressions': 'off' },
   },
   {
     // shadcn xuất kèm biến thể (buttonVariants, useSidebar…)

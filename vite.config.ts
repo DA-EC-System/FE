@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
@@ -29,6 +30,8 @@ export default defineConfig({
       '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:3000',
     },
   },
+  // Vitest chỉ chạy unit test trong src; e2e/ là spec Playwright (pnpm e2e)
+  test: { exclude: [...configDefaults.exclude, 'e2e/**'] },
   build: {
     outDir: 'dist',
     sourcemap: true,

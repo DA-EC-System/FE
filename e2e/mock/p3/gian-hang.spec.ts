@@ -13,7 +13,7 @@ const trangThai = (page: Page, shopId: string) => dong(page, shopId).locator('[d
 /** Dòng biến thể ở bảng ghép (bảng SKU sàn chưa ghép bên dưới cũng có data-row-id) */
 const dongBienThe = (page: Page) => page.locator('tbody').first().locator('tr[data-row-id]');
 const trangThaiListing = (page: Page, variantId: string) => dong(page, variantId).locator('[data-testid=listing-status]');
-/** Có ít nhất một phần tử khớp chứa chữ (như `cy.get(nhiều phần tử).should('contain', …)`) */
+/** Có ít nhất một phần tử khớp selector chứa chữ */
 const coPhanTu = (page: Page, selector: string, text: string) =>
   expect(page.locator(selector).filter({ hasText: chu(text) })).not.toHaveCount(0);
 

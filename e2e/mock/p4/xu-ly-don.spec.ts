@@ -13,7 +13,7 @@ const nutKien = (page: Page, name: string) =>
 // Hộp xác nhận (ConfirmDialog) là alertdialog, hộp nhập liệu là dialog
 const menuThanhBen = (page: Page, label: string) =>
   page.locator('[data-sidebar="menu-button"]', { hasText: new RegExp(`^\\s*${label}\\s*$`) });
-/** Cha, phần tử ngay sau của phần tử chứa chữ (như `cy.contains(text).parent()`, `.next()`) */
+/** Cha, phần tử ngay sau của phần tử chứa chữ (nhãn và giá trị đứng cạnh nhau) */
 const chaCua = (page: Page, text: string) => chua(page, text).locator('..');
 const sauCua = (page: Page, text: string) => chua(page, text).locator('xpath=following-sibling::*[1]');
 
