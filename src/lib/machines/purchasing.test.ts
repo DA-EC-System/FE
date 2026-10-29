@@ -9,6 +9,7 @@ const ceo = {
   accountId: 'acc-001',
   permissions: [P.purchaseRequestManage, P.purchaseRequestApprove, P.goodsReceiptManage, P.supplierReturnManage],
 };
+const selfApprover = { ...ceo, canSelfApprove: true };
 const actions = (list: { action: string }[]) => list.map((t) => t.action).sort();
 
 describe('đề nghị nhập', () => {
@@ -41,6 +42,38 @@ describe('đề nghị nhập', () => {
       ok: false,
       code: 'reason_required',
     });
+  });
+
+  it('CEO hoặc công ty một thành viên được tự duyệt, yêu cầu sửa và từ chối đề nghị mình lập', () => {
+    const own = { ...rec, createdBy: selfApprover.accountId };
+    expect(
+      purchaseRequestMachine.options('pending_approval', selfApprover, own)
+        .filter(({ transition }) => ['approve', 'request_changes', 'reject'].includes(transition.action))
+        .map(({ transition, blocked }) => [transition.action, blocked]),
+    ).toEqual([
+      ['approve', null],
+      ['request_changes', null],
+      ['reject', null],
+    ]);
+    expect(purchaseRequestMachine.check('pending_approval', 'approve', { actor: selfApprover, record: own })).toEqual({
+      ok: true,
+      to: 'approved',
+      selfApproved: true,
+    });
+    expect(
+      purchaseRequestMachine.check('pending_approval', 'request_changes', {
+        actor: selfApprover,
+        record: own,
+        reason: 'Bổ sung báo giá',
+      }),
+    ).toEqual({ ok: true, to: 'changes_requested', selfApproved: true });
+    expect(
+      purchaseRequestMachine.check('pending_approval', 'reject', {
+        actor: selfApprover,
+        record: own,
+        reason: 'Không còn nhu cầu',
+      }),
+    ).toEqual({ ok: true, to: 'rejected', selfApproved: true });
   });
 
   it('loại hết dòng thì không duyệt được', () => {
@@ -84,6 +117,21 @@ describe('phiếu nhận', () => {
       ok: false,
       code: 'second_person_required',
     });
+  });
+
+  it('CEO hoặc công ty một thành viên được tự ghi sổ phiếu đủ và phiếu giao thiếu', () => {
+    expect(
+      goodsReceiptMachine.check('counting', 'post', {
+        actor: selfApprover,
+        record: { createdBy: selfApprover.accountId, short: 0 },
+      }),
+    ).toEqual({ ok: true, to: 'matched', selfApproved: true });
+    expect(
+      goodsReceiptMachine.check('counting', 'post_short', {
+        actor: selfApprover,
+        record: { createdBy: selfApprover.accountId, short: 2 },
+      }),
+    ).toEqual({ ok: true, to: 'short', selfApproved: true });
   });
 
   it('giao thiếu chỉ hệ thống chuyển sang đã xử lý', () => {

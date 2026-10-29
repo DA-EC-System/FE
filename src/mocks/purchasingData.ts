@@ -240,12 +240,12 @@ export const requests: MockPurchaseRequest[] = [
       line('prl-005', 'prd-003-v1', 30, 205000),
       line('prl-006', null, 10, 150000, { newProduct: { name: 'Ví da nam', categoryId: 'cat-pk' } }),
     ],
-    createdBy: MUA.id,
+    createdBy: CEO.id,
     createdAt: '2026-10-24T02:00:00.000Z',
     version: 2,
     statusHistory: [
-      step('2026-10-24T02:00:00.000Z', null, 'draft', MUA),
-      step('2026-10-24T02:15:00.000Z', 'draft', 'pending_approval', MUA),
+      step('2026-10-24T02:00:00.000Z', null, 'draft', CEO),
+      step('2026-10-24T02:15:00.000Z', 'draft', 'pending_approval', CEO),
     ],
   },
   {
