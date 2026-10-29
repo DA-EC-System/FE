@@ -1,7 +1,7 @@
 # Staging trên k3s (repo backend, deploy/k8s) có hai bản FE cùng một commit:
 #   https://<tên miền>/       image commerio-fe, gọi backend thật      (Deployment fe)
 #   https://<tên miền>/mock/  image commerio-fe-mock, chạy MSW, dữ liệu giả (Deployment fe-mock)
-# PR vào develop chỉ build hai image để kiểm; merge vào develop → đẩy :sha-<7 ký tự> và :develop của cả hai
+# PR vào main chỉ build hai image để kiểm; merge vào main → đẩy :sha-<7 ký tự> và :develop (giữ tên tag cũ để k3s không phải đổi) của cả hai
 # → đổi image của fe và fe-mock.
 # Đổi image qua SSH vào tài khoản ci-deploy trên VPS: khoá này chỉ chạy được lệnh deploy của FE
 # (forced command, xem deploy/k8s/README.md của repo backend), không có shell.
@@ -11,9 +11,9 @@ name: Deploy staging
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
   pull_request:
-    branches: [develop]
+    branches: [main]
   workflow_dispatch:
 
 # Mỗi lúc một lần deploy; lần mới chờ lần đang chạy xong. PR có nhóm riêng, đẩy commit mới thì huỷ lần cũ.

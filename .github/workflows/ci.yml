@@ -1,4 +1,4 @@
-# Kiểm mỗi PR và mỗi lần đẩy lên develop, main (FE#69; Documents/26-ke-hoach-kiem-thu.md §2.1):
+# Kiểm mỗi PR và mỗi lần đẩy lên main (FE#69; Documents/26-ke-hoach-kiem-thu.md §2.1):
 #   check: lint (ESLint 9), typecheck, unit test (Vitest)
 #   e2e:   Cypress trên mock MSW (Vite dev, mock bật mặc định), mọi spec ngoài nhóm cypress/e2e/*-be
 # Chưa chạy `pnpm e2e:be` (BE thật, DB commerio_e2e): cần checkout commerio-backend và PostgreSQL, làm ở bước sau của FE#69.
@@ -6,7 +6,7 @@ name: CI
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
   pull_request:
 
 # Đẩy commit mới lên PR thì huỷ lần chạy cũ của PR đó.

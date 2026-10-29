@@ -19,5 +19,5 @@ Closes #
 - [ ] Không commit `.env`, token
 
 <!--
-PR develop → main (phát hành): dùng điều kiện ở Documents/26-ke-hoach-kiem-thu.md §6 thay checklist trên.
+Chốt bản phát hành (gắn tag trên main): dùng điều kiện ở Documents/26-ke-hoach-kiem-thu.md §6 thay checklist trên.
 -->
