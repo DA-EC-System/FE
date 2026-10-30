@@ -235,6 +235,10 @@ const shops: MockShop[] = [
  * màn hình, chốt với BE ở commerio-backend#8.
  */
 export const permissionCatalog: PermissionDef[] = [
+  { code: P.configManage, module: 'finance', label: 'Soạn cấu hình phí, thuế' },
+  { code: P.configApprove, module: 'finance', label: 'Duyệt cấu hình phí, thuế' },
+  { code: P.settlementResolve, module: 'finance', label: 'Chốt lệch, khớp sao kê' },
+  { code: P.settlementApprove, module: 'finance', label: 'Duyệt chốt lệch vượt ngưỡng' },
   { code: P.staffView, module: 'identity', label: 'Xem tài khoản nhân viên' },
   { code: P.staffManage, module: 'identity', label: 'Thêm nhân viên, gán vai trò, khoá tài khoản' },
   { code: P.roleView, module: 'identity', label: 'Xem vai trò' },
@@ -286,6 +290,7 @@ export const permissionCatalog: PermissionDef[] = [
  * CEO có mọi quyền.
  */
 const ADMIN_PERMISSIONS = [
+  P.configManage, P.settlementResolve,
   P.auditView,
   P.staffView,
   P.staffManage,
