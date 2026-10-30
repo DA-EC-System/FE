@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useFireMarketplaceEvent, useMarketplaceEvents } from '@/api/devMarketplace.api';
 import { useShops } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import { formatDateTime } from '@/utils/format';
 import type { MarketplaceEventType } from '@/types/devMarketplace';
 
@@ -71,7 +71,7 @@ export function MarketplaceSimulatorPage() {
               <SelectContent>
                 {shops.data?.items.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.shopName} · {PLATFORM_LABELS[s.platform]}
+                    {s.shopName} · {platformLabel(s.platform, s.platformName)}
                   </SelectItem>
                 ))}
               </SelectContent>

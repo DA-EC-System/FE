@@ -7,17 +7,16 @@ import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { useCustomers } from '@/api/sales.api';
+import { useCustomers, useCustomerChannels } from '@/api/sales.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDate } from '@/utils/format';
-import type { CustomerChannel, CustomerSummary } from '@/types/sales';
-import { CHANNEL_LABELS } from './shared';
+import type { CustomerSummary } from '@/types/sales';
+import { channelLabel } from './shared';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 
 const PAGE_SIZES = [25, 50, 100];
-const CHANNELS: CustomerChannel[] = ['manual', 'tiktok', 'shopee', 'lazada'];
 
 /** UC-SF-02 — Khách hàng của công ty, gộp từ đơn sàn, hộp thư và đơn tạo tay */
 export function CustomerListPage() {
@@ -37,6 +36,7 @@ export function CustomerListPage() {
     from: from || undefined,
     to: to || undefined,
   });
+  const channels = useCustomerChannels();
   const filtered = Boolean(f.q || channel || from || to);
 
   const columns = useMemo<ColumnDef<CustomerSummary>[]>(
@@ -61,7 +61,7 @@ export function CustomerListPage() {
           <div className="flex flex-wrap gap-1">
             {row.original.channels.map((c) => (
               <Badge key={c} variant="secondary">
-                {CHANNEL_LABELS[c]}
+                {channelLabel(c)}
               </Badge>
             ))}
           </div>
@@ -104,7 +104,7 @@ export function CustomerListPage() {
             label="Kênh"
             value={channel}
             onChange={f.setFilter('channel')}
-            options={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
+            options={[...new Set([...(channels.data ?? []), ...(channel ? [channel] : [])])].map((c) => ({ value: c, label: channelLabel(c) }))}
           />
           <DateFilter label="Đặt đơn từ ngày" value={from} max={to || undefined} onChange={f.setFilter('from')} />
           <DateFilter label="Đến ngày" value={to} min={from || undefined} onChange={f.setFilter('to')} />

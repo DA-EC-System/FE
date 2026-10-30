@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { z } from 'zod';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import type { Marketplace } from '@/types/shop';
 import type { ReportFigures, ShopFigures } from '@/types/report';
 import type { OrderSource } from '@/types/sales';
@@ -37,7 +37,7 @@ export function channelLabel(item: Pick<ShopFigures, 'source' | 'shop'>): { name
   if (item.source !== 'marketplace' || !item.shop) return { name: REPORT_SOURCE_LABELS[item.source], platform: null };
   if (item.shop.shopName === null) return { name: 'Gian hàng đã xoá', platform: null };
   const platform = item.shop.platform;
-  return { name: item.shop.shopName, platform: platform ? (PLATFORM_LABELS[platform as Marketplace] ?? platform) : null };
+  return { name: item.shop.shopName, platform: platform ? (platformLabel(platform as Marketplace) ?? platform) : null };
 }
 
 // ---------- Tính toán ----------

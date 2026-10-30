@@ -5,6 +5,10 @@ import { connectedToast } from './connectResult';
 const shop = { id: 'shp-x', shopName: 'Shop thử' } as Shop;
 
 describe('connectedToast', () => {
+  it('nhiều gian hàng báo số lượng', () => {
+    const item = { shop, created: true, reconnect: null };
+    expect(connectedToast({ ...item, shops: [item, item] })).toBe('Đã kết nối 2 gian hàng');
+  });
   it('gian hàng mới nhắc hoàn tất thiết lập', () => {
     expect(connectedToast({ shop, created: true, reconnect: null })).toBe(
       'Đã kết nối Shop thử. Hoàn tất thiết lập để bắt đầu bán.',

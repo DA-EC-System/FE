@@ -13,7 +13,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import type { Marketplace } from '@/types/shop';
-import { PLATFORM_LABELS } from './shopSchemas';
+import { platformLabel } from './shopSchemas';
 import { OAUTH_COMPANY_KEY } from './useStartConnect';
 import { connectedToast } from './connectResult';
 
@@ -63,23 +63,22 @@ export function ShopOAuthCallbackPage() {
       // bỏ qua
     }
     const back = () => navigate(ROUTES.company.shops(companyId), { replace: true });
-    const code = params.get('code');
     const state = params.get('state');
     if (params.get('error')) {
       toast.info('Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.');
       back();
       return;
     }
-    if (!code || !state || !platform) {
+    if (!state || !platform) {
       toast.error('Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.');
       back();
       return;
     }
     callback
-      .mutateAsync({ platform: platform as Marketplace, code, state })
+      .mutateAsync({ platform, state, params: Object.fromEntries([...params].filter(([key]) => key !== 'state')) })
       .then((result) => {
         toast.success(connectedToast(result));
-        if (result.created) {
+        if (result.shops.length === 1 && result.shop.status === 'connecting') {
           navigate(ROUTES.company.shopSetup(companyId, result.shop.id), { replace: true });
           return;
         }
@@ -108,7 +107,7 @@ export function MockOAuthPage() {
     () => reconnect ?? `${platform}-shop-${Math.random().toString(36).slice(2, 6)}`,
   );
   const [shopName, setShopName] = useState(
-    () => params.get('shop_name') ?? `Gian hàng thử ${PLATFORM_LABELS[platform] ?? platform}`,
+    () => params.get('shop_name') ?? `Gian hàng thử ${platformLabel(platform) ?? platform}`,
   );
   const [errors, setErrors] = useState<{ externalShopId?: string; shopName?: string }>({});
 
@@ -144,7 +143,7 @@ export function MockOAuthPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="size-5 text-primary" />
-            {PLATFORM_LABELS[platform] ?? platform} · Uỷ quyền ứng dụng
+            {platformLabel(platform) ?? platform} · Uỷ quyền ứng dụng
           </CardTitle>
           <CardDescription>
             Đây là sàn giả lập. Commerio xin quyền đọc đơn hàng, cập nhật sản phẩm, giá và tồn kho của gian hàng.

@@ -158,3 +158,25 @@ export function useConfirmOrder() {
     onSettled: invalidate,
   });
 }
+
+/** Đọc các trang không lọc để danh sách kênh không phụ thuộc trang đang xem. */
+export function useCustomerChannels() {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: [...salesKeys.all(companyId), 'customer-channels'],
+    enabled: Boolean(companyId),
+    queryFn: async ({ signal }) => {
+      const channels = new Set<string>();
+      let count = 0;
+      for (let page = 1; ; page++) {
+        const { data } = await apiClient.get<PageResult<CustomerSummary>>('/sales/customers', {
+          params: { page, pageSize: 100 }, signal,
+        });
+        data.items.forEach((customer) => customer.channels.forEach((code) => channels.add(code)));
+        count += data.items.length;
+        if (!data.items.length || count >= data.total) break;
+      }
+      return [...channels].sort();
+    },
+  });
+}

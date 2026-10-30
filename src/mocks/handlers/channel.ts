@@ -14,6 +14,7 @@ import type {
   ShopCallbackInput,
   ShopAuthorizeUrl,
   ShopCallbackResult,
+  ShopConnectionResult,
   ShopDisconnectInput,
   ShopReconnectSummary,
   ShopSetupInput,
@@ -34,7 +35,8 @@ import { fileUrl, rid, staleVersion, variantAttributes } from './catalog';
 import { ensureStandard, sellableVariants, skuOf } from './pricing';
 import { nextDocNumber } from './inventory';
 import { hidesListings } from '@/lib/machines/product';
-import { hidesByZeroStock, listingMachine, onPlatform, reviewsListings, shopMachine, shopUsable } from '@/lib/machines/channel';
+import { listingMachine, onPlatform, shopMachine, shopUsable } from '@/lib/machines/channel';
+import { mockCapabilities } from '../shopPlatforms';
 import { appPath } from '@/utils/env';
 import { registerMarketplaceEvent } from '../engine/marketplace';
 import type { ListingStatus } from '@/types/shop';
@@ -142,7 +144,7 @@ export function settlePush(shop: MockShop, l: MockListing, paused: boolean) {
   l.pushError = null;
   l.pushAttempts = 0;
   l.rejectReason = null;
-  if (reviewsListings(shop.platform)) {
+  if (shop.capabilities.listingReview) {
     l.status = 'under_review';
     for (const sib of channel.listings) {
       if (sib !== l && sib.shopId === shop.id && sib.externalProductId === l.externalProductId && sib.status === 'live') {
@@ -167,7 +169,7 @@ function syncStock(l: MockListing) {
 /** Ẩn listing khi SKU tạm ngừng: sàn ẩn riêng SKU, hoặc đẩy tồn 0 khi sàn không ẩn riêng phân loại */
 export function hideListing(shop: MockShop, l: MockListing) {
   if (l.status === 'live') l.status = 'hidden';
-  l.hiddenBy = hidesByZeroStock(shop.platform) ? 'zero_stock' : 'platform';
+  l.hiddenBy = shop.capabilities.hideBy === 'zero_stock' ? 'zero_stock' : 'platform';
   if (l.hiddenBy === 'zero_stock') l.platformStock = 0;
 }
 
@@ -366,8 +368,9 @@ registerMarketplaceEvent({
   needsShop: true,
   run({ shop }) {
     if (!shop) throw new Error('Chọn gian hàng');
-    if (shop.status !== 'active') throw new Error('Chỉ gian hàng đang kết nối mới mất quyền được');
+    if (!shopUsable(shop.status)) throw new Error('Chỉ gian hàng đang kết nối mới mất quyền được');
     shop.status = 'needs_reauth';
+    shop.tokenExpiringSoon = false;
     shop.accessExpiresAt = new Date().toISOString();
     if (shop.refreshExpiresAt) shop.refreshExpiresAt = shop.accessExpiresAt;
     for (const l of channel.listings) {
@@ -535,16 +538,21 @@ function attachGranted(
     Object.assign(current, {
       accessExpiresAt: expires,
       refreshExpiresAt: refreshExpires,
+      authExpiresAt: null,
+      tokenExpiringSoon: false,
       updatedAt: db.now(),
       version: current.version + 1,
     });
     writeCompanyLog(actor, 'update', shopEntity(current), before, shopSnapshot(current));
-    return HttpResponse.json<ShopCallbackResult>({ shop: toShop(current), created: false, reconnect });
+    return HttpResponse.json<ShopConnectionResult>({ shop: toShop(current), created: false, reconnect });
   }
   const shop: MockShop = {
     id: rid('shp'),
     companyId,
     platform,
+    capabilities: mockCapabilities[platform],
+    authExpiresAt: null,
+    tokenExpiringSoon: false,
     externalShopId: granted.externalShopId,
     shopName: granted.shopName,
     region: 'VN',
@@ -561,7 +569,7 @@ function attachGranted(
   db.shops.unshift(shop);
   channel.seedRemoteForNewShop(shop.id);
   writeCompanyLog(actor, 'create', shopEntity(shop), null, shopSnapshot(shop));
-  return HttpResponse.json<ShopCallbackResult>({ shop: toShop(shop), created: true, reconnect: null }, { status: 201 });
+  return HttpResponse.json<ShopConnectionResult>({ shop: toShop(shop), created: true, reconnect: null }, { status: 201 });
 }
 
 export const shopHandlers = [
@@ -570,10 +578,10 @@ export const shopHandlers = [
     const guard = requireCompany(request, PERMISSIONS.shopView);
     if (!guard.ok) return guard.response;
     return HttpResponse.json<ShopPlatformList>({ items: [
-      { platform: 'tiktok', name: 'TikTok Shop', connectable: true, methods: ['oauth'] },
-      { platform: 'shopee', name: 'Shopee', connectable: true, methods: ['oauth'] },
-      { platform: 'lazada', name: 'Lazada', connectable: true, methods: ['oauth', 'token'] },
-      { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true, methods: ['oauth', 'token'] },
+      { platform: 'tiktok', capabilities: mockCapabilities.tiktok, name: 'TikTok Shop', connectable: true, methods: ['oauth'] },
+      { platform: 'shopee', capabilities: mockCapabilities.shopee, name: 'Shopee', connectable: true, methods: ['oauth'] },
+      { platform: 'lazada', capabilities: mockCapabilities.lazada, name: 'Lazada', connectable: true, methods: ['oauth', 'token'] },
+      { platform: 'mock', capabilities: mockCapabilities.mock, name: 'Sàn giả lập (mock)', connectable: true, methods: ['oauth', 'token'] },
     ] });
   }),
   http.get(`${API}/channel/shops`, async ({ request }) => {
@@ -638,11 +646,20 @@ export const shopHandlers = [
       });
     }
     channel.oauthStates.delete(body.state);
-    const granted = decodeMockCode(body.code);
+    const granted = decodeMockCode(body.params?.code ?? '');
     if (!granted) return problem(400, 'Mã uỷ quyền không hợp lệ', { code: 'invalid_code' });
 
     const platform = pending.platform as Marketplace;
-    return attachGranted(guard.value, platform, granted, pending.shopId);
+    const grants = body.params.main_account_id && !pending.shopId
+      ? [granted, { externalShopId: `${granted.externalShopId}-2`, shopName: `${granted.shopName} 2` }]
+      : [granted];
+    const shops: ShopConnectionResult[] = [];
+    for (const grant of grants) {
+      const response = attachGranted(guard.value, platform, grant, pending.shopId);
+      if (!response.ok) return response;
+      shops.push(await response.json() as ShopConnectionResult);
+    }
+    return HttpResponse.json<ShopCallbackResult>({ ...shops[0], shops }, { status: shops.some((s) => s.created) ? 201 : 200 });
   }),
 
   // Shop thử không đi OAuth được: dán token lấy trên console của sàn. Mock: token "sai" bị sàn từ chối
@@ -709,6 +726,8 @@ export const shopHandlers = [
       status: step.value,
       accessExpiresAt: null,
       refreshExpiresAt: null,
+      authExpiresAt: null,
+      tokenExpiringSoon: false,
       pendingJobs: 0,
       updatedAt: db.now(),
       version: current.version + 1,

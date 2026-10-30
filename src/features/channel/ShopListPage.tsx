@@ -26,9 +26,9 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDate, formatDateTime } from '@/utils/format';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { tokenExpiringSoon } from '@/lib/machines/channel';
-import type { Shop, ShopCallbackResult, ShopPlatform } from '@/types/shop';
-import { isUsable, PLATFORM_LABELS, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
+import { authorizationDeadline } from './shopSchemas';
+import type { Shop, ShopConnectionResult, ShopPlatform } from '@/types/shop';
+import { isUsable, platformLabel, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { connectedToast } from './connectResult';
 import { ShopTokenForm } from './ShopTokenForm';
@@ -96,7 +96,7 @@ export function ShopListPage() {
     setAdding(false);
     setTokenFor(null);
   };
-  const tokenConnected = (result: ShopCallbackResult) => {
+  const tokenConnected = (result: ShopConnectionResult) => {
     toast.success(connectedToast(result));
     closeAdding();
     if (result.created) navigate(ROUTES.company.shopSetup(companyId, result.shop.id));
@@ -151,7 +151,7 @@ export function ShopListPage() {
         id: 'platform',
         header: 'Sàn',
         meta: { className: 'w-40' },
-        cell: ({ row }) => PLATFORM_LABELS[row.original.platform] ?? row.original.platform,
+        cell: ({ row }) => platformLabel(row.original.platform, row.original.platformName ?? platformsQuery.data?.items.find((p) => p.platform === row.original.platform)?.name),
       },
       {
         id: 'status',
@@ -164,9 +164,9 @@ export function ShopListPage() {
               <Badge variant={STATUS_VARIANTS[s.status]} data-testid="shop-status">
                 {STATUS_LABELS[s.status]}
               </Badge>
-              {tokenExpiringSoon(s.status, s.refreshExpiresAt) && (
+              {s.tokenExpiringSoon && (
                 <span className="text-xs text-warning" data-testid="shop-expiring">
-                  Sắp hết hạn · Kết nối lại trước {formatDate(s.refreshExpiresAt)}
+                  Sắp hết hạn{authorizationDeadline(s) && <> · Kết nối lại trước {formatDate(authorizationDeadline(s))}</>}
                 </span>
               )}
               {s.status === 'active' && s.accessExpiresAt && (
@@ -245,7 +245,7 @@ export function ShopListPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canConnect, canDisconnect, canSync, companyId, syncMut.isPending, syncMut.variables, connector.pending],
+    [canConnect, canDisconnect, canSync, companyId, syncMut.isPending, syncMut.variables, connector.pending, platformsQuery.data],
   );
 
   return (
@@ -421,7 +421,7 @@ export function ShopListPage() {
         title="Ngắt kết nối gian hàng?"
         message={
           <>
-            Ngắt <strong>{disconnecting?.shopName}</strong> ({disconnecting && PLATFORM_LABELS[disconnecting.platform]}).
+            Ngắt <strong>{disconnecting?.shopName}</strong> ({disconnecting && platformLabel(disconnecting.platform, disconnecting.platformName)}).
             Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; listing trên sàn được gỡ. Đơn và ghép SKU
             cũ vẫn giữ; kết nối lại thì listing được đưa lên lại.
             <div className="mt-3 flex items-start gap-2">

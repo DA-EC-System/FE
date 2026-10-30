@@ -8,6 +8,16 @@ export const PLATFORM_LABELS: Record<Marketplace, string> = {
   mock: 'Sàn giả lập (mock)',
 };
 
+export function platformLabel(code: string, name?: string): string {
+  return name?.trim() || PLATFORM_LABELS[code] || code;
+}
+
+/** Chỉ chọn hạn để hiển thị; cảnh báo do BE quyết định. */
+export function authorizationDeadline(shop: { authExpiresAt: string | null; refreshExpiresAt: string | null }): string | null {
+  return [shop.authExpiresAt, shop.refreshExpiresAt].filter((x): x is string => Boolean(x))
+    .sort((a, b) => Date.parse(a) - Date.parse(b))[0] ?? null;
+}
+
 export const STATUS_LABELS: Record<ShopStatus, string> = {
   connecting: 'Đang thiết lập',
   active: 'Đã kết nối',

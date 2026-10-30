@@ -21,6 +21,7 @@ import type {
   ShopAuthorizeUrl,
   ShopCallbackInput,
   ShopCallbackResult,
+  ShopConnectionResult,
   ShopConnectInput,
   ShopDisconnectInput,
   ShopSetupInput,
@@ -116,7 +117,7 @@ export function useConnectShopByToken() {
   const invalidate = useInvalidateShops();
   return useMutation({
     mutationFn: async ({ platform, ...input }: ShopTokenInput & { platform: string }) => {
-      const { data } = await apiClient.post<ShopCallbackResult>(`/channel/shops/${platform}/token`, input);
+      const { data } = await apiClient.post<ShopConnectionResult>(`/channel/shops/${platform}/token`, input);
       return data;
     },
     onSuccess: invalidate,

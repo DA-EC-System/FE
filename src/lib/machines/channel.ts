@@ -1,15 +1,15 @@
 /**
  * Gian hàng (sơ đồ C1) và listing (sơ đồ C2), FE#58. Mock kiểm bằng `check`, UI hiện thao tác bằng `available`.
- * Khác biệt theo sàn (duyệt listing, ẩn riêng phân loại) gom ở đây để mock và UI dùng chung.
+ * Năng lực theo sàn do BE trả trong capabilities.
  */
 import { defineMachine } from '@/lib/stateMachine';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { VariantPresence } from '@/types/catalog';
-import type { ListingAction, ListingStatus, Marketplace, ShopAction, ShopStatus } from '@/types/shop';
+import type { ListingAction, ListingStatus, ShopAction, ShopStatus } from '@/types/shop';
 
 export const shopMachine = defineMachine<ShopStatus, ShopAction>([
   { from: 'connecting', to: 'active', action: 'finish_setup', label: 'Hoàn tất thiết lập', permission: PERMISSIONS.shopConnect },
-  { from: 'active', to: 'needs_reauth', action: 'lose_auth', label: 'Mất uỷ quyền', system: true },
+  { from: ['connecting', 'active'], to: 'needs_reauth', action: 'lose_auth', label: 'Mất uỷ quyền', system: true },
   { from: ['needs_reauth', 'disconnected'], to: 'active', action: 'reconnect', label: 'Kết nối lại', permission: PERMISSIONS.shopConnect },
   {
     from: ['connecting', 'active', 'needs_reauth'],
@@ -22,17 +22,6 @@ export const shopMachine = defineMachine<ShopStatus, ShopAction>([
 
 /** Token còn gọi được API sàn: ghép, đẩy, đồng bộ */
 export const shopUsable = (status: ShopStatus) => status === 'active' || status === 'connecting';
-
-/**
- * Còn bao nhiêu ngày refresh token thì coi là sắp hết hạn (nhãn phụ, không phải trạng thái).
- * Access token BE tự làm mới, nên chỉ refresh token hết hạn mới buộc người dùng kết nối lại (§18.4).
- */
-export const EXPIRING_DAYS = 3;
-
-export function tokenExpiringSoon(status: ShopStatus, refreshExpiresAt: string | null, now = Date.now()) {
-  if (status !== 'active' || !refreshExpiresAt) return false;
-  return new Date(refreshExpiresAt).getTime() - now < EXPIRING_DAYS * 24 * 3600_000;
-}
 
 const manage = PERMISSIONS.listingManage;
 
@@ -62,12 +51,6 @@ export const listingMachine = defineMachine<ListingStatus, ListingAction>([
     permission: manage,
   },
 ]);
-
-/** Sàn duyệt listing trước khi bán (Lazada QC, TikTok); Shopee, sàn giả lập bán ngay */
-export const reviewsListings = (platform: Marketplace) => platform === 'lazada' || platform === 'tiktok';
-
-/** Sàn không ẩn riêng một phân loại (Shopee model, Shopify variant): đẩy tồn 0 thay cho ẩn */
-export const hidesByZeroStock = (platform: Marketplace) => platform === 'shopee';
 
 /** Listing còn hiện diện trên sàn (tính vào "Trên sàn" của SKU) */
 export const onPlatform = (status: ListingStatus) => status !== 'delisted';

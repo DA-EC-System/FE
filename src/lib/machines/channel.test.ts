@@ -1,18 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import {
-  hidesByZeroStock,
   listingMachine,
   presenceFrom,
-  reviewsListings,
   shopMachine,
   shopUsable,
-  tokenExpiringSoon,
 } from './channel';
 
 const owner = { accountId: 'a1', permissions: [PERMISSIONS.shopConnect, PERMISSIONS.shopDisconnect, PERMISSIONS.listingManage] };
 const viewer = { accountId: 'a2', permissions: [PERMISSIONS.shopView] };
-const DAY = 24 * 3600_000;
 
 describe('Gian hàng (sơ đồ C1)', () => {
   it('đi đúng các mũi tên của sơ đồ', () => {
@@ -42,14 +38,7 @@ describe('Gian hàng (sơ đồ C1)', () => {
     expect(shopUsable('disconnected')).toBe(false);
   });
 
-  it('sắp hết hạn là nhãn phụ của gian hàng đang hoạt động, refresh token còn dưới 3 ngày', () => {
-    const now = Date.parse('2026-05-01T00:00:00Z');
-    const at = (days: number) => new Date(now + days * DAY).toISOString();
-    expect(tokenExpiringSoon('active', at(2), now)).toBe(true);
-    expect(tokenExpiringSoon('active', at(4), now)).toBe(false);
-    expect(tokenExpiringSoon('needs_reauth', at(2), now)).toBe(false);
-    expect(tokenExpiringSoon('active', null, now)).toBe(false);
-  });
+
 });
 
 describe('Listing (sơ đồ C2)', () => {
@@ -79,13 +68,7 @@ describe('Listing (sơ đồ C2)', () => {
     expect(listingMachine.available('live', owner).map((t) => t.action).sort()).toEqual(['delist', 'push']);
   });
 
-  it('khác biệt theo sàn', () => {
-    expect(reviewsListings('lazada')).toBe(true);
-    expect(reviewsListings('tiktok')).toBe(true);
-    expect(reviewsListings('shopee')).toBe(false);
-    expect(hidesByZeroStock('shopee')).toBe(true);
-    expect(hidesByZeroStock('lazada')).toBe(false);
-  });
+
 
   it('hiện diện của SKU suy từ các listing, bỏ listing đã gỡ', () => {
     expect(presenceFrom([])).toBe('not_listed');

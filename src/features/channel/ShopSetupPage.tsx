@@ -22,7 +22,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import type { OpeningStockMode } from '@/types/shop';
-import { PLATFORM_LABELS } from './shopSchemas';
+import { platformLabel } from './shopSchemas';
 
 const STEPS = ['Ghép listing có sẵn', 'Tồn đầu kỳ', 'Mốc kéo đơn'] as const;
 
@@ -124,7 +124,7 @@ export function ShopSetupPage() {
     <div className="mx-auto grid max-w-3xl gap-4">
       <PageHeader
         title={`Thiết lập ${shop.data.shopName}`}
-        subtitle={`${PLATFORM_LABELS[shop.data.platform]} · gian hàng chưa bán được cho đến khi xong ba bước`}
+        subtitle={`${platformLabel(shop.data.platform, shop.data.platformName)} · gian hàng chưa bán được cho đến khi xong ba bước`}
       />
       <ol className="flex flex-wrap gap-2" aria-label="Các bước thiết lập">
         {STEPS.map((label, i) => (

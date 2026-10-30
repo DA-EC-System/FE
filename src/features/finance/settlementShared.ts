@@ -1,5 +1,5 @@
 import { formatCurrency } from '@/utils/format';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import type { Marketplace } from '@/types/shop';
 import type { BadgeVariant } from '@/features/sales/shared';
 import type {
@@ -60,7 +60,7 @@ export const FEE_KEYS = Object.keys(FEE_LABELS) as (keyof SettlementFees)[];
 /** Gian hàng kèm sàn; gian hàng đã xoá khỏi kênh thì `shopName` là `null` */
 export function shopText(shop: SettlementShop): string {
   if (shop.shopName === null) return 'Gian hàng đã xoá';
-  const platform = shop.platform ? (PLATFORM_LABELS[shop.platform as Marketplace] ?? shop.platform) : null;
+  const platform = shop.platform ? (platformLabel(shop.platform as Marketplace) ?? shop.platform) : null;
   return platform ? `${shop.shopName} (${platform})` : shop.shopName;
 }
 
