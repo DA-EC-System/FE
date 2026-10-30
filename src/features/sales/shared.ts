@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import type {
   CustomerChannel,
   OrderFlag,
@@ -84,11 +84,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cod: 'Thu khi giao (COD)',
 };
 
-export const CHANNEL_LABELS: Record<CustomerChannel, string> = {
-  ...PLATFORM_LABELS,
-  tiktok: 'TikTok',
-  manual: 'Tạo tay',
-};
+export const channelLabel = (code: CustomerChannel) => code === 'manual' ? 'Tạo tay' : platformLabel(code);
 
 export const PAYMENT_STATUS: Record<PaymentStatus, { label: string; variant: BadgeVariant }> = {
   unpaid: { label: 'Chưa thanh toán', variant: 'warning' },

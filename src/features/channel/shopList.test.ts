@@ -5,7 +5,7 @@ import { shopPage, shopPlatformOptions } from './shopList';
 const shops = Array.from({ length: 31 }, (_, i): Shop => ({
   id: `shop-${i}`, companyId: 'company', platform: i === 30 ? 'mock' : 'lazada',
   externalShopId: `SELLER-${i}`, shopName: `Gian hàng ${i}`, status: i === 30 ? 'disconnected' : 'active',
-  region: 'VN', accessExpiresAt: null, refreshExpiresAt: null, orderCutoffAt: null, pendingJobs: 0,
+  region: 'VN', capabilities: { listingReview: false, hideBy: 'deactivate' }, authExpiresAt: null, tokenExpiringSoon: false, accessExpiresAt: null, refreshExpiresAt: null, orderCutoffAt: null, pendingJobs: 0,
   listingCount: 0, version: 1, createdAt: '2026-10-29T00:00:00Z', updatedAt: '2026-10-29T00:00:00Z',
 }));
 const filters = { search: '', platform: '', status: '', page: 1, pageSize: 25 };

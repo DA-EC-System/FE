@@ -1,9 +1,9 @@
 import type { Shop } from '@/types/shop';
-import { PLATFORM_LABELS } from './shopSchemas';
+import { platformLabel } from './shopSchemas';
 
 export function shopPlatformOptions(shops: readonly Shop[]) {
   return [...new Set(shops.map((s) => s.platform))].map((value) => ({
-    value, label: PLATFORM_LABELS[value] ?? value,
+    value, label: platformLabel(value, shops.find((shop) => shop.platform === value)?.platformName),
   }));
 }
 

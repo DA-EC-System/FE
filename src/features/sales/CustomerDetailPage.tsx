@@ -18,7 +18,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import type { OrderSummary } from '@/types/sales';
-import { CHANNEL_LABELS, ORDER_STATUS } from './shared';
+import { channelLabel, ORDER_STATUS } from './shared';
 import { Info } from './Info';
 
 /** UC-SF-02 — Hồ sơ khách và lịch sử đơn */
@@ -114,7 +114,7 @@ export function CustomerDetailPage() {
               <div className="flex flex-wrap gap-1">
                 {customer.channels.map((c) => (
                   <Badge key={c} variant="secondary">
-                    {CHANNEL_LABELS[c]}
+                    {channelLabel(c)}
                   </Badge>
                 ))}
               </div>
@@ -141,7 +141,7 @@ export function CustomerDetailPage() {
             <ul className="grid gap-2 text-sm" data-testid="customer-identities">
               {customer.identities.map((i) => (
                 <li key={`${i.channelKind}-${i.externalUserId}`} className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{CHANNEL_LABELS[i.channelKind]}</Badge>
+                  <Badge variant="outline">{channelLabel(i.channelKind)}</Badge>
                   <span className="font-medium">{i.displayName}</span>
                   <span className="text-muted-foreground">{i.externalUserId}</span>
                 </li>

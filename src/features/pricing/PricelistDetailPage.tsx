@@ -22,7 +22,7 @@ import { getErrorMessage, getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { cn } from '@/lib/utils';
@@ -432,7 +432,7 @@ export function PricelistDetailPage() {
             : pricelist.type === 'standard'
               ? 'Bảng giá chuẩn, áp dụng mặc định cho mọi đơn.'
               : pricelist.shop
-                ? `Giá riêng cho gian hàng ${pricelist.shop.shopName} (${PLATFORM_LABELS[pricelist.shop.platform]}); ô trống lấy giá chuẩn.`
+                ? `Giá riêng cho gian hàng ${pricelist.shop.shopName} (${platformLabel(pricelist.shop.platform, pricelist.shop.platformName)}); ô trống lấy giá chuẩn.`
                 : 'Gian hàng của bảng giá này đã bị xoá.'
         }
         action={

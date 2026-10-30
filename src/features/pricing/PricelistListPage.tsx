@@ -17,7 +17,7 @@ import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useModuleEnabled } from '@/hooks/usePermission';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
@@ -98,7 +98,7 @@ export function PricelistListPage() {
             return <span className="text-muted-foreground">Mặc định cho mọi đơn</span>;
           }
           return p.shop ? (
-            `${p.shop.shopName} · ${PLATFORM_LABELS[p.shop.platform]}`
+            `${p.shop.shopName} · ${platformLabel(p.shop.platform, p.shop.platformName)}`
           ) : (
             <span className="text-muted-foreground">Gian hàng đã xoá</span>
           );

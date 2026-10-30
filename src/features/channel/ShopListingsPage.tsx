@@ -38,7 +38,7 @@ import {
   isUsable,
   LISTING_STATUS_LABELS,
   LISTING_STATUS_VARIANTS,
-  PLATFORM_LABELS,
+  platformLabel,
   STATUS_LABELS,
   STATUS_VARIANTS,
   STOCK_SYNC_LABELS,
@@ -559,7 +559,7 @@ export function ShopListingsPage() {
         title={shop ? `Ghép SKU · ${shop.shopName}` : 'Ghép SKU'}
         subtitle={
           shop
-            ? `${PLATFORM_LABELS[shop.platform]} · ${shop.externalShopId}. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn.`
+            ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn.`
             : undefined
         }
         action={

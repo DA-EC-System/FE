@@ -10,7 +10,7 @@ import { Form } from '@/components/ui/form';
 import { useConnectShopByToken } from '@/api/shops.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
-import type { ShopCallbackResult } from '@/types/shop';
+import type { ShopConnectionResult } from '@/types/shop';
 
 const tokenSchema = z.object({
   accessToken: z.string().trim().min(1, 'Nhập access token').max(2000, 'Token dài tối đa 2000 ký tự'),
@@ -23,7 +23,7 @@ interface ShopTokenFormProps {
   name: string;
   onBack: () => void;
   onBusyChange: (busy: boolean) => void;
-  onDone: (result: ShopCallbackResult) => void;
+  onDone: (result: ShopConnectionResult) => void;
 }
 
 /** Cách 2: dán token lấy trên console của sàn (shop thử không đi OAuth được) */

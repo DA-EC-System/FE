@@ -33,7 +33,7 @@ import { useCreatePricelist, useUpdatePricelist } from '@/api/pricing.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
-import { PLATFORM_LABELS } from '@/features/channel/shopSchemas';
+import { platformLabel } from '@/features/channel/shopSchemas';
 import type { Shop } from '@/types/shop';
 import type { Pricelist } from '@/types/pricing';
 import {
@@ -128,7 +128,7 @@ export function CreatePricelistDialog({ open, shops, onClose, onDone }: CreateDi
                     <SelectContent>
                       {shops.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.shopName} ({PLATFORM_LABELS[s.platform]})
+                          {s.shopName} ({platformLabel(s.platform, s.platformName)})
                         </SelectItem>
                       ))}
                     </SelectContent>

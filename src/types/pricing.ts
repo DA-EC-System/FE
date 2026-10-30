@@ -12,6 +12,7 @@ export interface PricelistShop {
   id: string;
   shopName: string;
   platform: Marketplace;
+  platformName?: string;
 }
 
 export interface Pricelist {

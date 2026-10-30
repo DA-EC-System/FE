@@ -4,19 +4,19 @@ import * as sales from '../salesData';
 import { PERMISSIONS } from '@/utils/permissions';
 import { collectTasks, dueState, registerTaskSource, REMIND } from '../engine/tasks';
 import { API, LATENCY, requireCompany } from './utils';
-import { tokenExpiringSoon } from '@/lib/machines/channel';
+import { authorizationDeadline } from '@/features/channel/shopSchemas';
 
 // ---------- Việc cần làm theo hạn (FE#55); phiếu nhận, giao thiếu, trả NCC đăng ký ở các PR sau ----------
 
 registerTaskSource({
   kind: 'shop.reauth',
   permission: PERMISSIONS.shopConnect,
-  collect: (companyId, now) =>
+  collect: (companyId) =>
     db.shops
       .filter(
         (s) =>
           s.companyId === companyId &&
-          (s.status === 'needs_reauth' || tokenExpiringSoon(s.status, s.refreshExpiresAt, now)),
+          (s.status === 'needs_reauth' || s.tokenExpiringSoon),
       )
       .map((s) => ({
         id: `shop.reauth:${s.id}`,
@@ -27,7 +27,7 @@ registerTaskSource({
           s.status === 'needs_reauth'
             ? `Sàn đã thu hồi quyền. Chưa kéo đơn, chưa đẩy tồn được${s.pendingJobs ? `; ${s.pendingJobs} việc đang chờ` : ''}.`
             : 'Quyền truy cập sàn sắp hết hạn, cần kết nối lại.',
-        dueAt: s.status === 'needs_reauth' ? s.accessExpiresAt : s.refreshExpiresAt,
+        dueAt: s.status === 'needs_reauth' ? s.accessExpiresAt : authorizationDeadline(s),
         severity: s.status === 'needs_reauth' ? 'overdue' : 'due_soon',
         ref: { type: 'shop', id: s.id },
       })),

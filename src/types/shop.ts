@@ -4,13 +4,19 @@
  * Hợp đồng API đề xuất ở FE#8, chờ commerio-backend#19 chốt.
  */
 
-export type Marketplace = 'tiktok' | 'shopee' | 'lazada' | 'mock';
+export type Marketplace = string;
+
+export interface ShopCapabilities {
+  listingReview: boolean;
+  hideBy: 'deactivate' | 'zero_stock';
+}
 
 /** Sàn được BE công bố theo adapter và cấu hình (Documents/21 §18.1). */
 export interface ShopPlatform {
   platform: string;
   name: string;
   connectable: boolean;
+  capabilities: ShopCapabilities;
   /** Cách kết nối sàn cho phép; BE chưa trả thì coi như chỉ có oauth */
   methods?: ShopConnectMethod[];
 }
@@ -33,9 +39,13 @@ export interface Shop {
   id: string;
   companyId: string;
   platform: Marketplace;
+  platformName?: string;
+  capabilities: ShopCapabilities;
+  authExpiresAt: string | null;
+  tokenExpiringSoon: boolean;
   externalShopId: string;
   shopName: string;
-  region: string;
+  region: string | null;
   status: ShopStatus;
   /** Hạn của access token sàn; null khi đã ngắt. BE tự làm mới khi còn dưới 24 giờ */
   accessExpiresAt: string | null;
@@ -65,8 +75,8 @@ export interface ShopAuthorizeUrl {
 }
 
 export interface ShopCallbackInput {
-  code: string;
   state: string;
+  params: Record<string, string>;
 }
 
 /** POST /channel/shops/:platform/token. Có refreshToken thì BE tự gia hạn, không có thì hết hạn phải kết nối lại */
@@ -75,7 +85,11 @@ export interface ShopTokenInput {
   refreshToken?: string;
 }
 
-export interface ShopCallbackResult {
+export interface ShopCallbackResult extends ShopConnectionResult {
+  shops: ShopConnectionResult[];
+}
+
+export interface ShopConnectionResult {
   shop: Shop;
   /** false: gian hàng đã có, chỉ cấp lại token */
   created: boolean;
@@ -85,7 +99,7 @@ export interface ShopCallbackResult {
 
 /**
  * Sơ đồ Listing (C2, FE#58). Chưa có bản ghi là `not_listed`.
- * pushing → under_review (Lazada, TikTok) hoặc live (Shopee, sàn giả lập); lỗi đẩy → push_failed;
+ * pushing → under_review hoặc live theo capabilities.listingReview; lỗi đẩy → push_failed;
  * sàn từ chối → rejected; sàn khoá → platform_hold; SKU tạm ngừng → hidden; gỡ khỏi sàn → delisted.
  */
 export type ListingStatus =
