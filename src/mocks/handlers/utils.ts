@@ -247,6 +247,21 @@ export function requireCompany(request: Request, permission: string | null): Gua
   };
 }
 
+/** Có ít nhất một quyền trong danh sách, như `anyOf` ở BE; mọi quyền cùng phân hệ (vd. `FINANCE_VIEW_ANY`) */
+export function requireCompanyAny(request: Request, permissions: readonly string[]): Guard<CompanyActor> {
+  const guard = requireCompany(request, null);
+  if (!guard.ok) return guard;
+  const module = permissions[0]?.split('.')[0];
+  const membership = guard.value.membership;
+  if (module && !buildContext(membership).enabledModules.includes(module as never)) {
+    return { ok: false, response: problem(403, 'Phân hệ chưa bật', { code: 'module_disabled' }) };
+  }
+  if (!permissions.some((p) => guard.value.permissions.includes(p))) {
+    return { ok: false, response: problem(403, 'Không có quyền thực hiện') };
+  }
+  return guard;
+}
+
 export function writePlatformLog(
   action: PlatformAuditAction,
   companyId: string,
