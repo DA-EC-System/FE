@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { TransitionActor } from '@/lib/stateMachine';
 import { useAuthStore } from '@/stores/authStore';
-import { hasPermission, isModuleEnabled } from '@/utils/permissions';
+import { canViewFinance, hasPermission, isModuleEnabled } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
 
 /** `const can = useCan(); can(PERMISSIONS.shopConnect)` */
@@ -11,6 +11,12 @@ export function useCan() {
     (permission: string) => hasPermission(context, permission),
     [context],
   );
+}
+
+/** Có một quyền tiền bất kỳ, như `financeView` ở BE: xem sổ tiền, lãi theo đơn */
+export function useCanViewFinance(): boolean {
+  const context = useAuthStore((s) => s.companyContext);
+  return canViewFinance(context);
 }
 
 /** Người đang thao tác, để hỏi bảng chuyển trạng thái (lib/stateMachine) nút nào hiện */
