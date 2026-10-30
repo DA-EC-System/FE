@@ -25,8 +25,10 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
         return bridge.HttpResponse.json({ ...item, shops: [item] });
       }));
     });
+    // shp-001 của mock đang active nên trang thiết lập chuyển ngay sang trang gian hàng: chờ sự kiện điều hướng, không đọc URL sau đó
+    const toSetup = page.waitForURL(/\/shops\/shp-001\/setup$/);
     await navigateCallback(page, 'state=s1&code=abc&shop_id=123&main_account_id=456&extra=a%2Bb');
-    await expect.poll(() => duongDan(page)).toMatch(/\/shops\/shp-001\/setup$/);
+    await toSetup;
     expect(await page.evaluate(() => (window as unknown as { __callbackBody: unknown }).__callbackBody)).toEqual({
       state: 's1',
       params: { code: 'abc', shop_id: '123', main_account_id: '456', extra: 'a+b' },
