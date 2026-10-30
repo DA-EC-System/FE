@@ -12,7 +12,7 @@ import { BUSINESS_ACTIONS, hidesListings, mainLabel, variantMachine } from '@/li
 import { PERMISSIONS } from '@/utils/permissions';
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@/utils/files';
 import type { PageResult } from '@/api/types';
-import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { delistVariant, setListingsHidden } from './channel';
 import { onPlatform, presenceFrom } from '@/lib/machines/channel';
@@ -739,7 +739,7 @@ export const catalogHandlers = [
 
   // ----- Ảnh: vé tải lên (presigned) và nơi nhận file thay cho SeaweedFS/S3 -----
   http.post(`${API}/files/uploads`, async ({ request }) => {
-    await delay(150);
+    await delay(lag(150));
     const { purpose, ...body } = (await request.json()) as {
       fileName: string;
       contentType: string;
@@ -769,7 +769,7 @@ export const catalogHandlers = [
   }),
 
   http.put(`${API}/files/uploads/:id/content`, async ({ params, request }) => {
-    await delay(300);
+    await delay(lag(300));
     const file = catalog.files.find((f) => f.id === params.id);
     if (!file || file.url) return new HttpResponse(null, { status: 403 });
     const bytes = new Uint8Array(await request.arrayBuffer());

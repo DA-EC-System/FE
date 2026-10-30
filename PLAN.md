@@ -294,7 +294,6 @@ Mỗi nút trong UI sẽ kiểm `can(...)` trước khi render.
 - Catalog (sản phẩm, biến thể, danh mục), Inventory (tồn kho, phiếu nhập/xuất), Sales (đơn hàng), Fulfillment, Finance, Payment, Inbox, Assistant, Report.
 - Kết nối backend thật (sau khi BE sẵn sàng, tắt MSW, đổi `VITE_USE_MOCKS=false`).
 - Đa ngôn ngữ, đa công ty chuyển đổi trong cùng phiên.
-- E2E test với Cypress (sẽ thêm khi backend có).
 
 ---
 

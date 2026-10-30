@@ -261,12 +261,14 @@ export function ShopSetupPage() {
               <Button type="button" variant="outline" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
                 Quay lại
               </Button>
+              {/* `key` khác nhau để React không dùng lại nút: nút "Tiếp" đổi thành submit ngay trong lúc bấm
+                  thì trình duyệt gửi form luôn, bỏ qua bước cuối */}
               {step < STEPS.length - 1 ? (
-                <Button type="button" disabled={preview.isLoading} onClick={() => setStep((s) => s + 1)}>
+                <Button key="next" type="button" disabled={preview.isLoading} onClick={() => setStep((s) => s + 1)}>
                   Tiếp
                 </Button>
               ) : (
-                <Button type="submit" disabled={finish.isPending}>
+                <Button key="submit" type="submit" disabled={finish.isPending}>
                   {finish.isPending ? 'Đang hoàn tất...' : 'Hoàn tất thiết lập'}
                 </Button>
               )}

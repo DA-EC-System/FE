@@ -14,6 +14,8 @@ export const API = '/api/v1';
 export interface MockAuthConfig {
   accessTtlMs: number;
   refreshTtlMs: number;
+  /** Trễ mỗi lời gọi API (ms). Mặc định 350; trình duyệt tự động hoá (E2E Playwright) thì 0 */
+  latencyMs?: number;
 }
 export const mockAuth: MockAuthConfig = Object.assign(
   { accessTtlMs: 15 * 60_000, refreshTtlMs: 7 * 24 * 3600_000 },
@@ -21,7 +23,12 @@ export const mockAuth: MockAuthConfig = Object.assign(
 );
 (globalThis as { __commerioMock?: MockAuthConfig }).__commerioMock = mockAuth;
 export const REFRESH_COOKIE = 'commerio_refresh';
-export const LATENCY = 350; // ms — để thấy được loading state
+// Playwright đặt navigator.webdriver = true: E2E không cần thấy loading nên bỏ trễ (FE#69). Test nào kiểm
+// trạng thái loading thì đặt lại `latencyMs` qua `window.__commerioMock` trước khi tải trang.
+const E2E = typeof navigator !== 'undefined' && navigator.webdriver === true;
+export const LATENCY = mockAuth.latencyMs ?? (E2E ? 0 : 350); // ms — để thấy được loading state
+/** Trễ riêng của một handler, theo cùng cách với LATENCY */
+export const lag = (ms: number) => (LATENCY === 0 ? 0 : ms);
 
 // ---------- Tiện ích ----------
 export function problem(

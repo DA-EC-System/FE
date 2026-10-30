@@ -8,7 +8,7 @@ Closes #
 
 ## Cách kiểm
 
-<!-- Lệnh đã chạy, spec Cypress đã chạy, mã ca trong Documents/kiem-thu/ca-theo-so-do.md. Đổi giao diện thì kèm ảnh chụp. -->
+<!-- Lệnh đã chạy, spec E2E (Playwright) đã chạy, mã ca trong Documents/kiem-thu/ca-theo-so-do.md. Đổi giao diện thì kèm ảnh chụp. -->
 
 ## Checklist
 

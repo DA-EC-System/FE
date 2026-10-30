@@ -4,7 +4,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import * as sales from '../salesData';
 import * as payment from '../paymentData';
 import type { Gateway, GatewayConfig, OrderPayment, PaymentLink, PaymentStatus } from '@/types/payment';
-import { API, LATENCY, problem, requireCompany } from './utils';
+import { API, LATENCY, lag, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid } from './catalog';
 import { payOrder, userRef } from './sales';
@@ -265,7 +265,7 @@ export const paymentHandlers = [
   }),
 
   http.get(`${API}/payment/orders/:orderId`, async ({ params, request }) => {
-    await delay(150);
+    await delay(lag(150));
     const guard = requireCompany(request, PERMISSIONS.orderView);
     if (!guard.ok) return guard.response;
     const found = findOwned(sales.orders, params.orderId, guard.value.companyId, 'đơn hàng');
@@ -278,7 +278,7 @@ export const paymentHandlers = [
 
   // Giả lập khách đã trả tiền (12.11): chạy như webhook, bỏ bước kiểm chữ ký; chỉ có ở môi trường dev
   http.post(`${API}/payment/dev/simulate/:paymentCode`, async ({ params }) => {
-    await delay(100);
+    await delay(lag(100));
     const link = payment.links.find((l) => l.paymentCode === params.paymentCode);
     if (!link) return problem(404, 'Không tìm thấy mã thanh toán', { code: 'not_found' });
     const row = payment.orderPayments.find((p) => p.orderId === link.orderId);

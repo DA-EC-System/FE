@@ -1,7 +1,7 @@
 # Kiểm mỗi PR và mỗi lần đẩy lên main (FE#69; Documents/26-ke-hoach-kiem-thu.md §2.1):
 #   check: lint (ESLint 9), typecheck, unit test (Vitest)
-#   e2e:   Cypress trên mock MSW (Vite dev, mock bật mặc định), mọi spec ngoài nhóm cypress/e2e/*-be
-# Chưa chạy `pnpm e2e:be` (BE thật, DB commerio_e2e): cần checkout commerio-backend và PostgreSQL, làm ở bước sau của FE#69.
+#   e2e:   Playwright trên mock MSW (Vite dev, mock bật), project `mock` (e2e/mock), chạy song song
+# Chưa chạy `pnpm e2e:be` (BE thật, DB commerio_e2e): cần checkout commerio-backend và PostgreSQL.
 name: CI
 
 on:
@@ -30,9 +30,6 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-        env:
-          # Job này không chạy Cypress: bỏ tải binary (~500 MB).
-          CYPRESS_INSTALL_BINARY: 0
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
@@ -49,20 +46,26 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Vite nghe 127.0.0.1: để `localhost` thì Vite có thể chỉ nghe ::1, Cypress gọi 127.0.0.1 bị ECONNREFUSED.
-      - uses: cypress-io/github-action@c541a95ea92d9239347a2355f2e895cd4b3f8060 # v7.4.6
+      # Trình duyệt phải khớp đúng phiên bản @playwright/test (ghim trong package.json): cache theo phiên bản đó.
+      - id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: browsers
         with:
-          install: false
-          start: pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort
-          wait-on: http://127.0.0.1:5173
-          wait-on-timeout: 120
-        env:
-          CYPRESS_BASE_URL: http://127.0.0.1:5173
-          VITE_USE_MOCKS: 'true'
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install --with-deps chromium
+        if: steps.browsers.outputs.cache-hit != 'true'
+      - run: pnpm exec playwright install-deps chromium
+        if: steps.browsers.outputs.cache-hit == 'true'
+      # Playwright tự bật Vite (playwright.config.ts, webServer) và tắt khi xong.
+      - run: pnpm e2e
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: cypress-screenshots
-          path: cypress/screenshots
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
           if-no-files-found: ignore
           retention-days: 7

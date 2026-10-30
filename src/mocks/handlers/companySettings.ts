@@ -3,7 +3,7 @@ import { db } from '../db';
 import type { ActorRef, CompanyAuditLog, CompanyAuditLogDetail, CompanyModule, SetModuleInput, SetModuleResult } from '@/types/companySettings';
 import { MODULE_LABELS, OPTIONAL_MODULES, type OptionalModuleKey } from '@/utils/modules';
 import { PERMISSIONS } from '@/utils/permissions';
-import { API, LATENCY, buildContext, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, LATENCY, lag, buildContext, pageParams, paginate, problem, requireCompany } from './utils';
 import { writeCompanyLog } from './identity';
 
 // ---------- Phân hệ tuỳ chọn (UC-PI-02) và nhật ký thao tác (UC-PI-07) ----------
@@ -137,7 +137,7 @@ export const companySettingsHandlers = [
   }),
 
   http.get(`${API}/audit/logs/:id`, async ({ params, request }) => {
-    await delay(100);
+    await delay(lag(100));
     const guard = requireCompany(request, PERMISSIONS.auditView);
     if (!guard.ok) return guard.response;
     const log = db.companyAuditLogs.find((l) => l.id === params.id);

@@ -11,7 +11,7 @@ import { fireMarketplaceEvent } from './engine/marketplace';
 
 export const worker = setupWorker(...handlers);
 
-// E2E Cypress dùng để giả lập phản hồi khó tạo bằng dữ liệu (409, 422...), xem cypress/support/commands.ts
+// E2E dùng để giả lập phản hồi khó tạo bằng dữ liệu (409, 422...), xem e2e/fixtures.ts (`mockApi`).
 // `fire` phát sự kiện sàn giả lập mà không qua trang sàn giả lập (trang đó tự làm mới mọi query),
 // để kiểm màn hình tự cập nhật nhờ realtime (FE#81).
 if (import.meta.env.DEV) {

@@ -7,7 +7,7 @@ import * as payment from '../paymentData';
 import type { PaymentTransaction, PaymentTransactionDetail } from '@/types/payment';
 import * as finance from '../financeData';
 import type { CodOrder, CodStatus, DocRef, Invoice, InvoiceSummary, OrderRef, OrderRefPhone, PaymentVoucher, Receipt, RefundItem, RefundListStatus, UnmatchedReceipt, UnpaidOrder, VoucherPurpose } from '@/types/finance';
-import { API, CompanyActor, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, CompanyActor, LATENCY, lag, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid } from './catalog';
 import { variantLabel } from './inventory';
@@ -385,7 +385,7 @@ export const financeHandlers = [
   }),
 
   http.get(`${API}/finance/invoices/:id`, async ({ params, request }) => {
-    await delay(150);
+    await delay(lag(150));
     const guard = requireCompany(request, PERMISSIONS.financeView);
     if (!guard.ok) return guard.response;
     const found = findOwned(finance.invoices, params.id, guard.value.companyId, 'hoá đơn');
@@ -417,7 +417,7 @@ export const financeHandlers = [
   }),
 
   http.get(`${API}/finance/receipts/:id`, async ({ params, request }) => {
-    await delay(150);
+    await delay(lag(150));
     const guard = requireCompany(request, PERMISSIONS.financeView);
     if (!guard.ok) return guard.response;
     const found = findOwned(finance.receipts, params.id, guard.value.companyId, 'phiếu thu');
@@ -448,7 +448,7 @@ export const financeHandlers = [
   }),
 
   http.get(`${API}/finance/payment-vouchers/:id`, async ({ params, request }) => {
-    await delay(150);
+    await delay(lag(150));
     const guard = requireCompany(request, PERMISSIONS.financeView);
     if (!guard.ok) return guard.response;
     const found = ownVoucher(params.id, guard.value.companyId);
@@ -750,7 +750,7 @@ export const financeHandlers = [
 
   // Đơn chưa thu cho hộp gán khoản: bỏ đơn huỷ, chỉ dòng order_payments đang `unpaid`
   http.get(`${API}/payment/orders`, async ({ request }) => {
-    await delay(200);
+    await delay(lag(200));
     const guard = requireCompany(request, PERMISSIONS.voucherCreate);
     if (!guard.ok) return guard.response;
     const url = new URL(request.url);
@@ -789,7 +789,7 @@ export const financeHandlers = [
   }),
 
   http.get(`${API}/payment/transactions/:id`, async ({ params, request }) => {
-    await delay(150);
+    await delay(lag(150));
     const guard = requireCompany(request, PERMISSIONS.transactionView);
     if (!guard.ok) return guard.response;
     const found = findOwned(payment.transactions, params.id, guard.value.companyId, 'giao dịch');
