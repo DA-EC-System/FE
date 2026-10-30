@@ -30,6 +30,8 @@ export default defineConfig({
         // Chạy nhóm `be` thì đặt VITE_USE_MOCKS=false trước lệnh.
         env: { VITE_USE_MOCKS: process.env.VITE_USE_MOCKS ?? 'true' },
         reuseExistingServer: !process.env.CI,
+        // Hiện log Vite trong CI: Vite tối ưu lại dependency thì nạp lại mọi trang đang mở, làm test đứt giữa chừng
+        stdout: 'pipe',
         timeout: 120_000,
       },
   projects: [

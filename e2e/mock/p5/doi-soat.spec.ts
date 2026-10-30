@@ -36,6 +36,7 @@ test.describe('P5 · Đối soát tiền sàn', () => {
       await coChu(dong(page, 'stm-0002'), '7395018264001', 'ABC Fashion TikTok Shop (TikTok Shop)', 'Đang xử lý');
       await coChu(dong(page, 'stm-0001'), '2026101400001', 'ABC Fashion Official (Shopee)', 'Đã trả');
       await expect(dong(page, 'stm-0001').locator('[data-warn]')).toHaveText('3');
+      await expect(dong(page, 'stm-0002')).toBeAttached();
       await expect(dong(page, 'stm-0002').locator('[data-warn]')).toHaveCount(0);
       await expect(dong(page, 'stm-0003')).toContainText('Thất bại');
     });
