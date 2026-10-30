@@ -447,8 +447,10 @@ test.describe('P4 · Tài chính', () => {
       await expect(page.getByRole('checkbox')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /Xác nhận đã nhận tiền/ })).toHaveCount(0);
       await page.goto('/c/cmp-001/finance/refunds');
+      await expect(dong(page, 'ord-1022')).toBeAttached();
       await expect(dong(page, 'ord-1022').getByRole('button', { name: 'Hoàn tiền', exact: true })).toHaveCount(0);
       await page.goto('/c/cmp-001/finance/unmatched');
+      await expect(dong(page, 'um-0001')).toBeAttached();
       await expect(dong(page, 'um-0001').getByRole('button')).toHaveCount(0);
       await page.goto('/c/cmp-001/finance/documents?tab=vouchers');
       await expect(dong(page, 'pv-0003')).toBeAttached();
