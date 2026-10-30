@@ -7,6 +7,15 @@
 import { getErrorMessage, getProblem } from './client';
 
 const MESSAGES: Record<string, string> = {
+  dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
+  config_already_effective: 'Đã tới ngày hiệu lực, không thể huỷ. Hãy soạn bản mới.',
+  config_overlap: 'Đã có phiên bản cùng ngày hiệu lực.',
+  ceo_approval_required: 'Lệch vượt hạn mức, cần CEO duyệt trước.',
+  approval_not_needed: 'Khoản lệch này không cần CEO duyệt.',
+  settlement_running: 'Gian hàng đang có lần kéo quyết toán chưa xong.',
+  file_import_unsupported: 'Chưa hỗ trợ nhập tệp báo cáo quyết toán.',
+  already_matched: 'Khoản tiền đã được khớp sao kê.',
+  not_bank_matchable: 'Chỉ khớp khoản rút tiền, NCC hoàn tiền hoặc bồi thường thực tế.',
   not_found: 'Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.',
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   version_conflict: 'Dữ liệu vừa được người khác sửa. Chưa có gì thay đổi.',

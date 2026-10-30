@@ -59,6 +59,10 @@ export const PERMISSIONS = {
   transactionView: 'payment.transaction.view',
   /** Xem hoá đơn, phiếu thu, phiếu chi, COD, hoàn tiền, khoản thu chưa khớp (UC-PF-04..07) */
   financeView: 'finance.invoice.view',
+  configManage: 'finance.config.manage',
+  configApprove: 'finance.config.approve',
+  settlementResolve: 'finance.settlement.resolve',
+  settlementApprove: 'finance.settlement.approve',
   /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
   voucherCreate: 'finance.voucher.create',
   /** Xem sổ tiền, lãi theo đơn, cảnh báo mốc doanh thu (sơ đồ D4.1) */
@@ -131,3 +135,7 @@ export function missingPermissions(
   const enabled = new Set<string>(context?.enabledModules ?? []);
   return permissions.filter((p) => enabled.has(p.split('.')[0]) && !held.has(p));
 }
+
+/** D4: xem được khi có ít nhất một quyền tài chính. */
+export const FINANCE_PERMISSIONS = [PERMISSIONS.financeView, PERMISSIONS.configManage,
+  PERMISSIONS.configApprove, PERMISSIONS.settlementResolve, PERMISSIONS.settlementApprove] as const;

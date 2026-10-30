@@ -1,3 +1,4 @@
+import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -36,7 +37,6 @@ import { PlatformCancelDialog } from './PlatformCancelDialog';
 import { InvoiceNumberDialog } from './InvoiceNumberDialog';
 import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
-import { SettlementBadges } from '@/features/finance/SettlementBadges';
 import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
 import { OrderProfitCard } from '@/features/finance/OrderProfitCard';
 
@@ -179,9 +179,9 @@ export function OrderDetailPage() {
       />
       <div className="mb-4 flex flex-wrap items-center gap-1" data-testid="order-status">
         <StatusBadge status={order.status} statuses={ORDER_STATUS} />
+        <span className="ms-2">Tiền: <PaymentStatusBadge status={order.paymentStatus} /></span>
         <OrderStage order={order} />
         {order.rawMarketplaceStatus && <Badge variant="outline">Sàn: {order.rawMarketplaceStatus}</Badge>}
-        {isMarketplace && <SettlementBadges orderId={order.id} />}
       </div>
 
       {cancelRequested && (

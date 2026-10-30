@@ -266,3 +266,24 @@ export interface TaxWarningList {
   year: number;
   items: TaxWarning[];
 }
+
+
+// D4.4, Documents/21 §21.4.
+export type ConfigKind = 'fee' | 'tax_regime' | 'tax_rules' | 'mismatch_threshold' | 'min_margin';
+export type ConfigStatus = 'draft' | 'pending_approval' | 'scheduled' | 'active' | 'expired' | 'rejected' | 'cancelled';
+export type ConfigAction = 'submit' | 'approve' | 'request_changes' | 'reject' | 'cancel' | 'activate' | 'expire';
+export interface FinanceConfigSummary {
+  id: string; kind: ConfigKind; shopId: string | null; payload: Record<string, unknown>;
+  effectiveFrom: string | null; effectiveTo: string | null; supersedesId: string | null;
+  isCorrection: boolean; retroactiveFrom: string | null; status: ConfigStatus; statusReason: string | null;
+  createdBy: UserRef | null; approvedBy: UserRef | null; selfApproved: boolean; createdAt: string; version: number;
+  dryRun: { at: string; rows: { shopId: string; shopName: string | null; feePct: number | null; taxPct: number | null;
+    listingsRepriced: number | null; belowFloor: number | null }[]; profit30: { now: number; next: number } } | null;
+}
+export interface FinanceConfig extends FinanceConfigSummary {
+  statusHistory: import('@/lib/stateMachine').StatusChange<ConfigStatus>[];
+}
+export interface CreateFinanceConfig {
+  kind: ConfigKind; shopId?: string; payload: Record<string, unknown>; effectiveFrom: string;
+  supersedesId?: string; isCorrection?: boolean; retroactiveFrom?: string;
+}

@@ -1,3 +1,4 @@
+import { financeLifecycleHandlers } from './financeLifecycle';
 /**
  * MSW handlers — mock toàn bộ API cho giai đoạn phát triển UI.
  * Tắt bằng VITE_USE_MOCKS=false khi backend thật sẵn sàng.
@@ -31,6 +32,7 @@ import { taskHandlers } from './tasks';
 import { notificationHandlers } from './notification';
 
 export const handlers = [
+  ...financeLifecycleHandlers,
   ...authHandlers,
   ...platformHandlers,
   ...identityHandlers,
