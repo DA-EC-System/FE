@@ -5,7 +5,7 @@ import axios, {
 } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import type { RefreshResponse, SelectCompanyResponse } from '@/types/auth';
-import { appPath } from '@/utils/env';
+import { appPath, BASE_PATH } from '@/utils/env';
 
 /** Mọi đường dẫn tính từ `/api/v1` (docs/21 mục 0). FE và API cùng domain qua Caddy (V38). */
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -78,7 +78,8 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const code = error.response?.data?.code;
     const config = error.config as RetriableConfig | undefined;
-    const path = window.location.pathname;
+    // Bỏ tiền tố BASE_PATH (staging /mock/) để so với route của app
+    const path = '/' + window.location.pathname.slice(BASE_PATH.length);
     if (status === 401) {
       const url = config?.url ?? '';
       const canRetry =
