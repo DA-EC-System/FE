@@ -13,8 +13,9 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await expect(page.locator('[data-status=resolved]').first()).toBeVisible();
     await page.getByRole('link', { name: '← Đối soát sàn', exact: true }).click();
     await rows.filter({ hasText: 'Cần CEO duyệt' }).first().click();
-    await expect(page.getByRole('button', { name: 'Chốt lệch', exact: true })).toHaveCount(0);
+    // Chờ trang chi tiết dựng xong rồi mới kiểm thiếu nút (FE#107: kiểm vắng mặt trên trang chưa tải luôn qua)
     await expect(page.getByText('Lệch vượt hạn mức, cần CEO duyệt trước khi chốt.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Chốt lệch', exact: true })).toHaveCount(0);
   });
   test('CEO duyệt lệch vượt ngưỡng, không tự thay đổi trạng thái đơn', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');

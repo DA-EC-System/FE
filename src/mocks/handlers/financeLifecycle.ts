@@ -4,7 +4,7 @@ import type { ChannelListing, PendingPrice } from '@/types/shop';
 import { http, HttpResponse, delay } from 'msw';
 import { z } from 'zod';
 import { API, LATENCY, requireCompany, buildContext, problem, pageParams, paginate } from './utils';
-import { FINANCE_PERMISSIONS, PERMISSIONS as P } from '@/utils/permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS as P } from '@/utils/permissions';
 import { db } from '../db';
 import { configs, payments, runs, bankLines, publicRow } from '../financeLifecycleData';
 import type { CreateFinanceConfig, FinanceConfig, FinanceConfigSummary, ConfigAction } from '@/types/finance';
@@ -17,7 +17,7 @@ import { bankRefSchema, configRecord, reasonSchema, todayVn, validateConfig } fr
 function guard(request: Request, permission?: string) {
   const result = requireCompany(request, permission ?? null);
   if (result.ok && !buildContext(result.value.membership).enabledModules.includes('finance')) return { ok: false as const, response: fail('module_disabled', 403) };
-  if (result.ok && !FINANCE_PERMISSIONS.some((p) => result.value.permissions.includes(p))) return { ok: false as const, response: problem(403, 'Không có quyền', { code: 'forbidden' }) };
+  if (result.ok && !FINANCE_VIEW_ANY.some((p) => result.value.permissions.includes(p))) return { ok: false as const, response: problem(403, 'Không có quyền', { code: 'forbidden' }) };
   return result;
 }
 const fail = (code: string, status = 409) => problem(status, 'Không thực hiện được', { code });
@@ -134,7 +134,7 @@ export const financeLifecycleHandlers = [
     return row ? HttpResponse.json<FinanceConfig>(publicRow(row)) : fail('not_found', 404);
   }),
   http.post(`${API}/finance/configs`, async ({ request }) => {
-    const g = guard(request, P.configManage); if (!g.ok) return g.response; const body = await request.json() as CreateFinanceConfig;
+    const g = guard(request, P.financeConfigManage); if (!g.ok) return g.response; const body = await request.json() as CreateFinanceConfig;
     if (!['fee', 'tax_regime', 'tax_rules', 'mismatch_threshold', 'min_margin'].includes(body.kind)) return fail('validation_failed', 422);
     const errors = validateConfig(body); if (Object.keys(errors).length) return problem(422, 'Kiểm tra dữ liệu', { errors });
     if (body.kind === 'fee' && !db.shops.some((s) => s.id === body.shopId && s.companyId === g.value.companyId)) return fail('not_found', 404);
@@ -147,7 +147,7 @@ export const financeLifecycleHandlers = [
     configs.unshift(row); return HttpResponse.json<FinanceConfig>(publicRow(row), { status: 201 });
   }),
   http.put(`${API}/finance/configs/:id`, async ({ request, params }) => {
-    const g = guard(request, P.configManage); if (!g.ok) return g.response;
+    const g = guard(request, P.financeConfigManage); if (!g.ok) return g.response;
     const row = configs.find((c) => c.id === params.id && c.companyId === g.value.companyId); if (!row) return fail('not_found', 404);
     const body = await request.json() as { version: number; payload: Record<string, unknown>; effectiveFrom: string };
     if (!versionOk(body.version, row.version)) return fail('version_conflict'); if (row.status !== 'draft') return fail('invalid_transition');
@@ -156,7 +156,7 @@ export const financeLifecycleHandlers = [
     Object.assign(row, { payload: body.payload, effectiveFrom: body.effectiveFrom, dryRun: null, version: row.version + 1 }); return HttpResponse.json<FinanceConfig>(publicRow(row));
   }),
   http.post(`${API}/finance/configs/:id/:action`, async ({ request, params }) => {
-    const action = String(params.action).replace(/-/g, '_'); const permission = ['approve', 'reject', 'request_changes'].includes(action) ? P.configApprove : P.configManage;
+    const action = String(params.action).replace(/-/g, '_'); const permission = ['approve', 'reject', 'request_changes'].includes(action) ? P.financeConfigApprove : P.financeConfigManage;
     const g = guard(request, permission); if (!g.ok) return g.response;
     const row = configs.find((c) => c.id === params.id && c.companyId === g.value.companyId); if (!row) return fail('not_found', 404);
     const body = await request.json() as { version: number; reason?: string }; if (!versionOk(body.version, row.version)) return fail('version_conflict');

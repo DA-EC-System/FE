@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes';
-import { PERMISSIONS, PURCHASING_PERMISSIONS, FINANCE_PERMISSIONS } from '@/utils/permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
 import { USE_MOCKS } from '@/utils/env';
 
@@ -186,7 +186,7 @@ export function companyNav(companyId: string): NavSection[] {
           label: 'Sổ tiền',
           icon: BookOpenText,
           module: 'finance',
-          permission: PERMISSIONS.ledgerView,
+          anyPermission: FINANCE_VIEW_ANY,
         },
         {
           to: ROUTES.company.financeDocuments(companyId),
@@ -221,13 +221,13 @@ export function companyNav(companyId: string): NavSection[] {
           label: 'Đối soát sàn',
           icon: Scale,
           module: 'finance',
-          anyPermission: FINANCE_PERMISSIONS,
+          anyPermission: FINANCE_VIEW_ANY,
         },
         {
           to: `/c/${companyId}/pricing/pending-prices`, label: 'Giá chờ xác nhận', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
         },
         {
-          to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_PERMISSIONS,
+          to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_VIEW_ANY,
         },
         {
           to: ROUTES.company.transactions(companyId),

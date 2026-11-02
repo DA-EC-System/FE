@@ -34,8 +34,8 @@ export function FinanceConfigDetailPage() {
   const simulate = async () => { try { await dryRun.mutateAsync({ version: config.version }); toast.success('Đã chạy thử, chưa ghi sổ'); } catch (e) { toast.error(problemMessage(e)); } };
   return <div><Link to={ROUTES.company.financeConfigs(companyId)}>← Cấu hình phí và thuế</Link>
     <PageHeader title={CONFIG_KINDS[config.kind]} subtitle={`Hiệu lực ${formatDate(config.effectiveFrom)} → ${config.effectiveTo ? formatDate(config.effectiveTo) : 'Chưa kết thúc'}`}
-      action={<div className="flex flex-wrap gap-2">{can(P.configManage) && config.status === 'draft' && <><Button variant="outline" onClick={() => setEditing('edit')}>Sửa nháp</Button><Button disabled={dryRun.isPending} variant="outline" onClick={() => void simulate()}>Chạy thử</Button></>}
-        {can(P.configManage) && ['active', 'expired'].includes(config.status) && <Button variant="outline" onClick={() => setEditing('correction')}>Soạn bản sửa lỗi</Button>}
+      action={<div className="flex flex-wrap gap-2">{can(P.financeConfigManage) && config.status === 'draft' && <><Button variant="outline" onClick={() => setEditing('edit')}>Sửa nháp</Button><Button disabled={dryRun.isPending} variant="outline" onClick={() => void simulate()}>Chạy thử</Button></>}
+        {can(P.financeConfigManage) && ['active', 'expired'].includes(config.status) && <Button variant="outline" onClick={() => setEditing('correction')}>Soạn bản sửa lỗi</Button>}
         {actions.map((a) => <Button key={a.action} onClick={() => setAction(a.action)}>{a.label}</Button>)}
       </div>} />
     <StatusBadge status={config.status} statuses={CONFIG_STATES} />{config.selfApproved && <span className="ms-2 text-sm">Tự duyệt</span>}

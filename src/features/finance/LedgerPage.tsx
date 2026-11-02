@@ -15,10 +15,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useExportLedger, useLedger, useOrderProfits, useTaxWarnings } from '@/api/ledger.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
-import { useCan } from '@/hooks/usePermission';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { ROUTES } from '@/router/routes';
-import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { LEDGER_KIND_LABELS, formatMilestone } from '@/utils/ledger';
 import type { LedgerFilter, LedgerLine, LedgerTotals, OrderProfitRow } from '@/types/finance';
@@ -77,13 +75,15 @@ function Kpis({ totals }: { totals: LedgerTotals | undefined }) {
   );
 }
 
+/** Ẩn nút xuất MISA: BE chưa có quyền và route xuất (sơ đồ D4.1 chưa làm); không tự đặt mã quyền ở FE */
+const LEDGER_EXPORT_READY = false;
+
 /** Sổ tiền (sơ đồ D4.1): dòng sổ chỉ thêm, ước tính bị thay khi sàn quyết toán; lãi theo đơn */
 export function LedgerPage() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
-  const can = useCan();
-  const canExport = can(PERMISSIONS.ledgerExport);
+  const canExport = LEDGER_EXPORT_READY;
   const f = useUrlFilters(PAGE_SIZES);
   const tab = f.params.get('tab') === 'profit' ? 'profit' : 'lines';
   const filterParam = f.params.get('filter') as LedgerFilter | null;

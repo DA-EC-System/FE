@@ -4,8 +4,8 @@ import { feeConfigMachine } from '@/lib/machines/feeConfig';
 import { resolveBlock, settlementMachine } from '@/lib/machines/settlement';
 import { PERMISSIONS as P } from '@/utils/permissions';
 import type { OrderPayment } from '@/types/settlement';
-const admin = { accountId: 'admin', permissions: [P.configManage, P.settlementResolve] };
-const ceo = { accountId: 'ceo', permissions: [P.configManage, P.configApprove, P.settlementResolve, P.settlementApprove], canSelfApprove: true };
+const admin = { accountId: 'admin', permissions: [P.financeConfigManage, P.settlementResolve] };
+const ceo = { accountId: 'ceo', permissions: [P.financeConfigManage, P.financeConfigApprove, P.settlementResolve, P.settlementApprove], canSelfApprove: true };
 const record = { createdBy: 'admin', effectiveFrom: '2026-11-01', today: '2026-10-30', hasDryRun: false };
 describe('D4.4 cấu hình', () => {
   it('gửi duyệt cần chạy thử, chỉ duyệt được tự duyệt', () => {

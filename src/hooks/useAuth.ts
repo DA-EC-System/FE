@@ -3,6 +3,7 @@ import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
 import type { ChangePasswordRequest, LoginRequest, LoginResponse } from '@/types/auth';
 import { authApi } from '@/api/auth.api';
 import { refreshAccessToken } from '@/api/client';
+import { appPath } from '@/utils/env';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useAuth() {
@@ -103,7 +104,7 @@ export function useLogout() {
     }
     clear();
     qc.clear();
-    window.location.replace('/login');
+    window.location.replace(appPath('login'));
   };
 }
 

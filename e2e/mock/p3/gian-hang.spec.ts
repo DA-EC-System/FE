@@ -48,6 +48,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(token).toContainText('Access token đến');
       await expect(token).toContainText('refresh token đến');
       // Refresh token còn xa hạn thì không có nhãn phụ
+      await expect(dong(page, 'shp-001')).toBeAttached();
       await expect(dong(page, 'shp-001').locator('[data-testid=shop-expiring]')).toHaveCount(0);
       await expect(trangThai(page, 'shp-008')).toHaveText('Đã ngắt');
       await expect(dong(page, 'shp-001')).toContainText('2');
@@ -58,6 +59,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(ngat.getByRole('button', { name: 'Đồng bộ đơn', exact: true })).toHaveCount(0);
       await expect(ngat.getByRole('button', { name: 'Kết nối lại', exact: true })).toBeAttached();
       await expect(ngat.getByRole('button', { name: 'Ngắt kết nối', exact: true })).toHaveCount(0);
+      await expect(dong(page, 'shp-001')).toBeAttached();
       await expect(dong(page, 'shp-001').getByRole('button', { name: 'Kết nối lại', exact: true })).toHaveCount(0);
     });
 
@@ -66,6 +68,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(banner).toHaveCount(1);
       await expect(banner).toContainText('ABC Fashion TikTok Shop');
       await expect(banner).toContainText('3 việc đang chờ');
+      await expect(dong(page, 'shp-002')).toBeAttached();
       await expect(dong(page, 'shp-002').getByRole('button', { name: 'Đồng bộ đơn', exact: true })).toHaveCount(0);
       await banner.getByRole('button', { name: 'Kết nối lại', exact: true }).click();
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
@@ -313,6 +316,7 @@ test.describe('P3 · Gian hàng', () => {
       await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
       await toast(page, 'Đã đẩy 1 biến thể lên sàn');
       await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Chờ sàn duyệt');
+      await expect(dong(page, 'prd-001-v3')).toBeAttached();
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toHaveCount(0);
     });
 
@@ -324,6 +328,7 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, /Đã gỡ .* khỏi sàn/);
       await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đã gỡ');
       await expect(dong(page, 'prd-002-v1').locator('[data-testid=remote-sku]')).toBeAttached();
+      await expect(dong(page, 'prd-002-v1')).toBeAttached();
       await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true })).toHaveCount(0);
       await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
       await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt');
@@ -354,6 +359,7 @@ test.describe('P3 · Gian hàng', () => {
     await thayChu(page, 'chỉ xem được ghép SKU cũ');
     await expect(page.getByRole('button', { name: 'Kết nối lại', exact: true })).toBeAttached();
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
+    await expect(dong(page, 'prd-001-v1')).toBeAttached();
     await expect(dong(page, 'prd-001-v1').getByRole('checkbox')).toHaveCount(0);
     await expect(page.locator('[data-testid=remote-section]')).toContainText('chưa kết nối');
   });
@@ -368,6 +374,7 @@ test.describe('P3 · Gian hàng', () => {
     await moTrangGhep(page, 'shp-001');
     await thayChu(page, 'Bạn chỉ có quyền xem ghép SKU');
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
+    await expect(dong(page, 'prd-001-v3')).toBeAttached();
     await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true })).toHaveCount(0);
     await expect(
       page.locator('[data-testid=remote-section]').getByRole('button', { name: 'Ghép với biến thể', exact: true }),

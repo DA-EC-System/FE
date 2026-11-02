@@ -26,7 +26,7 @@ export function FinanceConfigsPage() {
   const query = useFinanceConfigs({ page: f.page, pageSize: f.pageSize, kind: kind || undefined, status: status || undefined, shopId: shopId || undefined });
   const shops = useShops({ enabled: can(P.shopView) });
   return <div><PageHeader title="Cấu hình phí và thuế" subtitle="Phiên bản theo ngày hiệu lực. Chạy thử không ghi sổ; mọi thay đổi áp dụng sau khi được duyệt."
-    action={can(P.configManage) ? <Button onClick={() => setCreating(true)}>Soạn phiên bản</Button> : undefined} />
+    action={can(P.financeConfigManage) ? <Button onClick={() => setCreating(true)}>Soạn phiên bản</Button> : undefined} />
     {query.isError && <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>}
     <Card className="gap-0 py-0"><FilterBar><FilterSelect label="Loại cấu hình" value={kind} onChange={f.setFilter('kind')} options={Object.entries(CONFIG_KINDS).map(([value, label]) => ({ value, label }))} />
       <FilterSelect label="Trạng thái" value={status} onChange={f.setFilter('status')} options={Object.entries(CONFIG_STATES).map(([value, meta]) => ({ value, label: meta.label }))} />

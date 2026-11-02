@@ -1,7 +1,6 @@
 import { PendingPricesPage } from '@/features/finance/PendingPricesPage';
 import { FinanceConfigsPage } from '@/features/finance/FinanceConfigsPage';
 import { FinanceConfigDetailPage } from '@/features/finance/FinanceConfigDetailPage';
-import { FINANCE_PERMISSIONS } from '@/utils/permissions';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from './routes';
 import {
@@ -68,7 +67,7 @@ import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { ReportPage } from '@/features/report/ReportPage';
 import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
-import { PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 export const router = createBrowserRouter([
@@ -399,7 +398,7 @@ export const router = createBrowserRouter([
                   {
                     path: 'finance/ledger',
                     element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.ledgerView}>
+                      <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <LedgerPage />
                       </RequireModule>
                     ),
@@ -429,12 +428,12 @@ export const router = createBrowserRouter([
                     ),
                   },
                   { path: 'pricing/pending-prices', element: <RequireModule module="channel" permission={PERMISSIONS.listingManage}><PendingPricesPage /></RequireModule> },
-                  { path: 'finance/configs', element: <RequireModule module="finance" anyPermission={FINANCE_PERMISSIONS}><FinanceConfigsPage /></RequireModule> },
-                  { path: 'finance/configs/:id', element: <RequireModule module="finance" anyPermission={FINANCE_PERMISSIONS}><FinanceConfigDetailPage /></RequireModule> },
+                  { path: 'finance/configs', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigsPage /></RequireModule> },
+                  { path: 'finance/configs/:id', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigDetailPage /></RequireModule> },
                   {
                     path: 'finance/settlements',
                     element: (
-                      <RequireModule module="finance" anyPermission={FINANCE_PERMISSIONS}>
+                      <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <SettlementsPage />
                       </RequireModule>
                     ),
@@ -442,7 +441,7 @@ export const router = createBrowserRouter([
                   {
                     path: 'finance/settlements/:id',
                     element: (
-                      <RequireModule module="finance" anyPermission={FINANCE_PERMISSIONS}>
+                      <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <SettlementDetailPage />
                       </RequireModule>
                     ),

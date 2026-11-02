@@ -82,18 +82,29 @@ test.describe('P5 · Sổ tiền', () => {
   test.describe('Kế toán', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'ketoan@commerio.vn', 'ketoan'));
 
-    test('không thấy giá vốn, xuất được chứng từ', async ({ page }) => {
+    test('không thấy giá vốn; chưa có nút xuất MISA (BE chưa có, D4.1)', async ({ page }) => {
       await page.goto('/c/cmp-001/finance/ledger');
       await thayChu(page, 'DH-1018', 'tr');
       await expect(page.locator('td', { hasText: chu('Giá vốn') })).toHaveCount(0);
-      await page.getByRole('button', { name: 'Xuất chứng từ kiểu MISA', exact: true }).click();
-      await toast(page, 'Đã xuất chứng từ');
+      await expect(page.getByRole('button', { name: 'Xuất chứng từ kiểu MISA', exact: true })).toHaveCount(0);
       await page.getByRole('tab', { name: 'Lãi theo đơn', exact: true }).click();
       await expect(chua(page, 'DH-1018', 'tr')).not.toContainText('Lãi gộp');
 
       await diToi(page, '/c/cmp-001/sales/orders/ord-1018');
       await coChu(tienDon(page), 'Thực nhận', 'Cần quyền xem giá vốn');
       await expect(tienDon(page)).not.toContainText('Lãi gộp');
+    });
+  });
+
+  test.describe('Admin', () => {
+    test.beforeEach(({ page }) => dangNhap(page, 'admin@commerio.vn', 'admin'));
+
+    // Admin chỉ có finance.config.manage, finance.settlement.resolve: đủ xem sổ tiền như financeView ở BE
+    test('mở được sổ tiền từ menu', async ({ page }) => {
+      await page.goto('/c/cmp-001');
+      await page.getByRole('link', { name: 'Sổ tiền', exact: true }).click();
+      await thayChu(page, 'Sổ tiền', 'h1');
+      await thayChu(page, 'DH-1018', 'tr');
     });
   });
 
