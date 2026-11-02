@@ -248,8 +248,6 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.stockDocManage, module: 'inventory', label: 'Lập, ghi sổ phiếu nhập, xuất kho' },
   { code: P.reorderManage, module: 'inventory', label: 'Đặt ngưỡng tồn' },
   { code: P.costView, module: 'inventory', label: 'Xem giá vốn, giá trị tồn' },
-  { code: P.ledgerView, module: 'finance', label: 'Xem sổ tiền, lãi theo đơn' },
-  { code: P.ledgerExport, module: 'finance', label: 'Xuất chứng từ sổ tiền' },
   { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
   { code: P.orderCreate, module: 'sales', label: 'Tạo đơn hàng, xác nhận đơn' },
   { code: P.customerView, module: 'sales', label: 'Xem khách hàng' },
@@ -261,6 +259,11 @@ export const permissionCatalog: PermissionDef[] = [
   { code: P.handoverRevert, module: 'fulfillment', label: 'Đảo bàn giao kiện' },
   { code: 'finance.invoice.view', module: 'finance', label: 'Xem hoá đơn, sổ quỹ' },
   { code: 'finance.voucher.create', module: 'finance', label: 'Lập phiếu thu, phiếu chi' },
+  { code: 'finance.reversal.create', module: 'finance', label: 'Lập chứng từ đảo' },
+  { code: P.financeConfigManage, module: 'finance', label: 'Soạn, chạy thử cấu hình phí, thuế, ngưỡng lệch' },
+  { code: P.financeConfigApprove, module: 'finance', label: 'Duyệt, từ chối cấu hình phí, thuế' },
+  { code: P.settlementResolve, module: 'finance', label: 'Chốt lệch quyết toán trong ngưỡng' },
+  { code: P.settlementApprove, module: 'finance', label: 'Duyệt chốt lệch quyết toán vượt ngưỡng' },
   { code: 'payment.transaction.view', module: 'payment', label: 'Xem giao dịch thanh toán' },
   { code: P.paymentLinkCreate, module: 'payment', label: 'Tạo mã thanh toán cho đơn' },
   { code: P.gatewayManage, module: 'payment', label: 'Cấu hình khoá cổng thanh toán' },
@@ -282,8 +285,8 @@ export const permissionCatalog: PermissionDef[] = [
 ];
 
 /**
- * Admin không có quyền kho, mua hàng, tài chính (UC-PI-05) trừ xem tồn và đặt ngưỡng (UC-IN-01, UC-IN-02);
- * CEO có mọi quyền.
+ * Admin không có quyền kho, mua hàng (UC-PI-05) trừ xem tồn và đặt ngưỡng (UC-IN-01, UC-IN-02); về tiền chỉ có
+ * soạn cấu hình và chốt lệch trong ngưỡng, như BUILTIN_ROLES.admin ở BE. CEO có mọi quyền.
  */
 const ADMIN_PERMISSIONS = [
   P.auditView,
@@ -304,6 +307,8 @@ const ADMIN_PERMISSIONS = [
   P.customerView,
   P.paymentLinkCreate,
   P.gatewayManage,
+  P.financeConfigManage,
+  P.settlementResolve,
   P.shopView,
   P.shopConnect,
   P.shopUpdate,
@@ -403,8 +408,8 @@ const roles: MockRole[] = [
     id: 'role-ketoan-cmp-001',
     companyId: 'cmp-001',
     name: 'Kế toán',
-    // FE#76: xem sổ tiền nhưng không xem giá vốn
-    permissions: [P.financeView, P.voucherCreate, P.orderView, P.ledgerView, P.ledgerExport],
+    // FE#76: xem sổ tiền (nhờ finance.invoice.view) nhưng không xem giá vốn
+    permissions: [P.financeView, P.voucherCreate, P.orderView],
     version: 1,
     updatedAt: '2026-09-01T00:00:00.000Z',
   },

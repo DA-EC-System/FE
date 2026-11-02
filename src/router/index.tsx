@@ -64,7 +64,7 @@ import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { ReportPage } from '@/features/report/ReportPage';
 import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
-import { PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 export const router = createBrowserRouter([
@@ -395,7 +395,7 @@ export const router = createBrowserRouter([
                   {
                     path: 'finance/ledger',
                     element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.ledgerView}>
+                      <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <LedgerPage />
                       </RequireModule>
                     ),

@@ -61,10 +61,14 @@ export const PERMISSIONS = {
   financeView: 'finance.invoice.view',
   /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
   voucherCreate: 'finance.voucher.create',
-  /** Xem sổ tiền, lãi theo đơn, cảnh báo mốc doanh thu (sơ đồ D4.1) */
-  ledgerView: 'finance.ledger.view',
-  /** Xuất chứng từ sổ tiền kiểu MISA */
-  ledgerExport: 'finance.ledger.export',
+  /** Soạn, chạy thử phiên bản cấu hình phí, thuế, ngưỡng lệch (sơ đồ D4.4) */
+  financeConfigManage: 'finance.config.manage',
+  /** Duyệt, từ chối phiên bản cấu hình (sơ đồ D4.4) */
+  financeConfigApprove: 'finance.config.approve',
+  /** Chốt lệch quyết toán trong ngưỡng (sơ đồ D4.3) */
+  settlementResolve: 'finance.settlement.resolve',
+  /** Duyệt chốt lệch quyết toán vượt ngưỡng (sơ đồ D4.3) */
+  settlementApprove: 'finance.settlement.approve',
   /** Xem báo cáo kinh doanh; cần thêm `finance.invoice.view` (UC-RP-01, D18) */
   reportView: 'report.dashboard.view',
   /** Xuất báo cáo ra CSV (UC-RP-02) */
@@ -110,6 +114,23 @@ export const PURCHASING_PERMISSIONS = [
   PERMISSIONS.goodsReceiptManage,
   PERMISSIONS.supplierReturnManage,
 ] as const;
+
+/**
+ * Quyền tiền bất kỳ, giống `financeView` ở BE (finance/api/access.ts): có một trong các quyền này là xem được
+ * sổ tiền, lãi theo đơn, cảnh báo mốc doanh thu (sơ đồ D4.1). Không có mã quyền riêng cho sổ tiền.
+ */
+export const FINANCE_VIEW_ANY = [
+  PERMISSIONS.financeConfigManage,
+  PERMISSIONS.financeConfigApprove,
+  PERMISSIONS.settlementResolve,
+  PERMISSIONS.settlementApprove,
+  PERMISSIONS.financeView,
+] as const;
+
+/** Xem được sổ tiền: có ít nhất một quyền trong `FINANCE_VIEW_ANY` */
+export function canViewFinance(context: CompanyContext | null): boolean {
+  return hasAnyPermission(context, FINANCE_VIEW_ANY);
+}
 
 export function isModuleEnabled(
   context: CompanyContext | null,

@@ -8,7 +8,7 @@ import * as purchasing from '../purchasingData';
 import * as ledger from '../ledgerData';
 import type { MockLedgerLine } from '../ledgerData';
 import type { MockOrder } from '../salesData';
-import { PERMISSIONS } from '@/utils/permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS } from '@/utils/permissions';
 import { LEDGER_KIND_LABELS, summarizeLedger, taxWarnings } from '@/utils/ledger';
 import { isRefunded } from '@/lib/machines/returns';
 import type {
@@ -21,7 +21,7 @@ import type {
   OrderProfitRow,
   TaxWarningList,
 } from '@/types/finance';
-import { API, LATENCY, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
+import { API, LATENCY, pageParams, paginate, problem, requireCompanyAny, type CompanyActor } from './utils';
 import { orderRef } from './finance';
 import { registerMarketplaceEvent } from '../engine/marketplace';
 
@@ -217,7 +217,8 @@ const csvCell = (v: string | number) => {
 export const ledgerHandlers = [
   http.get(`${API}/finance/ledger/export`, async ({ request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, P.ledgerExport);
+    // BE chưa có route xuất (sơ đồ D4.1 chưa làm); mock tạm cho người xem được sổ tiền
+    const guard = requireCompanyAny(request, FINANCE_VIEW_ANY);
     if (!guard.ok) return guard.response;
     const url = new URL(request.url);
     if ((url.searchParams.get('format') ?? 'misa') !== 'misa') {
@@ -252,7 +253,7 @@ export const ledgerHandlers = [
 
   http.get(`${API}/finance/ledger`, async ({ request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, P.ledgerView);
+    const guard = requireCompanyAny(request, FINANCE_VIEW_ANY);
     if (!guard.ok) return guard.response;
     const url = new URL(request.url);
     const filter = (url.searchParams.get('filter') ?? 'all') as LedgerFilter;
@@ -284,7 +285,7 @@ export const ledgerHandlers = [
 
   http.get(`${API}/finance/orders/profit`, async ({ request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, P.ledgerView);
+    const guard = requireCompanyAny(request, FINANCE_VIEW_ANY);
     if (!guard.ok) return guard.response;
     const actor = guard.value;
     syncLedger(actor.companyId);
@@ -307,7 +308,7 @@ export const ledgerHandlers = [
 
   http.get(`${API}/finance/orders/:orderId/profit`, async ({ params, request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, P.ledgerView);
+    const guard = requireCompanyAny(request, FINANCE_VIEW_ANY);
     if (!guard.ok) return guard.response;
     const o = sales.orders.find((x) => x.id === params.orderId && x.companyId === guard.value.companyId);
     if (!o) return problem(404, 'Không tìm thấy đơn');
@@ -317,7 +318,7 @@ export const ledgerHandlers = [
 
   http.get(`${API}/finance/tax-warnings`, async ({ request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, P.ledgerView);
+    const guard = requireCompanyAny(request, FINANCE_VIEW_ANY);
     if (!guard.ok) return guard.response;
     const companyId = guard.value.companyId;
     syncLedger(companyId);

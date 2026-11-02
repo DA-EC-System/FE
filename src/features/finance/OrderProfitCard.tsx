@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOrderProfit } from '@/api/ledger.api';
 import { problemMessage } from '@/api/problemMessages';
-import { useCan } from '@/hooks/usePermission';
+import { useCanViewFinance } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
-import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency } from '@/utils/format';
 import { ProfitStateBadge, TaxMismatchBadge } from './ledgerShared';
 
@@ -23,8 +22,7 @@ function Row({ label, children, strong }: { label: string; children: ReactNode; 
 
 /** Tiền của đơn trên chi tiết đơn: chỉ tính phần đã giao (sơ đồ D4.1) */
 export function OrderProfitCard({ orderId, companyId }: { orderId: string; companyId: string }) {
-  const can = useCan();
-  const canView = can(PERMISSIONS.ledgerView);
+  const canView = useCanViewFinance();
   const query = useOrderProfit(orderId, canView);
   if (!canView) return null;
   if (query.isLoading) return <Skeleton className="h-40 w-full" />;

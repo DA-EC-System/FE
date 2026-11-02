@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ROUTES } from '@/router/routes';
-import { PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
 import { USE_MOCKS } from '@/utils/env';
 
@@ -186,7 +186,7 @@ export function companyNav(companyId: string): NavSection[] {
           label: 'Sổ tiền',
           icon: BookOpenText,
           module: 'finance',
-          permission: PERMISSIONS.ledgerView,
+          anyPermission: FINANCE_VIEW_ANY,
         },
         {
           to: ROUTES.company.financeDocuments(companyId),
