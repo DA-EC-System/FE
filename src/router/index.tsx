@@ -1,3 +1,6 @@
+import { PendingPricesPage } from '@/features/finance/PendingPricesPage';
+import { FinanceConfigsPage } from '@/features/finance/FinanceConfigsPage';
+import { FinanceConfigDetailPage } from '@/features/finance/FinanceConfigDetailPage';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from './routes';
 import {
@@ -424,10 +427,13 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
+                  { path: 'pricing/pending-prices', element: <RequireModule module="channel" permission={PERMISSIONS.listingManage}><PendingPricesPage /></RequireModule> },
+                  { path: 'finance/configs', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigsPage /></RequireModule> },
+                  { path: 'finance/configs/:id', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigDetailPage /></RequireModule> },
                   {
                     path: 'finance/settlements',
                     element: (
-                      <RequireModule module="channel" permission={PERMISSIONS.financeView}>
+                      <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <SettlementsPage />
                       </RequireModule>
                     ),
@@ -435,7 +441,7 @@ export const router = createBrowserRouter([
                   {
                     path: 'finance/settlements/:id',
                     element: (
-                      <RequireModule module="channel" permission={PERMISSIONS.financeView}>
+                      <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <SettlementDetailPage />
                       </RequireModule>
                     ),

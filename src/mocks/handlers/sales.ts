@@ -1,3 +1,4 @@
+import { payments as orderSettlements } from '../financeLifecycleData';
 import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -196,12 +197,13 @@ export function toOrderSummary(o: sales.MockOrder): OrderSummary {
     shop: shop ? { id: shop.id, shopName: shop.shopName, platform: shop.platform } : null,
     customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone } : null,
     status: o.status,
+    paymentStatus: orderSettlements.find((p) => p.orderId === o.id)?.status ?? 'none',
     display: {
       stage: stageOf({ status: o.status, source: o.source, paymentMethod: o.paymentMethod, flags: o.flags, packages: statuses }),
       delivered: live.filter((s) => s === 'delivered').length,
       packages: live.length,
     },
-    flags: flagsOf(o, Date.now()),
+    flags: [...new Set([...flagsOf(o, Date.now()), ...(orderSettlements.find((p) => p.orderId === o.id)?.status === 'mismatch' ? ['payment_mismatch' as const] : [])])],
     outcome: o.outcome,
     rawMarketplaceStatus: o.rawMarketplaceStatus,
     paymentMethod: o.paymentMethod,

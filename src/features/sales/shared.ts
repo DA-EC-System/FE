@@ -55,6 +55,7 @@ export const ORDER_FLAGS: Record<OrderFlag, { label: string; variant: BadgeVaria
   platform_cancelled: { label: 'Sàn đã huỷ', variant: 'warning' },
   due_soon: { label: 'Sắp trễ hạn', variant: 'warning' },
   return_requested: { label: 'Có yêu cầu trả', variant: 'warning' },
+  payment_mismatch: { label: 'Lệch tiền', variant: 'destructive' },
   cod_mismatch: { label: 'Lệch COD', variant: 'destructive' },
   shop_disconnected: { label: 'Gian hàng mất kết nối', variant: 'destructive' },
 };

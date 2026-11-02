@@ -1,3 +1,4 @@
+import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -87,6 +88,9 @@ export function OrderListPage() {
         header: 'Trạng thái',
         meta: { className: 'w-56' },
         cell: ({ row }) => <OrderStage order={row.original} />,
+      },
+      {
+        id: 'settlement', header: 'Trạng thái tiền', cell: ({ row }) => <PaymentStatusBadge status={row.original.paymentStatus} />,
       },
       {
         id: 'paymentMethod',

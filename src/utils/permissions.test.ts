@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CompanyContext } from '@/types/auth';
 import { db } from '@/mocks/db';
-import { FINANCE_VIEW_ANY, PERMISSIONS, canViewFinance, hasAllPermissions, hasAnyPermission } from './permissions';
+import { FINANCE_VIEW_ANY, PERMISSIONS, canViewFinance, hasAnyPermission } from './permissions';
 
 const contextOf = (permissions: string[]): CompanyContext => ({
   companyId: 'cmp-001',
@@ -29,9 +29,10 @@ const BACKEND_FINANCE: Record<string, string[]> = {
   'Nhân viên kho': [],
 };
 
-// Guard trang ở router/index.tsx: sổ tiền theo FINANCE_VIEW_ANY, đối soát theo finance.invoice.view (BE settlement-routes.ts)
+// Guard trang ở router/index.tsx: sổ tiền và đối soát đều theo FINANCE_VIEW_ANY. Trang đối soát (FE#108) gọi
+// /finance/payments, /finance/settlement-runs, /finance/bank-matching; BE chặn ba route này bằng financeView (payment-routes.ts)
 const canOpenLedger = (c: CompanyContext) => hasAnyPermission(c, FINANCE_VIEW_ANY);
-const canOpenSettlements = (c: CompanyContext) => hasAllPermissions(c, PERMISSIONS.financeView);
+const canOpenSettlements = (c: CompanyContext) => hasAnyPermission(c, FINANCE_VIEW_ANY);
 
 describe('canViewFinance', () => {
   it('khớp financeView của BE: một quyền tiền bất kỳ là đủ', () => {
@@ -66,7 +67,7 @@ describe('quyền tiền của vai trò mock khớp BE', () => {
 describe('ai mở được sổ tiền, đối soát', () => {
   it.each([
     ['CEO', true, true],
-    ['Admin', true, false],
+    ['Admin', true, true],
     ['Sale', false, false],
     ['Nhân viên kho', false, false],
     ['Kế toán', true, true],

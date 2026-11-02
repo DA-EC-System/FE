@@ -265,3 +265,9 @@ export interface ShopReconnectSummary {
   /** Việc trong hàng chờ đã chạy */
   jobsRun: number;
 }
+
+/** Phần listing mà danh sách giá chờ cần dùng (§21.4); không phụ thuộc trường mô tả chưa chốt. */
+export interface PendingPrice {
+  listing: Pick<ChannelListing, 'id' | 'version'> & Partial<Pick<ChannelListing, 'sellerSku'>>;
+  price: number; pendingPrice: number; belowFloor: boolean; configVersionId: string;
+}

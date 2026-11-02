@@ -29,6 +29,7 @@ export type OrderFlag =
   | 'platform_cancelled'
   | 'due_soon'
   | 'return_requested'
+  | 'payment_mismatch'
   | 'cod_mismatch'
   | 'shop_disconnected';
 
@@ -103,6 +104,7 @@ export interface OrderShopRef {
 }
 
 export interface OrderSummary {
+  paymentStatus?: import('./settlement').SettlementStatus;
   id: string;
   code: string;
   source: OrderSource;
