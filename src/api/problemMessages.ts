@@ -51,6 +51,11 @@ const MESSAGES: Record<string, string> = {
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
+  // FE#146, Documents/21 §18.5
+  category_unmapped: 'Danh mục của sản phẩm chưa ghép với danh mục sàn. Ghép danh mục rồi đẩy lại.',
+  dimensions_missing: 'Sản phẩm thiếu cân nặng hoặc kích thước gói, sàn bắt buộc có.',
+  images_missing: 'Sản phẩm chưa có ảnh trên sàn. Thêm ảnh rồi đẩy lại.',
+  already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
   // FE#9, chờ commerio-backend#24 và #23
   invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
   not_allowed_for_source: 'Đơn sàn lấy trạng thái từ sàn, không cập nhật tay được.',

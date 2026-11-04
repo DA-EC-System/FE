@@ -153,3 +153,90 @@ export function seedRemoteForNewShop(shopId: string) {
 }
 
 export const oauthStates = new Map<string, MockOAuthState>();
+
+// ---------- Danh mục sàn và ghép danh mục (FE#146, Documents/21 §18.5) ----------
+
+/** Danh mục lá của sàn (mẫu theo cây Lazada VN); `name` là cả đường dẫn */
+export interface MockMarketCategory {
+  externalId: string;
+  name: string;
+  /** Thuộc tính bắt buộc cấp sản phẩm; `options` rỗng là nhập tự do */
+  attributes: { name: string; label: string; options: string[] }[];
+}
+
+const brand = { name: 'brand', label: 'Thương hiệu', options: [] as string[] };
+const material = (options: string[]) => ({ name: 'material', label: 'Chất liệu', options });
+const FABRIC = ['Cotton', 'Polyester', 'Linen', 'Kaki', 'Jean', 'Len', 'Khác'];
+
+const leaves: [string, MockMarketCategory['attributes']][] = [
+  ['Thời trang nam > Áo > Áo thun', [brand, material(FABRIC), { name: 'collar_type', label: 'Kiểu cổ áo', options: ['Cổ tròn', 'Cổ tim', 'Cổ bẻ (polo)'] }]],
+  ['Thời trang nam > Áo > Áo sơ mi', [brand, material(FABRIC), { name: 'sleeve_length', label: 'Độ dài tay áo', options: ['Ngắn tay', 'Dài tay'] }]],
+  ['Thời trang nam > Áo > Áo polo', [brand, material(FABRIC)]],
+  ['Thời trang nam > Áo khoác > Áo khoác gió', [brand, material(FABRIC)]],
+  ['Thời trang nam > Quần > Quần kaki', [brand, material(FABRIC), { name: 'fit_type', label: 'Dáng quần', options: ['Ống suông', 'Ống côn', 'Slim fit'] }]],
+  ['Thời trang nam > Quần > Quần jean', [brand, material(FABRIC)]],
+  ['Thời trang nam > Quần > Quần short', [brand]],
+  ['Thời trang nam > Đồ lót & Vớ > Vớ', [brand, { name: 'pack_size', label: 'Số đôi mỗi gói', options: [] }]],
+  ['Thời trang nam > Phụ kiện > Mũ', [brand]],
+  ['Thời trang nam > Phụ kiện > Thắt lưng', [brand, material(['Da thật', 'Da tổng hợp', 'Vải'])]],
+  ['Thời trang nam > Phụ kiện > Ví', []],
+  ['Thời trang nữ > Áo > Áo thun', [brand, material(FABRIC)]],
+  ['Thời trang nữ > Áo > Áo sơ mi', [brand, material(FABRIC)]],
+  ['Thời trang nữ > Váy > Váy liền', [brand, material(FABRIC)]],
+  ['Thời trang nữ > Váy > Chân váy', [brand]],
+  ['Thời trang nữ > Quần > Quần jean', [brand, material(FABRIC)]],
+  ['Thời trang nữ > Đồ lót & Vớ > Vớ', [brand]],
+  ['Túi xách & Vali > Túi nữ > Túi đeo vai', [brand, material(['Da thật', 'Da tổng hợp', 'Vải canvas'])]],
+  ['Túi xách & Vali > Balo > Balo thời trang', [brand]],
+  ['Giày dép nam > Giày thể thao', [brand, { name: 'shoe_size_system', label: 'Hệ size', options: ['EU', 'US', 'UK'] }]],
+  ['Bách hoá online > Thực phẩm khô > Gạo', [brand, { name: 'net_weight', label: 'Khối lượng tịnh', options: [] }]],
+  ['Bách hoá online > Thực phẩm khô > Mì, bún, phở ăn liền', [brand]],
+  ['Sức khoẻ & Làm đẹp > Trang điểm > Môi > Son thỏi', [brand, { name: 'skin_type', label: 'Loại da phù hợp', options: ['Mọi loại da', 'Da khô', 'Da dầu'] }]],
+  ['Sức khoẻ & Làm đẹp > Chăm sóc da > Sữa rửa mặt', [brand]],
+  ['Đồ chơi > Đồ chơi giáo dục > Xếp hình', [brand, { name: 'age_group', label: 'Độ tuổi', options: ['0–3 tuổi', '3–6 tuổi', 'Trên 6 tuổi'] }]],
+];
+
+/** Hơn 50 danh mục để thấy BE chỉ trả 50 khi chưa gõ tìm */
+export const marketCategories: MockMarketCategory[] = [
+  ...leaves.map(([name, attributes], i) => ({ externalId: String(10000 + i * 7), name, attributes })),
+  ...Array.from({ length: 40 }, (_, i) => ({
+    externalId: String(20000 + i),
+    name: `Nhà cửa & Đời sống > Đồ dùng nhà bếp > Dụng cụ ${i + 1}`,
+    attributes: [brand],
+  })),
+];
+
+export interface MockCategoryMap {
+  companyId: string;
+  shopId: string;
+  categoryId: string;
+  platform: string;
+  externalCategoryId: string;
+  attributes: Record<string, string>;
+  version: number;
+  updatedAt: string;
+}
+
+/** LazMall của ABC đã ghép Áo và Quần; Phụ kiện, Vớ, Sơ mi chưa ghép nên đẩy sẽ báo `category_unmapped` */
+export const categoryMaps: MockCategoryMap[] = [
+  {
+    companyId: 'cmp-001',
+    shopId: 'shp-003',
+    categoryId: 'cat-ao',
+    platform: 'lazada',
+    externalCategoryId: '10000',
+    attributes: { brand: 'ABC Fashion', material: 'Cotton', collar_type: 'Cổ tròn' },
+    version: 1,
+    updatedAt: '2026-10-28T03:00:00.000Z',
+  },
+  {
+    companyId: 'cmp-001',
+    shopId: 'shp-003',
+    categoryId: 'cat-quan',
+    platform: 'lazada',
+    externalCategoryId: '10028',
+    attributes: { brand: 'ABC Fashion', material: 'Kaki', fit_type: 'Ống suông' },
+    version: 2,
+    updatedAt: '2026-10-30T08:15:00.000Z',
+  },
+];

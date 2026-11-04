@@ -323,6 +323,11 @@ export function ownShop(id: unknown, companyId: string): { ok: true; value: Mock
   return shop ? { ok: true, value: shop } : { ok: false, response: problem(404, 'Không tìm thấy gian hàng') };
 }
 
+/** Danh mục Commerio đã ghép với danh mục sàn ở gian hàng chưa (FE#146) */
+export function categoryMapped(shopId: string, categoryId: string) {
+  return channel.categoryMaps.some((m) => m.shopId === shopId && m.categoryId === categoryId);
+}
+
 export function sellableVariant(companyId: string, variantId: unknown) {
   return sellableVariants(companyId).find(({ variant }) => variant.id === variantId);
 }
@@ -990,6 +995,10 @@ export const shopHandlers = [
       }
       if (l?.status === 'platform_hold') {
         return { variantId, sku, outcome: 'failed', status: l.status, code: 'platform_hold', message: 'Sàn đang khoá listing này' };
+      }
+      // FE#146: Lazada cần danh mục lá, danh mục Commerio của sản phẩm phải ghép trước (§18.5)
+      if (shop.platform === 'lazada' && !categoryMapped(shop.id, target.product.categoryId)) {
+        return { variantId, sku, outcome: 'failed', status: l?.status, code: 'category_unmapped', message: 'Danh mục chưa ghép với danh mục sàn' };
       }
       if (price === null) {
         const message = 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống';

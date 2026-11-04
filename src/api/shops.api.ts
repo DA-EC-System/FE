@@ -9,7 +9,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type {
+  CategoryAttribute,
+  CategoryAttributeList,
+  CategoryMap,
+  CategoryMapInput,
+  CategoryMapList,
   ChannelListing,
+  MarketplaceCategory,
+  MarketplaceCategoryList,
   ListingMatchInput,
   ListingRow,
   Marketplace,
@@ -38,6 +45,11 @@ export const shopKeys = {
   listings: (companyId: string, id: string) => [...shopKeys.all(companyId), 'listings', id] as const,
   remoteSkus: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus', id] as const,
   setup: (companyId: string, id: string) => [...shopKeys.all(companyId), 'setup', id] as const,
+  categoryMaps: (companyId: string, id: string) => [...shopKeys.all(companyId), 'category-maps', id] as const,
+  marketCategories: (companyId: string, id: string, search: string) =>
+    [...shopKeys.all(companyId), 'market-categories', id, search] as const,
+  categoryAttributes: (companyId: string, id: string, externalId: string) =>
+    [...shopKeys.all(companyId), 'category-attributes', id, externalId] as const,
 };
 
 function useCompanyId(): string {
@@ -256,5 +268,66 @@ export function usePushListings() {
       return data.results;
     },
     onSuccess: invalidate,
+  });
+}
+
+// ---------- Ghép danh mục với danh mục sàn (FE#146, Documents/21 §18.5) ----------
+
+/** Danh mục Commerio đã ghép của gian hàng (quyền shop.view) */
+export function useCategoryMaps(shopId: string) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.categoryMaps(companyId, shopId),
+    enabled: Boolean(companyId && shopId),
+    queryFn: async () => {
+      const { data } = await apiClient.get<CategoryMapList>(`/channel/shops/${shopId}/category-maps`);
+      return data.items;
+    },
+  });
+}
+
+/** Tìm danh mục lá trên sàn, BE trả tối đa 50 (quyền listing.manage, gọi sàn) */
+export function useMarketplaceCategories(shopId: string, search: string, enabled: boolean) {
+  const companyId = useCompanyId();
+  return useQuery<MarketplaceCategory[]>({
+    queryKey: shopKeys.marketCategories(companyId, shopId, search),
+    enabled: Boolean(companyId && shopId && enabled),
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<MarketplaceCategoryList>(`/channel/shops/${shopId}/categories`, {
+        params: search ? { search } : undefined,
+      });
+      return data.items;
+    },
+  });
+}
+
+/** Thuộc tính bắt buộc của một danh mục sàn */
+export function useCategoryAttributes(shopId: string, externalId: string | null) {
+  const companyId = useCompanyId();
+  return useQuery<CategoryAttribute[]>({
+    queryKey: shopKeys.categoryAttributes(companyId, shopId, externalId ?? ''),
+    enabled: Boolean(companyId && shopId && externalId),
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<CategoryAttributeList>(
+        `/channel/shops/${shopId}/categories/${encodeURIComponent(externalId ?? '')}/attributes`,
+      );
+      return data.items;
+    },
+  });
+}
+
+export function useSaveCategoryMap() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ shopId, categoryId, input }: { shopId: string; categoryId: string; input: CategoryMapInput }) => {
+      const { data } = await apiClient.put<CategoryMap>(`/channel/shops/${shopId}/category-maps/${categoryId}`, input);
+      return data;
+    },
+    onSettled: (_data, _error, { shopId }) => qc.invalidateQueries({ queryKey: shopKeys.categoryMaps(companyId, shopId) }),
   });
 }

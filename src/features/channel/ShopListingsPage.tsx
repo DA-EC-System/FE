@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RotateCcw, Unlink, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -23,8 +24,9 @@ import {
   useShopListings,
   useUnmatchListing,
 } from '@/api/shops.api';
-import { getErrorMessage } from '@/api/client';
-import { problemCode, problemMessage } from '@/api/problemMessages';
+import { apiClient, getErrorMessage } from '@/api/client';
+import { catalogKeys } from '@/api/catalog.api';
+import { codeMessage, problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { priceText } from '@/features/pricing/shared';
@@ -32,8 +34,10 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { ListingRow, ListingStatus, RemoteSku } from '@/types/shop';
+import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
+import { CategoryMapSection } from './CategoryMapSection';
 import {
   isUsable,
   LISTING_STATUS_LABELS,
@@ -46,6 +50,12 @@ import {
 import { useStartConnect } from './useStartConnect';
 
 type MatchFilter = '' | 'matched' | 'unmatched' | 'stale';
+
+/** Lỗi đẩy của một biến thể; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
+interface PushError {
+  code?: string;
+  message: string;
+}
 
 const MATCH_FILTERS: { value: Exclude<MatchFilter, ''>; label: string }[] = [
   { value: 'matched', label: 'Đã ghép' },
@@ -109,7 +119,11 @@ export function ShopListingsPage() {
   const [unmatching, setUnmatching] = useState<ListingRow | null>(null);
   const [pushing, setPushing] = useState<ListingRow[] | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
-  const [pushErrors, setPushErrors] = useState<Map<string, string>>(new Map());
+  const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
+  /** Danh mục Commerio đang mở hộp ghép danh mục sàn (FE#146) */
+  const [mapCategoryId, setMapCategoryId] = useState<string | null>(null);
+  const [resolvingCategory, setResolvingCategory] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const remoteSkus = useMemo(() => remoteQuery.data ?? [], [remoteQuery.data]);
@@ -259,7 +273,9 @@ export function ShopListingsPage() {
       setPushErrors((prev) => {
         const next = new Map(prev);
         results.forEach((r) => {
-          if (r.outcome === 'failed') next.set(r.variantId, r.message ?? problemMessage(null));
+          if (r.outcome === 'failed') {
+            next.set(r.variantId, { code: r.code, message: r.message ?? (r.code ? codeMessage(r.code) : problemMessage(null)) });
+          }
           else next.delete(r.variantId);
         });
         return next;
@@ -273,6 +289,26 @@ export function ShopListingsPage() {
       toast.error(problemMessage(e));
     }
     setPushing(null);
+  };
+
+  /**
+   * Dòng đẩy lỗi `category_unmapped`: PushResult và ListingRow không có danh mục,
+   * nên lấy danh mục từ chi tiết sản phẩm rồi mở hộp ghép của danh mục đó.
+   */
+  const openCategoryMap = async (row: ListingRow) => {
+    setResolvingCategory(row.variantId);
+    try {
+      const product = await queryClient.fetchQuery({
+        queryKey: catalogKeys.product(companyId, row.productId),
+        queryFn: async () => (await apiClient.get<ProductDetail>(`/catalog/products/${row.productId}`)).data,
+      });
+      setMapCategoryId(product.category.id);
+    } catch {
+      toast.error('Không xác định được danh mục của sản phẩm. Chọn danh mục ở mục Ghép danh mục bên dưới.');
+      document.getElementById('category-maps')?.scrollIntoView({ behavior: 'smooth' });
+    } finally {
+      setResolvingCategory(null);
+    }
   };
 
   const columns = useMemo<ColumnDef<ListingRow>[]>(() => {
@@ -375,9 +411,27 @@ export function ShopListingsPage() {
           const err = pushErrors.get(r.variantId);
           if (err) {
             return (
-              <span className="text-destructive" data-testid="push-error">
-                {err}
-              </span>
+              <div className="flex flex-col items-start gap-1">
+                <span className="text-destructive" data-testid="push-error">
+                  {err.message}
+                </span>
+                {err.code === 'category_unmapped' && canManage && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    disabled={resolvingCategory === r.variantId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void openCategoryMap(r);
+                    }}
+                    data-testid="open-category-map"
+                  >
+                    Ghép danh mục
+                  </Button>
+                )}
+              </div>
             );
           }
           const l = r.listing;
@@ -498,7 +552,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, remoteQuery.isError, pushMut.isPending]);
+  }, [canManage, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -682,6 +736,8 @@ export function ShopListingsPage() {
           />
         )}
       </Card>
+
+      <CategoryMapSection shopId={shopId} editingCategoryId={mapCategoryId} onEditingChange={setMapCategoryId} />
 
       <MatchDialog
         open={Boolean(matching)}

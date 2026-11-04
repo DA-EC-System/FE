@@ -271,3 +271,48 @@ export interface PendingPrice {
   listing: Pick<ChannelListing, 'id' | 'version'> & Partial<Pick<ChannelListing, 'sellerSku'>>;
   price: number; pendingPrice: number; belowFloor: boolean; configVersionId: string;
 }
+
+// ---------- Ghép danh mục với danh mục sàn (FE#146, Documents/21 §18.5) ----------
+
+/** Danh mục lá của sàn; `name` là cả đường dẫn, vd "Thời trang nam > Áo > Áo thun" */
+export interface MarketplaceCategory {
+  externalId: string;
+  name: string;
+}
+
+export interface MarketplaceCategoryList {
+  items: MarketplaceCategory[];
+}
+
+/** Thuộc tính bắt buộc cấp sản phẩm của một danh mục sàn; `options` rỗng là nhập tự do */
+export interface CategoryAttribute {
+  name: string;
+  label: string;
+  options: string[];
+}
+
+export interface CategoryAttributeList {
+  items: CategoryAttribute[];
+}
+
+/** channel.category_maps: một danh mục Commerio ghép với một danh mục lá của sàn, theo gian hàng */
+export interface CategoryMap {
+  categoryId: string;
+  platform: Marketplace;
+  externalCategoryId: string;
+  /** Giá trị thuộc tính bắt buộc, theo `CategoryAttribute.name` */
+  attributes: Record<string, string>;
+  version: number;
+  updatedAt: string;
+}
+
+export interface CategoryMapList {
+  items: CategoryMap[];
+}
+
+export interface CategoryMapInput {
+  externalCategoryId: string;
+  attributes: Record<string, string>;
+  /** `null` khi danh mục chưa ghép lần nào */
+  version: number | null;
+}
