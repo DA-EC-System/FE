@@ -160,7 +160,10 @@ export interface PurchaseRequestListParams {
 // ---------- Phiếu nhận (sơ đồ A2) ----------
 
 export type GoodsReceiptStatus = 'counting' | 'matched' | 'short' | 'resolved' | 'cancelled';
-export type GoodsReceiptAction = 'post' | 'post_short' | 'auto_resolve' | 'cancel';
+export type GoodsReceiptAction = 'post' | 'post_short' | 'auto_resolve' | 'cancel' | 'resolve';
+
+/** Kết quả khi Kho hoặc CEO chuyển phiếu Giao thiếu sang Đã xử lý (25 §4.1) */
+export type GoodsReceiptResolution = 'backfilled' | 'closed_short' | 'supplier_wrong_receipt';
 
 /** Người giao đứng chờ kiểm, hoặc đã đi (kiểm trong 24 giờ) */
 export type DeliveryMode = 'waiting' | 'left';

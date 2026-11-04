@@ -30,6 +30,7 @@ import { registerMarketplaceEvent } from '../engine/marketplace';
 import { emitRealtime } from '../engine/realtime';
 import { dueState, registerTaskSource } from '../engine/tasks';
 import {
+  allCancelled,
   cancelPlan,
   holdsStock,
   isHandedOver,
@@ -332,9 +333,13 @@ export function deliverForReturn(p: MockPackage, at: string) {
   p.flagNote = `Sàn báo yêu cầu trả khi kiện đang ${from}`;
 }
 
-/** Sau mỗi lần kiện đổi: đơn đang huỷ hết kiện đóng gói thì huỷ hẳn; mọi kiện dừng thì thử hoàn tất */
+/**
+ * Sau mỗi lần kiện đổi: đơn đang huỷ hết kiện đóng gói thì huỷ hẳn; mọi kiện đã huỷ thì đơn huỷ theo (25 §8.2);
+ * mọi kiện dừng thì thử hoàn tất
+ */
 function settleOrder(o: MockOrder, at: string) {
   if (o.flags.includes('cancelling') && !packagesOf(o).some((p) => isSealed(p.status))) finishCancel(o, at);
+  else if (o.status === 'processing' && allCancelled(packagesOf(o).map((p) => p.status))) finishCancel(o, at);
   tryComplete(o, Date.parse(at));
 }
 
@@ -389,6 +394,8 @@ const recordOf = (p: MockPackage, o: MockOrder, extra: Partial<PackageRecord> = 
   source: o.source,
   selfDelivery: p.selfDelivery,
   orderStatus: o.status,
+  // Trạng thái hiện tại do người chuyển tay: dòng nhật ký cuối là của người dùng
+  manualStatus: p.history.at(-1)?.source === 'user',
   ...extra,
 });
 
@@ -1077,19 +1084,25 @@ registerMarketplaceEvent({
     if (o.source !== 'marketplace') throw new Error('Chỉ kiện của đơn sàn');
     const at = db.now();
     const from = p.status;
-    const kind = platformUpdate(from, next.to);
+    let kind = platformUpdate(from, next.to);
+    const direct =
+      kind === 'direct'
+        ? packageMachine.transitions.find((x) => x.to === next.to && (typeof x.from === 'string' ? [x.from] : x.from).includes(from))!
+        : null;
+    // Sàn báo ngược trạng thái do sàn đặt (không phải người chuyển tay): không áp, gắn cờ (25 §8.3)
+    if (direct && !packageMachine.check(from, direct.action, { record: recordOf(p, o, { byPlatform: true }), reason: 'Sàn báo' }).ok) {
+      kind = 'invalid';
+    }
     if (kind === 'invalid') {
       p.needsAttention = true;
       p.flagNote = `Sàn báo ${next.to} khi kiện đang ${from}`;
       p.version += 1;
       return `${p.code}: không áp được, gắn cờ Cần xử lý`;
     }
-    if (kind === 'direct') {
-      const t = packageMachine.transitions.find(
-        (x) => x.to === next.to && (typeof x.from === 'string' ? [x.from] : x.from).includes(from),
-      )!;
-      const ok = packageMachine.check(from, t.action, { record: recordOf(p, o, { byPlatform: true }), reason: 'Sàn báo' });
-      if (!ok.ok) throw new Error(`Không áp được: ${ok.code}`);
+    // Sàn sửa trạng thái người chuyển tay, hoặc bàn giao bắt buộc: áp theo sàn, bật cờ Cần xử lý
+    if (direct && ['platform_in_transit', 'platform_deliver', 'forced_handover'].includes(direct.action)) {
+      p.needsAttention = true;
+      p.flagNote = `Sàn báo ${next.to} khi kiện đang ${from}`;
     }
     // Nhảy bước: hàng rời kho chỉ trừ một lần
     if (stockEffect(from, next.to) === 'leave') leaveStock(p, at, null);

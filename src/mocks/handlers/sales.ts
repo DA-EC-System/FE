@@ -180,8 +180,6 @@ function flagsOf(o: sales.MockOrder, now: number): OrderFlag[] {
   // Đơn đã hoàn tất vẫn nhận yêu cầu trả: chỉ mang cờ
   if (openRequestsOf(o.id) > 0) flags.add('return_requested');
   if (open && isDueSoon(o.shipBy, own.map((p) => p.status), now)) flags.add('due_soon');
-  const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
-  if (open && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected')) flags.add('shop_disconnected');
   return [...flags];
 }
 

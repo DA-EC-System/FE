@@ -39,13 +39,24 @@ export type PackageAction =
   | 'return'
   | 'receive_return'
   | 'lose'
-  | 'found';
+  | 'found'
+  | 'forced_handover'
+  | 'lose_on_unload'
+  | 'platform_in_transit'
+  | 'platform_deliver';
 
 /**
  * Cờ trên kiện: Chờ mở kiện (kiện đã đóng cần huỷ, sửa, chia lại; vẫn giữ hàng),
- * Cần xử lý (sàn báo chuyển không có trong bảng), Báo thất lạc (chờ người thứ hai xác nhận)
+ * Cần xử lý (sàn báo chuyển không có trong bảng), Báo thất lạc (chờ người thứ hai xác nhận),
+ * Lỗi lấy vận đơn, Chờ xác nhận COD, Chưa thấy sàn xác nhận lấy (21 §19.2)
  */
-export type PackageFlag = 'needs_open' | 'needs_attention' | 'lost_reported';
+export type PackageFlag =
+  | 'needs_open'
+  | 'needs_attention'
+  | 'lost_reported'
+  | 'label_error'
+  | 'cod_unconfirmed'
+  | 'pickup_unconfirmed';
 
 /** Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ */
 export type OpenPurpose = 'cancel' | 'edit' | 'resplit';

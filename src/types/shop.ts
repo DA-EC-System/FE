@@ -33,7 +33,7 @@ export interface ShopPlatformList { items: ShopPlatform[] }
  */
 export type ShopStatus = 'connecting' | 'active' | 'needs_reauth' | 'disconnected';
 
-export type ShopAction = 'finish_setup' | 'lose_auth' | 'reconnect' | 'disconnect';
+export type ShopAction = 'finish_setup' | 'lose_auth' | 'reconnect' | 'disconnect' | 'resume_setup';
 
 export interface Shop {
   id: string;
@@ -100,7 +100,7 @@ export interface ShopConnectionResult {
 /**
  * Sơ đồ Listing (C2, FE#58). Chưa có bản ghi là `not_listed`.
  * pushing → under_review hoặc live theo capabilities.listingReview; lỗi đẩy → push_failed;
- * sàn từ chối → rejected; sàn khoá → platform_hold; SKU tạm ngừng → hidden; gỡ khỏi sàn → delisted.
+ * sàn từ chối → rejected; sàn khoá → platform_hold; SKU tạm ngừng → hidden; gỡ khỏi sàn → delisted (kết thúc).
  */
 export type ListingStatus =
   | 'pushing'
@@ -123,7 +123,8 @@ export type ListingAction =
   | 'release'
   | 'hide'
   | 'unhide'
-  | 'delist';
+  | 'delist'
+  | 'request_review';
 
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
