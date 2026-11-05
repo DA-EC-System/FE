@@ -1,137 +1,288 @@
 /*
- * Màu theo bản mẫu Test_UI (site/commerio.css), quyết định ở FE#70 ngày 28/10/2026.
+ * Token theo bản mẫu Test_UI v4 (site/index.html, khối :root và :root[data-theme=dark]),
+ * dựng theo Ant Design 5. FE#128 thay cho bản FE#70 (#0b5fd1, Be Vietnam Pro).
  * src/theme/tokens.ts giữ cùng giá trị cho chỗ cần màu trong JS.
- *  - primary = xanh #0b5fd1; thanh trên cùng dùng --nav
- *  - nền, chữ, viền, màu trạng thái và bản nhạt (-soft) theo commerio.css
- *  - bản tối không có trong Test_UI, pha từ cùng tông xanh
+ *  - Tên biến giữ theo shadcn (--primary, --border…) để component cũ chạy tiếp;
+ *    tên thêm cho #129/#130: --primary-hover/-active/-border/-text, --*-text/-soft/-border,
+ *    --table-head, --fill, --faint, --shadow*, --focus, --ease, --out, --radius-*.
+ *  - Trạng thái ba lớp: màu đậm nhạt (--success…) chỉ cho nền đặc, chấm, viền;
+ *    chữ dùng --*-text (đạt 4.5:1). Lớp text-success/-warning/-destructive/-info/-primary
+ *    của Tailwind trỏ sang --*-text qua --text-color-* ở @theme bên dưới.
+ *  - Bản tối lấy đúng khối dark của Test_UI; FE bật bằng class .dark trên <html>
+ *    (ColorModeContext, script trong index.html), theo prefers-color-scheme khi chưa chọn.
+ *  - --nav/--nav-foreground: để lại cho thanh trên cũ tới khi khung FE#130 xong.
  */
 :root {
-  --radius: 0.5rem;
+  /* Chữ hệ thống 14px */
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  --font-size-base: 14px;
+  --line-height-base: 1.5715;
 
-  --background: #f3f5f8;
-  --foreground: #0f172a;
+  /* Bo góc: tag 4px, nút/ô nhập 6px, thẻ 8px, hộp thoại 10px */
+  --radius: 8px;
+  --radius-tag: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-dialog: 10px;
+
+  /* Chuyển động Ant: nhanh .1s, vừa .2s, chậm .3s; không dùng đường cong vượt đích */
+  --ease: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --circ: cubic-bezier(0.08, 0.82, 0.17, 1);
+  --duration-fast: 0.1s;
+  --duration-mid: 0.2s;
+  --duration-slow: 0.3s;
+
+  --background: #f5f5f5;
+  --foreground: #1f1f1f;
+  --foreground-2: #595959;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1f1f1f;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #0b5fd1;
+  --popover-foreground: #1f1f1f;
+  --primary: #0958d9;
   --primary-foreground: #ffffff;
-  --secondary: #e8f1fd;
-  --secondary-foreground: #0849a3;
-  --muted: #eef2f6;
-  --muted-foreground: #64748b;
-  --accent: #e8f1fd;
-  --accent-foreground: #0849a3;
-  --destructive: #b91c1c;
-  --success: #15803d;
-  --warning: #b45309;
-  --info: #0369a1;
-  --purple: #6d28d9;
-  --destructive-soft: #fde8e8;
-  --success-soft: #e7f6ec;
-  --warning-soft: #fdf3e2;
-  --info-soft: #e5f3fb;
-  --purple-soft: #efe9fd;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #0b5fd1;
-  --chart-1: #0b5fd1;
-  --chart-2: #15803d;
-  --chart-3: #b45309;
-  --chart-4: #6d28d9;
-  --chart-5: #0369a1;
+  --primary-hover: #003eb3;
+  --primary-active: #002c8c;
+  --primary-border: #91caff;
+  --primary-text: #0958d9;
+  --secondary: rgba(0, 0, 0, 0.04);
+  --secondary-foreground: #1f1f1f;
+  --muted: rgba(0, 0, 0, 0.04);
+  --muted-foreground: #6b6b6b;
+  --accent: #e6f4ff;
+  --accent-foreground: #0958d9;
+  --fill: rgba(0, 0, 0, 0.06);
+  --faint: #bfbfbf;
+  --table-head: #fafafa;
+  --border: #f0f0f0;
+  --input: #d9d9d9;
+  --ring: #0958d9;
+  --focus: 0 0 0 2px rgba(9, 88, 217, 0.3);
 
-  --nav: #0b5fd1;
+  /* Trạng thái: màu / chữ / nền nhạt / viền */
+  --success: #52c41a;
+  --success-text: #237804;
+  --success-soft: #f6ffed;
+  --success-border: #b7eb8f;
+  --warning: #faad14;
+  --warning-text: #874d00;
+  --warning-soft: #fffbe6;
+  --warning-border: #ffe58f;
+  --destructive: #d9363e;
+  --destructive-hover: #a8071a;
+  --destructive-text: #cf1322;
+  --destructive-soft: #fff2f0;
+  --destructive-border: #ffccc7;
+  /* Test_UI không có info/purple riêng: info theo màu thương hiệu, purple theo bảng Ant */
+  --info: #0958d9;
+  --info-text: #0958d9;
+  --info-soft: #e6f4ff;
+  --info-border: #91caff;
+  --purple: #722ed1;
+  --purple-text: #531dab;
+  --purple-soft: #f9f0ff;
+  --purple-border: #d3adf7;
+
+  --chart-1: #0958d9;
+  --chart-2: #52c41a;
+  --chart-3: #faad14;
+  --chart-4: #722ed1;
+  --chart-5: #13c2c2;
+
+  /* Bóng đổ ba mức: thấp (thẻ), trung (menu thả, popover, thông báo), cao (hộp thoại, ngăn kéo) */
+  --shadow:
+    0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02),
+    0 2px 4px 0 rgba(0, 0, 0, 0.02);
+  --shadow-pop:
+    0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12),
+    0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  --shadow-pop-3:
+    0 12px 32px 4px rgba(0, 0, 0, 0.09), 0 6px 16px -8px rgba(0, 0, 0, 0.16),
+    0 18px 48px 16px rgba(0, 0, 0, 0.05);
+  --shadow-pop-left:
+    -6px 0 16px 0 rgba(0, 0, 0, 0.08), -3px 0 6px -4px rgba(0, 0, 0, 0.12),
+    -9px 0 28px 8px rgba(0, 0, 0, 0.05);
+  --shadow-btn: 0 2px 0 rgba(0, 0, 0, 0.02);
+  --shadow-btn-primary: 0 2px 0 rgba(5, 145, 255, 0.1);
+
+  /* Để lại cho thanh trên cũ, bỏ khi khung FE#130 xong */
+  --nav: #0958d9;
   --nav-foreground: #ffffff;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #334155;
-  --sidebar-primary: #0b5fd1;
+  --sidebar-foreground: #1f1f1f;
+  --sidebar-primary: #0958d9;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8f1fd;
-  --sidebar-accent-foreground: #0849a3;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #0b5fd1;
+  --sidebar-accent: #e6f4ff;
+  --sidebar-accent-foreground: #0958d9;
+  --sidebar-border: #f0f0f0;
+  --sidebar-ring: #0958d9;
+
+  color-scheme: light;
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #e2e8f0;
-  --card: #111a2e;
-  --card-foreground: #e2e8f0;
-  --popover: #111a2e;
-  --popover-foreground: #e2e8f0;
-  --primary: #5b9cf0;
-  --primary-foreground: #0b1220;
-  --secondary: #16305a;
-  --secondary-foreground: #dbeafe;
-  --muted: #1a2438;
-  --muted-foreground: #94a3b8;
-  --accent: #16305a;
-  --accent-foreground: #dbeafe;
-  --destructive: #f87171;
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --info: #38bdf8;
-  --purple: #a78bfa;
-  --destructive-soft: #3a1717;
-  --success-soft: #12301f;
-  --warning-soft: #3a2a10;
-  --info-soft: #0f2c3d;
-  --purple-soft: #2a1f47;
-  --border: #1f2b40;
-  --input: #2a3a55;
-  --ring: #5b9cf0;
-  --chart-1: #5b9cf0;
-  --chart-2: #4ade80;
-  --chart-3: #fbbf24;
-  --chart-4: #a78bfa;
-  --chart-5: #38bdf8;
+  --background: #000000;
+  --foreground: #dbdbdb;
+  --foreground-2: #a6a6a6;
+  --card: #141414;
+  --card-foreground: #dbdbdb;
+  --popover: #141414;
+  --popover-foreground: #dbdbdb;
+  --primary: #1668dc;
+  --primary-foreground: #ffffff;
+  --primary-hover: #3c89e8;
+  --primary-active: #1554ad;
+  --primary-border: #15417e;
+  --primary-text: #4a90ea;
+  --secondary: rgba(255, 255, 255, 0.08);
+  --secondary-foreground: #dbdbdb;
+  --muted: rgba(255, 255, 255, 0.08);
+  --muted-foreground: #8f8f8f;
+  --accent: #111a2c;
+  --accent-foreground: #4a90ea;
+  --fill: rgba(255, 255, 255, 0.12);
+  --faint: #4d4d4d;
+  --table-head: #1d1d1d;
+  --border: #303030;
+  --input: #424242;
+  --ring: #1668dc;
+  --focus: 0 0 0 2px rgba(22, 104, 220, 0.25);
 
-  --nav: #0a3f8f;
+  --success: #49aa19;
+  --success-text: #6abe39;
+  --success-soft: #162312;
+  --success-border: #274916;
+  --warning: #d89614;
+  --warning-text: #e8b339;
+  --warning-soft: #2b2111;
+  --warning-border: #594214;
+  --destructive: #c23b3d;
+  --destructive-hover: #e86e6b;
+  --destructive-text: #e86e6b;
+  --destructive-soft: #2c1618;
+  --destructive-border: #58181c;
+  --info: #1668dc;
+  --info-text: #4a90ea;
+  --info-soft: #111a2c;
+  --info-border: #15417e;
+  --purple: #642ab5;
+  --purple-text: #ab7ae0;
+  --purple-soft: #1a1325;
+  --purple-border: #3e2069;
+
+  --chart-1: #1668dc;
+  --chart-2: #49aa19;
+  --chart-3: #d89614;
+  --chart-4: #642ab5;
+  --chart-5: #13a8a8;
+
+  --shadow:
+    0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 1px 6px -1px rgba(0, 0, 0, 0.2),
+    0 2px 4px 0 rgba(0, 0, 0, 0.2);
+  --shadow-pop:
+    0 6px 16px 0 rgba(0, 0, 0, 0.32), 0 3px 6px -4px rgba(0, 0, 0, 0.48),
+    0 9px 28px 8px rgba(0, 0, 0, 0.2);
+  --shadow-pop-3:
+    0 12px 32px 4px rgba(0, 0, 0, 0.36), 0 6px 16px -8px rgba(0, 0, 0, 0.5),
+    0 18px 48px 16px rgba(0, 0, 0, 0.24);
+  --shadow-pop-left:
+    -6px 0 16px 0 rgba(0, 0, 0, 0.32), -3px 0 6px -4px rgba(0, 0, 0, 0.48),
+    -9px 0 28px 8px rgba(0, 0, 0, 0.2);
+  --shadow-btn: 0 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow-btn-primary: 0 2px 0 rgba(0, 0, 0, 0.3);
+
+  --nav: #1668dc;
   --nav-foreground: #ffffff;
 
-  --sidebar: #111a2e;
-  --sidebar-foreground: #cbd5e1;
-  --sidebar-primary: #5b9cf0;
-  --sidebar-primary-foreground: #0b1220;
-  --sidebar-accent: #16305a;
-  --sidebar-accent-foreground: #dbeafe;
-  --sidebar-border: #1f2b40;
-  --sidebar-ring: #5b9cf0;
+  --sidebar: #141414;
+  --sidebar-foreground: #dbdbdb;
+  --sidebar-primary: #1668dc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #111a2c;
+  --sidebar-accent-foreground: #4a90ea;
+  --sidebar-border: #303030;
+  --sidebar-ring: #1668dc;
+
+  color-scheme: dark;
 }
 
 @theme inline {
-  --font-sans: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xs: 2px;
+  --radius-sm: var(--radius-tag);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-dialog);
+
+  /* Tailwind shadow-* cũ trỏ về ba mức của Ant; tên mới: shadow-card, shadow-popover, shadow-dialog, shadow-drawer, shadow-primary */
+  --shadow-xs: var(--shadow-btn);
+  --shadow-sm: var(--shadow);
+  --shadow-md: var(--shadow-pop);
+  --shadow-lg: var(--shadow-pop);
+  --shadow-xl: var(--shadow-pop-3);
+  --shadow-2xl: var(--shadow-pop-3);
+  --shadow-card: var(--shadow);
+  --shadow-popover: var(--shadow-pop);
+  --shadow-dialog: var(--shadow-pop-3);
+  --shadow-drawer: var(--shadow-pop-left);
+  --shadow-primary: var(--shadow-btn-primary);
+
+  --ease-ant: var(--ease);
+  --ease-ant-out: var(--out);
+  --ease-ant-circ: var(--circ);
+  --default-transition-duration: var(--duration-mid);
+  --default-transition-timing-function: var(--ease);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-2: var(--foreground-2);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-border: var(--primary-border);
+  --color-primary-text: var(--primary-text);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-fill: var(--fill);
+  --color-faint: var(--faint);
+  --color-table-head: var(--table-head);
   --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-info: var(--info);
-  --color-purple: var(--purple);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-text: var(--destructive-text);
   --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-border: var(--destructive-border);
+  --color-success: var(--success);
+  --color-success-text: var(--success-text);
   --color-success-soft: var(--success-soft);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
   --color-warning-soft: var(--warning-soft);
+  --color-warning-border: var(--warning-border);
+  --color-info: var(--info);
+  --color-info-text: var(--info-text);
   --color-info-soft: var(--info-soft);
+  --color-info-border: var(--info-border);
+  --color-purple: var(--purple);
+  --color-purple-text: var(--purple-text);
   --color-purple-soft: var(--purple-soft);
+  --color-purple-border: var(--purple-border);
   --color-nav: var(--nav);
   --color-nav-foreground: var(--nav-foreground);
   --color-border: var(--border);
@@ -151,15 +302,23 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Thang màu thương hiệu (xanh #0b5fd1 ở bậc 500), dùng như bg-brand-50 */
-  --color-brand-50: #f3f8fe;
-  --color-brand-100: #e8f1fd;
-  --color-brand-200: #c6dcfa;
-  --color-brand-300: #93bcf4;
-  --color-brand-400: #4f8fe6;
-  --color-brand-500: #0b5fd1;
-  --color-brand-600: #0952b6;
-  --color-brand-700: #0849a3;
-  --color-brand-800: #073a80;
-  --color-brand-900: #062c61;
+  /* Chữ trạng thái: text-success, text-warning… dùng màu -text cho đủ tương phản (Tailwind tra --text-color-* trước --color-*) */
+  --text-color-success: var(--success-text);
+  --text-color-warning: var(--warning-text);
+  --text-color-destructive: var(--destructive-text);
+  --text-color-info: var(--info-text);
+  --text-color-purple: var(--purple-text);
+  --text-color-primary: var(--primary-text);
+
+  /* Thang màu thương hiệu theo bảng blue của Ant (#0958d9 ở bậc 500), dùng như bg-brand-50 */
+  --color-brand-50: #e6f4ff;
+  --color-brand-100: #bae0ff;
+  --color-brand-200: #91caff;
+  --color-brand-300: #69b1ff;
+  --color-brand-400: #1677ff;
+  --color-brand-500: #0958d9;
+  --color-brand-600: #003eb3;
+  --color-brand-700: #002c8c;
+  --color-brand-800: #001d66;
+  --color-brand-900: #000f33;
 }
