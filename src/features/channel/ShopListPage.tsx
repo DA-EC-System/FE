@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { KeyRound, Link2, PlugZap, Plus, RefreshCw, Settings2, Store, Unplug } from 'lucide-react';
@@ -57,6 +57,8 @@ export function ShopListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
+  /** Câu báo 409 `shop_has_open_orders` (§18.6.1), hiện ngay trong hộp thoại ngắt kèm link danh sách đơn */
+  const [openOrdersError, setOpenOrdersError] = useState<string | null>(null);
   const [zeroStock, setZeroStock] = useState(false);
   const [adding, setAdding] = useState(false);
   // Sàn đang dán token trong hộp thoại; null: đang chọn sàn
@@ -103,6 +105,7 @@ export function ShopListPage() {
   };
   const askDisconnect = (s: Shop) => {
     setZeroStock(false);
+    setOpenOrdersError(null);
     setDisconnecting(s);
   };
   const needsReauth = (shopsQuery.data?.items ?? []).filter((s) => s.status === 'needs_reauth');
@@ -124,6 +127,11 @@ export function ShopListPage() {
         `Đã ngắt kết nối ${disconnecting.shopName}${zeroStock ? ', tồn trên sàn đã về 0' : ''}`,
       );
     } catch (e) {
+      if (problemCode(e) === 'shop_has_open_orders') {
+        // Giữ hộp thoại mở: gian hàng chưa ngắt, người dùng mở danh sách đơn còn dở từ đây
+        setOpenOrdersError(problemMessage(e));
+        return;
+      }
       if (problemCode(e) === 'version_conflict') {
         toast.warning(`${disconnecting.shopName} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại danh sách.`);
         void shopsQuery.refetch();
@@ -440,6 +448,17 @@ export function ShopListPage() {
                 </span>
               </Label>
             </div>
+            {openOrdersError && disconnecting && (
+              <AlertMessage severity="error" className="mt-3">
+                {openOrdersError}{' '}
+                <Link
+                  to={`${ROUTES.company.orders(companyId)}?shopId=${encodeURIComponent(disconnecting.id)}`}
+                  className="font-medium underline underline-offset-2"
+                >
+                  Xem đơn của gian hàng
+                </Link>
+              </AlertMessage>
+            )}
           </>
         }
         confirmLabel="Ngắt kết nối"

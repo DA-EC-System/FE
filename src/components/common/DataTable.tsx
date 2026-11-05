@@ -26,12 +26,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { EmptyState } from './EmptyState';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Lớp CSS cho cả ô tiêu đề và ô dữ liệu, vd độ rộng */
     className?: string;
+    /** Cột số: canh phải, chữ số đều cột (tabular-nums) */
+    numeric?: boolean;
   }
 }
 
@@ -53,6 +56,7 @@ interface DataTableProps<T> {
   loading?: boolean;
   /** Đang tải lại (đổi trang, lọc): làm mờ bảng hiện có */
   fetching?: boolean;
+  /** Chuỗi thì hiện thành ô trống (EmptyState); phần tử thì hiện nguyên */
   empty?: ReactNode;
   onRowClick?: (row: T) => void;
   pagination?: ServerPagination;
@@ -92,7 +96,7 @@ export function DataTable<T>({
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>
                 {group.headers.map((header) => (
-                  <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                  <TableHead key={header.id} className={metaClass(header.column.columnDef.meta)}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -111,9 +115,9 @@ export function DataTable<T>({
                 </TableRow>
               ))
             ) : table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={colCount} className="h-24 text-center text-muted-foreground">
-                  {empty}
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={colCount} className="text-center whitespace-normal">
+                  {typeof empty === 'string' ? <EmptyState title={empty} compact /> : empty}
                 </TableCell>
               </TableRow>
             ) : (
@@ -129,14 +133,14 @@ export function DataTable<T>({
                       {row.getVisibleCells().map((cell) => (
                         <TableCell
                           key={cell.id}
-                          className={cn('whitespace-normal', cell.column.columnDef.meta?.className)}
+                          className={cn('whitespace-normal', metaClass(cell.column.columnDef.meta))}
                         >
                           {renderCell(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                       ))}
                     </TableRow>
                     {expanded && (
-                      <TableRow data-expanded-for={row.id} className="bg-muted/30 hover:bg-muted/30">
+                      <TableRow data-expanded-for={row.id} className="bg-table-head hover:bg-table-head">
                         <TableCell colSpan={colCount} className="whitespace-normal">
                           {expanded}
                         </TableCell>
@@ -153,6 +157,9 @@ export function DataTable<T>({
     </div>
   );
 }
+
+const metaClass = (meta?: { className?: string; numeric?: boolean }) =>
+  cn(meta?.numeric && 'text-end tabular-nums', meta?.className);
 
 /**
  * Gọi thẳng hàm `cell` thay vì flexRender: flexRender coi hàm là component, nên khi `columns`

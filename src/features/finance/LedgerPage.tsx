@@ -226,7 +226,7 @@ export function LedgerPage() {
           <>
             <FilterBar>
               <Tabs value={filter} onValueChange={(v) => f.update({ filter: v === 'all' ? undefined : v, page: undefined })}>
-                <TabsList aria-label="Loại dòng">
+                <TabsList variant="segmented" aria-label="Loại dòng">
                   {FILTERS.map((x) => (
                     <TabsTrigger key={x.value} value={x.value}>
                       {x.label}

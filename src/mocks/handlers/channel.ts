@@ -26,6 +26,7 @@ import * as channel from '../channelData';
 import type { MockListing, MockRemoteSku } from '../channelData';
 import * as pricing from '../pricingData';
 import * as inventory from '../inventoryData';
+import { orders as salesOrders } from '../salesData';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -710,6 +711,13 @@ export const shopHandlers = [
     if (current.status === 'disconnected') return HttpResponse.json<Shop>(toShop(current));
     const step = checkTransition(shopMachine, current.status, 'disconnect', guard.value, shopRecord(current));
     if (!step.ok) return step.response;
+    // §18.6.1, commerio-backend#207: còn đơn chưa xong thì không cho ngắt, kèm số đơn
+    const openOrders = salesOrders.filter(
+      (o) => o.shopId === current.id && o.status !== 'completed' && o.status !== 'cancelled',
+    ).length;
+    if (openOrders > 0) {
+      return problem(409, 'Gian hàng còn đơn chưa xong', { code: 'shop_has_open_orders', openOrders });
+    }
     if (zeroStock && !usable(current)) {
       return problem(422, 'Không đặt tồn về 0 được', {
         code: 'zero_stock_unavailable',

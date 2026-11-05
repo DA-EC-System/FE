@@ -2,20 +2,20 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
+/*
+ * Thông báo theo .note của Test_UI v4, FE#129: nền nhạt + viền cùng tông, chữ màu chính,
+ * icon 16px tô màu theo mức (thông tin xanh, thành công, cảnh báo, lỗi).
+ */
 const alertVariants = cva(
-  'relative w-full rounded-lg border px-4 py-3 text-sm grid has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
+  'relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border px-3 py-2 text-sm text-foreground has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-2.5 [&>svg]:size-4 [&>svg]:translate-y-[3px]',
   {
     variants: {
       variant: {
-        default: 'bg-card text-card-foreground',
-        destructive:
-          'border-destructive/30 bg-destructive/10 text-destructive [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
-        // Thêm cho Commerio: màu semantic trong styles/theme.css
-        success:
-          'border-success/30 bg-success/10 text-success [&>svg]:text-current *:data-[slot=alert-description]:text-success/90',
-        warning:
-          'border-warning/30 bg-warning/10 text-warning [&>svg]:text-current *:data-[slot=alert-description]:text-warning/90',
-        info: 'border-info/30 bg-info/10 text-info [&>svg]:text-current *:data-[slot=alert-description]:text-info/90',
+        default: 'border-input bg-table-head [&>svg]:text-foreground-2',
+        destructive: 'border-destructive-border bg-destructive-soft [&>svg]:text-destructive',
+        success: 'border-success-border bg-success-soft [&>svg]:text-success',
+        warning: 'border-warning-border bg-warning-soft [&>svg]:text-warning',
+        info: 'border-info-border bg-info-soft [&>svg]:text-info',
       },
     },
     defaultVariants: {
@@ -43,7 +43,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="alert-title"
-      className={cn('col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight', className)}
+      className={cn('col-start-2 line-clamp-1 min-h-4 font-semibold', className)}
       {...props}
     />
   );
@@ -54,7 +54,7 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
     <div
       data-slot="alert-description"
       className={cn(
-        'col-start-2 grid justify-items-start gap-1 text-sm text-muted-foreground [&_p]:leading-relaxed',
+        'col-start-2 grid justify-items-start gap-1 text-sm text-foreground [&_p]:leading-relaxed',
         className,
       )}
       {...props}

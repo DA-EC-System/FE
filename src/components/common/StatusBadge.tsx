@@ -1,6 +1,15 @@
 import { Badge } from '@/components/ui/badge';
 
-export type BadgeVariant = 'secondary' | 'success' | 'warning' | 'info' | 'destructive' | 'outline';
+export type BadgeVariant =
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'info'
+  | 'destructive'
+  | 'outline'
+  | 'primary'
+  | 'neutral'
+  | 'purple';
 
 /** Nhãn và màu của một trạng thái; mỗi thực thể khai báo một bảng `Record<Status, StatusMeta>` */
 export interface StatusMeta {

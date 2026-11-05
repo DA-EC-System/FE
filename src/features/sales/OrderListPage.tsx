@@ -10,6 +10,7 @@ import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/c
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOrders } from '@/api/sales.api';
+import { useShops } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -30,7 +31,8 @@ export function OrderListPage() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
-  const canCreate = useCan()(PERMISSIONS.orderCreate);
+  const can = useCan();
+  const canCreate = can(PERMISSIONS.orderCreate);
   const f = useUrlFilters(PAGE_SIZES);
   const statusParam = f.params.get('status');
   const status = STATUS_TABS.includes(statusParam as OrderStatus) ? (statusParam as OrderStatus) : '';
@@ -40,6 +42,9 @@ export function OrderListPage() {
   const flag = (f.params.get('flag') ?? '') as OrderFlag | '';
   const from = f.params.get('from') ?? '';
   const to = f.params.get('to') ?? '';
+  // Link "Xem đơn của gian hàng" từ hộp thoại ngắt gian hàng (§18.6.1) mở trang với ?shopId=
+  const shopId = f.params.get('shopId') ?? '';
+  const shopsQuery = useShops({ enabled: can(PERMISSIONS.shopView) });
 
   const query = useOrders({
     page: f.page,
@@ -47,13 +52,14 @@ export function OrderListPage() {
     search: f.q || undefined,
     status: status || undefined,
     source: source || undefined,
+    shopId: shopId || undefined,
     paymentMethod: paymentMethod || undefined,
     stage: stage || undefined,
     flag: flag || undefined,
     from: from || undefined,
     to: to || undefined,
   });
-  const filtered = Boolean(f.q || source || paymentMethod || stage || flag || from || to);
+  const filtered = Boolean(f.q || source || shopId || paymentMethod || stage || flag || from || to);
 
   const columns = useMemo<ColumnDef<OrderSummary>[]>(
     () => [
@@ -108,6 +114,16 @@ export function OrderListPage() {
     [],
   );
 
+  const shopOptions = useMemo(() => {
+    const options = (shopsQuery.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }));
+    // Không xem được danh sách gian hàng (thiếu quyền) vẫn hiện gian hàng đang lọc để xoá được
+    if (shopId && !options.some((o) => o.value === shopId)) {
+      const shop = query.data?.items.find((o) => o.shop?.id === shopId)?.shop;
+      options.push({ value: shopId, label: shop?.shopName ?? 'Gian hàng đang lọc' });
+    }
+    return options;
+  }, [shopsQuery.data, query.data, shopId]);
+
   return (
     <div>
       <PageHeader
@@ -144,6 +160,9 @@ export function OrderListPage() {
             onChange={f.setFilter('source')}
             options={(Object.keys(SOURCE_LABELS) as OrderSource[]).map((s) => ({ value: s, label: SOURCE_LABELS[s] }))}
           />
+          {(shopId || shopOptions.length > 0) && (
+            <FilterSelect label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={shopOptions} />
+          )}
           <FilterSelect
             label="Thanh toán"
             value={paymentMethod}
