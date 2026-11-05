@@ -16,6 +16,10 @@
   }
   body {
     @apply min-h-svh w-full bg-background text-foreground antialiased has-[div[data-variant='inset']]:bg-sidebar;
+    /* Chữ hệ thống 14px theo Test_UI v4 (FE#128) */
+    font-family: var(--sans);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
   }
 
   /* Radix khoá cuộn bằng overflow: hidden làm header dính bị nhảy */
