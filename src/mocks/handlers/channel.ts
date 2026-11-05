@@ -851,7 +851,7 @@ export const shopHandlers = [
         listing: l ? toListing(l) : null,
       };
     });
-    return HttpResponse.json<ListingRow[]>(rows);
+    return HttpResponse.json<{ items: ListingRow[] }>({ items: rows });
   }),
 
   http.get(`${API}/channel/shops/:id/remote-skus`, async ({ params, request }) => {
@@ -868,7 +868,7 @@ export const shopHandlers = [
         channel.listings.find((l) => l.shopId === shop.id && l.externalSkuId === r.externalSkuId)?.variantId ??
         null,
     }));
-    return HttpResponse.json<RemoteSku[]>(skus);
+    return HttpResponse.json<{ items: RemoteSku[] }>({ items: skus });
   }),
 
   http.put(`${API}/channel/shops/:id/listings/:variantId`, async ({ params, request }) => {
