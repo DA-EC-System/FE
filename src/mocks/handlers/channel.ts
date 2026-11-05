@@ -752,7 +752,7 @@ export const shopHandlers = [
     return HttpResponse.json<Shop>(toShop(db.shops[idx]));
   }),
 
-  http.post(`${API}/channel/shops/:id/sync`, async ({ params, request }) => {
+  http.post(`${API}/channel/shops/:id/orders/pull`, async ({ params, request }) => {
     await delay(LATENCY * 2);
     const guard = requireCompany(request, PERMISSIONS.shopSync);
     if (!guard.ok) return guard.response;
@@ -760,7 +760,7 @@ export const shopHandlers = [
     if (idx === -1) return problem(404, 'Không tìm thấy gian hàng');
     if (!usable(db.shops[idx])) return shopNotConnected(db.shops[idx]);
     db.shops[idx] = { ...db.shops[idx], lastOrderSyncAt: db.now(), updatedAt: db.now() };
-    return HttpResponse.json<{ ok: boolean; lastOrderSyncAt?: string }>({ ok: true, lastOrderSyncAt: db.shops[idx].lastOrderSyncAt });
+    return HttpResponse.json<{ pulled: number; created: number; updated: number }>({ pulled: 0, created: 0, updated: 0 });
   }),
 
   /** Thiết lập lần đầu (sơ đồ C1): gợi ý ghép listing có sẵn và số tồn hai bên */

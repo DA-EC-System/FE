@@ -177,8 +177,9 @@ export function useSyncShop() {
   const invalidate = useInvalidateShops();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await apiClient.post<{ ok: boolean; lastOrderSyncAt: string }>(
-        `/channel/shops/${id}/sync`,
+      // Documents/21 §14: kéo đơn ngay, trả số đơn đã lấy chi tiết, số đơn mới, số đơn đổi
+      const { data } = await apiClient.post<{ pulled: number; created: number; updated: number }>(
+        `/channel/shops/${id}/orders/pull`,
       );
       return data;
     },
