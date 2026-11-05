@@ -21,11 +21,13 @@ import type { ConfigAction, FinanceConfig } from '@/types/finance';
 import { CONFIG_KINDS, CONFIG_STATES, PAYLOAD_FIELDS, configRecord } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 import { FinanceConfigForm } from './FinanceConfigForm';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 export function FinanceConfigDetailPage() {
   const { id = '' } = useParams(); const query = useFinanceConfig(id); const can = useCan(); const actor = useTransitionActor();
   const navigate = useNavigate(); const { companyContext } = useAuth(); const companyId = companyContext?.companyId ?? '';
   const [editing, setEditing] = useState<'edit' | 'correction' | null>(null); const [action, setAction] = useState<ConfigAction | null>(null);
+  useBreadcrumb(query.data ? CONFIG_KINDS[query.data.kind] : undefined);
   const dryRun = useFinanceWrite<FinanceConfig, { version: number }>('post', `/finance/configs/${id}/dry-run`);
   if (query.isLoading) return <PageSpinner />;
   if (!query.data) return <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>;

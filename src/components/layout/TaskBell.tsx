@@ -47,8 +47,11 @@ export function TaskBell({ companyId }: { companyId: string }) {
           {items.length > 0 && (
             <span
               className={cn(
-                'absolute -end-1 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-xs leading-none text-white ring-1 ring-card',
-                overdue ? 'bg-destructive' : 'bg-warning',
+                'absolute -end-1 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-xs leading-none ring-1 ring-card',
+                // Chữ trắng trên #faad14 chỉ 1,9:1; việc sắp tới hạn dùng nền nhạt + chữ -text (đạt 4,5:1)
+                overdue
+                  ? 'bg-destructive text-white'
+                  : 'border border-warning-border bg-warning-soft text-warning',
               )}
             >
               {items.length > 99 ? '99+' : items.length}

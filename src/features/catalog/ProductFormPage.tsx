@@ -60,6 +60,7 @@ import { VariantBuilder, emptyPlan, planCombos, planError, type VariantPlan } fr
 import { AddVariantDialog } from './AddVariantDialog';
 import { comboKey, productSchema, type ProductForm } from './shared';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
   live: 'Đang bán',
@@ -88,6 +89,7 @@ export function ProductFormPage() {
 
   const productQuery = useProduct(productId);
   const product = productQuery.data;
+  useBreadcrumb(isNew ? 'Thêm sản phẩm' : product?.name);
   const categories = useCategories().data ?? [];
   const attributes = useAttributes().data ?? [];
   const createMut = useCreateProduct();

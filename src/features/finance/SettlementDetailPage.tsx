@@ -18,11 +18,13 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { resolveBlock } from '@/lib/machines/settlement';
 import { PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 export function SettlementDetailPage() {
   const { id = '' } = useParams(); const query = useOrderPayment(id); const actor = useTransitionActor();
   const { companyContext } = useAuth(); const companyId = companyContext?.companyId ?? '';
   const [action, setAction] = useState<'resolve' | 'ceo-approve' | null>(null);
+  useBreadcrumb(query.data ? (query.data.orderCode ?? query.data.orderId) : undefined);
   if (query.isLoading) return <PageSpinner />;
   if (!query.data) return <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>;
   const payment = query.data; const block = resolveBlock(payment, actor);
