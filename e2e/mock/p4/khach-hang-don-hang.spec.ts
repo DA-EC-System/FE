@@ -62,6 +62,54 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await expect(dong(page, 'ord-1016')).toBeAttached();
       await expect(dong(page, 'ord-1003')).toHaveCount(0);
     });
+
+    test('đơn sàn: người nhận khi chưa gắn khách, mã đơn sàn, cột sản phẩm, hạn gửi; tìm theo mã đơn sàn (FE#176)', async ({ page }) => {
+      // DH-1005 chưa gắn khách: hiện tên người nhận sàn đã che
+      await expect(dong(page, 'ord-1005')).toContainText('Lê T*** H***');
+      await expect(dong(page, 'ord-1005')).toContainText('người nhận');
+      await expect(dong(page, 'ord-1005')).toContainText('533851500001005');
+      // DH-1012 hai món: món đầu kèm "và 1 món khác"
+      await expect(dong(page, 'ord-1012')).toContainText('× 1 · và 1 món khác');
+      await expect(dong(page, 'ord-1012').getByRole('button', { name: 'Sao chép mã đơn sàn 533851500001012' })).toBeVisible();
+      // Thanh toán theo phương thức gốc của sàn
+      await expect(dong(page, 'ord-1012')).toContainText('COD');
+      // Đơn tạo tay không có mã đơn sàn, không có hạn gửi
+      await expect(dong(page, 'ord-1003')).not.toContainText('5338515');
+      await page.getByPlaceholder(/Tìm/).fill('533851500001012');
+      await expect(dong(page, 'ord-1012')).toBeAttached();
+      await expect(dong(page, 'ord-1005')).toHaveCount(0);
+    });
+
+    test('chi tiết đơn sàn: mã đơn sàn, trạng thái gốc, ghi chú khách, ảnh và thuộc tính từng dòng (FE#176)', async ({ page }) => {
+      await page.goto('/c/cmp-001/sales/orders/ord-1012');
+      await expect(page.locator('[data-testid=external-order-id]')).toContainText('533851500001012');
+      await expect(page.locator('[data-testid=order-status]')).toContainText('Sàn: READY_TO_SHIP');
+      await expect(page.locator('[data-testid=buyer-note]')).toContainText('Giao giờ hành chính giúp em');
+      const dongHang = page.locator('[data-testid=order-lines] tbody tr');
+      await expect(dongHang).toHaveCount(2);
+      await expect(dongHang.first().locator('[data-slot=avatar]')).toBeVisible();
+      await expect(dongHang.first()).toContainText('SKU sàn 4020152004_VNAMZ-1520943');
+      await expect(page.locator('[data-testid=order-lines]')).toContainText('Khách trả');
+      await expect(dongHang.first()).toContainText('135.000');
+      // Dòng khách huỷ trên sàn: ai huỷ, lý do
+      await expect(dongHang.nth(1).locator('[data-testid=line-issue]')).toContainText('Khách huỷ');
+      await expect(dongHang.nth(1).locator('[data-testid=line-issue]')).toContainText('Đổi ý, không muốn mua nữa');
+    });
+
+    test('chi tiết đơn sàn: địa chỉ tách phần, thanh toán, phí ship và vận chuyển của kiện (FE#176)', async ({ page }) => {
+      await page.goto('/c/cmp-001/sales/orders/ord-1012');
+      await expect(page.locator('[data-testid=shipping-address]')).toHaveText('12 Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh');
+      await thayChu(page, 'Mã bưu chính 700000');
+      await thayChu(page, 'Phí ship gốc');
+      await thayChu(page, 'Sàn giảm phí ship');
+      await thayChu(page, 'Phí ship khách trả');
+      await expect(page.locator('[data-testid=package-shipping]').first()).toContainText(' · standard · sàn hứa gửi trước ');
+      // Đơn tạo tay: không có các trường sàn
+      await page.goto('/c/cmp-001/sales/orders/ord-1003');
+      await expect(page.locator('[data-testid=order-lines]')).not.toContainText('Khách trả');
+      await expect(page.locator('[data-testid=buyer-note]')).toHaveCount(0);
+      await expect(page.getByText('Phí ship gốc')).toHaveCount(0);
+    });
   });
 
   test.describe('tạo đơn tay (UC-SF-01)', () => {

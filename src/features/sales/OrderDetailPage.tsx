@@ -1,4 +1,8 @@
 import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
+import { CopyButton } from '@/components/common/CopyButton';
+import { LineThumb } from './LineThumb';
+import { LineIssue } from './LineIssue';
+import { PackageShipping } from '@/features/fulfillment/PackageShipping';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -27,7 +31,13 @@ import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, packageButtons } from 
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
 import type { CancelRequestDecision, Order } from '@/types/sales';
-import { COMPLETION_BLOCKER_LABELS, ORDER_STATUS, PAYMENT_METHOD_LABELS, sourceLabel } from './shared';
+import {
+  COMPLETION_BLOCKER_LABELS,
+  ORDER_STATUS,
+  addressParts,
+  paymentMethodLabel,
+  sourceLabel,
+} from './shared';
 import { OrderStage } from './OrderStage';
 import { SplitPackageDialog } from './SplitPackageDialog';
 import { Info } from './Info';
@@ -95,6 +105,7 @@ export function OrderDetailPage() {
   }
 
   const isMarketplace = order.source === 'marketplace';
+  const hasPaid = order.lines.some((l) => l.paidPrice != null);
   const available = orderMachine.available(order.status, actor, orderRecord(order)).map((t) => t.action);
   const canConfirm = available.includes('confirm');
   const cancelRequested = order.flags.includes('cancel_requested');
@@ -183,8 +194,21 @@ export function OrderDetailPage() {
         <StatusBadge status={order.status} statuses={ORDER_STATUS} />
         <span className="ms-2">Tiền: <PaymentStatusBadge status={order.paymentStatus} /></span>
         <OrderStage order={order} />
-        {order.rawMarketplaceStatus && <Badge variant="outline">Sàn: {order.rawMarketplaceStatus}</Badge>}
+        {order.rawMarketplaceStatus && (
+          <Badge variant="outline" title="Trạng thái gốc trên sàn">
+            Sàn: {order.rawMarketplaceStatus}
+          </Badge>
+        )}
       </div>
+
+      {order.buyerNote && (
+        <div
+          className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm"
+          data-testid="buyer-note"
+        >
+          <span className="font-medium">Khách ghi chú:</span> {order.buyerNote}
+        </div>
+      )}
 
       {cancelRequested && (
         <div
@@ -244,14 +268,27 @@ export function OrderDetailPage() {
                 )}
                 {order.customer && <p className="text-muted-foreground">{order.customer.phone}</p>}
               </Info>
+              {order.externalOrderId && (
+                <Info label="Mã đơn sàn">
+                  <span className="inline-flex items-center gap-1" data-testid="external-order-id">
+                    <span className="font-mono">{order.externalOrderId}</span>
+                    <CopyButton value={order.externalOrderId} label="Sao chép mã đơn sàn" />
+                  </span>
+                </Info>
+              )}
               <Info label="Giao tới">
                 <p>
                   {order.shippingAddress.name} · {order.shippingAddress.phone}
                 </p>
-                <p className="text-muted-foreground">{order.shippingAddress.address}</p>
+                <p className="text-muted-foreground" data-testid="shipping-address">
+                  {addressParts(order.shippingAddress).join(', ') || order.shippingAddress.address}
+                </p>
+                {order.shippingAddress.postCode && (
+                  <p className="text-xs text-muted-foreground">Mã bưu chính {order.shippingAddress.postCode}</p>
+                )}
               </Info>
-              <Info label="Thanh toán">{order.paymentMethod ? PAYMENT_METHOD_LABELS[order.paymentMethod] : 'Sàn thu hộ'}</Info>
-              <Info label="Ghi chú">{order.note || '—'}</Info>
+              <Info label="Thanh toán">{paymentMethodLabel(order.paymentMethod)}</Info>
+              {order.note && <Info label="Ghi chú">{order.note}</Info>}
               {order.cancelReason && <Info label="Lý do huỷ">{order.cancelReason}</Info>}
               <Info label="Số hoá đơn">
                 <span className="inline-flex items-center gap-1" data-testid="invoice-number">
@@ -281,22 +318,45 @@ export function OrderDetailPage() {
                     <TableHead className="w-28 text-right">Đơn giá</TableHead>
                     <TableHead className="w-24 text-right">Số lượng</TableHead>
                     <TableHead className="w-32 text-right">Thành tiền</TableHead>
+                    {hasPaid && <TableHead className="w-32 text-right">Khách trả</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {order.lines.map((l) => (
                     <TableRow key={l.id} data-row-id={l.variantId}>
                       <TableCell>
-                        <p className="font-medium">{l.sku || l.externalSku}</p>
-                        {l.externalSku && !l.variantId && <Badge variant="destructive">Chưa ghép SKU</Badge>}
-                        <p className="text-xs text-muted-foreground">
-                          {l.productName}
-                          {l.attributesLabel && ` · ${l.attributesLabel}`}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <LineThumb src={l.thumbnailUrl} alt={l.productName} />
+                          <div>
+                            <p className="font-medium">{l.sku || l.externalSku}</p>
+                            {l.externalSku && !l.variantId && <Badge variant="destructive">Chưa ghép SKU</Badge>}
+                            <p className="text-xs text-muted-foreground">
+                              {l.productName}
+                              {l.attributesLabel && ` · ${l.attributesLabel}`}
+                            </p>
+                            {l.externalShopSku && (
+                              <p
+                                className="text-xs text-muted-foreground"
+                                title={l.externalSkuId ? `sku_id ${l.externalSkuId}` : undefined}
+                              >
+                                SKU sàn {l.externalShopSku}
+                              </p>
+                            )}
+                            <LineIssue line={l} />
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(l.unitPrice)}</TableCell>
                       <TableCell className="text-right">{l.quantity}</TableCell>
                       <TableCell className="text-right">{formatCurrency(l.lineTotal)}</TableCell>
+                      {hasPaid && (
+                        <TableCell className="text-right">
+                          {l.paidPrice != null && formatCurrency(l.paidPrice)}
+                          {l.taxAmount ? (
+                            <p className="text-xs text-muted-foreground">thuế {formatCurrency(l.taxAmount)}</p>
+                          ) : null}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -307,8 +367,28 @@ export function OrderDetailPage() {
                 <span className="text-muted-foreground">Tạm tính</span>
                 <span>{formatCurrency(order.subtotal)}</span>
               </div>
+              {order.shippingFeeOriginal != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Phí ship gốc</span>
+                  <span>{formatCurrency(order.shippingFeeOriginal)}</span>
+                </div>
+              )}
+              {order.shippingFeeDiscountSeller ? (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shop giảm phí ship</span>
+                  <span>−{formatCurrency(order.shippingFeeDiscountSeller)}</span>
+                </div>
+              ) : null}
+              {order.shippingFeeDiscountPlatform ? (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sàn giảm phí ship</span>
+                  <span>−{formatCurrency(order.shippingFeeDiscountPlatform)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Phí giao</span>
+                <span className="text-muted-foreground">
+                  {order.shippingFeeOriginal != null ? 'Phí ship khách trả' : 'Phí giao'}
+                </span>
                 <span>{formatCurrency(order.shippingFee)}</span>
               </div>
               <Separator />
@@ -351,6 +431,7 @@ export function OrderDetailPage() {
                         </TableCell>
                         <TableCell className="whitespace-normal text-sm">
                           {p.lines.map((l) => `${l.sku} × ${l.quantity}`).join(', ')}
+                          <PackageShipping pkg={p} />
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">

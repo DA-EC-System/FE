@@ -11,6 +11,8 @@ import type { Marketplace } from './shop';
 export type OrderSource = 'marketplace' | 'inbox' | 'manual';
 
 export type PaymentMethod = 'prepaid' | 'cod';
+/** Đơn sàn: giá trị gốc của sàn (`COD`, `MIXEDCARD`, `LAZADA_WALLET`…), commerio-backend#260 */
+export type OrderPaymentMethod = PaymentMethod | (string & {});
 
 /** Trạng thái lưu của đơn (sơ đồ D1) */
 export type OrderStatus = 'unpaid' | 'processing' | 'completed' | 'cancelled';
@@ -101,6 +103,13 @@ export interface ShippingAddress {
   name: string;
   phone: string;
   address: string;
+  /** Địa chỉ tách phần của đơn sàn (commerio-backend#260); null với đơn tạo tay */
+  province?: string | null;
+  district?: string | null;
+  ward?: string | null;
+  postCode?: string | null;
+  /** Số nhà, đường */
+  line?: string | null;
 }
 
 export interface OrderShopRef {
@@ -123,15 +132,30 @@ export interface OrderSummary {
   outcome: OrderOutcome | null;
   /** Trạng thái gốc trên sàn, hiện cạnh trạng thái của app */
   rawMarketplaceStatus: string | null;
-  /** null với đơn sàn (sàn thu hộ) */
-  paymentMethod: PaymentMethod | null;
+  /** Đơn tạo tay: prepaid/cod; đơn sàn: phương thức gốc của sàn, null khi sàn chưa trả */
+  paymentMethod: OrderPaymentMethod | null;
   /** Hạn bàn giao; còn dưới 24 giờ mà chưa bàn giao thì cờ Sắp trễ hạn */
   shipBy: string | null;
   total: number;
   lineCount: number;
+  /** Tổng số lượng mọi dòng */
+  totalQty: number;
+  /** Mã đơn trên sàn; null với đơn tạo tay, hộp thư */
+  externalOrderId: string | null;
+  /** Tên người nhận (sàn có thể che một phần), dùng khi đơn chưa gắn khách */
+  recipientName: string | null;
+  /** Dòng đầu của đơn để hiện ở danh sách; null khi đơn không có dòng */
+  itemsPreview: OrderItemPreview | null;
   createdAt: string;
   createdBy: UserRef | null;
   version: number;
+}
+
+export interface OrderItemPreview {
+  productName: string;
+  attributesLabel: string;
+  thumbnailUrl: string | null;
+  quantity: number;
 }
 
 export interface OrderLine {
@@ -148,7 +172,24 @@ export interface OrderLine {
   available: number;
   /** SKU sàn khi dòng chưa ghép (cờ Chưa ghép SKU); variantId rỗng */
   externalSku: string | null;
+  /** Ảnh của SKU trên sàn, hoặc ảnh biến thể trong app khi sàn không trả */
+  thumbnailUrl: string | null;
+  /** Định danh phía sàn (Lazada `sku_id`, `shop_sku`, `product_id`); null với đơn tạo tay */
+  externalSkuId?: string | null;
+  externalShopSku?: string | null;
+  externalProductId?: string | null;
+  /** Số tiền khách trả cho dòng sau giảm giá */
+  paidPrice?: number | null;
+  taxAmount?: number | null;
+  /** Dòng bị huỷ hoặc trả trên sàn */
+  cancelReason?: string | null;
+  cancelInitiator?: LineCancelInitiator | null;
+  reverseOrderId?: string | null;
+  returnStatus?: string | null;
 }
+
+/** Ai huỷ dòng trên sàn */
+export type LineCancelInitiator = 'buyer' | 'seller' | 'platform';
 
 /** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
 export type StatusChangeSource = 'user' | 'marketplace' | 'system';
@@ -159,7 +200,13 @@ export interface Order extends OrderSummary {
   shippingAddress: ShippingAddress;
   subtotal: number;
   shippingFee: number;
+  /** Phí ship gốc và hai khoản giảm phí ship của đơn sàn; null với đơn tạo tay */
+  shippingFeeOriginal?: number | null;
+  shippingFeeDiscountSeller?: number | null;
+  shippingFeeDiscountPlatform?: number | null;
   note: string;
+  /** Ghi chú khách để lại trên sàn */
+  buyerNote: string | null;
   cancelReason: string | null;
   /** Số hoá đơn gửi lên sàn (Lazada SetInvoiceNumber), §19.3 */
   invoiceNumber: string | null;

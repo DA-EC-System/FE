@@ -7,8 +7,11 @@ import type {
   OrderSource,
   OrderStage,
   OrderStatus,
+  LineCancelInitiator,
+  OrderPaymentMethod,
   OrderSummary,
   PaymentMethod,
+  ShippingAddress,
 } from '@/types/sales';
 import type { Gateway, LinkStatus, PaymentStatus, RefundStatus } from '@/types/payment';
 
@@ -84,6 +87,37 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   prepaid: 'Trả trước',
   cod: 'Thu khi giao (COD)',
 };
+
+/** Phương thức thanh toán gốc của sàn (Lazada `payment_method`) */
+const MARKETPLACE_PAYMENT_LABELS: Record<string, string> = {
+  COD: 'COD',
+  MIXEDCARD: 'Thẻ',
+  CREDIT_CARD: 'Thẻ',
+  DEBIT_CARD: 'Thẻ',
+  LAZADA_WALLET: 'Ví Lazada',
+  WALLET: 'Ví',
+  BANK_TRANSFER: 'Chuyển khoản',
+  INSTALLMENT: 'Trả góp',
+};
+
+/** Nhãn thanh toán: đơn tạo tay theo app, đơn sàn theo giá trị gốc; null là sàn chưa trả phương thức */
+export function paymentMethodLabel(method: OrderPaymentMethod | null): string {
+  if (!method) return 'Sàn thu hộ';
+  if (method in PAYMENT_METHOD_LABELS) return PAYMENT_METHOD_LABELS[method as PaymentMethod];
+  const key = method.toUpperCase().replace(/[\s-]+/g, '_');
+  return MARKETPLACE_PAYMENT_LABELS[key] ?? method;
+}
+
+export const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
+  buyer: 'Khách huỷ',
+  seller: 'Shop huỷ',
+  platform: 'Sàn huỷ',
+};
+
+/** Địa chỉ tách phần (đơn sàn) ghép lại; không có phần nào thì dùng chuỗi address */
+export function addressParts(a: ShippingAddress): string[] {
+  return [a.line, a.ward, a.district, a.province].filter((x): x is string => Boolean(x));
+}
 
 export const channelLabel = (code: CustomerChannel) => code === 'manual' ? 'Tạo tay' : platformLabel(code);
 

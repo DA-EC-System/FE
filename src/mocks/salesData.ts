@@ -7,6 +7,7 @@
 
 import type { OpenPurpose, PackageStatus } from '@/types/fulfillment';
 import type {
+  LineCancelInitiator,
   CustomerChannel,
   CustomerIdentity,
   OrderFlag,
@@ -44,6 +45,9 @@ export interface MockOrderLine {
   unitPrice: number;
   /** SKU sàn khi chưa ghép */
   externalSku?: string | null;
+  /** Ảnh, thuộc tính sàn trả về (dòng chưa ghép thì chỉ có nguồn này) */
+  thumbnailUrl?: string | null;
+  attributesLabel?: string | null;
 }
 
 export interface MockStatusChange<S extends string = OrderStatus> {
@@ -68,6 +72,12 @@ export interface MockOrder {
   flags: OrderFlag[];
   outcome: OrderOutcome | null;
   rawMarketplaceStatus: string | null;
+  /** Mã đơn trên sàn; đơn tạo tay, hộp thư không có */
+  externalOrderId: string | null;
+  /** Ghi chú khách để lại trên sàn */
+  buyerNote: string | null;
+  /** Trường lấy thêm từ sàn (commerio-backend#260); đơn tạo tay không có */
+  platform?: MockPlatformExtras;
   /** Hạn bàn giao do sàn đặt; đơn tạo tay không có */
   shipBy: string | null;
   paymentMethod: PaymentMethod | null;
@@ -81,6 +91,31 @@ export interface MockOrder {
   createdAt: string;
   createdBy: string | null;
   version: number;
+}
+
+export interface MockPlatformLine {
+  externalSkuId?: string;
+  externalShopSku?: string;
+  externalProductId?: string;
+  paidPrice?: number;
+  taxAmount?: number;
+  cancelReason?: string;
+  cancelInitiator?: LineCancelInitiator;
+  reverseOrderId?: string;
+  returnStatus?: string;
+}
+
+/** Trường đơn sàn ngoài phần lõi: thanh toán gốc, địa chỉ tách phần, phí ship, dòng, vận chuyển */
+export interface MockPlatformExtras {
+  paymentMethod?: string;
+  address?: Pick<ShippingAddress, 'province' | 'district' | 'ward' | 'postCode' | 'line'>;
+  shippingFeeOriginal?: number;
+  shippingFeeDiscountSeller?: number;
+  shippingFeeDiscountPlatform?: number;
+  lines?: Record<string, MockPlatformLine>;
+  shipmentProvider?: string;
+  shippingProviderType?: string;
+  promisedShippingAt?: string;
 }
 
 export interface MockLostReport {
@@ -129,7 +164,7 @@ type LegacyStatus =
   | 'delivery_failed'
   | 'cancelled';
 
-type SeedOrder = Omit<MockOrder, 'status' | 'flags' | 'outcome' | 'rawMarketplaceStatus' | 'shipBy' | 'history' | 'invoiceNumber'> & {
+type SeedOrder = Omit<MockOrder, 'status' | 'flags' | 'outcome' | 'rawMarketplaceStatus' | 'shipBy' | 'history' | 'invoiceNumber' | 'externalOrderId' | 'buyerNote' | 'platform'> & {
   status: LegacyStatus;
   isShortStock: boolean;
   history: MockStatusChange<LegacyStatus>[];
@@ -319,11 +354,12 @@ const seed: SeedOrder[] = [
     code: 'DH-1005',
     source: 'marketplace',
     shopId: 'shp-002',
-    customerId: dung.id,
+    // Đơn sàn chưa gắn khách: chỉ có người nhận, sàn che một phần
+    customerId: null,
     status: 'pending_confirmation',
     isShortStock: true,
     paymentMethod: null,
-    shippingAddress: ship(dung),
+    shippingAddress: { name: 'Lê T*** H***', phone: '09******21', address: 'Phường 7, Quận 3, TP. Hồ Chí Minh' },
     shippingFee: 0,
     note: '',
     cancelReason: null,
@@ -852,6 +888,31 @@ const FAILED_HANDOVER: Record<string, string> = {
   'ord-2001': '2026-10-08T07:00:00.000Z',
 };
 /** Trạng thái gốc trên sàn */
+const BUYER_NOTES: Record<string, string> = { 'ord-1012': 'Giao giờ hành chính giúp em' };
+/** Đơn Lazada đủ trường như Seller Center: COD, địa chỉ tách phần, sàn giảm phí ship, một dòng khách huỷ */
+const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
+  'ord-1012': {
+    paymentMethod: 'COD',
+    address: { line: '12 Lê Lợi', ward: 'Phường Bến Nghé', district: 'Quận 1', province: 'TP. Hồ Chí Minh', postCode: '700000' },
+    shippingFeeOriginal: 32000,
+    shippingFeeDiscountSeller: 0,
+    shippingFeeDiscountPlatform: 32000,
+    lines: {
+      'orl-16': { externalSkuId: '15209430351', externalShopSku: '4020152004_VNAMZ-1520943', externalProductId: '4020152004', paidPrice: 135000, taxAmount: 0 },
+      'orl-17': {
+        externalSkuId: '15209430388',
+        externalShopSku: '4020152011_VNAMZ-1520951',
+        externalProductId: '4020152011',
+        paidPrice: 180000,
+        cancelReason: 'Đổi ý, không muốn mua nữa',
+        cancelInitiator: 'buyer',
+      },
+    },
+    shipmentProvider: 'LEX VN',
+    shippingProviderType: 'standard',
+    promisedShippingAt: '2026-10-18T10:00:00.000Z',
+  },
+};
 const RAW: Record<string, string> = {
   'ord-1002': 'TO_RETURN',
   'ord-1005': 'AWAITING_SHIPMENT',
@@ -1022,6 +1083,9 @@ export const orders: MockOrder[] = seed.map((o) => {
     outcome: status === 'completed' ? 'full' : null,
     invoiceNumber: INVOICES[o.id] ?? null,
     rawMarketplaceStatus: RAW[o.id] ?? null,
+    externalOrderId: o.source === 'marketplace' ? `5338515${o.code.replace(/\D/g, '').padStart(8, '0')}` : null,
+    buyerNote: BUYER_NOTES[o.id] ?? null,
+    ...(PLATFORM_EXTRAS[o.id] ? { platform: PLATFORM_EXTRAS[o.id] } : {}),
     shipBy: o.source === 'marketplace' ? plus(o.createdAt, 48) : null,
     history: orderHistory(o, status),
   };

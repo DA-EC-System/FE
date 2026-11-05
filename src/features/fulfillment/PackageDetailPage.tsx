@@ -272,8 +272,20 @@ export function PackageDetailPage() {
             <>
               <div>
                 <p className="text-muted-foreground">Đơn vị vận chuyển</p>
-                <p data-testid="package-carrier">{p.carrier?.name ?? '—'}</p>
+                <p data-testid="package-carrier">{p.carrier?.name ?? p.shipmentProvider ?? '—'}</p>
               </div>
+              {p.shippingProviderType && (
+                <div>
+                  <p className="text-muted-foreground">Gói giao</p>
+                  <p>{p.shippingProviderType}</p>
+                </div>
+              )}
+              {p.promisedShippingAt && (
+                <div>
+                  <p className="text-muted-foreground">Sàn hứa gửi trước</p>
+                  <p>{formatDateTime(p.promisedShippingAt)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-muted-foreground">Mã kiện sàn</p>
                 <p>{p.platformPackageCode ?? '—'}</p>
