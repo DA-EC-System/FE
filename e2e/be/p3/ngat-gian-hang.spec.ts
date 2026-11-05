@@ -36,7 +36,7 @@ async function dangNhap(page: Page): Promise<string> {
 async function soDon(page: Page, companyId: string, status: 'unpaid' | 'processing'): Promise<number> {
   const res = page.waitForResponse(
     (r) =>
-      new URL(r.url()).pathname.endsWith('/sales/orders') &&
+      new URL(r.url()).pathname.endsWith('/api/v1/sales/orders') &&
       new URL(r.url()).searchParams.get('shopId') === SHOP_ID &&
       new URL(r.url()).searchParams.get('status') === status,
   );
