@@ -4,6 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { compactParams } from './compactParams';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
@@ -110,8 +111,7 @@ export function useStaff(params: StaffListParams) {
     placeholderData: (prev) => prev,
     queryFn: async () => {
       // BE trả 422 với chuỗi rỗng (status, roleId là enum/uuid): chỉ gửi bộ lọc có giá trị
-      const query = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null));
-      const { data } = await apiClient.get<PageResult<StaffMember>>('/identity/staff', { params: query });
+      const { data } = await apiClient.get<PageResult<StaffMember>>('/identity/staff', { params: compactParams(params) });
       return data;
     },
   });

@@ -57,9 +57,11 @@ export function ParentStatus({ item }: { item: ProductListItem }) {
   // BE chưa trả số đếm nhãn (commerio-backend#204): hiện trạng thái kinh doanh theo trạng thái sản phẩm, không sập trang
   if (!item.labelCounts) {
     return (
-      <Badge variant={item.status === 'archived' ? 'secondary' : 'success'} data-status={item.status}>
-        {item.status === 'archived' ? BUSINESS_STATUS_LABELS.archived : BUSINESS_STATUS_LABELS.selling}
-      </Badge>
+      <span className="flex flex-wrap items-center gap-1" data-testid="product-status">
+        <Badge variant={item.status === 'archived' ? 'secondary' : 'success'} data-status={item.status}>
+          {item.status === 'archived' ? BUSINESS_STATUS_LABELS.archived : BUSINESS_STATUS_LABELS.selling}
+        </Badge>
+      </span>
     );
   }
   const { label, text } = parentLabel(item.labelCounts);
@@ -85,7 +87,8 @@ export function ParentStatus({ item }: { item: ProductListItem }) {
 /** Trạng thái kinh doanh đang có trong các SKU con, suy từ số đếm nhãn */
 function childStatuses(item: ProductListItem): VariantBusinessStatus[] {
   const c = item.labelCounts;
-  if (!c) return [item.status === 'archived' ? 'archived' : 'selling'];
+  // Không biết SKU con đang ở đâu: mở mọi thao tác, BE bỏ qua SKU không làm được
+  if (!c) return item.status === 'archived' ? ['archived'] : ['selling', 'paused', 'discontinued'];
   return (
     [
       c.live + c.pending + c.not_listed > 0 && 'selling',
