@@ -201,6 +201,18 @@ export function OrderDetailPage() {
           </Badge>
         )}
       </div>
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-testid="order-head">
+        {order.externalOrderId && (
+          <span className="inline-flex items-center gap-1" data-testid="external-order-id">
+            <span className="text-muted-foreground">Mã đơn sàn</span>
+            <span className="font-mono">{order.externalOrderId}</span>
+            <CopyButton value={order.externalOrderId} label="Sao chép mã đơn sàn" />
+          </span>
+        )}
+        <span data-testid="payment-method">
+          <span className="text-muted-foreground">Thanh toán</span> {paymentMethodLabel(order.paymentMethod)}
+        </span>
+      </div>
 
       {order.buyerNote && (
         <div
@@ -269,14 +281,6 @@ export function OrderDetailPage() {
                 )}
                 {order.customer && <p className="text-muted-foreground">{order.customer.phone}</p>}
               </Info>
-              {order.externalOrderId && (
-                <Info label="Mã đơn sàn">
-                  <span className="inline-flex items-center gap-1" data-testid="external-order-id">
-                    <span className="font-mono">{order.externalOrderId}</span>
-                    <CopyButton value={order.externalOrderId} label="Sao chép mã đơn sàn" />
-                  </span>
-                </Info>
-              )}
               <Info label="Giao tới">
                 <p>
                   {order.shippingAddress.name} · {order.shippingAddress.phone}
@@ -288,7 +292,6 @@ export function OrderDetailPage() {
                   <p className="text-xs text-muted-foreground">Mã bưu chính {order.shippingAddress.postCode}</p>
                 )}
               </Info>
-              <Info label="Thanh toán">{paymentMethodLabel(order.paymentMethod)}</Info>
               {order.note && <Info label="Ghi chú">{order.note}</Info>}
               {order.cancelReason && <Info label="Lý do huỷ">{order.cancelReason}</Info>}
               <Info label="Số hoá đơn">

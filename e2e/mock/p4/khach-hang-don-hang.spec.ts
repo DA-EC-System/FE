@@ -82,12 +82,14 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
 
     test('chi tiết đơn sàn: mã đơn sàn, trạng thái gốc, ghi chú khách, ảnh và thuộc tính từng dòng (FE#176)', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1012');
-      await expect(page.locator('[data-testid=external-order-id]')).toContainText('533851500001012');
+      await expect(page.locator('[data-testid=order-head] [data-testid=external-order-id]')).toContainText('533851500001012');
+      await expect(page.locator('[data-testid=order-head] [data-testid=payment-method]')).toContainText('COD');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Sàn: READY_TO_SHIP');
       await expect(page.locator('[data-testid=buyer-note]')).toContainText('Giao giờ hành chính giúp em');
       const dongHang = page.locator('[data-testid=order-lines] tbody tr');
       await expect(dongHang).toHaveCount(2);
-      await expect(dongHang.first().locator('[data-slot=avatar]')).toBeVisible();
+      // Ảnh thật đã tải (AvatarImage chỉ hiện khi ảnh tải xong, không tính fallback)
+      await expect(dongHang.first().locator('[data-slot=avatar-image]')).toBeVisible();
       await expect(dongHang.first()).toContainText('SKU sàn 4020152004_VNAMZ-1520943');
       await expect(page.locator('[data-testid=order-lines]')).toContainText('Khách trả');
       await expect(dongHang.first()).toContainText('135.000');
