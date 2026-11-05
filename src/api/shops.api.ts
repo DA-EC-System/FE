@@ -193,8 +193,8 @@ export function useShopListings(id: string) {
     queryKey: shopKeys.listings(companyId, id),
     enabled: Boolean(companyId && id),
     queryFn: async () => {
-      const { data } = await apiClient.get<ListingRow[]>(`/channel/shops/${id}/listings`);
-      return data;
+      const { data } = await apiClient.get<{ items: ListingRow[] }>(`/channel/shops/${id}/listings`);
+      return data.items;
     },
   });
 }
@@ -207,8 +207,8 @@ export function useRemoteSkus(id: string, enabled: boolean) {
     enabled: Boolean(companyId && id) && enabled,
     retry: false,
     queryFn: async () => {
-      const { data } = await apiClient.get<RemoteSku[]>(`/channel/shops/${id}/remote-skus`);
-      return data;
+      const { data } = await apiClient.get<{ items: RemoteSku[] }>(`/channel/shops/${id}/remote-skus`);
+      return data.items;
     },
   });
 }
