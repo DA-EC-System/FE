@@ -51,6 +51,23 @@ function useInvalidateInventory() {
     ]);
 }
 
+/**
+ * Phiếu BE trả về sau khi tạo, lưu, chuyển trạng thái là bản mới nhất: huỷ lần đọc phiếu đang chạy, ghi thẳng vào cache
+ * rồi mới làm mới cả nhóm. Không huỷ thì lần đọc bắt đầu trước lệnh (vd vừa tạo phiếu đã gửi duyệt) có thể trả bản cũ
+ * sau cùng: query chưa có data nên invalidate dùng lại request đó thay vì gọi lại (FE#147).
+ */
+function useSaveStockDoc() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  const invalidate = useInvalidateInventory();
+  return async (doc: StockDoc) => {
+    const key = inventoryKeys.doc(companyId, doc.id);
+    await qc.cancelQueries({ queryKey: key, exact: true });
+    qc.setQueryData(key, doc);
+    await invalidate();
+  };
+}
+
 // ---------- Tồn kho, ngưỡng (UC-IN-01, UC-IN-02) ----------
 
 export function useStock(params: StockListParams, options: { enabled?: boolean } = {}) {
@@ -117,30 +134,30 @@ export function useStockDoc(id: string | undefined) {
 }
 
 export function useCreateStockDoc() {
-  const invalidate = useInvalidateInventory();
+  const saveDoc = useSaveStockDoc();
   return useMutation({
     mutationFn: async (body: StockDocCreateInput) => {
       const { data } = await apiClient.post<StockDoc>('/inventory/documents', body);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: saveDoc,
   });
 }
 
 export function useUpdateStockDoc() {
-  const invalidate = useInvalidateInventory();
+  const saveDoc = useSaveStockDoc();
   return useMutation({
     mutationFn: async ({ id, ...body }: StockDocUpdateInput & { id: string }) => {
       const { data } = await apiClient.put<StockDoc>(`/inventory/documents/${id}`, body);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: saveDoc,
   });
 }
 
 /** Chuyển trạng thái phiếu: gửi duyệt, duyệt, từ chối (kèm lý do), ghi sổ, huỷ */
 export function useStockDocAction() {
-  const invalidate = useInvalidateInventory();
+  const saveDoc = useSaveStockDoc();
   return useMutation({
     mutationFn: async ({
       id,
@@ -155,18 +172,18 @@ export function useStockDocAction() {
       const { data } = await apiClient.post<StockDoc>(`/inventory/documents/${id}/${action}`, body);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: saveDoc,
   });
 }
 
 /** Xuất huỷ hàng chờ xử lý bị từ chối: nhập lại tồn hoặc trả NCC */
 export function useDecideStockDoc() {
-  const invalidate = useInvalidateInventory();
+  const saveDoc = useSaveStockDoc();
   return useMutation({
     mutationFn: async ({ id, ...body }: { id: string; decision: RejectDecision; version: number }) => {
       const { data } = await apiClient.post<StockDoc>(`/inventory/documents/${id}/decide`, body);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: saveDoc,
   });
 }
