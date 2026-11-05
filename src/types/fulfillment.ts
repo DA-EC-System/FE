@@ -99,6 +99,10 @@ export interface PackageSummary {
   platformPackageCode: string | null;
   /** Đơn vị vận chuyển chọn lúc đóng gói kiện sàn (§19.3) */
   carrier: CarrierRef | null;
+  /** Đơn vị vận chuyển, gói giao, hạn sàn hứa lấy từ sàn (commerio-backend#260) */
+  shipmentProvider?: string | null;
+  shippingProviderType?: string | null;
+  promisedShippingAt?: string | null;
   /** Hạn bàn giao; kiện hạn sớm được chia hàng trước */
   shipBy: string | null;
   lines: FulfillmentLine[];

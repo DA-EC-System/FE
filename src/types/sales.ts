@@ -101,6 +101,9 @@ export interface ShippingAddress {
   name: string;
   phone: string;
   address: string;
+  /** Phường/xã của đơn sàn: phần duy nhất Lazada không che; tỉnh, đường bị che, không còn cấp quận (commerio-backend#260). null với đơn tạo tay */
+  ward?: string | null;
+  postCode?: string | null;
 }
 
 export interface OrderShopRef {
@@ -125,13 +128,30 @@ export interface OrderSummary {
   rawMarketplaceStatus: string | null;
   /** null với đơn sàn (sàn thu hộ) */
   paymentMethod: PaymentMethod | null;
+  /** Phương thức khách trả trên sàn, giá trị gốc (`COD`, `MIXEDCARD`…); null với đơn tạo tay (commerio-backend#260) */
+  platformPaymentMethod?: string | null;
   /** Hạn bàn giao; còn dưới 24 giờ mà chưa bàn giao thì cờ Sắp trễ hạn */
   shipBy: string | null;
   total: number;
   lineCount: number;
+  /** Tổng số lượng mọi dòng */
+  totalQty?: number;
+  /** Mã đơn trên sàn; null với đơn tạo tay, hộp thư */
+  externalOrderId?: string | null;
+  /** Tên người nhận (sàn có thể che một phần), dùng khi đơn chưa gắn khách */
+  recipientName?: string | null;
+  /** Dòng đầu của đơn để hiện ở danh sách; null khi đơn không có dòng */
+  itemsPreview?: OrderItemPreview | null;
   createdAt: string;
   createdBy: UserRef | null;
   version: number;
+}
+
+export interface OrderItemPreview {
+  productName: string;
+  attributesLabel: string | null;
+  thumbnailUrl: string | null;
+  quantity: number;
 }
 
 export interface OrderLine {
@@ -148,7 +168,28 @@ export interface OrderLine {
   available: number;
   /** SKU sàn khi dòng chưa ghép (cờ Chưa ghép SKU); variantId rỗng */
   externalSku: string | null;
+  /** Ảnh của SKU trên sàn, hoặc ảnh biến thể trong app khi sàn không trả */
+  thumbnailUrl?: string | null;
+  /** Định danh phía sàn (Lazada `sku_id`, `shop_sku`, `product_id`); null với đơn tạo tay */
+  externalSkuId?: string | null;
+  externalShopSku?: string | null;
+  externalProductId?: string | null;
+  /** Số tiền khách trả cho dòng sau giảm giá */
+  paidPrice?: number | null;
+  taxAmount?: number | null;
+  /** Dòng bị huỷ hoặc trả trên sàn */
+  cancelReason?: string | null;
+  cancelReasonDetail?: string | null;
+  cancelInitiator?: LineCancelInitiator | null;
+  /** Huỷ, trả, hoàn tiền hay giao thất bại (không ai huỷ, cancelInitiator null); null khi dòng không có */
+  cancelKind?: LineCancelKind | null;
+  reverseOrderId?: string | null;
+  returnStatus?: string | null;
 }
+
+/** Ai huỷ hoặc yêu cầu trả dòng trên sàn; adapter BE chuẩn hoá, giá trị lạ thành null */
+export type LineCancelInitiator = 'buyer' | 'seller' | 'platform';
+export type LineCancelKind = 'cancellation' | 'return' | 'refund' | 'failed_delivery';
 
 /** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
 export type StatusChangeSource = 'user' | 'marketplace' | 'system';
@@ -159,7 +200,13 @@ export interface Order extends OrderSummary {
   shippingAddress: ShippingAddress;
   subtotal: number;
   shippingFee: number;
+  /** Phí ship gốc và hai khoản giảm phí ship của đơn sàn; null với đơn tạo tay */
+  shippingFeeOriginal?: number | null;
+  shippingFeeDiscountSeller?: number | null;
+  shippingFeeDiscountPlatform?: number | null;
   note: string;
+  /** Ghi chú khách để lại trên sàn */
+  buyerNote?: string | null;
   cancelReason: string | null;
   /** Số hoá đơn gửi lên sàn (Lazada SetInvoiceNumber), §19.3 */
   invoiceNumber: string | null;

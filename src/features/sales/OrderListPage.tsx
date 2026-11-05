@@ -18,8 +18,18 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { OrderFlag, OrderSource, OrderStage as Stage, OrderStatus, OrderSummary, PaymentMethod } from '@/types/sales';
-import { ORDER_FLAGS, ORDER_STAGE, ORDER_STATUS, PAYMENT_METHOD_LABELS, SOURCE_LABELS, sourceLabel } from './shared';
+import {
+  ORDER_FLAGS,
+  ORDER_STAGE,
+  ORDER_STATUS,
+  PAYMENT_METHOD_LABELS,
+  SOURCE_LABELS,
+  paymentMethodLabel,
+  sourceLabel,
+} from './shared';
 import { OrderStage } from './OrderStage';
+import { LineThumb } from './LineThumb';
+import { CopyButton } from '@/components/common/CopyButton';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 
 const PAGE_SIZES = [25, 50, 100];
@@ -70,6 +80,13 @@ export function OrderListPage() {
         cell: ({ row }) => (
           <div>
             <p className="font-medium">{row.original.code}</p>
+            {row.original.externalOrderId && (
+              // Bấm chép mã đơn sàn không mở chi tiết đơn
+              <div className="flex items-center gap-0.5 text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                <span className="font-mono">{row.original.externalOrderId}</span>
+                <CopyButton value={row.original.externalOrderId} label={`Sao chép mã đơn sàn ${row.original.externalOrderId}`} />
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">{formatDateTime(row.original.createdAt)}</p>
           </div>
         ),
@@ -84,11 +101,54 @@ export function OrderListPage() {
               <p>{row.original.customer.name}</p>
               <p className="text-xs text-muted-foreground">{row.original.customer.phone}</p>
             </div>
+          ) : row.original.recipientName ? (
+            <div>
+              <p>{row.original.recipientName}</p>
+              <p className="text-xs text-muted-foreground">người nhận</p>
+            </div>
           ) : (
             '—'
           ),
       },
+      {
+        id: 'items',
+        header: 'Sản phẩm',
+        meta: { className: 'min-w-64' },
+        cell: ({ row }) => {
+          const p = row.original.itemsPreview;
+          if (!p) return '—';
+          const more = row.original.lineCount - 1;
+          return (
+            <div className="flex items-center gap-2">
+              <LineThumb src={p.thumbnailUrl} alt={p.productName} />
+              <div className="min-w-0">
+                <p className="line-clamp-1" title={p.productName}>
+                  {p.productName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {p.attributesLabel && `${p.attributesLabel} `}× {p.quantity}
+                  {more > 0 && ` · và ${more} món khác`}
+                </p>
+              </div>
+            </div>
+          );
+        },
+      },
       { id: 'source', header: 'Nguồn', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
+      {
+        id: 'shipBy',
+        header: 'Hạn gửi',
+        meta: { className: 'w-36' },
+        cell: ({ row }) => {
+          const o = row.original;
+          if (!o.shipBy) return '—';
+          return o.flags.includes('due_soon') ? (
+            <span className="font-medium text-warning">{formatDateTime(o.shipBy)}</span>
+          ) : (
+            formatDateTime(o.shipBy)
+          );
+        },
+      },
       {
         id: 'status',
         header: 'Trạng thái',
@@ -102,7 +162,7 @@ export function OrderListPage() {
         id: 'paymentMethod',
         header: 'Thanh toán',
         meta: { className: 'w-36' },
-        cell: ({ row }) => (row.original.paymentMethod ? PAYMENT_METHOD_LABELS[row.original.paymentMethod] : 'Sàn thu hộ'),
+        cell: ({ row }) => paymentMethodLabel(row.original),
       },
       {
         id: 'total',
@@ -153,7 +213,7 @@ export function OrderListPage() {
       )}
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, tên, số điện thoại" />
+          <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, mã đơn sàn, tên, số điện thoại" />
           <FilterSelect
             label="Nguồn"
             value={source}

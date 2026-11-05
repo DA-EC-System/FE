@@ -23,7 +23,7 @@ import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requ
 import { versionConflict, writeCompanyLog } from './identity';
 import { fileUrl, findOwned, rid } from './catalog';
 import { ensureStandard, sellableVariants } from './pricing';
-import { isQty, stockLevelOf, variantLabel } from './inventory';
+import { findVariant, isQty, stockLevelOf, variantLabel } from './inventory';
 import { availableOf as stockAvailable } from '../engine/stock';
 import type { StatusChange } from '@/lib/stateMachine';
 import { newPackage, placePackage, toPackageSummary } from './fulfillment';
@@ -183,6 +183,33 @@ function flagsOf(o: sales.MockOrder, now: number): OrderFlag[] {
   return [...flags];
 }
 
+/** Ảnh, thuộc tính của dòng: sàn trả thì dùng, không thì lấy của biến thể đã ghép (BE#260 bước 3) */
+function lineMedia(o: sales.MockOrder, l: sales.MockOrderLine) {
+  const found = l.variantId ? findVariant(l.variantId) : null;
+  const image = found?.product.imageFileIds[0];
+  return {
+    thumbnailUrl: l.thumbnailUrl ?? (image ? fileUrl(image) : null),
+    attributesLabel: l.attributesLabel ?? (l.variantId ? variantLabel(o.companyId, l.variantId).attributesLabel : ''),
+  };
+}
+
+/** Trường dòng lấy từ sàn; đơn tạo tay thì null hết */
+function platformLine(x: sales.MockPlatformLine | undefined) {
+  return {
+    externalSkuId: x?.externalSkuId ?? null,
+    externalShopSku: x?.externalShopSku ?? null,
+    externalProductId: x?.externalProductId ?? null,
+    paidPrice: x?.paidPrice ?? null,
+    taxAmount: x?.taxAmount ?? null,
+    cancelReason: x?.cancelReason ?? null,
+    cancelReasonDetail: x?.cancelReasonDetail ?? null,
+    cancelInitiator: x?.cancelInitiator ?? null,
+    cancelKind: x?.cancelKind ?? null,
+    reverseOrderId: x?.reverseOrderId ?? null,
+    returnStatus: x?.returnStatus ?? null,
+  };
+}
+
 export function toOrderSummary(o: sales.MockOrder): OrderSummary {
   const customer = o.customerId ? sales.customers.find((c) => c.id === o.customerId) : undefined;
   const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
@@ -205,9 +232,16 @@ export function toOrderSummary(o: sales.MockOrder): OrderSummary {
     outcome: o.outcome,
     rawMarketplaceStatus: o.rawMarketplaceStatus,
     paymentMethod: o.paymentMethod,
+    platformPaymentMethod: o.platform?.paymentMethod ?? null,
     shipBy: o.shipBy,
     total: sales.totalOf(o),
     lineCount: o.lines.length,
+    totalQty: o.lines.reduce((n, l) => n + l.quantity, 0),
+    externalOrderId: o.externalOrderId,
+    recipientName: customer ? null : o.shippingAddress.name || null,
+    itemsPreview: o.lines[0]
+      ? { productName: o.lines[0].productName, quantity: o.lines[0].quantity, ...lineMedia(o, o.lines[0]) }
+      : null,
     createdAt: o.createdAt,
     createdBy: userRef(o.createdBy),
     version: o.version,
@@ -220,10 +254,14 @@ export function toOrder(o: sales.MockOrder): Order {
   const allStopped = own.length > 0 && own.every((p) => isStopped(p.status));
   return {
     ...toOrderSummary(o),
-    shippingAddress: o.shippingAddress,
+    shippingAddress: { ...o.shippingAddress, ...o.platform?.address },
     subtotal: sales.subtotalOf(o),
     shippingFee: o.shippingFee,
+    shippingFeeOriginal: o.platform?.shippingFeeOriginal ?? null,
+    shippingFeeDiscountSeller: o.platform?.shippingFeeDiscountSeller ?? null,
+    shippingFeeDiscountPlatform: o.platform?.shippingFeeDiscountPlatform ?? null,
     note: o.note,
+    buyerNote: o.buyerNote,
     cancelReason: o.cancelReason,
     invoiceNumber: o.invoiceNumber,
     lines: o.lines.map((l) => ({
@@ -231,12 +269,13 @@ export function toOrder(o: sales.MockOrder): Order {
       variantId: l.variantId,
       sku: l.sku,
       productName: l.productName,
-      attributesLabel: variantLabel(o.companyId, l.variantId).attributesLabel,
+      ...lineMedia(o, l),
       quantity: l.quantity,
       unitPrice: l.unitPrice,
       lineTotal: l.quantity * l.unitPrice,
       available: l.variantId ? availableOf(o.companyId, l.variantId) : 0,
       externalSku: l.externalSku ?? null,
+      ...platformLine(o.platform?.lines?.[l.id]),
     })),
     packages: own.map(toPackageSummary),
     returnWindowEndsAt: last ? new Date(Date.parse(last) + RETURN_WINDOW_DAYS * 24 * 3600_000).toISOString() : null,
@@ -312,6 +351,7 @@ export const salesHandlers = [
         (o) =>
           (!search ||
             o.code.toLowerCase().includes(search) ||
+            Boolean(o.externalOrderId?.includes(search)) ||
             Boolean(o.customer?.name.toLowerCase().includes(search)) ||
             Boolean(o.customer?.phone.includes(search))) &&
           (!q('status') || o.status === q('status')) &&
@@ -448,6 +488,8 @@ export const salesHandlers = [
       flags: [],
       outcome: null,
       rawMarketplaceStatus: null,
+      externalOrderId: null,
+      buyerNote: null,
       shipBy: null,
       paymentMethod: body.paymentMethod!,
       shippingAddress: {

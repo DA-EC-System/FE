@@ -7,8 +7,11 @@ import type {
   OrderSource,
   OrderStage,
   OrderStatus,
+  LineCancelInitiator,
+  LineCancelKind,
   OrderSummary,
   PaymentMethod,
+  ShippingAddress,
 } from '@/types/sales';
 import type { Gateway, LinkStatus, PaymentStatus, RefundStatus } from '@/types/payment';
 
@@ -84,6 +87,55 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   prepaid: 'Trả trước',
   cod: 'Thu khi giao (COD)',
 };
+
+/** Phương thức thanh toán gốc của sàn (Lazada `payment_method`) */
+const MARKETPLACE_PAYMENT_LABELS: Record<string, string> = {
+  COD: 'COD',
+  MIXEDCARD: 'Thẻ',
+  CREDIT_CARD: 'Thẻ',
+  DEBIT_CARD: 'Thẻ',
+  LAZADA_WALLET: 'Ví Lazada',
+  WALLET: 'Ví',
+  BANK_TRANSFER: 'Chuyển khoản',
+  INSTALLMENT: 'Trả góp',
+};
+
+/** Nhãn thanh toán: đơn tạo tay theo `paymentMethod`, đơn sàn theo `platformPaymentMethod` gốc; sàn chưa trả thì "Sàn thu hộ" */
+export function paymentMethodLabel(o: { paymentMethod: PaymentMethod | null; platformPaymentMethod?: string | null }): string {
+  if (o.paymentMethod) return PAYMENT_METHOD_LABELS[o.paymentMethod];
+  const raw = o.platformPaymentMethod;
+  if (!raw) return 'Sàn thu hộ';
+  const key = raw.toUpperCase().replace(/[\s-]+/g, '_');
+  return Object.prototype.hasOwnProperty.call(MARKETPLACE_PAYMENT_LABELS, key) ? MARKETPLACE_PAYMENT_LABELS[key]! : raw;
+}
+
+const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
+  buyer: 'khách',
+  seller: 'shop',
+  platform: 'sàn',
+};
+
+/** Ai huỷ hoặc yêu cầu trả */
+export const initiatorLabel = (v: LineCancelInitiator) => LINE_CANCEL_INITIATOR_LABELS[v];
+
+export const CANCEL_KIND_LABELS: Record<LineCancelKind, string> = {
+  cancellation: 'Đã huỷ',
+  return: 'Trả hàng',
+  refund: 'Hoàn tiền',
+  failed_delivery: 'Giao thất bại',
+};
+
+/** Dòng có huỷ hoặc trả trên sàn */
+export const lineHasIssue = (l: {
+  cancelKind?: string | null;
+  cancelReason?: string | null;
+  cancelInitiator?: string | null;
+  returnStatus?: string | null;
+  reverseOrderId?: string | null;
+}) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
+
+/** Phường/xã hiện riêng khi chuỗi địa chỉ (sàn che một phần) chưa ghi rõ */
+export const wardNote = (a: ShippingAddress) => (a.ward && !a.address.includes(a.ward) ? a.ward : null);
 
 export const channelLabel = (code: CustomerChannel) => code === 'manual' ? 'Tạo tay' : platformLabel(code);
 
