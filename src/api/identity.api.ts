@@ -109,7 +109,9 @@ export function useStaff(params: StaffListParams) {
     enabled: Boolean(companyId),
     placeholderData: (prev) => prev,
     queryFn: async () => {
-      const { data } = await apiClient.get<PageResult<StaffMember>>('/identity/staff', { params });
+      // BE trả 422 với chuỗi rỗng (status, roleId là enum/uuid): chỉ gửi bộ lọc có giá trị
+      const query = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null));
+      const { data } = await apiClient.get<PageResult<StaffMember>>('/identity/staff', { params: query });
       return data;
     },
   });

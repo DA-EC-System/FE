@@ -105,10 +105,10 @@ export interface ProductListItem {
   variantCount: number;
   /** Mọi SKU, kể cả đã lưu trữ */
   variantTotal: number;
-  /** Số SKU theo nhãn chính, để suy nhãn cha ("Đang bán 4/6") */
-  labelCounts: Record<VariantMainLabel, number>;
-  incompleteCount: number;
-  errorCount: number;
+  /** Số SKU theo nhãn chính, để suy nhãn cha ("Đang bán 4/6"); BE chưa trả khi chưa xong commerio-backend#204 */
+  labelCounts?: Record<VariantMainLabel, number>;
+  incompleteCount?: number;
+  errorCount?: number;
   thumbnailUrl: string | null;
   status: ProductStatus;
   updatedAt: string;

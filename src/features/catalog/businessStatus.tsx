@@ -54,18 +54,26 @@ const ACTION_EFFECT: Record<VariantBusinessAction, string> = {
 
 /** Nhãn cha suy từ con ("Đang bán 4/6") kèm nhãn phụ Chờ hoàn thiện, Có lỗi */
 export function ParentStatus({ item }: { item: ProductListItem }) {
+  // BE chưa trả số đếm nhãn (commerio-backend#204): hiện trạng thái kinh doanh theo trạng thái sản phẩm, không sập trang
+  if (!item.labelCounts) {
+    return (
+      <Badge variant={item.status === 'archived' ? 'secondary' : 'success'} data-status={item.status}>
+        {item.status === 'archived' ? BUSINESS_STATUS_LABELS.archived : BUSINESS_STATUS_LABELS.selling}
+      </Badge>
+    );
+  }
   const { label, text } = parentLabel(item.labelCounts);
   return (
     <span className="flex flex-wrap items-center gap-1" data-testid="product-status">
       <Badge variant={MAIN_LABEL_META[label].variant} data-status={label}>
         {text}
       </Badge>
-      {label !== 'archived' && item.incompleteCount > 0 && (
+      {label !== 'archived' && (item.incompleteCount ?? 0) > 0 && (
         <Badge variant="warning" data-flag="incomplete">
           Chờ hoàn thiện
         </Badge>
       )}
-      {label !== 'archived' && item.errorCount > 0 && (
+      {label !== 'archived' && (item.errorCount ?? 0) > 0 && (
         <Badge variant="destructive" data-flag="error">
           Có lỗi
         </Badge>
@@ -77,6 +85,7 @@ export function ParentStatus({ item }: { item: ProductListItem }) {
 /** Trạng thái kinh doanh đang có trong các SKU con, suy từ số đếm nhãn */
 function childStatuses(item: ProductListItem): VariantBusinessStatus[] {
   const c = item.labelCounts;
+  if (!c) return [item.status === 'archived' ? 'archived' : 'selling'];
   return (
     [
       c.live + c.pending + c.not_listed > 0 && 'selling',
