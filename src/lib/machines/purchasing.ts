@@ -150,6 +150,15 @@ export const goodsReceiptMachine = defineMachine<GoodsReceiptStatus, GoodsReceip
   },
   // Đề nghị nhận đủ hoặc bị đóng thiếu
   { from: 'short', to: 'resolved', action: 'auto_resolve', label: 'Đã xử lý', system: true },
+  // Kho hoặc CEO ghi kết quả làm việc với NCC (25 §4.1): chọn `GoodsReceiptResolution`, ghi chú bắt buộc
+  {
+    from: 'short',
+    to: 'resolved',
+    action: 'resolve',
+    label: 'Ghi kết quả giao thiếu',
+    permission: P.goodsReceiptManage,
+    needsReason: true,
+  },
 ]);
 
 export interface SupplierReturnRecord {

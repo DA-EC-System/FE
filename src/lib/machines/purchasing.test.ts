@@ -134,8 +134,8 @@ describe('phiếu nhận', () => {
     ).toEqual({ ok: true, to: 'short', selfApproved: true });
   });
 
-  it('giao thiếu chỉ hệ thống chuyển sang đã xử lý', () => {
-    expect(goodsReceiptMachine.available('short', ceo, { createdBy: 'acc-011', short: 3 })).toEqual([]);
+  it('giao thiếu: người dùng chỉ có bước ghi kết quả, bước tự động do hệ thống', () => {
+    expect(actions(goodsReceiptMachine.available('short', ceo, { createdBy: 'acc-011', short: 3 }))).toEqual(['resolve']);
     expect(goodsReceiptMachine.isFinal('resolved')).toBe(true);
   });
 });
@@ -163,5 +163,21 @@ describe('phiếu trả NCC', () => {
       'record_rejected',
       'record_replaced',
     ]);
+  });
+});
+
+describe('phiếu nhận: ghi kết quả giao thiếu', () => {
+  it('Kho hoặc CEO ghi kết quả giao thiếu, bắt buộc ghi chú; tách khỏi bước tự động của hệ thống (25 §4.1)', () => {
+    const rec = { createdBy: 'acc-011', short: 5 };
+    expect(goodsReceiptMachine.check('short', 'resolve', { actor: kho, record: rec })).toEqual({ ok: false, code: 'reason_required' });
+    expect(goodsReceiptMachine.check('short', 'resolve', { actor: kho, record: rec, reason: 'NCC giao bù phiếu PN-12' })).toEqual({
+      ok: true,
+      to: 'resolved',
+    });
+    expect(goodsReceiptMachine.check('short', 'resolve', { actor: muaHang, record: rec, reason: 'x' })).toEqual({
+      ok: false,
+      code: 'forbidden',
+    });
+    expect(actions(goodsReceiptMachine.available('short', ceo, rec))).toEqual(['resolve']);
   });
 });

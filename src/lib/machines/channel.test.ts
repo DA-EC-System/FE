@@ -27,6 +27,13 @@ describe('Gian hàng (sơ đồ C1)', () => {
     expect(shopMachine.available('active', owner).map((t) => t.action)).not.toContain('lose_auth');
   });
 
+  it('chưa thiết lập xong thì ngắt hoặc mất uỷ quyền quay về đang kết nối (25 §6.1)', () => {
+    expect(shopMachine.check('disconnected', 'resume_setup', { actor: owner })).toEqual({ ok: true, to: 'connecting' });
+    expect(shopMachine.check('needs_reauth', 'resume_setup', { actor: owner })).toEqual({ ok: true, to: 'connecting' });
+    expect(shopMachine.check('active', 'resume_setup', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
+    expect(shopMachine.check('disconnected', 'resume_setup', { actor: viewer })).toEqual({ ok: false, code: 'forbidden' });
+  });
+
   it('cần quyền ngắt kết nối', () => {
     expect(shopMachine.check('active', 'disconnect', { actor: viewer })).toEqual({ ok: false, code: 'forbidden' });
   });
@@ -42,15 +49,26 @@ describe('Gian hàng (sơ đồ C1)', () => {
 });
 
 describe('Listing (sơ đồ C2)', () => {
-  it('đẩy lại được sau lỗi, bị từ chối hoặc đã gỡ', () => {
-    for (const from of ['push_failed', 'rejected', 'delisted'] as const) {
+  it('đẩy lần đầu, đẩy lại sau lỗi, bị từ chối hoặc sàn khoá (25 §6.4)', () => {
+    for (const from of ['not_listed', 'push_failed', 'rejected', 'platform_hold'] as const) {
       expect(listingMachine.check(from, 'push', { actor: owner })).toEqual({ ok: true, to: 'pushing' });
     }
   });
 
-  it('không đẩy khi đang đẩy hoặc sàn đang khoá', () => {
-    expect(listingMachine.check('pushing', 'push', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
-    expect(listingMachine.check('platform_hold', 'push', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
+  it('không đẩy khi đang đẩy, đang bán hoặc chờ duyệt', () => {
+    for (const from of ['pushing', 'live', 'under_review'] as const) {
+      expect(listingMachine.check(from, 'push', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
+    }
+  });
+
+  it('đã gỡ là trạng thái kết thúc, không có mũi đi ra', () => {
+    expect(listingMachine.isFinal('delisted')).toBe(true);
+    expect(listingMachine.check('delisted', 'push', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
+  });
+
+  it('sửa nội dung mà sàn đòi duyệt lại: đang bán sang chờ duyệt, do sàn', () => {
+    expect(listingMachine.check('live', 'request_review')).toEqual({ ok: true, to: 'under_review' });
+    expect(listingMachine.available('live', owner).map((t) => t.action)).not.toContain('request_review');
   });
 
   it('sàn khoá được cả listing đang ẩn, gỡ khoá thì bán lại', () => {
@@ -65,7 +83,8 @@ describe('Listing (sơ đồ C2)', () => {
   });
 
   it('người dùng chỉ thấy thao tác đẩy và gỡ, còn lại do sàn', () => {
-    expect(listingMachine.available('live', owner).map((t) => t.action).sort()).toEqual(['delist', 'push']);
+    expect(listingMachine.available('live', owner).map((t) => t.action)).toEqual(['delist']);
+    expect(listingMachine.available('rejected', owner).map((t) => t.action).sort()).toEqual(['delist', 'push']);
   });
 
 

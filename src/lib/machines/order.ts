@@ -40,7 +40,14 @@ export interface PackageRecord extends OwnedRecord {
   orderStatus: OrderStatus;
   /** Sàn đẩy cập nhật: bỏ qua chặn theo nguồn */
   byPlatform?: boolean;
+  /** Kiện vào `in_transit` do kho quét và sàn đã xác nhận lấy: không đảo bàn giao được */
+  pickupConfirmed?: boolean;
+  /** Trạng thái hiện tại do người chuyển tay (không phải sàn báo) */
+  manualStatus?: boolean;
 }
+
+/** Sàn sửa trạng thái người chuyển tay: chỉ khi trạng thái hiện tại do người chuyển (25 §8.3) */
+const manualOnly = (r: PackageRecord) => (r.manualStatus ? null : 'status_from_platform');
 
 /** Đơn sàn: trạng thái giao lấy từ sàn, người dùng không cập nhật */
 const carrierOnly = (r: PackageRecord) => (r.source === 'marketplace' && !r.byPlatform ? 'not_allowed_for_source' : null);
@@ -48,7 +55,8 @@ const process = PERMISSIONS.fulfillmentProcess;
 const delivery = PERMISSIONS.deliveryUpdate;
 
 /**
- * `createdBy` của bản ghi kiện là người báo thất lạc: người xác nhận phải là người khác.
+ * `createdBy` của bản ghi kiện là người báo thất lạc: người xác nhận phải là người khác,
+ * trừ khi người báo là CEO hoặc công ty chỉ có một người dùng (25 §11).
  * Kiện tự giao còn phải khác người giao (mock kiểm thêm).
  */
 export const packageMachine = defineMachine<PackageStatus, PackageAction, PackageRecord>([
@@ -79,6 +87,7 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
     label: 'Đảo bàn giao',
     permission: PERMISSIONS.handoverRevert,
     needsReason: true,
+    guard: (r) => (r.pickupConfirmed ? 'pickup_confirmed' : null),
   },
   { from: SEALED, to: 'reserved', action: 'open', label: 'Mở kiện', permission: process },
   { from: SEALED, to: 'cancelled', action: 'open_cancel', label: 'Mở kiện, huỷ', permission: process },
@@ -140,9 +149,40 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
     label: 'Xác nhận thất lạc',
     permission: process,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     needsReason: true,
   },
   { from: 'lost', to: 'returned', action: 'found', label: 'Tìm thấy', permission: process },
+  // Bàn giao bắt buộc (25 §8.4 quy tắc 3): sàn báo đã lấy khi kiện chưa giữ đủ hàng; bật cờ Cần xử lý
+  { from: 'backordered', to: 'in_transit', action: 'forced_handover', label: 'Sàn báo đã lấy', system: true },
+  // Dỡ kiện về kệ mà không tìm thấy kiện, sàn không báo đã lấy: ghi bàn giao rồi `lost`
+  {
+    from: 'packed',
+    to: 'lost',
+    action: 'lose_on_unload',
+    label: 'Dỡ kiện không thấy',
+    permission: process,
+    needsSecondPerson: true,
+    allowSelfApproval: true,
+    needsReason: true,
+  },
+  // Sàn báo ngược trạng thái người chuyển tay: áp theo sàn, bật cờ Cần xử lý
+  {
+    from: ['lost', 'returning'],
+    to: 'in_transit',
+    action: 'platform_in_transit',
+    label: 'Sàn báo đang giao',
+    system: true,
+    guard: manualOnly,
+  },
+  {
+    from: ['lost', 'returning'],
+    to: 'delivered',
+    action: 'platform_deliver',
+    label: 'Sàn báo đã giao',
+    system: true,
+    guard: manualOnly,
+  },
 ]);
 
 /** Đường chính của kiện: sàn báo nhảy cóc trên đường này thì áp và bù tồn một lần */
@@ -176,6 +216,10 @@ export interface OrderRecord extends OwnedRecord {
   packages: readonly PackageStatus[];
 }
 
+/** Đơn có kiện và mọi kiện đã huỷ: không hoàn tất, đơn chuyển huỷ */
+export const allCancelled = (packages: readonly PackageStatus[]) =>
+  packages.length > 0 && packages.every((s) => s === 'cancelled');
+
 /** Huỷ được khi chưa kiện nào rời kho */
 const cancelGuard = (r: OrderRecord) =>
   r.source === 'marketplace' ? 'not_allowed_for_source' : r.packages.some(isHandedOver) ? 'already_handed_over' : null;
@@ -191,7 +235,14 @@ export const orderMachine = defineMachine<OrderStatus, OrderAction, OrderRecord>
     guard: (r) => (r.source === 'marketplace' ? 'not_allowed_for_source' : r.paymentMethod !== 'cod' ? 'payment_required' : null),
   },
   { from: 'unpaid', to: 'processing', action: 'pay', label: 'Đã trả', system: true },
-  { from: 'processing', to: 'completed', action: 'complete', label: 'Hoàn tất', system: true },
+  {
+    from: 'processing',
+    to: 'completed',
+    action: 'complete',
+    label: 'Hoàn tất',
+    system: true,
+    guard: (r) => (allCancelled(r.packages) ? 'all_packages_cancelled' : null),
+  },
   {
     from: ['unpaid', 'processing'],
     to: 'cancelled',
@@ -211,6 +262,15 @@ export const orderMachine = defineMachine<OrderStatus, OrderAction, OrderRecord>
     permission: PERMISSIONS.orderCancel,
     guard: (r) =>
       r.source !== 'marketplace' ? 'not_allowed_for_source' : r.packages.some(isHandedOver) ? 'already_handed_over' : null,
+  },
+  // Mọi kiện đã huỷ (huỷ dòng làm hết món, hoặc cờ Đang huỷ đã mở xong mọi kiện): đơn huỷ theo (25 §8.2)
+  {
+    from: 'processing',
+    to: 'cancelled',
+    action: 'auto_cancel',
+    label: 'Mọi kiện đã huỷ',
+    system: true,
+    guard: (r) => (allCancelled(r.packages) ? null : 'packages_not_cancelled'),
   },
 ]);
 
@@ -237,6 +297,7 @@ export interface CompletionInput {
 /** Lý do chưa hoàn tất; null là hoàn tất được */
 export function completionBlocker(i: CompletionInput): string | null {
   if (!i.packages.length || !i.packages.every(isStopped)) return 'packages_open';
+  if (allCancelled(i.packages)) return 'all_packages_cancelled';
   if (i.lastDeliveredAt && Date.parse(i.lastDeliveredAt) + RETURN_WINDOW_DAYS * 24 * 3600_000 > i.now) {
     return 'return_window';
   }

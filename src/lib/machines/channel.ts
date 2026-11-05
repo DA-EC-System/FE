@@ -18,6 +18,15 @@ export const shopMachine = defineMachine<ShopStatus, ShopAction>([
     label: 'Ngắt kết nối',
     permission: PERMISSIONS.shopDisconnect,
   },
+  // Ngắt hoặc mất uỷ quyền khi chưa thiết lập xong (chưa có mốc kéo đơn): chạy lại thiết lập (25 §6.1).
+  // Đã thiết lập xong thì dùng `reconnect`; BE chọn bước theo mốc kéo đơn (`reconnectAction`).
+  {
+    from: ['needs_reauth', 'disconnected'],
+    to: 'connecting',
+    action: 'resume_setup',
+    label: 'Tiếp tục thiết lập',
+    permission: PERMISSIONS.shopConnect,
+  },
 ]);
 
 /** Token còn gọi được API sàn: ghép, đẩy, đồng bộ */
@@ -25,10 +34,14 @@ export const shopUsable = (status: ShopStatus) => status === 'active' || status 
 
 const manage = PERMISSIONS.listingManage;
 
-export const listingMachine = defineMachine<ListingStatus, ListingAction>([
-  // Đẩy lần đầu, đẩy lại sau lỗi hoặc bị từ chối, đẩy lại sau khi gỡ, đẩy nội dung mới cho listing đang bán
+/** Trạng thái trên máy: thêm `not_listed` (chưa có bản ghi listing) để vẽ đủ sơ đồ 25 §6.4 */
+export type ListingMachineStatus = ListingStatus | 'not_listed';
+
+export const listingMachine = defineMachine<ListingMachineStatus, ListingAction>([
+  // Đẩy lần đầu, đẩy lại sau lỗi, bị từ chối hoặc sàn khoá (25 §6.4). `delisted` là kết thúc:
+  // đưa SKU lên lại thì tạo listing mới ở `not_listed`, listing cũ giữ `delisted`.
   {
-    from: ['push_failed', 'rejected', 'delisted', 'live', 'under_review'],
+    from: ['not_listed', 'push_failed', 'rejected', 'platform_hold'],
     to: 'pushing',
     action: 'push',
     label: 'Đẩy lên sàn',
@@ -43,13 +56,16 @@ export const listingMachine = defineMachine<ListingStatus, ListingAction>([
   { from: 'platform_hold', to: 'live', action: 'release', label: 'Sàn gỡ khoá', system: true },
   { from: 'live', to: 'hidden', action: 'hide', label: 'Ẩn', system: true },
   { from: 'hidden', to: 'live', action: 'unhide', label: 'Hiện lại', system: true },
+  // Mọi trạng thái trừ pushing
   {
-    from: ['live', 'hidden', 'under_review', 'platform_hold', 'rejected', 'push_failed'],
+    from: ['live', 'hidden', 'under_review', 'platform_hold', 'rejected', 'push_failed', 'not_listed'],
     to: 'delisted',
     action: 'delist',
     label: 'Gỡ khỏi sàn',
     permission: manage,
   },
+  // Sửa nội dung mà sàn đòi duyệt lại; đổi tồn hoặc giá không đổi trạng thái
+  { from: 'live', to: 'under_review', action: 'request_review', label: 'Sàn duyệt lại nội dung', system: true },
 ]);
 
 /** Listing còn hiện diện trên sàn (tính vào "Trên sàn" của SKU) */

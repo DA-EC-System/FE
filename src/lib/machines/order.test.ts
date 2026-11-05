@@ -107,6 +107,65 @@ describe('Kiện (sơ đồ D2)', () => {
     expect(packageMachine.check('lost', 'found', { actor: kho, record: manual })).toEqual({ ok: true, to: 'returned' });
   });
 
+  it('người báo thất lạc là CEO hoặc công ty một người dùng thì tự xác nhận được (25 §11)', () => {
+    const selfCeo = { ...ceo, canSelfApprove: true };
+    expect(
+      packageMachine.check('in_transit', 'lose', { actor: selfCeo, record: { ...manual, createdBy: 'ceo' }, reason: 'KN-1' }),
+    ).toEqual({ ok: true, to: 'lost', selfApproved: true });
+  });
+
+  it('dỡ kiện không thấy: kiện đã đóng sang thất lạc, người khác xác nhận', () => {
+    const reported = { ...market, createdBy: 'kho' };
+    expect(packageMachine.check('packed', 'lose_on_unload', { actor: kho, record: reported, reason: 'Không thấy trên kệ' })).toEqual({
+      ok: false,
+      code: 'second_person_required',
+    });
+    expect(packageMachine.check('packed', 'lose_on_unload', { actor: kho2, record: reported })).toEqual({
+      ok: false,
+      code: 'reason_required',
+    });
+    expect(packageMachine.check('packed', 'lose_on_unload', { actor: kho2, record: reported, reason: 'Không thấy trên kệ' })).toEqual({
+      ok: true,
+      to: 'lost',
+    });
+  });
+
+  it('bàn giao bắt buộc: sàn báo đã lấy khi kiện chưa giữ đủ hàng', () => {
+    expect(packageMachine.check('backordered', 'forced_handover', { record: { ...market, byPlatform: true } })).toEqual({
+      ok: true,
+      to: 'in_transit',
+    });
+    expect(packageMachine.available('backordered', kho, market).map((t) => t.action)).not.toContain('forced_handover');
+    expect(platformUpdate('backordered', 'in_transit')).toBe('direct');
+  });
+
+  it('sàn sửa trạng thái thất lạc hoặc đang hoàn chỉ khi trạng thái đó do người chuyển tay', () => {
+    for (const from of ['lost', 'returning'] as const) {
+      expect(packageMachine.check(from, 'platform_in_transit', { record: { ...market, byPlatform: true, manualStatus: true } })).toEqual({
+        ok: true,
+        to: 'in_transit',
+      });
+      expect(packageMachine.check(from, 'platform_deliver', { record: { ...market, byPlatform: true, manualStatus: true } })).toEqual({
+        ok: true,
+        to: 'delivered',
+      });
+      expect(packageMachine.check(from, 'platform_deliver', { record: { ...market, byPlatform: true } })).toEqual({
+        ok: false,
+        code: 'status_from_platform',
+      });
+    }
+  });
+
+  it('không đảo bàn giao khi sàn đã xác nhận lấy', () => {
+    expect(
+      packageMachine.check('in_transit', 'undo_handover', {
+        actor: ceo,
+        record: { ...market, pickupConfirmed: true },
+        reason: 'Quét nhầm',
+      }),
+    ).toEqual({ ok: false, code: 'pickup_confirmed' });
+  });
+
   it('sàn đẩy cập nhật: có mũi tên thì áp, nhảy tới trên đường chính thì bù, còn lại cần xử lý', () => {
     expect(platformUpdate('in_transit', 'delivered')).toBe('direct');
     expect(platformUpdate('packed', 'delivered')).toBe('jump');
@@ -174,6 +233,29 @@ describe('Đơn bán (sơ đồ D1)', () => {
     expect(completionBlocker({ ...base, openReturnRequests: 1 })).toBe('return_requested');
     expect(completionBlocker({ ...base, codUnconfirmed: true })).toBe('cod_unconfirmed');
     expect(completionBlocker({ ...base, packages: ['returned'], lastDeliveredAt: null })).toBeNull();
+  });
+
+  it('mọi kiện đã huỷ thì không hoàn tất, đơn chuyển huỷ (25 §8.2)', () => {
+    const now = Date.parse('2026-10-20T00:00:00Z');
+    expect(
+      completionBlocker({ packages: ['cancelled', 'cancelled'], lastDeliveredAt: null, openReturnRequests: 0, codUnconfirmed: false, now }),
+    ).toBe('all_packages_cancelled');
+    expect(orderMachine.check('processing', 'complete', { record: rec(['cancelled']) })).toEqual({
+      ok: false,
+      code: 'all_packages_cancelled',
+    });
+    expect(orderMachine.check('processing', 'complete', { record: rec(['cancelled', 'delivered']) })).toEqual({
+      ok: true,
+      to: 'completed',
+    });
+    expect(orderMachine.check('processing', 'auto_cancel', { record: rec(['cancelled', 'cancelled']) })).toEqual({
+      ok: true,
+      to: 'cancelled',
+    });
+    expect(orderMachine.check('processing', 'auto_cancel', { record: rec(['cancelled', 'reserved']) })).toEqual({
+      ok: false,
+      code: 'packages_not_cancelled',
+    });
   });
 
   it('kết quả: giao đủ, giao một phần, không giao được (bỏ kiện huỷ)', () => {

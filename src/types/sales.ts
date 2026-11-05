@@ -15,7 +15,14 @@ export type PaymentMethod = 'prepaid' | 'cod';
 /** Trạng thái lưu của đơn (sơ đồ D1) */
 export type OrderStatus = 'unpaid' | 'processing' | 'completed' | 'cancelled';
 
-export type OrderAction = 'confirm' | 'pay' | 'complete' | 'cancel' | 'platform_cancel' | 'cancel_on_platform';
+export type OrderAction =
+  | 'confirm'
+  | 'pay'
+  | 'complete'
+  | 'cancel'
+  | 'platform_cancel'
+  | 'cancel_on_platform'
+  | 'auto_cancel';
 
 /**
  * Cờ trên đơn, không phải trạng thái. Đang huỷ: đã huỷ nhưng còn kiện đóng gói chờ mở.
@@ -30,8 +37,7 @@ export type OrderFlag =
   | 'due_soon'
   | 'return_requested'
   | 'payment_mismatch'
-  | 'cod_mismatch'
-  | 'shop_disconnected';
+  | 'cod_mismatch';
 
 /** Kết quả khi hoàn tất: Giao đủ, Giao một phần, Không giao được */
 export type OrderOutcome = 'full' | 'partial' | 'none';

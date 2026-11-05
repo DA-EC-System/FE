@@ -57,7 +57,6 @@ export const ORDER_FLAGS: Record<OrderFlag, { label: string; variant: BadgeVaria
   return_requested: { label: 'Có yêu cầu trả', variant: 'warning' },
   payment_mismatch: { label: 'Lệch tiền', variant: 'destructive' },
   cod_mismatch: { label: 'Lệch COD', variant: 'destructive' },
-  shop_disconnected: { label: 'Gian hàng mất kết nối', variant: 'destructive' },
 };
 
 export const OUTCOME_LABELS: Record<OrderOutcome, string> = {
@@ -72,6 +71,7 @@ export const COMPLETION_BLOCKER_LABELS: Record<string, string> = {
   return_window: 'Chưa hết hạn trả hàng',
   return_requested: 'Còn yêu cầu trả hàng chưa xong',
   cod_unconfirmed: 'Kế toán chưa xác nhận tiền COD',
+  all_packages_cancelled: 'Mọi kiện đã huỷ',
 };
 
 export const SOURCE_LABELS: Record<OrderSource, string> = {

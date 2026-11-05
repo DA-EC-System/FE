@@ -22,6 +22,9 @@ export const PACKAGE_FLAGS: Record<PackageFlag, StatusMeta> = {
   needs_open: { label: 'Chờ mở kiện', variant: 'warning' },
   needs_attention: { label: 'Cần xử lý', variant: 'destructive' },
   lost_reported: { label: 'Báo thất lạc', variant: 'warning' },
+  label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive' },
+  cod_unconfirmed: { label: 'Chờ xác nhận COD', variant: 'warning' },
+  pickup_unconfirmed: { label: 'Chưa thấy sàn xác nhận lấy', variant: 'warning' },
 };
 
 export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
@@ -79,8 +82,8 @@ export function packageButtons(p: PackageSummary, actor: TransitionActor): Packa
     // Mở kiện để huỷ chỉ khi kiện chờ mở vì đơn huỷ; kiện thường mở về Đã giữ
     if (a === 'open_cancel') return opening && p.openPurpose === 'cancel';
     if (a === 'open') return !(opening && p.openPurpose === 'cancel');
-    // Xác nhận thất lạc khi đã có người báo
-    if (a === 'lose') return Boolean(p.lostReport);
+    // Xác nhận thất lạc (cả khi dỡ kiện không thấy) khi đã có người báo
+    if (a === 'lose' || a === 'lose_on_unload') return Boolean(p.lostReport);
     return true;
   });
   const canProcess = packageMachine.available('returning', actor, packageRecord(p)).length > 0;
