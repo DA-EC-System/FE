@@ -185,7 +185,7 @@ export interface OrderLine {
   cancelReason?: string | null;
   cancelReasonDetail?: string | null;
   cancelInitiator?: LineCancelInitiator | null;
-  /** Huỷ, trả hay hoàn tiền; null khi dòng không có */
+  /** Huỷ, trả, hoàn tiền hay giao thất bại (không ai huỷ, cancelInitiator null); null khi dòng không có */
   cancelKind?: LineCancelKind | null;
   reverseOrderId?: string | null;
   returnStatus?: string | null;
@@ -193,7 +193,7 @@ export interface OrderLine {
 
 /** Ai huỷ hoặc yêu cầu trả dòng trên sàn; adapter BE chuẩn hoá, giá trị lạ thành null */
 export type LineCancelInitiator = 'buyer' | 'seller' | 'platform';
-export type LineCancelKind = 'cancellation' | 'return' | 'refund';
+export type LineCancelKind = 'cancellation' | 'return' | 'refund' | 'failed_delivery';
 
 /** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
 export type StatusChangeSource = 'user' | 'marketplace' | 'system';

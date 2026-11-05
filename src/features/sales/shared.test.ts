@@ -33,5 +33,6 @@ describe('thông tin đơn sàn (FE#176)', () => {
     expect(lineHasIssue({})).toBe(false);
     expect(lineHasIssue({ returnStatus: 'Đang hoàn về' })).toBe(true);
     expect(lineHasIssue({ cancelKind: 'cancellation' })).toBe(true);
+    expect(lineHasIssue({ cancelKind: 'failed_delivery' })).toBe(true);
   });
 });

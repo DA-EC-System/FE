@@ -122,6 +122,7 @@ export const CANCEL_KIND_LABELS: Record<LineCancelKind, string> = {
   cancellation: 'Đã huỷ',
   return: 'Trả hàng',
   refund: 'Hoàn tiền',
+  failed_delivery: 'Giao thất bại',
 };
 
 /** Dòng có huỷ hoặc trả trên sàn */

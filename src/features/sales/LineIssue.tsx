@@ -12,6 +12,8 @@ export function LineIssue({ line }: { line: OrderLine }) {
           {CANCEL_KIND_LABELS[line.cancelKind ?? 'return']}
           {line.returnStatus && `: ${line.returnStatus}`}
         </Badge>
+      ) : line.cancelKind === 'failed_delivery' ? (
+        <Badge variant="warning">{CANCEL_KIND_LABELS.failed_delivery}</Badge>
       ) : (
         <Badge variant="destructive">Đã huỷ</Badge>
       )}
