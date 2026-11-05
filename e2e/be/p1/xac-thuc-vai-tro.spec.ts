@@ -114,7 +114,7 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
     const goi: Promise<{ url: string; auth?: string }>[] = [];
     page.on('request', (req) => {
       const url = new URL(req.url()).pathname;
-      if (url.startsWith('/api/v1/')) goi.push(req.allHeaders().then((h) => ({ url, auth: h.authorization })));
+      if (url.startsWith('/api/v1/')) goi.push(req.allHeaders().then((h) => ({ url, auth: h.authorization as string | undefined }), () => ({ url, auth: 'đã đóng' })));
     });
     const login = page.waitForResponse((r) => laApi(r.url(), '/api/v1/identity/login') && r.request().method() === 'POST');
     await dangNhap(page, emailCeo(1));
@@ -147,7 +147,11 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
 
   test('F5 thì dùng cookie refresh lấy access token mới, vẫn ở trang đang mở (FE#1 AC-4)', async ({ page }) => {
     await dangNhap(page, emailCeo(1));
+    // goto nạp lại trang nên FE gọi refresh; chờ lượt đó xong, kẻo reload cắt ngang làm cookie xoay vòng bị mất
+    const napTrang = page.waitForResponse((r) => laApi(r.url(), '/api/v1/identity/refresh') && r.request().method() === 'POST');
     await page.goto(`/c/${congTy1}/catalog`);
+    expect((await napTrang).status()).toBe(200);
+    await expect(page.locator('main')).toBeVisible();
     const cuoiCu = (await cookieRefresh(page))?.value;
     const refresh = page.waitForResponse((r) => laApi(r.url(), '/api/v1/identity/refresh') && r.request().method() === 'POST');
     await page.reload();
