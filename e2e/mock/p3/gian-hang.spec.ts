@@ -168,15 +168,15 @@ test.describe('P3 · Gian hàng', () => {
       await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/channel/shops');
     });
 
+    // shp-003 không có đơn nên ngắt được; shp-001, shp-002 còn đơn chưa xong (§18.6.1)
     test('ngắt kết nối có xác nhận, hỏi đặt tồn trên sàn về 0', async ({ page }) => {
-      await dong(page, 'shp-001').getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+      await dong(page, 'shp-003').getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
       const alert = page.getByRole('alertdialog');
-      await thayChu(alert, 'ABC Fashion Official');
+      await thayChu(alert, 'ABC Fashion LazMall');
       await alert.getByRole('checkbox', { name: /Đặt tồn trên sàn về 0/ }).click();
       await alert.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
-      await toast(page, 'Đã ngắt kết nối ABC Fashion Official, tồn trên sàn đã về 0');
-      await expect(trangThai(page, 'shp-001')).toHaveText('Đã ngắt');
-      await expect(dong(page, 'shp-001')).toContainText('0');
+      await toast(page, 'Đã ngắt kết nối ABC Fashion LazMall, tồn trên sàn đã về 0');
+      await expect(trangThai(page, 'shp-003')).toHaveText('Đã ngắt');
     });
 
     test('gian hàng mất quyền thì không đặt tồn về 0 được khi ngắt', async ({ page }) => {
@@ -185,8 +185,32 @@ test.describe('P3 · Gian hàng', () => {
       await expect(alert.getByRole('checkbox', { name: /Đặt tồn trên sàn về 0/ })).toBeDisabled();
       await thayChu(alert, 'sàn đã thu hồi quyền');
       await alert.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
-      await toast(page, 'Đã ngắt kết nối ABC Fashion TikTok Shop');
-      await expect(trangThai(page, 'shp-002')).toHaveText('Đã ngắt');
+      await thayChu(alert, 'Còn 2 đơn chưa xong');
+      await expect(trangThai(page, 'shp-002')).toHaveText('Cần kết nối lại');
+    });
+
+    test('còn đơn chưa xong thì không ngắt, báo số đơn và link danh sách đơn của gian hàng', async ({ page }) => {
+      await dong(page, 'shp-001').getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+      const alert = page.getByRole('alertdialog');
+      await alert.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+      await thayChu(alert, 'Còn 2 đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.');
+      const link = alert.getByRole('link', { name: 'Xem đơn của gian hàng' });
+      await expect(link).toHaveAttribute('href', '/c/cmp-001/sales/orders?shopId=shp-001');
+      // Hộp thoại vẫn mở, gian hàng chưa bị ngắt
+      await expect(alert).toBeVisible();
+      await alert.getByRole('button', { name: 'Huỷ', exact: true }).click();
+      await expect(trangThai(page, 'shp-001')).toHaveText('Đã kết nối');
+
+      // Mở link: trang Đơn bán lọc theo gian hàng, bộ lọc hiện gian hàng đang chọn và xoá được
+      await dong(page, 'shp-001').getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+      await alert.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+      await link.click();
+      await expect.poll(() => new URL(page.url()).search).toBe('?shopId=shp-001');
+      await expect(page.getByRole('combobox', { name: 'Gian hàng', exact: true })).toHaveText('ABC Fashion Official');
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(2);
+      await chon(page, 'Gian hàng', 'Tất cả');
+      await expect.poll(() => new URL(page.url()).search).toBe('');
+      await expect(page.locator('tbody tr[data-row-id]')).not.toHaveCount(2);
     });
   });
 

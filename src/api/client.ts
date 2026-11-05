@@ -23,6 +23,8 @@ export interface ProblemDetails {
   /** Mã và câu gốc của sàn khi lỗi đến từ sàn (§19.3) */
   platformCode?: string;
   platformMessage?: string;
+  /** Số đơn của gian hàng chưa xong khi ngắt bị chặn (409 `shop_has_open_orders`, §18.6.1) */
+  openOrders?: number;
 }
 
 export const apiClient: AxiosInstance = axios.create({

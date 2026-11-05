@@ -114,7 +114,19 @@ const MESSAGES: Record<string, string> = {
   item_not_packable: 'Có món sàn không cho đóng gói (đã huỷ hoặc đang xin huỷ).',
   rts_package_not_found: 'Sàn không thấy kiện để báo sẵn sàng giao, đóng gói lại rồi thử lại.',
   document_not_ready: 'Kiện chưa có mã kiện sàn nên chưa in được vận đơn.',
+  // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
+  shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
 };
+
+/**
+ * Câu báo khi ngắt gian hàng còn đơn chưa `completed` hoặc `cancelled` (§18.6.1).
+ * BE chưa lên commerio-backend#207 thì body thiếu `openOrders`, báo câu không có số.
+ */
+export function openOrdersMessage(openOrders: unknown): string {
+  return typeof openOrders === 'number' && openOrders > 0
+    ? `Còn ${openOrders} đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.`
+    : MESSAGES.shop_has_open_orders;
+}
 
 /** Câu tiếng Việt của một mã lỗi (lý do nút bị chặn); mã lạ hiện nguyên */
 export function codeMessage(code: string): string {
@@ -128,7 +140,10 @@ export function problemCode(error: unknown): string | undefined {
 export function problemMessage(error: unknown): string {
   const problem = getProblem(error);
   const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
-  const message = (code && MESSAGES[code]) || getErrorMessage(error);
+  const message =
+    code === 'shop_has_open_orders'
+      ? openOrdersMessage(problem?.openOrders)
+      : (code && MESSAGES[code]) || getErrorMessage(error);
   // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
   return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
 }
