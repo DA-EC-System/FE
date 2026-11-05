@@ -34,7 +34,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <SessionGate />
       </QueryClientProvider>
-      <Toaster position="bottom-right" richColors />
+      <Toaster />
     </AppThemeProvider>
   );
 }

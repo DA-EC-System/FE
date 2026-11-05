@@ -22,7 +22,7 @@ interface AlertMessageProps {
   className?: string;
 }
 
-/** Thông báo một dòng kèm icon theo mức độ (thay cho Alert severity của MUI) */
+/** Thông báo một dòng kèm icon theo mức độ, kiểu .note của Test_UI (thay cho Alert severity của MUI) */
 export function AlertMessage({ severity, children, onClose, className }: AlertMessageProps) {
   const Icon = ICON[severity];
   return (
@@ -38,7 +38,7 @@ export function AlertMessage({ severity, children, onClose, className }: AlertMe
           type="button"
           onClick={onClose}
           aria-label="Đóng"
-          className="absolute end-2 top-2 rounded-sm p-1 opacity-70 transition-opacity hover:opacity-100"
+          className="absolute end-2 top-1.5 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <X className="size-4" />
         </button>

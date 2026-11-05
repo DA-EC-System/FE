@@ -1,6 +1,13 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
+/*
+ * Bảng theo table của Test_UI v4, FE#129: đầu bảng nền --table-head chữ 14px đậm 600, ô 12px 16px,
+ * gạch dưới --border, rê chuột tô dòng. Ô canh phải (text-right/text-end) tự dùng tabular-nums
+ * để số thẳng cột; DataTable có meta `numeric` làm việc này.
+ */
+const NUMERIC = '[&.text-end]:tabular-nums [&.text-right]:tabular-nums';
+
 function Table({ className, ...props }: React.ComponentProps<'table'>) {
   return (
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
@@ -14,7 +21,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
-  return <thead data-slot="table-header" className={cn('[&_tr]:border-b', className)} {...props} />;
+  return <thead data-slot="table-header" className={cn('[&_tr]:border-b [&_tr]:hover:bg-transparent', className)} {...props} />;
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
@@ -31,7 +38,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn('border-t bg-muted/50 font-medium [&>tr]:last:border-b-0', className)}
+      className={cn('border-t bg-table-head font-semibold [&>tr]:last:border-b-0', className)}
       {...props}
     />
   );
@@ -42,7 +49,7 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
     <tr
       data-slot="table-row"
       className={cn(
-        'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+        'border-b transition-colors duration-200 hover:bg-table-head data-[state=selected]:bg-accent',
         className,
       )}
       {...props}
@@ -55,7 +62,8 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 px-2 text-start align-middle font-medium whitespace-nowrap text-foreground *:[[role=checkbox]]:translate-y-0.5',
+        'bg-table-head px-4 py-3 text-start align-middle font-semibold whitespace-nowrap text-foreground *:[[role=checkbox]]:translate-y-0.5',
+        NUMERIC,
         className,
       )}
       {...props}
@@ -68,7 +76,8 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
     <td
       data-slot="table-cell"
       className={cn(
-        'p-2 align-middle whitespace-nowrap *:[[role=checkbox]]:translate-y-0.5',
+        'px-4 py-3 align-middle whitespace-nowrap *:[[role=checkbox]]:translate-y-0.5',
+        NUMERIC,
         className,
       )}
       {...props}
