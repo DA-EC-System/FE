@@ -132,8 +132,21 @@ export function LedgerPage() {
           <Money value={row.original.amount} className={row.original.replaced ? 'text-muted-foreground line-through' : undefined} />
         ),
       },
-      { id: 'state', header: 'Loại', meta: { className: 'w-28' }, cell: ({ row }) => <LedgerStateBadge line={row.original} /> },
-      { id: 'version', header: 'Phiên bản', meta: { className: 'w-28' }, cell: ({ row }) => row.original.configVersion ?? '—' },
+      {
+        id: 'state',
+        header: 'Loại',
+        meta: {
+          className: 'w-28',
+          help: 'Ước tính: tính theo cấu hình phí, thuế khi kiện giao xong. Thực tế: theo số sàn quyết toán; dòng đã thay vẫn giữ để đối chiếu.',
+        },
+        cell: ({ row }) => <LedgerStateBadge line={row.original} />,
+      },
+      {
+        id: 'version',
+        header: 'Phiên bản',
+        meta: { className: 'w-28', help: 'Phiên bản cấu hình phí, thuế đã dùng để tính dòng ước tính.' },
+        cell: ({ row }) => row.original.configVersion ?? '—',
+      },
       {
         id: 'note',
         header: 'Ghi chú',
@@ -155,17 +168,22 @@ export function LedgerPage() {
     () => [
       { id: 'order', header: 'Đơn', meta: { className: 'w-28' }, cell: ({ row }) => <span className="font-medium">{row.original.order.code}</span> },
       { id: 'shop', header: 'Gian hàng', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.shopName ?? 'Đơn tạo tay' },
-      { id: 'net', header: 'Thực nhận', meta: { className: 'w-32 text-right' }, cell: ({ row }) => <Money value={row.original.net} /> },
+      {
+        id: 'net',
+        header: 'Thực nhận',
+        meta: { className: 'w-32 text-right', help: 'Doanh thu và trợ giá của đơn sau khi trừ phí sàn, thuế khấu trừ và hoàn tiền.' },
+        cell: ({ row }) => <Money value={row.original.net} />,
+      },
       {
         id: 'cogs',
         header: 'Giá vốn',
-        meta: { className: 'w-32 text-right' },
+        meta: { className: 'w-32 text-right', help: 'Giá vốn bình quân của hàng đã xuất cho đơn.' },
         cell: ({ row }) => (row.original.cogs === null ? '—' : <Money value={row.original.cogs} />),
       },
       {
         id: 'gross',
         header: 'Lãi gộp',
-        meta: { className: 'w-32 text-right' },
+        meta: { className: 'w-32 text-right', help: 'Thực nhận trừ giá vốn, chưa trừ quảng cáo.' },
         cell: ({ row }) => (row.original.gross === null ? '—' : <Money value={row.original.gross} />),
       },
       {
@@ -198,7 +216,8 @@ export function LedgerPage() {
     <div>
       <PageHeader
         title="Sổ tiền"
-        subtitle="Mọi khoản tiền theo đơn và gian hàng. Dòng ước tính được thay bằng dòng thực tế khi sàn quyết toán, không sửa tại chỗ."
+        subtitle="Mọi khoản tiền theo đơn và gian hàng."
+        help="Dòng ước tính được ghi khi kiện giao xong và được thay bằng dòng thực tế khi sàn quyết toán, không sửa tại chỗ."
         action={
           canExport ? (
             <Button onClick={runExport} disabled={exporter.isPending}>

@@ -18,8 +18,10 @@ interface FormTextFieldProps<T extends FieldValues> extends Omit<
   control: Control<T>;
   name: FieldPath<T>;
   label: ReactNode;
-  /** Gợi ý dưới ô; bị thay bằng lỗi khi có lỗi */
+  /** Gợi ý dưới ô; bị thay bằng lỗi khi có lỗi. Gợi ý cách điền thì dùng `hint` */
   description?: ReactNode;
+  /** Gợi ý cách điền sau nút "?" cạnh nhãn; lỗi kiểm dữ liệu vẫn hiện dưới ô */
+  hint?: ReactNode;
   /** Ô mật khẩu có nút hiện/ẩn */
   password?: boolean;
 }
@@ -30,6 +32,7 @@ export function FormTextField<T extends FieldValues>({
   name,
   label,
   description,
+  hint,
   password,
   className,
   ...inputProps
@@ -40,7 +43,7 @@ export function FormTextField<T extends FieldValues>({
       name={name}
       render={({ field, fieldState }) => (
         <FormItem className={className}>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel hint={hint}>{label}</FormLabel>
           <FormControl>
             {password ? (
               <PasswordInput {...inputProps} {...field} value={field.value ?? ''} />

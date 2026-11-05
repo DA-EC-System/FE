@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { BlockedReason } from '@/components/common/BlockedReason';
 import { useGoogleLogin } from '@/hooks/useAuth';
 import { authErrorMessage } from './authErrors';
 import { GOOGLE_CLIENT_ID, USE_MOCKS } from '@/utils/env';
@@ -170,12 +170,11 @@ function MockGoogleButton({ onError }: GoogleLoginButtonProps) {
 
   if (!USE_MOCKS) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="block">{button}</span>
-        </TooltipTrigger>
-        <TooltipContent>Chưa cấu hình VITE_GOOGLE_CLIENT_ID</TooltipContent>
-      </Tooltip>
+      <BlockedReason reason="Chưa cấu hình VITE_GOOGLE_CLIENT_ID">
+        <span className="block" tabIndex={0}>
+          {button}
+        </span>
+      </BlockedReason>
     );
   }
 
