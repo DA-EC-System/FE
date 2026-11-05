@@ -112,8 +112,8 @@ export function ShopListPage() {
 
   const sync = async (s: Shop) => {
     try {
-      await syncMut.mutateAsync(s.id);
-      toast.success(`Đã đồng bộ đơn của ${s.shopName}`);
+      const r = await syncMut.mutateAsync(s.id);
+      toast.success(`Đã đồng bộ đơn của ${s.shopName}: ${r.created} đơn mới, ${r.updated} đơn cập nhật`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
