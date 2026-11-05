@@ -20,6 +20,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import type { OrderSummary } from '@/types/sales';
 import { channelLabel, ORDER_STATUS } from './shared';
 import { Info } from './Info';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** UC-SF-02 — Hồ sơ khách và lịch sử đơn */
 export function CustomerDetailPage() {
@@ -33,6 +34,7 @@ export function CustomerDetailPage() {
 
   const query = useCustomer(customerId);
   const customer = query.data;
+  useBreadcrumb(customer?.name);
   const orders = useOrders({ customerId, page, pageSize }, { enabled: Boolean(customer) && canViewOrders });
 
   const columns = useMemo<ColumnDef<OrderSummary>[]>(

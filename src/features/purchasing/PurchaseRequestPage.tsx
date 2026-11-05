@@ -64,6 +64,7 @@ import {
   type RequestLineDraft,
 } from './shared';
 import { DocLink, Info, PageError, PageLoading, beforeUnloadGuard } from './parts';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 type RequestTransition = Transition<PurchaseRequest['status'], PurchaseRequestAction, PurchaseRequestRecord>;
 
@@ -151,6 +152,7 @@ export function PurchaseRequestPage() {
 
   const reqQuery = usePurchaseRequest(isNew ? undefined : requestId);
   const req = reqQuery.data;
+  useBreadcrumb(isNew ? 'Lập đề nghị' : req?.number);
   const returnQuery = useSupplierReturn(fromReturnId ?? undefined);
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
   const categoriesQuery = useCategories();

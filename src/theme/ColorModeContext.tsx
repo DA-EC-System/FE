@@ -21,7 +21,12 @@ const STORAGE_KEY = 'commerio.themeMode';
 
 function readInitialMode(): Mode {
   if (typeof window === 'undefined') return 'light';
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Trình duyệt chặn localStorage: theo cài đặt hệ thống
+  }
   if (stored === 'light' || stored === 'dark') return stored;
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches
     ? 'dark'
@@ -33,13 +38,17 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Class `.dark` trên <html> đổi biến màu của src/styles/theme.css
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, mode);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, mode);
+    } catch {
+      // Không nhớ được lựa chọn, giao diện vẫn đổi
+    }
     const root = document.documentElement;
     root.classList.toggle('dark', mode === 'dark');
     root.style.colorScheme = mode;
     document
       .querySelector("meta[name='theme-color']")
-      ?.setAttribute('content', mode === 'dark' ? surface.dark.nav : surface.light.nav);
+      ?.setAttribute('content', mode === 'dark' ? surface.dark.card : surface.light.card);
   }, [mode]);
 
   const value = useMemo<ColorModeCtx>(

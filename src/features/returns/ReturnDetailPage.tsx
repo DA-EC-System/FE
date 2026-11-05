@@ -36,6 +36,7 @@ import { formatDateTime } from '@/utils/format';
 import type { ReturnAction, ReturnRequest } from '@/types/returns';
 import { ACTION_MESSAGES, CLOSE_RESULT_LABELS, RETURN_STATUS } from './shared';
 import { PlatformRejectDialog } from './PlatformRejectDialog';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** Thao tác của bảng chuyển → lệnh gửi API (receive đi qua quét nhận) */
 const COMMANDS: Partial<Record<ReturnAction, ReturnCommand['kind']>> = {
@@ -89,6 +90,7 @@ export function ReturnDetailPage() {
   const actor = useTransitionActor();
   const can = useCan();
   const query = useReturn(returnId);
+  useBreadcrumb(query.data?.code);
   const command = useReturnCommand();
   const receive = useReceiveReturn();
   const [pending, setPending] = useState<Pending | null>(null);

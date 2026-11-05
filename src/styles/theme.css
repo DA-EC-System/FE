@@ -10,7 +10,6 @@
  *    của Tailwind trỏ sang --*-text qua --text-color-* ở @theme bên dưới.
  *  - Bản tối lấy đúng khối dark của Test_UI; FE bật bằng class .dark trên <html>
  *    (ColorModeContext, script trong index.html), theo prefers-color-scheme khi chưa chọn.
- *  - --nav/--nav-foreground: để lại cho thanh trên cũ tới khi khung FE#130 xong.
  */
 :root {
   /* Chữ hệ thống 14px */
@@ -109,10 +108,6 @@
   --shadow-btn: 0 2px 0 rgba(0, 0, 0, 0.02);
   --shadow-btn-primary: 0 2px 0 rgba(5, 145, 255, 0.1);
 
-  /* Để lại cho thanh trên cũ, bỏ khi khung FE#130 xong */
-  --nav: #0958d9;
-  --nav-foreground: #ffffff;
-
   --sidebar: #ffffff;
   --sidebar-foreground: #1f1f1f;
   --sidebar-primary: #0958d9;
@@ -195,9 +190,6 @@
     -9px 0 28px 8px rgba(0, 0, 0, 0.2);
   --shadow-btn: 0 2px 0 rgba(0, 0, 0, 0.2);
   --shadow-btn-primary: 0 2px 0 rgba(0, 0, 0, 0.3);
-
-  --nav: #1668dc;
-  --nav-foreground: #ffffff;
 
   --sidebar: #141414;
   --sidebar-foreground: #dbdbdb;
@@ -283,8 +275,6 @@
   --color-purple-text: var(--purple-text);
   --color-purple-soft: var(--purple-soft);
   --color-purple-border: var(--purple-border);
-  --color-nav: var(--nav);
-  --color-nav-foreground: var(--nav-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

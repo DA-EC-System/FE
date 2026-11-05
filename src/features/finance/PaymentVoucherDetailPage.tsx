@@ -18,6 +18,7 @@ import { DOC_STATUS, VOUCHER_PURPOSE_LABELS } from './shared';
 import { PayoutDialog, StatusBadge, payoutFieldErrors, useCanWrite, useCompanyId } from './parts';
 import { DocDetail } from './DocDetail';
 import { VoucherSource } from './FinanceDocumentsPage';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const STALE = 'Phiếu chi vừa được người khác cập nhật. Đã tải lại phiếu mới nhất.';
 
@@ -25,6 +26,7 @@ const STALE = 'Phiếu chi vừa được người khác cập nhật. Đã tả
 export function PaymentVoucherDetailPage() {
   const { id = '' } = useParams();
   const query = useVoucher(id);
+  useBreadcrumb(query.data?.number);
   return (
     <DocDetail query={query} tab="vouchers" noun="phiếu chi">
       {(v) => <VoucherView voucher={v} />}

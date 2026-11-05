@@ -39,6 +39,7 @@ import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
 import { OrderProfitCard } from '@/features/finance/OrderProfitCard';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const orderRecord = (o: Order) => ({
   source: o.source,
@@ -56,6 +57,7 @@ export function OrderDetailPage() {
   const actor = useTransitionActor();
   const query = useOrder(orderId);
   const order = query.data;
+  useBreadcrumb(order?.code);
   const confirmMut = useConfirmOrder();
   const decisionMut = useCancelRequestDecision();
   const [notice, setNotice] = useState<string | null>(null);

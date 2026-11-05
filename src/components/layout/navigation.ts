@@ -28,7 +28,9 @@ import {
   Warehouse,
   type LucideIcon,
 } from 'lucide-react';
-import { ROUTES } from '@/router/routes';
+import { matchPath } from 'react-router-dom';
+import { docRefPath, ROUTES } from '@/router/routes';
+import type { TaskItem } from '@/types/tasks';
 import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
 import { USE_MOCKS } from '@/utils/env';
@@ -46,6 +48,8 @@ export interface NavItem {
   permission?: string | readonly string[];
   /** Ẩn khi không có quyền nào trong danh sách */
   anyPermission?: readonly string[];
+  /** Đường dẫn khác cũng thuộc mục này (trang chi tiết không nằm dưới `to`): sáng mục, dựng breadcrumb, đếm việc */
+  alsoMatch?: string[];
 }
 
 export interface NavSection {
@@ -192,6 +196,11 @@ export function companyNav(companyId: string): NavSection[] {
           to: ROUTES.company.financeDocuments(companyId),
           label: 'Chứng từ',
           icon: FileText,
+          alsoMatch: [
+            `/c/${companyId}/finance/invoices`,
+            `/c/${companyId}/finance/receipts`,
+            `/c/${companyId}/finance/payment-vouchers`,
+          ],
           module: 'finance',
           permission: PERMISSIONS.financeView,
         },
@@ -295,4 +304,67 @@ export function companyNav(companyId: string): NavSection[] {
         ]
       : []),
   ];
+}
+
+export interface ActiveNav {
+  section: NavSection;
+  item: NavItem;
+}
+
+/** Độ dài đoạn khớp của `pathname` với mục, 0 khi không khớp */
+function matchLength(item: NavItem, pathname: string) {
+  const own = matchPath({ path: item.to, end: Boolean(item.end) }, pathname) ? item.to.length : 0;
+  const extra = (item.alsoMatch ?? [])
+    .filter((path) => matchPath({ path, end: false }, pathname))
+    .map((path) => path.length);
+  return Math.max(own, ...extra);
+}
+
+/**
+ * Mục khớp dài nhất cùng nhóm của nó: ở /catalog/setup chỉ sáng "Danh mục & thuộc tính", không sáng cả "Sản phẩm".
+ * Dùng cho mục đang chọn trên sidebar, breadcrumb trên Header và đếm việc chờ theo mục.
+ */
+export function findActiveNav(sections: NavSection[], pathname: string): ActiveNav | null {
+  let best: ActiveNav | null = null;
+  let bestLength = 0;
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (item.disabled) continue;
+      const length = matchLength(item, pathname);
+      if (length > bestLength) {
+        best = { section, item };
+        bestLength = length;
+      }
+    }
+  }
+  return best;
+}
+
+export interface NavCount {
+  count: number;
+  /** Có việc quá hạn: số hiện màu đỏ */
+  overdue: boolean;
+}
+
+/**
+ * Số việc chờ theo mục menu (theo `to`), từ danh sách việc của tasks.api: việc trỏ tới bản ghi nằm dưới mục nào thì tính cho mục đó.
+ * Mục không có việc nào thì không có trong kết quả (để trống, không hiện số 0).
+ */
+export function countTasksByNav(
+  sections: NavSection[],
+  tasks: readonly TaskItem[],
+  companyId: string,
+): Map<string, NavCount> {
+  const counts = new Map<string, NavCount>();
+  for (const task of tasks) {
+    const path = docRefPath(companyId, task.ref)?.split('?')[0];
+    const target = path ? findActiveNav(sections, path) : null;
+    if (!target) continue;
+    const current = counts.get(target.item.to) ?? { count: 0, overdue: false };
+    counts.set(target.item.to, {
+      count: current.count + 1,
+      overdue: current.overdue || task.severity === 'overdue',
+    });
+  }
+  return counts;
 }

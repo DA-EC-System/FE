@@ -34,6 +34,7 @@ import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
 import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageButtons } from './shared';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 type Pending =
   | { kind: 'confirm'; title: string; message: string; label: string; destructive?: boolean; command: PackageCommand }
@@ -58,6 +59,7 @@ export function PackageDetailPage() {
   const companyId = companyContext?.companyId ?? '';
   const actor = useTransitionActor();
   const query = usePackage(packageId);
+  useBreadcrumb(query.data?.code);
   const command = usePackageCommand();
   const handOver = useHandOver();
   const printDocs = usePrintPackageDocuments();

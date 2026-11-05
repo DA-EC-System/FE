@@ -59,11 +59,11 @@ test.describe('P1 · Xác thực và chặn trang', () => {
 
   test('khung trang, menu theo quyền; Sale không thấy Vai trò, Phân hệ (AC-6)', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await expect(page.locator('header')).toContainText('Thời trang ABC');
+    await expect(thanhBen(page).locator('[data-sidebar="header"]')).toContainText('Thời trang ABC');
     await expect(thanhBen(page)).toContainText('Sản phẩm');
     await expect(thanhBen(page)).not.toContainText('Vai trò');
     await expect(thanhBen(page)).not.toContainText('Phân hệ');
-    await page.getByRole('button', { name: 'Tài khoản', exact: true }).click();
+    await page.getByTestId('nav-user').click();
     await expect(page.getByRole('menuitem', { name: 'Đổi mật khẩu', exact: true })).toBeAttached();
     await expect(page.getByRole('menuitem', { name: 'Đăng xuất', exact: true })).toBeAttached();
   });
@@ -114,7 +114,7 @@ test.describe('P1 · Xác thực và chặn trang', () => {
 
   test('đăng xuất rồi Back hay mở lại cũng không vào được (AC-12)', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await page.getByRole('button', { name: 'Tài khoản', exact: true }).click();
+    await page.getByTestId('nav-user').click();
     await page.getByRole('menuitem', { name: 'Đăng xuất', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe('/login');
     await page.goBack();

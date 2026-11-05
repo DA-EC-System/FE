@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import type { PricelistItem } from '@/types/pricing';
 import { BulkPriceDialog } from './BulkPriceDialog';
 import { parsePrice, priceText } from './shared';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 type Row = PricelistItem & { current: number | null };
 
@@ -106,6 +107,7 @@ export function PricelistDetailPage() {
   const categories = useCategories().data ?? [];
   const saveMut = useSavePrices();
   const pricelist = plQuery.data;
+  useBreadcrumb(pricelist?.name);
   const isChannel = pricelist?.type === 'channel';
 
   /** variantId → giá mới (null là bỏ giá) */

@@ -44,6 +44,7 @@ import {
   type ReceiptFormOutput,
 } from './shared';
 import { DocLink, Info, PageError, PageLoading, beforeUnloadGuard } from './parts';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 type CountKey = 'announced' | 'accepted' | 'defectKept' | 'returnedOnSpot';
 
@@ -95,6 +96,7 @@ export function GoodsReceiptPage() {
 
   const query = useGoodsReceipt(receiptId);
   const receipt = query.data;
+  useBreadcrumb(receipt?.number);
   const editable = canManage && receipt?.status === 'counting';
 
   const updateMut = useUpdateGoodsReceipt();
