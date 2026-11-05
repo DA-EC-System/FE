@@ -160,7 +160,7 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
 
   test('đăng xuất xoá cookie; Back hay mở lại đều về /login (FE#1 AC-12)', async ({ page }) => {
     await dangNhap(page, emailCeo(1));
-    await page.getByRole('button', { name: 'Tài khoản', exact: true }).click();
+    await page.getByTestId('nav-user').click();
     await page.getByRole('menuitem', { name: 'Đăng xuất', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe('/login');
     await expect.poll(() => cookieRefresh(page)).toBeUndefined();
@@ -175,7 +175,7 @@ test.describe('P1-BE · Đổi mật khẩu (commerio-backend#4)', () => {
   test('mật khẩu hiện tại sai thì báo tại ô; đổi xong mật khẩu cũ hết dùng được (FE#2 AC-14, AC-15)', async ({ page, request }) => {
     await dangKyApi(request, 2);
     await dangNhap(page, emailCeo(2));
-    await page.getByRole('button', { name: 'Tài khoản', exact: true }).click();
+    await page.getByTestId('nav-user').click();
     await page.getByRole('menuitem', { name: 'Đổi mật khẩu', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe('/change-password');
     const doi = async (current: string, next: string) => {

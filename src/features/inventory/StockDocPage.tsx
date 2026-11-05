@@ -66,6 +66,7 @@ import {
   type DocLineDraft,
 } from './shared';
 import { VariantPicker } from './VariantPicker';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const MANUAL_TYPES: ManualStockDocType[] = ['stocktake', 'write_off', 'to_quarantine'];
 const str = (n: number | undefined) => (n === undefined ? '' : String(n));
@@ -160,6 +161,7 @@ export function StockDocPage() {
 
   const docQuery = useStockDoc(isNew ? undefined : docId);
   const doc = docQuery.data;
+  useBreadcrumb(isNew ? 'Lập phiếu' : doc?.number);
   const requested = searchParams.get('type') as ManualStockDocType | null;
   const type: StockDocType = doc?.type ?? (requested && MANUAL_TYPES.includes(requested) ? requested : 'stocktake');
   const isStocktake = type === 'stocktake';

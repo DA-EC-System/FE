@@ -1,5 +1,5 @@
 /**
- * Token Commerio cho chỗ cần dùng trong JS (thẻ meta theme-color, gradient trang đăng nhập, biểu đồ Recharts).
+ * Token Commerio cho chỗ cần dùng trong JS (thẻ meta theme-color, biểu đồ Recharts).
  * Cùng giá trị với src/styles/theme.css, lấy từ bản mẫu Test_UI v4 (site/index.html, dáng Ant Design 5), FE#128.
  * Component viết bằng class Tailwind (bg-primary, text-success…), không viết mã hex trực tiếp.
  */
@@ -18,10 +18,10 @@ export const brand = {
   900: '#000F33',
 } as const;
 
-/** Mặt nền theo chế độ sáng/tối; nav để lại cho thanh trên cũ tới khi khung FE#130 xong */
+/** Mặt nền theo chế độ sáng/tối; card cũng là màu header (thẻ meta theme-color) */
 export const surface = {
-  light: { background: '#F5F5F5', card: '#FFFFFF', nav: brand[500] },
-  dark: { background: '#000000', card: '#141414', nav: '#1668DC' },
+  light: { background: '#F5F5F5', card: '#FFFFFF' },
+  dark: { background: '#000000', card: '#141414' },
 } as const;
 
 /** Màu trạng thái ba lớp: solid cho nền đặc/chấm, text cho chữ (đạt 4.5:1), soft cho nền nhạt, border cho viền */
@@ -66,6 +66,3 @@ export const motion = {
   out: 'cubic-bezier(.215,.61,.355,1)',
   circ: 'cubic-bezier(.08,.82,.17,1)',
 } as const;
-
-/** Nền cho mảng thương hiệu lớn (panel trang đăng nhập) */
-export const brandGradient = `linear-gradient(135deg, ${brand[900]} 0%, ${brand[700]} 55%, ${brand[500]} 100%)`;

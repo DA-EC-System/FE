@@ -10,11 +10,13 @@ import { Info } from '@/features/sales/Info';
 import { DOC_STATUS } from './shared';
 import { OrderCode, StatusBadge } from './parts';
 import { DocDetail } from './DocDetail';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** UC-PF-04 — Chi tiết hoá đơn, in bằng CSS in (AC-D2) */
 export function InvoiceDetailPage() {
   const { id = '' } = useParams();
   const query = useInvoice(id);
+  useBreadcrumb(query.data?.number);
 
   return (
     <DocDetail query={query} tab="invoices" noun="hoá đơn">

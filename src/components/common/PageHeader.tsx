@@ -11,6 +11,7 @@ interface PageHeaderProps {
   actionIcon?: ReactNode;
 }
 
+/** Đầu trang (`.ph-row` của Test_UI): tiêu đề 20px đậm 600, mô tả 14px màu phụ, nút hành động bên phải */
 export function PageHeader({
   title,
   subtitle,
@@ -19,19 +20,22 @@ export function PageHeader({
   onAction,
   actionIcon,
 }: PageHeaderProps) {
+  const actionNode =
+    action ??
+    (actionLabel && onAction ? (
+      <Button onClick={onAction}>
+        {actionIcon}
+        {actionLabel}
+      </Button>
+    ) : null);
+
   return (
-    <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+    <div className="mb-6 flex flex-wrap items-end gap-x-4 gap-y-3">
+      <div className="min-w-0">
+        <h1 className="text-xl leading-[1.4] font-semibold break-words text-foreground">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {action ??
-        (actionLabel && onAction ? (
-          <Button onClick={onAction}>
-            {actionIcon}
-            {actionLabel}
-          </Button>
-        ) : null)}
+      {actionNode && <div className="ms-auto flex flex-wrap items-center gap-2">{actionNode}</div>}
     </div>
   );
 }

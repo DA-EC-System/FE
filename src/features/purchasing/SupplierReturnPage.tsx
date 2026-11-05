@@ -51,6 +51,7 @@ import {
   type ReturnFormOutput,
 } from './shared';
 import { DocLink, Info, PageError, PageLoading, beforeUnloadGuard } from './parts';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const toForm = (r: SupplierReturn): ReturnFormInput => ({
   supplierId: r.supplier?.id ?? '',
@@ -97,6 +98,7 @@ export function SupplierReturnPage() {
 
   const query = useSupplierReturn(isNew ? undefined : returnId);
   const ret = query.data;
+  useBreadcrumb(isNew ? 'Lập phiếu trả' : ret?.number);
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
   const editable = canManage && (isNew || ret?.status === 'draft');
 

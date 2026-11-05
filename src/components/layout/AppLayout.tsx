@@ -1,13 +1,20 @@
-import { useMemo, type ReactNode } from 'react';
-import { Outlet, matchPath, useLocation } from 'react-router-dom';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { useTasks } from '@/api/tasks.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealtime } from '@/hooks/useRealtime';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { AppSidebar } from './AppSidebar';
 import { AppTitle, CompanySwitcher } from './CompanySwitcher';
 import { Header } from './Header';
-import { PLATFORM_NAV, companyNav, type NavItem, type NavSection } from './navigation';
+import {
+  PLATFORM_NAV,
+  companyNav,
+  countTasksByNav,
+  findActiveNav,
+  type NavSection,
+} from './navigation';
 
 interface AppLayoutProps {
   sections: NavSection[];
@@ -18,7 +25,13 @@ interface AppLayoutProps {
 /** Sidebar shadcn ghi trạng thái đóng/mở vào cookie này */
 const sidebarDefaultOpen = () => !document.cookie.split('; ').includes('sidebar_state=false');
 
-/** Khung chung theo shadcn-admin: sidebar thu gọn được + header + nội dung. Mỗi không gian truyền menu riêng. */
+/** Sidebar rộng 232px như `.side` của Test_UI */
+const SIDEBAR_STYLE = { '--sidebar-width': '232px' } as CSSProperties;
+
+/**
+ * Khung chung theo Test_UI (`.app`): sidebar trắng có nhóm thu gọn, header trắng có breadcrumb, nội dung đệm 24px
+ * rộng tối đa 1280px. Trên mobile sidebar mở bằng Sheet. Mỗi không gian truyền menu riêng.
+ */
 export function AppLayout({ sections, brand }: AppLayoutProps) {
   const { companyContext } = useAuth();
   const location = useLocation();
@@ -40,19 +53,30 @@ export function AppLayout({ sections, brand }: AppLayoutProps) {
     [sections, companyContext],
   );
 
-  // Mục khớp dài nhất: ở /catalog/setup chỉ sáng "Danh mục & thuộc tính", không sáng cả "Sản phẩm"
-  const activeItem = visibleSections
-    .flatMap((s) => s.items)
-    .filter((i) => matchPath({ path: i.to, end: Boolean(i.end) }, location.pathname))
-    .reduce<NavItem | null>((best, i) => (!best || i.to.length > best.to.length ? i : best), null);
+  const active = findActiveNav(visibleSections, location.pathname);
+
+  // Số việc chờ cuối mục, lấy từ danh sách việc (chỉ có trong không gian công ty)
+  const tasks = useTasks();
+  const companyId = companyContext?.companyId ?? '';
+  const counts = useMemo(
+    () => (companyId && tasks.data ? countTasksByNav(visibleSections, tasks.data, companyId) : undefined),
+    [visibleSections, tasks.data, companyId],
+  );
 
   return (
-    <SidebarProvider defaultOpen={sidebarDefaultOpen()}>
-      <AppSidebar sections={visibleSections} activeTo={activeItem?.to ?? null} brand={brand} />
-      <SidebarInset className="min-w-0">
-        <Header title={activeItem?.label} />
-        <main className="flex-1 px-4 py-6 md:px-6">
-          <Outlet />
+    <SidebarProvider defaultOpen={sidebarDefaultOpen()} style={SIDEBAR_STYLE}>
+      <AppSidebar
+        sections={visibleSections}
+        activeTo={active?.item.to ?? null}
+        counts={counts}
+        brand={brand}
+      />
+      <SidebarInset className="min-w-0 bg-background">
+        <Header active={active} />
+        <main className="flex-1 px-4 pt-4 pb-16 md:px-6 md:pt-6">
+          <div className="w-full max-w-[1280px]">
+            <Outlet />
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

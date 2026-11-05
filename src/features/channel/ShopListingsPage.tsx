@@ -48,6 +48,7 @@ import {
   STOCK_SYNC_LABELS,
 } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 type MatchFilter = '' | 'matched' | 'unmatched' | 'stale';
 
@@ -94,6 +95,7 @@ export function ShopListingsPage() {
 
   const shopQuery = useShop(shopId);
   const shop = shopQuery.data;
+  useBreadcrumb(shop?.shopName);
   const usable = shop ? isUsable(shop.status) : false;
   const canManage = can(PERMISSIONS.listingManage) && usable;
   const canReconnect =

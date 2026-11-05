@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import type { OpeningStockMode } from '@/types/shop';
 import { platformLabel } from './shopSchemas';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const STEPS = ['Ghép listing có sẵn', 'Tồn đầu kỳ', 'Mốc kéo đơn'] as const;
 
@@ -59,6 +60,7 @@ export function ShopSetupPage() {
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const shop = useShop(shopId);
+  useBreadcrumb(shop.data?.shopName);
   const connecting = shop.data?.status === 'connecting';
   const preview = useShopSetup(shopId, connecting);
   const finish = useFinishShopSetup();

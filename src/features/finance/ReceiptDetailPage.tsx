@@ -13,6 +13,7 @@ import { TransactionSheet } from '@/features/payment/TransactionSheet';
 import { DOC_STATUS, GATEWAY_LABELS, RECEIPT_SOURCE_LABELS } from './shared';
 import { DocLink, OrderCode, StatusBadge, useCompanyId } from './parts';
 import { DocDetail } from './DocDetail';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** UC-PF-04 — Chi tiết phiếu thu và nguồn gốc: giao dịch cổng, khoản thu chưa khớp, dòng đối soát (AC-D3) */
 export function ReceiptDetailPage() {
@@ -20,6 +21,7 @@ export function ReceiptDetailPage() {
   const companyId = useCompanyId();
   const canTxn = useCan()(PERMISSIONS.transactionView);
   const query = useReceipt(id);
+  useBreadcrumb(query.data?.number);
   const [txnId, setTxnId] = useState<string | null>(null);
 
   return (

@@ -19,6 +19,7 @@ import { useTransitionActor } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import { packageButtons } from './shared';
+import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** Quét đóng gói: quét (hoặc gõ) SKU từng món tới khi đủ, rồi đóng kiện */
 export function PackScanPage() {
@@ -28,6 +29,7 @@ export function PackScanPage() {
   const companyId = companyContext?.companyId ?? '';
   const actor = useTransitionActor();
   const query = usePackage(packageId);
+  useBreadcrumb(query.data?.code);
   const command = usePackageCommand();
   // Kiện sàn: chọn đơn vị vận chuyển sàn cho phép, mặc định theo sàn (§19.3)
   const carriers = usePackageCarriers(packageId, query.data?.source === 'marketplace');
