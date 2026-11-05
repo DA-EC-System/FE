@@ -35,11 +35,8 @@ import { useUrlFilters } from '@/hooks/useUrlFilters';
 const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';
 const STATUS_TABS: OrderStatus[] = ['unpaid', 'processing', 'completed', 'cancelled'];
-const DAY_MS = 24 * 3600_000;
 
 /** Hạn gửi còn dưới 24 giờ (hoặc đã quá) với đơn chưa xong thì tô cảnh báo */
-const shipByUrgent = (o: OrderSummary, now: number) =>
-  Boolean(o.shipBy) && (o.status === 'unpaid' || o.status === 'processing') && Date.parse(o.shipBy!) - now < DAY_MS;
 
 /** Đơn hàng từ mọi nguồn: tab theo 4 trạng thái (sơ đồ D1), lọc theo giai đoạn suy từ kiện và cờ */
 export function OrderListPage() {
@@ -147,7 +144,7 @@ export function OrderListPage() {
         cell: ({ row }) => {
           const o = row.original;
           if (!o.shipBy) return '—';
-          return shipByUrgent(o, Date.now()) ? (
+          return o.flags.includes('due_soon') ? (
             <span className="font-medium text-warning">{formatDateTime(o.shipBy)}</span>
           ) : (
             formatDateTime(o.shipBy)

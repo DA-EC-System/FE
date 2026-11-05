@@ -91,9 +91,15 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await expect(dongHang.first()).toContainText('SKU sàn 4020152004_VNAMZ-1520943');
       await expect(page.locator('[data-testid=order-lines]')).toContainText('Khách trả');
       await expect(dongHang.first()).toContainText('135.000');
-      // Dòng khách huỷ trên sàn: ai huỷ, lý do
-      await expect(dongHang.nth(1).locator('[data-testid=line-issue]')).toContainText('Khách huỷ');
-      await expect(dongHang.nth(1).locator('[data-testid=line-issue]')).toContainText('Đổi ý, không muốn mua nữa');
+      await expect(page.locator('[data-testid=line-issue]')).toHaveCount(0);
+      // Đơn hoàn DH-1002: dòng có trạng thái trả, do ai, lý do, mã đơn ngược; tiền khách trả gạch đi
+      await page.goto('/c/cmp-001/sales/orders/ord-1002');
+      const loi = page.locator('[data-testid=line-issue]');
+      await expect(loi).toContainText('Trả hàng: Đang hoàn về');
+      await expect(loi).toContainText('do khách');
+      await expect(loi).toContainText('Lý do: Khách không nhận hàng');
+      await expect(loi).toContainText('Mã đơn ngược 7712045893');
+      await expect(page.locator('[data-testid=order-lines] tbody tr').first().locator('.line-through')).toContainText('180.000');
     });
 
     test('chi tiết đơn sàn: địa chỉ tách phần, thanh toán, phí ship và vận chuyển của kiện (FE#176)', async ({ page }) => {

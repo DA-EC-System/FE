@@ -35,6 +35,7 @@ import {
   COMPLETION_BLOCKER_LABELS,
   ORDER_STATUS,
   addressParts,
+  lineHasIssue,
   paymentMethodLabel,
   sourceLabel,
 } from './shared';
@@ -351,7 +352,11 @@ export function OrderDetailPage() {
                       <TableCell className="text-right">{formatCurrency(l.lineTotal)}</TableCell>
                       {hasPaid && (
                         <TableCell className="text-right">
-                          {l.paidPrice != null && formatCurrency(l.paidPrice)}
+                          {l.paidPrice != null && (
+                            <span className={lineHasIssue(l) ? 'text-muted-foreground line-through' : undefined}>
+                              {formatCurrency(l.paidPrice)}
+                            </span>
+                          )}
                           {l.taxAmount ? (
                             <p className="text-xs text-muted-foreground">thuế {formatCurrency(l.taxAmount)}</p>
                           ) : null}

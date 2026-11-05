@@ -103,16 +103,24 @@ const MARKETPLACE_PAYMENT_LABELS: Record<string, string> = {
 /** Nhãn thanh toán: đơn tạo tay theo app, đơn sàn theo giá trị gốc; null là sàn chưa trả phương thức */
 export function paymentMethodLabel(method: OrderPaymentMethod | null): string {
   if (!method) return 'Sàn thu hộ';
-  if (method in PAYMENT_METHOD_LABELS) return PAYMENT_METHOD_LABELS[method as PaymentMethod];
+  if (Object.prototype.hasOwnProperty.call(PAYMENT_METHOD_LABELS, method)) return PAYMENT_METHOD_LABELS[method as PaymentMethod];
   const key = method.toUpperCase().replace(/[\s-]+/g, '_');
   return MARKETPLACE_PAYMENT_LABELS[key] ?? method;
 }
 
-export const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
-  buyer: 'Khách huỷ',
-  seller: 'Shop huỷ',
-  platform: 'Sàn huỷ',
+const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
+  buyer: 'khách',
+  seller: 'shop',
+  platform: 'sàn',
 };
+
+/** Ai huỷ hoặc yêu cầu trả; giá trị lạ hiện nguyên chữ */
+export const initiatorLabel = (v: string) =>
+  Object.prototype.hasOwnProperty.call(LINE_CANCEL_INITIATOR_LABELS, v) ? LINE_CANCEL_INITIATOR_LABELS[v as LineCancelInitiator] : v;
+
+/** Dòng có huỷ hoặc trả trên sàn */
+export const lineHasIssue = (l: { cancelReason?: string | null; cancelInitiator?: string | null; returnStatus?: string | null; reverseOrderId?: string | null }) =>
+  Boolean(l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
 /** Địa chỉ tách phần (đơn sàn) ghép lại; không có phần nào thì dùng chuỗi address */
 export function addressParts(a: ShippingAddress): string[] {

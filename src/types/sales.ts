@@ -139,13 +139,13 @@ export interface OrderSummary {
   total: number;
   lineCount: number;
   /** Tổng số lượng mọi dòng */
-  totalQty: number;
+  totalQty?: number;
   /** Mã đơn trên sàn; null với đơn tạo tay, hộp thư */
-  externalOrderId: string | null;
+  externalOrderId?: string | null;
   /** Tên người nhận (sàn có thể che một phần), dùng khi đơn chưa gắn khách */
-  recipientName: string | null;
+  recipientName?: string | null;
   /** Dòng đầu của đơn để hiện ở danh sách; null khi đơn không có dòng */
-  itemsPreview: OrderItemPreview | null;
+  itemsPreview?: OrderItemPreview | null;
   createdAt: string;
   createdBy: UserRef | null;
   version: number;
@@ -153,7 +153,7 @@ export interface OrderSummary {
 
 export interface OrderItemPreview {
   productName: string;
-  attributesLabel: string;
+  attributesLabel: string | null;
   thumbnailUrl: string | null;
   quantity: number;
 }
@@ -173,7 +173,7 @@ export interface OrderLine {
   /** SKU sàn khi dòng chưa ghép (cờ Chưa ghép SKU); variantId rỗng */
   externalSku: string | null;
   /** Ảnh của SKU trên sàn, hoặc ảnh biến thể trong app khi sàn không trả */
-  thumbnailUrl: string | null;
+  thumbnailUrl?: string | null;
   /** Định danh phía sàn (Lazada `sku_id`, `shop_sku`, `product_id`); null với đơn tạo tay */
   externalSkuId?: string | null;
   externalShopSku?: string | null;
@@ -183,12 +183,12 @@ export interface OrderLine {
   taxAmount?: number | null;
   /** Dòng bị huỷ hoặc trả trên sàn */
   cancelReason?: string | null;
-  cancelInitiator?: LineCancelInitiator | null;
+  cancelInitiator?: LineCancelInitiator | (string & {}) | null;
   reverseOrderId?: string | null;
   returnStatus?: string | null;
 }
 
-/** Ai huỷ dòng trên sàn */
+/** Ai huỷ hoặc yêu cầu trả dòng trên sàn; BE map từ giá trị gốc, giá trị lạ thì FE hiện nguyên chữ */
 export type LineCancelInitiator = 'buyer' | 'seller' | 'platform';
 
 /** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
@@ -206,7 +206,7 @@ export interface Order extends OrderSummary {
   shippingFeeDiscountPlatform?: number | null;
   note: string;
   /** Ghi chú khách để lại trên sàn */
-  buyerNote: string | null;
+  buyerNote?: string | null;
   cancelReason: string | null;
   /** Số hoá đơn gửi lên sàn (Lazada SetInvoiceNumber), §19.3 */
   invoiceNumber: string | null;

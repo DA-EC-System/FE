@@ -887,7 +887,7 @@ const FAILED_HANDOVER: Record<string, string> = {
   'ord-1002': '2026-10-09T07:00:00.000Z',
   'ord-2001': '2026-10-08T07:00:00.000Z',
 };
-/** Trạng thái gốc trên sàn */
+/** Ghi chú khách để lại trên sàn */
 const BUYER_NOTES: Record<string, string> = { 'ord-1012': 'Giao giờ hành chính giúp em' };
 /** Đơn Lazada đủ trường như Seller Center: COD, địa chỉ tách phần, sàn giảm phí ship, một dòng khách huỷ */
 const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
@@ -899,20 +899,28 @@ const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
     shippingFeeDiscountPlatform: 32000,
     lines: {
       'orl-16': { externalSkuId: '15209430351', externalShopSku: '4020152004_VNAMZ-1520943', externalProductId: '4020152004', paidPrice: 135000, taxAmount: 0 },
-      'orl-17': {
-        externalSkuId: '15209430388',
-        externalShopSku: '4020152011_VNAMZ-1520951',
-        externalProductId: '4020152011',
-        paidPrice: 180000,
-        cancelReason: 'Đổi ý, không muốn mua nữa',
-        cancelInitiator: 'buyer',
-      },
+      'orl-17': { externalSkuId: '15209430388', externalShopSku: '4020152011_VNAMZ-1520951', externalProductId: '4020152011', paidPrice: 180000 },
     },
     shipmentProvider: 'LEX VN',
     shippingProviderType: 'standard',
     promisedShippingAt: '2026-10-18T10:00:00.000Z',
   },
+  // Giao thất bại, đang hoàn về: dòng có lý do, ai yêu cầu, mã đơn ngược
+  'ord-1002': {
+    paymentMethod: 'COD',
+    lines: {
+      'orl-3': {
+        externalShopSku: '4020152011_VNAMZ-1520951',
+        paidPrice: 180000,
+        cancelReason: 'Khách không nhận hàng',
+        cancelInitiator: 'buyer',
+        returnStatus: 'Đang hoàn về',
+        reverseOrderId: '7712045893',
+      },
+    },
+  },
 };
+/** Trạng thái gốc trên sàn */
 const RAW: Record<string, string> = {
   'ord-1002': 'TO_RETURN',
   'ord-1005': 'AWAITING_SHIPMENT',
