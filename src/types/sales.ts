@@ -11,8 +11,6 @@ import type { Marketplace } from './shop';
 export type OrderSource = 'marketplace' | 'inbox' | 'manual';
 
 export type PaymentMethod = 'prepaid' | 'cod';
-/** Đơn sàn: giá trị gốc của sàn (`COD`, `MIXEDCARD`, `LAZADA_WALLET`…), commerio-backend#260 */
-export type OrderPaymentMethod = PaymentMethod | (string & {});
 
 /** Trạng thái lưu của đơn (sơ đồ D1) */
 export type OrderStatus = 'unpaid' | 'processing' | 'completed' | 'cancelled';
@@ -132,8 +130,10 @@ export interface OrderSummary {
   outcome: OrderOutcome | null;
   /** Trạng thái gốc trên sàn, hiện cạnh trạng thái của app */
   rawMarketplaceStatus: string | null;
-  /** Đơn tạo tay: prepaid/cod; đơn sàn: phương thức gốc của sàn, null khi sàn chưa trả */
-  paymentMethod: OrderPaymentMethod | null;
+  /** null với đơn sàn (sàn thu hộ) */
+  paymentMethod: PaymentMethod | null;
+  /** Phương thức khách trả trên sàn, giá trị gốc (`COD`, `MIXEDCARD`…); null với đơn tạo tay (commerio-backend#260) */
+  platformPaymentMethod?: string | null;
   /** Hạn bàn giao; còn dưới 24 giờ mà chưa bàn giao thì cờ Sắp trễ hạn */
   shipBy: string | null;
   total: number;
@@ -183,13 +183,17 @@ export interface OrderLine {
   taxAmount?: number | null;
   /** Dòng bị huỷ hoặc trả trên sàn */
   cancelReason?: string | null;
-  cancelInitiator?: LineCancelInitiator | (string & {}) | null;
+  cancelReasonDetail?: string | null;
+  cancelInitiator?: LineCancelInitiator | null;
+  /** Huỷ, trả hay hoàn tiền; null khi dòng không có */
+  cancelKind?: LineCancelKind | null;
   reverseOrderId?: string | null;
   returnStatus?: string | null;
 }
 
-/** Ai huỷ hoặc yêu cầu trả dòng trên sàn; BE map từ giá trị gốc, giá trị lạ thì FE hiện nguyên chữ */
+/** Ai huỷ hoặc yêu cầu trả dòng trên sàn; adapter BE chuẩn hoá, giá trị lạ thành null */
 export type LineCancelInitiator = 'buyer' | 'seller' | 'platform';
+export type LineCancelKind = 'cancellation' | 'return' | 'refund';
 
 /** Ai đổi trạng thái: người dùng, sàn đẩy về, hay hệ thống tự làm */
 export type StatusChangeSource = 'user' | 'marketplace' | 'system';

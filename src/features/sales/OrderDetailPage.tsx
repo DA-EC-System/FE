@@ -210,7 +210,7 @@ export function OrderDetailPage() {
           </span>
         )}
         <span data-testid="payment-method">
-          <span className="text-muted-foreground">Thanh toán</span> {paymentMethodLabel(order.paymentMethod)}
+          <span className="text-muted-foreground">Thanh toán</span> {paymentMethodLabel(order)}
         </span>
       </div>
 

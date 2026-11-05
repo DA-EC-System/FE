@@ -5,7 +5,7 @@
 import { defineMachine, type OwnedRecord } from '@/lib/stateMachine';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageAction, PackageStatus } from '@/types/fulfillment';
-import type { OrderAction, OrderFlag, OrderOutcome, OrderSource, OrderStage, OrderStatus, OrderPaymentMethod } from '@/types/sales';
+import type { OrderAction, OrderFlag, OrderOutcome, OrderSource, OrderStage, OrderStatus, PaymentMethod } from '@/types/sales';
 
 // ---------- Kiện ----------
 
@@ -212,7 +212,7 @@ export function stockEffect(from: PackageStatus, to: PackageStatus): 'leave' | '
 
 export interface OrderRecord extends OwnedRecord {
   source: OrderSource;
-  paymentMethod: OrderPaymentMethod | null;
+  paymentMethod: PaymentMethod | null;
   packages: readonly PackageStatus[];
 }
 
@@ -332,7 +332,7 @@ const ERROR_FIRST: readonly PackageStatus[] = ['lost', 'delivery_failed', 'retur
 export interface StageInput {
   status: OrderStatus;
   source: OrderSource;
-  paymentMethod: OrderPaymentMethod | null;
+  paymentMethod: PaymentMethod | null;
   flags: readonly OrderFlag[];
   packages: readonly PackageStatus[];
 }

@@ -8,6 +8,7 @@
 import type { OpenPurpose, PackageStatus } from '@/types/fulfillment';
 import type {
   LineCancelInitiator,
+  LineCancelKind,
   CustomerChannel,
   CustomerIdentity,
   OrderFlag,
@@ -100,7 +101,9 @@ export interface MockPlatformLine {
   paidPrice?: number;
   taxAmount?: number;
   cancelReason?: string;
+  cancelReasonDetail?: string;
   cancelInitiator?: LineCancelInitiator;
+  cancelKind?: LineCancelKind;
   reverseOrderId?: string;
   returnStatus?: string;
 }
@@ -913,7 +916,9 @@ const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
         externalShopSku: '4020152011_VNAMZ-1520951',
         paidPrice: 180000,
         cancelReason: 'Khách không nhận hàng',
+        cancelReasonDetail: 'Gọi 3 lần không nghe máy',
         cancelInitiator: 'buyer',
+        cancelKind: 'return',
         returnStatus: 'Đang hoàn về',
         reverseOrderId: '7712045893',
       },

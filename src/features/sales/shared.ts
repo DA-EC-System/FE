@@ -8,7 +8,7 @@ import type {
   OrderStage,
   OrderStatus,
   LineCancelInitiator,
-  OrderPaymentMethod,
+  LineCancelKind,
   OrderSummary,
   PaymentMethod,
   ShippingAddress,
@@ -100,12 +100,13 @@ const MARKETPLACE_PAYMENT_LABELS: Record<string, string> = {
   INSTALLMENT: 'Trả góp',
 };
 
-/** Nhãn thanh toán: đơn tạo tay theo app, đơn sàn theo giá trị gốc; null là sàn chưa trả phương thức */
-export function paymentMethodLabel(method: OrderPaymentMethod | null): string {
-  if (!method) return 'Sàn thu hộ';
-  if (Object.prototype.hasOwnProperty.call(PAYMENT_METHOD_LABELS, method)) return PAYMENT_METHOD_LABELS[method as PaymentMethod];
-  const key = method.toUpperCase().replace(/[\s-]+/g, '_');
-  return MARKETPLACE_PAYMENT_LABELS[key] ?? method;
+/** Nhãn thanh toán: đơn tạo tay theo `paymentMethod`, đơn sàn theo `platformPaymentMethod` gốc; sàn chưa trả thì "Sàn thu hộ" */
+export function paymentMethodLabel(o: { paymentMethod: PaymentMethod | null; platformPaymentMethod?: string | null }): string {
+  if (o.paymentMethod) return PAYMENT_METHOD_LABELS[o.paymentMethod];
+  const raw = o.platformPaymentMethod;
+  if (!raw) return 'Sàn thu hộ';
+  const key = raw.toUpperCase().replace(/[\s-]+/g, '_');
+  return Object.prototype.hasOwnProperty.call(MARKETPLACE_PAYMENT_LABELS, key) ? MARKETPLACE_PAYMENT_LABELS[key]! : raw;
 }
 
 const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
@@ -114,13 +115,23 @@ const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
   platform: 'sàn',
 };
 
-/** Ai huỷ hoặc yêu cầu trả; giá trị lạ hiện nguyên chữ */
-export const initiatorLabel = (v: string) =>
-  Object.prototype.hasOwnProperty.call(LINE_CANCEL_INITIATOR_LABELS, v) ? LINE_CANCEL_INITIATOR_LABELS[v as LineCancelInitiator] : v;
+/** Ai huỷ hoặc yêu cầu trả */
+export const initiatorLabel = (v: LineCancelInitiator) => LINE_CANCEL_INITIATOR_LABELS[v];
+
+export const CANCEL_KIND_LABELS: Record<LineCancelKind, string> = {
+  cancellation: 'Đã huỷ',
+  return: 'Trả hàng',
+  refund: 'Hoàn tiền',
+};
 
 /** Dòng có huỷ hoặc trả trên sàn */
-export const lineHasIssue = (l: { cancelReason?: string | null; cancelInitiator?: string | null; returnStatus?: string | null; reverseOrderId?: string | null }) =>
-  Boolean(l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
+export const lineHasIssue = (l: {
+  cancelKind?: string | null;
+  cancelReason?: string | null;
+  cancelInitiator?: string | null;
+  returnStatus?: string | null;
+  reverseOrderId?: string | null;
+}) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
 /** Địa chỉ tách phần (đơn sàn) ghép lại; không có phần nào thì dùng chuỗi address */
 export function addressParts(a: ShippingAddress): string[] {

@@ -36,8 +36,6 @@ const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';
 const STATUS_TABS: OrderStatus[] = ['unpaid', 'processing', 'completed', 'cancelled'];
 
-/** Hạn gửi còn dưới 24 giờ (hoặc đã quá) với đơn chưa xong thì tô cảnh báo */
-
 /** Đơn hàng từ mọi nguồn: tab theo 4 trạng thái (sơ đồ D1), lọc theo giai đoạn suy từ kiện và cờ */
 export function OrderListPage() {
   const navigate = useNavigate();
@@ -164,7 +162,7 @@ export function OrderListPage() {
         id: 'paymentMethod',
         header: 'Thanh toán',
         meta: { className: 'w-36' },
-        cell: ({ row }) => paymentMethodLabel(row.original.paymentMethod),
+        cell: ({ row }) => paymentMethodLabel(row.original),
       },
       {
         id: 'total',

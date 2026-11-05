@@ -3,14 +3,16 @@ import { addressParts, initiatorLabel, lineHasIssue, paymentMethodLabel } from '
 
 describe('thông tin đơn sàn (FE#176)', () => {
   it('nhãn thanh toán: đơn tạo tay, giá trị gốc của sàn, giá trị lạ, chưa có', () => {
-    expect(paymentMethodLabel('cod')).toBe('Thu khi giao (COD)');
-    expect(paymentMethodLabel('prepaid')).toBe('Trả trước');
-    expect(paymentMethodLabel('COD')).toBe('COD');
-    expect(paymentMethodLabel('MIXEDCARD')).toBe('Thẻ');
-    expect(paymentMethodLabel('Lazada Wallet')).toBe('Ví Lazada');
-    expect(paymentMethodLabel('PAYLATER_X')).toBe('PAYLATER_X');
-    expect(paymentMethodLabel('toString')).toBe('toString');
-    expect(paymentMethodLabel(null)).toBe('Sàn thu hộ');
+    const platform = (platformPaymentMethod: string | null) => paymentMethodLabel({ paymentMethod: null, platformPaymentMethod });
+    expect(paymentMethodLabel({ paymentMethod: 'cod' })).toBe('Thu khi giao (COD)');
+    expect(paymentMethodLabel({ paymentMethod: 'prepaid', platformPaymentMethod: 'COD' })).toBe('Trả trước');
+    expect(platform('COD')).toBe('COD');
+    expect(platform('MIXEDCARD')).toBe('Thẻ');
+    expect(platform('Lazada Wallet')).toBe('Ví Lazada');
+    expect(platform('PAYLATER_X')).toBe('PAYLATER_X');
+    expect(platform('toString')).toBe('toString');
+    expect(platform(null)).toBe('Sàn thu hộ');
+    expect(paymentMethodLabel({ paymentMethod: null })).toBe('Sàn thu hộ');
   });
 
   it('địa chỉ tách phần bỏ phần trống; BE cũ chưa trả thì rỗng', () => {
@@ -22,13 +24,14 @@ describe('thông tin đơn sàn (FE#176)', () => {
     expect(addressParts({ name: 'A', phone: '1', address: 'x' })).toEqual([]);
   });
 
-  it('ai huỷ: giá trị đã map và giá trị gốc lạ', () => {
+  it('ai huỷ', () => {
     expect(initiatorLabel('buyer')).toBe('khách');
-    expect(initiatorLabel('cancellation-customer')).toBe('cancellation-customer');
+    expect(initiatorLabel('platform')).toBe('sàn');
   });
 
   it('dòng có huỷ/trả; trường thiếu thì không', () => {
     expect(lineHasIssue({})).toBe(false);
     expect(lineHasIssue({ returnStatus: 'Đang hoàn về' })).toBe(true);
+    expect(lineHasIssue({ cancelKind: 'cancellation' })).toBe(true);
   });
 });
