@@ -1,0 +1,133 @@
+# E2E Playwright trên mock MSW (Vite dev, mock bật), project `mock` (e2e/mock). Tách khỏi CI vì chạy khoảng 12 phút.
+# Khi nào chạy:
+#   - mỗi đêm 02:00 giờ Việt Nam trên main;
+#   - bấm "Run workflow" (workflow_dispatch);
+#   - PR có nhãn `e2e` (gắn khi PR đụng nhiều trang, muốn chạy trước khi merge).
+# Đỏ thì comment và tag tác giả:
+#   - chạy trên PR: comment vào chính PR đó;
+#   - chạy đêm hoặc bấm tay trên main: comment vào mọi PR đã merge từ lần e2e xanh gần nhất trên main,
+#     mỗi PR một lần cho mỗi chuỗi đỏ (dấu <!-- e2e-base:<sha> --> chống comment lặp các đêm sau).
+# Chưa chạy `pnpm e2e:be` (BE thật): chạy tay trên staging theo Documents/26-ke-hoach-kiem-thu.md.
+name: E2E
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # 19:00 UTC = 02:00 giờ Việt Nam
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.1.3
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Trình duyệt phải khớp đúng phiên bản @playwright/test (ghim trong package.json): cache theo phiên bản đó.
+      - id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install --with-deps chromium
+        if: steps.browsers.outputs.cache-hit != 'true'
+      - run: pnpm exec playwright install-deps chromium
+        if: steps.browsers.outputs.cache-hit == 'true'
+      # Playwright tự bật Vite (playwright.config.ts, webServer) và tắt khi xong.
+      - run: pnpm e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  notify:
+    needs: e2e
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Comment vào PR của chính lần chạy
+        if: github.event_name == 'pull_request'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker="<!-- e2e-pr:${SHA} -->"
+          if gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[].body' | grep -qF "$marker"; then
+            echo "Đã comment cho commit này"; exit 0
+          fi
+          gh pr comment "$PR" -R "$REPO" --body "$marker
+          @${AUTHOR} E2E (\`pnpm e2e\`) trên commit \`${SHA:0:7}\` của PR này đỏ: ${RUN_URL}
+          Báo cáo Playwright ở artifact \`playwright-report\` của lần chạy (giữ 7 ngày)."
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        if: github.event_name != 'pull_request'
+        with:
+          fetch-depth: 0
+
+      - name: Comment vào các PR đã merge từ lần e2e xanh gần nhất
+        if: github.event_name != 'pull_request'
+        run: |
+          head="$GITHUB_SHA"
+          base=$(gh run list -R "$REPO" --workflow e2e.yml --branch main --status success --limit 50 \
+            --json headSha,event --jq '[.[] | select(.event != "pull_request")][0].headSha // empty')
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            # Chưa có lần xanh nào trên main: lấy các commit trong 25 giờ qua.
+            base=$(git rev-list -1 --before="25 hours ago" "$head")
+          fi
+          if [ -z "$base" ] || [ "$base" = "$head" ]; then
+            echo "Không có commit mới kể từ lần xanh gần nhất: lỗi môi trường hoặc test chập chờn, không tag ai." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          prs=$(git rev-list "$base..$head" | while read -r c; do
+            gh api "repos/$REPO/commits/$c/pulls" --jq '.[] | select(.merged_at != null) | "\(.number) \(.user.login)"'
+          done | sort -un)
+          if [ -z "$prs" ]; then
+            echo "Không tìm thấy PR nào trong ${base:0:7}..${head:0:7}" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          list=$(echo "$prs" | awk '{printf "#%s ", $1}')
+          marker="<!-- e2e-base:${base} -->"
+
+          echo "$prs" | while read -r pr author; do
+            if gh api "repos/$REPO/issues/$pr/comments" --paginate --jq '.[].body' | grep -qF "$marker"; then
+              echo "#$pr đã được báo trong chuỗi đỏ này"; continue
+            fi
+            gh pr comment "$pr" -R "$REPO" --body "$marker
+          @${author} E2E chạy trên \`main\` (\`${head:0:7}\`) đỏ: ${RUN_URL}
+          PR này nằm trong các PR đã merge từ lần e2e xanh gần nhất (\`${base:0:7}\`): ${list}
+          Xem báo cáo Playwright ở artifact \`playwright-report\` của lần chạy (giữ 7 ngày). Lỗi do PR này thì mở PR sửa; không phải thì trả lời ở đây để nhóm biết."
+            echo "Đã báo #$pr (@$author)" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
