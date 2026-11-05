@@ -43,12 +43,12 @@ export function SettlementsPage() {
     </TabsList></Tabs>
     {query.isError && <AlertMessage severity="error">{problemMessage(query.error)} <Button variant="outline" onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>}
     <Card className="mt-4 gap-0 py-0"><FilterBar>
-      {tab !== 'bank' && <FilterSelect label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} />}
+      {tab !== 'bank' && <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} />}
       {tab === 'payments' && <FilterSelect label="Trạng thái tiền" value={status} onChange={f.setFilter('status')} options={Object.entries(PAYMENT_STATES).map(([value, meta]) => ({ value, label: `${meta.label} (${payments.data?.counts[value as keyof typeof PAYMENT_STATES] ?? 0})` }))} />}
       {tab === 'bank' && <FilterSelect label="Khớp sao kê" value={matched} onChange={f.setFilter('matched')} options={[{ value: 'false', label: 'Chưa khớp' }, { value: 'true', label: 'Đã khớp' }]} />}
       {tab === 'runs' && can(P.settlementResolve) && <Button disabled={start.isPending || !shopId} onClick={() => void run()}>Kéo quyết toán</Button>}
     </FilterBar>
-    {tab === 'payments' && <DataTable data={payments.data?.items ?? []} loading={payments.isLoading} getRowId={(p) => p.orderId} pagination={pagination} empty="Chưa có trạng thái tiền" onRowClick={(p) => navigate(ROUTES.company.settlement(companyId, p.orderId))} columns={[
+    {tab === 'payments' && <DataTable data={payments.data?.items ?? []} loading={payments.isLoading} fetching={payments.isFetching} getRowId={(p) => p.orderId} pagination={pagination} empty="Chưa có trạng thái tiền" onRowClick={(p) => navigate(ROUTES.company.settlement(companyId, p.orderId))} columns={[
       { header: 'Đơn', accessorKey: 'orderCode', cell: ({ row }) => row.original.orderCode ?? row.original.orderId },
       { header: 'Trạng thái tiền', cell: ({ row }) => <StatusBadge status={row.original.status} statuses={PAYMENT_STATES} /> },
       { header: 'Ước tính', cell: ({ row }) => formatCurrency(row.original.estimatedTotal) },
@@ -56,7 +56,7 @@ export function SettlementsPage() {
       { header: 'Chênh lệch', cell: ({ row }) => row.original.diff === null ? '—' : formatCurrency(row.original.diff) },
       { header: 'Duyệt lệch', cell: ({ row }) => row.original.ceoApproval ? 'CEO đã duyệt' : row.original.needsCeoApproval ? 'Cần CEO duyệt' : 'Trong hạn mức' },
     ]} />}
-    {tab === 'runs' && <DataTable data={runs.data?.items ?? []} loading={runs.isLoading} getRowId={(r) => r.id} pagination={pagination} empty="Chưa chạy đối soát" columns={[
+    {tab === 'runs' && <DataTable data={runs.data?.items ?? []} loading={runs.isLoading} fetching={runs.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa chạy đối soát" columns={[
       { header: 'Thời điểm', cell: ({ row }) => formatDateTime(row.original.createdAt) },
       { header: 'Gian hàng', cell: ({ row }) => shops.data?.items.find((s) => s.id === row.original.shopId)?.shopName ?? row.original.shopId },
       { header: 'Khoảng kéo', cell: ({ row }) => `${formatDateTime(row.original.from)} – ${formatDateTime(row.original.to)}` },
@@ -64,7 +64,7 @@ export function SettlementsPage() {
       { header: 'Dòng / trùng', cell: ({ row }) => `${row.original.lineCount} / ${row.original.duplicates}` },
       { header: 'Lệch ví', cell: ({ row }) => row.original.walletDiff === null ? 'Sàn chưa trả số dư' : <span className={row.original.walletDiff ? 'text-destructive' : ''}>{formatCurrency(row.original.walletDiff)}</span> },
     ]} />}
-    {tab === 'bank' && <DataTable data={bank.data?.items ?? []} loading={bank.isLoading} getRowId={(r) => r.id} pagination={pagination} empty="Chưa có khoản cần khớp" columns={[
+    {tab === 'bank' && <DataTable data={bank.data?.items ?? []} loading={bank.isLoading} fetching={bank.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa có khoản cần khớp" columns={[
       { header: 'Ngày', cell: ({ row }) => formatDate(row.original.occurredOn) },
       { header: 'Loại', cell: ({ row }) => ({ withdrawal: 'Rút tiền', supplier_refund: 'NCC hoàn tiền', lost_compensation: 'Bồi thường mất hàng' }[row.original.kind as 'withdrawal']) ?? row.original.kind },
       { header: 'Số tiền', cell: ({ row }) => formatCurrency(row.original.amount) },

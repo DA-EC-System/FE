@@ -114,7 +114,7 @@ export function CompanyAuditLogPage() {
 
       <Card className="gap-0 py-0">
         <FilterBar>
-          <FilterSelect
+          <FilterSelect loading={staffQuery.isLoading}
             label="Người làm"
             value={actorId}
             onChange={withReset(setActorId)}

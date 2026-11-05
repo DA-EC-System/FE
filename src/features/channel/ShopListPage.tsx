@@ -309,7 +309,7 @@ export function ShopListPage() {
             onChange={withReset(setSearch)}
             placeholder="Tìm theo tên hoặc mã gian hàng..."
           />
-          <FilterSelect
+          <FilterSelect loading={shopsQuery.isLoading}
             label="Sàn"
             value={platform}
             onChange={withReset(setPlatform)}

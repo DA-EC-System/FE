@@ -47,12 +47,14 @@ interface CreateDialogProps {
   open: boolean;
   /** Gian hàng còn kết nối và chưa có bảng giá */
   shops: Shop[];
+  /** Danh sách gian hàng đang tải */
+  loading?: boolean;
   onClose: () => void;
   onDone: (created: Pricelist) => void;
 }
 
 /** UC-CP-03 bước 3: tạo bảng giá theo gian hàng (D15); bảng giá chuẩn có sẵn, không tạo thêm */
-export function CreatePricelistDialog({ open, shops, onClose, onDone }: CreateDialogProps) {
+export function CreatePricelistDialog({ open, shops, loading, onClose, onDone }: CreateDialogProps) {
   const createMut = useCreatePricelist();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<PricelistCreateForm>({
@@ -96,7 +98,7 @@ export function CreatePricelistDialog({ open, shops, onClose, onDone }: CreateDi
         </DialogHeader>
 
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
-        {!shops.length && (
+        {!shops.length && !loading && (
           <AlertMessage severity="info">Mọi gian hàng đang kết nối đều đã có bảng giá.</AlertMessage>
         )}
 
@@ -122,7 +124,7 @@ export function CreatePricelistDialog({ open, shops, onClose, onDone }: CreateDi
                   >
                     <FormControl>
                       <SelectTrigger className="w-full" aria-label="Gian hàng">
-                        <SelectValue placeholder="Chọn gian hàng" />
+                        <SelectValue placeholder={loading ? 'Đang tải gian hàng…' : 'Chọn gian hàng'} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

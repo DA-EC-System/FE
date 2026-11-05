@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -55,10 +56,12 @@ interface VariantBuilderProps {
   onChange: (plan: VariantPlan) => void;
   /** Lỗi khi bấm Lưu hoặc errors.variants từ BE */
   error?: string | null;
+  /** Danh sách thuộc tính đang tải */
+  loading?: boolean;
 }
 
 /** UC-CP-02: chọn thuộc tính và giá trị → sinh tổ hợp biến thể, xem trước SKU (QT-11) */
-export function VariantBuilder({ attributes, category, value, onChange, error }: VariantBuilderProps) {
+export function VariantBuilder({ attributes, category, value, onChange, error, loading }: VariantBuilderProps) {
   const index = useMemo(() => valueIndex(attributes), [attributes]);
   const combos = useMemo(() => planCombos(value, attributes), [value, attributes]);
 
@@ -122,8 +125,13 @@ export function VariantBuilder({ attributes, category, value, onChange, error }:
             {a.name}
           </ToggleChip>
         ))}
-        {!attributes.length && (
-          <p className="text-sm text-muted-foreground">Công ty chưa có thuộc tính nào.</p>
+        {loading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+            <Loader2 className="size-4 animate-spin" />
+            Đang tải thuộc tính…
+          </p>
+        ) : (
+          !attributes.length && <p className="text-sm text-muted-foreground">Công ty chưa có thuộc tính nào.</p>
         )}
       </div>
 

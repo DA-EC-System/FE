@@ -209,6 +209,7 @@ export function PricelistListPage() {
       <CreatePricelistDialog
         open={creating}
         shops={freeShops}
+        loading={shopsQuery.isLoading}
         onClose={() => setCreating(false)}
         onDone={(created) => {
           setCreating(false);

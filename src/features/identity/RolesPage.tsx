@@ -169,7 +169,7 @@ export function RolesPage() {
           columns={columns}
           data={rolesQuery.data ?? []}
           getRowId={(r) => r.id}
-          loading={rolesQuery.isLoading}
+          loading={rolesQuery.isLoading} fetching={rolesQuery.isFetching}
           empty="Chưa có vai trò"
         />
       </Card>

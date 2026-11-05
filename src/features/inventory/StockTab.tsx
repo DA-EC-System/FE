@@ -87,7 +87,8 @@ export function StockTab() {
     belowMin: belowMin || undefined,
     quarantine: quarantine || undefined,
   });
-  const categories = useCategories().data ?? [];
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data ?? [];
   const summary = stockQuery.data?.summary;
   const filtered = Boolean(debouncedSearch || categoryId || belowMin || quarantine);
 
@@ -272,7 +273,7 @@ export function StockTab() {
             onChange={withReset(setSearch)}
             placeholder="Tìm theo tên sản phẩm hoặc SKU"
           />
-          <FilterSelect
+          <FilterSelect loading={categoriesQuery.isLoading}
             label="Danh mục"
             value={categoryId}
             onChange={withReset(setCategoryId)}

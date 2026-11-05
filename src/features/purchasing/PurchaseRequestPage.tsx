@@ -505,10 +505,11 @@ export function PurchaseRequestPage() {
               {editable ? (
                 <Select
                   value={supplierId}
+                  disabled={suppliersQuery.isLoading}
                   onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true, shouldValidate: true })}
                 >
                   <SelectTrigger id="req-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
-                    <SelectValue placeholder="Chọn nhà cung cấp" />
+                    <SelectValue placeholder={suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp'} />
                   </SelectTrigger>
                   <SelectContent>
                     {supplierOptions.map((s) => (
@@ -604,6 +605,7 @@ export function PurchaseRequestPage() {
                             <div className="grid gap-1">
                               <Select
                                 value={live.categoryId}
+                                disabled={categoriesQuery.isLoading}
                                 onValueChange={(v) =>
                                   setValue(`lines.${i}.categoryId`, v, { shouldDirty: true, shouldValidate: true })
                                 }
@@ -613,7 +615,7 @@ export function PurchaseRequestPage() {
                                   aria-label={`Danh mục ${name}`}
                                   aria-invalid={Boolean(lineErrors?.categoryId)}
                                 >
-                                  <SelectValue placeholder="Danh mục" />
+                                  <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Danh mục'} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {(categoriesQuery.data ?? []).map((c) => (

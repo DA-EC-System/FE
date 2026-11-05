@@ -104,7 +104,8 @@ export function PricelistDetailPage() {
 
   const plQuery = usePricelist(pricelistId);
   const itemsQuery = usePricelistItems(pricelistId);
-  const categories = useCategories().data ?? [];
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data ?? [];
   const saveMut = useSavePrices();
   const pricelist = plQuery.data;
   useBreadcrumb(pricelist?.name);
@@ -503,7 +504,7 @@ export function PricelistDetailPage() {
             onChange={withReset(setSearch)}
             placeholder="Tìm theo tên sản phẩm hoặc SKU..."
           />
-          <FilterSelect
+          <FilterSelect loading={categoriesQuery.isLoading}
             label="Danh mục"
             value={categoryId}
             onChange={withReset(setCategoryId)}

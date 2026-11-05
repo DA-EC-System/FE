@@ -90,8 +90,10 @@ export function ProductFormPage() {
   const productQuery = useProduct(productId);
   const product = productQuery.data;
   useBreadcrumb(isNew ? 'Thêm sản phẩm' : product?.name);
-  const categories = useCategories().data ?? [];
-  const attributes = useAttributes().data ?? [];
+  const categoriesQuery = useCategories();
+  const attributesQuery = useAttributes();
+  const categories = categoriesQuery.data ?? [];
+  const attributes = attributesQuery.data ?? [];
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
   const business = useBusinessAction();
@@ -268,11 +270,11 @@ export function ProductFormPage() {
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
-                      disabled={!isNew || readOnly}
+                      disabled={!isNew || readOnly || (isNew && categoriesQuery.isLoading)}
                     >
                       <FormControl>
                         <SelectTrigger className="w-full" aria-label="Danh mục">
-                          <SelectValue placeholder="Chọn danh mục" />
+                          <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải danh mục…' : 'Chọn danh mục'} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -346,6 +348,7 @@ export function ProductFormPage() {
               {isNew ? (
                 <VariantBuilder
                   attributes={attributes}
+                  loading={attributesQuery.isLoading}
                   category={category}
                   value={plan}
                   onChange={(next) => {
@@ -433,6 +436,7 @@ export function ProductFormPage() {
             product={product}
             category={categories.find((c) => c.id === product.category.id)}
             attributes={attributes}
+            loading={attributesQuery.isLoading}
             onClose={() => setAddOpen(false)}
             onDone={(message) => {
               setAddOpen(false);

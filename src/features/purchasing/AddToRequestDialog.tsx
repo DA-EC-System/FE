@@ -36,8 +36,12 @@ export function AddToRequestDialog({
   const open = Boolean(level);
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
-  const drafts = usePurchaseRequests({ status: 'draft', pageSize: 50 }, { enabled: open }).data?.items ?? [];
-  const suppliers = (useSuppliers({}, { enabled: open }).data ?? []).filter((s) => s.active);
+  const draftsQuery = usePurchaseRequests({ status: 'draft', pageSize: 50 }, { enabled: open });
+  const suppliersQuery = useSuppliers({}, { enabled: open });
+  const drafts = draftsQuery.data?.items ?? [];
+  const suppliers = (suppliersQuery.data ?? []).filter((s) => s.active);
+  // Chưa biết có nháp hay không thì chưa cho chọn, tránh lập nháp mới ngoài ý muốn
+  const loadingDrafts = draftsQuery.isLoading;
   const mut = useAddRequestLine();
 
   const [target, setTarget] = useState('');
@@ -98,9 +102,9 @@ export function AddToRequestDialog({
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
         <div className="grid gap-1.5">
           <Label htmlFor="add-target">Đề nghị</Label>
-          <Select value={chosen} onValueChange={setTarget}>
+          <Select value={chosen} onValueChange={setTarget} disabled={loadingDrafts}>
             <SelectTrigger id="add-target" className="w-full" aria-invalid={Boolean(errs.target)}>
-              <SelectValue />
+              {loadingDrafts ? <span className="text-muted-foreground">Đang tải đề nghị nháp…</span> : <SelectValue />}
             </SelectTrigger>
             <SelectContent>
               {drafts.map((d) => (
@@ -113,12 +117,12 @@ export function AddToRequestDialog({
           </Select>
           {errs.target && <p className="text-sm text-destructive">{errs.target}</p>}
         </div>
-        {chosen === NEW_DRAFT && (
+        {chosen === NEW_DRAFT && !loadingDrafts && (
           <div className="grid gap-1.5">
             <Label htmlFor="add-supplier">Nhà cung cấp</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
+            <Select value={supplierId} onValueChange={setSupplierId} disabled={suppliersQuery.isLoading}>
               <SelectTrigger id="add-supplier" className="w-full" aria-invalid={Boolean(errs.supplierId)}>
-                <SelectValue placeholder="Chọn nhà cung cấp" />
+                <SelectValue placeholder={suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp'} />
               </SelectTrigger>
               <SelectContent>
                 {suppliers.map((s) => (
@@ -129,7 +133,7 @@ export function AddToRequestDialog({
               </SelectContent>
             </Select>
             {errs.supplierId && <p className="text-sm text-destructive">{errs.supplierId}</p>}
-            {!suppliers.length && (
+            {!suppliers.length && !suppliersQuery.isLoading && (
               <p className="text-xs text-muted-foreground">
                 Chưa có nhà cung cấp.{' '}
                 <Link className="text-primary hover:underline" to={ROUTES.company.purchasing(companyId, 'suppliers')}>
@@ -154,7 +158,7 @@ export function AddToRequestDialog({
           <Button variant="outline" onClick={onClose} disabled={mut.isPending}>
             Huỷ
           </Button>
-          <Button disabled={mut.isPending} onClick={submit}>
+          <Button disabled={mut.isPending || loadingDrafts} onClick={submit}>
             {mut.isPending ? 'Đang thêm...' : 'Thêm vào đề nghị'}
           </Button>
         </DialogFooter>
