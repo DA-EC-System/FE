@@ -30,8 +30,11 @@ export function TaskBell({ companyId }: { companyId: string }) {
           {items.length > 0 && (
             <span
               className={cn(
-                'absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white',
-                overdue ? 'bg-destructive' : 'bg-warning',
+                'absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
+                // Nền vàng #faad14 với chữ trắng chỉ 1,9:1; dùng nền nhạt + chữ -text cho đủ 4,5:1
+                overdue
+                  ? 'bg-destructive text-white'
+                  : 'border border-warning-border bg-warning-soft text-warning',
               )}
             >
               {items.length > 99 ? '99+' : items.length}
