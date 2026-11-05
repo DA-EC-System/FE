@@ -106,7 +106,9 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
 
     test('chi tiết đơn sàn: địa chỉ tách phần, thanh toán, phí ship và vận chuyển của kiện (FE#176)', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1012');
-      await expect(page.locator('[data-testid=shipping-address]')).toHaveText('12 Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh');
+      // Lazada che số nhà, tỉnh: hiện nguyên chuỗi sàn trả; phường đã có trong chuỗi thì không lặp
+      await expect(page.locator('[data-testid=shipping-address]')).toHaveText('1***0 L** L**, Phường Bến Nghé, T*********h');
+      await expect(page.locator('[data-testid=shipping-ward]')).toHaveCount(0);
       await thayChu(page, 'Mã bưu chính 700000');
       await thayChu(page, 'Phí ship gốc');
       await thayChu(page, 'Sàn giảm phí ship');

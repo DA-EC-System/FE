@@ -34,7 +34,7 @@ import type { CancelRequestDecision, Order } from '@/types/sales';
 import {
   COMPLETION_BLOCKER_LABELS,
   ORDER_STATUS,
-  addressParts,
+  wardNote,
   lineHasIssue,
   paymentMethodLabel,
   sourceLabel,
@@ -286,8 +286,13 @@ export function OrderDetailPage() {
                   {order.shippingAddress.name} · {order.shippingAddress.phone}
                 </p>
                 <p className="text-muted-foreground" data-testid="shipping-address">
-                  {addressParts(order.shippingAddress).join(', ') || order.shippingAddress.address}
+                  {order.shippingAddress.address}
                 </p>
+                {wardNote(order.shippingAddress) && (
+                  <p className="text-xs text-muted-foreground" data-testid="shipping-ward">
+                    Phường/xã {wardNote(order.shippingAddress)}
+                  </p>
+                )}
                 {order.shippingAddress.postCode && (
                   <p className="text-xs text-muted-foreground">Mã bưu chính {order.shippingAddress.postCode}</p>
                 )}

@@ -111,7 +111,7 @@ export interface MockPlatformLine {
 /** Trường đơn sàn ngoài phần lõi: thanh toán gốc, địa chỉ tách phần, phí ship, dòng, vận chuyển */
 export interface MockPlatformExtras {
   paymentMethod?: string;
-  address?: Pick<ShippingAddress, 'province' | 'district' | 'ward' | 'postCode' | 'line'>;
+  address?: Pick<ShippingAddress, 'address' | 'ward' | 'postCode'>;
   shippingFeeOriginal?: number;
   shippingFeeDiscountSeller?: number;
   shippingFeeDiscountPlatform?: number;
@@ -896,7 +896,8 @@ const BUYER_NOTES: Record<string, string> = { 'ord-1012': 'Giao giờ hành chí
 const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
   'ord-1012': {
     paymentMethod: 'COD',
-    address: { line: '12 Lê Lợi', ward: 'Phường Bến Nghé', district: 'Quận 1', province: 'TP. Hồ Chí Minh', postCode: '700000' },
+    // Lazada che số nhà, tỉnh; chỉ phường (`city`) còn rõ
+    address: { address: '1***0 L** L**, Phường Bến Nghé, T*********h', ward: 'Phường Bến Nghé', postCode: '700000' },
     shippingFeeOriginal: 32000,
     shippingFeeDiscountSeller: 0,
     shippingFeeDiscountPlatform: 32000,

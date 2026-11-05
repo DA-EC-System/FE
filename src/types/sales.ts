@@ -101,13 +101,9 @@ export interface ShippingAddress {
   name: string;
   phone: string;
   address: string;
-  /** Địa chỉ tách phần của đơn sàn (commerio-backend#260); null với đơn tạo tay */
-  province?: string | null;
-  district?: string | null;
+  /** Phường/xã của đơn sàn: phần duy nhất Lazada không che; tỉnh, đường bị che, không còn cấp quận (commerio-backend#260). null với đơn tạo tay */
   ward?: string | null;
   postCode?: string | null;
-  /** Số nhà, đường */
-  line?: string | null;
 }
 
 export interface OrderShopRef {

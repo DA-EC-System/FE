@@ -134,10 +134,8 @@ export const lineHasIssue = (l: {
   reverseOrderId?: string | null;
 }) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
-/** Địa chỉ tách phần (đơn sàn) ghép lại; không có phần nào thì dùng chuỗi address */
-export function addressParts(a: ShippingAddress): string[] {
-  return [a.line, a.ward, a.district, a.province].filter((x): x is string => Boolean(x));
-}
+/** Phường/xã hiện riêng khi chuỗi địa chỉ (sàn che một phần) chưa ghi rõ */
+export const wardNote = (a: ShippingAddress) => (a.ward && !a.address.includes(a.ward) ? a.ward : null);
 
 export const channelLabel = (code: CustomerChannel) => code === 'manual' ? 'Tạo tay' : platformLabel(code);
 

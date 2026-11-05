@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressParts, initiatorLabel, lineHasIssue, paymentMethodLabel } from './shared';
+import { initiatorLabel, lineHasIssue, paymentMethodLabel, wardNote } from './shared';
 
 describe('thông tin đơn sàn (FE#176)', () => {
   it('nhãn thanh toán: đơn tạo tay, giá trị gốc của sàn, giá trị lạ, chưa có', () => {
@@ -15,13 +15,10 @@ describe('thông tin đơn sàn (FE#176)', () => {
     expect(paymentMethodLabel({ paymentMethod: null })).toBe('Sàn thu hộ');
   });
 
-  it('địa chỉ tách phần bỏ phần trống; BE cũ chưa trả thì rỗng', () => {
-    expect(addressParts({ name: 'A', phone: '1', address: 'x', line: '12 Lê Lợi', ward: null, district: 'Quận 1', province: 'TP. HCM' })).toEqual([
-      '12 Lê Lợi',
-      'Quận 1',
-      'TP. HCM',
-    ]);
-    expect(addressParts({ name: 'A', phone: '1', address: 'x' })).toEqual([]);
+  it('phường hiện riêng khi chuỗi địa chỉ chưa có; BE cũ chưa trả thì không', () => {
+    expect(wardNote({ name: 'A', phone: '1', address: '6*** T***h', ward: 'Phường Tân Sơn Hòa' })).toBe('Phường Tân Sơn Hòa');
+    expect(wardNote({ name: 'A', phone: '1', address: '6***, Phường Tân Sơn Hòa', ward: 'Phường Tân Sơn Hòa' })).toBeNull();
+    expect(wardNote({ name: 'A', phone: '1', address: 'x' })).toBeNull();
   });
 
   it('ai huỷ', () => {
