@@ -18,8 +18,19 @@ interface EmptyStateProps {
 
 /** Ô trống dùng chung theo .empty của Test_UI: icon mờ, một câu, nút hành động chính (FE#129) */
 export function EmptyState({ title, description, icon = Inbox, action, compact, className }: EmptyStateProps) {
-  const Icon = icon as ComponentType<{ className?: string }>;
-  const iconNode = isValidElement(icon) ? icon : icon ? <Icon className={compact ? 'size-8' : 'size-10'} /> : null;
+  const size = compact ? 'size-8' : 'size-10';
+  // Component lucide là hàm hoặc forwardRef (object có render); chuỗi, số, phần tử thì vẽ nguyên
+  const isComponent =
+    typeof icon === 'function' || (typeof icon === 'object' && icon !== null && !isValidElement(icon) && 'render' in icon);
+  let iconNode: ReactNode = null;
+  if (isComponent) {
+    const Icon = icon as ComponentType<{ className?: string }>;
+    iconNode = <Icon className={size} />;
+  } else if (typeof icon === 'string' || typeof icon === 'number') {
+    iconNode = <span className={cn('grid place-items-center text-3xl leading-none', size)}>{icon}</span>;
+  } else if (isValidElement(icon)) {
+    iconNode = icon;
+  }
   return (
     <div
       data-slot="empty-state"

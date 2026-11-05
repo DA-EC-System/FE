@@ -172,7 +172,7 @@ test.describe('P1 · Vai trò', () => {
     await expect(checkboxes.first()).toBeAttached();
     for (const c of await checkboxes.all()) await expect(c).toBeDisabled();
     await expect(dialog.getByRole('button', { name: 'Lưu', exact: true })).toHaveCount(0);
-    await dialog.getByRole('button', { name: 'Đóng', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Đóng', exact: true }).first().click();
 
     await page.getByRole('button', { name: 'Tạo vai trò', exact: true }).click();
     await expect(dialog.locator('fieldset legend').nth(2)).toBeAttached();

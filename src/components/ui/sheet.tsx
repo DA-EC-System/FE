@@ -70,7 +70,7 @@ function SheetContent({
         {children}
         <SheetPrimitive.Close className="absolute inset-e-4 top-3.5 grid size-7 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:pointer-events-none">
           <XIcon className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">Đóng</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>

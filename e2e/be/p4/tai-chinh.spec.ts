@@ -139,7 +139,7 @@ test.describe('P4-BE · Tài chính', () => {
     await expect(hopGan(page).locator('[data-testid=assign-order]')).toContainText(s.mismatch.code);
     await expect(hopGan(page).locator('[data-testid=assign-order]')).toContainText('Lệch');
     await expect(hopGan(page).getByRole('button', { name: 'Gán', exact: true })).toBeDisabled();
-    await hopGan(page).getByRole('button', { name: 'Đóng', exact: true }).click();
+    await hopGan(page).getByRole('button', { name: 'Đóng', exact: true }).first().click();
 
     await dongCo(page, `CK GAN ${s.run}`).getByRole('button', { name: 'Gán vào đơn', exact: true }).click();
     await hopGan(page).locator('#assign-order').fill(s.assignTarget.code);
