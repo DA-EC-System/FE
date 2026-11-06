@@ -14,7 +14,8 @@ export const settlementMachine = defineMachine<SettlementStatus, SettlementActio
 export function resolveBlock(payment: OrderPayment, actor: TransitionActor): string | null {
   if (payment.status !== 'mismatch') return 'invalid_transition';
   if (!actor.permissions.includes(P.settlementResolve)) return 'forbidden';
-  if (payment.feeConfigAuthor?.id === actor.accountId) return 'second_person_required';
+  // Người soạn phí chỉ tự chốt được theo ngoại lệ tự duyệt (CEO, công ty một người; BE#249)
+  if (payment.feeConfigAuthor?.id === actor.accountId && !actor.canSelfApprove) return 'second_person_required';
   if (payment.needsCeoApproval && !payment.ceoApproval && !actor.permissions.includes(P.settlementApprove)) return 'ceo_approval_required';
   return null;
 }
