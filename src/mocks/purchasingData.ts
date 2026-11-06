@@ -37,6 +37,7 @@ export interface MockPurchaseRequestLine {
   quantity: number;
   unitCost: number;
   excluded: boolean;
+  excludedReason?: string | null;
   received: number;
   defective: number;
   closedShort: number;
@@ -44,6 +45,9 @@ export interface MockPurchaseRequestLine {
 
 export interface MockPurchaseRequest {
   id: string;
+  /** Ghi lúc đặt NCC (BE#243) */
+  expectedDeliveryDate?: string | null;
+  supplierOrderCode?: string | null;
   companyId: string;
   number: string;
   status: PurchaseRequestStatus;

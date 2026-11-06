@@ -205,6 +205,7 @@ function lineView(companyId: string, l: MockPurchaseRequestLine, showCost: boole
     quantity: l.quantity,
     unitCost: showCost ? l.unitCost : null,
     excluded: l.excluded,
+    excludedReason: l.excludedReason ?? null,
     received: l.received,
     defective: l.defective,
     closedShort: l.closedShort,
@@ -240,6 +241,8 @@ function toRequest(req: MockPurchaseRequest, permissions: string[]): PurchaseReq
     lines: req.lines.map((l) => lineView(req.companyId, l, showCost)),
     receipts: receiptsOf(req).map((r) => ({ ...data.receiptRef(r), status: r.status })),
     sourceReturn: source ? data.returnRef(source) : null,
+    expectedDeliveryDate: req.expectedDeliveryDate ?? null,
+    supplierOrderCode: req.supplierOrderCode ?? null,
     countingReceipts: requestRecord(req).countingReceipts,
     statusHistory: req.statusHistory,
   };
@@ -874,7 +877,7 @@ export const purchasingHandlers = [
     const found = findOwned(data.requests, params.id, companyId, 'đề nghị nhập');
     if (!found.ok) return found.response;
     const req = found.value;
-    const body = (await request.json()) as { excluded: boolean; version: number };
+    const body = (await request.json()) as { excluded: boolean; reason?: string | null; version: number };
     if (body.version !== req.version) {
       return versionConflict(toRequest(req, permissions), 'Đề nghị vừa được người khác sửa hoặc xử lý.');
     }
@@ -886,8 +889,12 @@ export const purchasingHandlers = [
     if (body.excluded && req.lines.filter((l) => !l.excluded && l.id !== target.id).length === 0) {
       return problem(409, 'Phải còn ít nhất một dòng', { code: 'all_lines_excluded' });
     }
+    // Loại dòng bắt buộc lý do (BE#243)
+    const excludeReason = body.reason?.trim() || null;
+    if (body.excluded && !excludeReason) return invalid({ reason: 'Nhập lý do loại dòng' }, { code: 'reason_required' });
     const before = requestSnapshot(req);
     target.excluded = !!body.excluded;
+    target.excludedReason = body.excluded ? excludeReason : null;
     req.version += 1;
     writeCompanyLog(guard.value, 'update', requestEntity(req), before, requestSnapshot(req));
     return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions));
@@ -904,7 +911,7 @@ export const purchasingHandlers = [
     const req = found.value;
     const action = params.action as PurchaseRequestAction;
     if (!REQUEST_ACTIONS.includes(action)) return problem(404, 'Không có thao tác này');
-    const body = (await request.json()) as { version: number; reason?: string | null };
+    const body = (await request.json()) as { version: number; reason?: string | null; expectedDeliveryDate?: string; supplierOrderCode?: string | null };
     if (body.version !== req.version) {
       return versionConflict(toRequest(req, permissions), 'Đề nghị vừa được người khác sửa hoặc xử lý.');
     }
@@ -920,6 +927,12 @@ export const purchasingHandlers = [
       closeShort(req, guard.value, at, reason!);
     } else {
       if (action === 'approve') createNewProducts(req, at);
+      if (action === 'order') {
+        // Ngày giao dự kiến bắt buộc, mã đơn NCC tuỳ chọn (BE#243)
+        if (!body.expectedDeliveryDate) return invalid({ expectedDeliveryDate: 'Nhập ngày NCC hẹn giao' });
+        req.expectedDeliveryDate = body.expectedDeliveryDate;
+        req.supplierOrderCode = body.supplierOrderCode?.trim() || null;
+      }
       pushStatus(req, next.value, guard.value, at, reason, next.selfApproved);
       if (action === 'order' || action === 'cancel') data.syncIncoming(companyId);
     }

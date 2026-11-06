@@ -185,6 +185,7 @@ export function PurchaseRequestPage() {
   const [notice, setNotice] = useState<{ severity: 'warning' | 'error'; msg: string } | null>(null);
   const [confirm, setConfirm] = useState<PurchaseRequestAction | null>(null);
   const [reasonFor, setReasonFor] = useState<RequestTransition | null>(null);
+  const [excludeFor, setExcludeFor] = useState<string | null>(null);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
   const loaded = useRef<string | null>(null);
@@ -318,9 +319,14 @@ export function PurchaseRequestPage() {
     if (saved) toast.success(`Đã lưu nháp ${saved.number}`);
   });
 
-  const runAction = async (target: PurchaseRequest, action: PurchaseRequestAction, reason?: string) => {
+  const runAction = async (
+    target: PurchaseRequest,
+    action: PurchaseRequestAction,
+    reason?: string,
+    extra?: { expectedDeliveryDate: string; supplierOrderCode: string | null },
+  ) => {
     try {
-      const next = await actionMut.mutateAsync({ id: target.id, action, version: target.version, reason });
+      const next = await actionMut.mutateAsync({ id: target.id, action, version: target.version, reason, ...extra });
       load(next);
       toast.success(`${next.number}: ${REQUEST_STATUS[next.status].label.toLowerCase()}`);
       return true;
@@ -350,13 +356,16 @@ export function PurchaseRequestPage() {
     if (await runAction({ ...req, version }, reasonFor.action, reason)) setReasonFor(null);
   };
 
-  const onExclude = async (lineId: string, excluded: boolean) => {
-    if (!req) return;
+  const onExclude = async (lineId: string, excluded: boolean, reason?: string) => {
+    if (!req) return false;
     try {
-      const next = await excludeMut.mutateAsync({ id: req.id, lineId, excluded, version });
+      const next = await excludeMut.mutateAsync({ id: req.id, lineId, excluded, reason, version });
       load(next);
+      return true;
     } catch (e) {
-      handleError(e);
+      if (reason !== undefined) setReasonError(problemMessage(e));
+      else handleError(e);
+      return false;
     }
   };
 
@@ -691,7 +700,8 @@ export function PurchaseRequestPage() {
                               label={line.excluded ? 'Lấy lại dòng' : 'Loại dòng'}
                               destructive={!line.excluded}
                               reason={busy ? 'Đang lưu' : null}
-                              onClick={() => onExclude(line.id, !line.excluded)}
+                              // Loại dòng bắt buộc lý do (BE#243); lấy lại thì không cần
+                              onClick={() => (line.excluded ? void onExclude(line.id, false) : setExcludeFor(line.id))}
                             >
                               {line.excluded ? <Undo2 /> : <X />}
                             </RowAction>
@@ -734,8 +744,36 @@ export function PurchaseRequestPage() {
       >
         {confirmText?.message}
       </SecondPersonDialog>
+      <OrderDialog
+        open={confirm === 'order'}
+        number={req?.number ?? ''}
+        loading={busy}
+        onClose={() => setConfirm(null)}
+        onOrder={(extra) => {
+          setConfirm(null);
+          if (req) void runAction({ ...req, version }, 'order', undefined, extra);
+        }}
+      />
+      <ReasonDialog
+        open={excludeFor !== null}
+        title={`Loại dòng khỏi ${req?.number ?? 'đề nghị'}`}
+        message="Dòng bị loại không đặt NCC; người lập thấy lý do."
+        label="Lý do loại"
+        confirmLabel="Loại dòng"
+        destructive
+        loading={busy}
+        error={reasonError}
+        onConfirm={async (reason) => {
+          setReasonError(null);
+          if (excludeFor && (await onExclude(excludeFor, true, reason))) setExcludeFor(null);
+        }}
+        onClose={() => {
+          setExcludeFor(null);
+          setReasonError(null);
+        }}
+      />
       <ConfirmDialog
-        open={Boolean(confirmText) && confirm !== 'approve'}
+        open={Boolean(confirmText) && confirm !== 'approve' && confirm !== 'order'}
         title={`${confirmText?.title ?? ''} ${req?.number ?? 'đề nghị'}?`}
         message={confirmText?.message ?? ''}
         confirmLabel={confirmText?.title}
@@ -840,6 +878,71 @@ function CreateReceiptDialog({
           </Button>
           <Button disabled={loading} onClick={() => onCreate(mode, note.trim())}>
             {loading ? 'Đang lập...' : 'Lập phiếu'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Đã đặt NCC: ngày NCC hẹn giao bắt buộc, mã đơn bên NCC tuỳ chọn (25 §3.2, BE#243) */
+function OrderDialog({
+  open,
+  number,
+  loading,
+  onClose,
+  onOrder,
+}: {
+  open: boolean;
+  number: string;
+  loading: boolean;
+  onClose: () => void;
+  onOrder: (extra: { expectedDeliveryDate: string; supplierOrderCode: string | null }) => void;
+}) {
+  const [date, setDate] = useState('');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) {
+      setDate('');
+      setCode('');
+      setError(null);
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Đã đặt NCC {number}?</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Số lượng còn chờ được cộng vào "đang về" của từng biến thể. Kho lập phiếu nhận khi hàng tới.
+        </p>
+        <div className="grid gap-1.5">
+          <Label htmlFor="order-date">Ngày giao dự kiến</Label>
+          <Input id="order-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={Boolean(error)} />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="order-code">Mã đơn bên NCC (nếu có)</Label>
+          <Input id="order-code" maxLength={100} value={code} onChange={(e) => setCode(e.target.value)} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Huỷ
+          </Button>
+          <Button
+            disabled={loading}
+            onClick={() => {
+              if (!date) {
+                setError('Nhập ngày NCC hẹn giao');
+                return;
+              }
+              onOrder({ expectedDeliveryDate: date, supplierOrderCode: code.trim() || null });
+            }}
+          >
+            Đã đặt NCC
           </Button>
         </DialogFooter>
       </DialogContent>

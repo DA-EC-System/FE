@@ -89,6 +89,8 @@ export interface PurchaseRequestLine {
   unitCost: number | null;
   /** CEO loại dòng khi duyệt */
   excluded: boolean;
+  /** Lý do CEO loại dòng (BE#243) */
+  excludedReason: string | null;
   received: number;
   /** Lỗi giữ lại: đã trừ còn chờ, nằm ở chờ xử lý */
   defective: number;
@@ -127,6 +129,9 @@ export interface PurchaseRequest extends PurchaseRequestSummary {
   receipts: (DocRef & { status: GoodsReceiptStatus })[];
   /** Phiếu trả NCC bù hàng sinh ra đề nghị này */
   sourceReturn: DocRef | null;
+  /** Ngày NCC hẹn giao (yyyy-mm-dd), có từ lúc đặt; mã đơn bên NCC (BE#243) */
+  expectedDeliveryDate: string | null;
+  supplierOrderCode: string | null;
   /** Còn phiếu nhận đang kiểm: chặn đóng thiếu */
   countingReceipts: number;
   statusHistory: StatusChange<PurchaseRequestStatus>[];

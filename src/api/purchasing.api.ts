@@ -162,7 +162,7 @@ export function useAddRequestLine() {
 export function useExcludeRequestLine() {
   const invalidate = useInvalidatePurchasing();
   return useMutation({
-    mutationFn: async ({ id, lineId, ...body }: { id: string; lineId: string; excluded: boolean; version: number }) => {
+    mutationFn: async ({ id, lineId, ...body }: { id: string; lineId: string; excluded: boolean; reason?: string; version: number }) => {
       const { data } = await apiClient.post<PurchaseRequest>(`/purchasing/requests/${id}/lines/${lineId}/exclude`, body);
       return data;
     },
@@ -182,6 +182,9 @@ export function usePurchaseRequestAction() {
       action: PurchaseRequestAction;
       version: number;
       reason?: string;
+      /** Bắt buộc khi `order` (BE#243) */
+      expectedDeliveryDate?: string;
+      supplierOrderCode?: string | null;
     }) => {
       const { data } = await apiClient.post<PurchaseRequest>(`/purchasing/requests/${id}/${action}`, body);
       return data;
