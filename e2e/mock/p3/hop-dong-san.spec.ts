@@ -49,7 +49,7 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
   test('từ chối uỷ quyền không gọi callback', async ({ page }) => {
     await mockApi(page, 'post', '/channel/shops/mock/callback', 500, { detail: 'Không được gọi callback' });
     await navigateCallback(page, 'state=s1&error=access_denied');
-    await expect(page.locator('[data-outcome=declined]')).toContainText('Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.');
+    await expect(page.locator('[data-outcome=declined]')).toContainText('Chưa kết nối gian hàng nào.');
     await page.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/channel/shops');
   });
