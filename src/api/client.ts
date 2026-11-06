@@ -39,13 +39,12 @@ export interface ProblemDetails {
 
 /**
  * Câu chung cho mọi 501 `not_implemented` (Documents/21 R13: FE bắt chung, không hiện `detail` thô của BE).
- * Thiếu owner thì bỏ ngoặc, thiếu issue thì chỉ báo chưa làm xong.
+ * Thiếu issue hoặc owner thì chỉ báo chưa làm xong (Documents/21 §18.7.9).
  */
 export function notImplementedMessage(issue?: unknown, owner?: unknown): string {
   const i = typeof issue === 'string' ? issue.trim() : '';
   const o = typeof owner === 'string' ? owner.trim() : '';
-  if (!i) return 'Chức năng này chưa làm xong';
-  return o ? `Chức năng này chưa làm xong: thuộc ${i} (${o})` : `Chức năng này chưa làm xong: thuộc ${i}`;
+  return i && o ? `Chức năng này chưa làm xong: thuộc ${i} (${o})` : 'Chức năng này chưa làm xong';
 }
 
 export const apiClient: AxiosInstance = axios.create({

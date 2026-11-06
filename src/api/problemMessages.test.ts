@@ -78,10 +78,8 @@ describe('not_implemented 501 (R13)', () => {
     expect(getErrorMessage(e)).toBe('Chức năng này chưa làm xong: thuộc commerio-backend#245 (Bình)');
   });
 
-  it('thiếu owner thì bỏ ngoặc, thiếu issue thì câu ngắn', () => {
-    expect(problemMessage(loi({ ...body, issue: 'commerio-backend#245' }))).toBe(
-      'Chức năng này chưa làm xong: thuộc commerio-backend#245',
-    );
+  it('thiếu issue hoặc owner thì câu ngắn', () => {
+    expect(problemMessage(loi({ ...body, issue: 'commerio-backend#245' }))).toBe('Chức năng này chưa làm xong');
     expect(problemMessage(loi(body))).toBe('Chức năng này chưa làm xong');
     expect(notImplementedMessage(undefined, 'Bình')).toBe('Chức năng này chưa làm xong');
     expect(notImplementedMessage('  ', '')).toBe('Chức năng này chưa làm xong');
