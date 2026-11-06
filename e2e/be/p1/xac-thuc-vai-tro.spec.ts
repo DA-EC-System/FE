@@ -177,9 +177,12 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
     await page.goBack({ waitUntil: 'commit' }).catch((e: unknown) => {
       if (!String(e).includes('ERR_ABORTED')) throw e;
     });
+    await page.waitForLoadState('load');
     await expect.poll(() => duongDan(page)).not.toMatch(/^\/c\//);
-    await page.goto(`/c/${congTy1}/catalog`);
-    await expect.poll(() => duongDan(page)).toBe('/login');
+    // Mở lại trong tab mới cùng trình duyệt: tab cũ có thể còn lượt điều hướng của Back chưa xong, cắt ngang goto
+    const tabMoi = await page.context().newPage();
+    await tabMoi.goto(`/c/${congTy1}/catalog`);
+    await expect.poll(() => duongDan(tabMoi)).toBe('/login');
   });
 });
 
