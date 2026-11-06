@@ -30,7 +30,14 @@ test.describe('P2 · Mua hàng', () => {
       await expect(page.getByTestId('request-status')).toContainText('Đã duyệt');
       await expect(page.getByRole('button', { name: 'Duyệt', exact: true })).toHaveCount(0);
 
-      await thaoTac(page, 'Đã đặt NCC');
+      // Đã đặt NCC cần ngày giao dự kiến (BE#243)
+      await page.getByRole('button', { name: 'Đã đặt NCC', exact: true }).click();
+      const datNcc = page.getByRole('dialog');
+      await datNcc.getByRole('button', { name: 'Đã đặt NCC', exact: true }).click();
+      await expect(datNcc.getByText('Nhập ngày NCC hẹn giao', { exact: true })).toBeVisible();
+      await datNcc.getByLabel('Ngày giao dự kiến', { exact: true }).fill('2026-11-20');
+      await datNcc.getByLabel('Mã đơn bên NCC (nếu có)', { exact: true }).fill('PO-778');
+      await datNcc.getByRole('button', { name: 'Đã đặt NCC', exact: true }).click();
       await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Lập phiếu', exact: true }).click();
       await toast(page, 'Đã lập phiếu nhận');
