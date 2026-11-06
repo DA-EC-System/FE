@@ -8,7 +8,7 @@ import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { OrderSource } from '@/types/sales';
-import type { ReportDaily, ReportKind, ReportOverview, ReportShops } from '@/types/report';
+import type { ReportDaily, ReportKind, ReportOverview, ReportSelfApprovals, ReportShops } from '@/types/report';
 
 /** Bỏ trống cả hai thì BE lấy 30 ngày tới hôm nay */
 export interface RangeParams {
@@ -51,6 +51,21 @@ export const useReportShops = (params: RangeParams, enabled = true) => useReport
 /** Cùng truy vấn với `useReportShops` nhưng giữ danh sách cũ khi đổi khoảng ngày: dùng cho ô lọc gian hàng */
 export const useReportShopOptions = (params: RangeParams) => useReport<ReportShops>('shops', params, true, true);
 export const useReportDaily = (params: DailyParams, enabled = true) => useReport<ReportDaily>('daily', params, enabled);
+
+/** Các lần tự duyệt trong khoảng (Documents/25 mục 11: "hiện trên báo cáo CEO") */
+export function useReportSelfApprovals(params: RangeParams & { page: number; pageSize: number }) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: [...reportKeys.all(companyId), 'self-approvals', params] as const,
+    enabled: Boolean(companyId),
+    placeholderData: keepPreviousData,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<ReportSelfApprovals>('/report/self-approvals', { params });
+      return data;
+    },
+  });
+}
 
 /** Tên tệp trong `Content-Disposition`: `filename*=UTF-8''…` trước, rồi `filename="…"` */
 export function filenameFromDisposition(header: string | null | undefined, fallback: string): string {

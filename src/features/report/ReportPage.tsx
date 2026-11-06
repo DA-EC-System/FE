@@ -43,6 +43,7 @@ import { formatCurrency, formatDate } from '@/utils/format';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { ReportFigures, ReportKind, ShopFigures } from '@/types/report';
 import type { OrderSource } from '@/types/sales';
+import { SelfApprovalTable } from './SelfApprovalTable';
 import {
   FIGURE_KEYS,
   FIGURE_LABELS,
@@ -237,6 +238,7 @@ export function ReportPage() {
               </CardContent>
             </Card>
             <ShopTable data={shops.data} loading={shops.isLoading} />
+            <SelfApprovalTable key={`${from}-${to}`} companyId={companyId} range={range} />
           </>
         )
       )}
