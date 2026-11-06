@@ -1,14 +1,14 @@
 import { Check, RefreshCw, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { ShopCallbackResult, ShopConnectionResult } from '@/types/shop';
+import type { ShopCallbackResult } from '@/types/shop';
 import { formatDate } from '@/utils/format';
 import { ResultScreen } from './ConnectOutcome';
-import { connectedOutcome, reconnectSummary } from './connectResult';
+import { connectedOutcome, firstConnection, itemOutcome, reconnectSummary } from './connectResult';
 import { platformLabel, STATUS_LABELS } from './shopSchemas';
 
 interface ConnectedScreenProps {
-  result: ShopCallbackResult | ShopConnectionResult;
+  result: ShopCallbackResult;
   /** Tên sàn API trả, dùng khi gian hàng chưa có platformName */
   platformName?: string;
   /** Không có thì ẩn nút thiết lập (người chỉ xem) */
@@ -21,7 +21,9 @@ interface ConnectedScreenProps {
 /** Màn kết quả khi sàn đã cấp token (.result của Test_UI): thay cho toast rồi tự chuyển trang */
 export function ConnectedScreen({ result, platformName, onSetup, onView, onLater, onAddAnother }: ConnectedScreenProps) {
   const outcome = connectedOutcome(result);
-  const { shop } = result;
+  // previousStatus, remoteSkuCount chỉ có trong shops[] (§18.7.4)
+  const first = firstConnection(result);
+  const { shop } = first;
   const name = shop.shopName;
   const later = (
     <Button variant="outline" onClick={onLater}>
@@ -30,7 +32,12 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
   );
 
   if (outcome === 'multiple') {
-    const shops = (result as ShopCallbackResult).shops;
+    const { shops } = result;
+    const BADGE = {
+      connected: { label: 'Mới', variant: 'success' },
+      reconnected: { label: 'Nối lại', variant: 'secondary' },
+      already_connected: { label: 'Đã có', variant: 'secondary' },
+    } as const;
     return (
       <ResultScreen
         outcome="multiple"
@@ -41,13 +48,19 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         actions={later}
       >
         <ul className="grid w-full divide-y rounded-lg border text-start" data-testid="connected-shops">
-          {shops.map((item) => (
+          {shops.map((item) => {
+            const badge = BADGE[itemOutcome(item)];
+            return (
             <li key={item.shop.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-shop-id={item.shop.id}>
               <div className="grid min-w-0 flex-1 gap-0.5">
                 <span className="truncate font-medium">{item.shop.shopName}</span>
-                <span className="truncate font-mono text-xs text-muted-foreground">{item.shop.externalShopId}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  <span className="font-mono">{item.shop.externalShopId}</span>
+                  {item.previousStatus ? ` · trước: ${STATUS_LABELS[item.previousStatus]}` : ''}
+                  {` · ${item.remoteSkuCount} SKU trên sàn`}
+                </span>
               </div>
-              <Badge variant={item.created ? 'success' : 'secondary'}>{item.created ? 'Mới' : 'Đã có'}</Badge>
+              <Badge variant={badge.variant}>{badge.label}</Badge>
               {item.shop.status === 'connecting' && onSetup ? (
                 <Button size="sm" aria-label={`Thiết lập ${item.shop.shopName}`} onClick={() => onSetup(item.shop.id)}>
                   Thiết lập
@@ -58,7 +71,8 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
                 </Button>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </ResultScreen>
     );
@@ -77,7 +91,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         facts={[
           { label: 'Sàn', value: platform },
           { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
-          ...(result.remoteSkuCount != null ? [{ label: 'Listing tìm thấy', value: result.remoteSkuCount }] : []),
+          { label: 'Listing tìm thấy', value: first.remoteSkuCount },
         ]}
         actions={
           <>
@@ -90,7 +104,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
   }
 
   const expires = shop.refreshExpiresAt ?? shop.accessExpiresAt;
-  const before = result.previousStatus ? STATUS_LABELS[result.previousStatus] : null;
+  const before = first.previousStatus ? STATUS_LABELS[first.previousStatus] : null;
   const facts = [
     { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
     ...(before ? [{ label: 'Trước', value: before }] : []),
@@ -100,7 +114,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
   const view = <Button onClick={() => onView(shop.id)}>Xem {name}</Button>;
 
   if (outcome === 'reconnected') {
-    const caughtUp = reconnectSummary(result.reconnect);
+    const caughtUp = reconnectSummary(first.reconnect);
     return (
       <ResultScreen
         outcome="reconnected"
@@ -129,11 +143,19 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
       tone="neutral"
       icon={Store}
       title={`${name} đã có trong Commerio`}
-      description="Gian hàng đang chạy nên Commerio chỉ cấp lại token, giữ nguyên ghép SKU và lịch sử. Muốn thêm gian hàng khác, đăng xuất trên sàn rồi đăng nhập tài khoản của gian hàng đó."
+      description={
+        shop.status === 'connecting'
+          ? 'Gian hàng đã nối trước đó và chưa xong thiết lập lần đầu. Commerio chỉ cấp lại token; bấm Tiếp tục thiết lập để làm tiếp.'
+          : 'Gian hàng đang chạy nên Commerio chỉ cấp lại token, giữ nguyên ghép SKU và lịch sử. Muốn thêm gian hàng khác, đăng xuất trên sàn rồi đăng nhập tài khoản của gian hàng đó.'
+      }
       facts={facts}
       actions={
         <>
-          {view}
+          {shop.status === 'connecting' && onSetup ? (
+            <Button onClick={() => onSetup(shop.id)}>Tiếp tục thiết lập</Button>
+          ) : (
+            view
+          )}
           {onAddAnother && (
             <Button variant="outline" onClick={onAddAnother}>
               Thêm gian hàng khác

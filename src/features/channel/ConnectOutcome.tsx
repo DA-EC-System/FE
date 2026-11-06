@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { Check, Circle, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import type { CompanyRef } from '@/api/problemMessages';
 
 /* ---------- Các bước đang chạy (.ostep của Test_UI) ---------- */
 
@@ -109,6 +110,22 @@ export function ShopBox({ label, shop, miss }: { label: string; shop: ShopRef; m
       <small className="text-xs text-muted-foreground">{label}</small>
       <b className="font-medium">{shop.name ?? shop.externalShopId}</b>
       <span className="font-mono text-xs text-muted-foreground">{shop.externalShopId}</span>
+    </div>
+  );
+}
+
+/** Một công ty trong màn company_mismatch (§18.7.4); miss: công ty đang mở, không phải công ty bắt đầu kết nối */
+export function CompanyBox({ label, company, miss }: { label: string; company: CompanyRef; miss?: boolean }) {
+  return (
+    <div
+      className={
+        miss
+          ? 'grid min-w-40 flex-1 gap-0.5 rounded-lg border border-warning-border bg-warning-soft px-4 py-3'
+          : 'grid min-w-40 flex-1 gap-0.5 rounded-lg border bg-card px-4 py-3'
+      }
+    >
+      <small className="text-xs text-muted-foreground">{label}</small>
+      <b className="font-medium">{company.name}</b>
     </div>
   );
 }

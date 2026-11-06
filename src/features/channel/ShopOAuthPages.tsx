@@ -127,18 +127,26 @@ export function ShopOAuthCallbackPage() {
 
   // Thử lại đúng sàn và gian hàng vừa bắt đầu; không biết thì mở lại hộp thêm gian hàng
   const retryTarget = target ?? (platform ? { platform } : null);
+  // §18.7.4: không cho nối lại ngay trong công ty sai, chỉ cho chuyển sang công ty đã bắt đầu kết nối
   if (failure.kind === 'company_mismatch') {
+    const { expected } = failure;
     return (
       <ResultScreen
         {...failureScreen(failure)}
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to={ROUTES.selectCompany}>Chọn công ty</Link>
+            <Button variant="outline" onClick={() => navigate(shops, { replace: true })}>
+              Về danh sách gian hàng
             </Button>
-            {retryTarget && (
-              <Button disabled={connector.pending} onClick={() => connector.start(retryTarget)}>
-                Nối lại
+            {expected ? (
+              <Button asChild>
+                <Link to={ROUTES.company.shops(expected.id)} replace state={{ addShop: true }}>
+                  Chuyển sang {expected.name}
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link to={ROUTES.selectCompany}>Chọn công ty</Link>
               </Button>
             )}
           </>

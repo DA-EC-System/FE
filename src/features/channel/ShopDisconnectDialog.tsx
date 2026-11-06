@@ -11,10 +11,7 @@ import { useDisconnectShop } from '@/api/shops.api';
 import { getProblem, type ProblemDetails } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { ROUTES } from '@/router/routes';
-import { formatDateTime } from '@/utils/format';
-import type { OrderStatus } from '@/types/sales';
 import type { Shop, ShopOpenOrder } from '@/types/shop';
-import { ORDER_STATUS } from '@/features/sales/shared';
 import { isUsable, platformLabel } from './shopSchemas';
 
 /** Chữ phải gõ để xác nhận ngắt */
@@ -98,8 +95,6 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
                 <TableRow>
                   <TableHead>Mã đơn</TableHead>
                   <TableHead>Mã đơn sàn</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Tạo lúc</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,9 +105,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
                         {o.code}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{o.platformOrderId ?? '—'}</TableCell>
-                    <TableCell>{ORDER_STATUS[o.status as OrderStatus]?.label ?? o.status}</TableCell>
-                    <TableCell className="whitespace-nowrap">{o.createdAt ? formatDateTime(o.createdAt) : '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">{o.externalOrderId ?? '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -120,7 +113,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
           </div>
         )}
         {blocked.count != null && blocked.count > shown && shown > 0 && (
-          <p className="text-sm text-muted-foreground">Hiện {shown} đơn đầu, mở đơn bán để xem đủ.</p>
+          <p className="text-sm text-muted-foreground">Hiện {shown} đơn cũ nhất, mở đơn bán để xem đủ.</p>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

@@ -16,22 +16,29 @@ const navigateCallback = (page: Page, query: string) =>
 test.describe('FE #102, #103 · Hợp đồng sàn', () => {
   test.beforeEach(async ({ page }) => dangNhap(page, 'ceo@commerio.vn', 'ceo'));
 
-  test('chuyển đủ query, callback một shop đang thiết lập mở wizard dù không tạo mới', async ({ page }) => {
+  test('chuyển đủ query, callback một shop đã có đang thiết lập thì mời làm tiếp (§18.7.4)', async ({ page }) => {
     await page.evaluate(() => {
       const bridge = (window as unknown as { __msw: MswHandlerBridge }).__msw;
       bridge.worker.use(bridge.http.post('*/api/v1/channel/shops/mock/callback', async ({ request }) => {
         (window as unknown as { __callbackBody: unknown }).__callbackBody = await request.json();
-        const item = { shop: { id: 'shp-001', status: 'connecting', shopName: 'Shop thử' }, created: false, reconnect: null };
+        const item = {
+          shop: { id: 'shp-001', status: 'connecting', shopName: 'Shop thử' },
+          created: false,
+          reconnect: null,
+          previousStatus: 'connecting',
+          remoteSkuCount: 3,
+        };
         return bridge.HttpResponse.json({ ...item, shops: [item] });
       }));
     });
     await navigateCallback(page, 'state=s1&code=abc&shop_id=123&main_account_id=456&extra=a%2Bb');
-    // Màn kết quả thay cho tự chuyển trang: gian hàng đang thiết lập thì mời thiết lập ngay
-    const ketQua = page.locator('[data-outcome=connected]');
-    await expect(ketQua).toContainText('Đã nối Shop thử');
+    // created: false là gian hàng đã có (bảng §18.7.4); còn đang thiết lập thì mời làm tiếp
+    const ketQua = page.locator('[data-outcome=already_connected]');
+    await expect(ketQua).toContainText('Shop thử đã có trong Commerio');
+    await expect(ketQua).toContainText('chưa xong thiết lập lần đầu');
     // shp-001 của mock đang active nên trang thiết lập chuyển ngay sang trang gian hàng: chờ sự kiện điều hướng, không đọc URL sau đó
     const toSetup = page.waitForURL(/\/shops\/shp-001\/setup$/);
-    await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
+    await ketQua.getByRole('button', { name: 'Tiếp tục thiết lập', exact: true }).click();
     await toSetup;
     expect(await page.evaluate(() => (window as unknown as { __callbackBody: unknown }).__callbackBody)).toEqual({
       state: 's1',

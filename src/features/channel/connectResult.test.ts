@@ -1,37 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import type { Shop } from '@/types/shop';
-import { connectedOutcome, reconnectSummary } from './connectResult';
+import type { Shop, ShopCallbackResult, ShopConnectionResult, ShopStatus } from '@/types/shop';
+import { connectedOutcome, firstConnection, reconnectSummary } from './connectResult';
 
 const shop = { id: 'shp-x', shopName: 'Shop thử', status: 'active' } as Shop;
 const connecting = { ...shop, status: 'connecting' } as Shop;
 
+const item = (over: Partial<ShopConnectionResult> = {}): ShopConnectionResult => ({
+  shop,
+  created: false,
+  reconnect: null,
+  previousStatus: 'active',
+  remoteSkuCount: 0,
+  ...over,
+});
+/** Gốc response không có previousStatus, remoteSkuCount (§18.7.4) */
+const wrap = (...items: ShopConnectionResult[]): ShopCallbackResult => ({
+  shop: items[0].shop,
+  created: items[0].created,
+  reconnect: items[0].reconnect,
+  shops: items,
+});
+const before = (previousStatus: ShopStatus | null) => wrap(item({ previousStatus }));
+
 describe('connectedOutcome', () => {
-  it('nhiều gian hàng là multiple', () => {
-    const item = { shop: connecting, created: true, reconnect: null };
-    expect(connectedOutcome({ ...item, shops: [item, item] })).toBe('multiple');
+  it('nhiều gian hàng là multiple, kiểm trước created', () => {
+    const fresh = item({ shop: connecting, created: true, previousStatus: null });
+    expect(connectedOutcome(wrap(fresh, fresh))).toBe('multiple');
   });
 
-  it('tạo mới hoặc còn đang thiết lập thì mời thiết lập', () => {
-    expect(connectedOutcome({ shop: connecting, created: true, reconnect: null })).toBe('connected');
-    expect(connectedOutcome({ shop: connecting, created: false, reconnect: null, previousStatus: 'connecting' })).toBe(
-      'connected',
-    );
+  it('created là connected', () => {
+    expect(connectedOutcome(wrap(item({ shop: connecting, created: true, previousStatus: null })))).toBe('connected');
+  });
+
+  it('created false thì là đã có, kể cả gian hàng còn đang thiết lập', () => {
+    expect(connectedOutcome(before('active'))).toBe('already_connected');
+    expect(connectedOutcome(wrap(item({ shop: connecting, previousStatus: 'connecting' })))).toBe('already_connected');
   });
 
   it('trước đó mất quyền hoặc đã ngắt là nối lại', () => {
-    expect(connectedOutcome({ shop, created: false, reconnect: null, previousStatus: 'needs_reauth' })).toBe('reconnected');
-    expect(connectedOutcome({ shop, created: false, reconnect: null, previousStatus: 'disconnected' })).toBe('reconnected');
+    expect(connectedOutcome(before('needs_reauth'))).toBe('reconnected');
+    expect(connectedOutcome(before('disconnected'))).toBe('reconnected');
   });
 
-  it('đang chạy thì chỉ cấp lại token', () => {
-    expect(connectedOutcome({ shop, created: false, reconnect: null, previousStatus: 'active' })).toBe('already_connected');
-  });
-
-  it('BE chưa trả previousStatus thì đoán theo phần bù việc', () => {
-    expect(connectedOutcome({ shop, created: false, reconnect: { jobsRun: 1, relisted: 0, pulledFrom: null } })).toBe(
-      'reconnected',
-    );
-    expect(connectedOutcome({ shop, created: false, reconnect: null })).toBe('already_connected');
+  it('đọc previousStatus trong shops[], không đọc ở gốc', () => {
+    const root = { ...before('needs_reauth'), previousStatus: 'active' } as ShopCallbackResult;
+    expect(connectedOutcome(root)).toBe('reconnected');
+    expect(firstConnection(wrap(item({ remoteSkuCount: 7 }))).remoteSkuCount).toBe(7);
   });
 });
 

@@ -47,6 +47,8 @@ const MESSAGES: Record<string, string> = {
   shop_connected_elsewhere: 'Gian hàng này đã kết nối ở công ty khác.',
   marketplace_unsupported: 'Sàn này chưa hỗ trợ thao tác này.',
   shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
+  // §18.7.11; có `expected`, `actual` thì câu nêu tên hai công ty, xem companyMismatchMessage
+  company_mismatch: 'Bạn bắt đầu kết nối ở một công ty khác với công ty đang mở. Chuyển về công ty đó rồi kết nối lại.',
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
@@ -126,7 +128,7 @@ interface ShopRef {
 
 const shopRefLabel = (ref: ShopRef) => ref.name ?? ref.externalShopId;
 
-function isShopRef(value: unknown): value is ShopRef {
+export function isShopRef(value: unknown): value is ShopRef {
   return typeof value === 'object' && value !== null && typeof (value as ShopRef).externalShopId === 'string';
 }
 
@@ -137,6 +139,30 @@ function isShopRef(value: unknown): value is ShopRef {
 export function shopMismatchMessage(expected: unknown, actual: unknown): string {
   if (!isShopRef(expected) || !isShopRef(actual)) return MESSAGES.shop_mismatch;
   return `Bạn vừa đăng nhập ${shopRefLabel(actual)}, không phải ${shopRefLabel(expected)}. Đăng xuất trên sàn, đăng nhập đúng tài khoản rồi kết nối lại.`;
+}
+
+/** Công ty trong problem body 409 company_mismatch (§18.7.4) */
+export interface CompanyRef {
+  id: string;
+  name: string;
+}
+
+export function isCompanyRef(value: unknown): value is CompanyRef {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as CompanyRef).id === 'string' &&
+    typeof (value as CompanyRef).name === 'string'
+  );
+}
+
+/**
+ * Câu báo khi công ty trong state khác công ty đang mở lúc sàn trả về (§18.7.11 `company_mismatch`).
+ * `expected` là công ty bắt đầu kết nối, `actual` là công ty đang mở; thiếu thì dùng câu chung.
+ */
+export function companyMismatchMessage(expected: unknown, actual: unknown): string {
+  if (!isCompanyRef(expected) || !isCompanyRef(actual)) return MESSAGES.company_mismatch;
+  return `Bạn bắt đầu kết nối ở công ty ${expected.name} nhưng đang mở ${actual.name}. Chuyển sang ${expected.name} rồi kết nối lại.`;
 }
 
 /**
@@ -166,7 +192,9 @@ export function problemMessage(error: unknown): string {
       ? openOrdersMessage(problem?.openOrders)
       : code === 'shop_mismatch'
         ? shopMismatchMessage(problem?.expected, problem?.actual)
-        : (code && MESSAGES[code]) || getErrorMessage(error);
+        : code === 'company_mismatch'
+          ? companyMismatchMessage(problem?.expected, problem?.actual)
+          : (code && MESSAGES[code]) || getErrorMessage(error);
   // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
   return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
 }

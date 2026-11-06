@@ -2,22 +2,37 @@ import type { ShopCallbackResult, ShopConnectionResult, ShopReconnectSummary } f
 import { formatDateTime } from '@/utils/format';
 
 /**
- * Màn kết quả sau khi sàn cấp token (OAuth hay dán token):
- * connected: gian hàng mới hoặc còn đang thiết lập, mời thiết lập ngay;
- * reconnected: gian hàng mất quyền hay đã ngắt nay nối lại;
- * already_connected: gian hàng đang chạy, chỉ cấp lại token;
- * multiple: một lần uỷ quyền trả nhiều gian hàng (tài khoản chính).
+ * Màn kết quả sau khi sàn cấp token (OAuth hay dán token), theo bảng Documents/21 §18.7.4:
+ * multiple: một lần uỷ quyền trả nhiều gian hàng (kiểm trước);
+ * connected: created = true, gian hàng mới, mời thiết lập;
+ * already_connected: created = false, gian hàng đã có, chỉ cấp lại token;
+ * reconnected: một dạng của already_connected khi trước đó mất quyền hoặc đã ngắt.
  */
 export type ConnectedOutcome = 'connected' | 'reconnected' | 'already_connected' | 'multiple';
 
-export function connectedOutcome(result: ShopCallbackResult | ShopConnectionResult): ConnectedOutcome {
-  if ('shops' in result && result.shops.length > 1) return 'multiple';
-  const { shop, created, reconnect, previousStatus } = result;
-  if (created || shop.status === 'connecting') return 'connected';
-  // BE cũ chưa trả previousStatus: có phần bù việc thì là nối lại
-  if (previousStatus === 'needs_reauth' || previousStatus === 'disconnected') return 'reconnected';
-  if (previousStatus == null && reconnect) return 'reconnected';
+/** Phần tử đầu của shops[]: `previousStatus`, `remoteSkuCount` chỉ có ở đây, không ở gốc response */
+export function firstConnection(result: ShopCallbackResult): ShopConnectionResult {
+  return (
+    result.shops[0] ?? {
+      shop: result.shop,
+      created: result.created,
+      reconnect: result.reconnect,
+      previousStatus: null,
+      remoteSkuCount: 0,
+    }
+  );
+}
+
+/** Màn cho một phần tử shops[] */
+export function itemOutcome(item: ShopConnectionResult): Exclude<ConnectedOutcome, 'multiple'> {
+  if (item.created) return 'connected';
+  if (item.previousStatus === 'needs_reauth' || item.previousStatus === 'disconnected') return 'reconnected';
   return 'already_connected';
+}
+
+export function connectedOutcome(result: ShopCallbackResult): ConnectedOutcome {
+  if (result.shops.length > 1) return 'multiple';
+  return itemOutcome(firstConnection(result));
 }
 
 /** Việc BE đã bù khi nối lại, bỏ phần bằng 0 */

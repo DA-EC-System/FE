@@ -28,6 +28,25 @@ describe('shop_has_open_orders (§18.6.1)', () => {
   });
 });
 
+describe('company_mismatch (§18.7.11)', () => {
+  it('nêu tên hai công ty', () => {
+    const e = loi({
+      status: 409,
+      code: 'company_mismatch',
+      expected: { id: 'cmp-001', name: 'ABC Fashion' },
+      actual: { id: 'cmp-002', name: 'Gạo Miền Tây' },
+    });
+    expect(problemMessage(e)).toBe(
+      'Bạn bắt đầu kết nối ở công ty ABC Fashion nhưng đang mở Gạo Miền Tây. Chuyển sang ABC Fashion rồi kết nối lại.',
+    );
+  });
+  it('thiếu expected hoặc actual thì dùng câu chung', () => {
+    expect(problemMessage(loi({ status: 409, code: 'company_mismatch' }))).toBe(
+      'Bạn bắt đầu kết nối ở một công ty khác với công ty đang mở. Chuyển về công ty đó rồi kết nối lại.',
+    );
+  });
+});
+
 describe('shop_mismatch (§18.4)', () => {
   it('có expected và actual thì nêu tài khoản vừa đăng nhập; tên null thì dùng mã gian hàng', () => {
     const e = loi({

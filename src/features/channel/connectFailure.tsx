@@ -1,8 +1,8 @@
 import { ArrowLeftRight, Building2, LockKeyhole, Timer, UserRoundX, X } from 'lucide-react';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { companyMismatchMessage, isCompanyRef, isShopRef, problemMessage, type CompanyRef } from '@/api/problemMessages';
 import { platformLabel } from './shopSchemas';
-import { ShopBox, type ResultScreenProps, type ShopRef } from './ConnectOutcome';
+import { CompanyBox, ShopBox, type ResultScreenProps, type ShopRef } from './ConnectOutcome';
 
 /* ---------- Tình huống thất bại khi sàn trả về ---------- */
 
@@ -12,7 +12,7 @@ export type ConnectFailure =
   | { kind: 'state_invalid' }
   | { kind: 'mismatch'; expected?: ShopRef; actual?: ShopRef }
   | { kind: 'elsewhere' }
-  | { kind: 'company_mismatch' }
+  | { kind: 'company_mismatch'; expected?: CompanyRef; actual?: CompanyRef }
   | { kind: 'error'; message: string };
 
 /** Nơi người dùng bấm uỷ quyền ngoài Commerio (§18.6.3): chỉ để hiện chữ, không rẽ nhánh luồng */
@@ -26,11 +26,18 @@ export function failureFromError(e: unknown): ConnectFailure {
     case 'invalid_state':
       return { kind: 'state_invalid' };
     case 'shop_mismatch':
-      return { kind: 'mismatch', expected: p.expected, actual: p.actual };
+      return {
+        kind: 'mismatch',
+        expected: isShopRef(p.expected) ? p.expected : undefined,
+        actual: isShopRef(p.actual) ? p.actual : undefined,
+      };
     case 'shop_connected_elsewhere':
       return { kind: 'elsewhere' };
     case 'company_mismatch':
-      return { kind: 'company_mismatch' };
+      return {
+        kind: 'company_mismatch',
+        ...(isCompanyRef(p.expected) && isCompanyRef(p.actual) ? { expected: p.expected, actual: p.actual } : {}),
+      };
     default:
       return { kind: 'error', message: problemMessage(e) };
   }
@@ -105,7 +112,24 @@ export function failureScreen(failure: ConnectFailure): Omit<ResultScreenProps, 
         ),
       };
     case 'company_mismatch':
-      return { ...NO_COMPANY_SCREEN, outcome: 'company_mismatch' };
+      return {
+        outcome: 'company_mismatch',
+        tone: 'warn',
+        icon: Building2,
+        title:
+          failure.expected && failure.actual
+            ? `Bạn đang mở ${failure.actual.name}, không phải ${failure.expected.name}`
+            : 'Bạn đã đổi công ty giữa chừng',
+        description: `${companyMismatchMessage(failure.expected, failure.actual)} Commerio không lưu gian hàng nào, token vừa nhận đã bỏ.`,
+        children:
+          failure.expected && failure.actual ? (
+            <div className="flex w-full flex-wrap items-stretch justify-center gap-3 text-start" data-testid="company-compare">
+              <CompanyBox label="Bắt đầu kết nối ở" company={failure.expected} />
+              <ArrowLeftRight className="size-5 self-center text-muted-foreground" aria-hidden />
+              <CompanyBox label="Đang mở" company={failure.actual} miss />
+            </div>
+          ) : undefined,
+      };
     case 'error':
       return {
         outcome: 'error',

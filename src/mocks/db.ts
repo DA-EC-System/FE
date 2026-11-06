@@ -6,7 +6,7 @@ import { mockCapabilities } from './shopPlatforms';
  */
 
 import type { Company } from '@/types/company';
-import type { Shop } from '@/types/shop';
+import type { OpeningStockMode, Shop } from '@/types/shop';
 import type { Account, MembershipStatus } from '@/types/auth';
 import type { PlatformAuditLog } from '@/types/audit';
 import type { PermissionDef } from '@/types/identity';
@@ -77,7 +77,31 @@ const companies: Company[] = [
 ];
 
 /** channel.shops; listingCount tính từ channel_listings khi trả về */
-export type MockShop = Omit<Shop, 'listingCount' | 'returnWindowDays' | 'openingStocktake'> & {
+/** Lượt thiết lập lần đầu đã gửi: Shop.setup suy ra theo thời gian (mock chạy việc nền giả) */
+export interface MockSetupRun {
+  mode: OpeningStockMode;
+  /** Lúc POST /setup (ms) */
+  at: number;
+  /** Lúc bắt đầu đẩy tồn, đặt khi bước trước xong */
+  pushStartedAt?: number;
+  unmatchedCount: number;
+}
+
+/** Trường suy ra lúc trả (toShop), không lưu trên bản ghi mock */
+type DerivedShopFields =
+  | 'listingCount'
+  | 'returnWindowDays'
+  | 'openingStocktake'
+  | 'orders7d'
+  | 'pendingOrderCount'
+  | 'statusChangedAt'
+  | 'feeConfigVersion'
+  | 'setup';
+
+export type MockShop = Omit<Shop, DerivedShopFields> & {
+  /** Lần đổi status gần nhất; chưa có thì lấy createdAt (mất quyền, đã ngắt lấy updatedAt) */
+  statusChangedAt?: string;
+  setupRun?: MockSetupRun | null;
   /** Sàn giả lập đang lỗi tạm: đẩy listing nằm ở "Đang đẩy" và thử lại */
   outage?: boolean;
   returnWindowDays?: number | null;

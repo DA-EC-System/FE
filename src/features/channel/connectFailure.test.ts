@@ -22,6 +22,19 @@ describe('Màn kết quả khi sàn trả về (§18.4)', () => {
     );
     expect(failureScreen(mismatch).title).toBe('Bạn vừa đăng nhập 2, không phải Shop A');
   });
+  it('company_mismatch giữ tên hai công ty (§18.7.4)', () => {
+    const f = failureFromError(
+      loi({
+        status: 409,
+        code: 'company_mismatch',
+        expected: { id: 'cmp-001', name: 'ABC' },
+        actual: { id: 'cmp-002', name: 'XYZ' },
+      }),
+    );
+    expect(f).toEqual({ kind: 'company_mismatch', expected: { id: 'cmp-001', name: 'ABC' }, actual: { id: 'cmp-002', name: 'XYZ' } });
+    expect(failureScreen(f).title).toBe('Bạn đang mở XYZ, không phải ABC');
+    expect(failureFromError(loi({ status: 409, code: 'company_mismatch' }))).toEqual({ kind: 'company_mismatch' });
+  });
   it('lỗi khác hiện câu báo của mã lỗi', () => {
     const f = failureFromError(loi({ status: 502, code: 'marketplace_unavailable', detail: 'Sàn không trả lời' }));
     expect(f.kind).toBe('error');

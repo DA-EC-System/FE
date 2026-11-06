@@ -75,9 +75,22 @@ test.describe('P3-BE · Ngắt gian hàng còn đơn chưa xong (§18.6.1)', () 
     await moNgat();
     const res = await disconnect;
     expect(res.status()).toBe(409);
-    const body = (await res.json()) as { code?: string; openOrders?: number };
+    const body = (await res.json()) as {
+      code?: string;
+      openOrders?: number;
+      orders?: { id: string; code: string; externalOrderId: string | null }[];
+    };
     expect(body.code).toBe('shop_has_open_orders');
     expect(body.openOrders).toBeGreaterThanOrEqual(1);
+    // §18.7: mỗi đơn có id, code, externalOrderId; dòng đầu mở đúng đơn
+    const blockedRows = page.locator('[data-testid=disconnect-blocked] tbody tr[data-order-id]');
+    if (body.orders?.length) {
+      expect(Object.keys(body.orders[0]).sort()).toEqual(expect.arrayContaining(['code', 'externalOrderId', 'id']));
+      await expect(blockedRows.first().getByRole('link', { name: body.orders[0].code, exact: true })).toHaveAttribute(
+        'href',
+        `/c/${companyId}/sales/orders/${body.orders[0].id}`,
+      );
+    }
 
     const blocked = page.locator('[data-testid=disconnect-blocked]');
     await thayChu(blocked, `Còn ${body.openOrders} đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.`);

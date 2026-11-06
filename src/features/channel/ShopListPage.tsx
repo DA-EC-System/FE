@@ -182,7 +182,7 @@ export function ShopListPage() {
         id: 'orders7d',
         header: 'Đơn 7 ngày',
         meta: { className: 'w-24 text-right' },
-        cell: ({ row }) => row.original.orders7d ?? <span className="text-muted-foreground">—</span>,
+        cell: ({ row }) => row.original.orders7d,
       },
       {
         id: 'feeConfig',
@@ -191,7 +191,7 @@ export function ShopListPage() {
         cell: ({ row }) => {
           const s = row.original;
           if (s.status === 'disconnected') return <span className="text-muted-foreground">Không áp</span>;
-          return s.feeConfigVersion ? `Bản ${s.feeConfigVersion}` : <span className="text-muted-foreground">—</span>;
+          return s.feeConfigVersion != null ? `Bản ${s.feeConfigVersion}` : <span className="text-muted-foreground">—</span>;
         },
       },
       {

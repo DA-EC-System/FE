@@ -87,11 +87,22 @@ export function useShopPlatforms(options: { enabled?: boolean } = {}) {
   });
 }
 
-export function useShop(id: string) {
+/**
+ * `poll` trả số ms giữa hai lần đọc lại, false để dừng; dùng cho tiến độ thiết lập (§18.7.7).
+ * Tab ẩn thì ngừng đọc, hiện lại thì đọc ngay.
+ */
+export function useShop(id: string, poll?: (shop: Shop | undefined) => number | false) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.detail(companyId, id),
     enabled: Boolean(companyId && id),
+    ...(poll
+      ? {
+          refetchInterval: (query: { state: { data?: Shop } }) => poll(query.state.data),
+          refetchIntervalInBackground: false,
+          refetchOnWindowFocus: 'always' as const,
+        }
+      : {}),
     queryFn: async () => {
       const { data } = await apiClient.get<Shop>(`/channel/shops/${id}`);
       return data;
