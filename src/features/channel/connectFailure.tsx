@@ -12,6 +12,7 @@ export type ConnectFailure =
   | { kind: 'state_invalid' }
   | { kind: 'mismatch'; expected?: ShopRef; actual?: ShopRef }
   | { kind: 'elsewhere' }
+  | { kind: 'company_mismatch' }
   | { kind: 'error'; message: string };
 
 /** Nơi người dùng bấm uỷ quyền ngoài Commerio (§18.6.3): chỉ để hiện chữ, không rẽ nhánh luồng */
@@ -28,6 +29,8 @@ export function failureFromError(e: unknown): ConnectFailure {
       return { kind: 'mismatch', expected: p.expected, actual: p.actual };
     case 'shop_connected_elsewhere':
       return { kind: 'elsewhere' };
+    case 'company_mismatch':
+      return { kind: 'company_mismatch' };
     default:
       return { kind: 'error', message: problemMessage(e) };
   }
@@ -101,6 +104,8 @@ export function failureScreen(failure: ConnectFailure): Omit<ResultScreenProps, 
           </ol>
         ),
       };
+    case 'company_mismatch':
+      return { ...NO_COMPANY_SCREEN, outcome: 'company_mismatch' };
     case 'error':
       return {
         outcome: 'error',

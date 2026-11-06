@@ -26,6 +26,8 @@ export interface ShopPlatform {
   capabilities: ShopCapabilities;
   /** Cách kết nối sàn cho phép; BE chưa trả thì coi như chỉ có oauth */
   methods?: ShopConnectMethod[];
+  /** Lý do chưa kết nối được khi connectable = false (ví dụ chưa cấu hình app) */
+  reason?: string | null;
 }
 
 /** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
@@ -65,6 +67,14 @@ export interface Shop {
   pendingJobs: number;
   /** Số biến thể đã ghép SKU sàn */
   listingCount: number;
+  /** Đơn tạo trong 7 ngày gần nhất; BE chưa trả thì hiện "—" */
+  orders7d?: number;
+  /** Đơn chưa xong (chưa giao xong, chưa huỷ): còn thì không ngắt được */
+  pendingOrderCount?: number;
+  /** Lúc chuyển sang trạng thái hiện tại (lịch sử đủ ở GET /channel/shops/:id) */
+  statusChangedAt?: string | null;
+  /** Bản cấu hình phí đang áp; null khi chưa có (BE#230) */
+  feeConfigVersion?: string | null;
   /** Số ngày đổi trả đặt ở thiết lập; null khi sàn tự báo hạn (capabilities.returnWindow = platform_status) */
   returnWindowDays: number | null;
   /** Phiếu kiểm kê đầu kỳ chưa ghi sổ; khác null thì trang gian hàng hiện banner dẫn tới phiếu (§18.6.2) */
@@ -112,6 +122,10 @@ export interface ShopConnectionResult {
   created: boolean;
   /** Có khi kết nối lại gian hàng đã có */
   reconnect: ShopReconnectSummary | null;
+  /** Trạng thái trước khi uỷ quyền lần này; null khi tạo mới */
+  previousStatus?: ShopStatus | null;
+  /** Số SKU tìm thấy trên sàn ngay sau khi nối */
+  remoteSkuCount?: number;
 }
 
 /**
@@ -278,6 +292,15 @@ export interface ShopDisconnectInput {
   version: number;
   /** Đặt tồn trên sàn về 0 trước khi ngắt (chỉ làm được khi token còn dùng được) */
   zeroStock: boolean;
+}
+
+/** Một đơn chưa xong trả kèm lỗi 409 shop_has_open_orders (tối đa 20 đơn) */
+export interface ShopOpenOrder {
+  id: string;
+  code: string;
+  platformOrderId: string | null;
+  status: string;
+  createdAt?: string;
 }
 
 export interface ShopReconnectSummary {

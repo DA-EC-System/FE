@@ -58,7 +58,12 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     const san = danhSachSan.items.find((p) => p.platform === PLATFORM);
     test.skip(!san?.methods?.includes('token'), `Sàn ${PLATFORM} không cho dán token`);
 
-    await page.getByRole('button', { name: `Dán token ${san!.name}`, exact: true }).click();
+    const section = page.locator('[data-testid=connect-section]');
+    await section.getByRole('button', { name: san!.name, exact: true }).click();
+    // Sàn có cả uỷ quyền thì chọn cách dán token; chỉ token thì không có lựa chọn
+    const radioToken = section.getByRole('radio', { name: /^Dán token/ });
+    if ((await radioToken.count()) > 0) await radioToken.click();
+    await section.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
     const form = page.locator('[data-testid=token-form]');
     await form.getByLabel('Access token', { exact: true }).fill(TOKEN);
     const ketNoi = page.waitForResponse(laApi('POST', new RegExp(`/channel/shops/${PLATFORM}/token$`)));
@@ -72,13 +77,15 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
 
     const motShopMoi = ketQua.shops.length === 1 && ketQua.shop.status === 'connecting';
     if (!motShopMoi) {
-      // Nhiều gian hàng hoặc gian hàng đã có: ở lại danh sách
+      // Nhiều gian hàng hoặc gian hàng đã có: màn kết quả trong hộp, ở lại danh sách
+      await expect(section.locator('[data-outcome]')).toBeVisible();
       await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops`);
       test.skip(true, 'Token không ra đúng một gian hàng mới đang thiết lập; ngắt gian hàng cũ rồi chạy lại để thử wizard');
       return;
     }
 
     const preview = page.waitForResponse(laApi('GET', new RegExp(`/channel/shops/${ketQua.shop.id}/setup$`)));
+    await section.locator('[data-outcome=connected]').getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}/setup`);
     const xemTruoc = (await (await preview).json()) as { proposedCutoffAt: string; firstShopOfCompany: boolean };
     expect(typeof xemTruoc.proposedCutoffAt).toBe('string');

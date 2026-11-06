@@ -16,6 +16,7 @@ import type {
   ShopCallbackResult,
   ShopConnectionResult,
   ShopDisconnectInput,
+  ShopOpenOrder,
   ShopReconnectSummary,
   ShopSetupInput,
   ShopSetupPreview,
@@ -60,7 +61,20 @@ export function toShop(s: MockShop): Shop {
     returnWindowDays: s.returnWindowDays ?? null,
     openingStocktake: openingStocktakeOf(s),
     listingCount: channel.listings.filter((l) => l.shopId === s.id && onPlatform(l.status)).length,
+    orders7d: salesOrders.filter((o) => o.shopId === s.id && Date.now() - Date.parse(o.createdAt) < WEEK_MS).length,
+    pendingOrderCount: openOrdersOf(s.id).length,
+    // Mock không giữ lịch sử trạng thái: mất quyền, đã ngắt lấy lần sửa cuối
+    statusChangedAt: s.status === 'needs_reauth' || s.status === 'disconnected' ? s.updatedAt : null,
+    // BE#230 chưa có bản cấu hình phí theo gian hàng
+    feeConfigVersion: null,
   };
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Đơn của gian hàng chưa xong: chưa hoàn tất, chưa huỷ */
+function openOrdersOf(shopId: string) {
+  return salesOrders.filter((o) => o.shopId === shopId && o.status !== 'completed' && o.status !== 'cancelled');
 }
 
 /** §18.6.2: phiếu kiểm kê đầu kỳ còn chưa ghi sổ (nháp, chờ duyệt, bị từ chối); ghi sổ hoặc huỷ thì thôi */
@@ -546,6 +560,7 @@ function attachGranted(
   if (idx !== -1) {
     const current = db.shops[idx];
     const before = shopSnapshot(current);
+    const previousStatus = current.status;
     let reconnect: ShopReconnectSummary | null = null;
     // Dùng lại bản ghi cũ: active, connecting chỉ gia hạn token; mất quyền hoặc đã ngắt thì đi qua kết nối lại
     if (current.status === 'needs_reauth' || current.status === 'disconnected') {
@@ -563,7 +578,13 @@ function attachGranted(
       version: current.version + 1,
     });
     writeCompanyLog(actor, 'update', shopEntity(current), before, shopSnapshot(current));
-    return HttpResponse.json<ShopConnectionResult>({ shop: toShop(current), created: false, reconnect });
+    return HttpResponse.json<ShopConnectionResult>({
+      shop: toShop(current),
+      created: false,
+      reconnect,
+      previousStatus,
+      remoteSkuCount: channel.remoteSkus[current.id]?.length ?? 0,
+    });
   }
   const shop: MockShop = {
     id: rid('shp'),
@@ -588,7 +609,16 @@ function attachGranted(
   db.shops.unshift(shop);
   channel.seedRemoteForNewShop(shop.id);
   writeCompanyLog(actor, 'create', shopEntity(shop), null, shopSnapshot(shop));
-  return HttpResponse.json<ShopConnectionResult>({ shop: toShop(shop), created: true, reconnect: null }, { status: 201 });
+  return HttpResponse.json<ShopConnectionResult>(
+    {
+      shop: toShop(shop),
+      created: true,
+      reconnect: null,
+      previousStatus: null,
+      remoteSkuCount: channel.remoteSkus[shop.id]?.length ?? 0,
+    },
+    { status: 201 },
+  );
 }
 
 export const shopHandlers = [
@@ -729,11 +759,20 @@ export const shopHandlers = [
     const step = checkTransition(shopMachine, current.status, 'disconnect', guard.value, shopRecord(current));
     if (!step.ok) return step.response;
     // §18.6.1, commerio-backend#207: còn đơn chưa xong thì không cho ngắt, kèm số đơn
-    const openOrders = salesOrders.filter(
-      (o) => o.shopId === current.id && o.status !== 'completed' && o.status !== 'cancelled',
-    ).length;
-    if (openOrders > 0) {
-      return problem(409, 'Gian hàng còn đơn chưa xong', { code: 'shop_has_open_orders', openOrders });
+    const pending = openOrdersOf(current.id);
+    if (pending.length > 0) {
+      const orders: ShopOpenOrder[] = pending.slice(0, 20).map((o) => ({
+        id: o.id,
+        code: o.code,
+        platformOrderId: o.externalOrderId,
+        status: o.status,
+        createdAt: o.createdAt,
+      }));
+      return problem(409, 'Gian hàng còn đơn chưa xong', {
+        code: 'shop_has_open_orders',
+        openOrders: pending.length,
+        orders,
+      });
     }
     if (zeroStock && !usable(current)) {
       return problem(422, 'Không đặt tồn về 0 được', {

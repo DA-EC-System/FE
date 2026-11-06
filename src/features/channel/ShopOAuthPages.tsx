@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { Check, ShieldCheck, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
@@ -10,12 +9,14 @@ import { Label } from '@/components/ui/label';
 import { useShopCallback } from '@/api/shops.api';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
-import type { Marketplace } from '@/types/shop';
+import type { Marketplace, ShopCallbackResult } from '@/types/shop';
+import { useCan } from '@/hooks/usePermission';
+import { PERMISSIONS } from '@/utils/permissions';
 import { platformLabel } from './shopSchemas';
 import { OAUTH_COMPANY_KEY, OAUTH_TARGET_KEY, readConnectTarget, useStartConnect } from './useStartConnect';
 import { ConnectSteps, ResultScreen } from './ConnectOutcome';
 import { NO_COMPANY_SCREEN, failureFromError, failureScreen, type ConnectFailure } from './connectFailure';
-import { connectedToast } from './connectResult';
+import { ConnectedScreen } from './ConnectedScreen';
 
 /**
  * redirect_uri cố định của sàn (/channel/:platform/callback): chuyển vào khu của công ty đã bắt đầu
@@ -65,6 +66,8 @@ export function ShopOAuthCallbackPage() {
   const callback = useShopCallback();
   const connector = useStartConnect();
   const [failure, setFailure] = useState<ConnectFailure | null>(null);
+  const [connected, setConnected] = useState<ShopCallbackResult | null>(null);
+  const can = useCan();
   const [target] = useState(readConnectTarget);
   // StrictMode chạy effect hai lần; code chỉ dùng được một lần
   const sent = useRef(false);
@@ -91,17 +94,24 @@ export function ShopOAuthCallbackPage() {
     }
     callback
       .mutateAsync({ platform, state, params: Object.fromEntries([...params].filter(([key]) => key !== 'state')) })
-      .then((result) => {
-        toast.success(connectedToast(result));
-        // Một gian hàng mới đang thiết lập thì mở wizard; nhiều gian hàng thì về danh sách (§18.4)
-        if (result.shops.length === 1 && result.shop.status === 'connecting') {
-          navigate(ROUTES.company.shopSetup(companyId, result.shop.id), { replace: true });
-          return;
-        }
-        navigate(ROUTES.company.shops(companyId), { replace: true });
-      })
+      // Hiện màn kết quả, người dùng chọn thiết lập ngay hay để sau (§18.4)
+      .then(setConnected)
       .catch((e) => setFailure(failureFromError(e)));
-  }, [companyId, platform, params, navigate, callback]);
+  }, [companyId, platform, params, callback]);
+
+  const shops = ROUTES.company.shops(companyId);
+
+  if (connected) {
+    return (
+      <ConnectedScreen
+        result={connected}
+        onSetup={can(PERMISSIONS.shopConnect) ? (id) => navigate(ROUTES.company.shopSetup(companyId, id), { replace: true }) : undefined}
+        onView={(id) => navigate(ROUTES.company.shop(companyId, id), { replace: true })}
+        onLater={() => navigate(shops, { replace: true })}
+        onAddAnother={() => navigate(shops, { replace: true, state: { addShop: true } })}
+      />
+    );
+  }
 
   if (!failure) {
     return (
@@ -115,9 +125,27 @@ export function ShopOAuthCallbackPage() {
     );
   }
 
-  const shops = ROUTES.company.shops(companyId);
   // Thử lại đúng sàn và gian hàng vừa bắt đầu; không biết thì mở lại hộp thêm gian hàng
   const retryTarget = target ?? (platform ? { platform } : null);
+  if (failure.kind === 'company_mismatch') {
+    return (
+      <ResultScreen
+        {...failureScreen(failure)}
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link to={ROUTES.selectCompany}>Chọn công ty</Link>
+            </Button>
+            {retryTarget && (
+              <Button disabled={connector.pending} onClick={() => connector.start(retryTarget)}>
+                Nối lại
+              </Button>
+            )}
+          </>
+        }
+      />
+    );
+  }
   const retryLabel =
     failure.kind === 'mismatch' && failure.expected
       ? `Kết nối lại ${failure.expected.name ?? failure.expected.externalShopId}`
