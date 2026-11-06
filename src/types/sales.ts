@@ -37,7 +37,8 @@ export type OrderFlag =
   | 'due_soon'
   | 'return_requested'
   | 'payment_mismatch'
-  | 'cod_mismatch';
+  | 'cod_mismatch'
+  | 'shop_disconnected';
 
 /** Kết quả khi hoàn tất: Giao đủ, Giao một phần, Không giao được */
 export type OrderOutcome = 'full' | 'partial' | 'none';
@@ -156,7 +157,8 @@ export interface OrderItemPreview {
 
 export interface OrderLine {
   id: string;
-  variantId: string;
+  /** null khi dòng sàn chưa ghép SKU */
+  variantId: string | null;
   sku: string;
   productName: string;
   attributesLabel: string;
@@ -197,7 +199,8 @@ export type StatusChangeSource = 'user' | 'marketplace' | 'system';
 export type OrderStatusChange = StatusChange<OrderStatus>;
 
 export interface Order extends OrderSummary {
-  shippingAddress: ShippingAddress;
+  /** null khi sàn chưa trả địa chỉ */
+  shippingAddress: ShippingAddress | null;
   subtotal: number;
   shippingFee: number;
   /** Phí ship gốc và hai khoản giảm phí ship của đơn sàn; null với đơn tạo tay */

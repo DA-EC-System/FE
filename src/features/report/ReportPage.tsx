@@ -28,6 +28,7 @@ import {
   useExportReport,
   useReportDaily,
   useReportOverview,
+  useReportShopOptions,
   useReportShops,
   type DailyParams,
   type RangeParams,
@@ -99,6 +100,7 @@ export function ReportPage() {
 
   const overview = useReportOverview(range);
   const shops = useReportShops(range);
+  const shopFilter = useReportShopOptions(range);
   const daily = useReportDaily(dailyParams);
   const exporter = useExportReport();
 
@@ -215,12 +217,12 @@ export function ReportPage() {
                     onChange={(v) => update(v === 'inbox' || v === 'manual' ? { source: v, shopId: undefined } : { source: v })}
                     options={SOURCES.map((s) => ({ value: s, label: REPORT_SOURCE_LABELS[s] }))}
                   />
-                  <FilterSelect loading={shops.isLoading}
+                  <FilterSelect loading={shopFilter.isLoading}
                     label="Gian hàng"
                     value={shopId ?? ''}
                     disabled={source === 'inbox' || source === 'manual'}
                     onChange={(v) => update({ shopId: v })}
-                    options={shopOptions(shops.data?.items ?? [])}
+                    options={shopOptions(shopFilter.data?.items ?? [])}
                   />
                 </div>
               </CardHeader>

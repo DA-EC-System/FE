@@ -254,7 +254,7 @@ export function toOrder(o: sales.MockOrder): Order {
   const allStopped = own.length > 0 && own.every((p) => isStopped(p.status));
   return {
     ...toOrderSummary(o),
-    shippingAddress: { ...o.shippingAddress, ...o.platform?.address },
+    shippingAddress: { ward: null, postCode: null, ...o.shippingAddress, ...o.platform?.address },
     subtotal: sales.subtotalOf(o),
     shippingFee: o.shippingFee,
     shippingFeeOriginal: o.platform?.shippingFeeOriginal ?? null,

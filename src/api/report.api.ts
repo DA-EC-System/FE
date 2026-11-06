@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { OrderSource } from '@/types/sales';
@@ -31,11 +31,12 @@ function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-function useReport<T>(kind: ReportKind, params: object, enabled: boolean) {
+function useReport<T>(kind: ReportKind, params: object, enabled: boolean, keepPrevious = false) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: reportKeys.of(companyId, kind, params),
     enabled: Boolean(companyId) && enabled,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
     retry: false,
     queryFn: async () => {
       const { data } = await apiClient.get<T>(`/report/${kind}`, { params });
@@ -47,6 +48,8 @@ function useReport<T>(kind: ReportKind, params: object, enabled: boolean) {
 export const useReportOverview = (params: RangeParams, enabled = true) =>
   useReport<ReportOverview>('overview', params, enabled);
 export const useReportShops = (params: RangeParams, enabled = true) => useReport<ReportShops>('shops', params, enabled);
+/** Cùng truy vấn với `useReportShops` nhưng giữ danh sách cũ khi đổi khoảng ngày: dùng cho ô lọc gian hàng */
+export const useReportShopOptions = (params: RangeParams) => useReport<ReportShops>('shops', params, true, true);
 export const useReportDaily = (params: DailyParams, enabled = true) => useReport<ReportDaily>('daily', params, enabled);
 
 /** Tên tệp trong `Content-Disposition`: `filename*=UTF-8''…` trước, rồi `filename="…"` */

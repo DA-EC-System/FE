@@ -60,7 +60,13 @@ export const ORDER_FLAGS: Record<OrderFlag, { label: string; variant: BadgeVaria
   return_requested: { label: 'Có yêu cầu trả', variant: 'warning' },
   payment_mismatch: { label: 'Lệch tiền', variant: 'destructive' },
   cod_mismatch: { label: 'Lệch COD', variant: 'destructive' },
+  shop_disconnected: { label: 'Gian hàng đã ngắt', variant: 'warning' },
 };
+
+/** Cờ lọc được ở danh sách đơn: đúng danh sách BE nhận (`payment_mismatch` chỉ hiện trên đơn, lọc thì 422) */
+export const FILTERABLE_ORDER_FLAGS: OrderFlag[] = (Object.keys(ORDER_FLAGS) as OrderFlag[]).filter(
+  (f) => f !== 'payment_mismatch',
+);
 
 export const OUTCOME_LABELS: Record<OrderOutcome, string> = {
   full: 'Giao đủ',
@@ -115,8 +121,11 @@ const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
   platform: 'sàn',
 };
 
-/** Ai huỷ hoặc yêu cầu trả */
-export const initiatorLabel = (v: LineCancelInitiator) => LINE_CANCEL_INITIATOR_LABELS[v];
+/** Ai huỷ hoặc yêu cầu trả; giá trị lạ thì hiện nguyên */
+export const initiatorLabel = (v: LineCancelInitiator | string) =>
+  Object.prototype.hasOwnProperty.call(LINE_CANCEL_INITIATOR_LABELS, v)
+    ? LINE_CANCEL_INITIATOR_LABELS[v as LineCancelInitiator]
+    : v;
 
 export const CANCEL_KIND_LABELS: Record<LineCancelKind, string> = {
   cancellation: 'Đã huỷ',
@@ -135,7 +144,12 @@ export const lineHasIssue = (l: {
 }) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
 /** Phường/xã hiện riêng khi chuỗi địa chỉ (sàn che một phần) chưa ghi rõ */
-export const wardNote = (a: ShippingAddress) => (a.ward && !a.address.includes(a.ward) ? a.ward : null);
+export function wardNote(a: ShippingAddress): string | null {
+  if (!a.ward) return null;
+  const norm = (x: string) => x.normalize('NFC').trim().toLocaleLowerCase('vi');
+  const ward = norm(a.ward);
+  return a.address.split(',').some((part) => norm(part) === ward) ? null : a.ward;
+}
 
 export const channelLabel = (code: CustomerChannel) => code === 'manual' ? 'Tạo tay' : platformLabel(code);
 

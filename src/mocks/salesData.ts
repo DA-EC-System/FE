@@ -892,7 +892,7 @@ const FAILED_HANDOVER: Record<string, string> = {
 };
 /** Ghi chú khách để lại trên sàn */
 const BUYER_NOTES: Record<string, string> = { 'ord-1012': 'Giao giờ hành chính giúp em' };
-/** Đơn Lazada đủ trường như Seller Center: COD, địa chỉ tách phần, sàn giảm phí ship, một dòng khách huỷ */
+/** Đơn Lazada đủ trường như Seller Center: COD, địa chỉ sàn che một phần, sàn giảm phí ship, một dòng khách huỷ */
 const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
   'ord-1012': {
     paymentMethod: 'COD',
@@ -909,7 +909,7 @@ const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
     shippingProviderType: 'standard',
     promisedShippingAt: '2026-10-18T10:00:00.000Z',
   },
-  // Giao thất bại, đang hoàn về: dòng có lý do, ai yêu cầu, mã đơn ngược
+  // Giao thất bại, đang hoàn về: không ai huỷ, dòng có lý do, chi tiết, mã đơn ngược
   'ord-1002': {
     paymentMethod: 'COD',
     lines: {
@@ -918,8 +918,7 @@ const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
         paidPrice: 180000,
         cancelReason: 'Khách không nhận hàng',
         cancelReasonDetail: 'Gọi 3 lần không nghe máy',
-        cancelInitiator: 'buyer',
-        cancelKind: 'return',
+        cancelKind: 'failed_delivery',
         returnStatus: 'Đang hoàn về',
         reverseOrderId: '7712045893',
       },
