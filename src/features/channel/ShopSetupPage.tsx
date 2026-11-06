@@ -38,10 +38,12 @@ import { formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { platformLabel } from './shopSchemas';
 import {
+  NAME_MATCH_SKIPPED_NOTE,
   SETUP_POLL_MAX_MS,
   SETUP_POLL_MS,
   decisionErrors,
   initialChoices,
+  openOrdersSkippedNote,
   setupRunning,
   toDecisions,
   type RowChoice,
@@ -231,7 +233,10 @@ export function ShopSetupPage() {
         </CardContent>
       </Card>
       {error && <AlertMessage severity="error">{error}</AlertMessage>}
-      {preview.isError && <AlertMessage severity="error">{problemMessage(preview.error)}</AlertMessage>}
+      {/* Gửi xong thì BE trả 409 cho lần đọc lại gợi ý (gian hàng đã active, do invalidate sau POST): không báo lỗi đó */}
+      {preview.isError && !result && !finish.isSuccess && (
+        <AlertMessage severity="error">{problemMessage(preview.error)}</AlertMessage>
+      )}
 
       {result ? (
         <SetupProgress shop={shop.data} companyId={companyId} timedOut={Date.now() - pollFrom.current >= SETUP_POLL_MAX_MS} />
@@ -256,6 +261,11 @@ export function ShopSetupPage() {
                           <Skeleton key={k} className="h-14 w-full" />
                         ))}
                       </>
+                    )}
+                    {preview.data?.nameMatchSkipped && (
+                      <div className="mb-1" data-testid="setup-name-match-skipped">
+                        <AlertMessage severity="info">{NAME_MATCH_SKIPPED_NOTE}</AlertMessage>
+                      </div>
                     )}
                     {preview.data && !suggestions.length && (
                       <p className="text-sm text-muted-foreground">Gian hàng chưa có SKU nào trên sàn.</p>
@@ -620,6 +630,7 @@ function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Sho
         ? `Chờ xử lý: ${step.blockedBy}`
         : null;
   const doc = step.key === 'opening_stock' && step.status !== 'done' ? shop.openingStocktake : null;
+  const skippedNote = step.key === 'open_orders' ? openOrdersSkippedNote(shop.setup) : null;
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2.5" data-step={step.key} data-step-status={step.status}>
       <Icon
@@ -635,6 +646,11 @@ function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Sho
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="font-medium">{SETUP_STEP_LABEL[step.key] ?? step.key}</span>
         {blockedBy && <span className="text-xs text-muted-foreground">{blockedBy}</span>}
+        {skippedNote && (
+          <span className="text-xs text-warning" data-testid="setup-open-orders-skipped">
+            {skippedNote}
+          </span>
+        )}
         {doc && (
           <Link to={ROUTES.company.inventoryDoc(companyId, doc.documentId)} className="text-xs text-primary underline-offset-4 hover:underline">
             Mở phiếu kiểm kê {doc.number}

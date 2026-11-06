@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Shop, ShopCallbackResult, ShopConnectionResult, ShopStatus } from '@/types/shop';
-import { connectedOutcome, firstConnection, reconnectSummary } from './connectResult';
+import { connectedOutcome, firstConnection, reconnectSummary, remoteSkuSuffix, remoteSkuValue } from './connectResult';
 
 const shop = { id: 'shp-x', shopName: 'Shop thử', status: 'active' } as Shop;
 const connecting = { ...shop, status: 'connecting' } as Shop;
@@ -57,5 +57,25 @@ describe('reconnectSummary', () => {
 
   it('không có phần bù thì rỗng', () => {
     expect(reconnectSummary(null)).toEqual([]);
+  });
+});
+
+describe('remoteSkuCount khi BE chưa trả (phần 18.7 còn lại)', () => {
+  it('có số thì hiện số, kể cả 0', () => {
+    expect(remoteSkuSuffix(12)).toBe(' · 12 SKU trên sàn');
+    expect(remoteSkuSuffix(0)).toBe(' · 0 SKU trên sàn');
+    expect(remoteSkuValue(0)).toBe('0');
+  });
+
+  it('vắng hoặc null thì bỏ cụm SKU và ô hiện "—"', () => {
+    expect(remoteSkuSuffix(undefined)).toBe('');
+    expect(remoteSkuSuffix(null)).toBe('');
+    expect(remoteSkuValue(undefined)).toBe('—');
+    expect(remoteSkuValue(null)).toBe('—');
+  });
+
+  it('thiếu previousStatus thì coi là đã có, không phải nối lại', () => {
+    const { previousStatus: _omit, ...rest } = item();
+    expect(connectedOutcome(wrap(rest as ShopConnectionResult))).toBe('already_connected');
   });
 });

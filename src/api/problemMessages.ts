@@ -4,7 +4,7 @@
  * mã chưa có ở đây thì dùng `detail` như cũ.
  */
 
-import { getErrorMessage, getProblem } from './client';
+import { getErrorMessage, getProblem, notImplementedMessage } from './client';
 
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
@@ -118,6 +118,8 @@ const MESSAGES: Record<string, string> = {
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
   shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
   // §18.6.2
+  // R13, §18.7.9: mọi 501 chức năng chờ issue khác; có `issue`, `owner` thì câu nêu issue, xem notImplementedMessage
+  not_implemented: 'Chức năng này chưa làm xong',
   shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ trước khi đẩy sản phẩm.',
 };
 
@@ -194,7 +196,9 @@ export function problemMessage(error: unknown): string {
         ? shopMismatchMessage(problem?.expected, problem?.actual)
         : code === 'company_mismatch'
           ? companyMismatchMessage(problem?.expected, problem?.actual)
-          : (code && MESSAGES[code]) || getErrorMessage(error);
+          : code === 'not_implemented'
+            ? notImplementedMessage(problem?.issue, problem?.owner)
+            : (code && MESSAGES[code]) || getErrorMessage(error);
   // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
   return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
 }

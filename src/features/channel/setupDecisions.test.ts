@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SetupSuggestion, Shop } from '@/types/shop';
-import { decisionErrors, initialChoices, setupRunning, toDecisions } from './setupDecisions';
+import { decisionErrors, initialChoices, openOrdersSkippedNote, setupRunning, toDecisions } from './setupDecisions';
 
 const row = (externalSkuId: string, over: Partial<SetupSuggestion> = {}): SetupSuggestion => ({
   externalSkuId,
@@ -55,5 +55,21 @@ describe('Tiến độ thiết lập (§18.7.7)', () => {
     expect(setupRunning(shop('blocked'))).toBe(false);
     expect(setupRunning({ setup: null } as unknown as Shop)).toBe(false);
     expect(setupRunning(undefined)).toBe(false);
+  });
+});
+
+describe('Đơn còn mở bỏ qua vì trần môi trường (Shop.setup.openOrdersSkipped)', () => {
+  const setup = (openOrdersSkipped?: number) => ({ steps: [], unmatchedCount: 0, openOrdersSkipped });
+
+  it('có đơn bỏ qua thì nêu số', () => {
+    expect(openOrdersSkippedNote(setup(3500))).toBe(
+      'Bỏ qua 3500 đơn còn mở cũ hơn (giới hạn của môi trường); hàng của các đơn này chưa được giữ.',
+    );
+  });
+
+  it('0, vắng (BE trước #198) hoặc setup null thì không có câu', () => {
+    expect(openOrdersSkippedNote(setup(0))).toBeNull();
+    expect(openOrdersSkippedNote(setup(undefined))).toBeNull();
+    expect(openOrdersSkippedNote(null)).toBeNull();
   });
 });

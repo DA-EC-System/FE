@@ -91,6 +91,7 @@ function setupProgressOf(s: MockShop): ShopSetupProgress | null {
         { key: 'push_stock', status: 'pending', blockedBy: null },
       ],
       unmatchedCount: setupSuggestions(s).unmatchedRemote,
+      openOrdersSkipped: 0,
     };
   }
   const now = Date.now();
@@ -108,7 +109,8 @@ function setupProgressOf(s: MockShop): ShopSetupProgress | null {
     // Mọi bước xong quá 24 giờ thì thôi trả tiến độ
     if (!pushing && now - run.pushStartedAt - SETUP_JOB_MS > DAY_MS) return null;
   }
-  return { steps, unmatchedCount: run.unmatchedCount };
+  // Mock không đặt trần OPEN_ORDER_PULL_MAX nên không bỏ đơn nào
+  return { steps, unmatchedCount: run.unmatchedCount, openOrdersSkipped: 0 };
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -715,8 +717,15 @@ export const shopHandlers = [
     const guard = requireCompany(request, PERMISSIONS.shopView);
     if (!guard.ok) return guard.response;
     return HttpResponse.json<ShopPlatformList>({ items: [
-      { platform: 'tiktok', capabilities: mockCapabilities.tiktok, name: 'TikTok Shop', connectable: true, reason: null, methods: ['oauth'] },
-      // §18.7.3: sàn chưa có adapter vẫn hiện, mờ kèm lý do
+      // §18.7.3: sàn chưa kết nối được vẫn hiện, mờ kèm lý do
+      {
+        platform: 'tiktok',
+        capabilities: mockCapabilities.tiktok,
+        name: 'TikTok Shop',
+        connectable: false,
+        reason: 'Đang làm, thuộc commerio-backend#217 (đợt 4)',
+        methods: [],
+      },
       {
         platform: 'shopee',
         capabilities: mockCapabilities.shopee,
@@ -943,6 +952,8 @@ export const shopHandlers = [
       // Mock: mốc đề xuất là lúc kết nối gian hàng
       proposedCutoffAt: shop.createdAt,
       firstShopOfCompany: firstShopOfCompany(shop),
+      // Gian hàng mẫu ít SKU nên luôn so tên được
+      nameMatchSkipped: false,
     });
   }),
 
@@ -1004,6 +1015,16 @@ export const shopHandlers = [
       });
     }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors });
+    // §18.6.2, R13: BE#198 chưa có createOpeningStocktake (commerio-backend#245) nên kiểm kê đầu kỳ trả 501, không ghi gì.
+    // Mock chỉ trả 501 ở gian hàng đầu tiên của công ty để vẫn diễn được luồng kiểm kê ở gian hàng sau
+    if (body.openingStock === 'stocktake' && firstShopOfCompany(shop)) {
+      return problem(501, 'Chưa làm', {
+        code: 'not_implemented',
+        detail: 'createOpeningStocktake chưa làm (commerio-backend#245, Bình)',
+        issue: 'commerio-backend#245',
+        owner: 'Bình',
+      });
+    }
 
     const at = db.now();
     const remote = channel.remoteSkus[shop.id] ?? [];

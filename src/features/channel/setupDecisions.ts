@@ -1,4 +1,4 @@
-import type { SetupDecision, SetupSuggestion, Shop } from '@/types/shop';
+import type { SetupDecision, SetupSuggestion, Shop, ShopSetupProgress } from '@/types/shop';
 
 /** §18.7.7: đọc lại mỗi 3 giây khi còn bước đang chạy, tối đa 30 phút */
 export const SETUP_POLL_MS = 3000;
@@ -57,4 +57,18 @@ export function decisionErrors(
 /** Còn bước nào đang chạy thì còn đọc lại */
 export function setupRunning(shop: Shop | undefined): boolean {
   return Boolean(shop?.setup?.steps.some((s) => s.status === 'running'));
+}
+
+/** Bước 1 khi BE bỏ ghép theo tên vì gian hàng quá nhiều SKU (nameMatchSkipped, §18.7.5) */
+export const NAME_MATCH_SKIPPED_NOTE =
+  'Gian hàng có quá nhiều SKU nên chưa gợi ý ghép theo tên. Chọn biến thể cho từng dòng, hoặc bỏ qua.';
+
+/**
+ * Câu cạnh bước open_orders khi môi trường đặt trần OPEN_ORDER_PULL_MAX và có đơn còn mở cũ không kéo về
+ * (Shop.setup.openOrdersSkipped, §18.6.2). BE không trả số đơn đã kéo nên chỉ nêu phần bỏ qua; 0 hoặc vắng thì null
+ */
+export function openOrdersSkippedNote(setup: ShopSetupProgress | null | undefined): string | null {
+  const skipped = setup?.openOrdersSkipped;
+  if (!skipped || skipped <= 0) return null;
+  return `Bỏ qua ${skipped} đơn còn mở cũ hơn (giới hạn của môi trường); hàng của các đơn này chưa được giữ.`;
 }

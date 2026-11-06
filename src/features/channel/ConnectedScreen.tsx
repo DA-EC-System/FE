@@ -4,7 +4,14 @@ import { Button } from '@/components/ui/button';
 import type { ShopCallbackResult } from '@/types/shop';
 import { formatDate } from '@/utils/format';
 import { ResultScreen } from './ConnectOutcome';
-import { connectedOutcome, firstConnection, itemOutcome, reconnectSummary } from './connectResult';
+import {
+  connectedOutcome,
+  firstConnection,
+  itemOutcome,
+  reconnectSummary,
+  remoteSkuSuffix,
+  remoteSkuValue,
+} from './connectResult';
 import { platformLabel, STATUS_LABELS } from './shopSchemas';
 
 interface ConnectedScreenProps {
@@ -57,7 +64,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
                 <span className="truncate text-xs text-muted-foreground">
                   <span className="font-mono">{item.shop.externalShopId}</span>
                   {item.previousStatus ? ` · trước: ${STATUS_LABELS[item.previousStatus]}` : ''}
-                  {` · ${item.remoteSkuCount} SKU trên sàn`}
+                  {remoteSkuSuffix(item.remoteSkuCount)}
                 </span>
               </div>
               <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -91,7 +98,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         facts={[
           { label: 'Sàn', value: platform },
           { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
-          { label: 'Listing tìm thấy', value: first.remoteSkuCount },
+          { label: 'Listing tìm thấy', value: remoteSkuValue(first.remoteSkuCount) },
         ]}
         actions={
           <>

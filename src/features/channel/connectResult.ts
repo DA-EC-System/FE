@@ -18,9 +18,22 @@ export function firstConnection(result: ShopCallbackResult): ShopConnectionResul
       created: result.created,
       reconnect: result.reconnect,
       previousStatus: null,
-      remoteSkuCount: 0,
+      remoteSkuCount: null,
     }
   );
+}
+
+/**
+ * Cụm " · N SKU trên sàn" ở màn nhiều gian hàng; BE chưa trả remoteSkuCount (trước phần 18.7 còn lại) thì bỏ cụm,
+ * không hiện "undefined"
+ */
+export function remoteSkuSuffix(count: number | null | undefined): string {
+  return count != null ? ` · ${count} SKU trên sàn` : '';
+}
+
+/** Ô "Listing tìm thấy" ở màn connected: chưa có số thì "—" */
+export function remoteSkuValue(count: number | null | undefined): string {
+  return count != null ? String(count) : '—';
 }
 
 /** Màn cho một phần tử shops[] */

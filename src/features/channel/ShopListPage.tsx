@@ -182,7 +182,8 @@ export function ShopListPage() {
         id: 'orders7d',
         header: 'Đơn 7 ngày',
         meta: { className: 'w-24 text-right' },
-        cell: ({ row }) => row.original.orders7d,
+        // BE chưa trả orders7d (phần 18.7.1 còn lại) thì "—", không để ô trống
+        cell: ({ row }) => row.original.orders7d ?? <span className="text-muted-foreground">—</span>,
       },
       {
         id: 'feeConfig',

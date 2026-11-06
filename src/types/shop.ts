@@ -50,7 +50,7 @@ export interface Shop {
   platform: Marketplace;
   platformName?: string;
   capabilities: ShopCapabilities;
-  authExpiresAt: string | null;
+  authExpiresAt?: string | null;
   tokenExpiringSoon: boolean;
   externalShopId: string;
   shopName: string;
@@ -67,14 +67,14 @@ export interface Shop {
   pendingJobs: number;
   /** Số biến thể đã ghép SKU sàn */
   listingCount: number;
-  /** Đơn tạo trong 7 ngày gần nhất (§18.7.1) */
-  orders7d: number;
+  /** Đơn tạo trong 7 ngày gần nhất (§18.7.1). BE chưa trả thì vắng, FE hiện "—" */
+  orders7d?: number;
   /** Đơn chưa completed hoặc cancelled: còn thì không ngắt được (§18.7.1) */
-  pendingOrderCount: number;
+  pendingOrderCount?: number;
   /** Lần đổi status gần nhất; chưa đổi lần nào thì bằng createdAt (§18.7.1) */
-  statusChangedAt: string;
+  statusChangedAt?: string;
   /** Số phiên bản cấu hình phí đang áp; null tới khi có BE#230 (§18.7.1) */
-  feeConfigVersion: number | null;
+  feeConfigVersion?: number | null;
   /** Tiến độ thiết lập lần đầu; null khi thiết lập trước BE#198 hoặc mọi bước xong quá 24 giờ (§18.7.7) */
   setup: ShopSetupProgress | null;
   /** Số ngày đổi trả đặt ở thiết lập; null khi sàn tự báo hạn (capabilities.returnWindow = platform_status) */
@@ -102,6 +102,11 @@ export interface ShopSetupProgress {
   steps: ShopSetupStep[];
   /** SKU sàn chưa ghép sau thiết lập, gồm SKU người dùng bỏ qua */
   unmatchedCount: number;
+  /**
+   * Số đơn còn mở đặt trước mốc không kéo về vì vượt trần OPEN_ORDER_PULL_MAX của môi trường; 0 khi không cắt
+   * (commerio-backend#198). Vắng khi BE chưa lên #198
+   */
+  openOrdersSkipped?: number;
 }
 
 export interface ShopOpeningStocktake {
@@ -149,10 +154,10 @@ export interface ShopConnectionResult {
   created: boolean;
   /** Có khi kết nối lại gian hàng đã có */
   reconnect: ShopReconnectSummary | null;
-  /** Trạng thái ngay trước lần nối này; null khi tạo mới */
-  previousStatus: ShopStatus | null;
-  /** Số SKU người bán tìm thấy trên sàn lúc nối */
-  remoteSkuCount: number;
+  /** Trạng thái ngay trước lần nối này; null khi tạo mới. BE chưa trả thì vắng */
+  previousStatus?: ShopStatus | null;
+  /** Số SKU người bán tìm thấy trên sàn lúc nối. BE chưa trả thì vắng, FE không hiện số */
+  remoteSkuCount?: number | null;
 }
 
 /**
@@ -306,6 +311,11 @@ export interface ShopSetupPreview {
   suggestions: SetupSuggestion[];
   /** Số dòng match = none */
   unmatchedRemote: number;
+  /**
+   * true khi BE bỏ ghép theo tên vì gian hàng quá nhiều SKU hoặc so tên quá lâu: dòng không trùng SKU đều match = none
+   * (§18.7.5, commerio-backend#198). Vắng khi BE chưa lên #198
+   */
+  nameMatchSkipped?: boolean;
   /** Mốc kéo đơn BE đề xuất (lúc kết nối); FE chỉ hiển thị, không gửi lại */
   proposedCutoffAt: string;
   /** Gian hàng đầu tiên của công ty: tồn đầu kỳ chỉ được chọn kiểm kê */

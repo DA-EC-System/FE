@@ -14,7 +14,7 @@ export function platformLabel(code: string, name?: string): string {
 }
 
 /** Chỉ chọn hạn để hiển thị; cảnh báo do BE quyết định. */
-export function authorizationDeadline(shop: { authExpiresAt: string | null; refreshExpiresAt: string | null }): string | null {
+export function authorizationDeadline(shop: { authExpiresAt?: string | null; refreshExpiresAt: string | null }): string | null {
   return [shop.authExpiresAt, shop.refreshExpiresAt].filter((x): x is string => Boolean(x))
     .sort((a, b) => Date.parse(a) - Date.parse(b))[0] ?? null;
 }

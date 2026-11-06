@@ -31,6 +31,21 @@ export interface ProblemDetails {
    */
   expected?: { name: string | null; externalShopId: string } | { id: string; name: string };
   actual?: { name: string | null; externalShopId: string } | { id: string; name: string };
+  /** 501 `not_implemented` (R13, §18.7.9): mã issue đang làm phần còn thiếu, vd "commerio-backend#245" */
+  issue?: string;
+  /** 501 `not_implemented`: người phụ trách issue đó */
+  owner?: string;
+}
+
+/**
+ * Câu chung cho mọi 501 `not_implemented` (Documents/21 R13: FE bắt chung, không hiện `detail` thô của BE).
+ * Thiếu owner thì bỏ ngoặc, thiếu issue thì chỉ báo chưa làm xong.
+ */
+export function notImplementedMessage(issue?: unknown, owner?: unknown): string {
+  const i = typeof issue === 'string' ? issue.trim() : '';
+  const o = typeof owner === 'string' ? owner.trim() : '';
+  if (!i) return 'Chức năng này chưa làm xong';
+  return o ? `Chức năng này chưa làm xong: thuộc ${i} (${o})` : `Chức năng này chưa làm xong: thuộc ${i}`;
 }
 
 export const apiClient: AxiosInstance = axios.create({
@@ -137,6 +152,7 @@ export function getErrorMessage(error: unknown): string {
     if (!error.response) return 'Không kết nối được máy chủ. Kiểm tra mạng hoặc VITE_API_BASE_URL.';
     const data = error.response.data as (ProblemDetails & { message?: string }) | string | undefined;
     if (data && typeof data === 'object') {
+      if (data.code === 'not_implemented') return notImplementedMessage(data.issue, data.owner);
       const message = data.detail ?? data.title ?? data.message;
       if (message) return message;
     }

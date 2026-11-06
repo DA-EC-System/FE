@@ -223,7 +223,7 @@ test.describe('P3 · Gian hàng', () => {
         proposedCutoffAt: '2026-11-01T08:00:00Z',
         firstShopOfCompany: true,
       });
-      await themQua(page, 'TikTok Shop');
+      await themQua(page, 'Lazada');
       await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC Đầu tiên');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       await page.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
@@ -234,8 +234,8 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeChecked();
       await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
       await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText('01/11/2026');
-      // TikTok Shop tính hạn trả theo trạng thái sàn: không hỏi số ngày
-      await expect(page.getByRole('spinbutton', { name: /Số ngày đổi trả/ })).toHaveCount(0);
+      // Lazada tính hạn trả theo số ngày (TikTok chưa nối được trong mock, commerio-backend#217)
+      await page.getByRole('spinbutton', { name: /Số ngày đổi trả/ }).fill('7');
       await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
         status: 422,
         errors: { openingStock: 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ' },
@@ -243,6 +243,18 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
       await thayChu(page, 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ');
       await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeVisible();
+      // R13: BE chưa có kiểm kê đầu kỳ (commerio-backend#245) trả 501; FE hiện câu chung, không hiện detail thô
+      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await mockApi(page, 'post', '/channel/shops/:id/setup', 501, {
+        status: 501,
+        code: 'not_implemented',
+        detail: 'createOpeningStocktake chưa làm (commerio-backend#245, Bình)',
+        issue: 'commerio-backend#245',
+        owner: 'Bình',
+      });
+      await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
+      await thayChu(page, 'Chức năng này chưa làm xong: thuộc commerio-backend#245 (Bình)');
+      await expect(page.getByText('createOpeningStocktake chưa làm')).toHaveCount(0);
     });
 
     test('lỗi 422 decisions.<i> hiện ở đúng dòng SKU', async ({ page }) => {
@@ -255,7 +267,7 @@ test.describe('P3 · Gian hàng', () => {
         proposedCutoffAt: '2026-11-01T08:00:00Z',
         firstShopOfCompany: false,
       });
-      await themQua(page, 'TikTok Shop');
+      await themQua(page, 'Lazada');
       await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC Lỗi dòng');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       await page.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
@@ -264,6 +276,7 @@ test.describe('P3 · Gian hàng', () => {
       await goiY.locator('[data-suggestion=ext-1]').getByRole('button', { name: /^Bỏ qua / }).click();
       await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
       await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await page.getByRole('spinbutton', { name: /Số ngày đổi trả/ }).fill('7');
       await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
         status: 422,
         code: 'validation_failed',
@@ -278,17 +291,21 @@ test.describe('P3 · Gian hàng', () => {
           { externalSkuId: 'ext-2', variantId: 'var-AO-2' },
         ],
         openingStock: 'push',
+        returnWindowDays: 7,
       });
       await thayChu(page, 'Có SKU ghép chưa hợp lệ');
       await expect(goiY.locator('[data-suggestion=ext-2] [data-testid=decision-error]')).toHaveText('Biến thể đã ghép với listing khác');
       await expect(goiY.locator('[data-suggestion=ext-1] [data-testid=decision-error]')).toHaveCount(0);
     });
 
-    test('Shopee chưa cấp quyền API thì thẻ sàn bị khoá, nêu lý do', async ({ page }) => {
+    test('Shopee, TikTok chưa nối được thì thẻ sàn bị khoá, nêu lý do', async ({ page }) => {
       await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
       const shopee = page.locator('[data-testid=connect-section] [data-platform=shopee]');
       await expect(shopee).toHaveAttribute('aria-disabled', 'true');
       await expect(shopee.locator('[data-testid=platform-reason]')).toHaveText('Shopee chưa cấp quyền API cho ứng dụng sinh viên');
+      const tiktok = page.locator('[data-testid=connect-section] [data-platform=tiktok]');
+      await expect(tiktok).toHaveAttribute('aria-disabled', 'true');
+      await expect(tiktok.locator('[data-testid=platform-reason]')).toHaveText('Đang làm, thuộc commerio-backend#217 (đợt 4)');
     });
 
     test('đang mở công ty khác công ty bắt đầu kết nối thì không nối, chỉ cho chuyển công ty (§18.7.4)', async ({ page }) => {
@@ -316,7 +333,7 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('gian hàng đang thiết lập mở thẳng wizard', async ({ page }) => {
-      await themQua(page, 'TikTok Shop');
+      await themQua(page, 'Lazada');
       await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC Chưa xong');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       await page.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
@@ -334,10 +351,10 @@ test.describe('P3 · Gian hàng', () => {
       const rows = page.locator('tbody tr[data-row-id]');
       await expect(rows.first()).toBeAttached();
       const n = await rows.count();
-      await themQua(page, 'TikTok Shop');
+      await themQua(page, 'Lazada');
       await page.getByRole('button', { name: 'Từ chối', exact: true }).click();
       const ketQua = page.locator('[data-outcome=declined]');
-      await expect(ketQua).toContainText('Bạn đã bấm Từ chối trên TikTok Shop');
+      await expect(ketQua).toContainText('Bạn đã bấm Từ chối trên Lazada');
       await expect(ketQua).toContainText('Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.');
       await expect(ketQua.getByRole('button', { name: 'Thử lại', exact: true })).toBeVisible();
       await ketQua.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();

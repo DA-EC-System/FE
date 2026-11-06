@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders } from 'axios';
 import { describe, expect, it } from 'vitest';
-import type { ProblemDetails } from './client';
+import { getErrorMessage, notImplementedMessage, type ProblemDetails } from './client';
 import { openOrdersMessage, problemMessage, shopMismatchMessage } from './problemMessages';
 
 const loi = (data: ProblemDetails) =>
@@ -61,5 +61,29 @@ describe('shop_mismatch (§18.4)', () => {
   });
   it('thiếu expected hoặc actual thì dùng câu chung', () => {
     expect(shopMismatchMessage(undefined, { name: 'B', externalShopId: '2' })).toMatch(/không phải/);
+  });
+});
+
+describe('not_implemented 501 (R13)', () => {
+  const body = {
+    status: 501,
+    code: 'not_implemented',
+    detail: 'createOpeningStocktake chưa làm (commerio-backend#245, Bình)',
+  };
+
+  it('nêu issue và người phụ trách, không hiện detail thô', () => {
+    const e = loi({ ...body, issue: 'commerio-backend#245', owner: 'Bình' });
+    expect(problemMessage(e)).toBe('Chức năng này chưa làm xong: thuộc commerio-backend#245 (Bình)');
+    // Màn chỉ dùng getErrorMessage cũng nhận câu chung
+    expect(getErrorMessage(e)).toBe('Chức năng này chưa làm xong: thuộc commerio-backend#245 (Bình)');
+  });
+
+  it('thiếu owner thì bỏ ngoặc, thiếu issue thì câu ngắn', () => {
+    expect(problemMessage(loi({ ...body, issue: 'commerio-backend#245' }))).toBe(
+      'Chức năng này chưa làm xong: thuộc commerio-backend#245',
+    );
+    expect(problemMessage(loi(body))).toBe('Chức năng này chưa làm xong');
+    expect(notImplementedMessage(undefined, 'Bình')).toBe('Chức năng này chưa làm xong');
+    expect(notImplementedMessage('  ', '')).toBe('Chức năng này chưa làm xong');
   });
 });
