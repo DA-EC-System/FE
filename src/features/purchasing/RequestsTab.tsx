@@ -142,7 +142,7 @@ export function RequestsTab() {
               label: REQUEST_STATUS[s].label,
             }))}
           />
-          <FilterSelect
+          <FilterSelect loading={suppliersQuery.isLoading}
             label="Nhà cung cấp"
             value={supplierId}
             onChange={withReset(setSupplierId)}

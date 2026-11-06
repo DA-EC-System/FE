@@ -56,7 +56,8 @@ export function ProductListPage() {
     status,
     businessStatus: status === 'active' && businessStatus ? (businessStatus as ProductListParams['businessStatus']) : undefined,
   });
-  const categories = useCategories().data ?? [];
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data ?? [];
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -179,7 +180,7 @@ export function ProductListPage() {
             onChange={withReset(setSearch)}
             placeholder="Tìm theo tên hoặc SKU..."
           />
-          <FilterSelect
+          <FilterSelect loading={categoriesQuery.isLoading}
             label="Danh mục"
             value={categoryId}
             onChange={withReset(setCategoryId)}

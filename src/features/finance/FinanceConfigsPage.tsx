@@ -30,8 +30,8 @@ export function FinanceConfigsPage() {
     {query.isError && <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>}
     <Card className="gap-0 py-0"><FilterBar><FilterSelect label="Loại cấu hình" value={kind} onChange={f.setFilter('kind')} options={Object.entries(CONFIG_KINDS).map(([value, label]) => ({ value, label }))} />
       <FilterSelect label="Trạng thái" value={status} onChange={f.setFilter('status')} options={Object.entries(CONFIG_STATES).map(([value, meta]) => ({ value, label: meta.label }))} />
-      <FilterSelect label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} /></FilterBar>
-      <DataTable data={query.data?.items ?? []} loading={query.isLoading} getRowId={(c) => c.id} empty="Chưa có phiên bản cấu hình" onRowClick={(c) => navigate(ROUTES.company.financeConfig(companyId, c.id))}
+      <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} /></FilterBar>
+      <DataTable data={query.data?.items ?? []} loading={query.isLoading} fetching={query.isFetching} getRowId={(c) => c.id} empty="Chưa có phiên bản cấu hình" onRowClick={(c) => navigate(ROUTES.company.financeConfig(companyId, c.id))}
         pagination={{ page: f.page, pageSize: f.pageSize, total: query.data?.total ?? 0, pageSizes: [25, 50, 100], onChange: f.onPageChange }} columns={[
           { header: 'Loại', cell: ({ row }) => CONFIG_KINDS[row.original.kind] },
           { header: 'Gian hàng', cell: ({ row }) => row.original.shopId ? shops.data?.items.find((s) => s.id === row.original.shopId)?.shopName ?? row.original.shopId : 'Toàn công ty' },

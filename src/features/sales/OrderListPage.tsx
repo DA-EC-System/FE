@@ -221,7 +221,7 @@ export function OrderListPage() {
             options={(Object.keys(SOURCE_LABELS) as OrderSource[]).map((s) => ({ value: s, label: SOURCE_LABELS[s] }))}
           />
           {(shopId || shopOptions.length > 0) && (
-            <FilterSelect label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={shopOptions} />
+            <FilterSelect loading={shopsQuery.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={shopOptions} />
           )}
           <FilterSelect
             label="Thanh toán"

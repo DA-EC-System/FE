@@ -100,7 +100,7 @@ export function CustomerListPage() {
       <Card className="gap-0 py-0">
         <FilterBar>
           <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm tên, số điện thoại, email" />
-          <FilterSelect
+          <FilterSelect loading={channels.isLoading}
             label="Kênh"
             value={channel}
             onChange={f.setFilter('channel')}

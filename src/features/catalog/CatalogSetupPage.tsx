@@ -206,7 +206,7 @@ export function CatalogSetupPage() {
               columns={categoryColumns}
               data={categoriesQuery.data ?? []}
               getRowId={(r) => r.id}
-              loading={categoriesQuery.isLoading}
+              loading={categoriesQuery.isLoading} fetching={categoriesQuery.isFetching}
               empty="Chưa có danh mục"
             />
           </Card>
@@ -217,7 +217,7 @@ export function CatalogSetupPage() {
               columns={attributeColumns}
               data={attributesQuery.data ?? []}
               getRowId={(r) => r.id}
-              loading={attributesQuery.isLoading}
+              loading={attributesQuery.isLoading} fetching={attributesQuery.isFetching}
               empty="Chưa có thuộc tính"
             />
           </Card>

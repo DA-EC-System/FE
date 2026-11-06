@@ -371,9 +371,17 @@ export function SupplierReturnPage() {
             <div className="grid gap-1.5">
               <Label htmlFor="ret-supplier">Nhà cung cấp</Label>
               {editable ? (
-                <Select value={supplierId} onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true })}>
+                <Select
+                  value={supplierId}
+                  disabled={suppliersQuery.isLoading}
+                  onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true })}
+                >
                   <SelectTrigger id="ret-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
-                    <SelectValue placeholder="Chọn nhà cung cấp (bắt buộc khi gửi duyệt)" />
+                    <SelectValue
+                      placeholder={
+                        suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp (bắt buộc khi gửi duyệt)'
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {supplierOptions.map((s) => (

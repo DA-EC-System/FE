@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,8 @@ interface AddVariantDialogProps {
   product: ProductDetail;
   category: Category | undefined;
   attributes: Attribute[];
+  /** Danh sách thuộc tính đang tải */
+  loading?: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
 }
@@ -39,6 +42,7 @@ export function AddVariantDialog({
   product,
   category,
   attributes,
+  loading,
   onClose,
   onDone,
 }: AddVariantDialogProps) {
@@ -93,7 +97,12 @@ export function AddVariantDialog({
           <DialogDescription>Chọn một giá trị cho từng thuộc tính của sản phẩm.</DialogDescription>
         </DialogHeader>
 
-        {!productAttributes.length ? (
+        {loading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+            <Loader2 className="size-4 animate-spin" />
+            Đang tải thuộc tính…
+          </p>
+        ) : !productAttributes.length ? (
           <AlertMessage severity="info">
             Sản phẩm tạo không có thuộc tính nên chỉ có một biến thể. Muốn bán theo màu, cỡ… hãy tạo
             sản phẩm mới với các thuộc tính đó.
@@ -145,7 +154,7 @@ export function AddVariantDialog({
           <Button
             type="button"
             onClick={submit}
-            disabled={!complete || Boolean(existing) || busy}
+            disabled={loading || !complete || Boolean(existing) || busy}
           >
             {busy ? 'Đang lưu...' : 'Thêm'}
           </Button>

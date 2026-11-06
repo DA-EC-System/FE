@@ -233,7 +233,7 @@ export function StaffListPage() {
             }}
             options={Object.entries(STAFF_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
           />
-          <FilterSelect
+          <FilterSelect loading={rolesQuery.isLoading}
             label="Vai trò"
             value={roleId}
             onChange={(v) => {

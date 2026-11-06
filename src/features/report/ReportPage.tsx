@@ -215,7 +215,7 @@ export function ReportPage() {
                     onChange={(v) => update(v === 'inbox' || v === 'manual' ? { source: v, shopId: undefined } : { source: v })}
                     options={SOURCES.map((s) => ({ value: s, label: REPORT_SOURCE_LABELS[s] }))}
                   />
-                  <FilterSelect
+                  <FilterSelect loading={shops.isLoading}
                     label="Gian hàng"
                     value={shopId ?? ''}
                     disabled={source === 'inbox' || source === 'manual'}

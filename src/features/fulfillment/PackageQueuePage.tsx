@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { ClipboardList, Printer, Truck } from 'lucide-react';
+import { ClipboardList, Loader2, Printer, Truck } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -254,6 +254,14 @@ export function PackageQueuePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {pickList.isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground" data-testid="pick-list-loading">
+                      <Loader2 className="me-2 inline size-4 animate-spin" />
+                      Đang tổng hợp danh sách nhặt…
+                    </TableCell>
+                  </TableRow>
+                )}
                 {(pickList.data ?? []).map((l) => (
                   <TableRow key={l.variantId} data-row-id={l.sku}>
                     <TableCell className="font-medium">{l.sku}</TableCell>
@@ -285,7 +293,7 @@ export function PackageQueuePage() {
             options={(Object.keys(SOURCE_LABELS) as OrderSource[]).map((s) => ({ value: s, label: SOURCE_LABELS[s] }))}
           />
           {canViewShops && (
-            <FilterSelect
+            <FilterSelect loading={shops.isLoading}
               label="Gian hàng"
               value={shopId}
               onChange={f.setFilter('shopId')}

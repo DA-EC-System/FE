@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Search } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -50,6 +50,8 @@ interface FilterSelectProps {
   allLabel?: string;
   className?: string;
   disabled?: boolean;
+  /** Danh sách lựa chọn đang tải: khoá ô và hiện "Đang tải…" */
+  loading?: boolean;
 }
 
 /** Ô chọn một giá trị lọc; chuỗi rỗng là không lọc */
@@ -61,13 +63,21 @@ export function FilterSelect({
   allLabel = 'Tất cả',
   className,
   disabled,
+  loading,
 }: FilterSelectProps) {
   return (
     <div className={cn('grid gap-1.5', className)}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)} disabled={disabled}>
-        <SelectTrigger className="w-full md:min-w-40" aria-label={label}>
-          <SelectValue />
+      <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)} disabled={disabled || loading}>
+        <SelectTrigger className="w-full md:min-w-40" aria-label={label} aria-busy={loading || undefined}>
+          {loading ? (
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Đang tải…
+            </span>
+          ) : (
+            <SelectValue />
+          )}
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{allLabel}</SelectItem>
