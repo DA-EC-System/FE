@@ -32,8 +32,9 @@ describe('D4.2 chốt lệch', () => {
     expect(resolveBlock(payment, ceo)).toBeNull();
     expect(resolveBlock({ ...payment, ceoApproval: { by: { id: 'ceo', name: 'CEO' }, at: '' } }, admin)).toBeNull();
   });
-  it('CEO cũng không được chốt lệch cấu hình phí mình soạn', () => {
-    expect(resolveBlock({ ...payment, feeConfigAuthor: { id: 'ceo', name: 'CEO' } }, ceo)).toBe('second_person_required');
+  it('người soạn phí chỉ tự chốt được theo ngoại lệ tự duyệt (CEO; BE#249)', () => {
+    expect(resolveBlock({ ...payment, feeConfigAuthor: { id: 'ceo', name: 'CEO' } }, ceo)).toBeNull();
+    expect(resolveBlock({ ...payment, needsCeoApproval: false, feeConfigAuthor: { id: 'admin', name: 'Admin' } }, admin)).toBe('second_person_required');
   });
   it('chốt cần lý do; điều chỉnh mới mở lại mismatch', () => {
     expect(settlementMachine.check('mismatch', 'resolve', { actor: admin })).toMatchObject({ ok: false, code: 'reason_required' });

@@ -5,6 +5,7 @@ import { PageSpinner } from '@/components/common/PageSpinner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
+import { SelfApprovedTag } from '@/components/common/SelfApprovedTag';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,7 +38,7 @@ export function SettlementDetailPage() {
     {block && payment.status === 'mismatch' && block !== 'forbidden' && <AlertMessage severity="warning">{block === 'second_person_required' ? 'Người chốt phải khác người soạn cấu hình phí đang áp dụng.' : 'Lệch vượt hạn mức, cần CEO duyệt trước khi chốt.'}</AlertMessage>}
     <Card className="my-4"><CardContent className="grid gap-3 pt-6 sm:grid-cols-3"><div>Ước tính: {formatCurrency(payment.estimatedTotal)}</div><div>Quyết toán: {payment.settledTotal === null ? '—' : formatCurrency(payment.settledTotal)}</div><div>Lệch: {payment.diff === null ? '—' : formatCurrency(payment.diff)}</div>
       <div>Ngưỡng: {formatCurrency(payment.threshold.abs)} / {payment.threshold.pct}%</div><div>Hạn mức tự chốt: {formatCurrency(payment.threshold.resolveLimit)}</div><div>Người soạn phí: {payment.feeConfigAuthor?.name ?? '—'}</div>
-      {payment.ceoApproval && <p>Đã duyệt: {payment.ceoApproval.by?.name ?? '—'}</p>}{payment.resolved && <p>Lý do chốt: {payment.resolved.reason}</p>}
+      {payment.ceoApproval && <p>Đã duyệt: {payment.ceoApproval.by?.name ?? '—'}</p>}{payment.resolved && <p className="flex flex-wrap items-center gap-2">Lý do chốt: {payment.resolved.reason}{payment.resolved.selfApproved && <SelfApprovedTag />}</p>}
     </CardContent></Card>
     <DataTable data={payment.lines} getRowId={(l) => l.id} empty="Chưa có dòng tiền" columns={[
       { header: 'Ngày', cell: ({ row }) => formatDate(row.original.occurredOn) }, { header: 'Khoản', accessorKey: 'kind' },

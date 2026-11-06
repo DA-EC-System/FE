@@ -17,6 +17,17 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await expect(page.getByText('Lệch vượt hạn mức, cần CEO duyệt trước khi chốt.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Chốt lệch', exact: true })).toHaveCount(0);
   });
+  test('CEO soạn cấu hình phí tự chốt lệch được, hiện nhãn Tự duyệt (BE#249)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
+    await page.locator('tbody tr').filter({ hasText: 'Trong hạn mức' }).filter({ hasText: 'Lệch tiền' }).first().click();
+    await expect(page.getByText('Người soạn phí: Lê Hoàng Minh', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await dialog.getByLabel('Lý do', { exact: true }).fill('CEO tự đối chiếu Seller Center');
+    await dialog.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
+    await expect(page.locator('[data-status=resolved]').first()).toBeVisible();
+    await expect(page.getByTestId('self-approved')).toHaveCount(2);
+  });
   test('CEO duyệt lệch vượt ngưỡng, không tự thay đổi trạng thái đơn', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
     await page.locator('tbody tr').filter({ hasText: 'Cần CEO duyệt' }).first().click();
