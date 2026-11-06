@@ -216,8 +216,8 @@ export interface LedgerTotals {
   /** Số dư shop trên ví sàn theo quyết toán */
   platformBalance: number;
   withdrawn: number;
-  /** Tiền sẽ ra: đề nghị nhập đã duyệt chưa nhận đủ */
-  committedPurchase: number;
+  /** Tiền sẽ ra: đề nghị nhập đã duyệt chưa nhận đủ; null khi BE chưa tính */
+  committedPurchase: number | null;
 }
 
 export interface LedgerResponse {

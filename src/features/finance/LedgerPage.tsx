@@ -58,19 +58,25 @@ function TaxWarnings() {
 function Kpis({ totals }: { totals: LedgerTotals | undefined }) {
   return (
     <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {KPIS.map((k) => (
-        <Card key={k.key} className="gap-1 py-4" data-testid={`kpi-${k.key}`}>
-          <CardContent className="grid gap-1">
-            <span className="text-sm text-muted-foreground">{k.label}</span>
-            {totals ? (
-              <Money value={totals[k.key]} className="text-xl font-semibold" />
-            ) : (
-              <Skeleton className="h-7 w-32" />
-            )}
-            <span className="text-xs text-muted-foreground">{k.hint}</span>
-          </CardContent>
-        </Card>
-      ))}
+      {KPIS.map((k) => {
+        const value = totals?.[k.key];
+        return (
+          <Card key={k.key} className="gap-1 py-4" data-testid={`kpi-${k.key}`}>
+            <CardContent className="grid gap-1">
+              <span className="text-sm text-muted-foreground">{k.label}</span>
+              {!totals ? (
+                <Skeleton className="h-7 w-32" />
+              ) : value == null ? (
+                // BE trả null khi chưa tính số này (committedPurchase chưa làm): không hiện 0 ₫ cho khỏi hiểu nhầm
+                <span className="text-xl font-semibold text-muted-foreground">Chưa tính</span>
+              ) : (
+                <Money value={value} className="text-xl font-semibold" />
+              )}
+              <span className="text-xs text-muted-foreground">{k.hint}</span>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
