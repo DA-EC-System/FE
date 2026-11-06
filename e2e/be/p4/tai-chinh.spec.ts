@@ -1,7 +1,7 @@
 // P4 với BE thật · Tài chính (FE#12; commerio-backend#25, #27). BE chưa có API tạo đơn nên dựng dữ liệu trước mỗi lần chạy
 // bằng e2e/be/seed/tai-chinh.mts (xem đầu file đó), ghi ra e2e/be/seed/fe12-be.json.
 // Các test chạy theo thứ tự, test sau dùng trạng thái test trước để lại.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { type Page } from '@playwright/test';
 import { chon, chu, chua, dong, duongDan, expect, menu, test, thayChu, toast } from '../../fixtures';
 
@@ -24,6 +24,10 @@ interface Seed {
   assignTarget: Don;
 }
 
+const SEED = new URL('../seed/fe12-be.json', import.meta.url);
+// Seed ghi thẳng DB nên chỉ dựng được ở máy có DATABASE_URL; CI đêm (job e2e-be) không có nên bỏ qua cả file.
+test.skip(!existsSync(SEED), 'Chưa dựng e2e/be/seed/fe12-be.json (e2e/be/seed/tai-chinh.mts)');
+
 let s: Seed;
 const tab = (page: Page, name: string) => page.getByRole('tab', { name: new RegExp(`^${name}`) });
 const hopGan = (page: Page) => chua(page, 'Gán vào đơn', '[role=dialog]');
@@ -34,7 +38,7 @@ const coLink = (page: Page, id: string, text: string) =>
   expect(dong(page, id).locator('a').filter({ hasText: chu(text) })).not.toHaveCount(0);
 
 test.beforeAll(() => {
-  s = JSON.parse(readFileSync(new URL('../seed/fe12-be.json', import.meta.url), 'utf8')) as Seed;
+  s = JSON.parse(readFileSync(SEED, 'utf8')) as Seed;
 });
 test.beforeEach(async ({ page }) => {
   await page.goto('/login');

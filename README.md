@@ -138,7 +138,7 @@ pnpm e2e --repeat-each=3                   # bắt test chập chờn trước k
 - Khi chạy E2E, mock không trễ (trình duyệt tự động hoá có `navigator.webdriver`). Test cần thấy trạng thái loading
   thì đặt `window.__commerioMock = { latencyMs: 350 }` bằng `page.addInitScript` trước khi tải trang.
 - Test hỏng thì xem trace: `pnpm exec playwright show-trace test-results/<tên test>/trace.zip`.
-  Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày).
+  Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày); job `e2e-be` tải lên artifact `playwright-report-be`.
 
 **Với BE thật** (chạy lần lượt một worker, test sau dùng dữ liệu test trước để lại):
 
@@ -146,6 +146,15 @@ pnpm e2e --repeat-each=3                   # bắt test chập chờn trước k
 2. Dựng dữ liệu cho `be/p4`, `be/p5` từ thư mục BE (lệnh đầy đủ ở đầu `e2e/be/seed/tai-chinh.mts`, `doi-soat.mts`);
    kết quả ghi ra `e2e/be/seed/*.json`. Mỗi lần chạy spec dựng lại một lần.
 3. `VITE_USE_MOCKS=false pnpm e2e:be` (PowerShell: `$env:VITE_USE_MOCKS='false'; pnpm e2e:be`).
+
+Chạy trên staging thì không bật Vite: `PW_BASE_URL=https://116-118-6-7.sslip.io pnpm e2e:be` (lọc thư mục thì ghi đường dẫn
+ngay sau lệnh, vd `pnpm e2e:be e2e/be/p1`). `be/p4`, `be/p5/doi-soat` tự bỏ qua khi chưa có file seed tương ứng.
+
+Trên CI, job `e2e-be` của `.github/workflows/e2e.yml` chạy `pnpm e2e:be` trên staging lúc 02:00 mỗi đêm (cùng giờ với `pnpm e2e`)
+và khi bấm "Run workflow" trên main (chọn bộ `be` để chỉ chạy bộ này); không chạy trên PR vì staging chỉ có code của main.
+Đỏ thì comment, tag tác giả các PR đã merge từ lần `e2e-be` xanh gần nhất; báo cáo ở artifact `playwright-report-be`.
+Staging giới hạn 20 lần gọi `/identity/login` và `/identity/register` mỗi 15 phút mỗi IP; một lần chạy đang gọi `/login` 14 lần,
+`/register` 5 lần, thêm spec thì giữ dưới 18.
 
 ## Cấu trúc thư mục
 

@@ -33,6 +33,10 @@ const dangNhap = async (page: Page, email: string, password = MAT_KHAU) => {
   await page.goto('/login');
   await dangNhapTay(page, email, password);
   await expect.poll(() => duongDan(page)).toMatch(new RegExp(`^/c/${UUID}`));
+  // URL sang /c/:id khi select-company chưa trả về (RequireCompany còn hiện spinner): chờ khung trang hiện rồi mới đi tiếp.
+  // Đi tiếp sớm thì goto/reload huỷ request đang bay; refresh bị huỷ sau khi BE đã xoay vòng token thì trình duyệt giữ
+  // cookie đã bị thu hồi, lần refresh sau 401 (staging chậm hơn máy dev nên hay gặp).
+  await expect(page.getByTestId('nav-user')).toBeVisible();
 };
 /** Gọi đăng nhập trong trang, trả mã HTTP (không đổi phiên đang mở) */
 const thuDangNhap = (page: Page, email: string, password: string) =>
