@@ -173,7 +173,10 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
     await page.getByRole('menuitem', { name: 'Đăng xuất', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe('/login');
     await expect.poll(() => cookieRefresh(page)).toBeUndefined();
-    await page.goBack();
+    // App tự chuyển về /login ngay lúc quay lại nên lượt điều hướng có thể bị huỷ (ERR_ABORTED); đích đến kiểm ở dòng sau
+    await page.goBack({ waitUntil: 'commit' }).catch((e: unknown) => {
+      if (!String(e).includes('ERR_ABORTED')) throw e;
+    });
     await expect.poll(() => duongDan(page)).not.toMatch(/^\/c\//);
     await page.goto(`/c/${congTy1}/catalog`);
     await expect.poll(() => duongDan(page)).toBe('/login');

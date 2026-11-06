@@ -218,8 +218,10 @@ jobs:
             fi
           done
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            # Chưa có lần xanh nào trên main: lấy các commit trong 25 giờ qua.
-            base=$(git rev-list -1 --before="25 hours ago" "$head")
+            # Chưa có lần xanh nào của bộ này trên main: không có mốc để biết PR nào làm đỏ, không tag ai
+            # (đoán theo khoảng thời gian từng tag nhầm 15 PR cũ, run 42187649380).
+            echo "Chưa có lần ${SUITE_CMD} xanh nào trên main nên không biết PR nào làm đỏ, không tag ai: ${RUN_URL}" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           note=""
           if [ "$SUITE_JOB" = "e2e-be" ]; then
