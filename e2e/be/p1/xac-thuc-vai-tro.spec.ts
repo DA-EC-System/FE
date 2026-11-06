@@ -111,10 +111,11 @@ test.describe('P1-BE · Đăng ký, đăng nhập (commerio-backend#4)', () => {
 
 test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
   test('gọi /api/v1/identity/*, refresh nằm trong cookie HttpOnly, các API khác gửi Bearer', async ({ page }) => {
-    const goi: Promise<{ url: string; auth?: string }>[] = [];
+    // Request bị huỷ khi chuyển trang thì không đọc được header: trả null rồi bỏ qua
+    const goi: Promise<{ url: string; auth?: string } | null>[] = [];
     page.on('request', (req) => {
       const url = new URL(req.url()).pathname;
-      if (url.startsWith('/api/v1/')) goi.push(req.allHeaders().then((h) => ({ url, auth: h.authorization as string | undefined }), () => ({ url, auth: 'đã đóng' })));
+      if (url.startsWith('/api/v1/')) goi.push(req.allHeaders().then((h) => ({ url, auth: h.authorization as string | undefined }), () => null));
     });
     const login = page.waitForResponse((r) => laApi(r.url(), '/api/v1/identity/login') && r.request().method() === 'POST');
     await dangNhap(page, emailCeo(1));
@@ -135,7 +136,7 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
     expect(await page.evaluate(() => document.cookie)).not.toContain('commerio_refresh');
 
     await expect(async () => {
-      const ds = await Promise.all(goi);
+      const ds = (await Promise.all(goi)).filter((g): g is { url: string; auth?: string } => g !== null);
       const xacThuc = ds.filter((g) => /\/(login|register|refresh|logout)$/.test(g.url));
       const conLai = ds.filter((g) => !xacThuc.includes(g));
       expect(xacThuc.length, 'có gọi API xác thực').toBeGreaterThan(0);

@@ -72,7 +72,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await expect(dong(page, 'ord-1012')).toContainText('× 1 · và 1 món khác');
       await expect(dong(page, 'ord-1012').getByRole('button', { name: 'Sao chép mã đơn sàn 533851500001012' })).toBeVisible();
       // Thanh toán theo phương thức gốc của sàn
-      await expect(dong(page, 'ord-1012')).toContainText('COD');
+      await expect(dong(page, 'ord-1012').getByRole('cell', { name: 'COD', exact: true })).toBeVisible();
       // Đơn tạo tay không có mã đơn sàn, không có hạn gửi
       await expect(dong(page, 'ord-1003')).not.toContainText('5338515');
       await page.getByPlaceholder(/Tìm/).fill('533851500001012');
@@ -83,7 +83,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
     test('chi tiết đơn sàn: mã đơn sàn, trạng thái gốc, ghi chú khách, ảnh và thuộc tính từng dòng (FE#176)', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1012');
       await expect(page.locator('[data-testid=order-head] [data-testid=external-order-id]')).toContainText('533851500001012');
-      await expect(page.locator('[data-testid=order-head] [data-testid=payment-method]')).toContainText('COD');
+      await expect(page.locator('[data-testid=order-head] [data-testid=payment-method]')).toHaveText(/^Thanh toán\s+COD$/);
       await expect(page.locator('[data-testid=order-status]')).toContainText('Sàn: READY_TO_SHIP');
       await expect(page.locator('[data-testid=buyer-note]')).toContainText('Giao giờ hành chính giúp em');
       const dongHang = page.locator('[data-testid=order-lines] tbody tr');
@@ -94,17 +94,17 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await expect(page.locator('[data-testid=order-lines]')).toContainText('Khách trả');
       await expect(dongHang.first()).toContainText('135.000');
       await expect(page.locator('[data-testid=line-issue]')).toHaveCount(0);
-      // Đơn hoàn DH-1002: dòng có trạng thái trả, do ai, lý do, mã đơn ngược; tiền khách trả gạch đi
+      // DH-1002 giao thất bại: trạng thái hoàn, không ai huỷ, lý do kèm chi tiết, mã đơn ngược; tiền khách trả gạch đi
       await page.goto('/c/cmp-001/sales/orders/ord-1002');
       const loi = page.locator('[data-testid=line-issue]');
-      await expect(loi).toContainText('Trả hàng: Đang hoàn về');
-      await expect(loi).toContainText('do khách');
-      await expect(loi).toContainText('Lý do: Khách không nhận hàng');
+      await expect(loi).toContainText('Giao thất bại: Đang hoàn về');
+      await expect(loi).not.toContainText(/do (khách|shop|sàn)/);
+      await expect(loi).toContainText('Lý do: Khách không nhận hàng (Gọi 3 lần không nghe máy)');
       await expect(loi).toContainText('Mã đơn ngược 7712045893');
       await expect(page.locator('[data-testid=order-lines] tbody tr').first().locator('.line-through')).toContainText('180.000');
     });
 
-    test('chi tiết đơn sàn: địa chỉ tách phần, thanh toán, phí ship và vận chuyển của kiện (FE#176)', async ({ page }) => {
+    test('chi tiết đơn sàn: địa chỉ sàn che một phần, thanh toán, phí ship và vận chuyển của kiện (FE#176)', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1012');
       // Lazada che số nhà, tỉnh: hiện nguyên chuỗi sàn trả; phường đã có trong chuỗi thì không lặp
       await expect(page.locator('[data-testid=shipping-address]')).toHaveText('1***0 L** L**, Phường Bến Nghé, T*********h');
@@ -113,7 +113,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await thayChu(page, 'Phí ship gốc');
       await thayChu(page, 'Sàn giảm phí ship');
       await thayChu(page, 'Phí ship khách trả');
-      await expect(page.locator('[data-testid=package-shipping]').first()).toContainText(' · standard · sàn hứa gửi trước ');
+      await expect(page.locator('[data-testid=package-shipping]').first()).toContainText(' · Tiêu chuẩn · sàn hứa gửi trước ');
       // Đơn tạo tay: không có các trường sàn
       await page.goto('/c/cmp-001/sales/orders/ord-1003');
       await expect(page.locator('[data-testid=order-lines]')).not.toContainText('Khách trả');

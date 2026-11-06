@@ -282,19 +282,25 @@ export function OrderDetailPage() {
                 {order.customer && <p className="text-muted-foreground">{order.customer.phone}</p>}
               </Info>
               <Info label="Giao tới">
-                <p>
-                  {order.shippingAddress.name} · {order.shippingAddress.phone}
-                </p>
-                <p className="text-muted-foreground" data-testid="shipping-address">
-                  {order.shippingAddress.address}
-                </p>
-                {wardNote(order.shippingAddress) && (
-                  <p className="text-xs text-muted-foreground" data-testid="shipping-ward">
-                    Phường/xã {wardNote(order.shippingAddress)}
-                  </p>
-                )}
-                {order.shippingAddress.postCode && (
-                  <p className="text-xs text-muted-foreground">Mã bưu chính {order.shippingAddress.postCode}</p>
+                {order.shippingAddress ? (
+                  <>
+                    <p>
+                      {order.shippingAddress.name} · {order.shippingAddress.phone}
+                    </p>
+                    <p className="text-muted-foreground" data-testid="shipping-address">
+                      {order.shippingAddress.address}
+                    </p>
+                    {wardNote(order.shippingAddress) && (
+                      <p className="text-xs text-muted-foreground" data-testid="shipping-ward">
+                        Phường/xã {wardNote(order.shippingAddress)}
+                      </p>
+                    )}
+                    {order.shippingAddress.postCode && (
+                      <p className="text-xs text-muted-foreground">Mã bưu chính {order.shippingAddress.postCode}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">—</p>
                 )}
               </Info>
               {order.note && <Info label="Ghi chú">{order.note}</Info>}

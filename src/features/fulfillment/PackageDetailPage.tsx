@@ -33,7 +33,7 @@ import { useTransitionActor } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
-import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageButtons } from './shared';
+import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 type Pending =
@@ -277,7 +277,7 @@ export function PackageDetailPage() {
               {p.shippingProviderType && (
                 <div>
                   <p className="text-muted-foreground">Gói giao</p>
-                  <p>{p.shippingProviderType}</p>
+                  <p>{shippingProviderTypeLabel(p.shippingProviderType)}</p>
                 </div>
               )}
               {p.promisedShippingAt && (

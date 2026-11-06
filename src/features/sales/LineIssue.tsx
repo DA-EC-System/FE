@@ -13,15 +13,19 @@ export function LineIssue({ line }: { line: OrderLine }) {
           {line.returnStatus && `: ${line.returnStatus}`}
         </Badge>
       ) : line.cancelKind === 'failed_delivery' ? (
-        <Badge variant="warning">{CANCEL_KIND_LABELS.failed_delivery}</Badge>
+        <Badge variant="warning">
+          {CANCEL_KIND_LABELS.failed_delivery}
+          {line.returnStatus && `: ${line.returnStatus}`}
+        </Badge>
       ) : (
         <Badge variant="destructive">Đã huỷ</Badge>
       )}
       {line.cancelInitiator && <span className="text-muted-foreground">do {initiatorLabel(line.cancelInitiator)}</span>}
-      {line.cancelReason && (
+      {(line.cancelReason || line.cancelReasonDetail) && (
         <span className="text-muted-foreground">
-          · Lý do: {line.cancelReason}
-          {line.cancelReasonDetail && ` (${line.cancelReasonDetail})`}
+          · Lý do: {line.cancelReason && line.cancelReasonDetail
+            ? `${line.cancelReason} (${line.cancelReasonDetail})`
+            : line.cancelReason || line.cancelReasonDetail}
         </span>
       )}
       {line.reverseOrderId && <span className="text-muted-foreground">· Mã đơn ngược {line.reverseOrderId}</span>}

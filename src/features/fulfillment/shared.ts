@@ -1,6 +1,23 @@
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import type { TransitionActor } from '@/lib/stateMachine';
 import { packageMachine, type PackageRecord } from '@/lib/machines/order';
+/** Gói giao của sàn (Lazada `shipping_provider_type`); giá trị lạ thì hiện nguyên */
+const SHIPPING_PROVIDER_TYPE_LABELS: Record<string, string> = {
+  standard: 'Tiêu chuẩn',
+  economy: 'Tiết kiệm',
+  express: 'Nhanh',
+  instant: 'Hoả tốc',
+  seller_own_fleet: 'Shop tự giao',
+  pickup_in_store: 'Nhận tại cửa hàng',
+  digital: 'Hàng số',
+};
+
+export function shippingProviderTypeLabel(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const key = v.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(SHIPPING_PROVIDER_TYPE_LABELS, key) ? SHIPPING_PROVIDER_TYPE_LABELS[key]! : v;
+}
+
 import type { OpenPurpose, PackageAction, PackageFlag, PackageStatus, PackageSummary, PackageTab } from '@/types/fulfillment';
 
 export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {

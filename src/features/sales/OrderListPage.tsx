@@ -19,6 +19,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { OrderFlag, OrderSource, OrderStage as Stage, OrderStatus, OrderSummary, PaymentMethod } from '@/types/sales';
 import {
+  FILTERABLE_ORDER_FLAGS,
   ORDER_FLAGS,
   ORDER_STAGE,
   ORDER_STATUS,
@@ -213,7 +214,7 @@ export function OrderListPage() {
       )}
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, mã đơn sàn, tên, số điện thoại" />
+          <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, mã đơn sàn" />
           <FilterSelect
             label="Nguồn"
             value={source}
@@ -244,7 +245,7 @@ export function OrderListPage() {
             label="Cờ"
             value={flag}
             onChange={f.setFilter('flag')}
-            options={(Object.keys(ORDER_FLAGS) as OrderFlag[]).map((x) => ({ value: x, label: ORDER_FLAGS[x].label }))}
+            options={FILTERABLE_ORDER_FLAGS.map((x) => ({ value: x, label: ORDER_FLAGS[x].label }))}
           />
         </FilterBar>
         <DataTable
