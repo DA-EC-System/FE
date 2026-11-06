@@ -43,9 +43,12 @@ test.describe('P5 · Sổ tiền', () => {
       await expect(page.getByRole('tooltip')).toContainText('thay bằng dòng thực tế khi sàn quyết toán');
       await coChu(page.locator('[data-testid=tax-warnings]'), 'sắp vượt mốc 500 triệu', 'App không khai thuế');
       await expect(page.locator('[data-testid=kpi-withdrawn]')).toContainText('2.000.000');
-      await expect(page.locator('[data-testid=kpi-platformBalance]')).toContainText('6.670.000');
+      // 6.670.000 cộng khoản 189.000 của đơn không có trong app (dữ liệu mock của BE#250)
+      await expect(page.locator('[data-testid=kpi-platformBalance]')).toContainText('6.859.000');
       await expect(chua(page, 'Rút về ngân hàng', 'tr')).toContainText('Thực tế');
       await expect(chua(page, 'DH-1018', 'tr')).toContainText('Đơn tạo tay');
+      // Khoản của đơn sàn không có trong app: dòng của gian hàng, cờ Không rõ đơn (E140, BE#250)
+      await expect(chua(page, '700000000000009', 'tr').locator('[data-flag=unknown_order]')).toHaveText('Không rõ đơn');
       await page.getByRole('tab', { name: 'Đã thay', exact: true }).click();
       await thayChu(page, 'Không có dòng sổ nào');
     });

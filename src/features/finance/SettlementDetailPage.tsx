@@ -17,9 +17,10 @@ import { PERMISSIONS as P } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { resolveBlock } from '@/lib/machines/settlement';
-import { PAYMENT_STATES } from './lifecycleShared';
+import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { FlagChips } from '@/components/common/FlagChips';
 
 export function SettlementDetailPage() {
   const { id = '' } = useParams(); const query = useOrderPayment(id); const actor = useTransitionActor();
@@ -34,7 +35,7 @@ export function SettlementDetailPage() {
       {!block && <Button onClick={() => setAction('resolve')}>Chốt lệch</Button>}
       {payment.status === 'mismatch' && payment.needsCeoApproval && !payment.ceoApproval && actor.permissions.includes(P.settlementApprove) && <Button variant="outline" onClick={() => setAction('ceo-approve')}>CEO duyệt lệch</Button>}
     </div>} />
-    <StatusBadge status={payment.status} statuses={PAYMENT_STATES} />
+    <span className="flex flex-wrap items-center gap-2"><StatusBadge status={payment.status} statuses={PAYMENT_STATES} /><FlagChips flags={payment.flags} meta={PAYMENT_FLAGS} /></span>
     {block && payment.status === 'mismatch' && block !== 'forbidden' && <AlertMessage severity="warning">{block === 'second_person_required' ? 'Người chốt phải khác người soạn cấu hình phí đang áp dụng.' : 'Lệch vượt hạn mức, cần CEO duyệt trước khi chốt.'}</AlertMessage>}
     <Card className="my-4"><CardContent className="grid gap-3 pt-6 sm:grid-cols-3"><div>Ước tính: {formatCurrency(payment.estimatedTotal)}</div><div>Quyết toán: {payment.settledTotal === null ? '—' : formatCurrency(payment.settledTotal)}</div><div>Lệch: {payment.diff === null ? '—' : formatCurrency(payment.diff)}</div>
       <div>Ngưỡng: {formatCurrency(payment.threshold.abs)} / {payment.threshold.pct}%</div><div>Hạn mức tự chốt: {formatCurrency(payment.threshold.resolveLimit)}</div><div>Người soạn phí: {payment.feeConfigAuthor?.name ?? '—'}</div>

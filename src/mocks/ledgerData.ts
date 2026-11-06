@@ -16,6 +16,9 @@ export interface MockLedgerLine {
   packageId: string | null;
   configVersion: string | null;
   txnId: string | null;
+  /** Mã đơn sàn khi đơn không có trong app (E140) */
+  externalOrderId?: string;
+  flags?: 'unknown_order'[];
   note: string | null;
   bankMatched: boolean;
 }
@@ -57,7 +60,7 @@ const shopLine = (
   kind: LedgerKind,
   amount: number,
   note: string,
-  extra: { txnId?: string; bankMatched?: boolean } = {},
+  extra: { txnId?: string; bankMatched?: boolean; externalOrderId?: string } = {},
 ) =>
   addLine({
     companyId: 'cmp-001',
@@ -70,6 +73,7 @@ const shopLine = (
     packageId: null,
     configVersion: null,
     txnId: extra.txnId ?? null,
+    ...(extra.externalOrderId && { externalOrderId: extra.externalOrderId, flags: ['unknown_order' as const] }),
     note,
     bankMatched: extra.bankMatched,
   });
@@ -80,6 +84,11 @@ shopLine('2026-10-01T00:00:00.000Z', 'shp-002', 'adjustment', 2_400_000, 'Số d
 shopLine('2026-10-06T03:00:00.000Z', 'shp-001', 'ads', -350_000, 'Quảng cáo tìm kiếm tuần 40', { txnId: 'ADS-2610-01' });
 shopLine('2026-10-08T05:00:00.000Z', 'shp-002', 'compensation', 120_000, 'Sàn bồi thường kiện thất lạc', {
   txnId: 'CMP-2610-07',
+});
+// Đơn đặt trước khi kết nối gian hàng: dòng của gian hàng, cờ Không rõ đơn (E140)
+shopLine('2026-10-09T04:00:00.000Z', 'shp-001', 'revenue', 189_000, 'Item Price Credit', {
+  txnId: 'VN-LZD-2610-090',
+  externalOrderId: '700000000000009',
 });
 shopLine('2026-10-10T02:00:00.000Z', 'shp-001', 'withdrawal', -2_000_000, 'Rút về Vietcombank', {
   txnId: 'WD-2610-01',

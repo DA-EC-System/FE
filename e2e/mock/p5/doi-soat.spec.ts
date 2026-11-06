@@ -56,6 +56,13 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await dialog.getByLabel('Lý do', { exact: true }).fill('Kiểm tra'); await dialog.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     await expect(dialog).toContainText('Dữ liệu vừa được người khác sửa'); await expect(page.locator('[data-status=mismatch]').first()).toBeVisible();
   });
+  test('đơn sàn trừ thuế khác ước tính có cờ Lệch thuế ở danh sách và chi tiết (E135, BE#250)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
+    const row = page.locator('tbody tr').filter({ has: page.locator('[data-flag=tax_mismatch]') });
+    await expect(row).toHaveCount(1);
+    await row.click();
+    await expect(page.locator('[data-flag=tax_mismatch]')).toHaveText('Lệch thuế');
+  });
   test('Sale không mở được trang tài chính', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale'); await page.goto('/c/cmp-001/finance/settlements');
     await expect(page.getByText('Vai trò của bạn trong công ty này không có quyền mở trang này.', { exact: true })).toBeVisible();
