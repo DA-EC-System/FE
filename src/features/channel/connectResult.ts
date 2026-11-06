@@ -53,7 +53,7 @@ export function reconnectSummary(reconnect: ShopReconnectSummary | null): string
   if (!reconnect) return [];
   return [
     reconnect.jobsRun ? `chạy ${reconnect.jobsRun} việc đang chờ` : null,
-    reconnect.relisted ? `đưa lại ${reconnect.relisted} listing lên sàn` : null,
+    reconnect.relisted ? `đưa lại ${reconnect.relisted} sản phẩm lên sàn` : null,
     reconnect.pulledFrom ? `kéo đơn từ ${formatDateTime(reconnect.pulledFrom)}` : null,
   ].filter((x): x is string => Boolean(x));
 }

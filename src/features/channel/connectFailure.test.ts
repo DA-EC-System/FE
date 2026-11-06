@@ -49,7 +49,7 @@ describe('Màn kết quả khi sàn trả về (§18.4)', () => {
 describe('capabilitySummary', () => {
   it('chỉ đọc capabilities', () => {
     expect(capabilitySummary({ listingReview: true, hideBy: 'deactivate', splitLevel: 'unit', returnWindow: 'days' })).toEqual([
-      'Sàn duyệt listing trước khi bán',
+      'Sàn duyệt sản phẩm trước khi bán',
       'Tách đơn tới từng món',
       'Hạn đổi trả theo số ngày bạn đặt',
     ]);

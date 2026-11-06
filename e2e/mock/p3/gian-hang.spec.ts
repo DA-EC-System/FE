@@ -32,7 +32,7 @@ const themQua = async (page: Page, platformName: string) => {
 };
 
 const moTrangGhep = async (page: Page, shopId: string) => {
-  await chonMenu(page, shopId, 'Listing và giá');
+  await chonMenu(page, shopId, 'Sản phẩm trên sàn và giá');
   await expect.poll(() => duongDan(page)).toMatch(new RegExp(`/channel/shops/${shopId}$`));
   await expect(page.locator('[data-testid=match-summary]')).toBeAttached();
 };
@@ -95,7 +95,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByRole('menuitem', { name: 'Kết nối lại', exact: true })).toBeAttached();
       await page.keyboard.press('Escape');
       // Gian hàng đang chạy: nút chính là Listing, không có Kết nối lại
-      await expect(dong(page, 'shp-001').getByRole('button', { name: 'Listing', exact: true })).toBeAttached();
+      await expect(dong(page, 'shp-001').getByRole('button', { name: 'Sản phẩm trên sàn', exact: true })).toBeAttached();
       await expect(dong(page, 'shp-001').getByRole('button', { name: 'Kết nối lại', exact: true })).toHaveCount(0);
 
       // Cần xử lý: mất quyền (shp-002) và uỷ quyền sắp hết hạn (shp-003)
@@ -138,7 +138,7 @@ test.describe('P3 · Gian hàng', () => {
       const ketQua = page.locator('[data-outcome=connected]');
       await expect(ketQua).toContainText('Đã nối ABC Thử nghiệm');
       await expect(ketQua).toContainText('mock-abc-01');
-      await expect(ketQua).toContainText('Listing tìm thấy');
+      await expect(ketQua).toContainText('Sản phẩm trên sàn tìm thấy');
       await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
       await expect.poll(() => duongDan(page)).toMatch(/\/channel\/shops\/[^/]+\/setup$/);
 
@@ -188,7 +188,7 @@ test.describe('P3 · Gian hàng', () => {
       await thayChu(page, 'Số ngày đổi trả là số nguyên từ 1 đến 60');
       await soNgay.fill('7');
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
-      await toast(page, /ABC Thử nghiệm đã sẵn sàng bán, ghép 3 listing, lập phiếu kiểm kê KK-/);
+      await toast(page, /ABC Thử nghiệm đã sẵn sàng bán, ghép 3 sản phẩm trên sàn, lập phiếu kiểm kê KK-/);
 
       // Bước 4 (§18.7.7): ở lại trang, đọc tiến độ việc nền; kéo đơn chạy xong, đẩy tồn chờ phiếu kiểm kê
       await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
@@ -201,7 +201,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(tienDo.locator('[data-step=push_stock]')).toContainText('Chờ bước kiểm kê đầu kỳ xong');
       const conLai = page.locator('[data-testid=setup-unmatched]');
       await expect(conLai).toContainText('Còn 1 SKU trên sàn chưa ghép');
-      await expect(conLai.getByRole('link', { name: 'Ghép ở Listing và giá', exact: true })).toHaveAttribute(
+      await expect(conLai.getByRole('link', { name: 'Ghép ở Sản phẩm trên sàn và giá', exact: true })).toHaveAttribute(
         'href',
         /\/c\/cmp-001\/channel\/shops\/[^/]+$/,
       );
@@ -377,7 +377,7 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       // Kết nối lại dùng bản ghi cũ, đưa listing đã gỡ khi ngắt lên lại và kéo đơn từ mốc cũ
       const noiLai = page.locator('[data-outcome=reconnected]');
-      await expect(noiLai).toContainText(/đưa lại 1 listing lên sàn, kéo đơn từ/);
+      await expect(noiLai).toContainText(/đưa lại 1 sản phẩm lên sàn, kéo đơn từ/);
       await expect(noiLai).toContainText('Đã ngắt');
       await noiLai.getByRole('button', { name: 'Để sau', exact: true }).click();
       await expect(trangThai(page, 'shp-008')).toHaveText('Đã kết nối');
@@ -605,7 +605,7 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'sàn đã duyệt');
       await page.locator('[data-event="listing.hold"]').getByRole('textbox').fill('khong-co');
       await phat(page, 'listing.hold');
-      await toast(page, 'Không có listing đang bán với SKU khong-co');
+      await toast(page, 'Không có sản phẩm đang bán trên sàn với SKU khong-co');
       await phat(page, 'shop.deauthorized');
       await toast(page, /ABC Fashion LazMall chuyển sang cần kết nối lại, \d+ việc đang chờ/);
 
@@ -634,7 +634,7 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     const shop = dong(page, 'shp-001');
     await shop.getByRole('button', { name: /^Thao tác khác với / }).click();
-    await expect(page.getByRole('menuitem', { name: 'Listing và giá', exact: true })).toBeAttached();
+    await expect(page.getByRole('menuitem', { name: 'Sản phẩm trên sàn và giá', exact: true })).toBeAttached();
     await expect(page.getByRole('menuitem', { name: 'Ngắt kết nối', exact: true })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: /^Kéo đơn ngay/ })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: /^Thiết lập lại/ })).toHaveCount(0);

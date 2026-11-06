@@ -52,7 +52,7 @@ describe('connectedOutcome', () => {
 describe('reconnectSummary', () => {
   it('kể việc đã bù, bỏ phần bằng 0', () => {
     expect(reconnectSummary({ jobsRun: 3, relisted: 0, pulledFrom: null })).toEqual(['chạy 3 việc đang chờ']);
-    expect(reconnectSummary({ jobsRun: 0, relisted: 2, pulledFrom: null })).toEqual(['đưa lại 2 listing lên sàn']);
+    expect(reconnectSummary({ jobsRun: 0, relisted: 2, pulledFrom: null })).toEqual(['đưa lại 2 sản phẩm lên sàn']);
   });
 
   it('không có phần bù thì rỗng', () => {

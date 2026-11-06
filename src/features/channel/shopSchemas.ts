@@ -44,7 +44,7 @@ export const STATUS_META: Record<ShopStatus, StatusMeta> = {
 /** Tóm tắt khác biệt của sàn để chọn sàn khi thêm gian hàng; chỉ đọc capabilities, không xét mã sàn */
 export function capabilitySummary(c: ShopCapabilities): string[] {
   return [
-    c.listingReview ? 'Sàn duyệt listing trước khi bán' : 'Listing lên bán ngay',
+    c.listingReview ? 'Sàn duyệt sản phẩm trước khi bán' : 'Sản phẩm lên bán ngay',
     { unit: 'Tách đơn tới từng món', sku: 'Tách đơn theo SKU', none: 'Không tách đơn' }[c.splitLevel],
     c.returnWindow === 'days' ? 'Hạn đổi trả theo số ngày bạn đặt' : 'Hạn đổi trả do sàn báo',
   ];

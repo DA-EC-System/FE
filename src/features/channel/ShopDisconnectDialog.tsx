@@ -135,11 +135,11 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
           <div>
             <p>
               {platformLabel(shop.platform, shop.platformName)}, mã <span className="font-mono">{shop.externalShopId}</span>.
-              Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; listing trên sàn được gỡ.
+              Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; sản phẩm trên sàn được gỡ xuống.
             </p>
             <ul className="mt-2 list-disc ps-5 text-foreground-2">
               <li>Đơn, đối soát và ghép SKU cũ vẫn giữ.</li>
-              <li>Kết nối lại đúng gian hàng thì listing được đưa lên lại.</li>
+              <li>Kết nối lại đúng gian hàng thì sản phẩm được đưa lên sàn lại.</li>
             </ul>
           </div>
         </DialogDescription>

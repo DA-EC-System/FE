@@ -98,7 +98,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         facts={[
           { label: 'Sàn', value: platform },
           { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
-          { label: 'Listing tìm thấy', value: remoteSkuValue(first.remoteSkuCount) },
+          { label: 'Sản phẩm trên sàn tìm thấy', value: remoteSkuValue(first.remoteSkuCount) },
         ]}
         actions={
           <>

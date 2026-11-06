@@ -175,7 +175,7 @@ export function ShopListPage() {
       },
       {
         accessorKey: 'listingCount',
-        header: 'Listing',
+        header: 'Sản phẩm trên sàn',
         meta: { className: 'w-20 text-right' },
       },
       {
@@ -226,7 +226,7 @@ export function ShopListPage() {
               </Button>
             ) : (
               <Button size="sm" variant="outline" onClick={() => openShop(s)}>
-                Listing
+                Sản phẩm trên sàn
               </Button>
             );
           const setupReason =
@@ -242,7 +242,7 @@ export function ShopListPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
-                  <DropdownMenuItem onSelect={() => openShop(s)}>Listing và giá</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => openShop(s)}>Sản phẩm trên sàn và giá</DropdownMenuItem>
                   {canConnect && (
                     <MenuItem
                       label="Thiết lập lại"
