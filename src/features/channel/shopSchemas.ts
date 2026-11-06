@@ -50,6 +50,15 @@ export function capabilitySummary(c: ShopCapabilities): string[] {
   ];
 }
 
+/**
+ * Câu thay cho ô số ngày đổi trả ở thiết lập khi sàn tự báo hết hạn trả (returnWindow = platform_status).
+ * Rẽ theo capabilities, không theo mã sàn; null khi người bán phải đặt số ngày.
+ */
+export function returnWindowNote(c: ShopCapabilities, platformName: string): string | null {
+  if (c.returnWindow !== 'platform_status') return null;
+  return `${platformName} tự khoá đổi trả khi đơn hoàn tất, nên không cần đặt số ngày đổi trả.`;
+}
+
 /** Token sàn còn dùng được: gọi được API sàn để đồng bộ, ghép, đẩy */
 export const isUsable = shopUsable;
 

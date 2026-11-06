@@ -143,15 +143,30 @@ export const listings: MockListing[] = [
   listing('shp-004', 'cmp-002', 'prd-101-v1', 'shp-004-sku-001', 180000),
 ];
 
+/** Mã số dài 19 chữ số như product_id, sku_id của TikTok Shop; cố định theo gian hàng */
+export function tiktokNumericId(shopId: string, n: number): string {
+  let h = 2166136261;
+  for (const ch of shopId) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return `17${String(h).padStart(10, '0')}${String(n).padStart(7, '0')}`;
+}
+
 /** Gian hàng mới kết nối qua sàn giả lập: sàn đã có sẵn vài SKU để thử bước ghép listing có sẵn */
-export function seedRemoteForNewShop(shopId: string) {
-  remoteSkus[shopId] = [
+export function seedRemoteForNewShop(shopId: string, platform?: string) {
+  const items = [
     { ...remote(shopId, 1, 'prd-001-v3', 'Áo thun basic cổ tròn - Trắng, M', 149000), stock: 30 },
     { ...remote(shopId, 2, 'prd-002-v1', 'Quần kaki ống suông - M', 319000), stock: 5 },
     { ...remote(shopId, 3, null, 'Mũ lưỡi trai (hàng cũ)', 59000, 'OLD-CAP-01'), stock: 2 },
     // SKU người bán khác SKU Commerio nhưng tên gần giống: gợi ý theo tên (§18.7.5)
     { ...remote(shopId, 4, null, 'Áo khoác gió Navy L', 289000, 'KHOAC-CU-L'), stock: 4 },
   ];
+  // TikTok: product_id, sku_id là số dài; mỗi SKU một sản phẩm khác nhau
+  remoteSkus[shopId] = platform === 'tiktok'
+    ? items.map((r, i) => ({
+        ...r,
+        externalProductId: tiktokNumericId(shopId, 1000 + i),
+        externalSkuId: tiktokNumericId(shopId, i + 1),
+      }))
+    : items;
 }
 
 export const oauthStates = new Map<string, MockOAuthState>();
