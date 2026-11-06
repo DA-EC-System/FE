@@ -151,7 +151,8 @@ export function ShopSetupPage() {
   }, [preview.data, reset]);
 
   if (shop.isLoading) return <PageSpinner />;
-  if (shop.data && !connecting && !result) return <Navigate to={ROUTES.company.shop(companyId, shopId)} replace />;
+  // mutateAsync chờ refetch gian hàng (đã active) rồi mới trả về, nên giữ trang trong lúc gửi và sau khi gửi xong
+  if (shop.data && !connecting && !result && !finish.isPending && !finish.isSuccess) return <Navigate to={ROUTES.company.shop(companyId, shopId)} replace />;
   if (shop.isError || !shop.data) {
     return <AlertMessage severity="error">{problemMessage(shop.error)}</AlertMessage>;
   }
