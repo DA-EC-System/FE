@@ -17,6 +17,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Cho phép mở qua tunnel ngrok (Vite chặn host lạ bằng 403).
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.app'],
     open: false,
     watch: {
       usePolling: true,
