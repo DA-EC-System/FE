@@ -988,7 +988,7 @@ registerMarketplaceEvent({
     'Sàn đẩy đơn mới, chưa thanh toán (UNPAID). Kiện giữ hàng ngay nếu đủ; SKU chưa ghép thì đơn mang cờ Chưa ghép SKU.',
   group: 'Đơn bán',
   needsShop: true,
-  param: { key: 'sku', label: 'SKU (người bán)', placeholder: 'Bỏ trống: listing đầu tiên đã ghép' },
+  param: { key: 'sku', label: 'SKU (người bán)', placeholder: 'Bỏ trống: sản phẩm đã ghép đầu tiên' },
   realtime: null,
   run({ companyId, shop, params }) {
     if (!shop) throw new Error('Chọn gian hàng');

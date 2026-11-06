@@ -42,13 +42,13 @@ export const BUSINESS_STATUS_LABELS: Record<VariantBusinessStatus, string> = {
 
 /** Hậu quả của từng thao tác, hiện trong hộp xác nhận */
 const ACTION_EFFECT: Record<VariantBusinessAction, string> = {
-  pause: 'Listing trên các sàn bị ẩn cho đến khi bỏ tạm ngừng. Hàng vẫn nhập và giữ tồn như cũ.',
-  unpause: 'Listing đang ẩn hiện lại trên sàn.',
+  pause: 'Sản phẩm trên các sàn bị ẩn cho đến khi bỏ tạm ngừng. Hàng vẫn nhập và giữ tồn như cũ.',
+  unpause: 'Sản phẩm đang ẩn trên sàn được hiện lại.',
   discontinue:
-    'Không nhập thêm: SKU rời gợi ý nhập lại và không thêm được vào đề nghị nhập. Hàng còn tồn vẫn bán tiếp; listing đang ẩn vì tạm ngừng sẽ hiện lại.',
+    'Không nhập thêm: SKU rời gợi ý nhập lại và không thêm được vào đề nghị nhập. Hàng còn tồn vẫn bán tiếp; sản phẩm trên sàn đang ẩn vì tạm ngừng sẽ hiện lại.',
   reactivate: 'SKU nhập và bán lại như bình thường.',
   archive:
-    'SKU ẩn khỏi danh sách, listing trên các sàn bị gỡ. Chỉ lưu trữ được khi tồn, hàng đang về, hàng chờ xử lý đều bằng 0 và không còn chứng từ mở.',
+    'SKU ẩn khỏi danh sách và bị gỡ khỏi các sàn. Chỉ lưu trữ được khi tồn, hàng đang về, hàng chờ xử lý đều bằng 0 và không còn chứng từ mở.',
   restore: 'SKU quay về Ngừng nhập với SKU cũ.',
 };
 

@@ -122,7 +122,7 @@ test.describe('P2 · Sản phẩm', () => {
     await expect(dong.getByTestId('variant-status')).toContainText('Đang bán');
     await dong.getByRole('button', { name: /^Đổi trạng thái/ }).click();
     await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
-    await expect(alert).toContainText('Listing trên các sàn bị ẩn');
+    await expect(alert).toContainText('Sản phẩm trên các sàn bị ẩn');
     await alert.getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
     await expect(dong.getByTestId('variant-status')).toContainText('Tạm ngừng');
     await dong.getByRole('button', { name: /^Đổi trạng thái/ }).click();

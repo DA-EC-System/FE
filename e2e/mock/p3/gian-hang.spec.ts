@@ -112,7 +112,7 @@ test.describe('P3 · Gian hàng', () => {
       await thayChu(page, 'Mốc kéo đơn không được ở tương lai');
       await page.getByLabel('Kéo đơn từ ngày', { exact: true }).fill('2026-04-01');
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
-      await toast(page, /ABC Thử nghiệm đã sẵn sàng bán, ghép 2 listing, lập phiếu kiểm kê KK-/);
+      await toast(page, /ABC Thử nghiệm đã sẵn sàng bán, ghép 2 sản phẩm trên sàn, lập phiếu kiểm kê KK-/);
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Đã kết nối');
       await expect(page.locator('[data-testid=listing-status]')).toHaveCount(2);
       await coPhanTu(page, '[data-testid=listing-status]', 'Đang bán');
@@ -157,7 +157,7 @@ test.describe('P3 · Gian hàng', () => {
       await dong(page, 'shp-008').getByRole('button', { name: 'Kết nối lại', exact: true }).click();
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       // Kết nối lại dùng bản ghi cũ, đưa listing đã gỡ khi ngắt lên lại và kéo đơn từ mốc cũ
-      await toast(page, /Đã kết nối lại ABC Outlet TikTok: đưa lại 1 listing lên sàn, kéo đơn từ/);
+      await toast(page, /Đã kết nối lại ABC Outlet TikTok: đưa lại 1 sản phẩm lên sàn, kéo đơn từ/);
       await expect(trangThai(page, 'shp-008')).toHaveText('Đã kết nối');
     });
 
@@ -365,7 +365,7 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'sàn đã duyệt');
       await page.locator('[data-event="listing.hold"]').getByRole('textbox').fill('khong-co');
       await phat(page, 'listing.hold');
-      await toast(page, 'Không có listing đang bán với SKU khong-co');
+      await toast(page, 'Không có sản phẩm đang bán trên sàn với SKU khong-co');
       await phat(page, 'shop.deauthorized');
       await toast(page, /ABC Fashion LazMall chuyển sang cần kết nối lại, \d+ việc đang chờ/);
 

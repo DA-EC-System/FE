@@ -430,8 +430,8 @@ export function ShopListPage() {
         message={
           <>
             Ngắt <strong>{disconnecting?.shopName}</strong> ({disconnecting && platformLabel(disconnecting.platform, disconnecting.platformName)}).
-            Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; listing trên sàn được gỡ. Đơn và ghép SKU
-            cũ vẫn giữ; kết nối lại thì listing được đưa lên lại.
+            Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; sản phẩm trên sàn được gỡ xuống. Đơn và ghép
+            SKU cũ vẫn giữ; kết nối lại thì sản phẩm được đưa lên sàn lại.
             <div className="mt-3 flex items-start gap-2">
               <Checkbox
                 id="zero-stock"
@@ -444,7 +444,7 @@ export function ShopListPage() {
                 <span className="text-xs text-muted-foreground">
                   {disconnecting && !isUsable(disconnecting.status)
                     ? 'Không làm được: sàn đã thu hồi quyền.'
-                    : 'Tránh khách đặt hàng trong lúc gỡ listing.'}
+                    : 'Tránh khách đặt hàng trong lúc gỡ sản phẩm khỏi sàn.'}
                 </span>
               </Label>
             </div>

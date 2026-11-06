@@ -25,7 +25,7 @@ import type { OpeningStockMode } from '@/types/shop';
 import { platformLabel } from './shopSchemas';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
-const STEPS = ['Ghép listing có sẵn', 'Tồn đầu kỳ', 'Mốc kéo đơn'] as const;
+const STEPS = ['Ghép sản phẩm đang bán trên sàn', 'Tồn đầu kỳ', 'Mốc kéo đơn'] as const;
 
 const today = () => dayjs().format('YYYY-MM-DD');
 
@@ -105,7 +105,7 @@ export function ShopSetupPage() {
       toast.success(
         [
           `${result.shop.shopName} đã sẵn sàng bán`,
-          result.matched ? `ghép ${result.matched} listing` : null,
+          result.matched ? `ghép ${result.matched} sản phẩm trên sàn` : null,
           result.stocktakeNumber ? `lập phiếu kiểm kê ${result.stocktakeNumber}` : null,
         ]
           .filter(Boolean)
@@ -146,9 +146,9 @@ export function ShopSetupPage() {
             {step === 0 && (
               <>
                 <CardHeader>
-                  <CardTitle>Ghép listing có sẵn</CardTitle>
+                  <CardTitle>Ghép sản phẩm đang bán trên sàn</CardTitle>
                   <CardDescription>
-                    Sàn đã có các SKU dưới đây với SKU người bán trùng SKU ở Commerio. Ghép để không phải đăng lại; listing
+                    Sàn đã có các SKU dưới đây với SKU người bán trùng SKU ở Commerio. Ghép để không phải đăng lại; sản phẩm
                     ghép xong là đang bán.
                   </CardDescription>
                 </CardHeader>
