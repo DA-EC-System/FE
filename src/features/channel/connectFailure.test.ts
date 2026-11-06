@@ -39,6 +39,13 @@ describe('Màn kết quả khi sàn trả về (§18.4)', () => {
     const f = failureFromError(loi({ status: 502, code: 'marketplace_unavailable', detail: 'Sàn không trả lời' }));
     expect(f.kind).toBe('error');
   });
+  it('từ chối uỷ quyền: tên sàn lấy từ danh sách sàn, vắng thì dùng nhãn dự phòng', () => {
+    expect(failureScreen({ kind: 'declined', platform: 'tiktok' }).title).toBe('Bạn đã từ chối uỷ quyền trên TikTok Shop');
+    expect(failureScreen({ kind: 'declined', platform: 'tiktok' }, 'TikTok Shop VN').title).toBe(
+      'Bạn đã từ chối uỷ quyền trên TikTok Shop VN',
+    );
+    expect(failureScreen({ kind: 'declined', platform: 'san-moi' }).title).toBe('Bạn đã từ chối uỷ quyền trên san-moi');
+  });
   it('không có state: nhắc bấm kết nối trong Commerio', () => {
     expect(failureScreen({ kind: 'no_state', platform: 'tiktok' }).description).toBe(
       'Hãy bấm Kết nối TikTok Shop trong Commerio, không uỷ quyền từ Partner Center.',

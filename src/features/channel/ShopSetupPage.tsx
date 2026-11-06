@@ -36,7 +36,7 @@ import type {
 } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { platformLabel } from './shopSchemas';
+import { platformLabel, returnWindowNote } from './shopSchemas';
 import {
   NAME_MATCH_SKIPPED_NOTE,
   SETUP_POLL_MAX_MS,
@@ -134,6 +134,9 @@ export function ShopSetupPage() {
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   // Rẽ nhánh theo năng lực sàn (§18.6.3), không theo mã sàn
   const needDays = shop.data?.capabilities.returnWindow === 'days';
+  const returnNote = shop.data
+    ? returnWindowNote(shop.data.capabilities, platformLabel(shop.data.platform, shop.data.platformName))
+    : null;
   const firstShop = preview.data?.firstShopOfCompany === true;
 
   const form = useForm<SetupForm>({
@@ -421,6 +424,12 @@ export function ShopSetupPage() {
                           </FormItem>
                         )}
                       />
+                    )}
+                    {returnNote && (
+                      <p className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="return-window-note">
+                        <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+                        {returnNote}
+                      </p>
                     )}
                   </CardContent>
                 </>
