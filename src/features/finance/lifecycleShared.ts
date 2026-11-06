@@ -46,3 +46,9 @@ export function validateConfig(input: CreateFinanceConfig): Record<string, strin
   if (!payload.success) payload.error.issues.forEach((issue) => { errors[`payload.${String(issue.path[0])}`] = issue.message; });
   return errors;
 }
+
+/** Cờ của tiền theo đơn và dòng sổ (Documents/21 §21.1, §21.2; BE#250) */
+export const PAYMENT_FLAGS = {
+  tax_mismatch: { label: 'Lệch thuế', variant: 'warning' },
+  unknown_order: { label: 'Không rõ đơn', variant: 'warning' },
+} as const satisfies Record<string, { label: string; variant: 'warning' }>;

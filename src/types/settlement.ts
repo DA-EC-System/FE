@@ -81,6 +81,8 @@ export interface OrderPayment {
   /** `selfApproved`: người chốt là người soạn cấu hình phí, chốt nhờ ngoại lệ tự duyệt (BE#249) */
   resolved: { by: import('./sales').UserRef | null; at: string | null; reason: string | null; selfApproved: boolean } | null;
   feeConfigAuthor: import('./sales').UserRef | null;
+  /** `tax_mismatch`: thuế sàn trừ khác thuế app ước tính (E135, BE#250); số sàn trừ là số thật */
+  flags: 'tax_mismatch'[];
   version: number;
 }
 export interface OrderPaymentDetail extends OrderPayment {
@@ -107,6 +109,9 @@ export interface SettlementLedgerLine {
   amount: number; estimated: boolean; replacesId: string | null; replacedBy: string | null;
   occurredOn: string; shopId: string | null; orderId: string | null; orderCode: string | null;
   packageId: string | null; returnRequestId: string | null; configVersionId: string | null;
-  txnId: string | null; source: { type: string; id: string } | null; reason: string | null; createdAt: string;
+  txnId: string | null;
+  /** Mã đơn sàn của khoản quyết toán; `unknown_order` khi đơn không có trong app (E140, BE#250) */
+  externalOrderId: string | null; flags: 'unknown_order'[];
+  source: { type: string; id: string } | null; reason: string | null; createdAt: string;
   bankMatch: { bankRef: string; by: import('./sales').UserRef; at: string } | null;
 }

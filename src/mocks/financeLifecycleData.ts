@@ -15,8 +15,12 @@ export const configs: Owned<FinanceConfig>[] = db.companies.flatMap((company) =>
     selfApproved: false, dryRun: null, createdAt: now(), version: 1, statusHistory: [],
   } satisfies Owned<FinanceConfig>];
 });
+let taxFlagged = false;
 export const payments: Owned<OrderPaymentDetail>[] = orders.map((order, i) => {
   const status: SettlementStatus = ['mismatch', 'mismatch', 'pending', 'settled', 'resolved', 'none'][i % 6] as SettlementStatus;
+  // Đơn đã quyết toán đầu tiên của cmp-001: sàn trừ thuế khác mức app ước tính (E135)
+  const taxMismatch = !taxFlagged && status === 'settled' && order.companyId === 'cmp-001';
+  if (taxMismatch) taxFlagged = true;
   return { companyId: order.companyId, orderId: order.id, orderCode: order.code, shopId: order.shopId,
     status, estimatedTotal: 500000, settledTotal: ['none', 'pending'].includes(status) ? null : 460000,
     diff: ['none', 'pending'].includes(status) ? null : -40000,
@@ -24,13 +28,14 @@ export const payments: Owned<OrderPaymentDetail>[] = orders.map((order, i) => {
     ceoApproval: null, resolved: status === 'resolved' ? { by: { id: 'acc-001', name: 'CEO demo' }, at: now(), reason: 'Đã xác minh phí sàn', selfApproved: false } : null,
     // Đơn lệch trong hạn mức đầu mỗi vòng: CEO cmp-001 là người soạn phí, để thử CEO tự chốt (BE#249)
     feeConfigAuthor: i % 6 === 0 && order.companyId === 'cmp-001' ? { id: 'acc-001', name: 'Lê Hoàng Minh' } : { id: 'fee-author-demo', name: 'Người soạn phí demo' },
+    flags: taxMismatch ? ['tax_mismatch'] : [],
     version: 1, statusHistory: [], lines: [],
   };
 });
 export const bankLines: Owned<SettlementLedgerLine>[] = db.companies.map((c) => ({
   id: `withdraw-${c.id}`, companyId: c.id, kind: 'withdrawal', amount: -1500000, estimated: false,
   replacesId: null, replacedBy: null, occurredOn: todayVn(), shopId: db.shops.find((s) => s.companyId === c.id)?.id ?? null,
-  orderId: null, orderCode: null, packageId: null, returnRequestId: null, configVersionId: null, txnId: `txn-${c.id}`,
+  orderId: null, orderCode: null, packageId: null, returnRequestId: null, configVersionId: null, txnId: `txn-${c.id}`, externalOrderId: null, flags: [],
   source: null, reason: 'Rút tiền từ ví sàn demo', createdAt: now(), bankMatch: null,
 }));
 export const runs: Owned<SettlementRun>[] = db.shops.map((shop) => ({ id: `run-${shop.id}`, companyId: shop.companyId,
@@ -45,7 +50,7 @@ for (const payment of payments) {
   if (payment.status === 'none') continue;
   const common = { amount: 500000, occurredOn: todayVn(), shopId: payment.shopId, orderId: payment.orderId,
     orderCode: payment.orderCode, packageId: null, returnRequestId: null, configVersionId: `cfg-${payment.companyId}`,
-    txnId: null, source: null, reason: null, createdAt: now(), bankMatch: null };
+    txnId: null, externalOrderId: null, flags: [], source: null, reason: null, createdAt: now(), bankMatch: null };
   payment.lines = [{ ...common, id: `estimate-${payment.orderId}`, kind: 'revenue', estimated: true, replacesId: null,
     replacedBy: payment.settledTotal === null ? null : `actual-${payment.orderId}` }];
   if (payment.settledTotal !== null) payment.lines.push({ ...common, id: `actual-${payment.orderId}`, kind: 'revenue', estimated: false,

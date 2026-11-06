@@ -19,8 +19,9 @@ import { PERMISSIONS as P } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import type { SettlementLedgerLine } from '@/types/settlement';
-import { PAYMENT_STATES } from './lifecycleShared';
+import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
+import { FlagChips } from '@/components/common/FlagChips';
 
 export function SettlementsPage() {
   const { companyContext } = useAuth(); const companyId = companyContext?.companyId ?? '';
@@ -50,7 +51,7 @@ export function SettlementsPage() {
     </FilterBar>
     {tab === 'payments' && <DataTable data={payments.data?.items ?? []} loading={payments.isLoading} fetching={payments.isFetching} getRowId={(p) => p.orderId} pagination={pagination} empty="Chưa có trạng thái tiền" onRowClick={(p) => navigate(ROUTES.company.settlement(companyId, p.orderId))} columns={[
       { header: 'Đơn', accessorKey: 'orderCode', cell: ({ row }) => row.original.orderCode ?? row.original.orderId },
-      { header: 'Trạng thái tiền', cell: ({ row }) => <StatusBadge status={row.original.status} statuses={PAYMENT_STATES} /> },
+      { header: 'Trạng thái tiền', cell: ({ row }) => <span className="flex flex-wrap gap-1"><StatusBadge status={row.original.status} statuses={PAYMENT_STATES} /><FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
       { header: 'Ước tính', cell: ({ row }) => formatCurrency(row.original.estimatedTotal) },
       { header: 'Quyết toán', cell: ({ row }) => row.original.settledTotal === null ? '—' : formatCurrency(row.original.settledTotal) },
       { header: 'Chênh lệch', cell: ({ row }) => row.original.diff === null ? '—' : formatCurrency(row.original.diff) },
