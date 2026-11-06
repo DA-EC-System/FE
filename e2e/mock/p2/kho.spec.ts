@@ -75,6 +75,28 @@ test.describe('P2 · Kho', () => {
       await coSo(page, 'prd-001-v3', COT.tamKhoa, 2);
     });
 
+    test('gợi ý đầu cột (FE#131): rê chuột, Tab, Esc; gợi ý dài bấm mở', async ({ page }) => {
+      const tooltip = page.getByRole('tooltip');
+      const khaDung = page.getByRole('button', { name: 'Giải thích: Khả dụng', exact: true });
+      await khaDung.hover();
+      await expect(tooltip).toContainText('Bán được ngay');
+      // Rời nút qua nhiều bước như chuột thật (Radix chờ chuột ra khỏi vùng chuyển sang tooltip mới đóng)
+      await page.mouse.move(0, 0, { steps: 10 });
+      await expect(tooltip).toHaveCount(0);
+      await khaDung.focus();
+      await expect(tooltip).toContainText('Bán được ngay');
+      await page.keyboard.press('Escape');
+      await expect(tooltip).toHaveCount(0);
+
+      const bienThe = page.getByRole('button', { name: 'Giải thích: Biến thể', exact: true });
+      await expect(bienThe).toHaveAttribute('data-help-mode', 'popover');
+      await bienThe.click();
+      await expect(page.getByRole('dialog')).toContainText('Đang về: số còn chờ của đề nghị nhập');
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(bienThe).toBeFocused();
+    });
+
     test('lọc nên nhập lại, chờ xử lý; thẻ kho theo khu vực', async ({ page }) => {
       const nenNhap = page.getByRole('button', { name: /Nên nhập lại/ });
       await nenNhap.click();

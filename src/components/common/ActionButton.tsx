@@ -1,7 +1,7 @@
 import type { ComponentProps, MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { BlockedReason } from './BlockedReason';
 
 interface ActionButtonProps extends ComponentProps<typeof Button> {
   /** Lý do không làm được: nút hiện mờ, rê chuột hoặc focus thấy lý do (Test_UI) */
@@ -18,17 +18,13 @@ export function ActionButton({ blockedReason, onClick, className, ...props }: Ac
 
   const stop = (e: MouseEvent<HTMLButtonElement>) => e.preventDefault();
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          {...props}
-          aria-disabled="true"
-          data-blocked-reason={blockedReason}
-          onClick={stop}
-          className={cn('cursor-not-allowed opacity-45 hover:opacity-45', className)}
-        />
-      </TooltipTrigger>
-      <TooltipContent className="max-w-64">{blockedReason}</TooltipContent>
-    </Tooltip>
+    <BlockedReason reason={blockedReason}>
+      <Button
+        {...props}
+        aria-disabled="true"
+        onClick={stop}
+        className={cn('cursor-not-allowed opacity-45 hover:opacity-45', className)}
+      />
+    </BlockedReason>
   );
 }

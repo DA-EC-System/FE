@@ -39,6 +39,8 @@ test.describe('P5 · Sổ tiền', () => {
     test('trang sổ tiền: chỉ số, cảnh báo mốc doanh thu, dòng sổ có sẵn', async ({ page }) => {
       await page.goto('/c/cmp-001/finance/ledger');
       await thayChu(page, 'Sổ tiền', 'h1');
+      await page.getByRole('button', { name: 'Giải thích: Sổ tiền', exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText('thay bằng dòng thực tế khi sàn quyết toán');
       await coChu(page.locator('[data-testid=tax-warnings]'), 'sắp vượt mốc 500 triệu', 'App không khai thuế');
       await expect(page.locator('[data-testid=kpi-withdrawn]')).toContainText('2.000.000');
       await expect(page.locator('[data-testid=kpi-platformBalance]')).toContainText('6.670.000');

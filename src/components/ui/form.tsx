@@ -12,6 +12,7 @@ import * as LabelPrimitive from '@radix-ui/react-label';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { HelpTip } from '@/components/common/HelpTip';
 
 const Form = FormProvider;
 
@@ -76,10 +77,17 @@ function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function FormLabel({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
+function FormLabel({
+  className,
+  hint,
+  ...props
+}: React.ComponentProps<typeof LabelPrimitive.Root> & {
+  /** Gợi ý cách điền, hiện sau nút "?" cạnh nhãn (HelpTip) thay cho đoạn mô tả dưới ô (FE#131) */
+  hint?: React.ReactNode;
+}) {
   const { error, formItemId } = useFormField();
 
-  return (
+  const label = (
     <Label
       data-slot="form-label"
       data-error={!!error}
@@ -87,6 +95,14 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof LabelPri
       htmlFor={formItemId}
       {...props}
     />
+  );
+  if (!hint) return label;
+  // Nút "?" đứng ngoài <label> để tên đọc của ô nhập vẫn chỉ là nhãn
+  return (
+    <div className="flex items-center gap-1">
+      {label}
+      <HelpTip content={hint} topic={props.children} />
+    </div>
   );
 }
 

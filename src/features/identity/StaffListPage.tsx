@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { Lock, LockOpen, UserCog, UserPlus } from 'lucide-react';
@@ -7,10 +7,10 @@ import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRoles, useSetStaffLocked, useStaff } from '@/api/identity.api';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
@@ -24,41 +24,6 @@ import type { StaffMember } from '@/types/identity';
 import { InviteStaffDialog } from './InviteStaffDialog';
 import { EditStaffRolesDialog } from './EditStaffRolesDialog';
 import { conflictCurrent, protectedReason, STAFF_STATUS_LABELS } from './shared';
-
-/** Nút biểu tượng kèm tooltip; bọc span để tooltip vẫn hiện khi nút bị khoá */
-function RowAction({
-  label,
-  reason,
-  onClick,
-  children,
-  destructive,
-}: {
-  label: string;
-  reason: string | null;
-  onClick: () => void;
-  children: ReactNode;
-  destructive?: boolean;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={reason ? 0 : undefined}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={destructive ? 'size-8 text-destructive hover:text-destructive' : 'size-8'}
-            aria-label={label}
-            disabled={Boolean(reason)}
-            onClick={onClick}
-          >
-            {children}
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{reason ?? label}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 /** UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn */
 export function StaffListPage() {

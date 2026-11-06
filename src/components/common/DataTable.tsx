@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { EmptyState } from './EmptyState';
+import { HelpTip } from './HelpTip';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -35,6 +36,8 @@ declare module '@tanstack/react-table' {
     className?: string;
     /** Cột số: canh phải, chữ số đều cột (tabular-nums) */
     numeric?: boolean;
+    /** Giải thích cột, hiện sau nút "?" ở đầu cột (HelpTip) */
+    help?: ReactNode;
   }
 }
 
@@ -97,9 +100,11 @@ export function DataTable<T>({
               <TableRow key={group.id}>
                 {group.headers.map((header) => (
                   <TableHead key={header.id} className={metaClass(header.column.columnDef.meta)}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.isPlaceholder ? null : (
+                      <HeaderLabel help={header.column.columnDef.meta?.help} topic={header.column.columnDef.header}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </HeaderLabel>
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -155,6 +160,17 @@ export function DataTable<T>({
       </div>
       {pagination && <PaginationBar {...pagination} />}
     </div>
+  );
+}
+
+/** Tiêu đề cột kèm nút "?" khi cột có `meta.help` */
+function HeaderLabel({ help, topic, children }: { help?: ReactNode; topic: unknown; children: ReactNode }) {
+  if (!help) return children;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {children}
+      <HelpTip content={help} topic={typeof topic === 'string' ? topic : undefined} />
+    </span>
   );
 }
 

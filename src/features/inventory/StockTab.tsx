@@ -104,7 +104,10 @@ export function StockTab() {
       {
         id: 'variant',
         header: 'Biến thể',
-        meta: { className: 'min-w-60' },
+        meta: {
+          className: 'min-w-60',
+          help: 'Nhãn dưới tên biến thể. Đang về: số còn chờ của đề nghị nhập. Chờ xử lý: hàng lỗi, hoàn, trả chưa kiểm, chưa bán được. Thiếu: số các kiện cần mà khả dụng chưa đủ.',
+        },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -128,7 +131,7 @@ export function StockTab() {
       {
         id: 'onHand',
         header: 'Tồn thực',
-        meta: { className: 'w-24 text-right' },
+        meta: { className: 'w-24 text-right', help: 'Số hàng đang nằm trong kho, kể cả phần đang giữ và tạm khoá.' },
         cell: ({ row }) => (
           <span className={cn(row.original.negative && 'font-semibold text-destructive')}>{formatQty(row.original.onHand)}</span>
         ),
@@ -136,19 +139,19 @@ export function StockTab() {
       {
         id: 'reserved',
         header: 'Đang giữ',
-        meta: { className: 'w-24 text-right' },
+        meta: { className: 'w-24 text-right', help: 'Đã giữ cho kiện chưa bàn giao, không bán cho đơn khác.' },
         cell: ({ row }) => formatQty(row.original.reserved),
       },
       {
         id: 'locked',
         header: 'Tạm khoá',
-        meta: { className: 'w-24 text-right' },
+        meta: { className: 'w-24 text-right', help: 'Bị khoá bởi phiếu giảm tồn đang chờ duyệt.' },
         cell: ({ row }) => (row.original.locked ? formatQty(row.original.locked) : '—'),
       },
       {
         id: 'available',
         header: 'Khả dụng',
-        meta: { className: 'w-28 text-right' },
+        meta: { className: 'w-28 text-right', help: 'Bán được ngay: tồn thực trừ đang giữ và tạm khoá. Số này được đẩy lên các sàn.' },
         cell: ({ row }) => {
           const r = row.original;
           return (

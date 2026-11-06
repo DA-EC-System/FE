@@ -18,7 +18,11 @@ export function InventoryPage() {
 
   return (
     <div>
-      <PageHeader title="Kho hàng" subtitle="Tồn thực, đang giữ, tạm khoá, khả dụng, đang về, chờ xử lý và đang thiếu của từng biến thể." />
+      <PageHeader
+        title="Kho hàng"
+        subtitle="Tồn và phiếu kho của từng biến thể."
+        help="Bảy con số tồn: tồn thực, đang giữ, tạm khoá, khả dụng nằm ở cột; đang về, chờ xử lý, thiếu là nhãn dưới tên biến thể."
+      />
       <Tabs
         value={tab}
         onValueChange={(value) => setSearchParams(value === 'stock' ? {} : { tab: value }, { replace: true })}
