@@ -18,6 +18,8 @@ test('BE thật: cấu hình nháp → chạy thử → gửi → tự duyệt; 
   await page.locator('input[name=password]').fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/c/${companyId}`));
+  // Chờ select-company xong (khung trang hiện) rồi mới page.goto, không thì goto huỷ request đang bay (xem be/p1 dangNhap)
+  await expect(page.getByTestId('nav-user')).toBeVisible();
   await page.goto(`/c/${companyId}/finance/configs`);
   await page.getByRole('button', { name: 'Soạn phiên bản', exact: true }).click();
   const dialog = page.getByRole('dialog');

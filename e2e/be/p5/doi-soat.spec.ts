@@ -2,7 +2,7 @@
 // bằng e2e/be/seed/doi-soat.mts (xem đầu file đó), ghi ra e2e/be/seed/fe13-be.json.
 // Năm đơn sàn có hoá đơn hôm nay: 100.000 khớp, 200.000 sàn đã hoàn, 150.000 lệch doanh thu, 80.000 ở bảng kê chưa trả,
 // 120.000 chưa đối soát. Mỗi dòng đơn phí 17.000, vận chuyển 15.000, tiền về = doanh thu sàn − 32.000.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { type Page } from '@playwright/test';
 import { chon, chu, chua, dong, duongDan, expect, menu, test, thayChu } from '../../fixtures';
@@ -26,6 +26,10 @@ interface Seed {
   statements: Record<'paid' | 'processing', { id: string; code: string }>;
 }
 
+const SEED = new URL('../seed/fe13-be.json', import.meta.url);
+// Seed ghi thẳng DB nên chỉ dựng được ở máy có DATABASE_URL; CI đêm (job e2e-be) không có nên bỏ qua cả file.
+test.skip(!existsSync(SEED), 'Chưa dựng e2e/be/seed/fe13-be.json (e2e/be/seed/doi-soat.mts)');
+
 let s: Seed;
 const url = (p: string) => `/c/${s.companyId}${p}`;
 const dongCo = (page: Page, text: string) => chua(page, text, 'tbody tr[data-row-id]');
@@ -43,7 +47,7 @@ async function dangNhap(page: Page, email: string) {
 }
 
 test.beforeAll(() => {
-  s = JSON.parse(readFileSync(new URL('../seed/fe13-be.json', import.meta.url), 'utf8')) as Seed;
+  s = JSON.parse(readFileSync(SEED, 'utf8')) as Seed;
 });
 
 test.describe('P5-BE · Đối soát sàn', () => {
