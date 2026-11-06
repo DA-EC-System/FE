@@ -129,4 +129,6 @@ export interface StatusChange<S extends string = string> {
   by: { id: string; name: string } | null;
   source: 'user' | 'marketplace' | 'system';
   reason?: string | null;
+  /** Bước người duyệt khác đi theo ngoại lệ tự duyệt (Documents/21 mục 14.1); BE luôn trả, mock chỉ đặt khi tự duyệt */
+  selfApproved?: boolean;
 }

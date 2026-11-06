@@ -291,7 +291,7 @@ export function checkTransition<S extends string, A extends string, R extends Ow
   actor: CompanyActor,
   record: R,
   reason?: string | null,
-): Guard<S> {
+): { ok: true; value: S; selfApproved: boolean } | { ok: false; response: Response } {
   const result = machine.check(from, action, {
     actor: {
       accountId: actor.account.id,
@@ -301,7 +301,7 @@ export function checkTransition<S extends string, A extends string, R extends Ow
     record,
     reason,
   });
-  if (result.ok) return { ok: true, value: result.to };
+  if (result.ok) return { ok: true, value: result.to, selfApproved: result.selfApproved === true };
   const { code } = result;
   if (code === 'forbidden') return { ok: false, response: problem(403, 'Không có quyền', { code }) };
   if (code === 'reason_required') {

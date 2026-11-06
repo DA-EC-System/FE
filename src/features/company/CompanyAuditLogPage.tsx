@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/components/common/PageHeader';
+import { SelfApprovedTag } from '@/components/common/SelfApprovedTag';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, FilterSelect } from '@/components/common/FilterBar';
@@ -56,7 +57,12 @@ const columns: ColumnDef<CompanyAuditLog>[] = [
     meta: { className: 'w-28' },
     cell: ({ row }) => {
       const a = AUDIT_ACTION_LABELS[row.original.action];
-      return <Badge variant={a.variant}>{a.label}</Badge>;
+      return (
+        <span className="flex flex-wrap gap-1">
+          <Badge variant={a.variant}>{a.label}</Badge>
+          {row.original.selfApproved && <SelfApprovedTag />}
+        </span>
+      );
     },
   },
   {
@@ -75,6 +81,7 @@ export function CompanyAuditLogPage() {
   const [action, setAction] = useState<AuditAction | ''>('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [selfOnly, setSelfOnly] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -89,6 +96,7 @@ export function CompanyAuditLogPage() {
     action: action || undefined,
     from: from || undefined,
     to: to || undefined,
+    selfApproved: selfOnly === 'true' || undefined,
   });
 
   const withReset =
@@ -97,7 +105,7 @@ export function CompanyAuditLogPage() {
       set(v);
       setPage(1);
     };
-  const hasFilter = Boolean(actorId || entityType || action || from || to);
+  const hasFilter = Boolean(actorId || entityType || action || from || to || selfOnly);
 
   return (
     <div>
@@ -136,6 +144,12 @@ export function CompanyAuditLogPage() {
             onChange={withReset((v: string) => setAction(v as AuditAction | ''))}
             options={Object.entries(AUDIT_ACTION_LABELS).map(([value, { label }]) => ({ value, label }))}
           />
+          <FilterSelect
+            label="Tự duyệt"
+            value={selfOnly}
+            onChange={withReset(setSelfOnly)}
+            options={[{ value: 'true', label: 'Chỉ lần tự duyệt' }]}
+          />
           <DateFilter label="Từ ngày" value={from} onChange={withReset(setFrom)} max={to || undefined} />
           <DateFilter label="Đến ngày" value={to} onChange={withReset(setTo)} min={from || undefined} />
           {hasFilter && (
@@ -147,6 +161,7 @@ export function CompanyAuditLogPage() {
                 setAction('');
                 setFrom('');
                 setTo('');
+                setSelfOnly('');
                 setPage(1);
               }}
             >
