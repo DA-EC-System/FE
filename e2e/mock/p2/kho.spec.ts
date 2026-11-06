@@ -18,6 +18,37 @@ const moPhieu = async (page: Page, number: string) => {
 /** Ô nhập thứ i theo nhãn đầu (vd "Số quét") */
 const o2 = (scope: Locator, label: string, i: number) => scope.getByLabel(new RegExp(`^${label} `)).nth(i);
 /** Bấm nút thao tác rồi xác nhận trong hộp thoại */
+/**
+ * Tái hiện thứ tự trong FE#147: lệnh chuyển trạng thái tiếp theo xử lý chậm `cham` ms, lần GET phiếu tiếp theo đọc dữ
+ * liệu ngay (còn "nháp") nhưng trả về sau `ms` ms, tức tới sau phản hồi của lệnh chuyển. Mock trễ 0 ms chỉ thỉnh thoảng
+ * ra thứ tự này.
+ */
+const getPhieuCham = (page: Page, ms: number, cham = 150) =>
+  page.evaluate(
+    ({ ms, cham }) => {
+      type Resolver = (info: { request: Request }) => Promise<Response | undefined>;
+      type Http = (path: string, resolver: Resolver, options: { once: boolean }) => unknown;
+      const bridge = (window as unknown as { __msw?: { worker: { use: (...h: unknown[]) => void }; http: { get: Http; post: Http } } })
+        .__msw;
+      if (!bridge) throw new Error('Cần chạy Vite dev với MSW (VITE_USE_MOCKS)');
+      const ngu = (t: number) => new Promise((r) => setTimeout(r, t));
+      bridge.worker.use(
+        // Không trả gì thì MSW chuyển sang handler gốc của lệnh chuyển
+        bridge.http.post('*/api/v1/inventory/documents/:id/:action', async () => void (await ngu(cham)), { once: true }),
+        bridge.http.get(
+          '*/api/v1/inventory/documents/:id',
+          async ({ request }) => {
+            const res = await fetch(request.url, { headers: request.headers });
+            const body = await res.text();
+            await ngu(ms);
+            return new Response(body, { status: res.status, headers: { 'Content-Type': 'application/json' } });
+          },
+          { once: true },
+        ),
+      );
+    },
+    { ms, cham },
+  );
 const thaoTac = async (page: Page, label: string) => {
   await page.getByRole('button', { name: label, exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
@@ -134,10 +165,17 @@ test.describe('P2 · Kho', () => {
       const book = so(await lines.locator('tbody tr td').nth(1).textContent());
       await lines.getByLabel('Số đếm QU-0001-M', { exact: true }).fill(String(book - 1));
       await expect(lines.locator('tbody tr td').nth(3)).toHaveText('−1');
+      // Phiếu mới: tạo xong trang đọc phiếu, cùng lúc gửi duyệt; bản "nháp" tới sau không được đè trạng thái
+      await getPhieuCham(page, 600);
       await thaoTac(page, 'Gửi duyệt');
       await toast(page, /KK-\d+: chờ duyệt/);
       await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
       await expect(page.getByRole('button', { name: /Duyệt và ghi sổ|Từ chối|Lưu nháp/ })).toHaveCount(0);
+      // Chờ qua lúc bản đọc chậm tới: vẫn phải là chờ duyệt, không quay về "Nháp"
+      await page.waitForTimeout(1000);
+      await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
+      await expect(page.getByTestId('doc-status')).not.toContainText('Nháp');
+      await expect(page.getByRole('button', { name: /Lưu nháp|Gửi duyệt/ })).toHaveCount(0);
     });
 
     test('xuất huỷ: bắt buộc lý do, vượt khả dụng thì giữ nháp và báo tại ô', async ({ page }) => {
