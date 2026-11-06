@@ -7,6 +7,18 @@ import type { ShopConnectInput } from '@/types/shop';
 
 /** Công ty bắt đầu kết nối: sàn gọi lại vào URL cố định không có companyId */
 export const OAUTH_COMPANY_KEY = 'commerio_oauth_company';
+/** Sàn và gian hàng (khi kết nối lại) vừa bắt đầu: màn kết quả lỗi dùng để bấm thử lại đúng gian hàng */
+export const OAUTH_TARGET_KEY = 'commerio_oauth_target';
+
+/** Đọc sàn và gian hàng của lần kết nối gần nhất; không có hoặc hỏng thì null */
+export function readConnectTarget(): ShopConnectInput | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(OAUTH_TARGET_KEY) ?? 'null');
+    return typeof value?.platform === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Bắt đầu OAuth (UC-CH-01 bước 4–5): xin BE trang uỷ quyền rồi chuyển sang sàn.
@@ -23,6 +35,7 @@ export function useStartConnect() {
       const { url: authorizeUrl } = await connect.mutateAsync(input);
       try {
         sessionStorage.setItem(OAUTH_COMPANY_KEY, companyId);
+        sessionStorage.setItem(OAUTH_TARGET_KEY, JSON.stringify(input));
       } catch {
         // Không ghi được thì trang callback dùng công ty đang chọn
       }

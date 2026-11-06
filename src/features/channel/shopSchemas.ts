@@ -1,4 +1,5 @@
-import type { ListingStatus, Marketplace, ShopStatus, SyncState } from '@/types/shop';
+import type { ListingStatus, Marketplace, ShopCapabilities, ShopStatus, SyncState } from '@/types/shop';
+import type { StatusMeta } from '@/components/common/StatusBadge';
 import { shopUsable } from '@/lib/machines/channel';
 
 export const PLATFORM_LABELS: Record<Marketplace, string> = {
@@ -13,7 +14,7 @@ export function platformLabel(code: string, name?: string): string {
 }
 
 /** Chỉ chọn hạn để hiển thị; cảnh báo do BE quyết định. */
-export function authorizationDeadline(shop: { authExpiresAt: string | null; refreshExpiresAt: string | null }): string | null {
+export function authorizationDeadline(shop: { authExpiresAt?: string | null; refreshExpiresAt: string | null }): string | null {
   return [shop.authExpiresAt, shop.refreshExpiresAt].filter((x): x is string => Boolean(x))
     .sort((a, b) => Date.parse(a) - Date.parse(b))[0] ?? null;
 }
@@ -31,6 +32,23 @@ export const STATUS_VARIANTS: Record<ShopStatus, 'success' | 'warning' | 'destru
   needs_reauth: 'destructive',
   disconnected: 'outline',
 };
+
+/** Nhãn, màu và câu giải thích của trạng thái gian hàng (sơ đồ C1), hiện khi rê chuột hay chạm vào nhãn */
+export const STATUS_META: Record<ShopStatus, StatusMeta> = {
+  connecting: { label: STATUS_LABELS.connecting, variant: STATUS_VARIANTS.connecting, hint: 'Đã uỷ quyền, chưa xong thiết lập lần đầu nên chưa kéo đơn và chưa đẩy tồn.' },
+  active: { label: STATUS_LABELS.active, variant: STATUS_VARIANTS.active, hint: 'Đang kéo đơn và đẩy tồn, giá lên sàn.' },
+  needs_reauth: { label: STATUS_LABELS.needs_reauth, variant: STATUS_VARIANTS.needs_reauth, hint: 'Sàn đã thu hồi quyền hoặc token hết hạn. Việc cần gọi sàn được giữ lại, kết nối lại xong sẽ chạy tiếp.' },
+  disconnected: { label: STATUS_LABELS.disconnected, variant: STATUS_VARIANTS.disconnected, hint: 'Đã ngắt. Đơn, đối soát và ghép SKU cũ vẫn giữ để kết nối lại sau.' },
+};
+
+/** Tóm tắt khác biệt của sàn để chọn sàn khi thêm gian hàng; chỉ đọc capabilities, không xét mã sàn */
+export function capabilitySummary(c: ShopCapabilities): string[] {
+  return [
+    c.listingReview ? 'Sàn duyệt listing trước khi bán' : 'Listing lên bán ngay',
+    { unit: 'Tách đơn tới từng món', sku: 'Tách đơn theo SKU', none: 'Không tách đơn' }[c.splitLevel],
+    c.returnWindow === 'days' ? 'Hạn đổi trả theo số ngày bạn đặt' : 'Hạn đổi trả do sàn báo',
+  ];
+}
 
 /** Token sàn còn dùng được: gọi được API sàn để đồng bộ, ghép, đẩy */
 export const isUsable = shopUsable;

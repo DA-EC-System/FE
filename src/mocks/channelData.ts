@@ -149,6 +149,8 @@ export function seedRemoteForNewShop(shopId: string) {
     { ...remote(shopId, 1, 'prd-001-v3', 'Áo thun basic cổ tròn - Trắng, M', 149000), stock: 30 },
     { ...remote(shopId, 2, 'prd-002-v1', 'Quần kaki ống suông - M', 319000), stock: 5 },
     { ...remote(shopId, 3, null, 'Mũ lưỡi trai (hàng cũ)', 59000, 'OLD-CAP-01'), stock: 2 },
+    // SKU người bán khác SKU Commerio nhưng tên gần giống: gợi ý theo tên (§18.7.5)
+    { ...remote(shopId, 4, null, 'Áo khoác gió Navy L', 289000, 'KHOAC-CU-L'), stock: 4 },
   ];
 }
 
