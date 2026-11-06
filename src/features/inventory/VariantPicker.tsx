@@ -14,10 +14,22 @@ interface VariantPickerProps {
   taken: Set<string>;
   disabled?: boolean;
   onPick: (level: StockLevel) => void;
+  /** Cần khác nhau khi một trang có nhiều ô chọn */
+  id?: string;
+  label?: string;
+  /** Câu hiện ở dòng đã bị chọn */
+  takenLabel?: string;
 }
 
 /** Tìm biến thể đang bán theo tên hoặc SKU để thêm vào phiếu; kèm số khả dụng để lập phiếu xuất */
-export function VariantPicker({ taken, disabled, onPick }: VariantPickerProps) {
+export function VariantPicker({
+  taken,
+  disabled,
+  onPick,
+  id = 'variant-picker',
+  label = 'Thêm biến thể',
+  takenLabel = 'Đã có trên phiếu',
+}: VariantPickerProps) {
   const [input, setInput] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -40,16 +52,16 @@ export function VariantPicker({ taken, disabled, onPick }: VariantPickerProps) {
 
   return (
     <div className="grid max-w-lg gap-1.5">
-      <Label htmlFor="variant-picker">Thêm biến thể</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Popover open={open && !disabled} onOpenChange={setOpen}>
         <PopoverAnchor asChild>
           <div className="relative">
             <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              id="variant-picker"
+              id={id}
               role="combobox"
               aria-expanded={open}
-              aria-controls="variant-picker-list"
+              aria-controls={`${id}-list`}
               autoComplete="off"
               className="ps-8"
               placeholder="Tìm theo tên hoặc SKU"
@@ -86,10 +98,10 @@ export function VariantPicker({ taken, disabled, onPick }: VariantPickerProps) {
           // Giữ con trỏ ở ô tìm khi danh sách mở
           onOpenAutoFocus={(e) => e.preventDefault()}
           onInteractOutside={(e) => {
-            if ((e.target as HTMLElement).closest('#variant-picker')) e.preventDefault();
+            if ((e.target as HTMLElement).closest(`#${id}`)) e.preventDefault();
           }}
         >
-          <ul id="variant-picker-list" role="listbox" className="max-h-72 overflow-y-auto">
+          <ul id={`${id}-list`} role="listbox" className="max-h-72 overflow-y-auto">
             {query.isFetching && !options.length && (
               <li className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
@@ -127,7 +139,7 @@ export function VariantPicker({ taken, disabled, onPick }: VariantPickerProps) {
                     </p>
                   </div>
                   <span className="text-xs whitespace-nowrap text-muted-foreground">
-                    {isTaken ? 'Đã có trên phiếu' : `Khả dụng ${formatQty(o.available)}`}
+                    {isTaken ? takenLabel : `Khả dụng ${formatQty(o.available)}`}
                   </span>
                 </li>
               );

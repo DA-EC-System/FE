@@ -10,7 +10,11 @@ import { Form } from '@/components/ui/form';
 import { useConnectShopByToken } from '@/api/shops.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
-import type { ShopConnectionResult } from '@/types/shop';
+import type { ShopCallbackResult } from '@/types/shop';
+import { ConnectSteps } from './ConnectOutcome';
+
+/** Bước khi kiểm tra token với sàn; hiện trong lúc chờ BE */
+const TOKEN_STEPS = ['Gọi sàn kiểm tra token', 'Đọc mã gian hàng', 'Đối chiếu với gian hàng đã có'];
 
 const tokenSchema = z.object({
   accessToken: z.string().trim().min(1, 'Nhập access token').max(2000, 'Token dài tối đa 2000 ký tự'),
@@ -23,7 +27,7 @@ interface ShopTokenFormProps {
   name: string;
   onBack: () => void;
   onBusyChange: (busy: boolean) => void;
-  onDone: (result: ShopConnectionResult) => void;
+  onDone: (result: ShopCallbackResult) => void;
 }
 
 /** Cách 2: dán token lấy trên console của sàn (shop thử không đi OAuth được) */
@@ -65,6 +69,7 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone }: 
       <form onSubmit={onSubmit} noValidate className="grid gap-4" data-testid="token-form">
         <p className="font-medium">Dán token {name}</p>
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
+        {connect.isPending && <ConnectSteps steps={TOKEN_STEPS} current={1} />}
         <FormTextField
           control={control}
           name="accessToken"

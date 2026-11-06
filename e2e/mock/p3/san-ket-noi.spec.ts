@@ -4,43 +4,60 @@ import { chon, chua, dangNhap, dong, duongDan, expect, menu, mockApi, test, toas
 test.describe('P3 · Danh sách sàn kết nối được', () => {
   test.beforeEach(async ({ page }) => dangNhap(page, 'ceo@commerio.vn', 'ceo'));
 
-  test('chỉ hiện sàn connectable API trả, dùng tên API và không cần gợi ý viết cứng', async ({ page }) => {
+  test('dùng tên API, sàn chưa nối được vẫn hiện thẻ khoá kèm lý do', async ({ page }) => {
     await mockApi(page, 'get', '/channel/shops/platforms', 200, { items: [
       { platform: 'lazada', name: 'Lazada từ API', connectable: true },
       { platform: 'new-market', name: 'Sàn mới', connectable: true },
-      { platform: 'shopee', name: 'Shopee', connectable: false },
+      { platform: 'shopee', name: 'Shopee', connectable: false, reason: 'Chưa duyệt ứng dụng trên Shopee Open Platform' },
     ] });
     await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
-    await expect(page.locator('[data-testid=connect-section] [data-platform]')).toHaveCount(2);
     const section = page.locator('[data-testid=connect-section]');
-    await expect(section.getByRole('button', { name: 'Kết nối Lazada từ API', exact: true })).toBeAttached();
-    await expect(section.getByRole('button', { name: 'Kết nối Sàn mới', exact: true })).toBeAttached();
-    await expect(chua(section, 'Shopee')).toHaveCount(0);
-    await expect(chua(section, 'TikTok')).toHaveCount(0);
-    // API chưa trả methods thì chỉ có đăng nhập sàn
-    await expect(section.getByRole('button', { name: /^Dán token/ })).toHaveCount(0);
+    await expect(section.locator('[data-platform]')).toHaveCount(3);
+    // Sàn nối được đầu tiên được chọn sẵn
+    await expect(section.getByRole('button', { name: 'Lazada từ API', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(section.getByRole('button', { name: 'Sàn mới', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    const shopee = section.locator('[data-platform=shopee]');
+    await expect(shopee).toHaveAttribute('aria-disabled', 'true');
+    await expect(shopee.locator('[data-testid=platform-reason]')).toHaveText('Chưa duyệt ứng dụng trên Shopee Open Platform');
+    // Thẻ khoá có aria-disabled nên Playwright không bấm thường; bấm vẫn báo lý do
+    await shopee.dispatchEvent('click');
+    await toast(page, 'Shopee: Chưa duyệt ứng dụng trên Shopee Open Platform');
+    await expect(section.getByRole('button', { name: 'Tiếp tục tới Lazada từ API', exact: true })).toBeAttached();
+    await section.getByRole('button', { name: 'Sàn mới', exact: true }).click();
+    await expect(section.getByRole('button', { name: 'Tiếp tục tới Sàn mới', exact: true })).toBeAttached();
+    // API chưa trả methods thì chỉ có uỷ quyền, không có lựa chọn cách nối
+    await expect(section.getByRole('radiogroup', { name: 'Cách kết nối' })).toHaveCount(0);
   });
 
-  test('nút trên thẻ theo methods: chỉ token thì không có Đăng nhập', async ({ page }) => {
+  test('cách nối theo methods: hai cách thì chọn, chỉ token thì không có uỷ quyền', async ({ page }) => {
     await mockApi(page, 'get', '/channel/shops/platforms', 200, { items: [
       { platform: 'lazada', name: 'Lazada', connectable: true, methods: ['oauth', 'token'] },
       { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true, methods: ['token'] },
     ] });
     await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
-    const lazada = page.locator('[data-platform=lazada]');
-    await expect(lazada.getByRole('button', { name: 'Kết nối Lazada', exact: true })).toContainText('Đăng nhập Lazada');
-    await expect(lazada.getByRole('button', { name: 'Dán token Lazada', exact: true })).toBeAttached();
-    const mock = page.locator('[data-platform=mock]');
-    await expect(mock.getByRole('button', { name: /^Kết nối/ })).toHaveCount(0);
-    await expect(mock.getByRole('button', { name: 'Dán token Sàn giả lập (mock)', exact: true })).toBeAttached();
+    const section = page.locator('[data-testid=connect-section]');
+    await expect(section.locator('[data-platform=lazada]')).toContainText('Đăng nhập Lazada');
+    await expect(section.getByRole('radio', { name: /^Uỷ quyền qua Lazada/ })).toBeChecked();
+    await section.getByRole('radio', { name: /^Dán token/ }).click();
+    await expect(section.getByRole('button', { name: 'Tiếp tục', exact: true })).toBeAttached();
+    await section.getByRole('button', { name: 'Sàn giả lập (mock)', exact: true }).click();
+    await expect(section.getByRole('radiogroup', { name: 'Cách kết nối' })).toHaveCount(0);
+    await expect(section.getByRole('button', { name: /^Tiếp tục tới/ })).toHaveCount(0);
+    await expect(section.getByRole('button', { name: 'Tiếp tục', exact: true })).toBeAttached();
   });
 
-  test('dán token: bắt buộc access token, sàn từ chối thì ở lại, đúng thì sang thiết lập', async ({ page }) => {
+  test('dán token: bắt buộc access token, sàn từ chối thì ở lại, đúng thì hiện kết quả rồi thiết lập', async ({ page }) => {
     await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
-    await page.getByRole('button', { name: 'Dán token Sàn giả lập (mock)', exact: true }).click();
+    const section = page.locator('[data-testid=connect-section]');
+    const quaToken = async () => {
+      await section.getByRole('button', { name: 'Sàn giả lập (mock)', exact: true }).click();
+      await section.getByRole('radio', { name: /^Dán token/ }).click();
+      await section.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+    };
+    await quaToken();
     const form = page.locator('[data-testid=token-form]');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
     await expect(chua(form, 'Nhập access token')).toBeVisible();
@@ -49,10 +66,12 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
     await expect(chua(form, 'Sàn từ chối token này')).toBeVisible();
     await form.getByRole('button', { name: 'Chọn sàn khác', exact: true }).click();
     await expect(form).toHaveCount(0);
-    await page.getByRole('button', { name: 'Dán token Sàn giả lập (mock)', exact: true }).click();
+    await quaToken();
     await page.getByLabel('Access token', { exact: true }).fill('tok-abc123');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
-    await toast(page, 'Đã kết nối Shop thử ABC123. Hoàn tất thiết lập để bắt đầu bán.');
+    const ketQua = section.locator('[data-outcome=connected]');
+    await expect(ketQua).toContainText('Đã nối Shop thử ABC123');
+    await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
   });
 
@@ -110,5 +129,6 @@ test.describe('P3 · Sàn kết nối được: thiếu quyền kết nối', ()
     await expect(dong(page, 'shp-001')).toBeAttached();
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Kết nối / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thiết lập', exact: true })).toHaveCount(0);
   });
 });
