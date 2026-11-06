@@ -25,6 +25,9 @@ export interface ProblemDetails {
   platformMessage?: string;
   /** Số đơn của gian hàng chưa xong khi ngắt bị chặn (409 `shop_has_open_orders`, §18.6.1) */
   openOrders?: number;
+  /** 409 `shop_mismatch` (§18.4): gian hàng đang kết nối lại và gian hàng vừa đăng nhập; `actual.name` có thể null */
+  expected?: { name: string | null; externalShopId: string };
+  actual?: { name: string | null; externalShopId: string };
 }
 
 export const apiClient: AxiosInstance = axios.create({

@@ -38,7 +38,8 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
   test('từ chối uỷ quyền không gọi callback', async ({ page }) => {
     await mockApi(page, 'post', '/channel/shops/mock/callback', 500, { detail: 'Không được gọi callback' });
     await navigateCallback(page, 'state=s1&error=access_denied');
-    await expect(await toast(page, 'Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.')).toBeVisible();
+    await expect(page.locator('[data-outcome=declined]')).toContainText('Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.');
+    await page.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/channel/shops');
   });
 
@@ -67,7 +68,7 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
   test('nhãn lấy boolean BE, hạn hiển thị lấy hạn uỷ quyền gần hơn, sàn lạ không trống', async ({ page }) => {
     const base = { companyId: 'cmp-001', platform: 'shopee_v2', externalShopId: 'x', shopName: 'Shop mới', status: 'active', region: null,
       accessExpiresAt: null, refreshExpiresAt: '2099-12-01T00:00:00Z', authExpiresAt: '2099-01-02T00:00:00Z',
-      capabilities: { listingReview: false, hideBy: 'deactivate' }, pendingJobs: 0, listingCount: 0, version: 1, createdAt: '2026-01-01', updatedAt: '2026-01-01' };
+      capabilities: { listingReview: false, hideBy: 'deactivate', splitLevel: 'none', returnWindow: 'days' }, pendingJobs: 0, listingCount: 0, version: 1, createdAt: '2026-01-01', updatedAt: '2026-01-01' };
     await mockApi(page, 'get', '/channel/shops', 200, { items: [
       { ...base, id: 'a', tokenExpiringSoon: true },
       { ...base, id: 'b', tokenExpiringSoon: false, authExpiresAt: '2020-01-01T00:00:00Z' },

@@ -6,9 +6,16 @@
 
 export type Marketplace = string;
 
+/**
+ * Khác biệt giữa các sàn (Documents/21 §18.6.3). FE rẽ nhánh theo các trường này, không theo mã sàn.
+ * splitLevel: sàn tách đơn tới đâu (unit: từng món, sku: theo SKU, none: không tách).
+ * returnWindow: hạn đổi trả tính theo số ngày người bán đặt (days) hay theo trạng thái sàn báo (platform_status).
+ */
 export interface ShopCapabilities {
   listingReview: boolean;
   hideBy: 'deactivate' | 'zero_stock';
+  splitLevel: 'unit' | 'sku' | 'none';
+  returnWindow: 'days' | 'platform_status';
 }
 
 /** Sàn được BE công bố theo adapter và cấu hình (Documents/21 §18.1). */
@@ -58,9 +65,19 @@ export interface Shop {
   pendingJobs: number;
   /** Số biến thể đã ghép SKU sàn */
   listingCount: number;
+  /** Số ngày đổi trả đặt ở thiết lập; null khi sàn tự báo hạn (capabilities.returnWindow = platform_status) */
+  returnWindowDays: number | null;
+  /** Phiếu kiểm kê đầu kỳ chưa ghi sổ; khác null thì trang gian hàng hiện banner dẫn tới phiếu (§18.6.2) */
+  openingStocktake: ShopOpeningStocktake | null;
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ShopOpeningStocktake {
+  documentId: string;
+  number: string;
+  status: 'draft' | 'pending' | 'rejected';
 }
 
 /** Bắt đầu OAuth; shopId khi kết nối lại một gian hàng đã có */
@@ -234,6 +251,10 @@ export interface ShopSetupPreview {
   suggestions: SetupSuggestion[];
   /** SKU sàn không gợi ý được, ghép tay sau ở trang ghép SKU */
   unmatchedRemote: number;
+  /** Mốc kéo đơn BE đề xuất (lúc kết nối); FE chỉ hiển thị, không gửi lại */
+  proposedCutoffAt: string;
+  /** Gian hàng đầu tiên của công ty: tồn đầu kỳ chỉ được chọn kiểm kê */
+  firstShopOfCompany: boolean;
 }
 
 /** push: đẩy khả dụng của Commerio lên sàn; stocktake: lập phiếu kiểm kê nháp cho các SKU lệch */
@@ -242,7 +263,8 @@ export type OpeningStockMode = 'push' | 'stocktake';
 export interface ShopSetupInput {
   externalSkuIds: string[];
   openingStock: OpeningStockMode;
-  orderCutoffAt: string;
+  /** Bắt buộc, số nguyên 1–60 khi capabilities.returnWindow = days */
+  returnWindowDays?: number | null;
 }
 
 export interface ShopSetupResult {

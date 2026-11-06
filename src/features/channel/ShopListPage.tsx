@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -27,8 +27,8 @@ import { formatDate, formatDateTime } from '@/utils/format';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { authorizationDeadline } from './shopSchemas';
-import type { Shop, ShopConnectionResult, ShopPlatform } from '@/types/shop';
-import { isUsable, platformLabel, STATUS_LABELS, STATUS_VARIANTS } from './shopSchemas';
+import type { Shop, ShopCallbackResult, ShopPlatform } from '@/types/shop';
+import { capabilitySummary, isUsable, platformLabel, STATUS_LABELS, STATUS_META } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { connectedToast } from './connectResult';
 import { ShopTokenForm } from './ShopTokenForm';
@@ -98,10 +98,13 @@ export function ShopListPage() {
     setAdding(false);
     setTokenFor(null);
   };
-  const tokenConnected = (result: ShopConnectionResult) => {
+  const tokenConnected = (result: ShopCallbackResult) => {
     toast.success(connectedToast(result));
     closeAdding();
-    if (result.created) navigate(ROUTES.company.shopSetup(companyId, result.shop.id));
+    // Giống callback OAuth (§18.4): đúng một gian hàng đang thiết lập thì mở wizard, còn lại ở danh sách
+    if (result.shops.length === 1 && result.shop.status === 'connecting') {
+      navigate(ROUTES.company.shopSetup(companyId, result.shop.id));
+    }
   };
   const askDisconnect = (s: Shop) => {
     setZeroStock(false);
@@ -169,9 +172,9 @@ export function ShopListPage() {
           const s = row.original;
           return (
             <div className="grid justify-items-start gap-1">
-              <Badge variant={STATUS_VARIANTS[s.status]} data-testid="shop-status">
-                {STATUS_LABELS[s.status]}
-              </Badge>
+              <span data-testid="shop-status" className="inline-flex">
+                <StatusBadge status={s.status} statuses={STATUS_META} />
+              </span>
               {s.tokenExpiringSoon && (
                 <span className="text-xs text-warning" data-testid="shop-expiring">
                   Sắp hết hạn{authorizationDeadline(s) && <> · Kết nối lại trước {formatDate(authorizationDeadline(s))}</>}
@@ -261,6 +264,7 @@ export function ShopListPage() {
       <PageHeader
         title="Gian hàng"
         subtitle="Gian hàng trên các sàn đã kết nối với công ty. Ghép biến thể với SKU sàn để đồng bộ đơn, giá và tồn."
+        help="Commerio giữ tồn và giá, sàn giữ thông tin giao vận. Gian hàng mới phải xong thiết lập lần đầu mới bắt đầu kéo đơn và đẩy tồn."
         action={
           canConnect ? (
             <Button onClick={() => setAdding(true)}>
@@ -354,6 +358,12 @@ export function ShopListPage() {
               Chọn sàn, đăng nhập tài khoản người bán và đồng ý cấp quyền. Commerio không lưu mật khẩu sàn.
             </DialogDescription>
           </DialogHeader>
+          {!tokenFor && (
+            <AlertMessage severity="info">
+              Một công ty nối được nhiều gian hàng trên cùng một sàn, mỗi lần uỷ quyền một tài khoản. Muốn thêm gian hàng
+              mới, đăng nhập sàn bằng tài khoản của gian hàng đó; trình duyệt đang nhớ tài khoản cũ thì đăng xuất trước.
+            </AlertMessage>
+          )}
           {tokenFor ? (
             <ShopTokenForm
               platform={tokenFor.platform}
@@ -385,12 +395,19 @@ export function ShopListPage() {
               const hint = PLATFORM_HINTS[value];
               const busy = connector.pending && connector.variables?.platform === value && !connector.variables.shopId;
               return (
-                <div key={value} className="flex flex-col gap-3 rounded-lg border p-4" data-platform={value}>
+                <div key={value} className="flex flex-col gap-3 rounded-lg border bg-card p-4" data-platform={value}>
                   <div className="flex items-center gap-2 font-medium">
                     <Store className="size-4 text-primary" />
                     {name}
                   </div>
-                  {hint && <p className="flex-1 text-sm text-muted-foreground">{hint}</p>}
+                  {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
+                  {p.capabilities && (
+                    <ul className="flex-1 list-disc ps-4 text-xs text-muted-foreground" data-testid="platform-capabilities">
+                      {capabilitySummary(p.capabilities).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {methods.includes('oauth') && (
                       <Button
@@ -426,13 +443,19 @@ export function ShopListPage() {
 
       <ConfirmDialog
         open={Boolean(disconnecting)}
-        title="Ngắt kết nối gian hàng?"
+        title={disconnecting ? `Ngắt kết nối ${disconnecting.shopName}?` : 'Ngắt kết nối gian hàng?'}
         message={
           <>
-            Ngắt <strong>{disconnecting?.shopName}</strong> ({disconnecting && platformLabel(disconnecting.platform, disconnecting.platformName)}).
-            Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; listing trên sàn được gỡ. Đơn và ghép SKU
-            cũ vẫn giữ; kết nối lại thì listing được đưa lên lại.
-            <div className="mt-3 flex items-start gap-2">
+            <p>
+              {disconnecting && platformLabel(disconnecting.platform, disconnecting.platformName)}, mã{' '}
+              <span className="font-mono">{disconnecting?.externalShopId}</span>. Commerio ngừng nhận đơn và ngừng đẩy
+              giá, tồn lên gian hàng này; listing trên sàn được gỡ.
+            </p>
+            <ul className="mt-2 list-disc ps-5 text-foreground-2">
+              <li>Đơn, đối soát và ghép SKU cũ vẫn giữ.</li>
+              <li>Kết nối lại đúng gian hàng thì listing được đưa lên lại.</li>
+            </ul>
+            <div className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5">
               <Checkbox
                 id="zero-stock"
                 checked={zeroStock}

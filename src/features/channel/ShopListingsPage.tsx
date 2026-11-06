@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,6 +57,9 @@ interface PushError {
   code?: string;
   message: string;
 }
+
+/** Trạng thái phiếu kiểm kê đầu kỳ chưa ghi sổ (§18.6.2) */
+const STOCKTAKE_STATUS = { draft: 'đang nháp', pending: 'đang chờ duyệt', rejected: 'bị từ chối, cần sửa rồi gửi lại' } as const;
 
 const MATCH_FILTERS: { value: Exclude<MatchFilter, ''>; label: string }[] = [
   { value: 'matched', label: 'Đã ghép' },
@@ -661,6 +664,21 @@ export function ShopListingsPage() {
               Kết nối lại
             </Button>
           )}
+        </AlertMessage>
+      )}
+      {shop?.openingStocktake && (
+        <AlertMessage severity="warning" className="mb-4">
+          <span data-testid="opening-stocktake-banner">
+            Gian hàng đang chờ kiểm kê đầu kỳ: phiếu{' '}
+            <Link
+              className="font-mono font-medium underline underline-offset-2"
+              to={ROUTES.company.inventoryDoc(companyId, shop.openingStocktake.documentId)}
+            >
+              {shop.openingStocktake.number}
+            </Link>{' '}
+            {STOCKTAKE_STATUS[shop.openingStocktake.status]}. Đến khi phiếu ghi sổ, Commerio chưa đẩy tồn và chưa đẩy sản
+            phẩm lên sàn; đơn vẫn kéo về.
+          </span>
         </AlertMessage>
       )}
       {shop && usable && !can(PERMISSIONS.listingManage) && (

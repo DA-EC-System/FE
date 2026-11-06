@@ -54,11 +54,31 @@ export function shopSnapshot(s: MockShop): Record<string, unknown> {
 }
 
 export function toShop(s: MockShop): Shop {
-  const { outage: _outage, ...shop } = s;
+  const { outage: _outage, openingStocktakeDocId: _doc, ...shop } = s;
   return {
     ...shop,
+    returnWindowDays: s.returnWindowDays ?? null,
+    openingStocktake: openingStocktakeOf(s),
     listingCount: channel.listings.filter((l) => l.shopId === s.id && onPlatform(l.status)).length,
   };
+}
+
+/** §18.6.2: phiếu kiểm kê đầu kỳ còn chưa ghi sổ (nháp, chờ duyệt, bị từ chối); ghi sổ hoặc huỷ thì thôi */
+function openingStocktakeOf(s: MockShop): Shop['openingStocktake'] {
+  if (!s.openingStocktakeDocId) return null;
+  const doc = inventory.docs.find((d) => d.id === s.openingStocktakeDocId);
+  if (!doc || (doc.status !== 'draft' && doc.status !== 'pending' && doc.status !== 'rejected')) return null;
+  return { documentId: doc.id, number: doc.number, status: doc.status };
+}
+
+/**
+ * Gian hàng đầu tiên của công ty (§18.6.2): công ty chưa có gian hàng nào khác đã qua thiết lập lần đầu
+ * (mock coi gian hàng mẫu là đã kiểm kê đầu kỳ). Gian hàng khác còn phiếu kiểm kê đầu kỳ chưa ghi sổ thì chưa tính.
+ */
+export function firstShopOfCompany(shop: MockShop) {
+  return !db.shops.some(
+    (s) => s.id !== shop.id && s.companyId === shop.companyId && s.status !== 'connecting' && !openingStocktakeOf(s),
+  );
 }
 
 export function findShop(id: unknown, companyId: string) {
@@ -71,8 +91,6 @@ export const usable = (s: MockShop) => shopUsable(s.status);
 export const TOKEN_TTL_MS = 7 * 24 * 3600_000;
 /** Refresh token (Lazada khoảng 30 ngày); sàn giả lập không có */
 export const REFRESH_TTL_MS = 30 * 24 * 3600_000;
-/** App Lazada ở chế độ thử chỉ nhận tối đa 5 seller (§18.4 `seller_not_whitelisted`) */
-const LAZADA_TEST_SELLERS = 5;
 
 const marketplaceUnsupported = (platform: string) =>
   problem(422, 'Sàn chưa hỗ trợ', { code: 'marketplace_unsupported', detail: `Chưa hỗ trợ kết nối sàn ${platform}.` });
@@ -231,7 +249,7 @@ function newListing(shop: MockShop, variantId: string, r: MockRemoteSku, over: P
 const shopRecord = (s: MockShop) => ({ createdBy: null as string | null, id: s.id });
 
 /** Gợi ý ghép lần đầu: SKU sàn chưa ghép có SKU người bán trùng SKU biến thể đang bán */
-function setupSuggestions(shop: MockShop): ShopSetupPreview {
+function setupSuggestions(shop: MockShop): Pick<ShopSetupPreview, 'suggestions' | 'unmatchedRemote'> {
   const variants = sellableVariants(shop.companyId);
   const suggestions: SetupSuggestion[] = [];
   let unmatchedRemote = 0;
@@ -501,9 +519,12 @@ function attachGranted(
   if (targetShopId) {
     const target = db.shops.find((s) => s.id === targetShopId && s.companyId === companyId);
     if (target && target.externalShopId !== granted.externalShopId) {
+      // §18.4: kèm gian hàng đang kết nối lại (expected) và gian hàng vừa đăng nhập (actual)
       return problem(409, 'Gian hàng không khớp', {
         code: 'shop_mismatch',
         detail: `Bạn vừa uỷ quyền gian hàng ${granted.shopName}, không phải ${target.shopName}.`,
+        expected: { name: target.shopName, externalShopId: target.externalShopId },
+        actual: { name: granted.shopName, externalShopId: granted.externalShopId },
       });
     }
   }
@@ -516,14 +537,6 @@ function attachGranted(
   );
   if (elsewhere) {
     return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
-  }
-  if (platform === 'lazada') {
-    const sellers = new Set(
-      db.shops.filter((s) => s.platform === 'lazada' && s.status !== 'disconnected').map((s) => s.externalShopId),
-    );
-    if (!sellers.has(granted.externalShopId) && sellers.size >= LAZADA_TEST_SELLERS) {
-      return problem(422, 'Gian hàng chưa được cấp quyền thử', { code: 'seller_not_whitelisted' });
-    }
   }
   const idx = db.shops.findIndex(
     (s) => s.companyId === companyId && s.externalShopId === granted.externalShopId,
@@ -685,7 +698,11 @@ export const shopHandlers = [
     }
     if (accessToken === 'sai') return problem(409, 'Sàn từ chối yêu cầu', { code: 'marketplace_rejected' });
     const seller = accessToken.slice(-6).toUpperCase();
-    return attachGranted(guard.value, platform, { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` }, null);
+    const response = attachGranted(guard.value, platform, { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` }, null);
+    if (!response.ok) return response;
+    // §18.4: kết quả dán token cùng dạng với callback, có shops[]
+    const result = (await response.json()) as ShopConnectionResult;
+    return HttpResponse.json<ShopCallbackResult>({ ...result, shops: [result] }, { status: response.status });
   }),
 
   http.get(`${API}/channel/shops/:id`, async ({ params, request }) => {
@@ -774,7 +791,12 @@ export const shopHandlers = [
     if (shop.status !== 'connecting') {
       return problem(409, 'Gian hàng đã thiết lập', { code: 'invalid_transition', current: shop.status });
     }
-    return HttpResponse.json<ShopSetupPreview>(setupSuggestions(shop));
+    return HttpResponse.json<ShopSetupPreview>({
+      ...setupSuggestions(shop),
+      // Mock: mốc đề xuất là lúc kết nối gian hàng
+      proposedCutoffAt: shop.createdAt,
+      firstShopOfCompany: firstShopOfCompany(shop),
+    });
   }),
 
   http.post(`${API}/channel/shops/:id/setup`, async ({ params, request }) => {
@@ -788,10 +810,15 @@ export const shopHandlers = [
     if (!step.ok) return step.response;
     const body = (await request.json()) as Partial<ShopSetupInput>;
     const errors: Record<string, string> = {};
-    const cutoff = body.orderCutoffAt ? new Date(body.orderCutoffAt) : null;
-    if (!cutoff || Number.isNaN(cutoff.getTime())) errors.orderCutoffAt = 'Chọn mốc kéo đơn';
-    else if (cutoff.getTime() > Date.now()) errors.orderCutoffAt = 'Mốc kéo đơn không được ở tương lai';
+    // §18.6.2: mốc kéo đơn do BE đặt (orderCutoffAt trong body bị bỏ qua)
     if (body.openingStock !== 'push' && body.openingStock !== 'stocktake') errors.openingStock = 'Chọn cách xử lý tồn đầu kỳ';
+    else if (body.openingStock === 'push' && firstShopOfCompany(shop)) {
+      errors.openingStock = 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ';
+    }
+    const days = body.returnWindowDays;
+    if (shop.capabilities.returnWindow === 'days' && (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 60)) {
+      errors.returnWindowDays = 'Số ngày đổi trả là số nguyên từ 1 đến 60';
+    }
     const { suggestions } = setupSuggestions(shop);
     const picked = suggestions.filter((x) => (body.externalSkuIds ?? []).includes(x.externalSkuId));
     if (picked.length !== (body.externalSkuIds ?? []).length) errors.externalSkuIds = 'Có SKU sàn không còn để ghép';
@@ -814,7 +841,9 @@ export const shopHandlers = [
     const before = shopSnapshot(shop);
     Object.assign(shop, {
       status: step.value,
-      orderCutoffAt: cutoff!.toISOString(),
+      orderCutoffAt: shop.createdAt,
+      returnWindowDays: shop.capabilities.returnWindow === 'days' ? days : null,
+      openingStocktakeDocId: doc?.id ?? null,
       lastOrderSyncAt: at,
       updatedAt: at,
       version: shop.version + 1,
@@ -984,6 +1013,9 @@ export const shopHandlers = [
     if (!found.ok) return found.response;
     const shop = found.value;
     if (!usable(shop)) return shopNotConnected(shop);
+    if (openingStocktakeOf(shop)) {
+      return problem(409, 'Gian hàng chờ kiểm kê đầu kỳ', { code: 'shop_awaiting_stocktake' });
+    }
     const { variantIds } = (await request.json()) as { variantIds: string[] };
     if (!Array.isArray(variantIds) || !variantIds.length) {
       return problem(422, 'Chưa chọn biến thể', { errors: { variantIds: 'Chọn ít nhất một biến thể' } });

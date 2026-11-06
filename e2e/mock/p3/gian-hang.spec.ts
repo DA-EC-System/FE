@@ -106,17 +106,55 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByLabel(/Kiểm kê lại trước/).click();
       await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
 
-      // Bước 3: mốc kéo đơn không được ở tương lai
-      await page.getByLabel('Kéo đơn từ ngày', { exact: true }).fill('2099-01-01');
+      // Bước 3: mốc kéo đơn do BE đề xuất, chỉ hiển thị; sàn giả lập tính hạn trả theo số ngày nên phải nhập 1–60
+      await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
+      await expect(page.getByLabel('Kéo đơn từ ngày', { exact: true })).toHaveCount(0);
+      const soNgay = page.getByRole('spinbutton', { name: /Số ngày đổi trả/ });
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
-      await thayChu(page, 'Mốc kéo đơn không được ở tương lai');
-      await page.getByLabel('Kéo đơn từ ngày', { exact: true }).fill('2026-04-01');
+      await thayChu(page, 'Nhập số ngày đổi trả');
+      await soNgay.fill('61');
+      await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
+      await thayChu(page, 'Số ngày đổi trả là số nguyên từ 1 đến 60');
+      await soNgay.fill('7');
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
       await toast(page, /ABC Thử nghiệm đã sẵn sàng bán, ghép 2 listing, lập phiếu kiểm kê KK-/);
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Đã kết nối');
       await expect(page.locator('[data-testid=listing-status]')).toHaveCount(2);
       await coPhanTu(page, '[data-testid=listing-status]', 'Đang bán');
       await coPhanTu(page, '[data-testid=stock-sync]', 'Tồn chờ đẩy');
+      // Phiếu kiểm kê đầu kỳ chưa ghi sổ: banner dẫn tới phiếu
+      const banner = page.locator('[data-testid=opening-stocktake-banner]');
+      await expect(banner).toContainText('Gian hàng đang chờ kiểm kê đầu kỳ');
+      await expect(banner.getByRole('link', { name: /^KK-/ })).toHaveAttribute('href', /\/c\/cmp-001\/inventory\/documents\//);
+    });
+
+    test('gian hàng đầu tiên của công ty chỉ được kiểm kê đầu kỳ; lỗi 422 gắn đúng bước', async ({ page }) => {
+      await mockApi(page, 'get', '/channel/shops/:id/setup', 200, {
+        suggestions: [],
+        unmatchedRemote: 0,
+        proposedCutoffAt: '2026-11-01T08:00:00Z',
+        firstShopOfCompany: true,
+      });
+      await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
+      await page.locator('[data-testid=connect-section]').getByRole('button', { name: 'Kết nối Shopee', exact: true }).click();
+      await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC Đầu tiên');
+      await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
+      await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
+      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await thayChu(page, 'Đây là gian hàng đầu tiên của công ty nên phải kiểm kê đầu kỳ');
+      await expect(page.getByRole('radio', { name: /Lấy số Commerio đẩy lên sàn/ })).toBeDisabled();
+      await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeChecked();
+      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText('01/11/2026');
+      // Shopee tính hạn trả theo trạng thái sàn: không hỏi số ngày
+      await expect(page.getByRole('spinbutton', { name: /Số ngày đổi trả/ })).toHaveCount(0);
+      await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
+        status: 422,
+        errors: { openingStock: 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ' },
+      });
+      await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
+      await thayChu(page, 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ');
+      await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeVisible();
     });
 
     test('gian hàng đang thiết lập mở thẳng wizard', async ({ page }) => {
@@ -141,7 +179,11 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
       await page.locator('[data-testid=connect-section]').getByRole('button', { name: 'Kết nối Shopee', exact: true }).click();
       await page.getByRole('button', { name: 'Từ chối', exact: true }).click();
-      await toast(page, 'Bạn đã từ chối uỷ quyền');
+      const ketQua = page.locator('[data-outcome=declined]');
+      await expect(ketQua).toContainText('Bạn đã bấm Từ chối trên Shopee');
+      await expect(ketQua).toContainText('Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.');
+      await expect(ketQua.getByRole('button', { name: 'Thử lại', exact: true })).toBeVisible();
+      await ketQua.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();
       await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/channel/shops');
       await expect(rows).toHaveCount(n);
     });
@@ -151,10 +193,13 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByLabel('Tên gian hàng', { exact: true })).toHaveValue('ABC Outlet TikTok');
       await page.getByLabel('Mã gian hàng trên sàn', { exact: true }).fill('shop-khac');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
-      await toast(page, /không phải/);
-      await expect(trangThai(page, 'shp-008')).toHaveText('Đã ngắt');
+      const ketQua = page.locator('[data-outcome=mismatch]');
+      await expect(ketQua).toContainText(/Bạn vừa đăng nhập .+, không phải ABC Outlet TikTok/);
+      await expect(ketQua.locator('[data-testid=mismatch-compare]')).toContainText('shop-khac');
 
-      await dong(page, 'shp-008').getByRole('button', { name: 'Kết nối lại', exact: true }).click();
+      // Nút thử lại mở lại đúng gian hàng đang kết nối lại
+      await ketQua.getByRole('button', { name: 'Kết nối lại ABC Outlet TikTok', exact: true }).click();
+      await expect(page.getByLabel('Tên gian hàng', { exact: true })).toHaveValue('ABC Outlet TikTok');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       // Kết nối lại dùng bản ghi cũ, đưa listing đã gỡ khi ngắt lên lại và kéo đơn từ mốc cũ
       await toast(page, /Đã kết nối lại ABC Outlet TikTok: đưa lại 1 listing lên sàn, kéo đơn từ/);
@@ -164,8 +209,20 @@ test.describe('P3 · Gian hàng', () => {
     test('callback có state lạ thì báo phiên không hợp lệ', async ({ page }) => {
       await expect(dong(page, 'shp-001')).toBeAttached();
       await diToi(page, '/channel/lazada/callback?code=abc&state=st-gia');
-      await toast(page, 'Phiên kết nối đã hết hạn hoặc không hợp lệ');
+      const ketQua = page.locator('[data-outcome=state_invalid]');
+      await expect(ketQua).toContainText('Phiên kết nối đã hết hạn hoặc không hợp lệ');
+      await expect(ketQua.getByRole('button', { name: 'Bắt đầu lại', exact: true })).toBeVisible();
+      await ketQua.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();
       await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/channel/shops');
+    });
+
+    test('callback không có state thì không gọi BE, nhắc bấm kết nối trong Commerio', async ({ page }) => {
+      await expect(dong(page, 'shp-001')).toBeAttached();
+      await mockApi(page, 'post', '/channel/shops/tiktok/callback', 500, { detail: 'Không được gọi callback' });
+      await diToi(page, '/channel/tiktok/callback?code=abc&shop_region=VN');
+      const ketQua = page.locator('[data-outcome=no_state]');
+      await expect(ketQua).toContainText('Hãy bấm Kết nối TikTok Shop trong Commerio, không uỷ quyền từ Partner Center.');
+      await expect(ketQua).not.toContainText('Không được gọi callback');
     });
 
     // shp-003 không có đơn nên ngắt được; shp-001, shp-002 còn đơn chưa xong (§18.6.1)

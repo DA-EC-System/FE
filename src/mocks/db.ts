@@ -77,9 +77,12 @@ const companies: Company[] = [
 ];
 
 /** channel.shops; listingCount tính từ channel_listings khi trả về */
-export type MockShop = Omit<Shop, 'listingCount'> & {
+export type MockShop = Omit<Shop, 'listingCount' | 'returnWindowDays' | 'openingStocktake'> & {
   /** Sàn giả lập đang lỗi tạm: đẩy listing nằm ở "Đang đẩy" và thử lại */
   outage?: boolean;
+  returnWindowDays?: number | null;
+  /** Phiếu kiểm kê đầu kỳ lập ở thiết lập lần đầu; Shop.openingStocktake suy ra từ trạng thái phiếu */
+  openingStocktakeDocId?: string | null;
 };
 
 const shops: MockShop[] = [

@@ -44,7 +44,6 @@ const MESSAGES: Record<string, string> = {
   invalid_state: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
   // §18.4, commerio-backend#103
   oauth_state_invalid: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
-  seller_not_whitelisted: 'Gian hàng chưa được cấp quyền dùng thử ứng dụng. Liên hệ quản trị để thêm vào danh sách.',
   shop_connected_elsewhere: 'Gian hàng này đã kết nối ở công ty khác.',
   marketplace_unsupported: 'Sàn này chưa hỗ trợ thao tác này.',
   shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
@@ -116,7 +115,29 @@ const MESSAGES: Record<string, string> = {
   document_not_ready: 'Kiện chưa có mã kiện sàn nên chưa in được vận đơn.',
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
   shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
+  // §18.6.2
+  shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ trước khi đẩy sản phẩm.',
 };
+
+interface ShopRef {
+  name: string | null;
+  externalShopId: string;
+}
+
+const shopRefLabel = (ref: ShopRef) => ref.name ?? ref.externalShopId;
+
+function isShopRef(value: unknown): value is ShopRef {
+  return typeof value === 'object' && value !== null && typeof (value as ShopRef).externalShopId === 'string';
+}
+
+/**
+ * Câu báo khi đăng nhập nhầm gian hàng lúc kết nối lại (§18.4 `shop_mismatch`).
+ * `actual.name` có thể null thì hiện mã gian hàng; thiếu expected/actual thì dùng câu chung.
+ */
+export function shopMismatchMessage(expected: unknown, actual: unknown): string {
+  if (!isShopRef(expected) || !isShopRef(actual)) return MESSAGES.shop_mismatch;
+  return `Bạn vừa đăng nhập ${shopRefLabel(actual)}, không phải ${shopRefLabel(expected)}. Đăng xuất trên sàn, đăng nhập đúng tài khoản rồi kết nối lại.`;
+}
 
 /**
  * Câu báo khi ngắt gian hàng còn đơn chưa `completed` hoặc `cancelled` (§18.6.1).
@@ -143,7 +164,9 @@ export function problemMessage(error: unknown): string {
   const message =
     code === 'shop_has_open_orders'
       ? openOrdersMessage(problem?.openOrders)
-      : (code && MESSAGES[code]) || getErrorMessage(error);
+      : code === 'shop_mismatch'
+        ? shopMismatchMessage(problem?.expected, problem?.actual)
+        : (code && MESSAGES[code]) || getErrorMessage(error);
   // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
   return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
 }
