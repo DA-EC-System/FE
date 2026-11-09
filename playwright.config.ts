@@ -20,6 +20,11 @@ export default defineConfig({
     viewport: { width: 1366, height: 800 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Tắt tự hiện hướng dẫn lần đầu (FE#132) để pop-up không che spec cũ; spec hướng dẫn đặt lại storageState rỗng
+    storageState: {
+      cookies: [],
+      origins: [{ origin: new URL(baseURL).origin, localStorage: [{ name: 'commerio.guides', value: 'off' }] }],
+    },
   },
   webServer: process.env.PW_BASE_URL
     ? undefined

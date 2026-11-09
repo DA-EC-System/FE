@@ -169,6 +169,22 @@
 .CollapsibleContent {
   overflow: hidden;
 }
+
+/* Hướng dẫn trang (FE#132): nút "hành động chính" trong pop-up làm nổi phần tử vài giây */
+[data-guide-pulse] {
+  border-radius: var(--radius-lg, 8px);
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  animation: guide-pulse 1.2s ease-out 2;
+}
+@keyframes guide-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 40%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
 .CollapsibleContent[data-state='open'] {
   animation: slideDown 300ms ease-out;
 }
