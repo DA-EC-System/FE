@@ -26,7 +26,7 @@ const UUID = '[0-9a-f-]{36}';
 interface KetQuaKetNoi {
   shop: { id: string; status: string; shopName: string };
   created: boolean;
-  shops: { shop: { id: string; status: string }; created: boolean; previousStatus: string | null; remoteSkuCount: number }[];
+  shops: { shop: { id: string; status: string }; created: boolean; previousStatus: string | null; remoteSkuCount: number | null }[];
 }
 
 interface GoiY {
@@ -88,7 +88,8 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     // previousStatus, remoteSkuCount nằm trong từng phần tử shops[] (§18.7.4)
     for (const item of ketQua.shops) {
       expect(item).toHaveProperty('previousStatus');
-      expect(typeof item.remoteSkuCount).toBe('number');
+      // null khi BE chưa đọc được SKU trên sàn (lỗi sàn, quá 10 giây), không phải 0 (§18.7.4)
+      expect(item.remoteSkuCount === null || typeof item.remoteSkuCount === 'number').toBe(true);
     }
 
     const motShopMoi = ketQua.shops.length === 1 && ketQua.shop.status === 'connecting';

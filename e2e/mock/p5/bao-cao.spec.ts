@@ -288,7 +288,8 @@ test.describe('P5 · Báo cáo kinh doanh', () => {
       await expect(page.locator('[data-figure]')).toHaveCount(0);
 
       await mockApi(page, 'get', '/report/shops', 403, { status: 403, code: 'forbidden', title: 'Forbidden' });
-      await page.getByRole('button', { name: 'Tháng này', exact: true }).click();
+      // Tháng trước không trùng 7 ngày; ngày 1 đến 7 hằng tháng, Tháng này trùng 7 ngày nên không gọi lại BE
+      await page.getByRole('button', { name: 'Tháng trước', exact: true }).click();
       await thayChu(page, KHONG_QUYEN_THAO_TAC, '[role=alert]');
       await expect(page.locator('[data-figure]')).toHaveCount(0);
       await expect(bangGianHang(page)).toHaveCount(0);
