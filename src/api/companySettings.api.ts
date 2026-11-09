@@ -12,6 +12,8 @@ import type {
   CompanyAuditLogDetail,
   CompanyAuditParams,
   CompanyModule,
+  DeadJob,
+  DeadJobParams,
   SetModuleInput,
   SetModuleResult,
 } from '@/types/companySettings';
@@ -23,6 +25,9 @@ export const companySettingsKeys = {
     [...companySettingsKeys.audit(companyId), 'list', params] as const,
   auditDetail: (companyId: string, id: string) =>
     [...companySettingsKeys.audit(companyId), 'detail', id] as const,
+  deadJobs: (companyId: string) => ['company', companyId, 'dead-jobs'] as const,
+  deadJobList: (companyId: string, params: DeadJobParams) =>
+    [...companySettingsKeys.deadJobs(companyId), params] as const,
 };
 
 function useCompanyId(): string {
@@ -96,6 +101,37 @@ export function useCompanyAuditLog(id: string | null) {
     queryFn: async () => {
       const { data } = await apiClient.get<CompanyAuditLogDetail>(`/audit/logs/${id}`);
       return data;
+    },
+  });
+}
+
+// ---------- Việc nền lỗi (§14.5) ----------
+
+/** Việc nền đã thử hết lượt mà vẫn lỗi, mới nhất trước, chỉ của công ty đang chọn */
+export function useDeadJobs(params: DeadJobParams) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: companySettingsKeys.deadJobList(companyId, params),
+    enabled: Boolean(companyId),
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResult<DeadJob>>('/platform/jobs/dead', { params });
+      return data;
+    },
+  });
+}
+
+/** Đưa việc về hàng gốc với lượt thử mới (204). 404 khi việc không còn trong hàng lỗi */
+export function useRetryDeadJob() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/platform/jobs/dead/${id}/retry`);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: companySettingsKeys.deadJobs(companyId) });
+      qc.invalidateQueries({ queryKey: companySettingsKeys.audit(companyId) });
     },
   });
 }

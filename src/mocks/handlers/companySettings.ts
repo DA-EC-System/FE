@@ -1,6 +1,14 @@
 import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
-import type { ActorRef, CompanyAuditLog, CompanyAuditLogDetail, CompanyModule, SetModuleInput, SetModuleResult } from '@/types/companySettings';
+import type {
+  ActorRef,
+  CompanyAuditLog,
+  CompanyAuditLogDetail,
+  CompanyModule,
+  DeadJob,
+  SetModuleInput,
+  SetModuleResult,
+} from '@/types/companySettings';
 import { MODULE_LABELS, OPTIONAL_MODULES, type OptionalModuleKey } from '@/utils/modules';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, lag, buildContext, pageParams, paginate, problem, requireCompany } from './utils';
@@ -147,5 +155,44 @@ export const companySettingsHandlers = [
     }
     const detail: CompanyAuditLogDetail = { ...toAuditLog(log), before: log.before, after: log.after };
     return HttpResponse.json(detail);
+  }),
+
+  // ---------- Việc nền lỗi (§14.5) ----------
+  http.get(`${API}/platform/jobs/dead`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.jobManage);
+    if (!guard.ok) return guard.response;
+    const url = new URL(request.url);
+    const queue = url.searchParams.get('queue');
+    if (queue && queue.length > 100) {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        code: 'validation_failed',
+        errors: { queue: 'Tối đa 100 ký tự' },
+      });
+    }
+    const { page, pageSize } = pageParams(url);
+    const items: DeadJob[] = db.deadJobs
+      .filter((j) => j.companyId === guard.value.companyId && (!queue || j.queue === queue))
+      .sort((a, b) => b.failedAt.localeCompare(a.failedAt))
+      .map(({ companyId: _companyId, ...j }) => j);
+    return HttpResponse.json(paginate(items, page, pageSize));
+  }),
+
+  http.post(`${API}/platform/jobs/dead/:id/retry`, async ({ params, request }) => {
+    await delay(lag(300));
+    const guard = requireCompany(request, PERMISSIONS.jobManage);
+    if (!guard.ok) return guard.response;
+    const i = db.deadJobs.findIndex((j) => j.id === params.id && j.companyId === guard.value.companyId);
+    // Việc không còn trong hàng lỗi, của công ty khác hoặc id sai dạng: đều 404
+    if (i < 0) return problem(404, 'Không tìm thấy', { code: 'not_found' });
+    const [job] = db.deadJobs.splice(i, 1);
+    writeCompanyLog(
+      guard.value,
+      'update',
+      { type: 'platform.dead_jobs', id: job.id, label: job.queue },
+      { attempts: job.attempts },
+      { retried: true },
+    );
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

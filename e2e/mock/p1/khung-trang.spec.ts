@@ -36,7 +36,7 @@ const MENU: Record<string, string[]> = {
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả | Khách hàng',
     'Tài chính: Sổ tiền | Chứng từ | Thu COD | Hoàn tiền | Khoản thu chưa khớp | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế | Giao dịch cổng',
-    'Quản trị: Nhân viên | Vai trò | Phân hệ | Nhật ký thao tác | Cổng thanh toán',
+    'Quản trị: Nhân viên | Vai trò | Phân hệ | Nhật ký thao tác | Việc nền lỗi | Cổng thanh toán',
     'Dữ liệu giả: Sàn giả lập',
   ],
   admin: [
@@ -45,7 +45,7 @@ const MENU: Record<string, string[]> = {
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Khách hàng',
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
-    'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Cổng thanh toán',
+    'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Việc nền lỗi | Cổng thanh toán',
     'Dữ liệu giả: Sàn giả lập',
   ],
   sale: [

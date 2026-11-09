@@ -9,6 +9,7 @@ import {
   PackageX,
   Puzzle,
   ScrollText,
+  ServerCrash,
   ShieldCheck,
   ShoppingCart,
   CreditCard,
@@ -277,6 +278,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: ScrollText,
           module: 'platform',
           permission: PERMISSIONS.auditView,
+        },
+        {
+          to: ROUTES.company.deadJobs(companyId),
+          label: 'Việc nền lỗi',
+          icon: ServerCrash,
+          module: 'platform',
+          permission: PERMISSIONS.jobManage,
         },
         {
           to: ROUTES.company.paymentGateways(companyId),
