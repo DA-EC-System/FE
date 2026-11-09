@@ -457,7 +457,7 @@ export function sellableVariant(companyId: string, variantId: unknown) {
 
 // ---------- Sàn giả lập: sự kiện gian hàng và listing (FE#58) ----------
 
-const SKU_PARAM = { key: 'sku', label: 'SKU', placeholder: 'Bỏ trống: mọi listing hợp lệ' };
+const SKU_PARAM = { key: 'sku', label: 'SKU', placeholder: 'Bỏ trống: mọi sản phẩm trên sàn hợp lệ' };
 
 /** Listing của gian hàng đang ở một trong các trạng thái, lọc theo SKU (Commerio hoặc SKU người bán trên sàn) */
 function pickListings(shop: MockShop | null, sku: string | undefined, statuses: ListingStatus[], what: string) {
@@ -469,7 +469,7 @@ function pickListings(shop: MockShop | null, sku: string | undefined, statuses: 
     const sellerSku = channel.remoteSkus[shop.id]?.find((r) => r.externalSkuId === l.externalSkuId)?.sellerSku;
     return skuOf(shop.companyId, l.variantId).toLowerCase() === key || sellerSku?.toLowerCase() === key;
   });
-  if (!found.length) throw new Error(`Không có listing ${what}${key ? ` với SKU ${sku}` : ''}`);
+  if (!found.length) throw new Error(`Không có sản phẩm ${what} trên sàn${key ? ` với SKU ${sku}` : ''}`);
   return { shop, found };
 }
 
@@ -515,8 +515,8 @@ registerMarketplaceEvent({
 registerMarketplaceEvent({
   type: 'shop.outage',
   label: 'Sàn lỗi tạm (bật/tắt)',
-  description: 'Bật: đẩy listing nằm ở Đang đẩy và thử lại. Tắt: các listing đang đẩy được sàn nhận.',
-  group: 'Listing',
+  description: 'Bật: sản phẩm đang đẩy lên sàn nằm ở Đang đẩy và thử lại. Tắt: sàn nhận các sản phẩm đang đẩy.',
+  group: 'Sản phẩm trên sàn',
   needsShop: true,
   run({ shop }) {
     if (!shop) throw new Error('Chọn gian hàng');
@@ -528,15 +528,15 @@ registerMarketplaceEvent({
       settlePush(shop, l, variant ? hidesListings(variant.businessStatus) : false);
       l.version += 1;
     }
-    return `${shop.shopName}: sàn hoạt động lại${pending.length ? `, sàn nhận ${pending.length} listing đang đẩy` : ''}`;
+    return `${shop.shopName}: sàn hoạt động lại${pending.length ? `, sàn nhận ${pending.length} sản phẩm đang đẩy` : ''}`;
   },
 });
 
 registerMarketplaceEvent({
   type: 'listing.push_timeout',
   label: 'Hết thời gian thử lại',
-  description: 'Thử lại 5 lần trong 30 phút vẫn lỗi: listing chuyển Lỗi đẩy.',
-  group: 'Listing',
+  description: 'Thử lại 5 lần trong 30 phút vẫn lỗi: sản phẩm chuyển Lỗi đẩy.',
+  group: 'Sản phẩm trên sàn',
   needsShop: true,
   param: SKU_PARAM,
   run({ shop, params }) {
@@ -550,9 +550,9 @@ registerMarketplaceEvent({
 
 registerMarketplaceEvent({
   type: 'listing.approved',
-  label: 'Sàn duyệt listing',
+  label: 'Sàn duyệt sản phẩm',
   description: 'Lazada QC, TikTok duyệt sản phẩm: mọi SKU cùng sản phẩm chuyển Đang bán.',
-  group: 'Listing',
+  group: 'Sản phẩm trên sàn',
   needsShop: true,
   platforms: ['lazada', 'tiktok'],
   param: SKU_PARAM,
@@ -566,9 +566,9 @@ registerMarketplaceEvent({
 
 registerMarketplaceEvent({
   type: 'listing.rejected',
-  label: 'Sàn từ chối listing',
+  label: 'Sàn từ chối sản phẩm',
   description: 'Sàn từ chối sản phẩm kèm lý do; sửa rồi đẩy lại.',
-  group: 'Listing',
+  group: 'Sản phẩm trên sàn',
   needsShop: true,
   platforms: ['lazada', 'tiktok'],
   param: SKU_PARAM,
@@ -582,9 +582,9 @@ registerMarketplaceEvent({
 
 registerMarketplaceEvent({
   type: 'listing.hold',
-  label: 'Sàn khoá listing',
+  label: 'Sàn khoá sản phẩm',
   description: 'Sàn tạm khoá vì nghi vi phạm; không đẩy được cho đến khi sàn gỡ khoá.',
-  group: 'Listing',
+  group: 'Sản phẩm trên sàn',
   needsShop: true,
   param: SKU_PARAM,
   run({ shop, params }) {
@@ -596,9 +596,9 @@ registerMarketplaceEvent({
 
 registerMarketplaceEvent({
   type: 'listing.release',
-  label: 'Sàn gỡ khoá listing',
-  description: 'Sàn gỡ khoá: listing bán lại.',
-  group: 'Listing',
+  label: 'Sàn gỡ khoá sản phẩm',
+  description: 'Sàn gỡ khoá: sản phẩm bán lại.',
+  group: 'Sản phẩm trên sàn',
   needsShop: true,
   param: SKU_PARAM,
   run({ shop, params }) {
@@ -1178,7 +1178,7 @@ export const shopHandlers = [
     const l = channel.listings.find((x) => x.shopId === shop.id && x.variantId === params.variantId);
     if (!l) return problem(404, 'Biến thể chưa ghép SKU sàn');
     const { version } = (await request.json()) as { version: number };
-    if (version !== l.version) return versionConflict(toListing(l), 'Listing vừa được người khác sửa.');
+    if (version !== l.version) return versionConflict(toListing(l), 'Sản phẩm trên sàn vừa được người khác sửa.');
     const step = checkTransition(listingMachine, l.status, 'delist', guard.value, { createdBy: null, id: l.id });
     if (!step.ok) return step.response;
     const before = { status: l.status };
@@ -1243,7 +1243,7 @@ export const shopHandlers = [
         return { variantId, sku, outcome: 'failed', status: l.status, code: 'push_in_progress', message: 'Đang đẩy, chờ sàn trả kết quả' };
       }
       if (l?.status === 'platform_hold') {
-        return { variantId, sku, outcome: 'failed', status: l.status, code: 'platform_hold', message: 'Sàn đang khoá listing này' };
+        return { variantId, sku, outcome: 'failed', status: l.status, code: 'platform_hold', message: 'Sàn đang khoá sản phẩm này' };
       }
       // FE#146: Lazada cần danh mục lá, danh mục Commerio của sản phẩm phải ghép trước (§18.5)
       if (shop.platform === 'lazada' && !categoryMapped(shop.id, target.product.categoryId)) {

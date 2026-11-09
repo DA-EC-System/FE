@@ -135,11 +135,11 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
           <div>
             <p>
               {platformLabel(shop.platform, shop.platformName)}, mã <span className="font-mono">{shop.externalShopId}</span>.
-              Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; listing trên sàn được gỡ.
+              Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; sản phẩm trên sàn được gỡ xuống.
             </p>
             <ul className="mt-2 list-disc ps-5 text-foreground-2">
               <li>Đơn, đối soát và ghép SKU cũ vẫn giữ.</li>
-              <li>Kết nối lại đúng gian hàng thì listing được đưa lên lại.</li>
+              <li>Kết nối lại đúng gian hàng thì sản phẩm được đưa lên sàn lại.</li>
             </ul>
           </div>
         </DialogDescription>
@@ -154,7 +154,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
         <Label htmlFor="zero-stock" className="grid gap-0.5 font-normal text-foreground">
           Đặt tồn trên sàn về 0
           <span className="text-xs text-muted-foreground">
-            {usable ? 'Tránh khách đặt hàng trong lúc gỡ listing.' : 'Không làm được: sàn đã thu hồi quyền.'}
+            {usable ? 'Tránh khách đặt hàng trong lúc gỡ sản phẩm trên sàn.' : 'Không làm được: sàn đã thu hồi quyền.'}
           </span>
         </Label>
       </div>

@@ -254,7 +254,7 @@ export function ShopListingsPage() {
       toast.success(`Đã gỡ ${delisting.sku} khỏi sàn`);
     } catch (e) {
       if (problemCode(e) === 'version_conflict') {
-        toast.warning(`Listing của ${delisting.sku} vừa đổi trạng thái. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        toast.warning(`Trạng thái của ${delisting.sku} trên sàn vừa đổi. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
         void listingsQuery.refetch();
       } else {
         toast.error(problemMessage(e));
@@ -513,7 +513,7 @@ export function ShopListingsPage() {
           const r = row.original;
           const status = r.listing?.status;
           const busy =
-            status === 'pushing' ? 'Đang đẩy, chờ sàn phản hồi' : status === 'platform_hold' ? 'Sàn đang khoá listing' : null;
+            status === 'pushing' ? 'Đang đẩy, chờ sàn phản hồi' : status === 'platform_hold' ? 'Sàn đang khoá sản phẩm này' : null;
           return (
             <div className="flex justify-end gap-1">
               <RowAction

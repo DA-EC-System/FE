@@ -54,7 +54,7 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 type SetupStep = 'match' | 'opening' | 'cutoff' | 'run';
 const PATH: readonly SetupStep[] = ['match', 'opening', 'cutoff', 'run'];
 const STEP_META: Record<SetupStep, StatusMeta> = {
-  match: { label: 'Ghép listing có sẵn', variant: 'outline' },
+  match: { label: 'Ghép sản phẩm đang bán trên sàn', variant: 'outline' },
   opening: { label: 'Tồn đầu kỳ', variant: 'outline' },
   cutoff: { label: 'Mốc kéo đơn', variant: 'outline' },
   run: { label: 'Bắt đầu chạy', variant: 'outline' },
@@ -64,7 +64,7 @@ const FORM_STEPS = 3;
 
 const STEP_HELP: Record<SetupStep, string> = {
   match:
-    'Commerio đọc mọi SKU người bán trên sàn và gợi ý biến thể: trùng SKU, hoặc tên gần giống. Nhận gợi ý, chọn biến thể khác, hoặc bỏ qua. Listing ghép xong là đang bán; SKU bỏ qua vẫn bán trên sàn, chỉ không trừ tồn ở Commerio, ghép sau ở trang Listing và giá.',
+    'Commerio đọc mọi SKU người bán trên sàn và gợi ý biến thể: trùng SKU, hoặc tên gần giống. Nhận gợi ý, chọn biến thể khác, hoặc bỏ qua. Sản phẩm ghép xong là đang bán; SKU bỏ qua vẫn bán trên sàn, chỉ không trừ tồn ở Commerio, ghép sau ở trang Sản phẩm trên sàn và giá.',
   opening:
     'Số tồn trên sàn lúc nối có thể khác khả dụng ở Commerio. Chọn đẩy số Commerio lên sàn, hoặc kiểm kê lại trước rồi mới đẩy.',
   cutoff:
@@ -73,7 +73,7 @@ const STEP_HELP: Record<SetupStep, string> = {
 };
 
 const SETUP_STEP_LABEL: Record<ShopSetupStepKey, string> = {
-  match: 'Ghép listing',
+  match: 'Ghép sản phẩm',
   opening_stock: 'Kiểm kê đầu kỳ',
   open_orders: 'Kéo đơn đang mở',
   push_stock: 'Đẩy tồn lên sàn',
@@ -191,7 +191,7 @@ export function ShopSetupPage() {
       toast.success(
         [
           `${done.shop.shopName} đã sẵn sàng bán`,
-          done.matched ? `ghép ${done.matched} listing` : null,
+          done.matched ? `ghép ${done.matched} sản phẩm trên sàn` : null,
           done.stocktakeNumber ? `lập phiếu kiểm kê ${done.stocktakeNumber}` : null,
         ]
           .filter(Boolean)
@@ -246,7 +246,7 @@ export function ShopSetupPage() {
             <Card>
               {step === 0 && (
                 <>
-                  <StepHeader title="Ghép listing có sẵn" help={STEP_HELP.match}>
+                  <StepHeader title="Ghép sản phẩm đang bán trên sàn" help={STEP_HELP.match}>
                     {preview.data && (
                       <span className="ms-auto text-sm font-normal text-muted-foreground">
                         Đã ghép <b className="font-mono text-foreground">{chosen.length}</b> / {suggestions.length}
@@ -289,7 +289,7 @@ export function ShopSetupPage() {
                     {Boolean(preview.data?.unmatchedRemote) && (
                       <p className="text-sm text-muted-foreground">
                         {preview.data!.unmatchedRemote} SKU trên sàn không tìm được biến thể nào; chọn tay ở dòng đó hoặc ghép sau ở
-                        trang Listing và giá.
+                        trang Sản phẩm trên sàn và giá.
                       </p>
                     )}
                   </CardContent>
@@ -598,7 +598,7 @@ function SetupProgress({ shop, companyId, timedOut }: { shop: Shop; companyId: s
           <p className="text-sm text-muted-foreground" data-testid="setup-unmatched">
             Còn <b className="text-foreground">{unmatched}</b> SKU trên sàn chưa ghép.{' '}
             <Link to={listings} className="text-primary underline-offset-4 hover:underline">
-              Ghép ở Listing và giá
+              Ghép ở Sản phẩm trên sàn và giá
             </Link>
           </p>
         )}
