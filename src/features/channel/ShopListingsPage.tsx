@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RotateCcw, Unlink, Upload } from 'lucide-react';
+import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RefreshCw, RotateCcw, Unlink, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useDelistListing,
   useMatchListing,
@@ -22,6 +23,7 @@ import {
   useRemoteSkus,
   useShop,
   useShopListings,
+  useSyncListings,
   useUnmatchListing,
 } from '@/api/shops.api';
 import { apiClient, getErrorMessage } from '@/api/client';
@@ -37,6 +39,15 @@ import type { ListingRow, ListingStatus, RemoteSku } from '@/types/shop';
 import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
+import {
+  imageUrlsFor,
+  LISTED_STATUSES,
+  LISTING_POLL_MAX_MS,
+  listingPollDelay,
+  listingStatusHint,
+  REPUSH_STATUSES,
+  splitPushResults,
+} from './listingPush';
 import { CategoryMapSection } from './CategoryMapSection';
 import {
   isUsable,
@@ -79,9 +90,6 @@ const isStale = (r: ListingRow) =>
   onPlatform(r.listing!.status) &&
   (r.listing!.lastPushedAt === null || r.price !== r.listing!.lastPushedPrice);
 
-/** Đẩy lại sau khi sửa: lỗi đẩy, sàn từ chối, hoặc đưa lại listing đã gỡ */
-const RETRY_STATUSES: ListingStatus[] = ['push_failed', 'rejected', 'delisted'];
-
 /** Gỡ được khi listing còn trên sàn và không đang đẩy */
 const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
 
@@ -104,12 +112,28 @@ export function ShopListingsPage() {
   const canReconnect =
     can(PERMISSIONS.shopConnect) && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected');
 
-  const listingsQuery = useShopListings(shopId);
+  /** Lúc bắt đầu theo dõi dòng đang đẩy; null khi không còn dòng nào đang đẩy (§18.6.4) */
+  const pollFrom = useRef<number | null>(null);
+  const [pollTimedOut, setPollTimedOut] = useState(false);
+  const listingsQuery = useShopListings(shopId, (data) => {
+    const now = Date.now();
+    const delay = listingPollDelay(data, pollFrom.current ?? now, now);
+    if (delay === false) {
+      // Còn dòng đang đẩy mà dừng: đã quá 30 phút
+      if (pollFrom.current !== null && data?.some((r) => r.listing?.status === 'pushing')) setPollTimedOut(true);
+      else pollFrom.current = null;
+      return false;
+    }
+    pollFrom.current ??= now;
+    return delay;
+  });
   const remoteQuery = useRemoteSkus(shopId, usable);
   const matchMut = useMatchListing();
   const unmatchMut = useUnmatchListing();
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
+  const syncMut = useSyncListings();
+  const listingReview = shop?.capabilities.listingReview ?? false;
   const connector = useStartConnect();
 
   const [search, setSearch] = useState('');
@@ -141,7 +165,7 @@ export function ShopListingsPage() {
         (!q ||
           r.productName.toLowerCase().includes(q) ||
           r.sku.toLowerCase().includes(q) ||
-          r.listing?.sellerSku.toLowerCase().includes(q)) &&
+          r.listing?.sellerSku?.toLowerCase().includes(q)) &&
         (matchFilter === '' ||
           (matchFilter === 'matched' && r.listing) ||
           (matchFilter === 'unmatched' && !r.listing) ||
@@ -269,31 +293,45 @@ export function ShopListingsPage() {
     else void push(targets);
   };
 
+  /** Đẩy chạy nền (§18.6.4): dòng được xếp việc chuyển Đang đẩy, trang tự đọc lại tới khi sàn trả kết quả */
   const push = async (targets: ListingRow[]) => {
     try {
-      const results = await pushMut.mutateAsync({ shopId, variantIds: targets.map((r) => r.variantId) });
-      const failed = results.filter((r) => r.outcome === 'failed');
-      const created = results.filter((r) => r.outcome === 'created').length;
-      const done = results.length - failed.length;
+      const results = await pushMut.mutateAsync({
+        shopId,
+        variantIds: targets.map((r) => r.variantId),
+        imageUrls: imageUrlsFor(targets, items, window.location.origin),
+      });
+      const { queued, blocked } = splitPushResults(results);
       setPushErrors((prev) => {
         const next = new Map(prev);
         results.forEach((r) => {
-          if (r.outcome === 'failed') {
-            next.set(r.variantId, { code: r.code, message: r.message ?? (r.code ? codeMessage(r.code) : problemMessage(null)) });
-          }
+          if (r.code) next.set(r.variantId, { code: r.code, message: r.message ?? codeMessage(r.code) });
           else next.delete(r.variantId);
         });
         return next;
       });
-      if (done) {
-        toast.success(`Đã đẩy ${done} biến thể lên sàn${created ? ` (${created} tạo mới)` : ''}`);
+      if (queued) {
+        pollFrom.current = Date.now();
+        setPollTimedOut(false);
+        toast.success(`Đã xếp ${queued} biến thể vào hàng đẩy lên sàn. Trang tự cập nhật khi sàn trả kết quả.`);
         setSelection(new Set());
       }
-      if (failed.length) toast.warning(`${failed.length} biến thể không đẩy được, xem lý do ở cột Trạng thái`);
+      if (blocked.length) toast.warning(`${blocked.length} biến thể không đẩy được, xem lý do ở cột Trạng thái`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
     setPushing(null);
+  };
+
+  const sync = async () => {
+    try {
+      const r = await syncMut.mutateAsync(shopId);
+      toast.success(
+        `Đã đồng bộ ${r.checked} sản phẩm: ${r.changed} đổi trạng thái, ${r.pushed} đẩy giá hoặc tồn${r.errors ? `, ${r.errors} lỗi` : ''}.`,
+      );
+    } catch (e) {
+      toast.error(problemMessage(e));
+    }
   };
 
   /**
@@ -402,7 +440,7 @@ export function ShopListingsPage() {
           return (
             <div className="grid" data-testid="remote-sku">
               <span className="font-mono text-xs">{l.sellerSku || '—'}</span>
-              <span className="font-mono text-xs text-muted-foreground">{l.externalSkuId}</span>
+              <span className="font-mono text-xs text-muted-foreground">{l.externalSkuId ?? 'Sàn chưa trả mã'}</span>
             </div>
           );
         },
@@ -445,8 +483,10 @@ export function ShopListingsPage() {
           const note =
             l.status === 'rejected'
               ? l.rejectReason
-              : l.status === 'push_failed' || l.status === 'pushing'
-                ? l.pushError
+              : (l.status === 'push_failed' || l.status === 'pushing') && l.pushError
+                ? l.status === 'pushing'
+                  ? `Đang thử lại (${l.pushAttempts} lần): ${l.pushError.message}`
+                  : l.pushError.message
                 : l.status === 'hidden'
                   ? l.hiddenBy === 'zero_stock'
                     ? 'Sàn không ẩn riêng phân loại: đã đẩy tồn 0'
@@ -454,9 +494,21 @@ export function ShopListingsPage() {
                   : null;
           return (
             <div className="grid justify-items-start gap-1">
-              <Badge variant={LISTING_STATUS_VARIANTS[l.status]} data-testid="listing-status">
-                {LISTING_STATUS_LABELS[l.status]}
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant={LISTING_STATUS_VARIANTS[l.status]}
+                    data-testid="listing-status"
+                    tabIndex={0}
+                    aria-describedby={`listing-hint-${r.variantId}`}
+                  >
+                    {LISTING_STATUS_LABELS[l.status]}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent id={`listing-hint-${r.variantId}`} className="max-w-64" data-testid="listing-hint">
+                  {listingStatusHint(l, listingReview)}
+                </TooltipContent>
+              </Tooltip>
               {note && (
                 <span
                   className={l.status === 'hidden' ? 'text-xs text-muted-foreground' : 'text-xs text-destructive'}
@@ -513,7 +565,11 @@ export function ShopListingsPage() {
           const r = row.original;
           const status = r.listing?.status;
           const busy =
-            status === 'pushing' ? 'Đang đẩy, chờ sàn phản hồi' : status === 'platform_hold' ? 'Sàn đang khoá sản phẩm này' : null;
+            status === 'pushing'
+              ? 'Đang đẩy, chờ sàn trả kết quả'
+              : status && LISTED_STATUSES.includes(status)
+                ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
+                : null;
           return (
             <div className="flex justify-end gap-1">
               <RowAction
@@ -528,7 +584,7 @@ export function ShopListingsPage() {
                   <Unlink />
                 </RowAction>
               )}
-              {status && RETRY_STATUSES.includes(status) ? (
+              {status && REPUSH_STATUSES.includes(status) ? (
                 <RowAction
                   label="Đẩy lại"
                   reason={pushMut.isPending ? 'Đang đẩy...' : null}
@@ -557,7 +613,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending]);
+  }, [canManage, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -632,6 +688,12 @@ export function ShopListingsPage() {
               <ArrowLeft />
               Danh sách
             </Button>
+            {usable && can(PERMISSIONS.shopSync) && (
+              <Button variant="outline" disabled={syncMut.isPending} onClick={() => void sync()}>
+                <RefreshCw className={syncMut.isPending ? 'animate-spin motion-reduce:animate-none' : undefined} />
+                {syncMut.isPending ? 'Đang đồng bộ...' : 'Đồng bộ'}
+              </Button>
+            )}
             {canManage && (
               <Button disabled={!selectedRows.length || pushMut.isPending} onClick={() => requestPush(selectedRows)}>
                 <Upload />
@@ -684,6 +746,14 @@ export function ShopListingsPage() {
       {shop && usable && !can(PERMISSIONS.listingManage) && (
         <AlertMessage severity="info" className="mb-4">
           Bạn chỉ có quyền xem ghép SKU của gian hàng.
+        </AlertMessage>
+      )}
+      {pollTimedOut && (
+        <AlertMessage severity="info" className="mb-4">
+          <span data-testid="poll-timeout">
+            Đã theo dõi {LISTING_POLL_MAX_MS / 60000} phút mà sàn chưa trả kết quả. Commerio vẫn chờ sàn; bấm Đồng bộ
+            hoặc tải lại trang để xem kết quả mới.
+          </span>
         </AlertMessage>
       )}
       {listingsQuery.isError && (

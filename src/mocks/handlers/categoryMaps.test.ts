@@ -90,11 +90,15 @@ describe('Đẩy listing lên Lazada', () => {
   });
 
   it('sản phẩm thuộc danh mục chưa ghép báo category_unmapped, ghép xong thì hết', async () => {
+    // prd-003-v1 đang bán trên shp-003: gỡ trước để đẩy lại, nếu không BE báo already_listed
+    const rows = await (await call('/channel/shops/shp-003/listings')).json();
+    const row = rows.items.find((r: { variantId: string }) => r.variantId === 'prd-003-v1');
+    await call('/channel/shops/shp-003/listings/prd-003-v1/delist', 'POST', { version: row.listing.version });
     const push = async () => {
       const res = await call('/channel/shops/shp-003/listings/push', 'POST', { variantIds: ['prd-003-v1'] });
       return (await res.json()).results[0];
     };
-    expect(await push()).toMatchObject({ outcome: 'failed', code: 'category_unmapped' });
+    expect(await push()).toMatchObject({ status: 'delisted', code: 'category_unmapped' });
     await call('/channel/shops/shp-003/category-maps/cat-pk', 'PUT', {
       externalCategoryId: '10056',
       attributes: { brand: 'ABC' },

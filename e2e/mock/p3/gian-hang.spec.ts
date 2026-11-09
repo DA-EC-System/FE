@@ -41,6 +41,8 @@ const trangThai = (page: Page, shopId: string) => dong(page, shopId).locator('[d
 /** Dòng biến thể ở bảng ghép (bảng SKU sàn chưa ghép bên dưới cũng có data-row-id) */
 const dongBienThe = (page: Page) => page.locator('tbody').first().locator('tr[data-row-id]');
 const trangThaiListing = (page: Page, variantId: string) => dong(page, variantId).locator('[data-testid=listing-status]');
+/** Đẩy chạy nền (§18.6.4): mock trả kết quả sau 2,5 giây, trang đọc lại mỗi 5 giây */
+const CHO_SAN = { timeout: 15_000 };
 /** Có ít nhất một phần tử khớp selector chứa chữ */
 const coPhanTu = (page: Page, selector: string, text: string) =>
   expect(page.locator(selector).filter({ hasText: chu(text) })).not.toHaveCount(0);
@@ -526,18 +528,43 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
     });
 
-    test('đẩy nhiều biến thể: biến thể chưa ghép được tạo mới trên sàn', async ({ page }) => {
+    test('đẩy nhiều biến thể chạy nền: dòng mới Đang đẩy rồi lên sàn, dòng đã bán báo dùng Đồng bộ', async ({ page }) => {
       await dong(page, 'prd-001-v2').getByRole('checkbox').click();
       await dong(page, 'prd-002-v2').getByRole('checkbox').click();
+      const yeuCau = page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/listings/push'));
       await page.getByRole('button', { name: 'Đẩy 2 biến thể lên sàn', exact: true }).click();
       const alert = page.getByRole('alertdialog');
       await thayChu(alert, '1 biến thể chưa có SKU sàn');
       await alert.getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
-      await toast(page, 'Đã đẩy 2 biến thể lên sàn (1 tạo mới)');
-      await expect(dong(page, 'prd-001-v2')).toContainText('Đã đẩy');
-      await expect(dong(page, 'prd-001-v2')).not.toContainText('Giá đã đổi');
+      // Chỉ sản phẩm chưa có trên sàn mới gửi kèm ảnh đại diện
+      const body = (await yeuCau).postDataJSON();
+      expect(body.variantIds).toEqual(['prd-001-v2', 'prd-002-v2']);
+      expect(Object.keys(body.imageUrls)).toEqual(['prd-002']);
+      await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
+      await toast(page, '1 biến thể không đẩy được');
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=push-error]')).toContainText('cập nhật bằng đồng bộ');
+      await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang đẩy');
+      await expect(dong(page, 'prd-002-v2')).toContainText('Sàn chưa trả mã');
+      // Shopee không duyệt: sàn nhận xong là Đang bán, có mã SKU sàn
+      await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang bán', CHO_SAN);
       await expect(dong(page, 'prd-002-v2').locator('[data-testid=remote-sku]')).toBeAttached();
-      await expect(dong(page, 'prd-002-v2')).toContainText('Đã đẩy');
+      await expect(dong(page, 'prd-002-v2')).not.toContainText('Sàn chưa trả mã');
+      await trangThaiListing(page, 'prd-002-v2').focus();
+      await expect(page.locator('[data-testid=listing-hint]')).toContainText('Đang bán trên sàn');
+    });
+
+    test('Đồng bộ đẩy giá đã đổi; hết lượt gọi sàn thì báo theo §18.6.8', async ({ page }) => {
+      await expect(dong(page, 'prd-001-v2')).toContainText('Giá đã đổi, chưa đẩy');
+      await page.getByRole('button', { name: 'Đồng bộ', exact: true }).click();
+      await toast(page, /Đã đồng bộ \d+ sản phẩm/);
+      await expect(dong(page, 'prd-001-v2')).not.toContainText('Giá đã đổi');
+
+      await mockApi(page, 'post', '/channel/shops/:id/listings/sync', 503, {
+        code: 'marketplace_unavailable',
+        platformCode: 'company_call_limit',
+      });
+      await page.getByRole('button', { name: 'Đồng bộ', exact: true }).click();
+      await toast(page, 'Hôm nay đã hết lượt gọi sàn cho thao tác tay');
     });
 
     test('biến thể chưa có giá thì báo lỗi theo dòng', async ({ page }) => {
@@ -575,10 +602,12 @@ test.describe('P3 · Gian hàng', () => {
       await moiPhanTu(dongBienThe(page), (t) => expect(t).toContain('Chưa lên sàn'));
     });
 
-    test('đẩy lại listing bị từ chối thì chờ sàn duyệt (Lazada)', async ({ page }) => {
+    test('đẩy lại listing bị từ chối thì Đang đẩy rồi chờ sàn duyệt (Lazada)', async ({ page }) => {
       await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
-      await toast(page, 'Đã đẩy 1 biến thể lên sàn');
-      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Chờ sàn duyệt');
+      await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
+      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Đang đẩy');
+      await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lên sàn', exact: true })).toBeDisabled();
+      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Chờ sàn duyệt', CHO_SAN);
       await expect(dong(page, 'prd-001-v3')).toBeAttached();
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toHaveCount(0);
     });
@@ -594,7 +623,14 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dong(page, 'prd-002-v1')).toBeAttached();
       await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true })).toHaveCount(0);
       await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
-      await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt');
+      await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đang đẩy');
+      await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt', CHO_SAN);
+    });
+
+    test('đang bán thì không đẩy lại, nút đẩy nêu lý do', async ({ page }) => {
+      await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lên sàn', exact: true })).toBeDisabled();
+      await trangThaiListing(page, 'prd-002-v2').focus();
+      await expect(page.locator('[data-testid=listing-hint]')).toContainText('Sàn đang duyệt');
     });
 
     test('sàn giả lập: duyệt listing, khoá listing, thu hồi quyền', async ({ page }) => {
@@ -613,6 +649,21 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Cần kết nối lại');
       await coPhanTu(page, '[data-testid=stock-sync]', 'Tồn chờ đẩy');
     });
+  });
+
+  test('TikTok: kết nối lại rồi đẩy sản phẩm mới, Đang đẩy rồi chờ sàn duyệt', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Kênh bán');
+    await page.locator('[data-testid=reauth-banner]').getByRole('button', { name: 'Kết nối lại', exact: true }).click();
+    await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
+    await page.locator('[data-outcome=reconnected]').getByRole('button', { name: 'Để sau', exact: true }).click();
+    await expect(trangThai(page, 'shp-002')).toHaveText('Đã kết nối');
+    await moTrangGhep(page, 'shp-002');
+    await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+    await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
+    await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đang đẩy');
+    await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt', CHO_SAN);
   });
 
   test('gian hàng đã ngắt chỉ xem được ghép cũ', async ({ page }) => {

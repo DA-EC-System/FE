@@ -101,3 +101,26 @@ describe('not_implemented 501 (R13)', () => {
     expect(notImplementedMessage('  ', '')).toBe('Chức năng này chưa làm xong');
   });
 });
+
+describe('đẩy listing (§18.6.8, §18.6.10)', () => {
+  it('hết lượt gọi sàn cho thao tác tay', () => {
+    const cau = 'Hôm nay đã hết lượt gọi sàn cho thao tác tay. Việc tự động vẫn chạy và sẽ đồng bộ sau.';
+    for (const platformCode of ['company_call_limit', 'daily_call_limit']) {
+      expect(
+        problemMessage(loi({ status: 503, code: 'marketplace_unavailable', platformCode, platformMessage: 'x' })),
+      ).toBe(cau);
+    }
+  });
+
+  it('chờ phân hàng: câu theo waitingFor', () => {
+    expect(problemMessage(loi({ code: 'shop_awaiting_allocation', waitingFor: 'open_orders' }))).toBe(
+      'Đang kéo đơn còn mở về. Đẩy sản phẩm sau khi lượt này xong.',
+    );
+    expect(problemMessage(loi({ code: 'shop_awaiting_allocation', waitingFor: 'allocation' }))).toBe(
+      'Đang chia hàng cho các kiện sau kiểm kê. Đẩy sản phẩm sau khi chia xong.',
+    );
+    expect(problemMessage(loi({ code: 'shop_awaiting_allocation' }))).toBe(
+      'Gian hàng đang giữ tồn. Đẩy sản phẩm sau khi kéo đơn và chia hàng xong.',
+    );
+  });
+});

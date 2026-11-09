@@ -210,15 +210,19 @@ export interface QcAlert {
 /** channel.channel_listings: biến thể đã ghép với SKU trên sàn */
 export interface ChannelListing {
   id: string;
-  externalProductId: string;
-  externalSkuId: string;
-  /** SKU người bán đặt trên sàn */
-  sellerSku: string;
+  /** null khi listing đang đẩy lần đầu, sàn chưa trả mã (§18.5) */
+  externalProductId: string | null;
+  externalSkuId: string | null;
+  /** SKU người bán đặt trên sàn; null khi sàn chưa trả */
+  sellerSku: string | null;
   status: ListingStatus;
   /** Sàn từ chối: lý do sàn trả về */
   rejectReason: string | null;
-  /** Đẩy lỗi hoặc đang thử lại: câu báo của lần gần nhất */
-  pushError: string | null;
+  /**
+   * Lỗi lần đẩy gần nhất (§18.6.4): `code` là `marketplace_rejected` hoặc `marketplace_unavailable`,
+   * `message` là câu của sàn. Còn `pushing` mà có lỗi là việc nền đang thử lại
+   */
+  pushError: SyncError | null;
   /** Số lần đã thử khi sàn lỗi tạm (tối đa 5, quá 30 phút thì báo lỗi đẩy) */
   pushAttempts: number;
   /** Ẩn bằng cách nào: sàn ẩn riêng SKU, hoặc đẩy tồn 0 khi sàn không ẩn riêng phân loại */
@@ -267,15 +271,30 @@ export interface ListingMatchInput {
   version: number | null;
 }
 
+/**
+ * Kết quả từng dòng của lần đẩy (§18.6.4). Đẩy chạy nền: dòng được xếp việc có `status = 'pushing'`, `code = null`;
+ * dòng bị chặn có `code` (bảng §18.5, `sku_not_ready`) và `status` là trạng thái listing hiện có, null nếu chưa có
+ */
 export interface PushResult {
   variantId: string;
-  sku: string;
-  outcome: 'updated' | 'created' | 'failed';
-  /** Trạng thái listing sau lần đẩy */
-  status?: ListingStatus;
-  externalSkuId?: string;
-  code?: string;
-  message?: string;
+  listingId: string | null;
+  status: ListingStatus | null;
+  code: string | null;
+  message: string | null;
+}
+
+/** Body đẩy: tối đa 20 biến thể một lần; `imageUrls` theo sản phẩm cho lần đầu đẩy (§18.5) */
+export interface PushListingsInput {
+  variantIds: string[];
+  imageUrls?: Record<string, string[]>;
+}
+
+/** Kết quả đồng bộ listing với sàn (§18.5) */
+export interface ListingSyncResult {
+  checked: number;
+  changed: number;
+  pushed: number;
+  errors: number;
 }
 
 /** Gỡ, đẩy lại: thao tác người dùng trên một listing */

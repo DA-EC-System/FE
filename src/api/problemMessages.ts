@@ -129,7 +129,25 @@ const MESSAGES: Record<string, string> = {
   shop_not_active: 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đẩy sản phẩm.',
   handover_confirmed_by_platform:
     'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
+  // §18.6.10, §18.6.11; có `waitingFor` thì câu theo lý do, xem awaitingAllocationMessage
+  shop_awaiting_allocation: 'Gian hàng đang giữ tồn. Đẩy sản phẩm sau khi kéo đơn và chia hàng xong.',
+  // §18.6.8: hết lượt gọi sàn cho thao tác tay (`platformCode` company_call_limit, daily_call_limit)
+  call_limit: 'Hôm nay đã hết lượt gọi sàn cho thao tác tay. Việc tự động vẫn chạy và sẽ đồng bộ sau.',
+  // §18.5, §18.6.4: mã của từng dòng PushResult
+  push_in_progress: 'Đang đẩy, chờ sàn trả kết quả.',
+  sku_not_ready: 'SKU chưa đủ điều kiện bán (xem trạng thái sản phẩm).',
+  platform_hold: 'Sàn đang khoá sản phẩm này.',
 };
+
+/** 503 `marketplace_unavailable` vì hết hạn mức gọi sàn trong ngày (§18.6.8) */
+export const CALL_LIMIT_CODES = ['company_call_limit', 'daily_call_limit'];
+
+/** Câu báo 409 `shop_awaiting_allocation` theo `waitingFor` (§18.6.10) */
+export function awaitingAllocationMessage(waitingFor: unknown): string {
+  if (waitingFor === 'open_orders') return 'Đang kéo đơn còn mở về. Đẩy sản phẩm sau khi lượt này xong.';
+  if (waitingFor === 'allocation') return 'Đang chia hàng cho các kiện sau kiểm kê. Đẩy sản phẩm sau khi chia xong.';
+  return MESSAGES.shop_awaiting_allocation;
+}
 
 interface ShopRef {
   name: string | null;
@@ -197,8 +215,11 @@ export function problemCode(error: unknown): string | undefined {
 export function problemMessage(error: unknown): string {
   const problem = getProblem(error);
   const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
+  if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   const message =
-    code === 'shop_has_open_orders'
+    code === 'shop_awaiting_allocation'
+      ? awaitingAllocationMessage(problem?.waitingFor)
+      : code === 'shop_has_open_orders'
       ? openOrdersMessage(problem?.openOrders)
       : code === 'shop_mismatch'
         ? shopMismatchMessage(problem?.expected, problem?.actual)

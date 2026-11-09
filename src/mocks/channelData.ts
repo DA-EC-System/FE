@@ -11,13 +11,18 @@ export interface MockListing {
   companyId: string;
   shopId: string;
   variantId: string;
-  externalProductId: string;
-  externalSkuId: string;
+  /** null khi đang đẩy lần đầu, sàn chưa trả mã */
+  externalProductId: string | null;
+  externalSkuId: string | null;
   /** Sơ đồ Listing C2 (FE#58) */
   status: ListingStatus;
   rejectReason: string | null;
-  pushError: string | null;
+  pushError: SyncError | null;
   pushAttempts: number;
+  /** Đẩy chạy nền (§18.6.4): lúc xếp việc, quá PUSH_JOB_MS thì sàn trả kết quả */
+  pushQueuedAt?: number;
+  /** Sản phẩm sàn sẽ tạo khi việc đẩy lần đầu xong */
+  pendingRemote?: MockRemoteSku;
   hiddenBy: 'platform' | 'zero_stock' | null;
   /** Đồng bộ tồn lưu theo lần đẩy; đồng bộ giá tính khi trả về (giá hiện tại so với giá đã đẩy) */
   stockSync: SyncState;
