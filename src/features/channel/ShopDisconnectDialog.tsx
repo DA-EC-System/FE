@@ -154,7 +154,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
         <Label htmlFor="zero-stock" className="grid gap-0.5 font-normal text-foreground">
           Đặt tồn trên sàn về 0
           <span className="text-xs text-muted-foreground">
-            {usable ? 'Tránh khách đặt hàng trong lúc gỡ listing.' : 'Không làm được: sàn đã thu hồi quyền.'}
+            {usable ? 'Tránh khách đặt hàng trong lúc gỡ sản phẩm trên sàn.' : 'Không làm được: sàn đã thu hồi quyền.'}
           </span>
         </Label>
       </div>

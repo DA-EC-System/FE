@@ -280,7 +280,7 @@ test.describe('P3 · Gian hàng', () => {
       await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
         status: 422,
         code: 'validation_failed',
-        errors: { 'decisions.1': 'Biến thể đã ghép với listing khác' },
+        errors: { 'decisions.1': 'Biến thể đã ghép với sản phẩm trên sàn khác' },
       });
       const yeuCau = page.waitForRequest((r) => r.method() === 'POST' && /\/channel\/shops\/[^/]+\/setup$/.test(r.url()));
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
@@ -294,7 +294,7 @@ test.describe('P3 · Gian hàng', () => {
         returnWindowDays: 7,
       });
       await thayChu(page, 'Có SKU ghép chưa hợp lệ');
-      await expect(goiY.locator('[data-suggestion=ext-2] [data-testid=decision-error]')).toHaveText('Biến thể đã ghép với listing khác');
+      await expect(goiY.locator('[data-suggestion=ext-2] [data-testid=decision-error]')).toHaveText('Biến thể đã ghép với sản phẩm trên sàn khác');
       await expect(goiY.locator('[data-suggestion=ext-1] [data-testid=decision-error]')).toHaveCount(0);
     });
 
