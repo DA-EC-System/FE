@@ -1221,10 +1221,14 @@ export const shopHandlers = [
     const found = ownShop(params.id, guard.value.companyId);
     if (!found.ok) return found.response;
     const shop = found.value;
-    if (!usable(shop)) return shopNotConnected(shop);
+    // Thứ tự kiểm như BE (§18.6.4): shop_not_active trước, shop_not_connected chỉ còn khi active mà hết token
+    if (shop.status !== 'active') {
+      return problem(409, 'Gian hàng chưa hoạt động', { code: 'shop_not_active' });
+    }
     if (openingStocktakeOf(shop)) {
       return problem(409, 'Gian hàng chờ kiểm kê đầu kỳ', { code: 'shop_awaiting_stocktake' });
     }
+    if (!usable(shop)) return shopNotConnected(shop);
     const { variantIds } = (await request.json()) as { variantIds: string[] };
     if (!Array.isArray(variantIds) || !variantIds.length) {
       return problem(422, 'Chưa chọn biến thể', { errors: { variantIds: 'Chọn ít nhất một biến thể' } });
