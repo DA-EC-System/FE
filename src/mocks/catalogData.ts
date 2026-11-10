@@ -60,7 +60,7 @@ export interface MockFile {
 }
 
 /** Ảnh giả: ô màu có chữ, để danh sách có ảnh đại diện */
-function swatch(color: string, text: string) {
+export function swatch(color: string, text: string) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="${color}"/><text x="120" y="132" font-family="sans-serif" font-size="28" fill="#fff" text-anchor="middle">${text}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }

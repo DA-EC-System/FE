@@ -7,7 +7,8 @@
 //   E2E_SAN_BE200=1                  xác nhận BE đang chạy đã có commerio-backend#200 và #198
 //   E2E_SAN_BE187=1                  xác nhận BE trả đủ §18.7 (Documents#73): shops[].previousStatus, remoteSkuCount,
 //                                    suggestions có match/score, nhận decisions, Shop.setup
-//   E2E_SAN_PLATFORM                 (tuỳ chọn) mã sàn, mặc định "mock"
+//   PLATFORM hoặc E2E_SAN_PLATFORM   (tuỳ chọn) mã sàn, mặc định "mock". TikTok (FE#198, commerio-backend#217):
+//                                    PLATFORM=tiktok; BE chưa công bố tiktok trong /channel/shops/platforms thì bỏ qua kèm lý do
 //   E2E_SAN_CONG_TY                  (tuỳ chọn) tên công ty, mặc định "Commerio Test Sàn"
 // Chạy xong gian hàng vẫn nối: ngắt tay ở trang Gian hàng nếu cần chạy lại từ đầu.
 import { type Page } from '@playwright/test';
@@ -16,7 +17,7 @@ import { chu, duongDan, expect, test, thayChu } from '../../fixtures';
 const EMAIL = process.env.E2E_SAN_EMAIL ?? '';
 const MAT_KHAU = process.env.E2E_SAN_PASSWORD ?? '';
 const TOKEN = process.env.E2E_SAN_ACCESS_TOKEN ?? '';
-const PLATFORM = process.env.E2E_SAN_PLATFORM ?? 'mock';
+const PLATFORM = process.env.PLATFORM || process.env.E2E_SAN_PLATFORM || 'mock';
 const CONG_TY = process.env.E2E_SAN_CONG_TY ?? 'Commerio Test Sàn';
 const DA_CO_BE = process.env.E2E_SAN_BE200 === '1';
 const DA_CO_187 = process.env.E2E_SAN_BE187 === '1';
@@ -27,6 +28,23 @@ interface KetQuaKetNoi {
   shop: { id: string; status: string; shopName: string };
   created: boolean;
   shops: { shop: { id: string; status: string }; created: boolean; previousStatus: string | null; remoteSkuCount: number | null }[];
+}
+
+interface San {
+  platform: string;
+  name: string;
+  connectable: boolean;
+  reason?: string | null;
+  methods?: string[];
+  capabilities: { returnWindow: 'days' | 'platform_status' };
+}
+
+/** Bỏ qua kèm lý do khi BE chưa công bố sàn hoặc sàn chưa nối được */
+function canSan(items: San[]): San {
+  const san = items.find((p) => p.platform === PLATFORM);
+  test.skip(!san, `BE chưa công bố sàn ${PLATFORM} trong /channel/shops/platforms (TikTok: chờ commerio-backend#217 lên staging)`);
+  test.skip(!san!.connectable, `Sàn ${PLATFORM} chưa nối được: ${san!.reason ?? 'BE không nêu lý do'}`);
+  return san!;
 }
 
 interface GoiY {
@@ -65,12 +83,12 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     // Hộp thêm gian hàng chỉ hiện nút theo `methods` của sàn
     const platforms = page.waitForResponse(laApi('GET', /\/channel\/shops\/platforms$/));
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
-    const danhSachSan = (await (await platforms).json()) as { items: { platform: string; name: string; methods?: string[] }[] };
-    const san = danhSachSan.items.find((p) => p.platform === PLATFORM);
-    test.skip(!san?.methods?.includes('token'), `Sàn ${PLATFORM} không cho dán token`);
+    const danhSachSan = (await (await platforms).json()) as { items: San[] };
+    const san = canSan(danhSachSan.items);
+    test.skip(!san.methods?.includes('token'), `Sàn ${PLATFORM} không cho dán token`);
 
     const section = page.locator('[data-testid=connect-section]');
-    await section.getByRole('button', { name: san!.name, exact: true }).click();
+    await section.getByRole('button', { name: san.name, exact: true }).click();
     // Sàn có cả uỷ quyền thì chọn cách dán token; chỉ token thì không có lựa chọn
     const radioToken = section.getByRole('radio', { name: /^Dán token/ });
     if ((await radioToken.count()) > 0) await radioToken.click();
@@ -126,7 +144,10 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     // Bước 3: mốc kéo đơn chỉ hiển thị; số ngày đổi trả chỉ hỏi khi capabilities.returnWindow = days
     await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
     const soNgay = page.getByRole('spinbutton', { name: /Số ngày đổi trả/ });
-    const hoiSoNgay = (await soNgay.count()) > 0;
+    const hoiSoNgay = san.capabilities.returnWindow === 'days';
+    // Sàn tự khoá đổi trả (TikTok: đơn sàn sang COMPLETED) thì không có ô, chỉ có câu giải thích
+    await expect(soNgay).toHaveCount(hoiSoNgay ? 1 : 0);
+    await expect(page.locator('[data-testid=return-window-note]')).toHaveCount(hoiSoNgay ? 0 : 1);
     if (hoiSoNgay) {
       await soNgay.fill('61');
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
@@ -173,5 +194,32 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     } else {
       await expect(banner).toHaveCount(0);
     }
+  });
+});
+
+// Từ chối uỷ quyền không cần gian hàng thật: chỉ cần đăng nhập, không gọi callback của BE
+test.describe('P3-BE · Từ chối uỷ quyền trên sàn', () => {
+  test.skip(!EMAIL || !MAT_KHAU, 'Thiếu E2E_SAN_EMAIL hoặc E2E_SAN_PASSWORD');
+
+  test('callback có error (TikTok code=null&error=auth_denied) thì báo từ chối, không gọi BE', async ({ page }) => {
+    const companyId = await dangNhap(page);
+    const platforms = page.waitForResponse(laApi('GET', /\/channel\/shops\/platforms$/));
+    await page.goto(`/c/${companyId}/channel/shops`);
+    await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
+    const san = canSan(((await (await platforms).json()) as { items: San[] }).items);
+
+    const goiCallback: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && new RegExp(`/channel/shops/${PLATFORM}/callback$`).test(new URL(r.url()).pathname)) {
+        goiCallback.push(r.url());
+      }
+    });
+    await page.goto(
+      `/channel/${PLATFORM}/callback?code=null&error=auth_denied&state=st-e2e&app_key=k&locale=vi-VN&shop_region=VN`,
+    );
+    const ketQua = page.locator('[data-outcome=declined]');
+    await expect(ketQua).toContainText(`Bạn đã từ chối uỷ quyền trên ${san.name}`);
+    await expect(ketQua.getByRole('button', { name: 'Thử lại', exact: true })).toBeVisible();
+    expect(goiCallback).toEqual([]);
   });
 });

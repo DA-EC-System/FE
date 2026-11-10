@@ -285,10 +285,16 @@ export interface ListingActionInput {
 /** sku: SKU người bán trùng SKU Commerio; name: tên gần giống; none: không tìm được */
 export type SetupMatch = 'sku' | 'name' | 'none';
 
+/** Trạng thái sản phẩm trên sàn đã chuẩn hoá ở bước ghép (§18.7.5); SKU đã xoá không có trong gợi ý */
+export type RemoteSkuStatus = 'live' | 'review' | 'rejected' | 'hold' | 'inactive';
+
 /** Một SKU người bán trên sàn ở bước 1 thiết lập lần đầu, kèm biến thể gợi ý (§18.7.5) */
 export interface SetupSuggestion {
   externalSkuId: string;
   title: string;
+  /** Ảnh đầu tiên của sản phẩm trên sàn, chỉ để hiện (URL TikTok có ký, có thể hết hạn); null là không có */
+  imageUrl: string | null;
+  status: RemoteSkuStatus;
   match: SetupMatch;
   /** Độ giống tên 0..1, chỉ có khi match = name */
   score: number | null;

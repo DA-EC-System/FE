@@ -1,4 +1,4 @@
-import type { ListingStatus, Marketplace, ShopCapabilities, ShopStatus, SyncState } from '@/types/shop';
+import type { ListingStatus, Marketplace, RemoteSkuStatus, ShopCapabilities, ShopStatus, SyncState } from '@/types/shop';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { shopUsable } from '@/lib/machines/channel';
 
@@ -50,8 +50,25 @@ export function capabilitySummary(c: ShopCapabilities): string[] {
   ];
 }
 
+/**
+ * Câu thay cho ô số ngày đổi trả ở thiết lập khi sàn tự báo hết hạn trả (returnWindow = platform_status).
+ * Rẽ theo capabilities, không theo mã sàn; null khi người bán phải đặt số ngày.
+ */
+export function returnWindowNote(c: ShopCapabilities, platformName: string): string | null {
+  if (c.returnWindow !== 'platform_status') return null;
+  return `${platformName} tự khoá đổi trả khi đơn hoàn tất, nên không cần đặt số ngày đổi trả.`;
+}
+
 /** Token sàn còn dùng được: gọi được API sàn để đồng bộ, ghép, đẩy */
 export const isUsable = shopUsable;
+
+/** Nhãn trạng thái SKU trên sàn ở bước ghép; `live` không hiện nhãn (§18.7.5) */
+export const REMOTE_SKU_STATUS_LABELS: Record<Exclude<RemoteSkuStatus, 'live'>, string> = {
+  review: 'Chờ sàn duyệt',
+  rejected: 'Sàn từ chối',
+  hold: 'Sàn đang khoá',
+  inactive: 'Đang tắt trên sàn',
+};
 
 /** Sơ đồ Listing (C2); chưa có listing là "Chưa lên sàn" */
 export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {

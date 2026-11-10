@@ -41,7 +41,7 @@ import { ensureStandard, sellableVariants, skuOf } from './pricing';
 import { nextDocNumber, variantLabel } from './inventory';
 import { hidesListings } from '@/lib/machines/product';
 import { listingMachine, onPlatform, shopMachine, shopUsable } from '@/lib/machines/channel';
-import { mockCapabilities } from '../shopPlatforms';
+import { DEFAULT_OAUTH_DENY, mockAllowsMethod, mockCapabilities, mockOAuthReturn, mockPlatforms } from '../shopPlatforms';
 import { appPath } from '@/utils/env';
 import { registerMarketplaceEvent } from '../engine/marketplace';
 import type { ListingStatus } from '@/types/shop';
@@ -338,7 +338,13 @@ function setupSuggestions(shop: MockShop): Pick<ShopSetupPreview, 'suggestions' 
   const suggestions: SetupSuggestion[] = [];
   for (const r of channel.remoteSkus[shop.id] ?? []) {
     if (channel.listings.some((l) => l.shopId === shop.id && l.externalSkuId === r.externalSkuId)) continue;
-    const base = { externalSkuId: r.externalSkuId, title: r.title, platformStock: r.stock ?? 0 };
+    const base = {
+      externalSkuId: r.externalSkuId,
+      title: r.title,
+      imageUrl: r.imageUrl ?? null,
+      status: r.status ?? ('live' as const),
+      platformStock: r.stock ?? 0,
+    };
     const bySku = variants.find(({ variant }) => r.sellerSku && variant.sku === r.sellerSku);
     let best: { id: string; sku: string; score: number } | null = null;
     if (!bySku) {
@@ -697,7 +703,7 @@ function attachGranted(
     version: 1,
   };
   db.shops.unshift(shop);
-  channel.seedRemoteForNewShop(shop.id);
+  channel.seedRemoteForNewShop(shop.id, platform);
   writeCompanyLog(actor, 'create', shopEntity(shop), null, shopSnapshot(shop));
   return HttpResponse.json<ShopConnectionResult>(
     {
@@ -716,27 +722,7 @@ export const shopHandlers = [
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopView);
     if (!guard.ok) return guard.response;
-    return HttpResponse.json<ShopPlatformList>({ items: [
-      // §18.7.3: sàn chưa kết nối được vẫn hiện, mờ kèm lý do
-      {
-        platform: 'tiktok',
-        capabilities: mockCapabilities.tiktok,
-        name: 'TikTok Shop',
-        connectable: false,
-        reason: 'Đang làm, thuộc commerio-backend#217 (đợt 4)',
-        methods: [],
-      },
-      {
-        platform: 'shopee',
-        capabilities: mockCapabilities.shopee,
-        name: 'Shopee',
-        connectable: false,
-        reason: 'Shopee chưa cấp quyền API cho ứng dụng sinh viên',
-        methods: [],
-      },
-      { platform: 'lazada', capabilities: mockCapabilities.lazada, name: 'Lazada', connectable: true, reason: null, methods: ['oauth', 'token'] },
-      { platform: 'mock', capabilities: mockCapabilities.mock, name: 'Sàn giả lập (mock)', connectable: true, reason: null, methods: ['oauth', 'token'] },
-    ] });
+    return HttpResponse.json<ShopPlatformList>({ items: mockPlatforms });
   }),
   http.get(`${API}/channel/shops`, async ({ request }) => {
     await delay(LATENCY);
@@ -778,6 +764,10 @@ export const shopHandlers = [
       search.set('shop_id', shop.externalShopId);
       search.set('shop_name', shop.shopName);
     }
+    // Trang giả lập trả về redirect_uri đúng tham số của sàn thật (TikTok: app_key, locale, shop_region; auth_denied)
+    const quirks = mockOAuthReturn[platform];
+    search.set('deny_params', new URLSearchParams(quirks?.deny ?? DEFAULT_OAUTH_DENY).toString());
+    if (quirks) search.set('approve_params', new URLSearchParams(quirks.approve).toString());
     return HttpResponse.json<ShopAuthorizeUrl>({ url: `${appPath('mock-oauth/authorize')}?${search}` });
   }),
 
@@ -833,7 +823,8 @@ export const shopHandlers = [
     const guard = requireCompany(request, PERMISSIONS.shopConnect);
     if (!guard.ok) return guard.response;
     const platform = params.platform as Marketplace;
-    if (platform !== 'lazada' && platform !== 'mock') return marketplaceUnsupported(platform);
+    // Sàn nào cho dán token theo `methods` của danh sách sàn, không viết cứng mã sàn
+    if (!mockAllowsMethod(platform, 'token')) return marketplaceUnsupported(platform);
     const body = (await request.json()) as Partial<ShopTokenInput>;
     const accessToken = body.accessToken?.trim() ?? '';
     if (!accessToken || accessToken.length > 2000) {

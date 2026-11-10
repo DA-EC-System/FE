@@ -45,20 +45,23 @@ export function failureFromError(e: unknown): ConnectFailure {
 
 const refLabel = (ref?: ShopRef) => (ref ? (ref.name ?? ref.externalShopId) : '');
 
-/** Nội dung màn kết quả của từng tình huống; nút do nơi gọi truyền vào */
-export function failureScreen(failure: ConnectFailure): Omit<ResultScreenProps, 'actions'> {
+/**
+ * Nội dung màn kết quả của từng tình huống; nút do nơi gọi truyền vào.
+ * platformName: tên sàn theo GET /channel/shops/platforms; vắng thì dùng nhãn dự phòng theo mã sàn.
+ */
+export function failureScreen(failure: ConnectFailure, platformName?: string): Omit<ResultScreenProps, 'actions'> {
   switch (failure.kind) {
     case 'declined':
       return {
         outcome: 'declined',
         tone: 'bad',
         icon: X,
-        title: `Bạn đã bấm Từ chối trên ${platformLabel(failure.platform)}`,
+        title: `Bạn đã từ chối uỷ quyền trên ${platformLabel(failure.platform, platformName)}`,
         description:
-          'Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào. Commerio chưa có quyền gì trên gian hàng này, bạn có thể thử lại bất cứ lúc nào.',
+          'Chưa kết nối gian hàng nào. Commerio chưa có quyền gì trên gian hàng này, bạn có thể thử lại bất cứ lúc nào.',
       };
     case 'no_state': {
-      const name = platformLabel(failure.platform);
+      const name = platformLabel(failure.platform, platformName);
       return {
         outcome: 'no_state',
         tone: 'warn',

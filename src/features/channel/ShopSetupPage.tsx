@@ -11,6 +11,7 @@ import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PageSpinner } from '@/components/common/PageSpinner';
 import { StatusBadge, type StatusMeta } from '@/components/common/StatusBadge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ import type {
 } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { platformLabel } from './shopSchemas';
+import { platformLabel, REMOTE_SKU_STATUS_LABELS, returnWindowNote } from './shopSchemas';
 import {
   NAME_MATCH_SKIPPED_NOTE,
   SETUP_POLL_MAX_MS,
@@ -134,6 +135,9 @@ export function ShopSetupPage() {
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   // Rẽ nhánh theo năng lực sàn (§18.6.3), không theo mã sàn
   const needDays = shop.data?.capabilities.returnWindow === 'days';
+  const returnNote = shop.data
+    ? returnWindowNote(shop.data.capabilities, platformLabel(shop.data.platform, shop.data.platformName))
+    : null;
   const firstShop = preview.data?.firstShopOfCompany === true;
 
   const form = useForm<SetupForm>({
@@ -422,6 +426,12 @@ export function ShopSetupPage() {
                         )}
                       />
                     )}
+                    {returnNote && (
+                      <p className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="return-window-note">
+                        <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+                        {returnNote}
+                      </p>
+                    )}
                   </CardContent>
                 </>
               )}
@@ -481,9 +491,15 @@ function SuggestionRow({
       data-chosen={choice ? choice.variantId : ''}
     >
       <div className="flex flex-wrap items-center gap-3">
+        {/* Ảnh đầu tiên trên sàn; null hay tải lỗi thì để ô trống (§18.7.5) */}
+        <Avatar className="size-10 rounded-md border" data-testid="remote-image" data-has-image={s.imageUrl ? 'true' : 'false'}>
+          {s.imageUrl && <AvatarImage src={s.imageUrl} alt="" className="object-cover" />}
+          <AvatarFallback className="rounded-md bg-muted" />
+        </Avatar>
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className="truncate">{s.title}</span>
           <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <RemoteStatusBadge suggestion={s} />
             <MatchBadge suggestion={s} />
             {choice ? (
               <span>
@@ -555,6 +571,17 @@ function SuggestionRow({
         </p>
       )}
     </div>
+  );
+}
+
+/** SKU chưa bán được trên sàn thì có nhãn; đang bán (`live`) hoặc BE cũ chưa trả `status` thì không */
+function RemoteStatusBadge({ suggestion: s }: { suggestion: SetupSuggestion }) {
+  if (!s.status || s.status === 'live') return null;
+  const variant = s.status === 'review' ? 'info' : s.status === 'inactive' ? 'neutral' : 'warning';
+  return (
+    <Badge variant={variant} data-testid="remote-status" data-status={s.status}>
+      {REMOTE_SKU_STATUS_LABELS[s.status]}
+    </Badge>
   );
 }
 

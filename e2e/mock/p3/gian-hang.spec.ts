@@ -234,7 +234,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeChecked();
       await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
       await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText('01/11/2026');
-      // Lazada tính hạn trả theo số ngày (TikTok chưa nối được trong mock, commerio-backend#217)
+      // Lazada tính hạn trả theo số ngày (TikTok xem tiktok-ket-noi.spec.ts)
       await page.getByRole('spinbutton', { name: /Số ngày đổi trả/ }).fill('7');
       await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
         status: 422,
@@ -298,14 +298,11 @@ test.describe('P3 · Gian hàng', () => {
       await expect(goiY.locator('[data-suggestion=ext-1] [data-testid=decision-error]')).toHaveCount(0);
     });
 
-    test('Shopee, TikTok chưa nối được thì thẻ sàn bị khoá, nêu lý do', async ({ page }) => {
+    test('Shopee chưa nối được thì thẻ sàn bị khoá, nêu lý do', async ({ page }) => {
       await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
       const shopee = page.locator('[data-testid=connect-section] [data-platform=shopee]');
       await expect(shopee).toHaveAttribute('aria-disabled', 'true');
       await expect(shopee.locator('[data-testid=platform-reason]')).toHaveText('Shopee chưa cấp quyền API cho ứng dụng sinh viên');
-      const tiktok = page.locator('[data-testid=connect-section] [data-platform=tiktok]');
-      await expect(tiktok).toHaveAttribute('aria-disabled', 'true');
-      await expect(tiktok.locator('[data-testid=platform-reason]')).toHaveText('Đang làm, thuộc commerio-backend#217 (đợt 4)');
     });
 
     test('đang mở công ty khác công ty bắt đầu kết nối thì không nối, chỉ cho chuyển công ty (§18.7.4)', async ({ page }) => {
@@ -354,8 +351,8 @@ test.describe('P3 · Gian hàng', () => {
       await themQua(page, 'Lazada');
       await page.getByRole('button', { name: 'Từ chối', exact: true }).click();
       const ketQua = page.locator('[data-outcome=declined]');
-      await expect(ketQua).toContainText('Bạn đã bấm Từ chối trên Lazada');
-      await expect(ketQua).toContainText('Bạn đã từ chối uỷ quyền, chưa kết nối gian hàng nào.');
+      await expect(ketQua).toContainText('Bạn đã từ chối uỷ quyền trên Lazada');
+      await expect(ketQua).toContainText('Chưa kết nối gian hàng nào.');
       await expect(ketQua.getByRole('button', { name: 'Thử lại', exact: true })).toBeVisible();
       await ketQua.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();
       await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/channel/shops');
