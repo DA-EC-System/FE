@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronsUpDown, KeyRound, LogOut } from 'lucide-react';
+import { ChevronsUpDown, KeyRound, LogOut, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -15,6 +16,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { useGuideStore } from '@/guides/guideStore';
+import { resetAllSeen } from '@/guides/storage';
 import { useAuth, useLogout } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 
@@ -54,6 +57,13 @@ export function NavUser() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = useRoleLabel();
+  const resetDismissed = useGuideStore((s) => s.resetDismissed);
+
+  const resetGuides = () => {
+    if (account) resetAllSeen(account.id);
+    resetDismissed();
+    toast.success('Đã bật lại hướng dẫn. Mở trang nào sẽ thấy hướng dẫn của trang đó.');
+  };
 
   return (
     <SidebarMenu>
@@ -102,6 +112,10 @@ export function NavUser() {
             >
               <KeyRound />
               Đổi mật khẩu
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={resetGuides}>
+              <RotateCcw />
+              Bật lại tất cả hướng dẫn
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => void logout()}>

@@ -7,6 +7,7 @@ import { useRealtime } from '@/hooks/useRealtime';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { AppSidebar } from './AppSidebar';
 import { AppTitle, CompanySwitcher } from './CompanySwitcher';
+import { PageGuideHost } from '@/components/guide/PageGuideHost';
 import { Header } from './Header';
 import {
   PLATFORM_NAV,
@@ -79,6 +80,7 @@ export function AppLayout({ sections, brand }: AppLayoutProps) {
           </div>
         </main>
       </SidebarInset>
+      <PageGuideHost />
     </SidebarProvider>
   );
 }
