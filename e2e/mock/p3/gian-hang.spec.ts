@@ -40,6 +40,9 @@ const moTrangGhep = async (page: Page, shopId: string) => {
 const trangThai = (page: Page, shopId: string) => dong(page, shopId).locator('[data-testid=shop-status]');
 /** Dòng biến thể ở bảng ghép (bảng SKU sàn chưa ghép bên dưới cũng có data-row-id) */
 const dongBienThe = (page: Page) => page.locator('tbody').first().locator('tr[data-row-id]');
+/** Bấm tab của bảng sản phẩm trên sàn (Test_UI v-listing) */
+const moTab = (page: Page, tab: 'all' | 'unmatched' | 'not_listed' | 'stale' | 'failed' | 'held') =>
+  page.locator(`[data-testid=listing-tab-${tab}]`).click();
 const trangThaiListing = (page: Page, variantId: string) => dong(page, variantId).locator('[data-testid=listing-status]');
 /** Đẩy chạy nền (§18.6.4): mock trả kết quả sau 2,5 giây, trang đọc lại mỗi 5 giây */
 const CHO_SAN = { timeout: 15_000 };
@@ -468,10 +471,15 @@ test.describe('P3 · Gian hàng', () => {
       for (const t of ['Giá đã đổi, chưa đẩy', '150.000']) await expect(dong(page, 'prd-001-v2')).toContainText(t);
       for (const t of ['Theo giá chuẩn', 'Chưa ghép']) await expect(dong(page, 'prd-001-v3')).toContainText(t);
       await expect(dong(page, 'prd-002-v3')).toContainText('Chưa có giá');
-      await chon(page, 'Ghép', 'Giá chưa đẩy');
+      await expect(page.locator('[data-testid=listing-tab-stale]')).toContainText('1');
+      await moTab(page, 'stale');
       await expect(dongBienThe(page)).toHaveCount(1);
       await expect(dong(page, 'prd-001-v2')).toBeAttached();
+      await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
+      // Ô tìm kiếm lọc cả SKU sàn chưa ghép
+      await page.getByPlaceholder('Tìm theo tên, SKU hoặc SKU sàn...', { exact: true }).fill('không có sku này');
+      await expect(page.locator('[data-testid=remote-section]')).toContainText('Không có SKU sàn khớp ô tìm kiếm');
     });
 
     test('ghép biến thể với SKU sàn được gợi ý theo SKU người bán', async ({ page }) => {
@@ -483,6 +491,7 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'Đã ghép');
       await expect(dialog).toHaveCount(0);
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-003');
+      await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).not.toContainText('shp-001-sku-003');
       await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã ghép 3 /');
     });
@@ -510,6 +519,7 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('ghép từ SKU sàn chưa ghép và bỏ ghép có xác nhận', async ({ page }) => {
+      await moTab(page, 'unmatched');
       await chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr')
         .getByRole('button', { name: 'Ghép với biến thể', exact: true })
         .click();
@@ -519,12 +529,14 @@ test.describe('P3 · Gian hàng', () => {
       await dialog.getByRole('radio').click();
       await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
       await toast(page, 'Đã ghép');
+      await moTab(page, 'all');
       await expect(dong(page, 'prd-003-v1').locator('[data-testid=remote-sku]')).toContainText('OLD-TEE-01');
 
       await dong(page, 'prd-003-v1').getByRole('button', { name: 'Bỏ ghép', exact: true }).click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Bỏ ghép', exact: true }).click();
       await toast(page, 'Đã bỏ ghép');
       await expect(dong(page, 'prd-003-v1')).toContainText('Chưa ghép');
+      await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
     });
 
@@ -596,9 +608,14 @@ test.describe('P3 · Gian hàng', () => {
         'Đẩy tồn lỗi: SellerSku is locked by campaign',
       );
       await expect(dong(page, 'prd-002-v1').locator('[data-testid=qc-alert]')).toContainText('Mô tả thiếu thông tin chất liệu');
-      await chon(page, 'Trạng thái', 'Sàn từ chối');
-      await expect(dongBienThe(page)).toHaveCount(1);
-      await chon(page, 'Trạng thái', 'Chưa lên sàn');
+      await moTab(page, 'failed');
+      await expect(dong(page, 'prd-001-v3')).toBeAttached();
+      await moiPhanTu(dongBienThe(page).locator('[data-testid=listing-status]'), (t) =>
+        expect(['Sàn từ chối', 'Lỗi đẩy']).toContain(t),
+      );
+      await moTab(page, 'held');
+      await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Chờ sàn duyệt');
+      await moTab(page, 'not_listed');
       await moiPhanTu(dongBienThe(page), (t) => expect(t).toContain('Chưa lên sàn'));
     });
 
@@ -675,6 +692,7 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
     await expect(dong(page, 'prd-001-v1')).toBeAttached();
     await expect(dong(page, 'prd-001-v1').getByRole('checkbox')).toHaveCount(0);
+    await moTab(page, 'unmatched');
     await expect(page.locator('[data-testid=remote-section]')).toContainText('chưa kết nối');
   });
 
@@ -694,6 +712,8 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
     await expect(dong(page, 'prd-001-v3')).toBeAttached();
     await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true })).toHaveCount(0);
+    await moTab(page, 'unmatched');
+    await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
     await expect(
       page.locator('[data-testid=remote-section]').getByRole('button', { name: 'Ghép với biến thể', exact: true }),
     ).toHaveCount(0);

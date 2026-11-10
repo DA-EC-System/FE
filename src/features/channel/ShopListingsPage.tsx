@@ -8,13 +8,14 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
-import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { FilterBar, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useDelistListing,
@@ -61,7 +62,8 @@ import {
 import { useStartConnect } from './useStartConnect';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
-type MatchFilter = '' | 'matched' | 'unmatched' | 'stale';
+/** Tab của bảng theo Test_UI `v-listing` */
+type ListingTab = 'all' | 'unmatched' | 'not_listed' | 'stale' | 'failed' | 'held';
 
 /** Lỗi đẩy của một biến thể; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
 interface PushError {
@@ -72,23 +74,46 @@ interface PushError {
 /** Trạng thái phiếu kiểm kê đầu kỳ chưa ghi sổ (§18.6.2) */
 const STOCKTAKE_STATUS = { draft: 'đang nháp', pending: 'đang chờ duyệt', rejected: 'bị từ chối, cần sửa rồi gửi lại' } as const;
 
-const MATCH_FILTERS: { value: Exclude<MatchFilter, ''>; label: string }[] = [
-  { value: 'matched', label: 'Đã ghép' },
+/**
+ * Tab theo Test_UI `v-listing`. "Chưa ghép" là SKU trên sàn chưa ghép biến thể nào;
+ * các tab còn lại lọc biến thể Commerio theo trạng thái listing (sơ đồ C2).
+ */
+const LISTING_TABS: { value: ListingTab; label: string }[] = [
+  { value: 'all', label: 'Tất cả' },
   { value: 'unmatched', label: 'Chưa ghép' },
+  { value: 'not_listed', label: 'Chưa lên sàn' },
   { value: 'stale', label: 'Giá chưa đẩy' },
+  { value: 'failed', label: 'Đẩy lỗi' },
+  { value: 'held', label: 'Sàn khoá, đã ẩn' },
 ];
 
-/** Lọc theo trạng thái listing (sơ đồ C2); chưa có listing là "Chưa lên sàn" */
-const LISTING_FILTERS: { value: ListingStatus | 'not_listed'; label: string }[] = [
-  { value: 'not_listed', label: 'Chưa lên sàn' },
-  ...(Object.entries(LISTING_STATUS_LABELS) as [ListingStatus, string][]).map(([value, label]) => ({ value, label })),
-];
+const FAILED_STATUSES: ListingStatus[] = ['push_failed', 'rejected'];
+const HELD_STATUSES: ListingStatus[] = ['platform_hold', 'hidden', 'under_review'];
 
 /** Đã ghép nhưng chưa đẩy, hoặc giá đã đổi sau lần đẩy cuối */
 const isStale = (r: ListingRow) =>
   Boolean(r.listing) &&
   onPlatform(r.listing!.status) &&
   (r.listing!.lastPushedAt === null || r.price !== r.listing!.lastPushedPrice);
+
+/** Biến thể thuộc tab nào; tab "Chưa ghép" là danh sách SKU sàn nên không chứa biến thể */
+function inTab(tab: ListingTab, r: ListingRow): boolean {
+  const status = r.listing?.status;
+  switch (tab) {
+    case 'all':
+      return true;
+    case 'unmatched':
+      return false;
+    case 'not_listed':
+      return !status || status === 'delisted';
+    case 'stale':
+      return isStale(r);
+    case 'failed':
+      return Boolean(status && FAILED_STATUSES.includes(status));
+    case 'held':
+      return Boolean(status && HELD_STATUSES.includes(status));
+  }
+}
 
 /** Gỡ được khi listing còn trên sàn và không đang đẩy */
 const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
@@ -137,8 +162,7 @@ export function ShopListingsPage() {
   const connector = useStartConnect();
 
   const [search, setSearch] = useState('');
-  const [matchFilter, setMatchFilter] = useState<MatchFilter>('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [tab, setTab] = useState<ListingTab>('all');
   const [delisting, setDelisting] = useState<ListingRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -166,13 +190,36 @@ export function ShopListingsPage() {
           r.productName.toLowerCase().includes(q) ||
           r.sku.toLowerCase().includes(q) ||
           r.listing?.sellerSku?.toLowerCase().includes(q)) &&
-        (matchFilter === '' ||
-          (matchFilter === 'matched' && r.listing) ||
-          (matchFilter === 'unmatched' && !r.listing) ||
-          (matchFilter === 'stale' && isStale(r))) &&
-        (statusFilter === '' || (r.listing?.status ?? 'not_listed') === statusFilter),
+        inTab(tab, r),
     );
-  }, [items, search, matchFilter, statusFilter]);
+  }, [items, search, tab]);
+
+  const remoteRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q
+      ? unmatchedRemote.filter(
+          (r) =>
+            r.title.toLowerCase().includes(q) ||
+            r.externalSkuId.toLowerCase().includes(q) ||
+            r.sellerSku?.toLowerCase().includes(q),
+        )
+      : unmatchedRemote;
+  }, [unmatchedRemote, search]);
+
+  /** Số dòng mỗi tab, không tính ô tìm kiếm */
+  const tabCounts = useMemo(() => {
+    const counts = {} as Record<ListingTab, number>;
+    for (const t of LISTING_TABS) {
+      counts[t.value] = t.value === 'unmatched' ? unmatchedRemote.length : items.filter((r) => inTab(t.value, r)).length;
+    }
+    return counts;
+  }, [items, unmatchedRemote]);
+
+  const changeTab = (v: string) => {
+    setTab(v as ListingTab);
+    setPage(1);
+    setSelection(new Set());
+  };
 
   // Phân trang tại chỗ: API trả mọi biến thể đang bán
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -666,7 +713,7 @@ export function ShopListingsPage() {
   }
 
   const newCount = pushing?.filter((r) => !r.listing).length ?? 0;
-  const filtered = Boolean(search.trim() || matchFilter || statusFilter);
+  const searching = Boolean(search.trim());
 
   return (
     <div>
@@ -763,66 +810,70 @@ export function ShopListingsPage() {
       )}
 
       <Card className="gap-0 py-0">
+        <Tabs value={tab} onValueChange={changeTab} className="overflow-x-auto px-4 pt-3">
+          <TabsList aria-label="Lọc theo trạng thái">
+            {LISTING_TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} data-testid={`listing-tab-${t.value}`}>
+                {t.label}
+                <span className="ms-1.5 text-xs text-muted-foreground tabular-nums">{tabCounts[t.value]}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <FilterBar>
           <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm theo tên, SKU hoặc SKU sàn..." />
-          <FilterSelect
-            label="Ghép"
-            value={matchFilter}
-            onChange={withReset((v: string) => setMatchFilter(v as MatchFilter))}
-            options={MATCH_FILTERS}
-          />
-          <FilterSelect
-            label="Trạng thái"
-            value={statusFilter}
-            onChange={withReset(setStatusFilter)}
-            options={LISTING_FILTERS}
-          />
           <p className="text-sm text-muted-foreground md:ms-auto md:self-center" data-testid="match-summary">
             Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
           </p>
         </FilterBar>
-        <DataTable
-          columns={columns}
-          data={pageRows}
-          getRowId={(r) => r.variantId}
-          loading={listingsQuery.isLoading}
-          fetching={listingsQuery.isFetching}
-          empty={filtered ? 'Không có biến thể khớp bộ lọc' : 'Công ty chưa có biến thể đang bán'}
-          pagination={{
-            page: safePage,
-            pageSize,
-            total: rows.length,
-            onChange: (p, size) => {
-              setPage(p);
-              setPageSize(size);
-            },
-          }}
-        />
-      </Card>
-
-      <Card className="mt-6 gap-0 py-0" data-testid="remote-section">
-        <CardHeader className="py-4">
-          <CardTitle>SKU trên sàn chưa ghép</CardTitle>
-          <CardDescription>
-            Lấy trực tiếp từ sàn. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio.
-          </CardDescription>
-        </CardHeader>
-        {!usable ? (
-          <p className="px-6 pb-6 text-sm text-muted-foreground">
-            Không tải được SKU trên sàn khi gian hàng chưa kết nối.
-          </p>
-        ) : remoteQuery.isError ? (
-          <div className="px-6 pb-6">
-            <AlertMessage severity="error">{problemMessage(remoteQuery.error)}</AlertMessage>
+        {tab === 'unmatched' ? (
+          <div data-testid="remote-section">
+            <p className="px-4 pb-3 text-sm text-muted-foreground">
+              SKU lấy trực tiếp từ sàn, chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá
+              từ Commerio.
+            </p>
+            {!usable ? (
+              <p className="px-4 pb-6 text-sm text-muted-foreground">
+                Không tải được SKU trên sàn khi gian hàng chưa kết nối.
+              </p>
+            ) : remoteQuery.isError ? (
+              <div className="px-4 pb-6">
+                <AlertMessage severity="error">{problemMessage(remoteQuery.error)}</AlertMessage>
+              </div>
+            ) : (
+              <DataTable
+                columns={remoteColumns}
+                data={remoteRows}
+                getRowId={(r) => r.externalSkuId}
+                loading={remoteQuery.isLoading}
+                fetching={remoteQuery.isFetching}
+                empty={searching ? 'Không có SKU sàn khớp ô tìm kiếm' : 'Mọi SKU trên sàn đã được ghép'}
+              />
+            )}
           </div>
         ) : (
           <DataTable
-            columns={remoteColumns}
-            data={unmatchedRemote}
-            getRowId={(r) => r.externalSkuId}
-            loading={remoteQuery.isLoading}
-            fetching={remoteQuery.isFetching}
-            empty="Mọi SKU trên sàn đã được ghép"
+            columns={columns}
+            data={pageRows}
+            getRowId={(r) => r.variantId}
+            loading={listingsQuery.isLoading}
+            fetching={listingsQuery.isFetching}
+            empty={
+              searching
+                ? 'Không có biến thể khớp ô tìm kiếm'
+                : tab !== 'all'
+                  ? 'Không còn biến thể nào ở mục này'
+                  : 'Công ty chưa có biến thể đang bán'
+            }
+            pagination={{
+              page: safePage,
+              pageSize,
+              total: rows.length,
+              onChange: (p, size) => {
+                setPage(p);
+                setPageSize(size);
+              },
+            }}
           />
         )}
       </Card>
