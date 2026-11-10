@@ -3,8 +3,8 @@
  * SKU trên sàn là dữ liệu của sàn, BE lấy qua API sàn; mock giữ theo gian hàng.
  */
 
-import { products } from './catalogData';
-import type { ListingStatus, QcAlert, SyncError, SyncState } from '@/types/shop';
+import { products, swatch } from './catalogData';
+import type { ListingStatus, QcAlert, RemoteSkuStatus, SyncError, SyncState } from '@/types/shop';
 
 export interface MockListing {
   id: string;
@@ -41,6 +41,10 @@ export interface MockRemoteSku {
   price: number;
   /** Số tồn đang hiện trên sàn (dùng ở bước kiểm kê đầu kỳ) */
   stock?: number;
+  /** Ảnh đầu tiên trên sàn ở bước ghép; không có là null (§18.7.5) */
+  imageUrl?: string | null;
+  /** Trạng thái trên sàn ở bước ghép; không ghi là `live` */
+  status?: RemoteSkuStatus;
 }
 
 /** Phiên OAuth đang chờ sàn gọi lại (state → ai bắt đầu, cho công ty nào) */
@@ -152,12 +156,14 @@ export function tiktokNumericId(shopId: string, n: number): string {
 
 /** Gian hàng mới kết nối qua sàn giả lập: sàn đã có sẵn vài SKU để thử bước ghép listing có sẵn */
 export function seedRemoteForNewShop(shopId: string, platform?: string) {
-  const items = [
-    { ...remote(shopId, 1, 'prd-001-v3', 'Áo thun basic cổ tròn - Trắng, M', 149000), stock: 30 },
-    { ...remote(shopId, 2, 'prd-002-v1', 'Quần kaki ống suông - M', 319000), stock: 5 },
-    { ...remote(shopId, 3, null, 'Mũ lưỡi trai (hàng cũ)', 59000, 'OLD-CAP-01'), stock: 2 },
+  // Ảnh và trạng thái (§18.7.5): hai SKU có ảnh, hai SKU không (TikTok: sản phẩm thứ 51 trở đi, FREEZE, không có ảnh);
+  // một SKU người bán đã tắt, một SKU chờ sàn duyệt
+  const items: MockRemoteSku[] = [
+    { ...remote(shopId, 1, 'prd-001-v3', 'Áo thun basic cổ tròn - Trắng, M', 149000), stock: 30, imageUrl: swatch('#64748b', 'Áo thun') },
+    { ...remote(shopId, 2, 'prd-002-v1', 'Quần kaki ống suông - M', 319000), stock: 5, imageUrl: swatch('#a16207', 'Kaki') },
+    { ...remote(shopId, 3, null, 'Mũ lưỡi trai (hàng cũ)', 59000, 'OLD-CAP-01'), stock: 2, imageUrl: null, status: 'inactive' },
     // SKU người bán khác SKU Commerio nhưng tên gần giống: gợi ý theo tên (§18.7.5)
-    { ...remote(shopId, 4, null, 'Áo khoác gió Navy L', 289000, 'KHOAC-CU-L'), stock: 4 },
+    { ...remote(shopId, 4, null, 'Áo khoác gió Navy L', 289000, 'KHOAC-CU-L'), stock: 4, imageUrl: null, status: 'review' },
   ];
   // TikTok: product_id, sku_id là số dài; mỗi SKU một sản phẩm khác nhau
   remoteSkus[shopId] = platform === 'tiktok'

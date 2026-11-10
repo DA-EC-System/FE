@@ -94,6 +94,12 @@ describe('TikTok Shop (FE#198, commerio-backend#217)', () => {
     expect(preview.suggestions.length).toBeGreaterThan(0);
     for (const s of preview.suggestions) expect(s.externalSkuId).toMatch(/^\d{19}$/);
     expect(preview.suggestions.some((s: { variantId: string | null }) => s.variantId)).toBe(true);
+    // §18.7.5: mọi dòng có imageUrl (có thể null) và status; mock có cả dòng không ảnh và dòng chưa bán được
+    const rows = preview.suggestions as { imageUrl: string | null; status: string }[];
+    expect(rows.every((s) => 'imageUrl' in s && ['live', 'review', 'rejected', 'hold', 'inactive'].includes(s.status))).toBe(true);
+    expect(rows.filter((s) => s.imageUrl === null).length).toBeGreaterThan(0);
+    expect(rows.filter((s) => s.imageUrl).length).toBeGreaterThan(0);
+    expect(rows.some((s) => s.status !== 'live')).toBe(true);
   });
 
   it('dán token TikTok trả cùng dạng với callback', async () => {

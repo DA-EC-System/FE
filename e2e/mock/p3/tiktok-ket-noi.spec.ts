@@ -61,6 +61,13 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
       expect(id).toMatch(/^\d{19}$/);
     }
     await expect(page.locator('[data-testid=setup-suggestions] [data-match=sku]')).toHaveCount(2);
+    // Ảnh nhỏ đầu dòng: có ảnh thì hiện, null thì ô trống; SKU chưa bán được thì có nhãn trạng thái (§18.7.5)
+    await expect(goiY.locator('[data-testid=remote-image][data-has-image=true] img')).toHaveCount(2);
+    await expect(goiY.locator('[data-testid=remote-image][data-has-image=false]')).toHaveCount(2);
+    await expect(goiY.locator('[data-testid=remote-image][data-has-image=false] img')).toHaveCount(0);
+    await expect(goiY.filter({ hasText: 'Mũ lưỡi trai' }).getByTestId('remote-status')).toHaveText('Đang tắt trên sàn');
+    await expect(goiY.filter({ hasText: 'Áo khoác gió' }).getByTestId('remote-status')).toHaveText('Chờ sàn duyệt');
+    await expect(goiY.getByTestId('remote-status')).toHaveCount(2);
     await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
     await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
 

@@ -5,6 +5,8 @@ import { decisionErrors, initialChoices, openOrdersSkippedNote, setupRunning, to
 const row = (externalSkuId: string, over: Partial<SetupSuggestion> = {}): SetupSuggestion => ({
   externalSkuId,
   title: `SP ${externalSkuId}`,
+  imageUrl: null,
+  status: 'live',
   match: 'sku',
   score: null,
   variantId: `var-${externalSkuId}`,

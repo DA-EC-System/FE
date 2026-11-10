@@ -338,7 +338,13 @@ function setupSuggestions(shop: MockShop): Pick<ShopSetupPreview, 'suggestions' 
   const suggestions: SetupSuggestion[] = [];
   for (const r of channel.remoteSkus[shop.id] ?? []) {
     if (channel.listings.some((l) => l.shopId === shop.id && l.externalSkuId === r.externalSkuId)) continue;
-    const base = { externalSkuId: r.externalSkuId, title: r.title, platformStock: r.stock ?? 0 };
+    const base = {
+      externalSkuId: r.externalSkuId,
+      title: r.title,
+      imageUrl: r.imageUrl ?? null,
+      status: r.status ?? ('live' as const),
+      platformStock: r.stock ?? 0,
+    };
     const bySku = variants.find(({ variant }) => r.sellerSku && variant.sku === r.sellerSku);
     let best: { id: string; sku: string; score: number } | null = null;
     if (!bySku) {
