@@ -189,9 +189,10 @@ export const companySettingsHandlers = [
     writeCompanyLog(
       guard.value,
       'update',
-      { type: 'platform.dead_jobs', id: job.id, label: job.queue },
-      { attempts: job.attempts },
-      { retried: true },
+      // Giống BE (core/platform/service/jobs/dead.ts): entityType pgboss.job, chỉ có before, không có after
+      { type: 'pgboss.job', id: job.id, label: 'pgboss.job' },
+      { queue: job.queue, state: 'dead' },
+      null,
     );
     return new HttpResponse(null, { status: 204 });
   }),

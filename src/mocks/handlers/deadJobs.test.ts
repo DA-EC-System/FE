@@ -54,7 +54,7 @@ describe('Việc nền lỗi (§14.5)', () => {
 
   it('nhãn hàng tiếng Việt, tên lạ hiện nguyên', () => {
     expect(queueLabel('channel.order_pull')).toBe('Lấy đơn');
-    expect(queueLabel('channel.listing_push')).toBe('Đẩy sản phẩm lên sàn');
+    expect(queueLabel('channel.open_order_pull')).toBe('Lấy đơn còn mở');
     expect(queueLabel('report.daily_rollup')).toBe('report.daily_rollup');
   });
 });

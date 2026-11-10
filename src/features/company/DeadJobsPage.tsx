@@ -27,7 +27,7 @@ export function DeadJobsPage() {
   const can = useCan();
   const [queue, setQueue] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(25);
   const [retrying, setRetrying] = useState<DeadJob | null>(null);
 
   const query = useDeadJobs({ queue: queue || undefined, page, pageSize });
@@ -105,7 +105,7 @@ export function DeadJobsPage() {
     <div>
       <PageHeader
         title="Việc nền lỗi"
-        subtitle="Việc chạy nền đã tự thử lại 5 lần mà vẫn lỗi. Sửa nguyên nhân (vd kết nối lại gian hàng) rồi bấm Chạy lại. Việc lỗi được giữ 30 ngày."
+        subtitle="Việc chạy nền đã thử 5 lần mà vẫn lỗi. Sửa nguyên nhân (vd kết nối lại gian hàng) rồi bấm Chạy lại. Việc lỗi được giữ 30 ngày."
       />
 
       {query.isError && (
