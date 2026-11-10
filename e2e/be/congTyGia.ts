@@ -28,7 +28,7 @@ export async function taoCongTyGia(
   browser: Browser,
   opts: { ten: string; optionalModules?: string[] },
 ): Promise<CongTyGia> {
-  const { baseURL, viewport } = test.info().project.use;
+  const { baseURL, viewport, storageState } = test.info().project.use;
   const suffix = randomUUID().replaceAll('-', '');
   const taxDigits = [...suffix].map((c) => Number.parseInt(c, 16) % 10).join('');
   const email = `${opts.ten}-${suffix.slice(0, 16)}@example.test`;
@@ -47,7 +47,8 @@ export async function taoCongTyGia(
   const { companyId } = (await register.json()) as { companyId: string };
   await anon.dispose();
 
-  const page = await browser.newPage({ baseURL, viewport });
+  // browser.newPage không tự lấy storageState của config: truyền vào để giữ cờ tắt hướng dẫn lần đầu (FE#132)
+  const page = await browser.newPage({ baseURL, viewport, storageState });
   await page.goto('/login');
   await page.locator('input[name=email]').fill(email);
   await page.locator('input[name=password]').fill(password);
