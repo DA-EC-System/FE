@@ -629,6 +629,25 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toHaveCount(0);
     });
 
+    test('đẩy khi gian hàng đang giữ tồn: báo theo waitingFor, không đổi trạng thái (§18.6.11)', async ({ page }) => {
+      const cho = (waitingFor: 'open_orders' | 'allocation') =>
+        mockApi(page, 'post', '/channel/shops/shp-003/listings/push', 409, {
+          status: 409,
+          title: 'Gian hàng đang giữ tồn',
+          code: 'shop_awaiting_allocation',
+          waitingFor,
+        });
+      await cho('open_orders');
+      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
+      await toast(page, 'Đang kéo đơn còn mở về. Đẩy sản phẩm sau khi lượt này xong.');
+      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
+
+      await cho('allocation');
+      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
+      await toast(page, 'Đang chia hàng cho các kiện sau kiểm kê. Đẩy sản phẩm sau khi chia xong.');
+      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
+    });
+
     test('gỡ khỏi sàn có xác nhận, giữ ghép để đẩy lại', async ({ page }) => {
       await dong(page, 'prd-002-v1').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true }).click();
       const alert = page.getByRole('alertdialog');
