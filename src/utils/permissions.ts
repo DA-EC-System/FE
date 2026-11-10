@@ -14,6 +14,8 @@ export const PERMISSIONS = {
   moduleManage: 'platform.module.manage',
   /** Vai trò CEO và Admin có, không cấp cho vai trò tuỳ biến (UC-PI-07) */
   auditView: 'platform.audit.view',
+  /** Xem và chạy lại việc nền lỗi; CEO và Admin có, không cấp cho vai trò tuỳ biến (§14.5) */
+  jobManage: 'platform.job.manage',
   shopView: 'channel.shop.view',
   shopConnect: 'channel.shop.connect',
   shopUpdate: 'channel.shop.update',

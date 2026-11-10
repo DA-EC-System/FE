@@ -23,6 +23,7 @@ import { CompanyListPage } from '@/features/platform/CompanyListPage';
 import { PlatformAuditLogPage } from '@/features/platform/PlatformAuditLogPage';
 import { ModuleSettingsPage } from '@/features/company/ModuleSettingsPage';
 import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
+import { DeadJobsPage } from '@/features/company/DeadJobsPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
@@ -183,6 +184,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="platform" permission={PERMISSIONS.auditView}>
                         <CompanyAuditLogPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'admin/dead-jobs',
+                    element: (
+                      <RequireModule module="platform" permission={PERMISSIONS.jobManage}>
+                        <DeadJobsPage />
                       </RequireModule>
                     ),
                   },

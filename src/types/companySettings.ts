@@ -43,6 +43,23 @@ export interface SetModuleResult {
 /** audit_action trong ERD */
 export type AuditAction = 'create' | 'update' | 'delete';
 
+/** Việc nền đã thử hết lượt mà vẫn lỗi (§14.5). `attempts` kể cả lần đầu; không có tên gian hàng */
+export interface DeadJob {
+  id: string;
+  /** Hàng gốc, vd `channel.order_pull`; FE tự giữ nhãn tiếng Việt */
+  queue: string;
+  shopId: string | null;
+  attempts: number;
+  lastError: string;
+  failedAt: string;
+}
+
+export interface DeadJobParams {
+  queue?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface CompanyAuditLog {
   id: string;
   action: AuditAction;

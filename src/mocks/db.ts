@@ -317,6 +317,7 @@ export const permissionCatalog: PermissionDef[] = [
  */
 const ADMIN_PERMISSIONS = [
   P.auditView,
+  P.jobManage,
   P.staffView,
   P.staffManage,
   P.roleView,
@@ -364,8 +365,8 @@ const roles: MockRole[] = [
     id: CEO_ROLE_ID,
     companyId: null,
     name: 'CEO',
-    // Hai quyền platform.* không nằm trong danh mục nên không cấp được cho vai trò tuỳ biến
-    permissions: [...permissionCatalog.map((p) => p.code), P.moduleManage, P.auditView],
+    // Các quyền platform.* không nằm trong danh mục nên không cấp được cho vai trò tuỳ biến
+    permissions: [...permissionCatalog.map((p) => p.code), P.moduleManage, P.auditView, P.jobManage],
     version: 1,
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
@@ -769,6 +770,65 @@ const moduleData: Partial<Record<OptionalModuleKey, string[]>> = {
   purchasing: ['cmp-001', 'cmp-004'],
 };
 
+/** Việc nền đã thử hết lượt mà vẫn lỗi, giữ 30 ngày (§14.5) */
+export interface MockDeadJob {
+  id: string;
+  companyId: string;
+  queue: string;
+  shopId: string | null;
+  attempts: number;
+  lastError: string;
+  failedAt: string;
+}
+
+const deadJobs: MockDeadJob[] = [
+  {
+    id: '7d1c2b8e-1f0a-4a51-9a3e-000000000001',
+    companyId: 'cmp-001',
+    queue: 'channel.order_pull',
+    shopId: 'shp-002',
+    attempts: 5,
+    lastError: 'TikTok Shop trả 401: access token hết hạn',
+    failedAt: '2026-11-08T03:05:00.000Z',
+  },
+  {
+    id: '7d1c2b8e-1f0a-4a51-9a3e-000000000002',
+    companyId: 'cmp-001',
+    queue: 'channel.token_refresh',
+    shopId: 'shp-002',
+    attempts: 5,
+    lastError: 'refresh_token không hợp lệ',
+    failedAt: '2026-11-08T20:00:00.000Z',
+  },
+  {
+    id: '7d1c2b8e-1f0a-4a51-9a3e-000000000003',
+    companyId: 'cmp-001',
+    queue: 'channel.listing_sync',
+    shopId: 'shp-003',
+    attempts: 5,
+    lastError: 'Lazada trả 503 Service Unavailable',
+    failedAt: '2026-11-07T09:15:00.000Z',
+  },
+  {
+    id: '7d1c2b8e-1f0a-4a51-9a3e-000000000004',
+    companyId: 'cmp-001',
+    queue: 'report.daily_rollup',
+    shopId: null,
+    attempts: 5,
+    lastError: 'Hết thời gian chờ cơ sở dữ liệu',
+    failedAt: '2026-11-06T17:00:00.000Z',
+  },
+  {
+    id: '7d1c2b8e-1f0a-4a51-9a3e-000000000005',
+    companyId: 'cmp-002',
+    queue: 'channel.order_pull',
+    shopId: 'shp-004',
+    attempts: 5,
+    lastError: 'Shopee trả 500',
+    failedAt: '2026-11-08T05:00:00.000Z',
+  },
+];
+
 export const db = {
   companies,
   shops,
@@ -777,6 +837,7 @@ export const db = {
   roles,
   auditLogs,
   companyAuditLogs,
+  deadJobs,
   moduleStates,
   moduleData,
   now,
