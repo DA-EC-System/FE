@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { HelpTip } from '@/components/common/HelpTip';
 import { AttachmentField, type AttachmentItem } from '@/components/common/AttachmentField';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -95,7 +96,6 @@ export function PlatformRejectDialog({ request, open, onClose }: PlatformRejectD
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
-            <AlertMessage severity="info">Khách có thể khiếu nại lên sàn. Sàn xử cho khách thì yêu cầu mở lại.</AlertMessage>
             {error && <AlertMessage severity="error">{error}</AlertMessage>}
             {reasons.isError && <AlertMessage severity="error">{problemMessage(reasons.error)}</AlertMessage>}
             {reasons.isLoading && <Skeleton className="h-24 w-full" />}
@@ -105,7 +105,13 @@ export function PlatformRejectDialog({ request, open, onClose }: PlatformRejectD
                 name="reasonId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Lý do từ chối (theo sàn)</FormLabel>
+                    <div className="flex items-center gap-1">
+                      <FormLabel>Lý do từ chối (theo sàn)</FormLabel>
+                      <HelpTip
+                        topic="Lý do từ chối"
+                        content="Lý do lấy từ danh sách của sàn, lý do ghi (cần ảnh) phải kèm ảnh. Khách có thể khiếu nại, sàn xử cho khách thì yêu cầu mở lại."
+                      />
+                    </div>
                     <FormControl>
                       <RadioGroup value={field.value} onValueChange={field.onChange} aria-label="Lý do từ chối">
                         {reasons.data.items.map((r) => (

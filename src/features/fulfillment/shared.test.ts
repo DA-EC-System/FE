@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageSummary } from '@/types/fulfillment';
-import { handoverFailureLabel, packageButtons } from './shared';
+import { handoverFailureLabel, isHotPackage, packageButtons } from './shared';
 
 const P = PERMISSIONS;
 const kho = { accountId: 'kho', permissions: [P.fulfillmentProcess] };
@@ -77,5 +77,21 @@ describe('handoverFailureLabel', () => {
   it('nhãn theo mã, mã lạ có nhãn chung', () => {
     expect(handoverFailureLabel('version_conflict')).toBe('Kiện vừa được cập nhật');
     expect(handoverFailureLabel('xyz')).toBe('Không bàn giao được');
+  });
+});
+
+describe('isHotPackage (FE#139)', () => {
+  const now = Date.parse('2026-11-11T08:00:00Z');
+  const at = (h: number) => new Date(now + h * 3600 * 1000).toISOString();
+
+  it('kiện chưa rời kho, hạn bàn giao đã qua hoặc còn dưới 24 giờ thì gấp', () => {
+    expect(isHotPackage({ status: 'reserved', shipBy: at(5) }, now)).toBe(true);
+    expect(isHotPackage({ status: 'awaiting_pickup', shipBy: at(-2) }, now)).toBe(true);
+    expect(isHotPackage({ status: 'packed', shipBy: at(30) }, now)).toBe(false);
+  });
+
+  it('kiện đã giao đi hoặc không có hạn thì không gấp', () => {
+    expect(isHotPackage({ status: 'in_transit', shipBy: at(-2) }, now)).toBe(false);
+    expect(isHotPackage({ status: 'reserved', shipBy: null }, now)).toBe(false);
   });
 });

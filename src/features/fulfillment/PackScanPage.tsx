@@ -20,6 +20,7 @@ import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import { packageButtons } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { usePageGuide } from '@/guides/usePageGuide';
 
 /** Quét đóng gói: quét (hoặc gõ) SKU từng món tới khi đủ, rồi đóng kiện */
 export function PackScanPage() {
@@ -38,6 +39,7 @@ export function PackScanPage() {
   const [input, setInput] = useState('');
   const [message, setMessage] = useState<{ severity: 'error' | 'warning'; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { startTour } = usePageGuide('pack-scan', { ready: Boolean(query.data) });
   const toDetail = () => navigate(ROUTES.company.package(companyId, packageId));
 
   if (query.isLoading) return <PageLoading />;
@@ -48,6 +50,8 @@ export function PackScanPage() {
   }
 
   const complete = p.lines.every((l) => (scanned[l.variantId] ?? 0) === l.quantity);
+  const scannedQty = p.lines.reduce((n, l) => n + (scanned[l.variantId] ?? 0), 0);
+  const percent = p.totalQty ? Math.round((scannedQty / p.totalQty) * 100) : 0;
   const carrierItems = p.source === 'marketplace' ? (carriers.data?.items ?? []) : [];
   const carrierCode = carrier ?? carrierItems.find((c) => c.isDefault)?.code ?? null;
   const needsCarrier = p.source === 'marketplace' && !carrierCode;
@@ -90,6 +94,8 @@ export function PackScanPage() {
       <PageHeader
         title={`Đóng gói kiện ${p.code}`}
         subtitle={`Đơn ${p.order.code} · ${p.totalQty} món`}
+        help="Quét từng món hoặc gõ SKU rồi Enter. Mã không có trong kiện hay quét thừa sẽ báo ngay. Đủ số lượng mọi dòng thì nút Đóng gói sáng."
+        onTour={startTour}
         action={
           <Button variant="outline" onClick={toDetail}>
             <ArrowLeft />
@@ -101,6 +107,7 @@ export function PackScanPage() {
         <CardContent>
           <form
             className="flex flex-wrap items-end gap-2"
+            data-guide="scan-input"
             onSubmit={(e) => {
               e.preventDefault();
               scan();
@@ -108,12 +115,20 @@ export function PackScanPage() {
           >
             <div className="grid flex-1 gap-1.5">
               <Label htmlFor="scan-sku">Quét SKU</Label>
-              <Input id="scan-sku" ref={inputRef} autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Quét mã vạch hoặc gõ SKU rồi Enter" />
+              <Input
+                id="scan-sku"
+                ref={inputRef}
+                autoFocus
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Quét mã vạch hoặc gõ SKU rồi Enter"
+                className="h-14 font-mono text-lg md:text-lg"
+              />
             </div>
-            <Button type="submit" variant="outline">
+            <Button type="submit" variant="outline" size="lg" className="h-14">
               Thêm
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setScanned({})}>
+            <Button type="button" variant="ghost" size="lg" className="h-14" onClick={() => setScanned({})}>
               <RotateCcw />
               Quét lại
             </Button>
@@ -125,9 +140,27 @@ export function PackScanPage() {
           )}
         </CardContent>
       </Card>
-      <Card className="py-4">
-        <CardHeader>
+      <Card className="py-4" data-guide="pack-lines">
+        <CardHeader className="grid gap-2">
           <CardTitle className="text-base">Hàng cần đóng</CardTitle>
+          <div className="grid gap-1" data-testid="pack-progress">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>
+                Đã quét {scannedQty}/{p.totalQty} món
+              </span>
+              <span className="font-mono">{percent}%</span>
+            </div>
+            <div
+              className="h-2 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-label="Tiến độ quét"
+              aria-valuemin={0}
+              aria-valuemax={p.totalQty}
+              aria-valuenow={scannedQty}
+            >
+              <div className={cn('h-full transition-all', complete ? 'bg-success' : 'bg-primary')} style={{ width: `${percent}%` }} />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table data-testid="pack-lines">
@@ -144,7 +177,7 @@ export function PackScanPage() {
                 const n = scanned[l.variantId] ?? 0;
                 return (
                   <TableRow key={l.variantId} data-row-id={l.sku} className={cn(n === l.quantity && 'bg-success/10')}>
-                    <TableCell className="font-medium">{l.sku}</TableCell>
+                    <TableCell className="font-mono font-medium">{l.sku}</TableCell>
                     <TableCell className="whitespace-normal">{l.productName}</TableCell>
                     <TableCell>{l.attributesLabel || '—'}</TableCell>
                     <TableCell className="text-right">
@@ -177,7 +210,7 @@ export function PackScanPage() {
               </RadioGroup>
             </div>
           )}
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end" data-guide="pack-submit">
             <Button disabled={!complete || needsCarrier || command.isPending} onClick={pack}>
               <PackageCheck />
               Đóng gói

@@ -168,6 +168,9 @@ test.describe('P4 · Yêu cầu trả', () => {
       await expect(page.getByRole('tab', { name: /Không khớp/ })).toHaveAttribute('aria-selected', 'true');
       const kien = page.locator('[data-testid=unmatched-parcels] tr[data-row-id="VD-LA-999"]');
       await thayChu(kien, 'Chờ xử lý');
+      // Giải thích "kiện không khớp" (FE#139)
+      await page.getByRole('button', { name: 'Giải thích: Kiện không khớp', exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText('Mã quét không trùng mã yêu cầu');
       await kien.getByRole('button', { name: 'Gắn yêu cầu', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('button', { name: 'Gắn và nhận hàng', exact: true }).click();
@@ -209,13 +212,17 @@ test.describe('P4 · Yêu cầu trả', () => {
       await nut(page, 'Từ chối').click();
       const dialog = page.getByRole('dialog');
       await thayChu(dialog, 'Từ chối yêu cầu YCT-000003');
+      await dialog.getByRole('button', { name: 'Giải thích: Lý do từ chối', exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText('Lý do lấy từ danh sách của sàn');
       await dialog.getByLabel('Quá hạn trả hàng', { exact: true }).click();
       await dialog.getByRole('button', { name: 'Từ chối', exact: true }).click();
       await toast(page, 'YCT-000003: Từ chối');
       await expect(trangThai(page)).toContainText('Đã từ chối');
       await expect(trangThai(page)).toContainText('Khách đang khiếu nại trên sàn');
       await expect(chaCua(page, 'Lý do từ chối (theo sàn)')).toContainText('Quá hạn trả hàng');
-      await thayChu(page, 'Sàn xử cho khách thì yêu cầu mở lại');
+      await page.getByRole('button', { name: 'Giải thích: Trạng thái yêu cầu', exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText('sàn xử cho khách thì yêu cầu mở lại');
+      await expect(page.locator('[data-guide=detail-history]')).toContainText('Lịch sử phía sàn');
       await expect(nut(page, 'Sàn xử cho khách: trả hàng')).toBeAttached();
 
       await diToi(page, '/c/cmp-001/dev/marketplace');

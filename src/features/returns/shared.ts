@@ -4,12 +4,12 @@ import { MAX_QTY, qtyText } from '@/features/inventory/shared';
 import type { ReturnAction, ReturnCloseResult, ReturnStatus, UnmatchedStatus } from '@/types/returns';
 
 export const RETURN_STATUS: Record<ReturnStatus, StatusMeta> = {
-  requested: { label: 'Chờ xử lý', variant: 'warning' },
-  awaiting_return: { label: 'Chờ hàng về', variant: 'info' },
-  received: { label: 'Đã nhận hàng', variant: 'info' },
-  closed: { label: 'Đã đóng', variant: 'secondary' },
-  rejected: { label: 'Đã từ chối', variant: 'destructive' },
-  refund_only: { label: 'Chỉ hoàn tiền', variant: 'success' },
+  requested: { label: 'Chờ xử lý', variant: 'warning', hint: 'Khách vừa gửi yêu cầu: chấp nhận, chỉ hoàn tiền hoặc từ chối.' },
+  awaiting_return: { label: 'Chờ hàng về', variant: 'info', hint: 'Đã chấp nhận, chờ hàng trả về kho để quét nhận.' },
+  received: { label: 'Đã nhận hàng', variant: 'info', hint: 'Kho đã nhận, đang kiểm và chia nơi để trên phiếu kiểm hàng về.' },
+  closed: { label: 'Đã đóng', variant: 'secondary', hint: 'Yêu cầu đã xong, kết quả ghi bên cạnh.' },
+  rejected: { label: 'Đã từ chối', variant: 'destructive', hint: 'Người bán từ chối; khách có thể khiếu nại lên sàn.' },
+  refund_only: { label: 'Chỉ hoàn tiền', variant: 'success', hint: 'Hoàn tiền cho khách, không cần gửi hàng về.' },
 };
 
 export const CLOSE_RESULT_LABELS: Record<ReturnCloseResult, string> = {

@@ -36,13 +36,20 @@ export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {
 };
 
 export const PACKAGE_FLAGS: Record<PackageFlag, StatusMeta> = {
-  needs_open: { label: 'Chờ mở kiện', variant: 'warning' },
-  needs_attention: { label: 'Cần xử lý', variant: 'destructive' },
-  lost_reported: { label: 'Báo thất lạc', variant: 'warning' },
-  label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive' },
-  cod_unconfirmed: { label: 'Chờ xác nhận COD', variant: 'warning' },
-  pickup_unconfirmed: { label: 'Chưa thấy sàn xác nhận lấy', variant: 'warning' },
+  needs_open: { label: 'Chờ mở kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa hoặc chia lại kiện.' },
+  needs_attention: { label: 'Cần xử lý', variant: 'destructive', hint: 'Kiện có vấn đề cần người xem, lý do ghi trong chi tiết kiện.' },
+  lost_reported: { label: 'Báo thất lạc', variant: 'warning', hint: 'Đã báo thất lạc, cần một người khác xác nhận.' },
+  label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive', hint: 'Sàn chưa trả vận đơn cho kiện; thử in lại hoặc kiểm tra gian hàng.' },
+  cod_unconfirmed: { label: 'Chờ xác nhận COD', variant: 'warning', hint: 'Đã giao nhưng chưa xác nhận đã thu tiền COD.' },
+  pickup_unconfirmed: { label: 'Chưa thấy sàn xác nhận lấy', variant: 'warning', hint: 'Đã bàn giao nhưng sàn chưa báo đơn vị vận chuyển lấy hàng.' },
 };
+
+/** Kiện chưa rời kho có hạn bàn giao đã qua hoặc còn dưới 24 giờ: chữ đỏ `.hot` của Test_UI */
+const HOT_STATUSES: PackageStatus[] = ['backordered', 'reserved', 'packed', 'awaiting_pickup'];
+export function isHotPackage(p: Pick<PackageSummary, 'status' | 'shipBy'>, now: number = Date.now()): boolean {
+  if (!p.shipBy || !HOT_STATUSES.includes(p.status)) return false;
+  return new Date(p.shipBy).getTime() - now < 24 * 3600 * 1000;
+}
 
 export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
   cancel: 'Đơn đã huỷ, trả hàng về kệ',

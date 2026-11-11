@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import type { StatusMeta } from './StatusBadge';
+import { TapTooltip } from './TapTooltip';
 
 /**
  * Cờ đi kèm trạng thái (Cần xử lý, Sắp trễ hạn, Có yêu cầu trả...). Cờ không thay trạng thái
@@ -17,10 +18,17 @@ export function FlagChips<F extends string>({
     <span className="flex flex-wrap gap-1" data-testid="flags">
       {flags.map((f) => {
         const m = meta[f] ?? { label: f, variant: 'warning' as const };
-        return (
-          <Badge key={f} variant={m.variant} data-flag={f}>
+        const badge = (
+          <Badge key={f} variant={m.variant} data-flag={f} tabIndex={m.hint ? 0 : undefined}>
             {m.label}
           </Badge>
+        );
+        return m.hint ? (
+          <TapTooltip key={f} content={m.hint}>
+            {badge}
+          </TapTooltip>
+        ) : (
+          badge
         );
       })}
     </span>
