@@ -62,8 +62,8 @@ describe('reconnectSummary', () => {
 
 describe('remoteSkuCount khi BE chưa trả (phần 18.7 còn lại)', () => {
   it('có số thì hiện số, kể cả 0', () => {
-    expect(remoteSkuSuffix(12)).toBe(' · 12 SKU trên sàn');
-    expect(remoteSkuSuffix(0)).toBe(' · 0 SKU trên sàn');
+    expect(remoteSkuSuffix(12)).toBe(' · 12 mặt hàng trên sàn');
+    expect(remoteSkuSuffix(0)).toBe(' · 0 mặt hàng trên sàn');
     expect(remoteSkuValue(0)).toBe('0');
   });
 

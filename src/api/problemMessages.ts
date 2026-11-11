@@ -41,6 +41,8 @@ const MESSAGES: Record<string, string> = {
   file_too_large: 'Tệp quá cỡ cho phép (ảnh sản phẩm tối đa 1 MB).',
   // FE#8, chờ commerio-backend#19
   shop_not_connected: 'Gian hàng chưa kết nối hoặc đã mất uỷ quyền. Kết nối lại rồi thử lại.',
+  // §18.6.4: đẩy listing khi gian hàng chưa active (đang thiết lập, đã ngắt, cần kết nối lại)
+  shop_not_active: 'Hoàn tất thiết lập gian hàng trước khi đẩy.',
   invalid_state: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
   // §18.4, commerio-backend#103
   oauth_state_invalid: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',

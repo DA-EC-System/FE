@@ -24,11 +24,11 @@ export function firstConnection(result: ShopCallbackResult): ShopConnectionResul
 }
 
 /**
- * Cụm " · N SKU trên sàn" ở màn nhiều gian hàng; BE chưa trả remoteSkuCount (trước phần 18.7 còn lại) thì bỏ cụm,
- * không hiện "undefined"
+ * Cụm " · N mặt hàng trên sàn" ở màn nhiều gian hàng; null (BE chưa đếm được) thì bỏ cụm, không hiện "undefined".
+ * Đơn vị đếm tuỳ sàn (Lazada đếm sản phẩm, TikTok đếm SKU; §18.7.4) nên dùng từ trung tính "mặt hàng"
  */
 export function remoteSkuSuffix(count: number | null | undefined): string {
-  return count != null ? ` · ${count} SKU trên sàn` : '';
+  return count != null ? ` · ${count} mặt hàng trên sàn` : '';
 }
 
 /** Ô "Listing tìm thấy" ở màn connected: chưa có số thì "—" */
