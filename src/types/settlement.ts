@@ -78,7 +78,8 @@ export interface OrderPayment {
   threshold: { abs: number; pct: number; resolveLimit: number };
   needsCeoApproval: boolean;
   ceoApproval: { by: import('./sales').UserRef | null; at: string } | null;
-  resolved: { by: import('./sales').UserRef | null; at: string | null; reason: string | null } | null;
+  /** `selfApproved`: người chốt là người soạn cấu hình phí, chốt nhờ ngoại lệ tự duyệt (BE#249) */
+  resolved: { by: import('./sales').UserRef | null; at: string | null; reason: string | null; selfApproved: boolean } | null;
   feeConfigAuthor: import('./sales').UserRef | null;
   version: number;
 }

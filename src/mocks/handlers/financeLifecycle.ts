@@ -83,12 +83,13 @@ export const financeLifecycleHandlers = [
     if (action === 'ceo-approve') {
       if (!row.needsCeoApproval) return fail('approval_not_needed'); row.ceoApproval = { by, at: now() };
     } else {
-      const actor = { accountId: by.id, permissions: g.value.permissions };
+      const actor = { accountId: by.id, permissions: g.value.permissions, canSelfApprove: g.value.canSelfApprove };
       const block = resolveBlock(row, actor); if (block) return fail(block);
+      const selfApproved = row.feeConfigAuthor?.id === by.id;
       const reason = reasonSchema.safeParse(body.reason); if (!reason.success) return fail('reason_required', 422);
       const step = settlementMachine.check(row.status, 'resolve', { actor, reason: reason.data }); if (!step.ok) return fail(step.code);
-      row.statusHistory.push({ from: row.status, to: step.to, by, at: now(), source: 'user', reason: reason.data });
-      row.status = step.to; row.resolved = { by, at: now(), reason: reason.data };
+      row.statusHistory.push({ from: row.status, to: step.to, by, at: now(), source: 'user', reason: reason.data, ...(selfApproved && { selfApproved: true }) });
+      row.status = step.to; row.resolved = { by, at: now(), reason: reason.data, selfApproved };
       if (row.ceoApproval?.by?.id === by.id) row.ceoApproval = null;
     }
     row.version++; return HttpResponse.json<OrderPayment>(publicRow(row));

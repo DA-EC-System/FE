@@ -21,8 +21,10 @@ export const payments: Owned<OrderPaymentDetail>[] = orders.map((order, i) => {
     status, estimatedTotal: 500000, settledTotal: ['none', 'pending'].includes(status) ? null : 460000,
     diff: ['none', 'pending'].includes(status) ? null : -40000,
     threshold: { abs: 1000, pct: 1, resolveLimit: i % 2 ? 10000 : 100000 }, needsCeoApproval: status === 'mismatch' && i % 2 === 1,
-    ceoApproval: null, resolved: status === 'resolved' ? { by: { id: 'acc-001', name: 'CEO demo' }, at: now(), reason: 'Đã xác minh phí sàn' } : null,
-    feeConfigAuthor: { id: 'fee-author-demo', name: 'Người soạn phí demo' }, version: 1, statusHistory: [], lines: [],
+    ceoApproval: null, resolved: status === 'resolved' ? { by: { id: 'acc-001', name: 'CEO demo' }, at: now(), reason: 'Đã xác minh phí sàn', selfApproved: false } : null,
+    // Đơn lệch trong hạn mức đầu mỗi vòng: CEO cmp-001 là người soạn phí, để thử CEO tự chốt (BE#249)
+    feeConfigAuthor: i % 6 === 0 && order.companyId === 'cmp-001' ? { id: 'acc-001', name: 'Lê Hoàng Minh' } : { id: 'fee-author-demo', name: 'Người soạn phí demo' },
+    version: 1, statusHistory: [], lines: [],
   };
 });
 export const bankLines: Owned<SettlementLedgerLine>[] = db.companies.map((c) => ({
