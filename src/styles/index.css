@@ -170,6 +170,11 @@
   overflow: hidden;
 }
 
+/* Dòng có số chênh khi nhận hàng: vạch vàng ở mép trái (Test_UI `tr.chg`, FE#137) */
+tr.chg td:first-child {
+  box-shadow: inset 3px 0 var(--warning);
+}
+
 /* Dòng bảng vừa đổi nháy xanh nhạt rồi tắt (Test_UI `tr.flash`, FE#136) */
 tr.flash td {
   animation: row-flash 1.2s var(--out, ease-out);

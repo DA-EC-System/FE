@@ -16,7 +16,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +35,7 @@ import {
 } from '@/api/purchasing.api';
 import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { codeMessage, problemMessage } from '@/api/problemMessages';
+import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,8 +63,9 @@ import {
   type RequestFormOutput,
   type RequestLineDraft,
 } from './shared';
-import { DocLink, Info, PageError, PageLoading, beforeUnloadGuard } from './parts';
+import { DetailGrid, DocLink, Info, PageError, PageLoading, beforeUnloadGuard, blockedText, withApprovalHint } from './parts';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { usePageGuide } from '@/guides/usePageGuide';
 
 type RequestTransition = Transition<PurchaseRequest['status'], PurchaseRequestAction, PurchaseRequestRecord>;
 
@@ -153,6 +154,7 @@ export function PurchaseRequestPage() {
   const reqQuery = usePurchaseRequest(isNew ? undefined : requestId);
   const req = reqQuery.data;
   useBreadcrumb(isNew ? 'Lập đề nghị' : req?.number);
+  const { startTour } = usePageGuide('purchase-request', { ready: isNew || Boolean(req) });
   const returnQuery = useSupplierReturn(fromReturnId ?? undefined);
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
   const categoriesQuery = useCategories();
@@ -243,7 +245,8 @@ export function PurchaseRequestPage() {
     receiptCount: req?.receipts.filter((r) => r.status !== 'cancelled').length ?? 0,
     countingReceipts: req?.countingReceipts ?? 0,
   };
-  const options = purchaseRequestMachine.options(req?.status ?? 'draft', actor, record);
+  const baseOptions = purchaseRequestMachine.options(req?.status ?? 'draft', actor, record);
+  const options = req ? withApprovalHint(purchaseRequestMachine, req.status, baseOptions) : baseOptions;
   const canExclude = req?.status === 'pending_approval' && canApprove && req.createdById !== actor.accountId;
   const canCreateReceipt = canReceive && (req?.status === 'ordered' || req?.status === 'partially_received');
 
@@ -380,6 +383,9 @@ export function PurchaseRequestPage() {
   }, 0);
   const colCount = 2 + (showCost ? 1 : 0) + (showProgress ? 3 : 0) + (editable || canExclude ? 1 : 0);
   const title = req ? `Đề nghị nhập ${req.number}` : fromReturnId ? 'Lập đề nghị bù hàng' : 'Lập đề nghị nhập';
+  const lifecycleBlocked = options.flatMap(({ transition: t, blocked }) =>
+    blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
+  );
 
   const textInput = (i: number, key: 'quantity' | 'unitCost' | 'newName', label: string, name: string) => {
     const err = errors.lines?.[i]?.[key];
@@ -401,9 +407,11 @@ export function PurchaseRequestPage() {
     <div>
       <PageHeader
         title={title}
-        subtitle="Một nhà cung cấp mỗi đề nghị. CEO duyệt rồi mới đặt hàng; đã đặt thì số còn chờ hiện ở cột đang về của tồn kho."
+        subtitle="Mỗi đề nghị một nhà cung cấp."
+        help="Mua hàng lập nháp rồi gửi duyệt. Người duyệt phải khác người soạn. Đã duyệt thì đặt NCC; số còn chờ hiện ở cột đang về của tồn kho. Hàng tới thì Kho lập phiếu nhận từ đề nghị."
+        onTour={startTour}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-guide="pr-actions">
             <Button variant="outline" onClick={backToList}>
               <ArrowLeft />
               Danh sách
@@ -427,7 +435,7 @@ export function PurchaseRequestPage() {
                   key={`${t.action}-${String(t.needsReason)}`}
                   variant={danger || t.action === 'withdraw' || t.action === 'request_changes' ? 'outline' : 'default'}
                   className={cn(danger && 'text-destructive hover:text-destructive')}
-                  blockedReason={blocked && codeMessage(blocked)}
+                  blockedReason={blockedText(t.action, blocked)}
                   disabled={busy}
                   onClick={() => (t.needsReason ? setReasonFor(t) : setConfirm(t.action))}
                 >
@@ -451,277 +459,277 @@ export function PurchaseRequestPage() {
       )}
 
       {req && (
-        <Card className="mb-4 py-4">
-          <CardContent className="mb-2 border-b pb-4">
+        <Card className="mb-4 py-4" data-guide="pr-steps">
+          <CardContent>
             <LifecycleSteps
               path={REQUEST_PATH}
               current={req.status}
               history={req.statusHistory}
               statuses={REQUEST_STATUS}
               isFinal={purchaseRequestMachine.isFinal}
-              blocked={options.flatMap(({ transition: t, blocked }) =>
-                blocked ? [{ label: t.label, reason: codeMessage(blocked) }] : [],
-              )}
+              blocked={lifecycleBlocked}
             />
           </CardContent>
-          <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Info label="Trạng thái">
-              <div className="flex flex-wrap items-center gap-1" data-testid="request-status">
-                <StatusBadge status={req.status} statuses={REQUEST_STATUS} />
-                {req.supplierShort && <Badge variant="destructive">NCC giao thiếu</Badge>}
-              </div>
-            </Info>
-            <Info label="Người lập">
-              {req.createdBy} · {formatDateTime(req.createdAt)}
-            </Info>
-            <Info label="Còn chờ">{formatQty(req.outstanding)}</Info>
-            {req.totalCost !== null && <Info label="Giá trị">{formatCurrency(req.totalCost)}</Info>}
-            {req.sourceReturn && (
-              <Info label="Bù hàng cho">
-                <DocLink companyId={companyId} docRef={req.sourceReturn} />
-              </Info>
-            )}
-            {req.receipts.length > 0 && (
-              <Info label="Phiếu nhận">
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {req.receipts.map((r) => (
-                    <span key={r.id} className="inline-flex items-center gap-1">
-                      <DocLink companyId={companyId} docRef={r} />
-                      <StatusBadge status={r.status} statuses={RECEIPT_STATUS} />
-                    </span>
-                  ))}
+        </Card>
+      )}
+
+      <DetailGrid
+        history={
+          req && req.statusHistory.length > 0 ? (
+            <StatusTimeline history={req.statusHistory} statuses={REQUEST_STATUS} />
+            ) : undefined
+          }
+        >
+        {req && (
+          <Card className="py-4" data-guide="pr-info">
+            <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Info label="Trạng thái">
+                <div className="flex flex-wrap items-center gap-1" data-testid="request-status">
+                  <StatusBadge status={req.status} statuses={REQUEST_STATUS} />
+                  {req.supplierShort && <Badge variant="destructive">NCC giao thiếu</Badge>}
                 </div>
               </Info>
+              <Info label="Người lập">
+                {req.createdBy} · {formatDateTime(req.createdAt)}
+              </Info>
+              <Info label="Còn chờ">{formatQty(req.outstanding)}</Info>
+              {req.totalCost !== null && <Info label="Giá trị">{formatCurrency(req.totalCost)}</Info>}
+              {req.sourceReturn && (
+                <Info label="Bù hàng cho">
+                  <DocLink companyId={companyId} docRef={req.sourceReturn} />
+                </Info>
+              )}
+              {req.receipts.length > 0 && (
+                <Info label="Phiếu nhận">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {req.receipts.map((r) => (
+                      <span key={r.id} className="inline-flex items-center gap-1">
+                        <DocLink companyId={companyId} docRef={r} />
+                        <StatusBadge status={r.status} statuses={RECEIPT_STATUS} />
+                      </span>
+                    ))}
+                  </div>
+                </Info>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="py-4">
+          <CardContent className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="req-supplier">Nhà cung cấp</Label>
+                {editable ? (
+                  <Select
+                    value={supplierId}
+                    disabled={suppliersQuery.isLoading}
+                    onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true, shouldValidate: true })}
+                  >
+                    <SelectTrigger id="req-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
+                      <SelectValue placeholder={suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supplierOptions.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                          {!s.active && ' (ngừng giao dịch)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm">{req?.supplier.name}</p>
+                )}
+                {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="req-note">Ghi chú</Label>
+                {editable ? (
+                  <Textarea id="req-note" rows={1} aria-invalid={Boolean(errors.note)} {...register('note')} />
+                ) : (
+                  <p className="text-sm whitespace-pre-line">{req?.note || '—'}</p>
+                )}
+                {errors.note && <p className="text-sm text-destructive">{errors.note.message}</p>}
+              </div>
+            </div>
+
+            {editable && (
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="min-w-64 flex-1">
+                  <VariantPicker
+                    taken={taken}
+                    disabled={busy}
+                    onPick={(level) =>
+                      append(
+                        emptyLine({
+                          variantId: level.variantId,
+                          sku: level.sku,
+                          productName: level.productName,
+                          attributesLabel: level.attributesLabel,
+                        }),
+                      )
+                    }
+                  />
+                </div>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true }))}>
+                  <Plus />
+                  Sản phẩm mới
+                </Button>
+              </div>
+            )}
+            {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
+
+            <div className="overflow-x-auto rounded-md border" data-guide="pr-lines">
+              <Table data-testid="request-lines">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Biến thể</TableHead>
+                    <TableHead className="w-32 text-right">Số lượng</TableHead>
+                    {showCost && <TableHead className="w-40 text-right">Giá nhập</TableHead>}
+                    {showProgress && (
+                      <>
+                        <TableHead className="w-24 text-right">Đã nhận</TableHead>
+                        <TableHead className="w-24 text-right">Lỗi giữ</TableHead>
+                        <TableHead className="w-24 text-right">Còn chờ</TableHead>
+                      </>
+                    )}
+                    {(editable || canExclude) && <TableHead className="w-12" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!fields.length && (
+                    <TableRow>
+                      <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
+                        {editable ? 'Tìm biến thể có sẵn hoặc thêm sản phẩm mới.' : 'Đề nghị không có dòng nào.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {fields.map((f, i) => {
+                    const line = req?.lines[i];
+                    const live = lines[i] ?? f;
+                    const lineErrors = errors.lines?.[i];
+                    const name = f.sku || live.newName || `dòng ${i + 1}`;
+                    return (
+                      <TableRow
+                        key={f.key}
+                        data-row-id={line?.id ?? f.variantId ?? `new-${i}`}
+                        className={cn('align-top', line?.excluded && 'opacity-60')}
+                      >
+                        <TableCell>
+                          {live.isNew && editable ? (
+                            <div className="grid gap-2 md:grid-cols-2">
+                              {textInput(i, 'newName', 'Tên sản phẩm mới', name)}
+                              <div className="grid gap-1">
+                                <Select
+                                  value={live.categoryId}
+                                  disabled={categoriesQuery.isLoading}
+                                  onValueChange={(v) =>
+                                    setValue(`lines.${i}.categoryId`, v, { shouldDirty: true, shouldValidate: true })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className="h-8 w-full"
+                                    aria-label={`Danh mục ${name}`}
+                                    aria-invalid={Boolean(lineErrors?.categoryId)}
+                                  >
+                                    <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Danh mục'} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(categoriesQuery.data ?? []).map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>
+                                        {c.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {lineErrors?.categoryId && (
+                                  <p className="text-xs text-destructive">{lineErrors.categoryId.message}</p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="font-medium">
+                                {f.sku || line?.newProduct?.name || live.newName}
+                                {(live.isNew || line?.newProduct) && (
+                                  <Badge variant="info" className="ms-2">
+                                    Sản phẩm mới
+                                  </Badge>
+                                )}
+                                {line?.excluded && (
+                                  <Badge variant="secondary" className="ms-2">
+                                    Đã loại
+                                  </Badge>
+                                )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {line?.newProduct && !line.variantId
+                                  ? `Danh mục ${line.newProduct.categoryName}`
+                                  : `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
+                              </p>
+                            </>
+                          )}
+                          {lineErrors?.variantId && <p className="text-xs text-destructive">{lineErrors.variantId.message}</p>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {editable ? textInput(i, 'quantity', 'Số lượng', name) : formatQty(line?.quantity ?? 0)}
+                        </TableCell>
+                        {showCost && (
+                          <TableCell className="text-right">
+                            {editable
+                              ? textInput(i, 'unitCost', 'Giá nhập', name)
+                              : line?.unitCost === null || line?.unitCost === undefined
+                                ? '—'
+                                : formatCurrency(line.unitCost)}
+                          </TableCell>
+                        )}
+                        {showProgress && (
+                          <>
+                            <TableCell className="text-right">{formatQty(line?.received ?? 0)}</TableCell>
+                            <TableCell className="text-right">{formatQty(line?.defective ?? 0)}</TableCell>
+                            <TableCell className={cn('text-right', (line?.outstanding ?? 0) > 0 && 'font-medium')}>
+                              {line?.closedShort ? (
+                                <span title={`Đóng thiếu ${line.closedShort}`}>0 (đóng thiếu {formatQty(line.closedShort)})</span>
+                              ) : (
+                                formatQty(line?.outstanding ?? 0)
+                              )}
+                            </TableCell>
+                          </>
+                        )}
+                        {(editable || canExclude) && (
+                          <TableCell>
+                            {editable && (
+                              <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                                <Trash2 />
+                              </RowAction>
+                            )}
+                            {canExclude && line && (
+                              <RowAction
+                                label={line.excluded ? 'Lấy lại dòng' : 'Loại dòng'}
+                                destructive={!line.excluded}
+                                reason={busy ? 'Đang lưu' : null}
+                                onClick={() => onExclude(line.id, !line.excluded)}
+                              >
+                                {line.excluded ? <Undo2 /> : <X />}
+                              </RowAction>
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            {editable && total > 0 && (
+              <p className="text-end text-sm text-muted-foreground">
+                Tạm tính <span className="font-medium text-foreground">{formatCurrency(total)}</span>
+              </p>
             )}
           </CardContent>
         </Card>
-      )}
-
-      <Card className="py-4">
-        <CardContent className="grid gap-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="req-supplier">Nhà cung cấp</Label>
-              {editable ? (
-                <Select
-                  value={supplierId}
-                  disabled={suppliersQuery.isLoading}
-                  onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true, shouldValidate: true })}
-                >
-                  <SelectTrigger id="req-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
-                    <SelectValue placeholder={suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supplierOptions.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                        {!s.active && ' (ngừng giao dịch)'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-sm">{req?.supplier.name}</p>
-              )}
-              {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="req-note">Ghi chú</Label>
-              {editable ? (
-                <Textarea id="req-note" rows={1} aria-invalid={Boolean(errors.note)} {...register('note')} />
-              ) : (
-                <p className="text-sm whitespace-pre-line">{req?.note || '—'}</p>
-              )}
-              {errors.note && <p className="text-sm text-destructive">{errors.note.message}</p>}
-            </div>
-          </div>
-
-          {editable && (
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="min-w-64 flex-1">
-                <VariantPicker
-                  taken={taken}
-                  disabled={busy}
-                  onPick={(level) =>
-                    append(
-                      emptyLine({
-                        variantId: level.variantId,
-                        sku: level.sku,
-                        productName: level.productName,
-                        attributesLabel: level.attributesLabel,
-                      }),
-                    )
-                  }
-                />
-              </div>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true }))}>
-                <Plus />
-                Sản phẩm mới
-              </Button>
-            </div>
-          )}
-          {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
-
-          <div className="overflow-x-auto rounded-md border">
-            <Table data-testid="request-lines">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Biến thể</TableHead>
-                  <TableHead className="w-32 text-right">Số lượng</TableHead>
-                  {showCost && <TableHead className="w-40 text-right">Giá nhập</TableHead>}
-                  {showProgress && (
-                    <>
-                      <TableHead className="w-24 text-right">Đã nhận</TableHead>
-                      <TableHead className="w-24 text-right">Lỗi giữ</TableHead>
-                      <TableHead className="w-24 text-right">Còn chờ</TableHead>
-                    </>
-                  )}
-                  {(editable || canExclude) && <TableHead className="w-12" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!fields.length && (
-                  <TableRow>
-                    <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                      {editable ? 'Tìm biến thể có sẵn hoặc thêm sản phẩm mới.' : 'Đề nghị không có dòng nào.'}
-                    </TableCell>
-                  </TableRow>
-                )}
-                {fields.map((f, i) => {
-                  const line = req?.lines[i];
-                  const live = lines[i] ?? f;
-                  const lineErrors = errors.lines?.[i];
-                  const name = f.sku || live.newName || `dòng ${i + 1}`;
-                  return (
-                    <TableRow
-                      key={f.key}
-                      data-row-id={line?.id ?? f.variantId ?? `new-${i}`}
-                      className={cn('align-top', line?.excluded && 'opacity-60')}
-                    >
-                      <TableCell>
-                        {live.isNew && editable ? (
-                          <div className="grid gap-2 md:grid-cols-2">
-                            {textInput(i, 'newName', 'Tên sản phẩm mới', name)}
-                            <div className="grid gap-1">
-                              <Select
-                                value={live.categoryId}
-                                disabled={categoriesQuery.isLoading}
-                                onValueChange={(v) =>
-                                  setValue(`lines.${i}.categoryId`, v, { shouldDirty: true, shouldValidate: true })
-                                }
-                              >
-                                <SelectTrigger
-                                  className="h-8 w-full"
-                                  aria-label={`Danh mục ${name}`}
-                                  aria-invalid={Boolean(lineErrors?.categoryId)}
-                                >
-                                  <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Danh mục'} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(categoriesQuery.data ?? []).map((c) => (
-                                    <SelectItem key={c.id} value={c.id}>
-                                      {c.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {lineErrors?.categoryId && (
-                                <p className="text-xs text-destructive">{lineErrors.categoryId.message}</p>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="font-medium">
-                              {f.sku || line?.newProduct?.name || live.newName}
-                              {(live.isNew || line?.newProduct) && (
-                                <Badge variant="info" className="ms-2">
-                                  Sản phẩm mới
-                                </Badge>
-                              )}
-                              {line?.excluded && (
-                                <Badge variant="secondary" className="ms-2">
-                                  Đã loại
-                                </Badge>
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {line?.newProduct && !line.variantId
-                                ? `Danh mục ${line.newProduct.categoryName}`
-                                : `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
-                            </p>
-                          </>
-                        )}
-                        {lineErrors?.variantId && <p className="text-xs text-destructive">{lineErrors.variantId.message}</p>}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {editable ? textInput(i, 'quantity', 'Số lượng', name) : formatQty(line?.quantity ?? 0)}
-                      </TableCell>
-                      {showCost && (
-                        <TableCell className="text-right">
-                          {editable
-                            ? textInput(i, 'unitCost', 'Giá nhập', name)
-                            : line?.unitCost === null || line?.unitCost === undefined
-                              ? '—'
-                              : formatCurrency(line.unitCost)}
-                        </TableCell>
-                      )}
-                      {showProgress && (
-                        <>
-                          <TableCell className="text-right">{formatQty(line?.received ?? 0)}</TableCell>
-                          <TableCell className="text-right">{formatQty(line?.defective ?? 0)}</TableCell>
-                          <TableCell className={cn('text-right', (line?.outstanding ?? 0) > 0 && 'font-medium')}>
-                            {line?.closedShort ? (
-                              <span title={`Đóng thiếu ${line.closedShort}`}>0 (đóng thiếu {formatQty(line.closedShort)})</span>
-                            ) : (
-                              formatQty(line?.outstanding ?? 0)
-                            )}
-                          </TableCell>
-                        </>
-                      )}
-                      {(editable || canExclude) && (
-                        <TableCell>
-                          {editable && (
-                            <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
-                              <Trash2 />
-                            </RowAction>
-                          )}
-                          {canExclude && line && (
-                            <RowAction
-                              label={line.excluded ? 'Lấy lại dòng' : 'Loại dòng'}
-                              destructive={!line.excluded}
-                              reason={busy ? 'Đang lưu' : null}
-                              onClick={() => onExclude(line.id, !line.excluded)}
-                            >
-                              {line.excluded ? <Undo2 /> : <X />}
-                            </RowAction>
-                          )}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-          {editable && total > 0 && (
-            <p className="text-end text-sm text-muted-foreground">
-              Tạm tính <span className="font-medium text-foreground">{formatCurrency(total)}</span>
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {req && req.statusHistory.length > 0 && (
-        <Card className="mt-4 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Lịch sử</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StatusTimeline history={req.statusHistory} statuses={REQUEST_STATUS} />
-          </CardContent>
-        </Card>
-      )}
+      </DetailGrid>
 
       <SecondPersonDialog
         open={confirm === 'approve'}

@@ -36,7 +36,18 @@ test.describe('P2 · Mua hàng', () => {
       await toast(page, 'Đã lập phiếu nhận');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
       await page.getByLabel(/^Báo giao /).first().fill('1');
+      await page.getByLabel(/^Đạt /).first().fill('0');
+      // Đạt ít hơn báo giao: dòng có vạch chênh và nhãn Chênh giải thích (FE#137)
+      const dong = page.getByTestId('receipt-lines').locator('tbody tr').first();
+      await expect(dong).toHaveClass(/\bchg\b/);
+      await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /thiếu 1/);
       await page.getByLabel(/^Đạt /).first().fill('1');
+      // Giao một phần vẫn là chênh với số còn chờ, nhưng hết thiếu
+      await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /: NCC báo giao 1, còn chờ \d+\.$/);
+      // Dòng chưa giao lần này không bị đánh dấu
+      const dong2 = page.getByTestId('receipt-lines').locator('tbody tr').nth(1);
+      await expect(dong2).not.toHaveClass(/\bchg\b/);
+      await expect(dong2.getByTestId('receipt-diff')).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Ghi sổ', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
       await thaoTac(page, 'Ghi sổ');
       await expect(page.getByTestId('receipt-status')).toContainText('Khớp');
@@ -120,7 +131,23 @@ test.describe('P2 · Mua hàng', () => {
       await moTab(page, 'Trả NCC', 'TN-000002');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-      await expect(page.getByRole('button', { name: 'Duyệt và gửi', exact: true })).toHaveCount(0);
+      // Thiếu quyền duyệt: nút vẫn hiện nhưng mờ, kèm lý do (FE#137)
+      const duyet = page.getByRole('button', { name: 'Duyệt và gửi', exact: true });
+      await expect(duyet).toHaveAttribute('aria-disabled', 'true');
+      await expect(duyet).toHaveAttribute('data-blocked-reason', 'Bạn không có quyền này.');
+    });
+
+    test('Mua hàng xem đề nghị chờ duyệt: nút Duyệt mờ kèm lý do (A1; FE#137)', async ({ page }) => {
+      await dangNhap(page, 'muahang@commerio.vn', 'muahang');
+      await moTab(page, 'Đề nghị nhập', 'DN-000003');
+      await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
+      const duyet = page.getByRole('button', { name: 'Duyệt', exact: true });
+      await expect(duyet).toHaveAttribute('aria-disabled', 'true');
+      await expect(duyet).toHaveAttribute('data-blocked-reason', 'Bạn không có quyền này.');
+      await duyet.hover();
+      await expect(page.getByRole('tooltip')).toContainText('Bạn không có quyền này');
+      // Thiếu quyền không phải chặn của quy trình nên không liệt kê dưới thanh bước
+      await expect(page.getByTestId('lifecycle-blocked')).toHaveCount(0);
     });
 
     // Đăng nhập lại tải trang làm mock về dữ liệu đầu, nên phần CEO duyệt chạy trong một phiên
