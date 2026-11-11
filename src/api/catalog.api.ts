@@ -12,6 +12,10 @@ import type {
   AttributeInput,
   BusinessStatusInput,
   BusinessStatusResult,
+  BulkEditParams,
+  BulkEditRow,
+  BulkSaveResult,
+  BulkSaveRow,
   Category,
   CategoryInput,
   ProductCreateInput,
@@ -32,6 +36,8 @@ export const catalogKeys = {
     [...catalogKeys.products(companyId), 'list', params] as const,
   product: (companyId: string, id: string) =>
     [...catalogKeys.products(companyId), 'detail', id] as const,
+  bulkEdit: (companyId: string, params: BulkEditParams) =>
+    [...catalogKeys.all(companyId), 'bulk-edit', params] as const,
 };
 
 function useCompanyId(): string {
@@ -247,4 +253,36 @@ export async function uploadFile(file: File, purpose: 'product_image' | 'attachm
   const res = await fetch(ticket.uploadUrl, { method: 'PUT', headers: ticket.headers, body: file });
   if (!res.ok) throw new Error(`Tải ${file.name} thất bại (${res.status})`);
   return ticket.fileId;
+}
+
+// ---------- Sửa hàng loạt SKU (FE#155, BE#242) ----------
+
+/** Dòng SKU kèm số hiện tại và gợi ý của BE. Gợi ý chỉ để hiện, không tự lưu */
+export function useBulkEditRows(params: BulkEditParams) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: catalogKeys.bulkEdit(companyId, params),
+    enabled: Boolean(companyId),
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', { params });
+      return data;
+    },
+  });
+}
+
+/** Lưu một lần; dòng lỗi trả về trong `failed`, dòng khác vẫn lưu */
+export function useBulkSaveVariants() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async (rows: BulkSaveRow[]) => {
+      const { data } = await apiClient.patch<BulkSaveResult>('/catalog/variants/bulk', { rows });
+      return data;
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: catalogKeys.all(companyId) });
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'inventory'] });
+    },
+  });
 }

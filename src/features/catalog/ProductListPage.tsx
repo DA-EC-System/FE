@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, ImageIcon, Pencil, Plus, Settings2 } from 'lucide-react';
+import { Eye, ImageIcon, Pencil, Plus, Settings2, TableProperties } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
@@ -29,10 +29,21 @@ import { formatDateTime } from '@/utils/format';
 import type { ProductListItem, ProductListParams, ProductStatus } from '@/types/catalog';
 import { PRODUCT_STATUS_LABELS } from './labels';
 import { usePageGuide } from '@/guides/usePageGuide';
+import { BulkEditPage } from './BulkEditPage';
 import { BUSINESS_STATUS_LABELS, BusinessActionMenu, ParentStatus, parentActions, useBusinessAction } from './businessStatus';
 
-/** UC-CP-02: danh sách sản phẩm của công ty, tìm theo tên hoặc SKU */
+/** /catalog?mode=bulk mở bảng sửa hàng loạt (FE#155), cần quyền quản lý sản phẩm */
 export function ProductListPage() {
+  const [params, setParams] = useSearchParams();
+  const can = useCan();
+  if (params.get('mode') === 'bulk' && can(PERMISSIONS.productManage)) {
+    return <BulkEditPage onExit={() => setParams({})} />;
+  }
+  return <ProductListView onBulk={() => setParams({ mode: 'bulk' })} />;
+}
+
+/** UC-CP-02: danh sách sản phẩm của công ty, tìm theo tên hoặc SKU */
+function ProductListView({ onBulk }: { onBulk: () => void }) {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
@@ -169,6 +180,12 @@ export function ProductListPage() {
               <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
                 <Settings2 />
                 Danh mục & thuộc tính
+              </Button>
+            )}
+            {canManage && (
+              <Button variant="outline" onClick={onBulk}>
+                <TableProperties />
+                Sửa hàng loạt
               </Button>
             )}
             {canManage && (
