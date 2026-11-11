@@ -5,6 +5,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, getProblem } from './client';
+import { authApi } from './auth.api';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
 import type {
@@ -67,11 +68,27 @@ export function useSetModule() {
       const others = modules.filter((m) => m !== code);
       setEnabledModules(current.enabled ? [...others, code] : others);
     },
-    onSettled: () => {
+    onSettled: async () => {
       qc.invalidateQueries({ queryKey: companySettingsKeys.modules(companyId) });
       qc.invalidateQueries({ queryKey: companySettingsKeys.audit(companyId) });
+      await reloadCompanyContext(companyId);
     },
   });
+}
+
+/**
+ * Quyền của phân hệ chưa bật không có hiệu lực (Documents/21 mục 8): BE lọc quyền theo phân hệ khi dựng ngữ cảnh.
+ * Bật, tắt xong thì chọn lại công ty để lấy quyền mới, nút theo quyền đổi ngay (FE#152). Lỗi thì giữ ngữ cảnh cũ.
+ */
+async function reloadCompanyContext(companyId: string | undefined) {
+  if (!companyId) return;
+  try {
+    const res = await authApi.selectCompany(companyId);
+    const store = useAuthStore.getState();
+    if (store.companyContext?.companyId === companyId) store.setCompany(res.accessToken, res.context);
+  } catch {
+    // Lần gọi API kế tiếp sẽ tự làm mới ngữ cảnh khi token hết hạn
+  }
 }
 
 // ---------- Nhật ký thao tác (UC-PI-07) ----------

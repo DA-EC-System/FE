@@ -11,8 +11,9 @@ import type { Account, MembershipStatus } from '@/types/auth';
 import type { PlatformAuditLog } from '@/types/audit';
 import type { PermissionDef } from '@/types/identity';
 import type { AuditAction } from '@/types/companySettings';
-import type { OptionalModuleKey } from '@/utils/modules';
+import type { ModuleKey, OptionalModuleKey } from '@/utils/modules';
 import { PERMISSIONS as P } from '@/utils/permissions';
+import { MATRIX_PERMISSIONS, MATRIX_ROLES } from './permissionMatrix.generated';
 
 const now = () => new Date().toISOString();
 
@@ -258,95 +259,15 @@ const shops: MockShop[] = [
 ];
 
 /**
- * Danh mục quyền (access.permissions). docs/19 mới có ví dụ; danh sách này là bản nháp để dựng
- * màn hình, chốt với BE ở commerio-backend#8.
+ * Danh mục cấp được cho vai trò tuỳ biến, như `GET /identity/permissions` của BE: mọi quyền của ma trận trừ
+ * `platform.*` (chỉ vai trò có sẵn mang). Sinh từ Documents/kiem-thu/ma-tran-quyen.md (FE#152).
  */
-export const permissionCatalog: PermissionDef[] = [
-  { code: P.staffView, module: 'identity', label: 'Xem tài khoản nhân viên' },
-  { code: P.staffManage, module: 'identity', label: 'Thêm nhân viên, gán vai trò, khoá tài khoản' },
-  { code: P.roleView, module: 'identity', label: 'Xem vai trò' },
-  { code: P.roleManage, module: 'identity', label: 'Tạo, sửa, xoá vai trò tuỳ biến' },
-  { code: P.productView, module: 'catalog', label: 'Xem sản phẩm' },
-  { code: P.productManage, module: 'catalog', label: 'Thêm, sửa sản phẩm và biến thể' },
-  { code: P.catalogSetup, module: 'catalog', label: 'Quản lý danh mục, thuộc tính, quy tắc SKU' },
-  { code: P.pricelistView, module: 'pricing', label: 'Xem bảng giá' },
-  { code: P.pricelistManage, module: 'pricing', label: 'Tạo bảng giá, sửa giá' },
-  { code: P.stockView, module: 'inventory', label: 'Xem tồn kho' },
-  { code: P.stockDocManage, module: 'inventory', label: 'Lập, ghi sổ phiếu nhập, xuất kho' },
-  { code: P.reorderManage, module: 'inventory', label: 'Đặt ngưỡng tồn' },
-  { code: P.costView, module: 'inventory', label: 'Xem giá vốn, giá trị tồn' },
-  { code: P.orderView, module: 'sales', label: 'Xem đơn hàng' },
-  { code: P.orderCreate, module: 'sales', label: 'Tạo đơn hàng, xác nhận đơn' },
-  { code: P.customerView, module: 'sales', label: 'Xem khách hàng' },
-  { code: P.orderCancel, module: 'sales', label: 'Huỷ đơn hàng' },
-  { code: P.returnView, module: 'sales', label: 'Xem yêu cầu trả hàng' },
-  { code: P.returnProcess, module: 'sales', label: 'Xử lý yêu cầu trả hàng' },
-  { code: P.fulfillmentProcess, module: 'fulfillment', label: 'Đóng gói, bàn giao, mở kiện' },
-  { code: P.deliveryUpdate, module: 'fulfillment', label: 'Tự giao, cập nhật trạng thái giao' },
-  { code: P.handoverRevert, module: 'fulfillment', label: 'Đảo bàn giao kiện' },
-  { code: 'finance.invoice.view', module: 'finance', label: 'Xem hoá đơn, sổ quỹ' },
-  { code: 'finance.voucher.create', module: 'finance', label: 'Lập phiếu thu, phiếu chi' },
-  { code: 'finance.reversal.create', module: 'finance', label: 'Lập chứng từ đảo' },
-  { code: P.financeConfigManage, module: 'finance', label: 'Soạn, chạy thử cấu hình phí, thuế, ngưỡng lệch' },
-  { code: P.financeConfigApprove, module: 'finance', label: 'Duyệt, từ chối cấu hình phí, thuế' },
-  { code: P.settlementResolve, module: 'finance', label: 'Chốt lệch quyết toán trong ngưỡng' },
-  { code: P.settlementApprove, module: 'finance', label: 'Duyệt chốt lệch quyết toán vượt ngưỡng' },
-  { code: 'payment.transaction.view', module: 'payment', label: 'Xem giao dịch thanh toán' },
-  { code: P.paymentLinkCreate, module: 'payment', label: 'Tạo mã thanh toán cho đơn' },
-  { code: P.gatewayManage, module: 'payment', label: 'Cấu hình khoá cổng thanh toán' },
-  { code: P.purchaseRequestManage, module: 'purchasing', label: 'Lập đề nghị nhập, đặt nhà cung cấp' },
-  { code: P.purchaseRequestApprove, module: 'purchasing', label: 'Duyệt đề nghị nhập' },
-  { code: P.goodsReceiptManage, module: 'purchasing', label: 'Kiểm đếm, ghi sổ phiếu nhận' },
-  { code: P.supplierReturnManage, module: 'purchasing', label: 'Lập, gửi phiếu trả nhà cung cấp' },
-  { code: P.stockDocApprove, module: 'inventory', label: 'Duyệt, ghi sổ phiếu kho của người khác' },
-  { code: P.shopView, module: 'channel', label: 'Xem gian hàng' },
-  { code: P.shopConnect, module: 'channel', label: 'Kết nối gian hàng' },
-  { code: P.shopUpdate, module: 'channel', label: 'Sửa gian hàng' },
-  { code: P.shopDisconnect, module: 'channel', label: 'Ngắt gian hàng' },
-  { code: P.shopSync, module: 'channel', label: 'Đồng bộ gian hàng' },
-  { code: P.listingManage, module: 'channel', label: 'Ghép SKU, đẩy sản phẩm và giá lên sàn' },
-  { code: 'inbox.conversation.reply', module: 'inbox', label: 'Trả lời tin nhắn' },
-  { code: 'assistant.chat.use', module: 'assistant', label: 'Dùng Trợ lý AI' },
-  { code: 'report.dashboard.view', module: 'report', label: 'Xem báo cáo' },
-  { code: 'report.dashboard.export', module: 'report', label: 'Xuất báo cáo ra tệp' },
-];
-
-/**
- * Admin không có quyền kho, mua hàng (UC-PI-05) trừ xem tồn và đặt ngưỡng (UC-IN-01, UC-IN-02); về tiền chỉ có
- * soạn cấu hình và chốt lệch trong ngưỡng, như BUILTIN_ROLES.admin ở BE. CEO có mọi quyền.
- */
-const ADMIN_PERMISSIONS = [
-  P.auditView,
-  P.jobManage,
-  P.staffView,
-  P.staffManage,
-  P.roleView,
-  P.roleManage,
-  P.productView,
-  P.productManage,
-  P.catalogSetup,
-  P.pricelistView,
-  P.pricelistManage,
-  P.stockView,
-  P.reorderManage,
-  P.orderView,
-  P.orderCreate,
-  P.orderCancel,
-  P.customerView,
-  P.paymentLinkCreate,
-  P.gatewayManage,
-  P.financeConfigManage,
-  P.settlementResolve,
-  P.shopView,
-  P.shopConnect,
-  P.shopUpdate,
-  P.shopDisconnect,
-  P.shopSync,
-  P.listingManage,
-  'inbox.conversation.reply',
-  'report.dashboard.view',
-  'report.dashboard.export',
-];
+export const BUILTIN_ONLY_PERMISSIONS: readonly string[] = MATRIX_PERMISSIONS.filter((p) => p.module === 'platform').map(
+  (p) => p.code,
+);
+export const permissionCatalog: PermissionDef[] = MATRIX_PERMISSIONS.filter(
+  (p) => !BUILTIN_ONLY_PERMISSIONS.includes(p.code),
+).map((p) => ({ ...p, module: p.module as ModuleKey }));
 
 export interface MockRole {
   id: string;
@@ -361,44 +282,22 @@ export interface MockRole {
 export const CEO_ROLE_ID = 'role-ceo';
 
 const roles: MockRole[] = [
-  {
-    id: CEO_ROLE_ID,
+  // Bốn vai trò có sẵn theo ma trận quyền (BUILTIN_ROLES ở BE), không sửa tay quyền ở đây
+  ...(
+    [
+      [CEO_ROLE_ID, 'CEO', MATRIX_ROLES.ceo],
+      ['role-admin', 'Admin', MATRIX_ROLES.admin],
+      ['role-sale', 'Sale', MATRIX_ROLES.sale],
+      ['role-kho', 'Kho', MATRIX_ROLES.kho],
+    ] as const
+  ).map<MockRole>(([id, name, permissions]) => ({
+    id,
     companyId: null,
-    name: 'CEO',
-    // Các quyền platform.* không nằm trong danh mục nên không cấp được cho vai trò tuỳ biến
-    permissions: [...permissionCatalog.map((p) => p.code), P.moduleManage, P.auditView, P.jobManage],
+    name,
+    permissions: [...permissions],
     version: 1,
     updatedAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'role-admin',
-    companyId: null,
-    name: 'Admin',
-    permissions: ADMIN_PERMISSIONS,
-    version: 1,
-    updatedAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'role-sale',
-    companyId: null,
-    name: 'Sale',
-    permissions: [
-      P.shopView,
-      P.productView,
-      P.pricelistView,
-      P.orderView,
-      P.orderCreate,
-      P.orderCancel,
-      P.customerView,
-      P.returnView,
-      P.returnProcess,
-      P.paymentLinkCreate,
-      P.deliveryUpdate,
-      'inbox.conversation.reply',
-    ],
-    version: 1,
-    updatedAt: '2026-01-01T00:00:00.000Z',
-  },
+  })),
   // Vai trò tuỳ biến (UC-PI-06): mỗi công ty có bản riêng
   ...['cmp-001', 'cmp-002', 'cmp-004'].map<MockRole>((companyId) => ({
     id: `role-kho-${companyId}`,

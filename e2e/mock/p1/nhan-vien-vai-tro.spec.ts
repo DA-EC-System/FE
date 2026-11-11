@@ -165,7 +165,7 @@ test.describe('P1 · Vai trò', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Vai trò');
     await expect(page.locator('thead')).toContainText('Số tài khoản');
-    await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Có sẵn') })).toHaveCount(3);
+    await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Có sẵn') })).toHaveCount(4);
     await dongCo(page, 'Sale').getByRole('button', { name: 'Xem tập quyền', exact: true }).click();
     const dialog = page.getByRole('dialog');
     const checkboxes = dialog.getByRole('checkbox');
@@ -180,7 +180,7 @@ test.describe('P1 · Vai trò', () => {
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
     await expect(dialog.locator('[data-slot="form-message"]').nth(1)).toBeAttached();
     await dialog.locator('input[name=name]').fill('Sale');
-    await chua(dialog, 'Xem sản phẩm', 'label').click();
+    await chua(dialog, 'Xem, tra cứu sản phẩm', 'label').click();
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
     await expect(loi(page, 'name')).not.toBeEmpty();
     await page.locator('input[name=name]').fill('Chăm sóc khách 2');

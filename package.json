@@ -13,7 +13,8 @@
     "e2e": "playwright test --project=mock",
     "e2e:ui": "playwright test --project=mock --ui",
     "e2e:be": "playwright test --project=be",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "quyen:sinh": "node scripts/sinh-quyen-mock.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
