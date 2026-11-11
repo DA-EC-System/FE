@@ -418,7 +418,7 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
-                  { path: 'pricing/pending-prices', element: <RequireModule module="channel" permission={PERMISSIONS.listingManage}><PendingPricesPage /></RequireModule> },
+                  { path: 'channel/pending-prices', element: <RequireModule module="channel" permission={PERMISSIONS.listingManage}><PendingPricesPage /></RequireModule> },
                   { path: 'finance/configs', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigsPage /></RequireModule> },
                   { path: 'finance/configs/:id', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigDetailPage /></RequireModule> },
                   {

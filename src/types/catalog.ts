@@ -80,6 +80,19 @@ export interface VariantAttribute {
   value: string;
 }
 
+/** Phần còn thiếu theo Documents/21 §17.1; name, category, image tính ở cha, còn lại theo SKU */
+export type VariantMissing = 'name' | 'category' | 'image' | 'price' | 'minQty' | 'weight' | 'dimensions';
+
+export const MISSING_LABELS: Record<VariantMissing, string> = {
+  name: 'tên',
+  category: 'danh mục',
+  image: 'ảnh',
+  price: 'giá chuẩn',
+  minQty: 'ngưỡng tồn',
+  weight: 'khối lượng',
+  dimensions: 'kích thước gói',
+};
+
 export interface ProductVariant {
   id: string;
   sku: string;
@@ -88,8 +101,18 @@ export interface ProductVariant {
   archivedAt: string | null;
   businessStatus: VariantBusinessStatus;
   readiness: VariantReadiness;
-  /** Phần còn thiếu khi Chờ hoàn thiện, vd ["Ảnh", "Giá chuẩn"] */
-  missing: string[];
+  /** Phần còn thiếu khi Chờ hoàn thiện (§17.1) */
+  missing: VariantMissing[];
+  /** Giá chuẩn là cột của SKU (D9); null là chưa đặt */
+  standardPrice: number | null;
+  /** Ngưỡng tồn đặt ở §15 (quyền inventory.reorder.manage), ở đây chỉ để xem */
+  minQty: number | null;
+  weightG: number | null;
+  lengthMm: number | null;
+  widthMm: number | null;
+  heightMm: number | null;
+  /** Version của SKU, gửi kèm PATCH §17.2 */
+  version: number;
   presence: VariantPresence;
   /** Số listing trên sàn, kể cả listing đang ẩn do tạm ngừng */
   listingCount: number;
@@ -220,4 +243,14 @@ export interface BulkSaveResult {
   saved: { variantId: string; version: number }[];
   /** Dòng lỗi không làm hỏng dòng khác; `errors` theo tên ô */
   failed: { variantId: string; code: string; message: string; errors?: Partial<Record<BulkField, string>> }[];
+}
+
+/** PATCH /catalog/products/:id/variants/:variantId (§17.2). Bỏ trường là giữ nguyên, null là xoá */
+export interface VariantUpdateInput {
+  version: number;
+  standardPrice?: number | null;
+  weightG?: number | null;
+  lengthMm?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
 }

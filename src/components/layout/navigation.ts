@@ -227,7 +227,7 @@ export function companyNav(companyId: string): NavSection[] {
           anyPermission: FINANCE_VIEW_ANY,
         },
         {
-          to: `/c/${companyId}/pricing/pending-prices`, label: 'Giá chờ xác nhận', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
+          to: `/c/${companyId}/channel/pending-prices`, label: 'Giá chờ xác nhận', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
         },
         {
           to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_VIEW_ANY,

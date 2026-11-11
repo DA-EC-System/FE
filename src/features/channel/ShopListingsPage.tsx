@@ -29,7 +29,7 @@ import { catalogKeys } from '@/api/catalog.api';
 import { codeMessage, problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
-import { priceText } from '@/features/pricing/shared';
+import { priceText } from '@/utils/price';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
