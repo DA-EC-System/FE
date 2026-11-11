@@ -11,7 +11,7 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await dialog.getByLabel('Lý do', { exact: true }).fill('Đã xác minh khoản phí với sàn');
     await dialog.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     await expect(page.locator('[data-status=resolved]').first()).toBeVisible();
-    await page.getByRole('link', { name: '← Đối soát sàn', exact: true }).click();
+    await page.getByRole('button', { name: 'Về danh sách', exact: true }).click();
     await rows.filter({ hasText: 'Cần CEO duyệt' }).first().click();
     // Chờ trang chi tiết dựng xong rồi mới kiểm thiếu nút (FE#107: kiểm vắng mặt trên trang chưa tải luôn qua)
     await expect(page.getByText('Lệch vượt hạn mức, cần CEO duyệt trước khi chốt.', { exact: true })).toBeVisible();
@@ -20,7 +20,7 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
   test('CEO soạn cấu hình phí tự chốt lệch được, hiện nhãn Tự duyệt (BE#249)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
     await page.locator('tbody tr').filter({ hasText: 'Trong hạn mức' }).filter({ hasText: 'Lệch tiền' }).first().click();
-    await expect(page.getByText('Người soạn phí: Lê Hoàng Minh', { exact: true })).toBeVisible();
+    await expect(page.getByText('Người soạn phí', { exact: true }).locator('..')).toContainText('Lê Hoàng Minh');
     await page.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await dialog.getByLabel('Lý do', { exact: true }).fill('CEO tự đối chiếu Seller Center');
@@ -33,7 +33,10 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await page.locator('tbody tr').filter({ hasText: 'Cần CEO duyệt' }).first().click();
     await page.getByRole('button', { name: 'CEO duyệt lệch', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'CEO duyệt lệch', exact: true }).click();
-    await expect(page.getByText(/Đã duyệt:/)).toBeVisible(); await expect(page.locator('[data-status=mismatch]').first()).toBeVisible();
+    await expect(page.getByText('CEO duyệt', { exact: true }).locator('..')).not.toContainText('Chưa duyệt');
+    await expect(page.locator('[data-status=mismatch]').first()).toBeVisible();
+    // CEO duyệt xong vẫn ở trạng thái lệch, nút Chốt lệch hiện để chốt tiếp
+    await expect(page.getByRole('button', { name: 'Chốt lệch', exact: true })).toBeVisible();
   });
   test('kéo quyết toán 202 rồi tự cập nhật, khớp sao kê cần mã', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
@@ -62,6 +65,20 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await expect(row).toHaveCount(1);
     await row.click();
     await expect(page.locator('[data-flag=tax_mismatch]')).toHaveText('Lệch thuế');
+  });
+  test('khung Dòng lệch: chốt ngay trên dòng, dòng chuyển Đã chốt rồi ẩn (FE#140)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
+    const panel = page.getByTestId('mismatch-panel');
+    const dongChot = panel.locator('[data-row-id]').filter({ has: page.getByRole('button', { name: 'Chốt lệch', exact: true }) }).first();
+    const ma = (await dongChot.getAttribute('data-row-id')) ?? '';
+    const dong = panel.locator(`[data-row-id="${ma}"]`);
+    await dong.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await dialog.getByLabel('Lý do', { exact: true }).fill('Đã đối chiếu Seller Center');
+    await dialog.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
+    await expect(dong).toContainText('Đã chốt');
+    await expect(dong).toHaveCount(0);
+    await expect(page.locator('tbody tr', { hasText: ma }).first()).toContainText('Đã chốt lệch');
   });
   test('Sale không mở được trang tài chính', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale'); await page.goto('/c/cmp-001/finance/settlements');
