@@ -171,3 +171,53 @@ export interface UploadTicket {
   /** Header bắt buộc khi PUT lên uploadUrl, vd Content-Type */
   headers: Record<string, string>;
 }
+
+// ---------- Sửa hàng loạt SKU (FE#155, BE#242; hợp đồng đề xuất cho Documents/21 §17) ----------
+
+/** Các ô sửa được trong bảng sửa hàng loạt */
+export type BulkField = 'standardPrice' | 'minQty' | 'weightG' | 'lengthMm' | 'widthMm' | 'heightMm';
+
+/** BE tính gợi ý, không tự ghi. `basis` nói vì sao ra số này để người dùng kiểm */
+export interface BulkSuggestion {
+  value: number;
+  basis: string;
+}
+
+export interface BulkEditRow {
+  variantId: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  /** "Trắng / L"; rỗng khi sản phẩm một SKU */
+  attributesLabel: string;
+  categoryName: string;
+  version: number;
+  /** Version của ngưỡng tồn (§15), null khi SKU chưa đặt ngưỡng */
+  reorderVersion: number | null;
+  current: Record<BulkField, number | null>;
+  /** Đề nghị nhập gần nhất có SKU này; `lastCost` null khi không có quyền xem giá vốn */
+  source: { purchaseRequestNumber: string; supplierName: string; lastCost: number | null } | null;
+  suggestions: Partial<Record<BulkField, BulkSuggestion>>;
+}
+
+export interface BulkEditParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  categoryId?: string;
+  /** Chỉ SKU còn trống ít nhất một ô */
+  incomplete?: boolean;
+}
+
+/** Một dòng gửi lưu: chỉ các ô người dùng đã sửa hoặc đã nhận gợi ý; null là xoá giá trị */
+export type BulkSaveRow = {
+  variantId: string;
+  version: number;
+  reorderVersion?: number | null;
+} & Partial<Record<BulkField, number | null>>;
+
+export interface BulkSaveResult {
+  saved: { variantId: string; version: number }[];
+  /** Dòng lỗi không làm hỏng dòng khác; `errors` theo tên ô */
+  failed: { variantId: string; code: string; message: string; errors?: Partial<Record<BulkField, string>> }[];
+}
