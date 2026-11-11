@@ -22,13 +22,15 @@ import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
+import { usePageGuide } from '@/guides/usePageGuide';
+import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { PackageSummary, PackageTab } from '@/types/fulfillment';
 import type { OrderSource } from '@/types/sales';
 import { SOURCE_LABELS, sourceLabel } from '@/features/sales/shared';
-import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, handoverFailureLabel } from './shared';
+import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, handoverFailureLabel, isHotPackage } from './shared';
 
 const PAGE_SIZES = [25, 50, 100];
 const MAX_HANDOVER = 50;
@@ -56,6 +58,7 @@ export function PackageQueuePage() {
   // Kho không có quyền xem gian hàng nên chỉ lọc theo nguồn
   const shops = useShops({ enabled: canViewShops });
   const handOver = useHandOver();
+  const { startTour } = usePageGuide('packages');
 
   const [selected, setSelected] = useState<Map<string, PackageSummary>>(new Map());
   const [failed, setFailed] = useState<Map<string, string>>(new Map());
@@ -122,7 +125,7 @@ export function PackageQueuePage() {
         meta: { className: 'w-32' },
         cell: ({ row }) => (
           <div className="grid gap-1">
-            <span className="font-medium">{row.original.code}</span>
+            <span className="font-mono font-medium">{row.original.code}</span>
             {failed.has(row.original.id) && <Badge variant="destructive">{failed.get(row.original.id)}</Badge>}
           </div>
         ),
@@ -147,7 +150,14 @@ export function PackageQueuePage() {
         id: 'shipBy',
         header: 'Hạn bàn giao',
         meta: { className: 'w-40' },
-        cell: ({ row }) => (row.original.shipBy ? formatDateTime(row.original.shipBy) : '—'),
+        cell: ({ row }) =>
+          row.original.shipBy ? (
+            <span className={cn(isHotPackage(row.original) && 'font-medium text-destructive')} data-hot={isHotPackage(row.original) || undefined}>
+              {formatDateTime(row.original.shipBy)}
+            </span>
+          ) : (
+            '—'
+          ),
       },
     ];
     if (selectable) {
@@ -170,12 +180,12 @@ export function PackageQueuePage() {
   }, [selectable, selected, failed, allOnPage, items]);
 
   const action = picking ? (
-    <Button variant="outline" onClick={() => setShowPick((v) => !v)}>
+    <Button variant="outline" data-guide="package-actions" onClick={() => setShowPick((v) => !v)}>
       <ClipboardList />
       Danh sách nhặt{selected.size > 0 ? ` (${selected.size} kiện)` : ''}
     </Button>
   ) : printing ? (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2" data-guide="package-actions">
       <Button variant="outline" disabled={selected.size === 0 || tooMany || printDocs.isPending} onClick={printSelected}>
         <Printer />
         In vận đơn{selected.size > 0 ? ` (${selected.size})` : ''}
@@ -191,7 +201,13 @@ export function PackageQueuePage() {
 
   return (
     <div>
-      <PageHeader title="Kiện hàng" subtitle="Nhặt, đóng gói, bàn giao và theo dõi giao theo từng kiện." action={action} />
+      <PageHeader
+        title="Kiện hàng"
+        subtitle="Nhặt, đóng gói, bàn giao và theo dõi giao theo từng kiện."
+        help="Chọn kiện ở Cần đóng gói để in danh sách nhặt, bấm một kiện để vào đóng gói. Hạn bàn giao chữ đỏ là kiện đã quá hạn hoặc còn dưới 24 giờ."
+        onTour={startTour}
+        action={action}
+      />
       <Tabs
         value={tab}
         onValueChange={(v) => {
@@ -202,7 +218,7 @@ export function PackageQueuePage() {
         }}
       >
         <div className="mb-2 overflow-x-auto">
-          <TabsList>
+          <TabsList data-guide="package-tabs">
             {PACKAGE_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>
                 {t.label}
@@ -283,7 +299,7 @@ export function PackageQueuePage() {
           </CardContent>
         </Card>
       )}
-      <Card className="gap-0 py-0">
+      <Card className="gap-0 py-0" data-guide="package-list">
         <FilterBar>
           <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã kiện, mã đơn, tên khách" />
           <FilterSelect

@@ -10,6 +10,7 @@ import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { AttachmentField } from '@/components/common/AttachmentField';
+import { HelpTip } from '@/components/common/HelpTip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +27,7 @@ import {
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
-import { DocLink, Info, PageError, PageLoading } from '@/features/purchasing/parts';
+import { DetailGrid, DocLink, Info, PageError, PageLoading } from '@/features/purchasing/parts';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
 import { returnMachine } from '@/lib/machines/returns';
@@ -157,11 +158,15 @@ export function ReturnDetailPage() {
         {r.closeResult && <Badge variant="outline">{CLOSE_RESULT_LABELS[r.closeResult]}</Badge>}
         {r.rawMarketplaceStatus && <Badge variant="outline">Sàn: {r.rawMarketplaceStatus}</Badge>}
         {r.platform?.disputeInProgress && <Badge variant="outline">Khách đang khiếu nại trên sàn</Badge>}
+        <HelpTip
+          topic="Trạng thái yêu cầu"
+          content={
+            r.source === 'marketplace'
+              ? 'Yêu cầu từ sàn, trạng thái đồng bộ theo sàn. Khách có thể khiếu nại, sàn xử cho khách thì yêu cầu mở lại.'
+              : 'Yêu cầu lập tay: Chờ xử lý → Chờ hàng về → Đã nhận hàng → Đã đóng.'
+          }
+        />
       </div>
-
-      {r.status === 'rejected' && r.source === 'marketplace' && (
-        <AlertMessage severity="info">Khách có thể khiếu nại lên sàn. Sàn xử cho khách thì yêu cầu mở lại.</AlertMessage>
-      )}
 
       {actions.length > 0 && (
         <Card className="py-4">
@@ -180,6 +185,26 @@ export function ReturnDetailPage() {
         </Card>
       )}
 
+      <DetailGrid
+        history={
+          r.source === 'marketplace' ? (
+            <Tabs defaultValue="app">
+              <TabsList>
+                <TabsTrigger value="app">Trong app</TabsTrigger>
+                <TabsTrigger value="platform">Lịch sử phía sàn</TabsTrigger>
+              </TabsList>
+              <TabsContent value="app" className="pt-2">
+                <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
+              </TabsContent>
+              <TabsContent value="platform" className="overflow-x-auto pt-2">
+                <PlatformHistory returnId={r.id} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
+          )
+        }
+      >
       <Card className="py-4">
         <CardHeader>
           <CardTitle className="text-base">Thông tin</CardTitle>
@@ -193,7 +218,14 @@ export function ReturnDetailPage() {
           <Info label="Nguồn">{r.source === 'marketplace' ? `Sàn · ${r.shopName ?? ''}` : 'Lập tay'}</Info>
           <Info label="Khách">{r.customerName ?? '—'}</Info>
           <Info label="Lý do">{r.reason}</Info>
-          {r.rejectReason && <Info label="Lý do từ chối (theo sàn)">{r.rejectReason.label}</Info>}
+          {r.rejectReason && (
+            <Info label="Lý do từ chối (theo sàn)">
+              <span className="inline-flex items-center gap-1">
+                {r.rejectReason.label}
+                <HelpTip topic="Lý do từ chối" content="Lý do chọn từ danh sách của sàn khi từ chối; sàn dựa vào đó và ảnh bằng chứng để xét khiếu nại của khách." />
+              </span>
+            </Info>
+          )}
           {r.platform && (
             <Info label="Trạng thái trên sàn">
               <span className="font-mono text-xs" data-testid="platform-status">
@@ -243,7 +275,7 @@ export function ReturnDetailPage() {
             <TableBody>
               {r.lines.map((l) => (
                 <TableRow key={`${l.packageId}-${l.variantId}`} data-row-id={l.sku}>
-                  <TableCell className="font-medium">{l.sku}</TableCell>
+                  <TableCell className="font-mono font-medium">{l.sku}</TableCell>
                   <TableCell className="whitespace-normal">
                     {l.productName}
                     {l.attributesLabel && <span className="text-muted-foreground"> · {l.attributesLabel}</span>}
@@ -286,29 +318,7 @@ export function ReturnDetailPage() {
         </CardContent>
       </Card>
 
-      <Card className="py-4">
-        <CardHeader>
-          <CardTitle className="text-base">Lịch sử</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {r.source === 'marketplace' ? (
-            <Tabs defaultValue="app">
-              <TabsList>
-                <TabsTrigger value="app">Trong app</TabsTrigger>
-                <TabsTrigger value="platform">Lịch sử phía sàn</TabsTrigger>
-              </TabsList>
-              <TabsContent value="app" className="pt-2">
-                <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
-              </TabsContent>
-              <TabsContent value="platform" className="pt-2">
-                <PlatformHistory returnId={r.id} />
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
-          )}
-        </CardContent>
-      </Card>
+      </DetailGrid>
 
       <ConfirmDialog
         open={Boolean(pending && !pending.needsReason)}

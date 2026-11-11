@@ -259,10 +259,14 @@ test.describe('P4 · Xử lý đơn', () => {
       await nutKien(page, 'Đóng gói').click();
       await thayChu(page, 'Đóng gói kiện KH-000010', 'h1');
       await expect(page.getByRole('button', { name: 'Đóng gói', exact: true })).toBeDisabled();
+      // Tiến độ quét (FE#139)
+      await expect(page.locator('[data-testid=pack-progress]')).toContainText(/Đã quét 0\/\d+ món/);
       await page.locator('#scan-sku').fill('KHONG-CO');
       await page.locator('#scan-sku').press('Enter');
       await thayChu(page, 'KHONG-CO không có trong kiện');
       await quetDu(page);
+      await expect(page.locator('[data-testid=pack-progress]')).toContainText('100%');
+      await expect(page.getByRole('progressbar', { name: 'Tiến độ quét' })).toBeAttached();
       await page.getByRole('button', { name: 'Đóng gói', exact: true }).click();
       await toast(page, 'Đã đóng gói kiện KH-000010');
       await expect(trangThaiKien(page)).toContainText('Đã đóng gói');
@@ -353,7 +357,12 @@ test.describe('P4 · Xử lý đơn', () => {
       await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
       await toast(page, /Đã báo thất lạc KH-\d+, chờ người khác xác nhận/);
       await thayChu(page, 'mã khiếu nại KN-001. Cần người khác xác nhận.');
+      await expect(page.locator('[data-testid=package-warnings]')).toContainText('KN-001');
       await expect(trangThaiKien(page)).toContainText('Báo thất lạc');
+      // Cờ có tooltip, lịch sử ở cột phải (FE#139)
+      await page.locator('[data-flag=lost_reported]').hover();
+      await expect(page.getByRole('tooltip')).toContainText('cần một người khác xác nhận');
+      await expect(page.locator('[data-guide=detail-history] [data-testid=status-history]')).toBeAttached();
       // Người báo không tự xác nhận được: không còn nút nào
       await expect(page.getByRole('button', { name: 'Báo thất lạc', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Xác nhận thất lạc', exact: true })).toHaveCount(0);

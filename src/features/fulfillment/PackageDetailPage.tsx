@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FlagChips } from '@/components/common/FlagChips';
+import { HelpTip } from '@/components/common/HelpTip';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
@@ -26,7 +27,7 @@ import {
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
-import { PageError, PageLoading } from '@/features/purchasing/parts';
+import { DetailGrid, PageError, PageLoading } from '@/features/purchasing/parts';
 import { sourceLabel } from '@/features/sales/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -188,6 +189,14 @@ export function PackageDetailPage() {
   const splittable =
     can(PERMISSIONS.fulfillmentProcess) && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
   const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable || splittable;
+  // Gộp cảnh báo theo dữ liệu kiện vào một khung
+  const warnings = [
+    p.flagNote,
+    p.flags.includes('needs_open') && p.openPurpose ? `Chờ mở kiện: ${OPEN_PURPOSE_LABELS[p.openPurpose]}` : null,
+    p.lostReport && p.status !== 'lost'
+      ? `${p.lostReport.by.name} báo thất lạc lúc ${formatDateTime(p.lostReport.at)}, mã khiếu nại ${p.lostReport.claimCode}. Cần người khác xác nhận.`
+      : null,
+  ].filter((w): w is string => Boolean(w));
 
   return (
     <div className="grid gap-4">
@@ -206,15 +215,19 @@ export function PackageDetailPage() {
         <StatusBadge status={p.status} statuses={PACKAGE_STATUS} />
         <FlagChips flags={p.flags} meta={PACKAGE_FLAGS} />
         {p.selfDelivery && <Badge variant="outline">Tự giao</Badge>}
+        <HelpTip
+          topic="Trạng thái kiện"
+          content="Kiện đi theo bước Đã giữ hàng → Đã đóng gói → Chờ lấy hàng → Đang giao → Đã giao. Nút thao tác đổi theo bước hiện tại; rê chuột vào cờ để xem nghĩa."
+        />
       </div>
 
-      {p.flagNote && <AlertMessage severity="warning">{p.flagNote}</AlertMessage>}
-      {p.flags.includes('needs_open') && p.openPurpose && (
-        <AlertMessage severity="warning">Chờ mở kiện: {OPEN_PURPOSE_LABELS[p.openPurpose]}</AlertMessage>
-      )}
-      {p.lostReport && p.status !== 'lost' && (
+      {warnings.length > 0 && (
         <AlertMessage severity="warning">
-          {p.lostReport.by.name} báo thất lạc lúc {formatDateTime(p.lostReport.at)}, mã khiếu nại {p.lostReport.claimCode}. Cần người khác xác nhận.
+          <div className="grid gap-1" data-testid="package-warnings">
+            {warnings.map((w) => (
+              <p key={w}>{w}</p>
+            ))}
+          </div>
         </AlertMessage>
       )}
 
@@ -258,6 +271,7 @@ export function PackageDetailPage() {
         </Card>
       )}
 
+      <DetailGrid history={<StatusTimeline history={p.statusHistory} statuses={PACKAGE_STATUS} />}>
       <Card className="py-4">
         <CardHeader>
           <CardTitle className="text-base">Thông tin</CardTitle>
@@ -342,7 +356,7 @@ export function PackageDetailPage() {
             <TableBody>
               {p.lines.map((l) => (
                 <TableRow key={l.variantId} data-row-id={l.sku}>
-                  <TableCell className="font-medium">{l.sku}</TableCell>
+                  <TableCell className="font-mono font-medium">{l.sku}</TableCell>
                   <TableCell className="whitespace-normal">{l.productName}</TableCell>
                   <TableCell>{l.attributesLabel || '—'}</TableCell>
                   <TableCell className="text-right">{l.quantity}</TableCell>
@@ -352,15 +366,7 @@ export function PackageDetailPage() {
           </Table>
         </CardContent>
       </Card>
-
-      <Card className="py-4">
-        <CardHeader>
-          <CardTitle className="text-base">Lịch sử</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <StatusTimeline history={p.statusHistory} statuses={PACKAGE_STATUS} />
-        </CardContent>
-      </Card>
+      </DetailGrid>
 
       <ConfirmDialog
         open={pending?.kind === 'confirm'}

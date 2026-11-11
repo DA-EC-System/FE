@@ -52,6 +52,34 @@ test.describe('Hướng dẫn trang', () => {
     expect(await daXem(page)).toBe(1);
   });
 
+  test('Kiện hàng, đóng gói, yêu cầu trả có hướng dẫn riêng (FE#139)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
+
+    await menu(page, 'Kiện hàng');
+    await expect(popup(page).getByRole('heading', { name: 'Kiện hàng', exact: true })).toBeVisible();
+    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+    await expect(tour(page).getByText('Bước 1/3', { exact: true })).toBeVisible();
+    await expect(tour(page).getByRole('heading', { name: 'Lọc theo trạng thái', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tour(page)).toHaveCount(0);
+
+    await page.locator('tbody tr[data-row-id=pkg-1010]').click();
+    await page.locator('[data-testid=package-actions]').getByRole('button', { name: 'Đóng gói', exact: true }).click();
+    await expect(popup(page).getByRole('heading', { name: 'Đóng gói', exact: true })).toBeVisible();
+    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+    await expect(tour(page).getByRole('heading', { name: 'Quét mã', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await menu(page, 'Yêu cầu trả');
+    await expect(popup(page).getByRole('heading', { name: 'Yêu cầu trả hàng', exact: true })).toBeVisible();
+    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+    await expect(tour(page).getByText('Bước 1/3', { exact: true })).toBeVisible();
+    await expect(tour(page).getByRole('heading', { name: 'Yêu cầu và kiện không khớp', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tour(page)).toHaveCount(0);
+  });
+
   test('Esc đóng tour', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();

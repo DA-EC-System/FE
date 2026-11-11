@@ -295,6 +295,88 @@ export const GUIDES = {
       },
     ],
   },
+  packages: {
+    key: 'packages',
+    version: 1,
+    title: 'Kiện hàng',
+    intro: [
+      'Mỗi đơn chia thành một hoặc nhiều kiện; kho làm việc theo từng kiện.',
+      'Tab theo bước: cần đóng gói, đã đóng gói, chờ lấy hàng, đang giao. Hạn bàn giao chữ đỏ là kiện gấp.',
+    ],
+    primaryAction: { label: 'Xem các bước', target: 'package-tabs' },
+    steps: [
+      {
+        target: 'package-tabs',
+        title: 'Lọc theo trạng thái',
+        body: 'Số trên tab là số kiện ở bước đó. Cần xử lý gom các kiện có cờ phải mở lại.',
+      },
+      {
+        target: 'package-actions',
+        title: 'In phiếu lấy hàng',
+        body: 'Chọn kiện rồi bấm Danh sách nhặt để gộp hàng cần lấy theo SKU và in. Ở Đã đóng gói, Chờ lấy hàng thì in vận đơn, bàn giao hàng loạt.',
+      },
+      {
+        target: 'package-list',
+        title: 'Vào đóng gói',
+        body: 'Bấm một kiện để mở chi tiết; kiện đã giữ hàng có nút Đóng gói dẫn sang màn quét.',
+      },
+    ],
+  },
+  'pack-scan': {
+    key: 'pack-scan',
+    version: 1,
+    title: 'Đóng gói',
+    intro: [
+      'Quét mã vạch từng món cho tới khi đủ số lượng của kiện.',
+      'Quét sai mã hoặc thừa sẽ báo ngay; đủ thì bấm Đóng gói.',
+    ],
+    primaryAction: { label: 'Bắt đầu quét', target: 'scan-input' },
+    steps: [
+      {
+        target: 'scan-input',
+        title: 'Quét mã',
+        body: 'Ô quét luôn sẵn con trỏ. Quét mã vạch hoặc gõ SKU rồi Enter; Quét lại để làm từ đầu.',
+      },
+      {
+        target: 'pack-lines',
+        title: 'Kiểm số lượng',
+        body: 'Thanh tiến độ đếm số món đã quét; dòng đủ số chuyển nền xanh.',
+      },
+      {
+        target: 'pack-submit',
+        title: 'Hoàn tất kiện',
+        body: 'Đủ mọi dòng thì nút Đóng gói sáng. Kiện sàn chọn đơn vị vận chuyển trước khi đóng.',
+      },
+    ],
+  },
+  returns: {
+    key: 'returns',
+    version: 1,
+    title: 'Yêu cầu trả hàng',
+    intro: [
+      'Yêu cầu trả từ sàn và yêu cầu lập tay cho đơn tạo tay nằm chung một danh sách.',
+      'Kho quét nhận hàng trả; kiện không khớp yêu cầu nào nằm riêng ở tab Không khớp.',
+    ],
+    primaryAction: { label: 'Xem các tab', target: 'return-tabs' },
+    steps: [
+      {
+        target: 'return-tabs',
+        title: 'Yêu cầu và kiện không khớp',
+        body: 'Tab theo trạng thái yêu cầu. Tab Không khớp chứa kiện hàng trả quét ở kho mà chưa gắn được vào yêu cầu nào.',
+      },
+      {
+        target: 'return-receive',
+        title: 'Nhận hàng trả',
+        body: 'Hàng về thì quét mã yêu cầu hoặc mã vận đơn chiều về. Khớp thì mở yêu cầu, không khớp thì kiện vào tab Không khớp.',
+        permission: 'fulfillment.order.process',
+      },
+      {
+        target: 'return-list',
+        title: 'Ghi tình trạng',
+        body: 'Mở yêu cầu để chấp nhận, chỉ hoàn tiền hoặc từ chối. Hàng đã nhận thì ghi tình trạng (bán lại, hỏng) trên phiếu kiểm hàng về.',
+      },
+    ],
+  },
 } satisfies Record<string, PageGuide>;
 
 export type GuideKey = keyof typeof GUIDES;
