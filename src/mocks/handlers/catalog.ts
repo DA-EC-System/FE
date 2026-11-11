@@ -319,7 +319,7 @@ export function validateImages(companyId: string, ids: string[] | undefined, err
     errors.images = 'Có ảnh chưa tải xong hoặc không thuộc công ty';
   } else {
     const big = list.map((id) => catalog.files.find((x) => x.id === id)!).find((f) => f.sizeBytes > MAX_IMAGE_BYTES);
-    if (big) errors.images = `Ảnh ${big.fileName} lớn hơn 5 MB`;
+    if (big) errors.images = `Ảnh ${big.fileName} lớn hơn 1 MB`;
   }
 }
 
@@ -334,8 +334,9 @@ export function validateProductText(body: { name?: string; description?: string 
   if ((body.description ?? '').length > 5000) errors.description = 'Mô tả tối đa 5000 ký tự';
 }
 
-export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// Ảnh sản phẩm JPG, PNG, tối đa 1 MB như backend sau commerio-backend#303 (FE#205)
+export const IMAGE_TYPES = ['image/jpeg', 'image/png'];
+export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 export const catalogHandlers = [
   // ----- Danh mục -----
@@ -751,12 +752,12 @@ export const catalogHandlers = [
     const guard = requireCompany(request, attachment ? null : PERMISSIONS.productManage);
     if (!guard.ok) return guard.response;
     if (attachment ? !ATTACHMENT_TYPES.includes(body.contentType) : !IMAGE_TYPES.includes(body.contentType)) {
-      return problem(422, attachment ? 'Chỉ nhận ảnh JPG, PNG, WebP hoặc PDF' : 'Chỉ nhận ảnh JPG, PNG hoặc WebP', {
+      return problem(422, attachment ? 'Chỉ nhận ảnh JPG, PNG, WebP hoặc PDF' : 'Ảnh sản phẩm phải là JPG hoặc PNG', {
         code: 'file_type_not_allowed',
       });
     }
     if (body.sizeBytes > (attachment ? MAX_ATTACHMENT_BYTES : MAX_IMAGE_BYTES)) {
-      return problem(422, attachment ? 'Tệp tối đa 10 MB' : 'Ảnh tối đa 5 MB', { code: 'file_too_large' });
+      return problem(422, attachment ? 'Tệp tối đa 10 MB' : 'Ảnh sản phẩm tối đa 1 MB', { code: 'file_too_large' });
     }
     const id = rid('fil');
     catalog.files.push({ id, companyId: guard.value.companyId, ...body, url: null });
