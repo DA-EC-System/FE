@@ -16,7 +16,7 @@ import type {
 import type { Gateway, LinkStatus, PaymentStatus, RefundStatus } from '@/types/payment';
 
 export type { BadgeVariant } from '@/components/common/StatusBadge';
-import type { BadgeVariant } from '@/components/common/StatusBadge';
+import type { BadgeVariant, StatusMeta } from '@/components/common/StatusBadge';
 
 export const MAX_LINE_QTY = 9999;
 export const PHONE_RE = /^0\d{9}$/;
@@ -28,26 +28,38 @@ export const ORDER_STATUS: Record<OrderStatus, { label: string; variant: BadgeVa
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
-/** Giai đoạn hiển thị suy từ kiện (sơ đồ D1, ô "Hiển thị") */
-export const ORDER_STAGE: Record<OrderStage, { label: string; variant: BadgeVariant }> = {
-  awaiting_payment: { label: 'Chờ thanh toán', variant: 'warning' },
-  awaiting_confirmation: { label: 'Chờ xác nhận', variant: 'warning' },
-  unmapped: { label: 'Chưa ghép SKU', variant: 'destructive' },
-  cancelling: { label: 'Đang huỷ', variant: 'warning' },
-  backordered: { label: 'Thiếu hàng', variant: 'destructive' },
-  reserved: { label: 'Chờ đóng gói', variant: 'info' },
-  packed: { label: 'Đã đóng gói', variant: 'info' },
-  awaiting_pickup: { label: 'Chờ lấy hàng', variant: 'info' },
-  in_transit: { label: 'Đang giao', variant: 'info' },
-  self_delivering: { label: 'Đang tự giao', variant: 'info' },
-  delivered: { label: 'Đã giao', variant: 'success' },
-  delivery_failed: { label: 'Giao thất bại', variant: 'destructive' },
-  returning: { label: 'Đang hoàn', variant: 'warning' },
-  returned: { label: 'Đã hoàn về kho', variant: 'secondary' },
-  lost: { label: 'Thất lạc', variant: 'destructive' },
-  awaiting_completion: { label: 'Chờ hoàn tất', variant: 'success' },
-  completed: { label: 'Đã hoàn tất', variant: 'success' },
-  cancelled: { label: 'Đã huỷ', variant: 'secondary' },
+/** Giai đoạn hiển thị suy từ kiện (sơ đồ D1, ô "Hiển thị"); rê chuột vào nhãn để xem câu giải thích (FE#138) */
+export const ORDER_STAGE: Record<OrderStage, StatusMeta> = {
+  awaiting_payment: { label: 'Chờ thanh toán', variant: 'warning', hint: 'Đơn trả trước, chờ khách thanh toán.' },
+  awaiting_confirmation: { label: 'Chờ xác nhận', variant: 'warning', hint: 'Chờ người bán xác nhận đơn.' },
+  unmapped: {
+    label: 'Chưa ghép SKU',
+    variant: 'destructive',
+    hint: 'Có dòng hàng sàn chưa ghép với SKU trong kho, chưa giữ hàng được.',
+  },
+  cancelling: { label: 'Đang huỷ', variant: 'warning', hint: 'Đã gửi yêu cầu huỷ lên sàn, chờ sàn trả lời.' },
+  backordered: { label: 'Thiếu hàng', variant: 'destructive', hint: 'Kho không đủ hàng để giữ, kiện chờ hàng về.' },
+  reserved: { label: 'Chờ đóng gói', variant: 'info', hint: 'Đã giữ hàng, chờ kho đóng gói.' },
+  packed: { label: 'Đã đóng gói', variant: 'info', hint: 'Đã đóng gói, chờ bàn giao vận chuyển.' },
+  awaiting_pickup: { label: 'Chờ lấy hàng', variant: 'info', hint: 'Chờ đơn vị vận chuyển tới lấy hàng.' },
+  in_transit: { label: 'Đang giao', variant: 'info', hint: 'Đơn vị vận chuyển đang giao.' },
+  self_delivering: { label: 'Đang tự giao', variant: 'info', hint: 'Cửa hàng đang tự giao.' },
+  delivered: { label: 'Đã giao', variant: 'success', hint: 'Khách đã nhận hàng.' },
+  delivery_failed: {
+    label: 'Giao thất bại',
+    variant: 'destructive',
+    hint: 'Giao không thành công, cần giao lại hoặc hoàn về.',
+  },
+  returning: { label: 'Đang hoàn', variant: 'warning', hint: 'Kiện đang hoàn về kho.' },
+  returned: { label: 'Đã hoàn về kho', variant: 'secondary', hint: 'Kiện đã về kho.' },
+  lost: { label: 'Thất lạc', variant: 'destructive', hint: 'Kiện bị thất lạc khi giao.' },
+  awaiting_completion: {
+    label: 'Chờ hoàn tất',
+    variant: 'success',
+    hint: 'Mọi kiện đã dừng, đơn chờ đủ điều kiện để hoàn tất.',
+  },
+  completed: { label: 'Đã hoàn tất', variant: 'success', hint: 'Đơn đã xong.' },
+  cancelled: { label: 'Đã huỷ', variant: 'secondary', hint: 'Đơn đã huỷ.' },
 };
 
 export const ORDER_FLAGS: Record<OrderFlag, { label: string; variant: BadgeVariant }> = {

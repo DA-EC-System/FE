@@ -56,7 +56,7 @@ function countdown(ms: number) {
 function ActiveLink({ link, remainingMs }: { link: PaymentLink; remainingMs: number }) {
   const bank = link.bankTransfer;
   return (
-    <div className="grid gap-4 sm:grid-cols-[auto_1fr]" data-testid="active-link">
+    <div className="grid gap-4" data-testid="active-link">
       <div className="justify-self-center rounded-md border bg-white p-3">
         <QRCodeSVG value={link.qrContent} size={176} aria-label={`QR thanh toán ${link.paymentCode}`} />
       </div>
@@ -74,7 +74,7 @@ function ActiveLink({ link, remainingMs }: { link: PaymentLink; remainingMs: num
         {link.payUrl && <CopyButton value={link.payUrl} label="Sao chép link thanh toán" text="Sao chép link" />}
       </div>
       {bank && (
-        <dl className="grid gap-2 rounded-md border p-3 text-sm sm:col-span-2" data-testid="bank-transfer">
+        <dl className="grid gap-2 rounded-md border p-3 text-sm" data-testid="bank-transfer">
           {(
             [
               ['Ngân hàng', bank.bankName, null],
@@ -109,7 +109,6 @@ export function PaymentPanel({ order }: { order: Order }) {
   const [open, setOpen] = useState(false);
   const [gateway, setGateway] = useState<Gateway | ''>('');
   const [dialogError, setDialogError] = useState<string | null>(null);
-  const [reusedNotice, setReusedNotice] = useState(false);
   const gateways = useGateways({ enabled: open && canCreateLink });
 
   const link = p?.activeLink ?? null;
@@ -136,8 +135,9 @@ export function PaymentPanel({ order }: { order: Order }) {
     try {
       const { reused } = await createMut.mutateAsync(gateway);
       setOpen(false);
-      setReusedNotice(reused);
-      if (!reused) toast.success('Đã tạo mã thanh toán');
+      // Mã cũ còn hiệu lực: chỉ báo, không cần làm gì thêm (FE#138 bỏ Alert)
+      if (reused) toast.info('Đơn đã có mã thanh toán còn hiệu lực');
+      else toast.success('Đã tạo mã thanh toán');
     } catch (e) {
       // Lỗi giữ hộp thoại mở để chọn cổng khác (AC-P5)
       const problem = getProblem(e);
@@ -149,7 +149,7 @@ export function PaymentPanel({ order }: { order: Order }) {
   };
 
   return (
-    <Card className="py-4" data-testid="payment-panel">
+    <Card className="py-4" data-testid="payment-panel" data-guide="order-payment">
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-base">Thanh toán</CardTitle>
         {p && (
@@ -170,18 +170,10 @@ export function PaymentPanel({ order }: { order: Order }) {
             </div>
 
             {p.status === 'paid' && (
-              <AlertMessage severity="success">
-                <span className="flex items-center gap-2">
-                  <CircleCheck className="size-4" />
-                  Đã nhận tiền lúc {formatDateTime(p.paidAt)}
-                </span>
-              </AlertMessage>
-            )}
-
-            {reusedNotice && (
-              <AlertMessage severity="info" onClose={() => setReusedNotice(false)}>
-                Đơn đã có mã thanh toán còn hiệu lực
-              </AlertMessage>
+              <p className="flex items-center gap-2 text-sm" data-testid="paid-at">
+                <CircleCheck className="size-4 text-success" />
+                Đã nhận tiền lúc {formatDateTime(p.paidAt)}
+              </p>
             )}
 
             {p.status === 'unpaid' && link && linkLive && <ActiveLink link={link} remainingMs={remainingMs} />}
