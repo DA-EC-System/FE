@@ -13,7 +13,7 @@ import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -38,11 +38,15 @@ import type { Package, PackageAction } from '@/types/fulfillment';
 import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { SplitPackageDialog } from './SplitPackageDialog';
+import { ScannedLines } from './ScannedLines';
+import { checkScanRows, scanErrorsOf, scanRowsFrom, type ScanRow } from './scanLines';
 
 type Pending =
   | { kind: 'confirm'; title: string; message: string; label: string; destructive?: boolean; command: PackageCommand }
   | { kind: 'reason'; title: string; label: string; build: (reason: string) => PackageCommand }
-  | { kind: 'code'; title: string; label: string; field: 'code' | 'claimCode' };
+  | { kind: 'code'; title: string; label: string }
+  /** Nhận hàng về: kho nhập số quét thật từng món (FE#212) */
+  | { kind: 'scan'; action: 'receive-return' | 'found' };
 
 /** Thao tác chuyển thẳng, không hỏi lại */
 const DIRECT: Partial<Record<PackageAction, PackageCommand>> = {
@@ -51,7 +55,6 @@ const DIRECT: Partial<Record<PackageAction, PackageCommand>> = {
   deliver: { kind: 'delivery', action: 'deliver' },
   redeliver: { kind: 'delivery', action: 'redeliver' },
   redeliver_self: { kind: 'delivery', action: 'redeliver' },
-  found: { kind: 'found' },
 };
 
 /** Chi tiết kiện (sơ đồ D2): nút theo bảng chuyển, lịch sử trạng thái */
@@ -71,11 +74,14 @@ export function PackageDetailPage() {
   const [splitting, setSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  const [scanRows, setScanRows] = useState<ScanRow[]>([]);
+  const [scanErrors, setScanErrors] = useState<Record<string, string> | null>(null);
   const back = () => navigate(ROUTES.company.packages(companyId));
 
   useEffect(() => {
     setCode('');
     setError(null);
+    setScanErrors(null);
   }, [pending]);
 
   if (query.isLoading) return <PageLoading />;
@@ -95,6 +101,13 @@ export function PackageDetailPage() {
     } catch (e) {
       if (conflictCurrent<Package>(e)) toast.warning('Kiện vừa được cập nhật, đã tải lại');
       const problem = getProblem(e);
+      // Lỗi từng dòng quét hiện ngay ở dòng đó, giữ câu của BE
+      const lineErrors = pending?.kind === 'scan' ? scanErrorsOf(problem?.errors) : null;
+      if (lineErrors) {
+        setScanErrors(lineErrors);
+        setError(problem?.errors?.code ?? null);
+        return;
+      }
       const fieldError = problem?.errors ? Object.values(problem.errors)[0] : undefined;
       if (pending) setError(fieldError ?? problemMessage(e));
       else toast.error(problemMessage(e));
@@ -151,7 +164,9 @@ export function PackageDetailPage() {
           command: { kind: 'open' },
         });
       case 'receive_return':
-        return setPending({ kind: 'code', title: 'Quét nhận hàng hoàn', label: 'Mã kiện hoặc mã vận đơn', field: 'code' });
+      case 'found':
+        setScanRows(scanRowsFrom(p.lines));
+        return setPending({ kind: 'scan', action: a === 'found' ? 'found' : 'receive-return' });
       case 'lose':
         return setPending({
           kind: 'confirm',
@@ -169,9 +184,21 @@ export function PackageDetailPage() {
   const submitCode = () => {
     if (pending?.kind !== 'code') return;
     const v = code.trim();
-    if (!v) return setError(pending.field === 'code' ? 'Quét hoặc nhập mã' : 'Nhập mã khiếu nại');
-    const cmd: PackageCommand = pending.field === 'code' ? { kind: 'receive-return', code: v } : { kind: 'report-lost', claimCode: v };
-    void run(cmd, pending.field === 'code' ? `Đã nhận hàng hoàn ${p.code}` : `Đã báo thất lạc ${p.code}, chờ người khác xác nhận`);
+    if (!v) return setError('Nhập mã khiếu nại');
+    void run({ kind: 'report-lost', claimCode: v }, `Đã báo thất lạc ${p.code}, chờ người khác xác nhận`);
+  };
+
+  const submitScan = () => {
+    if (pending?.kind !== 'scan') return;
+    const v = code.trim();
+    const checked = checkScanRows(scanRows);
+    const blocked = Object.keys(checked.errors).length > 0;
+    setScanErrors(blocked ? checked.errors : null);
+    const codeMissing = pending.action === 'receive-return' && !v;
+    setError(codeMissing ? 'Quét hoặc nhập mã' : null);
+    if (blocked || codeMissing) return;
+    if (pending.action === 'found') return void run({ kind: 'found', lines: checked.lines }, `Đã nhận kiện tìm thấy ${p.code}`);
+    void run({ kind: 'receive-return', code: v, lines: checked.lines }, `Đã nhận hàng hoàn ${p.code}`);
   };
 
   const print = async () => {
@@ -249,7 +276,7 @@ export function PackageDetailPage() {
               <Button
                 variant="outline"
                 disabled={loading}
-                onClick={() => setPending({ kind: 'code', title: 'Báo thất lạc', label: 'Mã khiếu nại với đơn vị vận chuyển', field: 'claimCode' })}
+                onClick={() => setPending({ kind: 'code', title: 'Báo thất lạc', label: 'Mã khiếu nại với đơn vị vận chuyển' })}
               >
                 Báo thất lạc
               </Button>
@@ -420,6 +447,43 @@ export function PackageDetailPage() {
             <Label htmlFor="package-code-input">{pending?.kind === 'code' ? pending.label : ''}</Label>
             <Input id="package-code-input" value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={Boolean(error)} />
             {error && <p className="text-sm text-destructive">{error}</p>}
+            <DialogFooter className="mt-2">
+              <Button type="button" variant="outline" onClick={() => setPending(null)}>
+                Huỷ
+              </Button>
+              <Button type="submit" disabled={command.isPending}>
+                Xác nhận
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={pending?.kind === 'scan'} onOpenChange={(o) => !o && setPending(null)}>
+        <DialogContent className="sm:max-w-2xl" data-testid="package-scan-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              {pending?.kind === 'scan' && pending.action === 'found' ? `Nhận kiện tìm thấy ${p.code}` : `Quét nhận hàng hoàn ${p.code}`}
+            </DialogTitle>
+            <DialogDescription>
+              Nhập số thật đã quét từng món. Thiếu thì sửa nhỏ lại (0 là không thấy), có món lạ thì thêm. Hàng chờ xử lý tăng đúng
+              số quét.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitScan();
+            }}
+          >
+            {pending?.kind === 'scan' && pending.action === 'receive-return' && (
+              <div className="grid gap-2">
+                <Label htmlFor="package-code-input">Mã kiện hoặc mã vận đơn</Label>
+                <Input id="package-code-input" value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={Boolean(error)} />
+              </div>
+            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <ScannedLines rows={scanRows} onChange={setScanRows} errors={scanErrors} disabled={command.isPending} />
             <DialogFooter className="mt-2">
               <Button type="button" variant="outline" onClick={() => setPending(null)}>
                 Huỷ

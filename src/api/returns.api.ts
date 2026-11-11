@@ -5,6 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
+import type { ScannedLine } from './fulfillment.api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   CreateReturnInput,
@@ -164,7 +165,7 @@ export function useReturnCommand() {
 export function useReceiveReturn() {
   const invalidate = useInvalidateCompany();
   return useMutation({
-    mutationFn: async (input: { code: string; note?: string }) => {
+    mutationFn: async (input: { code: string; note?: string; lines?: ScannedLine[] }) => {
       const { data } = await apiClient.post<ReceiveResult>('/returns/receive', input);
       return data;
     },

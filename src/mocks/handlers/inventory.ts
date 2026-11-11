@@ -225,13 +225,72 @@ function pushStatus(doc: MockStockDoc, to: StockDocStatus, actor: CompanyActor |
   doc.status = to;
 }
 
-/** Kiểm hàng về (sơ đồ B3): hệ thống lập khi kiện hoàn về hoặc nhận hàng trả; kho quét và chia */
+/** Một dòng kho quét lúc nhận hàng về (FE#212) */
+export interface ScannedLine {
+  variantId: string;
+  quantity: number;
+}
+
+/** Dòng nhận về: dự kiến theo nguồn (kiện, yêu cầu trả), số kho quét thật (21 mục 11.1) */
+export interface ReceivedLine {
+  variantId: string;
+  expected: number;
+  scanned: number;
+}
+
+/**
+ * Kiểm `lines` kho gửi lúc quét nhận (FE#212). Vắng `lines` là quét đủ (null).
+ * Số lượng nguyên không âm (0 là không thấy món đó); biến thể của công ty, không lặp
+ */
+export function parseScannedLines(raw: unknown, companyId: string): { errors: Errors; lines: ScannedLine[] | null } {
+  const errors: Errors = {};
+  if (raw === undefined || raw === null) return { errors, lines: null };
+  if (!Array.isArray(raw)) return { errors: { lines: 'Danh sách hàng quét không hợp lệ' }, lines: null };
+  if (raw.length > 200) return { errors: { lines: 'Tối đa 200 dòng' }, lines: null };
+  const seen = new Set<string>();
+  const lines: ScannedLine[] = [];
+  raw.forEach((item: unknown, i) => {
+    const line = (item ?? {}) as { variantId?: unknown; quantity?: unknown };
+    const variantId = String(line.variantId ?? '');
+    const found = variantId ? findVariant(variantId) : null;
+    if (!found || found.product.companyId !== companyId) errors[`lines.${i}.variantId`] = 'Biến thể không thuộc công ty';
+    else if (seen.has(variantId)) errors[`lines.${i}.variantId`] = 'Biến thể bị lặp';
+    seen.add(variantId);
+    if (!isQty(line.quantity, 0)) errors[`lines.${i}.quantity`] = 'Số lượng là số nguyên không âm';
+    lines.push({ variantId, quantity: typeof line.quantity === 'number' ? line.quantity : 0 });
+  });
+  return { errors, lines };
+}
+
+/**
+ * Ghép dòng nguồn với số quét: vắng số quét thì quét đủ; món nguồn không quét là 0;
+ * món ngoài nguồn thành dòng dự kiến 0 (bỏ dòng ngoài nguồn quét 0)
+ */
+export function receivedLines(source: { variantId: string; quantity: number }[], scanned: ScannedLine[] | null): ReceivedLine[] {
+  const expected = new Map<string, number>();
+  for (const l of source) expected.set(l.variantId, (expected.get(l.variantId) ?? 0) + l.quantity);
+  const lines: ReceivedLine[] = [...expected].map(([variantId, qty]) => ({
+    variantId,
+    expected: qty,
+    scanned: scanned ? scanned.find((s) => s.variantId === variantId)?.quantity ?? 0 : qty,
+  }));
+  for (const s of scanned ?? []) {
+    if (!expected.has(s.variantId) && s.quantity > 0) lines.push({ variantId: s.variantId, expected: 0, scanned: s.quantity });
+  }
+  return lines;
+}
+
+/**
+ * Kiểm hàng về (sơ đồ B3): hệ thống lập khi kiện hoàn về hoặc nhận hàng trả. Chờ xử lý tăng ngay theo số quét
+ * (receiveBack, 21 mục 11.1); ghi sổ chỉ chuyển phần bán lại về tồn thực
+ */
 export function createReturnInspection(
   companyId: string,
   source: DocRef,
-  lines: { variantId: string; quantity: number }[],
+  lines: ReceivedLine[],
   note: string,
   at: string,
+  by: string,
   orderId?: string,
 ): MockStockDoc {
   const doc: MockStockDoc = {
@@ -245,11 +304,11 @@ export function createReturnInspection(
     note,
     orderId: orderId ?? (source.type === 'order' ? source.id : null),
     source,
-    claimFlag: false,
+    claimFlag: lines.some((l) => l.scanned < l.expected),
     lines: lines.map((l) => ({
       variantId: l.variantId,
-      quantity: 0,
-      expected: l.quantity,
+      quantity: l.scanned,
+      expected: l.expected,
       resell: 0,
       damaged: 0,
       toSupplier: 0,
@@ -265,7 +324,27 @@ export function createReturnInspection(
     rejectDecision: null,
   };
   inventory.docs.push(doc);
+  for (const l of doc.lines) {
+    const cost = inventory.levelOf(companyId, l.variantId).avgCost;
+    inventory.postMove(companyId, { docId: doc.id }, l.variantId, 'quarantine', l.quantity, cost, at, by);
+  }
   return doc;
+}
+
+/** Sửa số quét trên phiếu nháp: chờ xử lý đổi theo phần chênh (21 mục 15.3) */
+function moveScannedDiff(doc: MockStockDoc, next: MockStockDocLine[], at: string, by: string) {
+  const sum = (lines: MockStockDocLine[]) => {
+    const m = new Map<string, number>();
+    for (const l of lines) m.set(l.variantId, (m.get(l.variantId) ?? 0) + l.quantity);
+    return m;
+  };
+  const before = sum(doc.lines);
+  const after = sum(next);
+  for (const variantId of new Set([...before.keys(), ...after.keys()])) {
+    const diff = (after.get(variantId) ?? 0) - (before.get(variantId) ?? 0);
+    const cost = inventory.levelOf(doc.companyId, variantId).avgCost;
+    inventory.postMove(doc.companyId, { docId: doc.id }, variantId, 'quarantine', diff, cost, at, by);
+  }
 }
 
 type Errors = Record<string, string>;
@@ -764,6 +843,7 @@ export const inventoryHandlers = [
     const before = stockDocSnapshot(doc);
     if (doc.area) doc.area = area;
     doc.note = note;
+    if (doc.type === 'return_inspection') moveScannedDiff(doc, lines, db.now(), guard.value.account.id);
     doc.lines = lines;
     if (doc.type === 'return_inspection') {
       doc.scannedBy = guard.value.account.id;
