@@ -169,6 +169,7 @@ export function DocumentsTab() {
                 <Button
                   key={t}
                   variant={i === 0 ? 'default' : 'outline'}
+                  data-guide={t === 'stocktake' ? 'inventory-stocktake' : undefined}
                   onClick={() => navigate(ROUTES.company.inventoryDocNew(companyId, t))}
                 >
                   <Icon />

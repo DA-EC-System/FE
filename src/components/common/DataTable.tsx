@@ -38,6 +38,8 @@ declare module '@tanstack/react-table' {
     numeric?: boolean;
     /** Giải thích cột, hiện sau nút "?" ở đầu cột (HelpTip) */
     help?: ReactNode;
+    /** Đích của bước hướng dẫn trang, gắn `data-guide` vào ô tiêu đề */
+    guide?: string;
   }
 }
 
@@ -99,7 +101,11 @@ export function DataTable<T>({
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>
                 {group.headers.map((header) => (
-                  <TableHead key={header.id} className={metaClass(header.column.columnDef.meta)}>
+                  <TableHead
+                    key={header.id}
+                    className={metaClass(header.column.columnDef.meta)}
+                    data-guide={header.column.columnDef.meta?.guide}
+                  >
                     {header.isPlaceholder ? null : (
                       <HeaderLabel help={header.column.columnDef.meta?.help} topic={header.column.columnDef.header}>
                         {flexRender(header.column.columnDef.header, header.getContext())}

@@ -28,6 +28,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { ProductListItem, ProductListParams, ProductStatus } from '@/types/catalog';
 import { PRODUCT_STATUS_LABELS } from './labels';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { BUSINESS_STATUS_LABELS, BusinessActionMenu, ParentStatus, parentActions, useBusinessAction } from './businessStatus';
 
 /** UC-CP-02: danh sách sản phẩm của công ty, tìm theo tên hoặc SKU */
@@ -47,6 +48,7 @@ export function ProductListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const business = useBusinessAction();
+  const { startTour } = usePageGuide('products');
 
   const productsQuery = useProducts({
     page,
@@ -71,21 +73,24 @@ export function ProductListPage() {
   const columns = useMemo<ColumnDef<ProductListItem>[]>(
     () => [
       {
-        id: 'thumbnail',
-        header: '',
-        meta: { className: 'w-14' },
+        id: 'name',
+        header: 'Sản phẩm',
+        meta: { className: 'min-w-64' },
+        // Ảnh nhỏ cạnh tên như `.pthumb` của Test_UI
         cell: ({ row }) => (
-          <Avatar className="size-10 rounded-md">
-            {row.original.thumbnailUrl && (
-              <AvatarImage src={row.original.thumbnailUrl} alt={row.original.name} className="object-cover" />
-            )}
-            <AvatarFallback className="rounded-md">
-              <ImageIcon className="size-4 text-muted-foreground" />
-            </AvatarFallback>
-          </Avatar>
+          <div className="flex items-center gap-3">
+            <Avatar className="size-9 shrink-0 rounded-md">
+              {row.original.thumbnailUrl && (
+                <AvatarImage src={row.original.thumbnailUrl} alt="" className="object-cover" />
+              )}
+              <AvatarFallback className="rounded-md">
+                <ImageIcon className="size-4 text-muted-foreground" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 font-medium">{row.original.name}</span>
+          </div>
         ),
       },
-      { accessorKey: 'name', header: 'Sản phẩm', meta: { className: 'min-w-56 font-medium' } },
       {
         id: 'category',
         header: 'Danh mục',
@@ -94,13 +99,20 @@ export function ProductListPage() {
       },
       {
         accessorKey: 'variantCount',
-        header: 'Số biến thể',
-        meta: { className: 'w-28 text-right' },
+        header: 'Biến thể',
+        meta: {
+          className: 'w-24',
+          numeric: true,
+          help: 'Số SKU chưa lưu trữ. Mỗi biến thể là một SKU, tồn và giá chuẩn nằm ở biến thể.',
+        },
       },
       {
         id: 'status',
         header: 'Trạng thái',
-        meta: { className: 'w-48' },
+        meta: {
+          className: 'w-48',
+          help: 'Trạng thái kinh doanh gộp từ các SKU: đang bán, tạm ngừng hoặc ngừng bán, kèm số SKU ở mỗi trạng thái.',
+        },
         cell: ({ row }) => <ParentStatus item={row.original} />,
       },
       {
@@ -148,7 +160,9 @@ export function ProductListPage() {
     <div>
       <PageHeader
         title="Sản phẩm"
-        subtitle="Sản phẩm và biến thể; SKU sinh theo quy tắc của danh mục."
+        subtitle="Mỗi sản phẩm có các biến thể, mỗi biến thể một SKU."
+        help="Mã SKU sinh theo quy tắc của danh mục, nên cần tạo danh mục và thuộc tính trước khi thêm sản phẩm."
+        onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">
             {canSetup && (
@@ -158,7 +172,7 @@ export function ProductListPage() {
               </Button>
             )}
             {canManage && (
-              <Button onClick={() => navigate(ROUTES.company.catalogNew(companyId))}>
+              <Button onClick={() => navigate(ROUTES.company.catalogNew(companyId))} data-guide="products-add">
                 <Plus />
                 Thêm sản phẩm
               </Button>
@@ -204,6 +218,7 @@ export function ProductListPage() {
           </div>
           {status === 'active' && (
             <FilterSelect
+              guide="products-business"
               label="Có SKU"
               value={businessStatus}
               onChange={withReset(setBusinessStatus)}
@@ -214,24 +229,26 @@ export function ProductListPage() {
             />
           )}
         </FilterBar>
-        <DataTable
-          columns={columns}
-          data={productsQuery.data?.items ?? []}
-          getRowId={(r) => r.id}
-          loading={productsQuery.isLoading}
-          fetching={productsQuery.isFetching}
-          empty={empty}
-          onRowClick={(r) => open(r.id)}
-          pagination={{
-            page,
-            pageSize,
-            total: productsQuery.data?.total ?? 0,
-            onChange: (p, size) => {
-              setPage(p);
-              setPageSize(size);
-            },
-          }}
-        />
+        <div data-guide="products-table">
+          <DataTable
+            columns={columns}
+            data={productsQuery.data?.items ?? []}
+            getRowId={(r) => r.id}
+            loading={productsQuery.isLoading}
+            fetching={productsQuery.isFetching}
+            empty={empty}
+            onRowClick={(r) => open(r.id)}
+            pagination={{
+              page,
+              pageSize,
+              total: productsQuery.data?.total ?? 0,
+              onChange: (p, size) => {
+                setPage(p);
+                setPageSize(size);
+              },
+            }}
+          />
+        </div>
       </Card>
 
       {business.dialog}

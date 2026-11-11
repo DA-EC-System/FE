@@ -112,6 +112,39 @@ test.describe('Hướng dẫn trang', () => {
     await expect(tour(page).getByText('Bước 1/5', { exact: true })).toBeVisible();
   });
 
+  test('Sản phẩm, Danh mục & thuộc tính, Kho có hướng dẫn riêng (FE#136)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
+    const trang: [string, string, string][] = [
+      ['Sản phẩm', 'Sản phẩm', 'Thêm sản phẩm'],
+      ['Danh mục & thuộc tính', 'Danh mục và thuộc tính', 'Tạo danh mục trước'],
+      ['Kho', 'Kho hàng', 'Tồn kho và phiếu kho'],
+    ];
+    for (const [muc, tieuDe, buoc1] of trang) {
+      await menu(page, muc);
+      await expect(popup(page)).toBeVisible();
+      await expect(popup(page).getByRole('heading', { name: tieuDe, exact: true })).toBeVisible();
+      await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+      await expect(tour(page).getByText(/^Bước 1\/\d$/)).toBeVisible();
+      await expect(tour(page).getByRole('heading', { name: buoc1, exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(tour(page)).toHaveCount(0);
+    }
+  });
+
+  test('Kho: tour trỏ cột khả dụng và mã SKU', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
+    await menu(page, 'Kho');
+    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+    // Nút "Kiểm kê" ở tab Phiếu kho đang ẩn nên bỏ bước đó: 4 bước
+    await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
+    for (const t of ['Nhóm tồn', 'Cột khả dụng', 'Mở thẻ kho']) {
+      await page.keyboard.press('ArrowRight');
+      await expect(tour(page).getByRole('heading', { name: t, exact: true })).toBeVisible();
+    }
+  });
+
   test('mobile chỉ hiện pop-up tóm tắt, không có tour', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
