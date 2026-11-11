@@ -1,9 +1,8 @@
-import type { ReactNode } from 'react';
-import { Building2, CircleCheck, Lock, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
+import { Panel } from '@/components/common/Panel';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePlatformOverview } from '@/api/platform.api';
 import { getErrorMessage } from '@/api/client';
@@ -11,29 +10,10 @@ import { MODULE_LABELS } from '@/utils/modules';
 import { formatDateTime } from '@/utils/format';
 import { AUDIT_ACTION_LABELS } from './auditLabels';
 
-function StatCard({ label, value, icon }: { label: string; value?: number; icon: ReactNode }) {
-  return (
-    <Card className="py-5">
-      <CardContent className="flex items-center gap-4">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary [&_svg]:size-5">
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          {value === undefined ? (
-            <Skeleton className="mt-1 h-7 w-10" />
-          ) : (
-            <p className="text-2xl font-bold">{value}</p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** Tổng quan nền tảng: chỉ số liệu về công ty, không có số liệu kinh doanh (QT-03). */
+/** Tổng quan nền tảng: chỉ số liệu về công ty, không có số liệu kinh doanh (QT-03); dáng Test_UI v4 (FE#134) */
 export function PlatformOverviewPage() {
-  const { data, error, isError } = usePlatformOverview();
+  const { data, error, isError, isLoading } = usePlatformOverview();
+  const total = data?.totalCompanies ?? 0;
 
   return (
     <>
@@ -44,27 +24,34 @@ export function PlatformOverviewPage() {
         </AlertMessage>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Tổng số công ty" value={data?.totalCompanies} icon={<Building2 />} />
-        <StatCard label="Đang hoạt động" value={data?.activeCompanies} icon={<CircleCheck />} />
-        <StatCard label="Đang bị khoá" value={data?.lockedCompanies} icon={<Lock />} />
-        <StatCard label="Đăng ký trong 30 ngày" value={data?.registeredLast30Days} icon={<Sparkles />} />
-      </div>
+      <KpiStrip label="Chỉ số nền tảng" className="mb-4">
+        <Kpi label="Tổng số công ty" value={data?.totalCompanies} loading={isLoading} />
+        <Kpi
+          label="Đang hoạt động"
+          value={data?.activeCompanies}
+          loading={isLoading}
+          detail={data && total ? `${Math.round((data.activeCompanies / total) * 100)}% số công ty` : undefined}
+        />
+        <Kpi
+          label="Đang bị khoá"
+          help="Công ty bị quản trị nền tảng khoá; người dùng của công ty đó không đăng nhập được."
+          value={data?.lockedCompanies}
+          loading={isLoading}
+        />
+        <Kpi label="Đăng ký trong 30 ngày" value={data?.registeredLast30Days} loading={isLoading} />
+      </KpiStrip>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Phân hệ tuỳ chọn đang dùng</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
+        <Panel title="Phân hệ tuỳ chọn đang dùng">
+          <div className="grid gap-3">
             {data?.optionalModuleUsage.map(({ module, companies }) => {
-              const pct = data.totalCompanies ? (companies / data.totalCompanies) * 100 : 0;
+              const pct = total ? (companies / total) * 100 : 0;
               return (
                 <div key={module} className="grid gap-1">
                   <div className="flex justify-between text-sm">
                     <span>{MODULE_LABELS[module]}</span>
-                    <span className="text-muted-foreground">
-                      {companies}/{data.totalCompanies} công ty
+                    <span className="text-muted-foreground tabular-nums">
+                      {companies}/{total} công ty
                     </span>
                   </div>
                   <div
@@ -78,36 +65,33 @@ export function PlatformOverviewPage() {
                 </div>
               );
             }) ?? <Skeleton className="h-32" />}
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Hoạt động gần đây</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data ? (
-              <ul className="grid gap-3">
-                {data.recentActivities.map((log) => {
-                  const action = AUDIT_ACTION_LABELS[log.action];
-                  return (
-                    <li key={log.id} className="grid gap-0.5">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Badge variant={action.variant}>{action.label}</Badge>
-                        <span>{log.targetCompanyName}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(log.createdAt)} · {log.actorEmail}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
+        <Panel title="Hoạt động gần đây" flush>
+          {data ? (
+            <ul className="divide-y">
+              {data.recentActivities.map((log) => {
+                const action = AUDIT_ACTION_LABELS[log.action];
+                return (
+                  <li key={log.id} className="grid gap-0.5 px-4 py-2.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant={action.variant}>{action.label}</Badge>
+                      <span>{log.targetCompanyName}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(log.createdAt)} · {log.actorEmail}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="p-4">
               <Skeleton className="h-32" />
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </Panel>
       </div>
     </>
   );
