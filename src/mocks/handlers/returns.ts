@@ -43,7 +43,7 @@ const MAX_LINES = 100;
 const JUMPABLE: readonly PackageStatus[] = ['awaiting_pickup', 'in_transit', 'delivery_failed'];
 
 const orderOfRequest = (r: MockReturnRequest) => sales.orders.find((o) => o.id === r.orderId)!;
-const returnEntity = (r: MockReturnRequest) => ({ type: 'sales.returns', id: r.id, label: r.code });
+const returnEntity = (r: MockReturnRequest) => ({ type: 'order.return_requests', id: r.id, label: r.code });
 const returnSnapshot = (r: MockReturnRequest) => ({ code: r.code, status: r.status, closeResult: r.closeResult });
 const totalQty = (r: MockReturnRequest) => r.lines.reduce((s, l) => s + l.quantity, 0);
 const refundOf = (r: MockReturnRequest) => r.lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
@@ -540,7 +540,7 @@ export const returnHandlers = [
       version: 1,
     };
     returns.unmatchedParcels.push(parcel);
-    writeCompanyLog(actor, 'create', { type: 'sales.return_parcels', id: parcel.id, label: code }, null, { code, status: 'open' });
+    writeCompanyLog(actor, 'create', { type: 'order.unmatched_return_parcels', id: parcel.id, label: code }, null, { code, status: 'open' });
     return HttpResponse.json<ReceiveResult>({ kind: 'unmatched', parcel: toParcel(parcel) });
   }),
 
@@ -596,7 +596,7 @@ export const returnHandlers = [
     x.resolvedAt = db.now();
     x.resolvedBy = guard.value.account.id;
     x.version += 1;
-    writeCompanyLog(guard.value, 'update', { type: 'sales.return_parcels', id: x.id, label: x.code }, { status: 'open' }, { status: 'dismissed' });
+    writeCompanyLog(guard.value, 'update', { type: 'order.unmatched_return_parcels', id: x.id, label: x.code }, { status: 'open' }, { status: 'dismissed' });
     return HttpResponse.json(toParcel(x));
   }),
 

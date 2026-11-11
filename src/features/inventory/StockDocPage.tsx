@@ -34,7 +34,7 @@ import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
-import { stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
+import { isShipmentDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
@@ -146,7 +146,7 @@ function RefLink({ companyId, docRef }: { companyId: string; docRef: DocRef }) {
 /**
  * Phiếu kho theo sơ đồ B3. Kiểm kê, xuất huỷ, chuyển chờ xử lý: kho lập nháp, gửi duyệt (hàng bị tạm khoá),
  * CEO duyệt mới ghi sổ. Kiểm hàng về: hệ thống sinh khi kiện quay về; kho quét và chia bán lại, hỏng,
- * trả NCC; không thiếu thì ghi sổ thẳng, có thiếu thì người thứ hai duyệt. Phiếu nhập, xuất chỉ xem.
+ * trả NCC; không thiếu thì ghi sổ thẳng, có thiếu thì người thứ hai duyệt. Phiếu xuất theo kiện, huỷ bàn giao chỉ xem.
  * `/inventory/documents/new?type=stocktake|write_off|to_quarantine` là phiếu mới.
  */
 export function StockDocPage() {
@@ -167,7 +167,7 @@ export function StockDocPage() {
   const isStocktake = type === 'stocktake';
   const isInspection = type === 'return_inspection';
   const hasQuantity = type === 'write_off' || type === 'to_quarantine';
-  const editable = canManage && (isNew || (doc?.status === 'draft' && type !== 'receipt' && type !== 'issue'));
+  const editable = canManage && (isNew || (doc?.status === 'draft' && !isShipmentDoc(type)));
 
   const createMut = useCreateStockDoc();
   const updateMut = useUpdateStockDoc();
@@ -619,7 +619,7 @@ export function StockDocPage() {
                     </>
                   )}
                   {!isStocktake && !isInspection && <TableHead className="w-40 text-right">Số lượng</TableHead>}
-                  {showCost && <TableHead className="w-40 text-right">{type === 'receipt' ? 'Giá nhập' : 'Giá vốn'}</TableHead>}
+                  {showCost && <TableHead className="w-40 text-right">Giá vốn</TableHead>}
                   {editable && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>

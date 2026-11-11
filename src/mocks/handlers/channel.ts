@@ -441,7 +441,7 @@ function catchUp(shop: MockShop): ShopReconnectSummary {
 }
 
 export const listingEntity = (shop: MockShop, sku: string, id: string) => ({
-  type: 'channel.channel_listings',
+  type: 'channel.listings',
   id,
   label: `${shop.shopName}: ${sku}`,
 });

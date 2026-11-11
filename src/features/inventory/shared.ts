@@ -138,12 +138,12 @@ export const draftNumber = (text: string): number | null => (/^\d+$/.test(text.t
 // ---------- Nhãn ----------
 
 export const DOC_TYPE_LABELS: Record<StockDocType, string> = {
-  receipt: 'Phiếu nhập',
-  issue: 'Phiếu xuất',
   stocktake: 'Kiểm kê',
   write_off: 'Xuất huỷ',
   to_quarantine: 'Chuyển chờ xử lý',
   return_inspection: 'Kiểm hàng về',
+  shipment: 'Xuất theo kiện',
+  shipment_reversal: 'Huỷ bàn giao',
 };
 
 /** Loại chứng từ trên thẻ kho */
@@ -154,13 +154,13 @@ export const MOVE_DOC_LABELS: Record<StockMoveDocType, string> = {
 };
 
 export const DOC_TYPE_HELP: Record<StockDocType, string> = {
-  receipt: 'Ghi sổ phiếu nhập làm tăng tồn và tính lại giá vốn bình quân.',
-  issue: 'Phiếu xuất theo đơn: hệ thống ghi sổ khi đơn xuất kho.',
   stocktake: 'Đếm theo khu vực; chênh lệch Δ = số đếm − tồn sổ. CEO duyệt mới ghi sổ.',
   write_off: 'Hàng hỏng, mất không bán được. Gửi duyệt thì hàng bị tạm khoá, CEO duyệt mới trừ tồn.',
   to_quarantine: 'Hàng lỗi phát hiện trên kệ: chuyển từ tồn thực sang chờ xử lý, không bán được. CEO duyệt.',
   return_inspection:
     'Quét hàng quay về và chia bán lại, hỏng, trả NCC. Không thiếu thì ghi sổ thẳng; có thiếu thì người thứ hai duyệt.',
+  shipment: 'Hệ thống ghi sổ khi bàn giao kiện cho đơn vị vận chuyển: trừ tồn thực một lần, theo từng dòng kiện.',
+  shipment_reversal: 'Hệ thống ghi sổ khi huỷ lượt bàn giao nhầm: cộng lại tồn thực và đang giữ cho kiện.',
 };
 
 export const DOC_KIND_LABELS: Record<StockDocKind, string> = {

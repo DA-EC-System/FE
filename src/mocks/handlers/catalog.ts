@@ -200,14 +200,14 @@ export function toProductDetail(p: MockProduct): ProductDetail {
   };
 }
 
-export const categoryEntity = (c: MockCategory) => ({ type: 'catalog.categories', id: c.id, label: c.name });
+export const categoryEntity = (c: MockCategory) => ({ type: 'product.categories', id: c.id, label: c.name });
 export const categorySnapshot = (c: MockCategory) => ({ name: c.name, skuPattern: c.skuPattern });
-export const attributeEntity = (a: MockAttribute) => ({ type: 'catalog.attributes', id: a.id, label: a.name });
+export const attributeEntity = (a: MockAttribute) => ({ type: 'product.attributes', id: a.id, label: a.name });
 export const attributeSnapshot = (a: MockAttribute) => ({
   name: a.name,
   values: a.values.map((v) => `${v.value} (${v.code})`),
 });
-export const productEntity = (p: MockProduct) => ({ type: 'catalog.products', id: p.id, label: p.name });
+export const productEntity = (p: MockProduct) => ({ type: 'product.products', id: p.id, label: p.name });
 export function productSnapshot(p: MockProduct) {
   return {
     name: p.name,
@@ -676,7 +676,7 @@ export const catalogHandlers = [
       writeCompanyLog(
         guard.value,
         'update',
-        { type: 'catalog.product_variants', id: v.id, label: v.sku },
+        { type: 'product.product_variants', id: v.id, label: v.sku },
         { businessStatus: from },
         { businessStatus: r.to },
       );
@@ -731,7 +731,7 @@ export const catalogHandlers = [
     writeCompanyLog(
       guard.value,
       'create',
-      { type: 'catalog.product_variants', id: variant.id, label: variant.sku },
+      { type: 'product.product_variants', id: variant.id, label: variant.sku },
       null,
       { product: product.name, sku: variant.sku, attributes: variantAttributes(companyId, variant.valueIds).map((a) => a.value) },
     );

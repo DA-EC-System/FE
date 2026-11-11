@@ -121,6 +121,14 @@ const MESSAGES: Record<string, string> = {
   // R13, §18.7.9: mọi 501 chức năng chờ issue khác; có `issue`, `owner` thì câu nêu issue, xem notImplementedMessage
   not_implemented: 'Chức năng này chưa làm xong',
   shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ trước khi đẩy sản phẩm.',
+  // Documents#55 (21 mục 5, 16, 18.3, 19), FE#153
+  product_in_use: 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.',
+  too_many_axes: 'Một sản phẩm chỉ có tối đa 2 trục phân loại.',
+  unsupported_file_type: 'Chỉ nhận tệp CSV, XLSX hoặc TXT.',
+  evidence_required: 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi ghi sổ.',
+  shop_not_active: 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đẩy sản phẩm.',
+  handover_confirmed_by_platform:
+    'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
 };
 
 interface ShopRef {

@@ -366,26 +366,33 @@ test.describe('P4 · Xử lý đơn', () => {
   });
 
   test.describe('chia kiện (sơ đồ D2)', () => {
-    test('chia kiện hai món thành hai kiện', async ({ page }) => {
-      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await page.goto('/c/cmp-001/sales/orders/ord-1010');
-      await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(1);
-      await kienCuaDon(page).getByRole('button', { name: 'Chia kiện', exact: true }).click();
+    // FE#153: nút ở trang kiện, Kho không có sales.order.view vẫn chia được
+    test('kho chia kiện hai món thành hai kiện ở trang kiện', async ({ page }) => {
+      await dangNhap(page, 'kho@commerio.vn', 'kho');
+      await page.goto('/c/cmp-001/fulfillment/packages/pkg-1010');
+      const actions = page.locator('[data-testid=package-actions]');
+      await actions.getByRole('button', { name: 'Chia kiện', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('button', { name: 'Chia kiện', exact: true })).toBeDisabled();
       await dialog.locator('[data-testid=split-lines] tbody tr').first().locator('input').fill('1');
       await dialog.getByRole('button', { name: 'Chia kiện', exact: true }).click();
-      await toast(page, /Đã chia kiện KH-/);
-      await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(2);
-      await expect(page.locator('[data-testid=order-packages]').getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
+      await toast(page, 'Đã chia kiện KH-000010');
+      await expect(page.locator('[data-testid=package-lines] tbody tr')).toHaveCount(1);
+      await expect(actions.getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
     });
 
-    test('sale không có quyền kho thì không thấy nút chia kiện', async ({ page }) => {
+    test('trang đơn không còn nút chia kiện', async ({ page }) => {
+      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+      await page.goto('/c/cmp-001/sales/orders/ord-1010');
+      await expect(kienCuaDon(page)).toContainText('KH-000010');
+      await expect(page.getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
+    });
+
+    test('sale không có quyền kho thì không mở được kiện', async ({ page }) => {
       await dangNhap(page, 'sale@commerio.vn', 'sale');
       await page.goto('/c/cmp-001/sales/orders/ord-1010');
       await expect(kienCuaDon(page)).toContainText('KH-000010');
       await expect(kienCuaDon(page).locator('a')).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
     });
   });
 

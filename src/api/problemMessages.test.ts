@@ -12,6 +12,22 @@ const loi = (data: ProblemDetails) =>
     data,
   });
 
+describe('mã mới của Documents#55 (FE#153)', () => {
+  it.each([
+    ['product_in_use', 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.'],
+    ['too_many_axes', 'Một sản phẩm chỉ có tối đa 2 trục phân loại.'],
+    ['unsupported_file_type', 'Chỉ nhận tệp CSV, XLSX hoặc TXT.'],
+    ['evidence_required', 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi ghi sổ.'],
+    ['shop_not_active', 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đẩy sản phẩm.'],
+    [
+      'handover_confirmed_by_platform',
+      'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
+    ],
+  ])('%s có câu tiếng Việt, không dùng detail của BE', (code, text) => {
+    expect(problemMessage(loi({ status: 409, code, detail: 'English detail' }))).toBe(text);
+  });
+});
+
 describe('shop_has_open_orders (§18.6.1)', () => {
   it('có openOrders thì câu kèm số đơn', () => {
     expect(problemMessage(loi({ status: 409, code: 'shop_has_open_orders', openOrders: 3 }))).toBe(

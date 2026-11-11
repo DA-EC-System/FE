@@ -2,13 +2,12 @@ import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
 import * as catalog from '../catalogData';
 import type { MockProduct, MockVariant } from '../catalogData';
-import { formatCurrency } from '@/utils/format';
 import * as inventory from '../inventoryData';
 import type { MockStockDoc, MockStockDocLine } from '../inventoryData';
 import * as purchasing from '../purchasingData';
 import { availableOf, needsReorder, shortageOf, stockState, violations } from '../engine/stock';
 import { dueState, registerTaskSource, REMIND } from '../engine/tasks';
-import { isDecreaseDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
+import { isDecreaseDoc, isShipmentDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
 import type {
   DocRef,
   RejectDecision,
@@ -117,10 +116,9 @@ export function ownedVariant(variantId: unknown, companyId: string) {
   return { ok: true as const, value: found };
 }
 
-/** Phiếu nhập: người lập phiếu thấy giá nhập; còn lại là giá vốn, cần quyền giá vốn */
-export function canSeeLineCost(doc: MockStockDoc, permissions: string[]) {
-  if (permissions.includes(PERMISSIONS.costView)) return true;
-  return doc.type === 'receipt' && permissions.includes(PERMISSIONS.stockDocManage);
+/** Giá trên dòng phiếu là giá vốn, cần quyền giá vốn */
+export function canSeeLineCost(_doc: MockStockDoc, permissions: string[]) {
+  return permissions.includes(PERMISSIONS.costView);
 }
 
 /** Tổng số dự kiến − số quét của phiếu kiểm hàng về, tính theo từng dòng */
@@ -177,7 +175,7 @@ export function toStockDoc(doc: MockStockDoc, permissions: string[]): StockDoc {
 }
 
 export const stockDocEntity = (d: MockStockDoc) => ({
-  type: 'inventory.stock_documents',
+  type: 'product.stock_documents',
   id: d.id,
   label: d.number,
 });
@@ -188,10 +186,7 @@ export function stockDocSnapshot(d: MockStockDoc) {
     if (d.type === 'return_inspection') {
       return `${sku}: quét ${l.quantity}/${l.expected ?? 0} (bán lại ${l.resell ?? 0}, hỏng ${l.damaged ?? 0}, trả NCC ${l.toSupplier ?? 0})`;
     }
-    return (
-      `${sku}: ${l.quantity}` +
-      (d.type === 'receipt' && d.kind === 'manual' && l.unitCost !== null ? ` × ${formatCurrency(l.unitCost)}` : '')
-    );
+    return `${sku}: ${l.quantity}`;
   };
   return {
     status: d.status,
@@ -203,12 +198,12 @@ export function stockDocSnapshot(d: MockStockDoc) {
 }
 
 const DOC_PREFIX: Record<StockDocType, string> = {
-  receipt: 'PN',
-  issue: 'PX',
   stocktake: 'KK',
   write_off: 'XH',
   to_quarantine: 'CXL',
   return_inspection: 'KHV',
+  shipment: 'XK',
+  shipment_reversal: 'DX',
 };
 
 export function nextDocNumber(companyId: string, type: StockDocType) {
@@ -645,7 +640,7 @@ export const inventoryHandlers = [
       writeCompanyLog(
         guard.value,
         !before ? 'create' : !after ? 'delete' : 'update',
-        { type: 'inventory.reorder_rules', id: variant.id, label: variant.sku },
+        { type: 'product.stock_levels.min_qty', id: variant.id, label: variant.sku },
         before,
         after,
       );
@@ -752,7 +747,7 @@ export const inventoryHandlers = [
     if (body.version !== doc.version) {
       return versionConflict(toStockDoc(doc, permissions), 'Phiếu vừa được người khác sửa hoặc ghi sổ.');
     }
-    if (doc.status !== 'draft' || doc.type === 'receipt' || doc.type === 'issue') {
+    if (doc.status !== 'draft' || isShipmentDoc(doc.type)) {
       return problem(409, 'Phiếu không còn sửa được', {
         code: 'not_draft',
         detail: 'Chỉ sửa được phiếu nháp.',
