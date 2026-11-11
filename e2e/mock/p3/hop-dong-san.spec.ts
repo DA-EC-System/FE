@@ -26,7 +26,8 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
           created: false,
           reconnect: null,
           previousStatus: 'connecting',
-          remoteSkuCount: 3,
+          remoteProductCount: 2,
+          remoteSkuCount: 5,
         };
         return bridge.HttpResponse.json({ ...item, shops: [item] });
       }));

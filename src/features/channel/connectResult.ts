@@ -10,7 +10,7 @@ import { formatDateTime } from '@/utils/format';
  */
 export type ConnectedOutcome = 'connected' | 'reconnected' | 'already_connected' | 'multiple';
 
-/** Phần tử đầu của shops[]: `previousStatus`, `remoteSkuCount` chỉ có ở đây, không ở gốc response */
+/** Phần tử đầu của shops[]: `previousStatus`, `remoteProductCount`, `remoteSkuCount` chỉ có ở đây, không ở gốc response */
 export function firstConnection(result: ShopCallbackResult): ShopConnectionResult {
   return (
     result.shops[0] ?? {
@@ -18,22 +18,33 @@ export function firstConnection(result: ShopCallbackResult): ShopConnectionResul
       created: result.created,
       reconnect: result.reconnect,
       previousStatus: null,
+      remoteProductCount: null,
       remoteSkuCount: null,
     }
   );
 }
 
+type RemoteCounts = Pick<ShopConnectionResult, 'remoteProductCount' | 'remoteSkuCount'>;
+
 /**
- * Cụm " · N mặt hàng trên sàn" ở màn nhiều gian hàng; null (BE chưa đếm được) thì bỏ cụm, không hiện "undefined".
- * Đơn vị đếm tuỳ sàn (Lazada đếm sản phẩm, TikTok đếm SKU; §18.7.4) nên dùng từ trung tính "mặt hàng"
+ * Hàng trên sàn lúc nối, một cụm cho mọi sàn (§18.7.4): "305 sản phẩm · 812 phân loại";
+ * chưa có số phân loại thì "305 sản phẩm"; chưa có số sản phẩm thì null
  */
-export function remoteSkuSuffix(count: number | null | undefined): string {
-  return count != null ? ` · ${count} mặt hàng trên sàn` : '';
+export function remoteCountsText({ remoteProductCount, remoteSkuCount }: RemoteCounts): string | null {
+  if (remoteProductCount == null) return null;
+  const products = `${remoteProductCount} sản phẩm`;
+  return remoteSkuCount != null ? `${products} · ${remoteSkuCount} phân loại` : products;
 }
 
-/** Ô "Listing tìm thấy" ở màn connected: chưa có số thì "—" */
-export function remoteSkuValue(count: number | null | undefined): string {
-  return count != null ? String(count) : '—';
+/** Cụm ở màn nhiều gian hàng: chưa có số sản phẩm thì bỏ cả cụm */
+export function remoteCountsSuffix(item: RemoteCounts): string {
+  const text = remoteCountsText(item);
+  return text ? ` · ${text}` : '';
+}
+
+/** Ô "Hàng trên sàn" ở màn một gian hàng: chưa có số sản phẩm thì "—" */
+export function remoteCountsValue(item: RemoteCounts): string {
+  return remoteCountsText(item) ?? '—';
 }
 
 /** Màn cho một phần tử shops[] */
