@@ -12,8 +12,12 @@ import {
 import { cn } from '@/lib/utils';
 
 /** Hàng bộ lọc phía trên bảng */
-export function FilterBar({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col flex-wrap gap-3 p-4 md:flex-row md:items-end">{children}</div>;
+export function FilterBar({ children, guide }: { children: ReactNode; /** Đích của bước hướng dẫn (data-guide) */ guide?: string }) {
+  return (
+    <div className="flex flex-col flex-wrap gap-3 p-4 md:flex-row md:items-end" data-guide={guide}>
+      {children}
+    </div>
+  );
 }
 
 interface SearchInputProps {

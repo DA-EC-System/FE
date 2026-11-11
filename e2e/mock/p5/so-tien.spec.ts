@@ -18,6 +18,11 @@ const phat = async (page: Page, type: string, value: string) => {
 };
 
 const tienDon = (page: Page) => page.locator('[data-testid=order-profit]');
+/** Cách tính lãi của đơn nằm trong popover "Cách tính" (FE#138) */
+const cachTinh = async (page: Page) => {
+  await tienDon(page).getByRole('button', { name: 'Cách tính', exact: true }).click();
+  return page.getByTestId('order-profit-detail');
+};
 const coChu = async (el: ReturnType<Page['locator']>, ...texts: string[]) => {
   for (const t of texts) await expect(el).toContainText(t);
 };
@@ -53,7 +58,10 @@ test.describe('P5 · Sổ tiền', () => {
     test('kiện sàn giao xong ghi ước tính; sàn quyết toán thay dòng, lệch thuế', async ({ page }) => {
       await giaoDH1015(page);
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
-      await coChu(tienDon(page), 'Ước tính', 'Thực nhận', 'Giá vốn', 'Lãi đóng góp');
+      await coChu(tienDon(page), 'Ước tính', 'Thực nhận', 'Lãi đóng góp');
+      await expect(tienDon(page)).not.toContainText('Giá vốn');
+      await coChu(await cachTinh(page), 'Giá vốn', 'Lãi gộp', 'Quảng cáo');
+      await page.keyboard.press('Escape');
       await expect(tienDon(page)).not.toContainText('Lệch thuế');
 
       await diToi(page, '/c/cmp-001/dev/marketplace');
@@ -62,7 +70,8 @@ test.describe('P5 · Sổ tiền', () => {
 
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
       await coChu(tienDon(page), 'Theo quyết toán', 'Lệch thuế');
-      await expect(chua(tienDon(page), 'Quảng cáo').locator('..')).toContainText('-20.000');
+      await expect(chua(await cachTinh(page), 'Quảng cáo').locator('..')).toContainText('-20.000');
+      await page.keyboard.press('Escape');
 
       await chua(tienDon(page), 'dòng sổ của đơn').click();
       await page.getByRole('tab', { name: 'Đã thay', exact: true }).click();
@@ -77,7 +86,8 @@ test.describe('P5 · Sổ tiền', () => {
 
     test('đơn tạo tay đã giao: tiền thực tế, có giá vốn', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1018');
-      await coChu(tienDon(page), 'Theo quyết toán', 'Lãi gộp');
+      await coChu(tienDon(page), 'Theo quyết toán', 'Lãi đóng góp');
+      await coChu(await cachTinh(page), 'Lãi gộp');
     });
   });
 
@@ -95,6 +105,7 @@ test.describe('P5 · Sổ tiền', () => {
       await diToi(page, '/c/cmp-001/sales/orders/ord-1018');
       await coChu(tienDon(page), 'Thực nhận', 'Cần quyền xem giá vốn');
       await expect(tienDon(page)).not.toContainText('Lãi gộp');
+      await expect(tienDon(page).getByRole('button', { name: 'Cách tính', exact: true })).toHaveCount(0);
     });
   });
 

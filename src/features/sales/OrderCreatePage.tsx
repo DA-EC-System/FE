@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowLeft, Trash2, TriangleAlert, UserPlus, X } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { RowAction } from '@/components/common/RowAction';
@@ -260,6 +261,7 @@ export function OrderCreatePage() {
     },
   );
 
+  const { startTour } = usePageGuide('order-create', { ready: true });
   const busy = createMut.isPending;
   const linesError = errors.lines?.root?.message ?? errors.lines?.message;
 
@@ -275,7 +277,12 @@ export function OrderCreatePage() {
         <ArrowLeft />
         Đơn hàng
       </Button>
-      <PageHeader title="Tạo đơn" subtitle="Giá lấy theo bảng giá chuẩn lúc tạo đơn. Đơn mới ở trạng thái Chờ xác nhận." />
+      <PageHeader
+        title="Tạo đơn"
+        subtitle="Đơn mới ở trạng thái Chờ xác nhận."
+        help="Giá lấy theo bảng giá chuẩn lúc tạo đơn. Trả trước thì tạo mã thanh toán ở chi tiết đơn sau khi tạo."
+        onTour={startTour}
+      />
       {notice && (
         <AlertMessage severity="error" className="mb-4" onClose={() => setNotice(null)}>
           {notice}
@@ -285,7 +292,7 @@ export function OrderCreatePage() {
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
           {/* Khách hàng */}
-          <Card className="py-4">
+          <Card className="py-4" data-guide="oc-customer">
             <CardHeader>
               <CardTitle className="text-base">Khách hàng</CardTitle>
             </CardHeader>
@@ -393,9 +400,12 @@ export function OrderCreatePage() {
           </Card>
 
           {/* Sản phẩm */}
-          <Card className="py-4">
+          <Card className="py-4" data-guide="oc-lines">
             <CardHeader>
               <CardTitle className="text-base">Sản phẩm</CardTitle>
+              <p className="text-xs text-muted-foreground" data-testid="price-list-hint">
+                Giá theo bảng giá chuẩn, chốt lúc tạo đơn
+              </p>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="max-w-lg">
@@ -536,7 +546,7 @@ export function OrderCreatePage() {
           </Card>
 
           {/* Thanh toán */}
-          <Card className="py-4">
+          <Card className="py-4" data-guide="oc-payment">
             <CardHeader>
               <CardTitle className="text-base">Thanh toán</CardTitle>
             </CardHeader>
@@ -578,7 +588,7 @@ export function OrderCreatePage() {
         </div>
 
         {/* Tóm tắt tiền */}
-        <Card className="py-4 lg:sticky lg:top-4">
+        <Card className="py-4 lg:sticky lg:top-4" data-guide="oc-summary">
           <CardHeader>
             <CardTitle className="text-base">Tóm tắt</CardTitle>
           </CardHeader>

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/components/common/PageHeader';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
@@ -38,6 +39,7 @@ export function CustomerListPage() {
   });
   const channels = useCustomerChannels();
   const filtered = Boolean(f.q || channel || from || to);
+  const { startTour } = usePageGuide('customers', { ready: !query.isLoading });
 
   const columns = useMemo<ColumnDef<CustomerSummary>[]>(
     () => [
@@ -91,14 +93,19 @@ export function CustomerListPage() {
 
   return (
     <div>
-      <PageHeader title="Khách hàng" subtitle="Khách mua qua sàn, nhắn qua hộp thư hoặc được tạo tay khi lập đơn." />
+      <PageHeader
+        title="Khách hàng"
+        subtitle="Khách mua qua sàn, nhắn qua hộp thư hoặc được tạo tay khi lập đơn."
+        help="Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh của khách."
+        onTour={startTour}
+      />
       {query.isError && (
         <AlertMessage severity="error" className="mb-4">
           {problemMessage(query.error)}
         </AlertMessage>
       )}
-      <Card className="gap-0 py-0">
-        <FilterBar>
+      <Card className="gap-0 py-0" data-guide="customer-list">
+        <FilterBar guide="customer-filters">
           <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm tên, số điện thoại, email" />
           <FilterSelect loading={channels.isLoading}
             label="Kênh"

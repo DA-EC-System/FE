@@ -295,6 +295,100 @@ export const GUIDES = {
       },
     ],
   },
+  orders: {
+    key: 'orders',
+    version: 1,
+    title: 'Đơn hàng',
+    intro: [
+      'Đơn từ sàn, hộp thư và đơn tạo tay nằm chung một danh sách.',
+      'Tab lọc theo trạng thái, số trên tab đếm theo bộ lọc đang chọn.',
+    ],
+    primaryAction: { label: 'Xem danh sách', target: 'order-list' },
+    steps: [
+      { target: 'order-tabs', title: 'Lọc theo trạng thái', body: 'Mỗi tab là một trạng thái đơn, kèm số đơn đang có.' },
+      {
+        target: 'order-filters',
+        title: 'Tìm và lọc',
+        body: 'Tìm theo mã đơn hoặc mã đơn sàn; lọc theo nguồn, gian hàng, cách thanh toán, ngày, giai đoạn và cờ.',
+      },
+      {
+        target: 'order-list',
+        title: 'Mở đơn',
+        body: 'Cột Trạng thái là giai đoạn suy từ kiện, rê chuột vào nhãn để xem nghĩa. Bấm một dòng để mở đơn.',
+      },
+    ],
+  },
+  'order-detail': {
+    key: 'order-detail',
+    version: 1,
+    title: 'Chi tiết đơn',
+    intro: [
+      'Thanh bước cho biết đơn đang ở đâu; nhãn giai đoạn suy từ các kiện.',
+      'Cột phải là thanh toán (đơn tạo tay, hộp thư) và lịch sử của đơn.',
+    ],
+    primaryAction: { label: 'Xem kiện', target: 'order-packages' },
+    steps: [
+      { target: 'order-steps', title: 'Đơn đang ở đâu', body: 'Bước xanh là đã qua, bước viền vàng là hiện tại.' },
+      { target: 'order-lines', title: 'Hàng và tiền', body: 'Từng dòng hàng, phí giao và tổng tiền của đơn.' },
+      {
+        target: 'order-packages',
+        title: 'Kiện của đơn',
+        body: 'Mỗi kiện đi riêng: bấm mã kiện để mở trang kiện; tự giao thì cập nhật giao ở cột cuối.',
+      },
+      {
+        target: 'order-payment',
+        title: 'Thanh toán',
+        body: 'Đơn trả trước: tạo mã thanh toán rồi gửi QR hoặc link cho khách. Trạng thái tiền tự cập nhật.',
+      },
+      { target: 'detail-history', title: 'Lịch sử', body: 'Ai đổi trạng thái đơn, lúc nào, lý do gì.' },
+    ],
+  },
+  'order-create': {
+    key: 'order-create',
+    version: 1,
+    title: 'Tạo đơn',
+    intro: [
+      'Chọn khách, thêm sản phẩm, nhập địa chỉ giao và cách thanh toán.',
+      'Giá lấy theo bảng giá chuẩn lúc tạo đơn.',
+    ],
+    primaryAction: { label: 'Chọn khách', target: 'oc-customer' },
+    steps: [
+      { target: 'oc-customer', title: 'Khách hàng', body: 'Chọn khách có sẵn hoặc nhập khách mới.' },
+      {
+        target: 'oc-lines',
+        title: 'Sản phẩm',
+        body: 'Tìm theo tên hoặc SKU. Thiếu hàng vẫn tạo được, app hỏi lại trước khi tạo.',
+      },
+      {
+        target: 'oc-payment',
+        title: 'Thanh toán',
+        body: 'Trả trước thì tạo mã thanh toán ở chi tiết đơn sau khi tạo; COD thu khi giao.',
+      },
+      { target: 'oc-summary', title: 'Tóm tắt', body: 'Kiểm tạm tính, phí giao và tổng rồi bấm Tạo đơn.' },
+    ],
+  },
+  customers: {
+    key: 'customers',
+    version: 1,
+    title: 'Khách hàng',
+    intro: [
+      'Khách mua qua sàn, nhắn qua hộp thư hoặc được tạo tay khi lập đơn.',
+      'Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh.',
+    ],
+    primaryAction: { label: 'Tìm khách', target: 'customer-filters' },
+    steps: [
+      {
+        target: 'customer-filters',
+        title: 'Tìm khách',
+        body: 'Tìm theo tên, số điện thoại hoặc email; lọc theo kênh và ngày đặt đơn.',
+      },
+      {
+        target: 'customer-list',
+        title: 'Mở khách',
+        body: 'Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh.',
+      },
+    ],
+  },
 } satisfies Record<string, PageGuide>;
 
 export type GuideKey = keyof typeof GUIDES;
