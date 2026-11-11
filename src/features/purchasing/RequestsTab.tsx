@@ -149,7 +149,11 @@ export function RequestsTab() {
             options={(suppliersQuery.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
           />
           {canManage && (
-            <Button className="md:ms-auto" onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId))}>
+            <Button
+              className="md:ms-auto"
+              data-guide="purchasing-new"
+              onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId))}
+            >
               <Plus />
               Lập đề nghị
             </Button>

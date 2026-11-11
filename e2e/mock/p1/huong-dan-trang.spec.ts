@@ -145,6 +145,36 @@ test.describe('Hướng dẫn trang', () => {
     }
   });
 
+  test('Nhập hàng và các phiếu nhập có hướng dẫn riêng (FE#137)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
+    await menu(page, 'Mua hàng');
+    await expect(popup(page).getByRole('heading', { name: 'Nhập hàng', exact: true })).toBeVisible();
+    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+    await expect(tour(page).getByText('Bước 1/3', { exact: true })).toBeVisible();
+    for (const t of ['Tạo đề nghị nhập', 'Nhà cung cấp']) {
+      await page.keyboard.press('ArrowRight');
+      await expect(tour(page).getByRole('heading', { name: t, exact: true })).toBeVisible();
+    }
+    await page.keyboard.press('Escape');
+
+    const phieu: [string, string, string, string][] = [
+      ['Đề nghị nhập', 'DN-000003', 'Đề nghị nhập', 'Đang ở bước nào'],
+      ['Phiếu nhận', '', 'Phiếu nhận hàng', 'Số thực nhận'],
+      ['Trả NCC', 'TN-000001', 'Trả hàng nhà cung cấp', 'Chọn dòng trả'],
+    ];
+    for (const [tab, so, tieuDe, buoc1] of phieu) {
+      await menu(page, 'Mua hàng');
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+      await page.locator('tbody tr[data-row-id]').filter({ hasText: so }).first().click();
+      await expect(popup(page).getByRole('heading', { name: tieuDe, exact: true })).toBeVisible();
+      await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+      await expect(tour(page).getByRole('heading', { name: buoc1, exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(tour(page)).toHaveCount(0);
+    }
+  });
+
   test('mobile chỉ hiện pop-up tóm tắt, không có tour', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');

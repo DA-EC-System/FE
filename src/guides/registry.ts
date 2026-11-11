@@ -173,6 +173,128 @@ export const GUIDES = {
       },
     ],
   },
+  purchasing: {
+    key: 'purchasing',
+    version: 1,
+    title: 'Nhập hàng',
+    intro: [
+      'Đề nghị nhập gửi nhà cung cấp, phiếu nhận khi hàng tới, phiếu trả hàng lỗi.',
+      'Mỗi đề nghị một nhà cung cấp, cần người khác người soạn duyệt rồi mới đặt.',
+      'Hàng nhận vào tồn kho khi phiếu nhận được ghi sổ.',
+    ],
+    primaryAction: { label: 'Tạo đề nghị nhập', target: 'purchasing-new' },
+    steps: [
+      {
+        target: 'purchasing-tabs',
+        title: 'Ba loại chứng từ',
+        body: 'Tab Đề nghị nhập, Phiếu nhận và Trả NCC. Mỗi tab lọc được theo trạng thái và nhà cung cấp.',
+      },
+      {
+        target: 'purchasing-new',
+        title: 'Tạo đề nghị nhập',
+        body: 'Chọn nhà cung cấp, thêm biến thể cần nhập rồi lưu nháp. Gửi duyệt khi đã đủ dòng.',
+        permission: 'purchasing.request.manage',
+      },
+      {
+        target: 'purchasing-suppliers',
+        title: 'Nhà cung cấp',
+        body: 'Danh sách nhà cung cấp. Thêm nhà cung cấp ở đây trước khi lập đề nghị.',
+      },
+    ],
+  },
+  'purchase-request': {
+    key: 'purchase-request',
+    version: 1,
+    title: 'Đề nghị nhập',
+    intro: [
+      'Thêm dòng, gửi duyệt, người khác duyệt rồi mới đặt NCC.',
+      'Đã đặt thì Kho lập phiếu nhận từ đề nghị khi hàng tới.',
+      'Nút mờ là thao tác chưa làm được, rê chuột để xem lý do.',
+    ],
+    primaryAction: { label: 'Xem các dòng', target: 'pr-lines' },
+    steps: [
+      {
+        target: 'pr-steps',
+        title: 'Đang ở bước nào',
+        body: 'Thanh bước cho biết đề nghị đang nháp, chờ duyệt, đã duyệt hay đã đặt.',
+      },
+      {
+        target: 'pr-lines',
+        title: 'Thêm dòng',
+        body: 'Chọn biến thể và số lượng cần nhập. Chưa có sản phẩm thì bấm Sản phẩm mới.',
+      },
+      {
+        target: 'pr-actions',
+        title: 'Gửi rồi duyệt',
+        body: 'Gửi duyệt khi đủ dòng. Người duyệt phải khác người soạn; đã duyệt thì đặt NCC rồi lập phiếu nhận.',
+      },
+      {
+        target: 'detail-history',
+        title: 'Lịch sử',
+        body: 'Ai đổi trạng thái, lúc nào và ghi chú kèm theo.',
+      },
+    ],
+  },
+  'goods-receipt': {
+    key: 'goods-receipt',
+    version: 1,
+    title: 'Phiếu nhận hàng',
+    intro: [
+      'Nhập số thực nhận cho từng dòng, ghi chênh lệch rồi ghi sổ một lần.',
+      'Dòng có số chênh có vạch vàng ở mép trái và nhãn Chênh.',
+    ],
+    primaryAction: { label: 'Xem các dòng', target: 'gr-lines' },
+    steps: [
+      {
+        target: 'gr-lines',
+        title: 'Số thực nhận',
+        body: 'Ghi số NCC báo giao, số đạt, lỗi giữ và trả tại chỗ. Thiếu được tính tự động.',
+      },
+      {
+        target: 'gr-reason',
+        title: 'Ghi chênh lệch',
+        body: 'Có lỗi, trả tại chỗ hoặc thiếu thì ghi lý do cho dòng đó. Rê chuột vào nhãn Chênh để xem chênh gì.',
+      },
+      {
+        target: 'gr-actions',
+        title: 'Hoàn tất',
+        body: 'Ghi sổ để cộng hàng đạt vào tồn. Có thiếu thì phiếu chuyển sang chờ Mua hàng ghi kết quả.',
+      },
+    ],
+  },
+  'supplier-return': {
+    key: 'supplier-return',
+    version: 1,
+    title: 'Trả hàng nhà cung cấp',
+    intro: [
+      'Chọn dòng hàng lỗi cần trả, ghi lý do rồi gửi duyệt.',
+      'NCC bù hàng thì lập đề nghị bù hàng ngay từ phiếu.',
+    ],
+    primaryAction: { label: 'Xem các dòng', target: 'sr-lines' },
+    steps: [
+      {
+        target: 'sr-lines',
+        title: 'Chọn dòng trả',
+        body: 'Các dòng lấy từ hàng đang chờ xử lý của nhà cung cấp. Ghi số lượng trả cho từng dòng.',
+      },
+      {
+        target: 'sr-note',
+        title: 'Lý do',
+        body: 'Ghi lý do trả để NCC và người duyệt biết hàng lỗi thế nào.',
+      },
+      {
+        target: 'sr-actions',
+        title: 'Gửi và ghi kết quả',
+        body: 'CEO duyệt và gửi. Người khác người gửi ghi kết quả: hoàn tiền, bù hàng hoặc không nhận.',
+      },
+      {
+        target: 'sr-replace',
+        title: 'Đề nghị bù hàng',
+        body: 'NCC bù hàng thì bấm đây để lập đề nghị nhập mới cho phần được bù.',
+        permission: 'purchasing.request.manage',
+      },
+    ],
+  },
 } satisfies Record<string, PageGuide>;
 
 export type GuideKey = keyof typeof GUIDES;
