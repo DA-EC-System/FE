@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { codeMessage } from '@/api/problemMessages';
 import { docRefPath } from '@/router/routes';
@@ -19,24 +18,7 @@ export function Info({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-/**
- * Khung chi tiết `.dt-grid` của Test_UI (FE#137): cột chính và cột Lịch sử rộng 300px bên phải.
- * Dưới 1100px hai cột xếp dọc. Chưa có lịch sử (phiếu mới) thì chỉ có cột chính.
- */
-export function DetailGrid({ children, history }: { children: ReactNode; history?: ReactNode }) {
-  if (!history) return <div className="grid min-w-0 gap-4">{children}</div>;
-  return (
-    <div className="grid items-start gap-4 min-[1100px]:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="grid min-w-0 gap-4">{children}</div>
-      <Card className="py-4" data-guide="detail-history">
-        <CardHeader>
-          <CardTitle className="text-base">Lịch sử</CardTitle>
-        </CardHeader>
-        <CardContent>{history}</CardContent>
-      </Card>
-    </div>
-  );
-}
+export { DetailGrid } from '@/components/common/DetailGrid';
 
 /** Thao tác duyệt: luôn hiện nút khi phiếu đang chờ duyệt, thiếu quyền thì nút mờ kèm lý do */
 const APPROVAL_ACTIONS = new Set(['approve', 'approve_send']);

@@ -15,6 +15,13 @@ const menuThanhBen = (page: Page, label: string) =>
   page.locator('[data-sidebar="menu-button"]', { hasText: new RegExp(`^\\s*${label}\\s*$`) });
 /** Cha, phần tử ngay sau của phần tử chứa chữ (nhãn và giá trị đứng cạnh nhau) */
 const chaCua = (page: Page, text: string) => chua(page, text).locator('..');
+
+/** Câu giải thích trạng thái đơn nằm trong nút "?" cạnh nhãn (FE#138) */
+const giaiThichDon = async (page: Page, text: string) => {
+  await page.getByRole('button', { name: 'Giải thích: Trạng thái đơn', exact: true }).hover();
+  await expect(page.getByRole('tooltip')).toContainText(text);
+};
+
 const sauCua = (page: Page, text: string) => chua(page, text).locator('xpath=following-sibling::*[1]');
 
 /** Quét đủ mọi dòng của kiện ở màn đóng gói */
@@ -109,7 +116,7 @@ test.describe('P4 · Xử lý đơn', () => {
 
     test('đơn sàn khách đang xin huỷ: có ghi chú, chỉ trả lời yêu cầu, không tự huỷ', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1015');
-      await thayChu(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
+      await giaiThichDon(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Đang xử lý');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Sàn: AWAITING_COLLECTION');
       await expect(page.locator('[data-testid=cancel-request]')).toContainText('Khách xin huỷ đơn trên sàn');
@@ -421,7 +428,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(kienCuaDon(page)).toContainText('Đã giao');
       await expect(kienCuaDon(page).getByRole('button', { name: 'Cập nhật giao', exact: true })).toHaveCount(0);
       await expect(page.locator('[data-testid=order-status]')).toContainText('Chờ hoàn tất');
-      await thayChu(page, 'Chưa hoàn tất:');
+      await expect(page.locator('[data-testid=completion-blocker]')).toContainText('Chưa hoàn tất:');
     });
 
     test('tự giao thất bại: bắt lý do, sau đó giao lại', async ({ page }) => {

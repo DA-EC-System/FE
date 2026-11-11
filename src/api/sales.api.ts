@@ -3,7 +3,7 @@
  * Hợp đồng đề xuất ở FE#9, chờ commerio-backend#24.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
@@ -96,6 +96,31 @@ export function useOrders(params: OrderListParams, options: { enabled?: boolean 
       return data;
     },
   });
+}
+
+/**
+ * Số đơn của từng tab trạng thái theo bộ lọc đang chọn (FE#138): mỗi tab một lần gọi danh sách với pageSize 1,
+ * đọc `total`. Tab `all` không lọc trạng thái.
+ */
+export function useOrderTabCounts<S extends string>(
+  filters: Omit<OrderListParams, 'status' | 'page' | 'pageSize'>,
+  tabs: readonly S[],
+) {
+  const companyId = useCompanyId();
+  const results = useQueries({
+    queries: tabs.map((tab) => {
+      const params: OrderListParams = { ...filters, status: tab === 'all' ? undefined : tab, page: 1, pageSize: 1 };
+      return {
+        queryKey: salesKeys.orders(companyId, params),
+        enabled: Boolean(companyId),
+        queryFn: async () => {
+          const { data } = await apiClient.get<PageResult<OrderSummary>>('/sales/orders', { params });
+          return data;
+        },
+      };
+    }),
+  });
+  return Object.fromEntries(tabs.map((tab, i) => [tab, results[i].data?.total])) as Record<S, number | undefined>;
 }
 
 export function useOrder(id: string) {
