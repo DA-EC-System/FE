@@ -73,7 +73,7 @@ export function AppLayout({ sections, brand }: AppLayoutProps) {
         brand={brand}
       />
       <SidebarInset className="min-w-0 bg-background">
-        <Header active={active} />
+        <Header active={active} sections={visibleSections} />
         <main className="flex-1 px-4 pt-4 pb-16 md:px-6 md:pt-6">
           <div className="w-full max-w-[1280px]">
             <Outlet />
