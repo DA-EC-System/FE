@@ -35,8 +35,6 @@ export const ROUTES = {
     catalogProduct: (companyId: string, productId: string) =>
       `/c/${companyId}/catalog/products/${productId}`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
-    pricing: (companyId: string) => `/c/${companyId}/pricing`,
-    pricelist: (companyId: string, pricelistId: string) => `/c/${companyId}/pricing/${pricelistId}`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,
     inventoryTab: (companyId: string, tab: 'stock' | 'documents') =>
       tab === 'stock' ? `/c/${companyId}/inventory` : `/c/${companyId}/inventory?tab=${tab}`,

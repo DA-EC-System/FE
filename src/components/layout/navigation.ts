@@ -123,13 +123,6 @@ export function companyNav(companyId: string): NavSection[] {
           permission: PERMISSIONS.catalogSetup,
         },
         {
-          to: ROUTES.company.pricing(companyId),
-          label: 'Bảng giá',
-          icon: Tags,
-          module: 'pricing',
-          permission: PERMISSIONS.pricelistView,
-        },
-        {
           to: ROUTES.company.inventory(companyId),
           label: 'Kho',
           icon: Warehouse,

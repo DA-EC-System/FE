@@ -34,8 +34,6 @@ import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
 import { ProductFormPage } from '@/features/catalog/ProductFormPage';
 import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
-import { PricelistListPage } from '@/features/pricing/PricelistListPage';
-import { PricelistDetailPage } from '@/features/pricing/PricelistDetailPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
 import { PurchasingPage } from '@/features/purchasing/PurchasingPage';
@@ -225,22 +223,6 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="catalog" permission={PERMISSIONS.catalogSetup}>
                         <CatalogSetupPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'pricing',
-                    element: (
-                      <RequireModule module="pricing" permission={PERMISSIONS.pricelistView}>
-                        <PricelistListPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'pricing/:pricelistId',
-                    element: (
-                      <RequireModule module="pricing" permission={PERMISSIONS.pricelistView}>
-                        <PricelistDetailPage />
                       </RequireModule>
                     ),
                   },
