@@ -5,6 +5,8 @@ import type {
   ListingMatchInput,
   ListingRow,
   Marketplace,
+  ListingSyncResult,
+  PushListingsInput,
   PushResult,
   RemoteSku,
   SetupDecision,
@@ -44,7 +46,7 @@ import { listingMachine, onPlatform, shopMachine, shopUsable } from '@/lib/machi
 import { DEFAULT_OAUTH_DENY, mockAllowsMethod, mockCapabilities, mockOAuthReturn, mockPlatforms } from '../shopPlatforms';
 import { appPath } from '@/utils/env';
 import { registerMarketplaceEvent } from '../engine/marketplace';
-import type { ListingStatus } from '@/types/shop';
+import type { ListingStatus, SyncError } from '@/types/shop';
 
 // ---------- Channel: gian hàng và ghép SKU của công ty đang chọn (UC-CH-01, UC-CH-02) ----------
 export const shopEntity = (s: MockShop) => ({ type: 'channel.shops', id: s.id, label: s.shopName });
@@ -196,7 +198,7 @@ export function toListing(l: MockListing): ChannelListing {
     id: l.id,
     externalProductId: l.externalProductId,
     externalSkuId: l.externalSkuId,
-    sellerSku: r?.sellerSku ?? '',
+    sellerSku: r?.sellerSku ?? null,
     status: l.status,
     rejectReason: l.rejectReason,
     pushError: l.pushError,
@@ -215,8 +217,51 @@ export function toListing(l: MockListing): ChannelListing {
   };
 }
 
+/** Việc nền đẩy listing giả (§18.6.4): xếp việc xong, quá chừng này ms thì sàn trả kết quả */
+export const PUSH_JOB_MS = 2500;
+
+/** Lỗi tạm của sàn ghi vào `pushError` */
+const marketplaceUnavailable = (message: string): SyncError => ({ code: 'marketplace_unavailable', message, at: db.now() });
+
+/**
+ * Chạy các việc đẩy đã tới hạn của gian hàng. Mock không có hàng đợi thật nên chạy khi FE đọc lại listing.
+ * Sàn lỗi tạm: giữ `pushing`, ghi lỗi và đếm lần thử; tắt lỗi tạm thì sàn nhận (sự kiện `shop.outage`).
+ */
+export function settleDuePushes(shop: MockShop, now = Date.now()) {
+  for (const l of channel.listings) {
+    if (l.shopId !== shop.id || l.status !== 'pushing' || l.pushQueuedAt === undefined) continue;
+    if (now - l.pushQueuedAt < PUSH_JOB_MS) continue;
+    if (shop.outage) {
+      if (l.pushAttempts === 0) {
+        Object.assign(l, { pushAttempts: 1, pushError: marketplaceUnavailable('Sàn lỗi tạm, đang thử lại') });
+        l.version += 1;
+      }
+      continue;
+    }
+    completePush(shop, l);
+    l.version += 1;
+  }
+}
+
+/** Sàn nhận một việc đẩy: ghi giá đã đẩy rồi chuyển trạng thái theo năng lực sàn */
+function completePush(shop: MockShop, l: MockListing) {
+  const { price } = shopPrice(shop, l.variantId);
+  const r = channel.remoteSkus[shop.id]?.find((x) => x.externalSkuId === l.externalSkuId);
+  if (r && price !== null) r.price = price;
+  Object.assign(l, { lastPushedAt: db.now(), lastPushedPrice: price });
+  const variant = sellableVariant(shop.companyId, l.variantId)?.variant;
+  settlePush(shop, l, variant ? hidesListings(variant.businessStatus) : false);
+}
+
 /** Sàn nhận bản đẩy: Shopee, sàn giả lập bán ngay; Lazada, TikTok chờ duyệt cả sản phẩm (mọi SKU cùng mã sản phẩm sàn) */
 export function settlePush(shop: MockShop, l: MockListing, paused: boolean) {
+  // Đẩy lần đầu: sàn tạo sản phẩm và trả mã, lưu ghép luôn
+  if (l.pendingRemote) {
+    (channel.remoteSkus[shop.id] ??= []).push(l.pendingRemote);
+    Object.assign(l, { externalProductId: l.pendingRemote.externalProductId, externalSkuId: l.pendingRemote.externalSkuId });
+    l.pendingRemote = undefined;
+  }
+  l.pushQueuedAt = undefined;
   l.pushError = null;
   l.pushAttempts = 0;
   l.rejectReason = null;
@@ -530,8 +575,7 @@ registerMarketplaceEvent({
     if (shop.outage) return `${shop.shopName}: sàn đang lỗi tạm`;
     const pending = channel.listings.filter((l) => l.shopId === shop.id && l.status === 'pushing');
     for (const l of pending) {
-      const variant = sellableVariant(shop.companyId, l.variantId)?.variant;
-      settlePush(shop, l, variant ? hidesListings(variant.businessStatus) : false);
+      completePush(shop, l);
       l.version += 1;
     }
     return `${shop.shopName}: sàn hoạt động lại${pending.length ? `, sàn nhận ${pending.length} sản phẩm đang đẩy` : ''}`;
@@ -548,7 +592,12 @@ registerMarketplaceEvent({
   run({ shop, params }) {
     const { found } = pickListings(shop, params.sku, ['pushing'], 'đang đẩy');
     for (const l of found) {
-      bump(l, { status: 'push_failed', pushAttempts: 5, pushError: 'Sàn không phản hồi sau 5 lần thử trong 30 phút' });
+      bump(l, {
+        status: 'push_failed',
+        pushAttempts: 5,
+        pushQueuedAt: undefined,
+        pushError: marketplaceUnavailable('Sàn không phản hồi sau 5 lần thử trong 30 phút'),
+      });
     }
     return `${skusOf(shop!, found)}: lỗi đẩy`;
   },
@@ -1077,6 +1126,7 @@ export const shopHandlers = [
     const found = ownShop(params.id, guard.value.companyId);
     if (!found.ok) return found.response;
     const shop = found.value;
+    settleDuePushes(shop);
     const rows: ListingRow[] = sellableVariants(shop.companyId).map(({ product, variant }) => {
       const l = channel.listings.find((x) => x.shopId === shop.id && x.variantId === variant.id);
       return {
@@ -1103,6 +1153,7 @@ export const shopHandlers = [
     if (!found.ok) return found.response;
     const shop = found.value;
     if (!usable(shop)) return shopNotConnected(shop);
+    settleDuePushes(shop);
     const skus: RemoteSku[] = (channel.remoteSkus[shop.id] ?? []).map((r) => ({
       ...r,
       matchedVariantId:
@@ -1217,8 +1268,9 @@ export const shopHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  /** Đẩy chạy nền (§18.6.4): kiểm từng dòng, xếp việc rồi trả ngay; sàn trả kết quả sau PUSH_JOB_MS */
   http.post(`${API}/channel/shops/:id/listings/push`, async ({ params, request }) => {
-    await delay(LATENCY * 2);
+    await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.listingManage);
     if (!guard.ok) return guard.response;
     const found = ownShop(params.id, guard.value.companyId);
@@ -1232,75 +1284,110 @@ export const shopHandlers = [
       return problem(409, 'Gian hàng chờ kiểm kê đầu kỳ', { code: 'shop_awaiting_stocktake' });
     }
     if (!usable(shop)) return shopNotConnected(shop);
-    const { variantIds } = (await request.json()) as { variantIds: string[] };
-    if (!Array.isArray(variantIds) || !variantIds.length) {
-      return problem(422, 'Chưa chọn biến thể', { errors: { variantIds: 'Chọn ít nhất một biến thể' } });
+    const { variantIds, imageUrls = {} } = (await request.json()) as PushListingsInput;
+    if (!Array.isArray(variantIds) || !variantIds.length || variantIds.length > 20) {
+      return problem(422, 'Số biến thể không hợp lệ', { errors: { variantIds: 'Chọn từ 1 đến 20 biến thể' } });
     }
-    const remoteList = (channel.remoteSkus[shop.id] ??= []);
+    settleDuePushes(shop);
+    const blocked = (variantId: string, code: string, l?: MockListing, message?: string): PushResult => ({
+      variantId,
+      listingId: l?.id ?? null,
+      status: l?.status ?? null,
+      code,
+      message: message ?? null,
+    });
+    const queued: string[] = [];
     const results: PushResult[] = variantIds.map((variantId) => {
       const target = sellableVariant(shop.companyId, variantId);
-      if (!target) {
-        return { variantId, sku: variantId, outcome: 'failed', code: 'not_found', message: 'Biến thể không còn bán' };
-      }
-      const sku = target.variant.sku;
-      const paused = hidesListings(target.variant.businessStatus);
-      const { price } = shopPrice(shop, variantId);
+      if (!target) return blocked(variantId, 'not_found', undefined, 'Biến thể không còn bán');
       const l = channel.listings.find((x) => x.shopId === shop.id && x.variantId === variantId);
-      if (l?.status === 'pushing') {
-        return { variantId, sku, outcome: 'failed', status: l.status, code: 'push_in_progress', message: 'Đang đẩy, chờ sàn trả kết quả' };
+      if (l?.status === 'pushing') return blocked(variantId, 'push_in_progress', l);
+      // Đã trên sàn: giá, tồn cập nhật bằng Đồng bộ (§18.5)
+      if (l && (l.status === 'under_review' || l.status === 'live' || l.status === 'hidden')) {
+        return blocked(variantId, 'already_listed', l);
       }
-      if (l?.status === 'platform_hold') {
-        return { variantId, sku, outcome: 'failed', status: l.status, code: 'platform_hold', message: 'Sàn đang khoá sản phẩm này' };
-      }
-      // FE#146: Lazada cần danh mục lá, danh mục Commerio của sản phẩm phải ghép trước (§18.5)
       if (shop.platform === 'lazada' && !categoryMapped(shop.id, target.product.categoryId)) {
-        return { variantId, sku, outcome: 'failed', status: l?.status, code: 'category_unmapped', message: 'Danh mục chưa ghép với danh mục sàn' };
+        return blocked(variantId, 'category_unmapped', l);
       }
-      if (price === null) {
-        const message = 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống';
-        // Listing đã có: ghi lỗi đẩy lên listing; biến thể chưa lên sàn thì chỉ báo lại
-        if (l && l.status !== 'hidden') Object.assign(l, { status: 'push_failed', pushError: message, version: l.version + 1 });
-        return { variantId, sku, outcome: 'failed', status: l?.status, code: 'price_missing', message };
-      }
+      if (shopPrice(shop, variantId).price === null) return blocked(variantId, 'price_missing', l);
+      // Sản phẩm chưa có ảnh trên sàn (chưa SKU nào cùng sản phẩm lên sàn) thì phải gửi imageUrls
+      const productOnPlatform = channel.listings.some(
+        (x) =>
+          x.shopId === shop.id &&
+          x.externalProductId !== null &&
+          sellableVariant(shop.companyId, x.variantId)?.product.id === target.product.id,
+      );
+      if (!productOnPlatform && !imageUrls[target.product.id]?.length) return blocked(variantId, 'images_missing', l);
+
+      const queuedAt = Date.now();
       if (l) {
-        const r = remoteList.find((x) => x.externalSkuId === l.externalSkuId);
-        if (r) r.price = price;
-        Object.assign(l, { lastPushedAt: db.now(), lastPushedPrice: price, version: l.version + 1 });
-        // Đang ẩn: chỉ cập nhật giá, giữ ẩn
-        if (l.status !== 'hidden') {
-          l.status = 'pushing';
-          if (shop.outage) Object.assign(l, { pushAttempts: 1, pushError: 'Sàn lỗi tạm, đang thử lại' });
-          else settlePush(shop, l, paused);
-        }
-        return { variantId, sku, outcome: 'updated', status: l.status, externalSkuId: l.externalSkuId };
+        // Đẩy lại: lỗi đẩy, sàn từ chối, sàn khoá; listing đã gỡ thì BE tạo bản ghi mới
+        Object.assign(l, {
+          ...(l.status === 'delisted' ? { id: rid('lst'), delistedByDisconnect: false } : {}),
+          status: 'pushing',
+          pushQueuedAt: queuedAt,
+          pushError: null,
+          pushAttempts: 0,
+          version: l.version + 1,
+        });
+        queued.push(target.variant.sku);
+        return { variantId, listingId: l.id, status: l.status, code: null, message: null };
       }
-      // Biến thể chưa có SKU sàn: sàn tạo sản phẩm mới và trả SKU, lưu ghép luôn
-      const created: MockRemoteSku = {
+      const remote: MockRemoteSku = {
         externalProductId: `${shop.id}-${target.product.id}`,
         externalSkuId: rid(`${shop.id}-sku`),
         title: [target.product.name, variantAttributes(shop.companyId, target.variant.valueIds).map((a) => a.value).join(', ')]
           .filter(Boolean)
           .join(' - '),
-        sellerSku: sku,
-        price,
+        sellerSku: target.variant.sku,
+        price: shopPrice(shop, variantId).price ?? 0,
       };
-      remoteList.push(created);
-      const fresh = newListing(shop, variantId, created, {
+      // Sàn chưa trả mã: mã sản phẩm, mã SKU sàn null tới khi việc đẩy xong
+      const fresh = newListing(shop, variantId, remote, {
+        externalProductId: null,
+        externalSkuId: null,
         status: 'pushing',
-        lastPushedAt: db.now(),
-        lastPushedPrice: price,
+        platformStock: null,
+        pushQueuedAt: queuedAt,
+        pendingRemote: remote,
       });
-      if (shop.outage) Object.assign(fresh, { pushAttempts: 1, pushError: 'Sàn lỗi tạm, đang thử lại' });
-      else settlePush(shop, fresh, paused);
       channel.listings.push(fresh);
-      return { variantId, sku, outcome: 'created', status: fresh.status, externalSkuId: created.externalSkuId };
+      queued.push(`${target.variant.sku} (tạo mới)`);
+      return { variantId, listingId: fresh.id, status: fresh.status, code: null, message: null };
     });
-    const done = results.filter((r) => r.outcome !== 'failed');
-    if (done.length) {
-      writeCompanyLog(guard.value, 'update', shopEntity(shop), null, {
-        pushed: done.map((r) => `${r.sku}${r.outcome === 'created' ? ' (tạo mới)' : ''}`),
-      });
-    }
+    if (queued.length) writeCompanyLog(guard.value, 'update', shopEntity(shop), null, { pushQueued: queued });
     return HttpResponse.json<{ results: PushResult[] }>({ results });
+  }),
+
+  /** Đồng bộ tay (§18.5): chạy việc đẩy tới hạn, đẩy giá và tồn của listing chưa khớp */
+  http.post(`${API}/channel/shops/:id/listings/sync`, async ({ params, request }) => {
+    await delay(LATENCY * 2);
+    const guard = requireCompany(request, PERMISSIONS.shopSync);
+    if (!guard.ok) return guard.response;
+    const found = ownShop(params.id, guard.value.companyId);
+    if (!found.ok) return found.response;
+    const shop = found.value;
+    if (!usable(shop)) return shopNotConnected(shop);
+    const own = channel.listings.filter((l) => l.shopId === shop.id);
+    const before = own.filter((l) => l.status === 'pushing').length;
+    settleDuePushes(shop);
+    const changed = before - own.filter((l) => l.status === 'pushing').length;
+    let pushed = 0;
+    for (const l of own) {
+      if (!onPlatform(l.status) || l.status === 'pushing') continue;
+      const { price } = shopPrice(shop, l.variantId);
+      const stale = price !== null && price !== l.lastPushedPrice;
+      if (!stale && l.stockSync === 'synced') continue;
+      if (stale) {
+        const r = channel.remoteSkus[shop.id]?.find((x) => x.externalSkuId === l.externalSkuId);
+        if (r) r.price = price;
+        Object.assign(l, { lastPushedAt: db.now(), lastPushedPrice: price, priceSyncError: null });
+      }
+      if (l.stockSync === 'pending') syncStock(l);
+      l.version += 1;
+      pushed += 1;
+    }
+    const result: ListingSyncResult = { checked: own.length, changed, pushed, errors: 0 };
+    return HttpResponse.json<ListingSyncResult>(result);
   }),
 ];
