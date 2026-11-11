@@ -9,7 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumbStore } from '@/hooks/useBreadcrumb';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import type { RealtimeStatus } from '@/api/realtime';
-import type { ActiveNav } from './navigation';
+import { CommandPalette } from './CommandPalette';
+import type { ActiveNav, NavSection } from './navigation';
 import { TaskBell } from './TaskBell';
 
 const REALTIME_LABEL: Record<Exclude<RealtimeStatus, 'off'>, string> = {
@@ -35,9 +36,9 @@ function buildCrumbs(active: ActiveNav | null, detail: string | null): Crumb[] {
 
 /**
  * Thanh trên trắng cao 56px (`.top` của Test_UI): nút mở sidebar, breadcrumb; bên phải trạng thái realtime
- * chuông việc cần làm và nút "?" mở hướng dẫn của trang (FE#132). Chừa sẵn chỗ cho ô tìm kiếm Ctrl K (FE#133).
+ * chuông việc cần làm và nút "?" mở hướng dẫn của trang (FE#132). Ô tìm kiếm mở bảng lệnh Ctrl K (FE#133).
  */
-export function Header({ active }: { active: ActiveNav | null }) {
+export function Header({ active, sections }: { active: ActiveNav | null; sections: NavSection[] }) {
   const { companyContext } = useAuth();
   const realtime = useRealtimeStore((s) => s.status);
   const detail = useBreadcrumbStore((s) => s.detail);
@@ -76,8 +77,8 @@ export function Header({ active }: { active: ActiveNav | null }) {
           })}
         </ol>
       </nav>
-      {/* FE#133: ô tìm kiếm mở bảng lệnh Ctrl K đặt ở đây (`.search`, rộng tối thiểu 240px) */}
-      <div className="ms-auto flex shrink-0 items-center gap-1.5">
+      <CommandPalette sections={sections} />
+      <div className="flex shrink-0 items-center gap-1.5">
         {realtime !== 'off' && (
           <span
             data-testid="realtime-status"

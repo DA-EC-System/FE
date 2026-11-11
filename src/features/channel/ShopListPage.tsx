@@ -99,6 +99,12 @@ export function ShopListPage() {
   const [adding, setAdding] = useState(
     () => canConnect && Boolean((location.state as { addShop?: boolean } | null)?.addShop),
   );
+  // Đang ở trang này mà chọn "Thêm gian hàng" trong bảng lệnh (FE#133): điều hướng mới mang addShop thì mở hộp
+  const [seenNav, setSeenNav] = useState(location.key);
+  if (seenNav !== location.key) {
+    setSeenNav(location.key);
+    if (canConnect && (location.state as { addShop?: boolean } | null)?.addShop) setAdding(true);
+  }
 
   const shopsQuery = useShops();
   const allShops = shopsQuery.data?.items ?? [];
