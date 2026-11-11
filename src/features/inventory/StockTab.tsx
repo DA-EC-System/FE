@@ -1,16 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { ClipboardPlus, History, Pencil, TriangleAlert } from 'lucide-react';
+import { SkuCode } from '@/components/common/SkuCode';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useStock } from '@/api/inventory.api';
 import { useCategories } from '@/api/catalog.api';
@@ -29,33 +29,11 @@ import { StockDetailDrawer } from './StockDetailDrawer';
 import { formatQty } from './shared';
 import { StockChips } from './StockChips';
 
-interface SummaryCardProps {
-  label: string;
-  value: string;
-  tone?: 'error';
-  onClick?: () => void;
-  active?: boolean;
-}
+/** Nhóm lọc ở thanh tab của bảng tồn (`.tabs` của Test_UI), mỗi nhóm có số đếm */
+type StockView = 'all' | 'belowMin' | 'quarantine';
 
-function SummaryCard({ label, value, tone, onClick, active }: SummaryCardProps) {
-  const body = (
-    <>
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={cn('text-2xl font-semibold', tone === 'error' && 'text-destructive')}>{value}</p>
-    </>
-  );
-  const className = cn(
-    'rounded-xl border bg-card p-4 text-start',
-    active && 'border-destructive ring-1 ring-destructive',
-  );
-  return onClick ? (
-    <button type="button" className={cn(className, 'hover:bg-muted/50')} aria-pressed={active} onClick={onClick}>
-      {body}
-    </button>
-  ) : (
-    <div className={className}>{body}</div>
-  );
-}
+/** Thời gian dòng vừa đổi nháy xanh (`tr.flash`, styles/index.css) */
+const FLASH_MS = 1200;
 
 /** Tồn theo biến thể (sơ đồ B2): bảy con số, nhãn suy ra; đặt ngưỡng ngay trên dòng */
 export function StockTab() {
@@ -71,13 +49,21 @@ export function StockTab() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
   const [categoryId, setCategoryId] = useState('');
-  const [belowMin, setBelowMin] = useState(false);
-  const [quarantine, setQuarantine] = useState(false);
+  const [view, setView] = useState<StockView>('all');
+  const belowMin = view === 'belowMin';
+  const quarantine = view === 'quarantine';
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [editing, setEditing] = useState<StockLevel | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const [requesting, setRequesting] = useState<StockLevel | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!flashId) return;
+    const t = setTimeout(() => setFlashId(null), FLASH_MS);
+    return () => clearTimeout(t);
+  }, [flashId]);
 
   const stockQuery = useStock({
     page,
@@ -90,7 +76,12 @@ export function StockTab() {
   const categoriesQuery = useCategories();
   const categories = categoriesQuery.data ?? [];
   const summary = stockQuery.data?.summary;
-  const filtered = Boolean(debouncedSearch || categoryId || belowMin || quarantine);
+  const filtered = Boolean(debouncedSearch || categoryId || view !== 'all');
+  const views: { value: StockView; label: string; count?: number }[] = [
+    { value: 'all', label: 'Tất cả', count: summary?.variantCount },
+    { value: 'belowMin', label: 'Nên nhập lại', count: summary?.belowMinCount },
+    { value: 'quarantine', label: 'Có hàng chờ xử lý', count: summary?.quarantineCount },
+  ];
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -112,7 +103,9 @@ export function StockTab() {
           const r = row.original;
           return (
             <div className="min-w-0">
-              <p className="font-medium">{r.sku}</p>
+              <span data-guide="inventory-sku">
+                <SkuCode code={r.sku} hint="Xem thẻ kho" onClick={() => setViewing(r.variantId)} />
+              </span>
               <p className="truncate text-xs text-muted-foreground">
                 {r.productName}
                 {r.attributesLabel && ` · ${r.attributesLabel}`}
@@ -151,7 +144,11 @@ export function StockTab() {
       {
         id: 'available',
         header: 'Khả dụng',
-        meta: { className: 'w-28 text-right', help: 'Bán được ngay: tồn thực trừ đang giữ và tạm khoá. Số này được đẩy lên các sàn.' },
+        meta: {
+          className: 'w-28 text-right',
+          guide: 'inventory-available',
+          help: 'Bán được ngay: tồn thực trừ đang giữ và tạm khoá. Số này được đẩy lên các sàn.',
+        },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -235,33 +232,11 @@ export function StockTab() {
 
   return (
     <div>
-      <div className={cn('mb-4 grid gap-4 sm:grid-cols-2', canCost ? 'lg:grid-cols-5' : 'lg:grid-cols-4')}>
-        <SummaryCard label="Biến thể đang bán" value={summary ? formatQty(summary.variantCount) : '—'} />
-        <SummaryCard
-          label="Nên nhập lại"
-          value={summary ? formatQty(summary.belowMinCount) : '—'}
-          tone={summary?.belowMinCount ? 'error' : undefined}
-          active={belowMin}
-          onClick={() => withReset(setBelowMin)(!belowMin)}
-        />
-        <SummaryCard
-          label="Có hàng chờ xử lý"
-          value={summary ? formatQty(summary.quarantineCount) : '—'}
-          active={quarantine}
-          onClick={() => withReset(setQuarantine)(!quarantine)}
-        />
-        <SummaryCard
-          label="Tồn âm"
-          value={summary ? formatQty(summary.negativeCount) : '—'}
-          tone={summary?.negativeCount ? 'error' : undefined}
-        />
-        {canCost && (
-          <SummaryCard
-            label="Giá trị tồn (giá vốn)"
-            value={summary?.totalValue != null ? formatCurrency(summary.totalValue) : '—'}
-          />
-        )}
-      </div>
+      {summary?.negativeCount ? (
+        <AlertMessage severity="warning" className="mb-4">
+          {formatQty(summary.negativeCount)} biến thể đang tồn âm: số ghi sổ nhỏ hơn 0, cần kiểm kê lại.
+        </AlertMessage>
+      ) : null}
 
       {stockQuery.isError && (
         <AlertMessage severity="error" className="mb-4">
@@ -270,6 +245,29 @@ export function StockTab() {
       )}
 
       <Card className="gap-0 py-0">
+        <Tabs value={view} onValueChange={(v) => withReset(setView)(v as StockView)} data-guide="inventory-views">
+          <div className="flex items-center gap-4 overflow-x-auto border-b px-4">
+            <TabsList aria-label="Nhóm tồn" className="border-b-0">
+              {views.map((v) => (
+                <TabsTrigger key={v.value} value={v.value}>
+                  {v.label}
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    {v.count === undefined ? '' : formatQty(v.count)}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {canCost && summary?.totalValue != null && (
+              <span
+                className="ms-auto shrink-0 text-sm whitespace-nowrap text-muted-foreground"
+                data-testid="stock-total-value"
+              >
+                Giá trị tồn{' '}
+                <span className="font-medium text-foreground tabular-nums">{formatCurrency(summary.totalValue)}</span>
+              </span>
+            )}
+          </div>
+        </Tabs>
         <FilterBar>
           <SearchInput
             value={search}
@@ -282,14 +280,6 @@ export function StockTab() {
             onChange={withReset(setCategoryId)}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
-          <div className="flex items-center gap-2 md:h-9">
-            <Switch id="below-min" checked={belowMin} onCheckedChange={withReset(setBelowMin)} />
-            <Label htmlFor="below-min">Chỉ hiện nên nhập lại</Label>
-          </div>
-          <div className="flex items-center gap-2 md:h-9">
-            <Switch id="quarantine-only" checked={quarantine} onCheckedChange={withReset(setQuarantine)} />
-            <Label htmlFor="quarantine-only">Có hàng chờ xử lý</Label>
-          </div>
           {!canCost && (
             <Badge variant="outline" className="md:ms-auto md:mb-2">
               Giá vốn chỉ hiện với người có quyền
@@ -303,6 +293,7 @@ export function StockTab() {
           loading={stockQuery.isLoading}
           fetching={stockQuery.isFetching}
           empty={filtered ? 'Không tìm thấy biến thể phù hợp' : 'Chưa có biến thể đang bán'}
+          rowClassName={(r) => (r.variantId === flashId ? 'flash' : undefined)}
           pagination={{
             page,
             pageSize,
@@ -320,6 +311,7 @@ export function StockTab() {
         level={editing}
         onClose={() => setEditing(null)}
         onDone={(msg) => {
+          setFlashId(editing?.variantId ?? null);
           setEditing(null);
           toast.success(msg);
         }}

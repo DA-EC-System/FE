@@ -170,6 +170,19 @@
   overflow: hidden;
 }
 
+/* Dòng bảng vừa đổi nháy xanh nhạt rồi tắt (Test_UI `tr.flash`, FE#136) */
+tr.flash td {
+  animation: row-flash 1.2s var(--out, ease-out);
+}
+@keyframes row-flash {
+  from {
+    background: var(--success-soft);
+  }
+  to {
+    background: transparent;
+  }
+}
+
 /* Hướng dẫn trang (FE#132): nút "hành động chính" trong pop-up làm nổi phần tử vài giây */
 [data-guide-pulse] {
   border-radius: var(--radius-lg, 8px);

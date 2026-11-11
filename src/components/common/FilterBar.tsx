@@ -52,6 +52,8 @@ interface FilterSelectProps {
   disabled?: boolean;
   /** Danh sách lựa chọn đang tải: khoá ô và hiện "Đang tải…" */
   loading?: boolean;
+  /** Đích của bước hướng dẫn trang (`data-guide`) */
+  guide?: string;
 }
 
 /** Ô chọn một giá trị lọc; chuỗi rỗng là không lọc */
@@ -64,9 +66,10 @@ export function FilterSelect({
   className,
   disabled,
   loading,
+  guide,
 }: FilterSelectProps) {
   return (
-    <div className={cn('grid gap-1.5', className)}>
+    <div className={cn('grid gap-1.5', className)} data-guide={guide}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)} disabled={disabled || loading}>
         <SelectTrigger className="w-full md:min-w-40" aria-label={label} aria-busy={loading || undefined}>
