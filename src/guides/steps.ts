@@ -30,3 +30,19 @@ export function visibleSteps(
       find(s.target) !== null,
   );
 }
+
+/** Chỗ tối thiểu cho thẻ gợi ý (cao khoảng 200px, rộng 320px) */
+const CARD_H = 220;
+const CARD_W = 340;
+
+/**
+ * Phía đặt thẻ: dưới, rồi trên; phần tử cao (danh sách dài) làm cả hai phía thiếu chỗ thì đặt sang cạnh,
+ * để thẻ không bị đẩy ra ngoài màn hình (FE#134)
+ */
+export function tourSide(rect: { top: number; bottom: number; left: number; right: number }, vw: number, vh: number) {
+  if (vh - rect.bottom >= CARD_H) return 'bottom' as const;
+  if (rect.top >= CARD_H) return 'top' as const;
+  if (vw - rect.right >= CARD_W) return 'right' as const;
+  if (rect.left >= CARD_W) return 'left' as const;
+  return 'bottom' as const;
+}

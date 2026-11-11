@@ -87,12 +87,18 @@ test.describe('P5 · Báo cáo kinh doanh', () => {
   test.describe('thẻ số, biểu đồ, bảng gian hàng (AC-B2 đến AC-B4)', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'ceo@commerio.vn', 'ceo'));
 
-    test('đủ bảy thẻ, giờ tính, chú thích cố định, cảnh báo phí sàn có link sang đối soát', async ({ page }) => {
+    test('đủ bảy ô chỉ số, giờ tính, giải thích phí chưa thu thập, cảnh báo phí sàn có link sang đối soát', async ({ page }) => {
       await page.goto(BAO_CAO);
       for (const l of ['Doanh thu', 'Tiền đã thu', 'Phí sàn', 'Phí cổng', 'Phí vận chuyển', 'Giá vốn', 'Lãi'])
         await expect(the(page, l)).toContainText('₫');
       await thayChu(page, /Số liệu tính lúc \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}/);
-      await thayChu(page, 'Phí cổng thanh toán và chi phí vận chuyển của đơn tự giao chưa được thu thập, đang tính 0');
+      // Chú thích phí chưa thu thập nằm ở nút "?" cạnh tên chỉ số (FE#134)
+      await page.getByRole('button', { name: 'Giải thích: Phí cổng', exact: true }).hover();
+      await expect(page.getByRole('tooltip').filter({ hasText: 'Phí cổng thanh toán' })).toContainText('chưa được thu thập, đang tính 0');
+      await page.mouse.move(0, 0);
+      await page.getByRole('button', { name: 'Giải thích: Phí vận chuyển', exact: true }).hover();
+      await expect(page.getByRole('tooltip').filter({ hasText: 'Chi phí vận chuyển' })).toContainText('của đơn tự giao chưa được thu thập');
+      await page.mouse.move(0, 0);
       await chua(
         page,
         'Có đơn sàn chưa đối soát, phí sàn của những ngày đó đang tính 0 nên lãi có thể cao hơn thực tế.',

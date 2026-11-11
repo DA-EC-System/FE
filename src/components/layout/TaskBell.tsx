@@ -42,6 +42,7 @@ export function TaskBell({ companyId }: { companyId: string }) {
           className="relative size-8 rounded-md text-foreground-2 hover:bg-fill"
           aria-label={`Việc cần làm: ${items.length}`}
           data-testid="task-bell"
+          data-guide="task-bell"
         >
           <Bell className="size-[18px]" />
           {items.length > 0 && (

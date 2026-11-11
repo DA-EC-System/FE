@@ -23,24 +23,25 @@ test.describe('Hướng dẫn trang', () => {
   test('lần đầu vào Tổng quan hiện pop-up; tour đi từng bước bằng nút và phím', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await expect(popup(page)).toBeVisible();
-    await expect(popup(page).getByRole('heading', { name: 'Chào mừng tới trang Tổng quan' })).toBeVisible();
+    await expect(popup(page).getByRole('heading', { name: 'Chào mừng tới Commerio' })).toBeVisible();
     await expect(popup(page).getByRole('listitem')).toHaveCount(3);
 
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
     await expect(popup(page)).toHaveCount(0);
     await expect(tour(page)).toBeVisible();
     await expect(tour(page)).toHaveAttribute('role', 'dialog');
-    await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
-    await expect(tour(page).getByRole('heading', { name: 'Việc cần làm', exact: true })).toBeVisible();
+    await expect(tour(page).getByText('Bước 1/5', { exact: true })).toBeVisible();
+    await expect(tour(page).getByRole('heading', { name: 'Chỉ số chính', exact: true })).toBeVisible();
     // Focus nằm trong thẻ gợi ý
     await expect(tour(page).getByRole('button', { name: 'Tiếp', exact: true })).toBeFocused();
     await expect(page.getByTestId('guide-spotlight')).toBeVisible();
 
     await page.keyboard.press('ArrowRight');
-    await expect(tour(page).getByText('Bước 2/4', { exact: true })).toBeVisible();
-    await expect(tour(page).getByRole('heading', { name: 'Vai trò của bạn', exact: true })).toBeVisible();
+    await expect(tour(page).getByText('Bước 2/5', { exact: true })).toBeVisible();
+    await expect(tour(page).getByRole('heading', { name: 'Việc cần làm', exact: true })).toBeVisible();
     await tour(page).getByRole('button', { name: 'Quay lại', exact: true }).click();
-    await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
+    await expect(tour(page).getByText('Bước 1/5', { exact: true })).toBeVisible();
+    await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
@@ -108,7 +109,7 @@ test.describe('Hướng dẫn trang', () => {
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
     await page.getByRole('heading', { level: 1 }).locator('xpath=..').getByRole('button').click();
     await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
-    await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
+    await expect(tour(page).getByText('Bước 1/5', { exact: true })).toBeVisible();
   });
 
   test('mobile chỉ hiện pop-up tóm tắt, không có tour', async ({ page }) => {
@@ -117,6 +118,6 @@ test.describe('Hướng dẫn trang', () => {
     await expect(popup(page)).toBeVisible();
     await expect(popup(page).getByRole('button', { name: 'Xem từng bước', exact: true })).toHaveCount(0);
     // Các bước liệt kê ngay trong pop-up
-    await expect(popup(page).getByText('Vai trò quyết định menu', { exact: false })).toBeVisible();
+    await expect(popup(page).getByText('Việc quá hạn đứng đầu', { exact: false })).toBeVisible();
   });
 });

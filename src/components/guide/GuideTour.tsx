@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { useAuth } from '@/hooks/useAuth';
-import { findGuideTarget, visibleSteps } from '@/guides/steps';
+import { findGuideTarget, visibleSteps, tourSide } from '@/guides/steps';
 import type { PageGuide } from '@/guides/types';
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -105,8 +105,9 @@ export function GuideTour({ guide, onClose }: GuideTourProps) {
         role="dialog"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
-        side="bottom"
+        side={tourSide(rect, window.innerWidth, window.innerHeight)}
         align="start"
+        sticky="always"
         sideOffset={PAD + 8}
         collisionPadding={16}
         className="w-80 max-w-[calc(100vw-2rem)] p-4"

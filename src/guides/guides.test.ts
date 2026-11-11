@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompanyContext } from '@/types/auth';
 import { GUIDES } from './registry';
-import { visibleSteps } from './steps';
+import { visibleSteps, tourSide } from './steps';
 import { GUIDES_OFF_KEY, guidesAutoOff, hasSeen, markSeen, resetAllSeen, seenKey } from './storage';
 import type { GuideStep } from './types';
 
@@ -108,5 +108,19 @@ describe('registry', () => {
       expect(g.intro.length).toBeLessThanOrEqual(4);
       expect(g.version).toBeGreaterThanOrEqual(1);
     }
+  });
+});
+
+describe('tourSide', () => {
+  const vw = 1366;
+  const vh = 800;
+  it('đủ chỗ dưới thì đặt dưới, không thì trên', () => {
+    expect(tourSide({ top: 100, bottom: 300, left: 260, right: 980 }, vw, vh)).toBe('bottom');
+    expect(tourSide({ top: 500, bottom: 700, left: 260, right: 980 }, vw, vh)).toBe('top');
+  });
+  it('phần tử cao làm trên dưới đều chật thì đặt sang cạnh', () => {
+    expect(tourSide({ top: 140, bottom: 650, left: 260, right: 980 }, vw, vh)).toBe('right');
+    expect(tourSide({ top: 140, bottom: 650, left: 400, right: 1300 }, vw, vh)).toBe('left');
+    expect(tourSide({ top: 140, bottom: 650, left: 10, right: 1356 }, vw, vh)).toBe('bottom');
   });
 });
