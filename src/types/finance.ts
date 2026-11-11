@@ -203,6 +203,9 @@ export interface LedgerLine {
   configVersion: string | null;
   /** Mã giao dịch quyết toán của sàn */
   txnId: string | null;
+  /** Mã đơn sàn của khoản quyết toán; có mà không có `orderId` là đơn không có trong app (E140, BE#250) */
+  externalOrderId?: string | null;
+  flags?: 'unknown_order'[];
   ref: DocRef | null;
   note: string | null;
   bankMatched: boolean;

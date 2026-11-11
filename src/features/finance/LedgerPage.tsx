@@ -21,6 +21,8 @@ import { formatDateTime } from '@/utils/format';
 import { LEDGER_KIND_LABELS, formatMilestone } from '@/utils/ledger';
 import type { LedgerFilter, LedgerLine, LedgerTotals, OrderProfitRow } from '@/types/finance';
 import { LedgerStateBadge, ProfitStateBadge, TaxMismatchBadge } from './ledgerShared';
+import { FlagChips } from '@/components/common/FlagChips';
+import { PAYMENT_FLAGS } from './lifecycleShared';
 
 const PAGE_SIZES = [25, 50, 100];
 
@@ -127,7 +129,12 @@ export function LedgerPage() {
         id: 'doc',
         header: 'Đơn/chứng từ',
         meta: { className: 'w-36' },
-        cell: ({ row }) => row.original.orderCode ?? row.original.txnId ?? '—',
+        cell: ({ row }) => (
+          <span className="grid gap-1">
+            {row.original.orderCode ?? row.original.externalOrderId ?? row.original.txnId ?? '—'}
+            <FlagChips flags={row.original.flags ?? []} meta={PAYMENT_FLAGS} />
+          </span>
+        ),
       },
       { id: 'shop', header: 'Gian hàng', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.shopName ?? 'Đơn tạo tay' },
       {

@@ -138,6 +138,8 @@ function toLine(l: MockLedgerLine): LedgerLine {
     packageId: l.packageId,
     configVersion: l.configVersion,
     txnId: l.txnId,
+    externalOrderId: l.externalOrderId ?? null,
+    flags: l.flags ?? [],
     ref: null,
     note: l.note,
     bankMatched: l.bankMatched,
