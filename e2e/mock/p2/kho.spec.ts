@@ -247,7 +247,7 @@ test.describe('P2 · Kho', () => {
     });
 
     test('huỷ phiếu nháp; phiếu theo đơn chỉ xem', async ({ page }) => {
-      await moPhieu(page, 'PX-000001');
+      await moPhieu(page, 'XK-000001');
       await expect(page.getByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
       await page.getByRole('button', { name: 'Danh sách', exact: true }).click();
 

@@ -59,7 +59,7 @@ test.describe('P2 · Phân quyền', () => {
     await expect(page.getByRole('tab', { name: 'Nhập hoàn', exact: true })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Phiếu kho', exact: true }).click();
     await expect(page.getByRole('button', { name: /Kiểm kê|Xuất huỷ|Chuyển chờ xử lý/ })).toHaveCount(0);
-    await chua(page, 'PN-000001', 'tbody tr').click();
+    await chua(page, 'XK-000001', 'tbody tr').click();
     await expect(page.getByTestId('doc-lines')).toBeAttached();
     await expect(page.getByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
     await page.goto('/c/cmp-001/inventory/documents/new?type=stocktake');

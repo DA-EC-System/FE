@@ -101,22 +101,24 @@ const base = {
 export const docs: MockStockDoc[] = [
   {
     ...base,
+    // Kiểm kê đầu kỳ (21 mục 15: kind auto). prd-001-v1 gộp hai lô 40 × 80.000 và 20 × 92.000: giá vốn BQ 84.000 đ
     id: 'sd-001',
     companyId: 'cmp-001',
-    number: 'PN-000001',
-    type: 'receipt',
-    kind: 'manual',
+    number: 'KK-000002',
+    type: 'stocktake',
+    kind: 'auto',
     status: 'posted',
-    note: 'Tồn đầu kỳ',
+    area: 'stock',
+    note: 'Kiểm kê đầu kỳ',
     lines: [
-      { variantId: 'prd-001-v1', quantity: 40, unitCost: 80000 },
-      { variantId: 'prd-001-v2', quantity: 18, unitCost: 80000 },
-      { variantId: 'prd-001-v3', quantity: 22, unitCost: 80000 },
-      { variantId: 'prd-001-v4', quantity: 10, unitCost: 80000 },
-      { variantId: 'prd-002-v1', quantity: 25, unitCost: 190000 },
-      { variantId: 'prd-002-v2', quantity: 20, unitCost: 190000 },
-      { variantId: 'prd-002-v3', quantity: 6, unitCost: 190000 },
-      { variantId: 'prd-003-v1', quantity: 15, unitCost: 210000 },
+      { variantId: 'prd-001-v1', quantity: 60, unitCost: 84000, bookQty: 0, counted: 60 },
+      { variantId: 'prd-001-v2', quantity: 18, unitCost: 80000, bookQty: 0, counted: 18 },
+      { variantId: 'prd-001-v3', quantity: 22, unitCost: 80000, bookQty: 0, counted: 22 },
+      { variantId: 'prd-001-v4', quantity: 10, unitCost: 80000, bookQty: 0, counted: 10 },
+      { variantId: 'prd-002-v1', quantity: 25, unitCost: 190000, bookQty: 0, counted: 25 },
+      { variantId: 'prd-002-v2', quantity: 20, unitCost: 190000, bookQty: 0, counted: 20 },
+      { variantId: 'prd-002-v3', quantity: 6, unitCost: 190000, bookQty: 0, counted: 6 },
+      { variantId: 'prd-003-v1', quantity: 15, unitCost: 210000, bookQty: 0, counted: 15 },
     ],
     createdBy: KHO,
     createdAt: '2026-10-01T02:00:00.000Z',
@@ -126,29 +128,11 @@ export const docs: MockStockDoc[] = [
     statusHistory: postedHistory('2026-10-01T02:30:00.000Z'),
   },
   {
-    // Lô thứ hai giá nhập khác: giá vốn bình quân của prd-001-v1 thành 84.000 đ
-    ...base,
-    id: 'sd-002',
-    companyId: 'cmp-001',
-    number: 'PN-000002',
-    type: 'receipt',
-    kind: 'purchase',
-    status: 'posted',
-    note: 'Nhập bổ sung áo thun trắng',
-    lines: [{ variantId: 'prd-001-v1', quantity: 20, unitCost: 92000 }],
-    createdBy: KHO,
-    createdAt: '2026-10-05T03:00:00.000Z',
-    postedBy: KHO,
-    postedAt: '2026-10-05T03:10:00.000Z',
-    version: 2,
-    statusHistory: postedHistory('2026-10-05T03:10:00.000Z'),
-  },
-  {
     ...base,
     id: 'sd-003',
     companyId: 'cmp-001',
-    number: 'PX-000001',
-    type: 'issue',
+    number: 'XK-000001',
+    type: 'shipment',
     kind: 'order',
     status: 'posted',
     note: '',
@@ -169,8 +153,8 @@ export const docs: MockStockDoc[] = [
     ...base,
     id: 'sd-004',
     companyId: 'cmp-001',
-    number: 'PX-000002',
-    type: 'issue',
+    number: 'XK-000002',
+    type: 'shipment',
     kind: 'order',
     status: 'posted',
     note: '',
@@ -294,14 +278,15 @@ export const docs: MockStockDoc[] = [
     ...base,
     id: 'sd-101',
     companyId: 'cmp-002',
-    number: 'PN-000001',
-    type: 'receipt',
-    kind: 'manual',
+    number: 'KK-000001',
+    type: 'stocktake',
+    kind: 'auto',
     status: 'posted',
-    note: 'Tồn đầu kỳ',
+    area: 'stock',
+    note: 'Kiểm kê đầu kỳ',
     lines: [
-      { variantId: 'prd-101-v1', quantity: 100, unitCost: 120000 },
-      { variantId: 'prd-101-v2', quantity: 50, unitCost: 230000 },
+      { variantId: 'prd-101-v1', quantity: 100, unitCost: 120000, bookQty: 0, counted: 100 },
+      { variantId: 'prd-101-v2', quantity: 50, unitCost: 230000, bookQty: 0, counted: 50 },
     ],
     createdBy: KHO,
     createdAt: '2026-10-01T02:00:00.000Z',
@@ -415,15 +400,13 @@ export function applyDoc(doc: MockStockDoc, at: string, by: string) {
     const level = levelOf(doc.companyId, line.variantId);
     const cost = level.avgCost;
     switch (doc.type) {
-      case 'receipt': {
-        const price = line.unitCost ?? cost;
-        const total = level.onHand + line.quantity;
-        level.avgCost = total > 0 ? Math.round((level.onHand * cost + line.quantity * price) / total) : price;
-        line.unitCost = price;
-        move(doc, line.variantId, 'stock', line.quantity, price, at, by);
+      case 'shipment_reversal': {
+        // Cộng lại tồn thực theo giá của lượt xuất (mock: giá vốn hiện tại)
+        line.unitCost = cost;
+        move(doc, line.variantId, 'stock', line.quantity, cost, at, by);
         break;
       }
-      case 'issue':
+      case 'shipment':
       case 'write_off':
         line.unitCost = cost;
         move(doc, line.variantId, doc.area ?? 'stock', -line.quantity, cost, at, by);
@@ -433,11 +416,18 @@ export function applyDoc(doc: MockStockDoc, at: string, by: string) {
         move(doc, line.variantId, 'stock', -line.quantity, cost, at, by);
         move(doc, line.variantId, 'quarantine', line.quantity, cost, at, by);
         break;
-      case 'stocktake':
-        // Δ tính lúc đếm; tồn có thể đã đổi sau đó, kiểm kê CEO duyệt vẫn ghi sổ (cờ Tồn âm)
-        line.unitCost = cost;
-        move(doc, line.variantId, doc.area ?? 'stock', line.quantity, cost, at, by);
+      case 'stocktake': {
+        // Δ tính lúc đếm; tồn có thể đã đổi sau đó, kiểm kê CEO duyệt vẫn ghi sổ (cờ Tồn âm).
+        // Kiểm kê đầu kỳ (kind auto) mang giá nhập ban đầu: tính lại giá vốn bình quân
+        const price = doc.kind === 'auto' && line.unitCost !== null && line.quantity > 0 ? line.unitCost : cost;
+        if (price !== cost) {
+          const total = level.onHand + line.quantity;
+          level.avgCost = total > 0 ? Math.round((level.onHand * cost + line.quantity * price) / total) : price;
+        }
+        line.unitCost = price;
+        move(doc, line.variantId, doc.area ?? 'stock', line.quantity, price, at, by);
         break;
+      }
       case 'return_inspection':
         // Bán lại về tồn thực theo giá vốn hiện tại; hỏng và trả NCC vào chờ xử lý
         line.unitCost = cost;

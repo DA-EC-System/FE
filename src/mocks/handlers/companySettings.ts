@@ -110,7 +110,7 @@ export const companySettingsHandlers = [
     writeCompanyLog(
       actor,
       'update',
-      { type: 'platform.company_modules', id: code, label: MODULE_LABELS[code] },
+      { type: 'core.company_modules', id: code, label: MODULE_LABELS[code] },
       { enabled: current.enabled },
       code === 'assistant' && body.enabled
         ? { enabled: true, aiConsentAt: module.aiConsentAt }

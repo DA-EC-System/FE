@@ -112,17 +112,17 @@ export interface ReorderRuleInput {
 // ---------- Phiếu kho ----------
 
 /**
- * receipt, issue: phiếu nhập, xuất của mô hình cũ (nhận hàng, xuất theo đơn); chỉ xem, sẽ thay bằng
- * phiếu nhận (FE#17) và kiện (FE#59). Bốn loại theo sơ đồ Phiếu kho: kiểm kê, xuất huỷ,
- * chuyển chờ xử lý, kiểm hàng về.
+ * Loại phiếu kho theo 21 mục 15. Ba loại kho lập, CEO duyệt: kiểm kê, xuất huỷ, chuyển chờ xử lý.
+ * Hệ thống sinh: kiểm hàng về; phiếu xuất theo kiện `shipment` (XK) khi bàn giao và phiếu huỷ bàn giao
+ * `shipment_reversal` (DX) (21 mục 11.1), hai loại này chỉ xem. Hàng mua về đi qua phiếu nhận (`goods_receipt`).
  */
 export type StockDocType =
-  | 'receipt'
-  | 'issue'
   | 'stocktake'
   | 'write_off'
   | 'to_quarantine'
-  | 'return_inspection';
+  | 'return_inspection'
+  | 'shipment'
+  | 'shipment_reversal';
 /** Loại phiếu người dùng lập tay */
 export type ManualStockDocType = 'stocktake' | 'write_off' | 'to_quarantine';
 /** Lập tay, hay hệ thống sinh (nhận hàng, xuất theo đơn, kiểm hàng về, xuất huỷ sau kiểm) */

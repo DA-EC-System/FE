@@ -1,5 +1,5 @@
 /**
- * Nhật ký cấp nền tảng — bản ghi audit.audit_logs có company_id null (D4).
+ * Nhật ký cấp nền tảng — bản ghi core.audit_logs có company_id null (D4).
  * Chỉ gồm thao tác cấp nền tảng, không kèm nhật ký bên trong công ty (UC-PI-08).
  */
 

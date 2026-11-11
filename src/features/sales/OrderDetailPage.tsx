@@ -6,7 +6,7 @@ import { PackageShipping } from '@/features/fulfillment/PackageShipping';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Pencil, Scissors, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Pencil, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -40,7 +40,6 @@ import {
   sourceLabel,
 } from './shared';
 import { OrderStage } from './OrderStage';
-import { SplitPackageDialog } from './SplitPackageDialog';
 import { Info } from './Info';
 import { PaymentPanel } from './PaymentPanel';
 import { CONFLICT_CODES, CancelOrderDialog } from './CancelOrderDialog';
@@ -74,7 +73,6 @@ export function OrderDetailPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'cancel' | 'platform-cancel' | 'accept-cancel' | 'invoice' | null>(null);
   const [delivering, setDelivering] = useState<PackageSummary | null>(null);
-  const [splitting, setSplitting] = useState<PackageSummary | null>(null);
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ms-2" onClick={() => navigate(ROUTES.company.orders(companyId))}>
@@ -128,7 +126,6 @@ export function OrderDetailPage() {
   const onConflict = () => {
     setDialog(null);
     setDelivering(null);
-    setSplitting(null);
     setNotice('Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.');
   };
 
@@ -435,8 +432,6 @@ export function OrderDetailPage() {
                 <TableBody>
                   {order.packages.map((p) => {
                     const delivery = packageButtons(p, actor).actions.some((a) => DELIVERY_ACTIONS.includes(a));
-                    const splittable =
-                      canProcess && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
                     return (
                       <TableRow key={p.id} data-row-id={p.code}>
                         <TableCell className="font-medium">
@@ -460,12 +455,6 @@ export function OrderDetailPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {splittable && (
-                              <Button size="sm" variant="outline" onClick={() => setSplitting(p)}>
-                                <Scissors />
-                                Chia kiện
-                              </Button>
-                            )}
                             {delivery && (
                               <Button size="sm" onClick={() => setDelivering(p)}>
                                 <Truck />
@@ -531,7 +520,6 @@ export function OrderDetailPage() {
       {delivering && (
         <DeliveryDialog pkg={delivering} open onClose={() => setDelivering(null)} onConflict={onConflict} />
       )}
-      <SplitPackageDialog pkg={splitting} onClose={() => setSplitting(null)} onConflict={onConflict} />
     </div>
   );
 }

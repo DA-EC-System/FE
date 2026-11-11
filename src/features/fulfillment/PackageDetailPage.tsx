@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, PackageCheck, Printer } from 'lucide-react';
+import { ArrowLeft, PackageCheck, Printer, Scissors } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -29,12 +29,14 @@ import { conflictCurrent } from '@/features/identity/shared';
 import { PageError, PageLoading } from '@/features/purchasing/parts';
 import { sourceLabel } from '@/features/sales/shared';
 import { useAuth } from '@/hooks/useAuth';
-import { useTransitionActor } from '@/hooks/usePermission';
+import { useCan, useTransitionActor } from '@/hooks/usePermission';
+import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
 import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { SplitPackageDialog } from './SplitPackageDialog';
 
 type Pending =
   | { kind: 'confirm'; title: string; message: string; label: string; destructive?: boolean; command: PackageCommand }
@@ -58,12 +60,14 @@ export function PackageDetailPage() {
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const actor = useTransitionActor();
+  const can = useCan();
   const query = usePackage(packageId);
   useBreadcrumb(query.data?.code);
   const command = usePackageCommand();
   const handOver = useHandOver();
   const printDocs = usePrintPackageDocuments();
   const [pending, setPending] = useState<Pending | null>(null);
+  const [splitting, setSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const back = () => navigate(ROUTES.company.packages(companyId));
@@ -180,7 +184,10 @@ export function PackageDetailPage() {
   const loading = command.isPending || handOver.isPending;
   // Vận đơn của sàn có khi kiện đã có mã kiện sàn (§19.3)
   const printable = Boolean(p.platformPackageCode) && (p.status === 'packed' || p.status === 'awaiting_pickup');
-  const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable;
+  // Chia kiện: kiện chưa đóng gói còn hơn một món (21 mục 19.2)
+  const splittable =
+    can(PERMISSIONS.fulfillmentProcess) && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
+  const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable || splittable;
 
   return (
     <div className="grid gap-4">
@@ -232,6 +239,12 @@ export function PackageDetailPage() {
                 onClick={() => setPending({ kind: 'code', title: 'Báo thất lạc', label: 'Mã khiếu nại với đơn vị vận chuyển', field: 'claimCode' })}
               >
                 Báo thất lạc
+              </Button>
+            )}
+            {splittable && (
+              <Button variant="outline" disabled={loading} onClick={() => setSplitting(true)}>
+                <Scissors />
+                Chia kiện
               </Button>
             )}
             {printable && (
@@ -377,6 +390,14 @@ export function PackageDetailPage() {
         error={error}
         onConfirm={(reason) => pending?.kind === 'reason' && void run(pending.build(reason), `${p.code}: ${pending.title}`)}
         onClose={() => setPending(null)}
+      />
+      <SplitPackageDialog
+        pkg={splitting ? p : null}
+        onClose={() => setSplitting(false)}
+        onConflict={() => {
+          setSplitting(false);
+          toast.warning('Kiện vừa được cập nhật, đã tải lại');
+        }}
       />
       <Dialog open={pending?.kind === 'code'} onOpenChange={(o) => !o && setPending(null)}>
         <DialogContent>

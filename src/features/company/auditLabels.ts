@@ -10,26 +10,41 @@ export const AUDIT_ACTION_LABELS: Record<
   delete: { label: 'Xoá', variant: 'destructive' },
 };
 
-/** entity_type đang có trong nhật ký; mã lạ thì hiện nguyên mã */
+/**
+ * entity_type (`<schema>.<bảng>`) trong nhật ký, theo tên bảng ở Documents/19 mục 3 (sáu schema `core`, `product`,
+ * `channel`, `order`, `finance`, `insight`) và các chỗ BE gọi `recordAudit`. Mã lạ thì hiện nguyên mã.
+ */
 export const AUDIT_ENTITY_LABELS: Record<string, string> = {
-  'staff.memberships': 'Nhân viên',
-  'access.roles': 'Vai trò',
-  'platform.company_modules': 'Phân hệ',
+  'core.memberships': 'Nhân viên',
+  'core.invitations': 'Lời mời',
+  'core.roles': 'Vai trò',
+  'core.company_modules': 'Phân hệ',
+  'core.companies': 'Công ty',
+  'core.accounts': 'Tài khoản',
   'pgboss.job': 'Việc nền lỗi',
+  'product.categories': 'Danh mục',
+  'product.attributes': 'Thuộc tính',
+  'product.products': 'Sản phẩm',
+  'product.product_variants': 'Biến thể',
+  'product.stock_levels.min_qty': 'Ngưỡng tồn',
+  'product.stock_documents': 'Phiếu kho',
+  'product.suppliers': 'Nhà cung cấp',
+  'product.purchase_requests': 'Đề nghị nhập',
+  'product.goods_receipts': 'Phiếu nhận',
+  'product.supplier_returns': 'Phiếu trả NCC',
   'channel.shops': 'Gian hàng',
-  'channel.channel_listings': 'Ghép SKU',
-  'catalog.categories': 'Danh mục',
-  'catalog.attributes': 'Thuộc tính',
-  'catalog.products': 'Sản phẩm',
-  'catalog.product_variants': 'Biến thể',
-  'pricing.pricelists': 'Bảng giá',
-  'inventory.reorder_rules': 'Ngưỡng tồn',
-  'inventory.stock_receipts': 'Phiếu nhập',
-  'inventory.stock_issues': 'Phiếu xuất',
-  'sales.customers': 'Khách hàng',
-  'sales.orders': 'Đơn hàng',
-  'payment.gateway_configs': 'Cổng thanh toán',
-  'payment.payment_links': 'Mã thanh toán',
+  'channel.listings': 'Ghép SKU',
+  'channel.category_maps': 'Ghép danh mục sàn',
+  'order.customers': 'Khách hàng',
+  'order.orders': 'Đơn hàng',
+  'order.packages': 'Kiện hàng',
+  'order.return_requests': 'Yêu cầu trả',
+  'order.unmatched_return_parcels': 'Hàng hoàn chưa rõ đơn',
+  'finance.receipts': 'Phiếu thu',
+  'finance.payment_vouchers': 'Phiếu chi',
+  'finance.unmatched_receipts': 'Tiền về chưa khớp',
+  'finance.gateway_configs': 'Cổng thanh toán',
+  'finance.payment_links': 'Mã thanh toán',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;

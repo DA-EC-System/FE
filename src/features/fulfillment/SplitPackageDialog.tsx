@@ -9,7 +9,7 @@ import { useSplitPackage } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import type { PackageSummary } from '@/types/fulfillment';
-import { CONFLICT_CODES } from './CancelOrderDialog';
+import { CONFLICT_CODES } from '@/features/sales/CancelOrderDialog';
 
 interface SplitPackageDialogProps {
   pkg: PackageSummary | null;
@@ -17,7 +17,10 @@ interface SplitPackageDialogProps {
   onConflict: () => void;
 }
 
-/** Chia kiện chưa đóng gói: chọn số món chuyển sang kiện mới, phần còn lại ở kiện cũ */
+/**
+ * Chia kiện chưa đóng gói: chọn số món chuyển sang kiện mới, phần còn lại ở kiện cũ.
+ * Nằm ở trang kiện vì quyền là `fulfillment.order.process`; Kho không có `sales.order.view` (FE#153).
+ */
 export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDialogProps) {
   const mutation = useSplitPackage();
   const [moved, setMoved] = useState<Record<string, number>>({});
