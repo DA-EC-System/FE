@@ -43,7 +43,7 @@ const MENU: Record<string, string[]> = {
     'Tổng quan: Tổng quan',
     'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Bảng giá | Kho',
     'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Khách hàng',
+    'Đơn hàng: Đơn hàng | Yêu cầu trả | Khách hàng', // Admin có sales.return.view theo ma trận (FE#152)
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
     'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Việc nền lỗi | Cổng thanh toán',
     'Dữ liệu giả: Sàn giả lập',
