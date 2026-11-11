@@ -219,8 +219,8 @@ export interface ChannelListing {
   /** Sàn từ chối: lý do sàn trả về */
   rejectReason: string | null;
   /**
-   * Lỗi lần đẩy gần nhất (§18.6.4): `code` là `marketplace_rejected` hoặc `marketplace_unavailable`,
-   * `message` là câu của sàn. Còn `pushing` mà có lỗi là việc nền đang thử lại
+   * Lỗi lần đẩy gần nhất (§18.6.4): `code` gồm `marketplace_rejected`, `marketplace_unavailable`,
+   * `shop_not_connected` và các mã chặn ở 21 §18.5 (Documents#105). FE chỉ hiện `message`. Còn `pushing` mà có lỗi là việc nền đang thử lại
    */
   pushError: SyncError | null;
   /** Số lần đã thử khi sàn lỗi tạm (tối đa 5, quá 30 phút thì báo lỗi đẩy) */
