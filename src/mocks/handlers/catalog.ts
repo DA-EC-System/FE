@@ -200,14 +200,14 @@ export function toProductDetail(p: MockProduct): ProductDetail {
   };
 }
 
-export const categoryEntity = (c: MockCategory) => ({ type: 'catalog.categories', id: c.id, label: c.name });
+export const categoryEntity = (c: MockCategory) => ({ type: 'product.categories', id: c.id, label: c.name });
 export const categorySnapshot = (c: MockCategory) => ({ name: c.name, skuPattern: c.skuPattern });
-export const attributeEntity = (a: MockAttribute) => ({ type: 'catalog.attributes', id: a.id, label: a.name });
+export const attributeEntity = (a: MockAttribute) => ({ type: 'product.attributes', id: a.id, label: a.name });
 export const attributeSnapshot = (a: MockAttribute) => ({
   name: a.name,
   values: a.values.map((v) => `${v.value} (${v.code})`),
 });
-export const productEntity = (p: MockProduct) => ({ type: 'catalog.products', id: p.id, label: p.name });
+export const productEntity = (p: MockProduct) => ({ type: 'product.products', id: p.id, label: p.name });
 export function productSnapshot(p: MockProduct) {
   return {
     name: p.name,
@@ -319,7 +319,7 @@ export function validateImages(companyId: string, ids: string[] | undefined, err
     errors.images = 'Có ảnh chưa tải xong hoặc không thuộc công ty';
   } else {
     const big = list.map((id) => catalog.files.find((x) => x.id === id)!).find((f) => f.sizeBytes > MAX_IMAGE_BYTES);
-    if (big) errors.images = `Ảnh ${big.fileName} lớn hơn 5 MB`;
+    if (big) errors.images = `Ảnh ${big.fileName} lớn hơn 1 MB`;
   }
 }
 
@@ -334,8 +334,9 @@ export function validateProductText(body: { name?: string; description?: string 
   if ((body.description ?? '').length > 5000) errors.description = 'Mô tả tối đa 5000 ký tự';
 }
 
-export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// Ảnh sản phẩm JPG, PNG, tối đa 1 MB như backend sau commerio-backend#303 (FE#205)
+export const IMAGE_TYPES = ['image/jpeg', 'image/png'];
+export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 export const catalogHandlers = [
   // ----- Danh mục -----
@@ -675,7 +676,7 @@ export const catalogHandlers = [
       writeCompanyLog(
         guard.value,
         'update',
-        { type: 'catalog.product_variants', id: v.id, label: v.sku },
+        { type: 'product.product_variants', id: v.id, label: v.sku },
         { businessStatus: from },
         { businessStatus: r.to },
       );
@@ -730,7 +731,7 @@ export const catalogHandlers = [
     writeCompanyLog(
       guard.value,
       'create',
-      { type: 'catalog.product_variants', id: variant.id, label: variant.sku },
+      { type: 'product.product_variants', id: variant.id, label: variant.sku },
       null,
       { product: product.name, sku: variant.sku, attributes: variantAttributes(companyId, variant.valueIds).map((a) => a.value) },
     );
@@ -751,12 +752,12 @@ export const catalogHandlers = [
     const guard = requireCompany(request, attachment ? null : PERMISSIONS.productManage);
     if (!guard.ok) return guard.response;
     if (attachment ? !ATTACHMENT_TYPES.includes(body.contentType) : !IMAGE_TYPES.includes(body.contentType)) {
-      return problem(422, attachment ? 'Chỉ nhận ảnh JPG, PNG, WebP hoặc PDF' : 'Chỉ nhận ảnh JPG, PNG hoặc WebP', {
+      return problem(422, attachment ? 'Chỉ nhận ảnh JPG, PNG, WebP hoặc PDF' : 'Ảnh sản phẩm phải là JPG hoặc PNG', {
         code: 'file_type_not_allowed',
       });
     }
     if (body.sizeBytes > (attachment ? MAX_ATTACHMENT_BYTES : MAX_IMAGE_BYTES)) {
-      return problem(422, attachment ? 'Tệp tối đa 10 MB' : 'Ảnh tối đa 5 MB', { code: 'file_too_large' });
+      return problem(422, attachment ? 'Tệp tối đa 10 MB' : 'Ảnh sản phẩm tối đa 1 MB', { code: 'file_too_large' });
     }
     const id = rid('fil');
     catalog.files.push({ id, companyId: guard.value.companyId, ...body, url: null });

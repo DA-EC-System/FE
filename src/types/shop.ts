@@ -6,9 +6,16 @@
 
 export type Marketplace = string;
 
+/**
+ * Khác biệt giữa các sàn (Documents/21 §18.6.3). FE rẽ nhánh theo các trường này, không theo mã sàn.
+ * splitLevel: sàn tách đơn tới đâu (unit: từng món, sku: theo SKU, none: không tách).
+ * returnWindow: hạn đổi trả tính theo số ngày người bán đặt (days) hay theo trạng thái sàn báo (platform_status).
+ */
 export interface ShopCapabilities {
   listingReview: boolean;
   hideBy: 'deactivate' | 'zero_stock';
+  splitLevel: 'unit' | 'sku' | 'none';
+  returnWindow: 'days' | 'platform_status';
 }
 
 /** Sàn được BE công bố theo adapter và cấu hình (Documents/21 §18.1). */
@@ -17,8 +24,10 @@ export interface ShopPlatform {
   name: string;
   connectable: boolean;
   capabilities: ShopCapabilities;
-  /** Cách kết nối sàn cho phép; BE chưa trả thì coi như chỉ có oauth */
+  /** Cách kết nối sàn cho phép; rỗng khi connectable = false. BE cũ chưa trả thì coi như chỉ có oauth */
   methods?: ShopConnectMethod[];
+  /** Câu cho người đọc khi connectable = false; null khi kết nối được (§18.7.3) */
+  reason?: string | null;
 }
 
 /** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
@@ -41,7 +50,7 @@ export interface Shop {
   platform: Marketplace;
   platformName?: string;
   capabilities: ShopCapabilities;
-  authExpiresAt: string | null;
+  authExpiresAt?: string | null;
   tokenExpiringSoon: boolean;
   externalShopId: string;
   shopName: string;
@@ -58,9 +67,52 @@ export interface Shop {
   pendingJobs: number;
   /** Số biến thể đã ghép SKU sàn */
   listingCount: number;
+  /** Đơn tạo trong 7 ngày gần nhất (§18.7.1). BE chưa trả thì vắng, FE hiện "—" */
+  orders7d?: number;
+  /** Đơn chưa completed hoặc cancelled: còn thì không ngắt được (§18.7.1) */
+  pendingOrderCount?: number;
+  /** Lần đổi status gần nhất; chưa đổi lần nào thì bằng createdAt (§18.7.1) */
+  statusChangedAt?: string;
+  /** Số phiên bản cấu hình phí đang áp; null tới khi có BE#230 (§18.7.1) */
+  feeConfigVersion?: number | null;
+  /** Tiến độ thiết lập lần đầu; null khi thiết lập trước BE#198 hoặc mọi bước xong quá 24 giờ (§18.7.7) */
+  setup: ShopSetupProgress | null;
+  /** Số ngày đổi trả đặt ở thiết lập; null khi sàn tự báo hạn (capabilities.returnWindow = platform_status) */
+  returnWindowDays: number | null;
+  /** Phiếu kiểm kê đầu kỳ chưa ghi sổ; khác null thì trang gian hàng hiện banner dẫn tới phiếu (§18.6.2) */
+  openingStocktake: ShopOpeningStocktake | null;
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ShopSetupStepKey = 'match' | 'opening_stock' | 'open_orders' | 'push_stock';
+/** pending: chờ người làm; running: việc nền đang chạy */
+export type ShopSetupStepStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked';
+
+export interface ShopSetupStep {
+  key: ShopSetupStepKey;
+  status: ShopSetupStepStatus;
+  /** Khoá bước đang chặn (opening_stock, open_orders) hoặc mã issue chưa làm (§18.7.9); null khi không blocked */
+  blockedBy: string | null;
+}
+
+export interface ShopSetupProgress {
+  /** opening_stock chỉ có khi chọn kiểm kê đầu kỳ */
+  steps: ShopSetupStep[];
+  /** SKU sàn chưa ghép sau thiết lập, gồm SKU người dùng bỏ qua */
+  unmatchedCount: number;
+  /**
+   * Số đơn còn mở đặt trước mốc không kéo về vì vượt trần OPEN_ORDER_PULL_MAX của môi trường; 0 khi không cắt
+   * (commerio-backend#198). Vắng khi BE chưa lên #198
+   */
+  openOrdersSkipped?: number;
+}
+
+export interface ShopOpeningStocktake {
+  documentId: string;
+  number: string;
+  status: 'draft' | 'pending' | 'rejected';
 }
 
 /** Bắt đầu OAuth; shopId khi kết nối lại một gian hàng đã có */
@@ -85,7 +137,14 @@ export interface ShopTokenInput {
   refreshToken?: string;
 }
 
-export interface ShopCallbackResult extends ShopConnectionResult {
+/**
+ * POST /channel/shops/:platform/callback và /token. `shop`, `created`, `reconnect` ở gốc là của shops[0];
+ * `previousStatus`, `remoteSkuCount` chỉ có trong từng phần tử shops[] (§18.7.4)
+ */
+export interface ShopCallbackResult {
+  shop: Shop;
+  created: boolean;
+  reconnect: ShopReconnectSummary | null;
   shops: ShopConnectionResult[];
 }
 
@@ -95,6 +154,10 @@ export interface ShopConnectionResult {
   created: boolean;
   /** Có khi kết nối lại gian hàng đã có */
   reconnect: ShopReconnectSummary | null;
+  /** Trạng thái ngay trước lần nối này; null khi tạo mới. BE chưa trả thì vắng */
+  previousStatus?: ShopStatus | null;
+  /** Số SKU người bán tìm thấy trên sàn lúc nối. BE chưa trả thì vắng, FE không hiện số */
+  remoteSkuCount?: number | null;
 }
 
 /**
@@ -219,30 +282,61 @@ export interface ListingActionInput {
   version: number;
 }
 
-/** Gợi ý ghép ở bước 1 thiết lập lần đầu: SKU sàn có SKU người bán trùng SKU biến thể */
+/** sku: SKU người bán trùng SKU Commerio; name: tên gần giống; none: không tìm được */
+export type SetupMatch = 'sku' | 'name' | 'none';
+
+/** Trạng thái sản phẩm trên sàn đã chuẩn hoá ở bước ghép (§18.7.5); SKU đã xoá không có trong gợi ý */
+export type RemoteSkuStatus = 'live' | 'review' | 'rejected' | 'hold' | 'inactive';
+
+/** Một SKU người bán trên sàn ở bước 1 thiết lập lần đầu, kèm biến thể gợi ý (§18.7.5) */
 export interface SetupSuggestion {
   externalSkuId: string;
   title: string;
-  variantId: string;
-  sku: string;
-  /** Khả dụng ở Commerio và số đang có trên sàn, cho bước kiểm kê đầu kỳ */
-  available: number;
+  /** Ảnh đầu tiên của sản phẩm trên sàn, chỉ để hiện (URL TikTok có ký, có thể hết hạn); null là không có */
+  imageUrl: string | null;
+  status: RemoteSkuStatus;
+  match: SetupMatch;
+  /** Độ giống tên 0..1, chỉ có khi match = name */
+  score: number | null;
+  /** Biến thể gợi ý; null khi match = none */
+  variantId: string | null;
+  sku: string | null;
+  /** Khả dụng ở Commerio (null khi match = none) và số đang có trên sàn */
+  available: number | null;
   platformStock: number;
 }
 
+/** Quyết định cho một SKU sàn: variantId người dùng chọn (có thể khác gợi ý), null là bỏ qua */
+export interface SetupDecision {
+  externalSkuId: string;
+  variantId: string | null;
+}
+
 export interface ShopSetupPreview {
+  /** Mọi SKU người bán đọc được trên sàn, kể cả match = none */
   suggestions: SetupSuggestion[];
-  /** SKU sàn không gợi ý được, ghép tay sau ở trang ghép SKU */
+  /** Số dòng match = none */
   unmatchedRemote: number;
+  /**
+   * true khi BE bỏ ghép theo tên vì gian hàng quá nhiều SKU hoặc so tên quá lâu: dòng không trùng SKU đều match = none
+   * (§18.7.5, commerio-backend#198). Vắng khi BE chưa lên #198
+   */
+  nameMatchSkipped?: boolean;
+  /** Mốc kéo đơn BE đề xuất (lúc kết nối); FE chỉ hiển thị, không gửi lại */
+  proposedCutoffAt: string;
+  /** Gian hàng đầu tiên của công ty: tồn đầu kỳ chỉ được chọn kiểm kê */
+  firstShopOfCompany: boolean;
 }
 
 /** push: đẩy khả dụng của Commerio lên sàn; stocktake: lập phiếu kiểm kê nháp cho các SKU lệch */
 export type OpeningStockMode = 'push' | 'stocktake';
 
 export interface ShopSetupInput {
-  externalSkuIds: string[];
+  /** SKU có trong suggestions mà không có ở đây coi như bỏ qua. Không gửi kèm externalSkuIds cũ */
+  decisions: SetupDecision[];
   openingStock: OpeningStockMode;
-  orderCutoffAt: string;
+  /** Bắt buộc, số nguyên 1–60 khi capabilities.returnWindow = days */
+  returnWindowDays?: number | null;
 }
 
 export interface ShopSetupResult {
@@ -256,6 +350,13 @@ export interface ShopDisconnectInput {
   version: number;
   /** Đặt tồn trên sàn về 0 trước khi ngắt (chỉ làm được khi token còn dùng được) */
   zeroStock: boolean;
+}
+
+/** Một đơn chưa xong trả kèm lỗi 409 shop_has_open_orders (tối đa 20 đơn, cũ nhất trước; §18.7.8) */
+export interface ShopOpenOrder {
+  id: string;
+  code: string;
+  externalOrderId: string | null;
 }
 
 export interface ShopReconnectSummary {

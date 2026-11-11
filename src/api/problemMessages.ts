@@ -4,7 +4,7 @@
  * mã chưa có ở đây thì dùng `detail` như cũ.
  */
 
-import { getErrorMessage, getProblem } from './client';
+import { getErrorMessage, getProblem, notImplementedMessage } from './client';
 
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
@@ -37,17 +37,18 @@ const MESSAGES: Record<string, string> = {
   archive_blocked: 'Chưa lưu trữ được: SKU còn tồn, hàng đang về, hàng chờ xử lý hoặc chứng từ mở.',
   variant_archived: 'Tổ hợp này là biến thể đã lưu trữ. Dùng Khôi phục để bán lại với SKU cũ.',
   product_archived: 'Sản phẩm đã lưu trữ nên không sửa được.',
-  file_type_not_allowed: 'Chỉ nhận ảnh JPG, PNG hoặc WebP.',
-  file_too_large: 'Ảnh lớn hơn 5 MB.',
+  file_type_not_allowed: 'Kiểu tệp không được nhận (ảnh sản phẩm chỉ JPG hoặc PNG).',
+  file_too_large: 'Tệp quá cỡ cho phép (ảnh sản phẩm tối đa 1 MB).',
   // FE#8, chờ commerio-backend#19
   shop_not_connected: 'Gian hàng chưa kết nối hoặc đã mất uỷ quyền. Kết nối lại rồi thử lại.',
   invalid_state: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
   // §18.4, commerio-backend#103
   oauth_state_invalid: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
-  seller_not_whitelisted: 'Gian hàng chưa được cấp quyền dùng thử ứng dụng. Liên hệ quản trị để thêm vào danh sách.',
   shop_connected_elsewhere: 'Gian hàng này đã kết nối ở công ty khác.',
   marketplace_unsupported: 'Sàn này chưa hỗ trợ thao tác này.',
   shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
+  // §18.7.11; có `expected`, `actual` thì câu nêu tên hai công ty, xem companyMismatchMessage
+  company_mismatch: 'Bạn bắt đầu kết nối ở một công ty khác với công ty đang mở. Chuyển về công ty đó rồi kết nối lại.',
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
@@ -116,7 +117,63 @@ const MESSAGES: Record<string, string> = {
   document_not_ready: 'Kiện chưa có mã kiện sàn nên chưa in được vận đơn.',
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
   shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
+  // §18.6.2
+  // R13, §18.7.9: mọi 501 chức năng chờ issue khác; có `issue`, `owner` thì câu nêu issue, xem notImplementedMessage
+  not_implemented: 'Chức năng này chưa làm xong',
+  shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ trước khi đẩy sản phẩm.',
+  // Documents#55 (21 mục 5, 16, 18.3, 19), FE#153
+  product_in_use: 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.',
+  too_many_axes: 'Một sản phẩm chỉ có tối đa 2 trục phân loại.',
+  unsupported_file_type: 'Chỉ nhận tệp CSV, XLSX hoặc TXT.',
+  evidence_required: 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi ghi sổ.',
+  shop_not_active: 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đẩy sản phẩm.',
+  handover_confirmed_by_platform:
+    'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
 };
+
+interface ShopRef {
+  name: string | null;
+  externalShopId: string;
+}
+
+const shopRefLabel = (ref: ShopRef) => ref.name ?? ref.externalShopId;
+
+export function isShopRef(value: unknown): value is ShopRef {
+  return typeof value === 'object' && value !== null && typeof (value as ShopRef).externalShopId === 'string';
+}
+
+/**
+ * Câu báo khi đăng nhập nhầm gian hàng lúc kết nối lại (§18.4 `shop_mismatch`).
+ * `actual.name` có thể null thì hiện mã gian hàng; thiếu expected/actual thì dùng câu chung.
+ */
+export function shopMismatchMessage(expected: unknown, actual: unknown): string {
+  if (!isShopRef(expected) || !isShopRef(actual)) return MESSAGES.shop_mismatch;
+  return `Bạn vừa đăng nhập ${shopRefLabel(actual)}, không phải ${shopRefLabel(expected)}. Đăng xuất trên sàn, đăng nhập đúng tài khoản rồi kết nối lại.`;
+}
+
+/** Công ty trong problem body 409 company_mismatch (§18.7.4) */
+export interface CompanyRef {
+  id: string;
+  name: string;
+}
+
+export function isCompanyRef(value: unknown): value is CompanyRef {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as CompanyRef).id === 'string' &&
+    typeof (value as CompanyRef).name === 'string'
+  );
+}
+
+/**
+ * Câu báo khi công ty trong state khác công ty đang mở lúc sàn trả về (§18.7.11 `company_mismatch`).
+ * `expected` là công ty bắt đầu kết nối, `actual` là công ty đang mở; thiếu thì dùng câu chung.
+ */
+export function companyMismatchMessage(expected: unknown, actual: unknown): string {
+  if (!isCompanyRef(expected) || !isCompanyRef(actual)) return MESSAGES.company_mismatch;
+  return `Bạn bắt đầu kết nối ở công ty ${expected.name} nhưng đang mở ${actual.name}. Chuyển sang ${expected.name} rồi kết nối lại.`;
+}
 
 /**
  * Câu báo khi ngắt gian hàng còn đơn chưa `completed` hoặc `cancelled` (§18.6.1).
@@ -143,7 +200,13 @@ export function problemMessage(error: unknown): string {
   const message =
     code === 'shop_has_open_orders'
       ? openOrdersMessage(problem?.openOrders)
-      : (code && MESSAGES[code]) || getErrorMessage(error);
+      : code === 'shop_mismatch'
+        ? shopMismatchMessage(problem?.expected, problem?.actual)
+        : code === 'company_mismatch'
+          ? companyMismatchMessage(problem?.expected, problem?.actual)
+          : code === 'not_implemented'
+            ? notImplementedMessage(problem?.issue, problem?.owner)
+            : (code && MESSAGES[code]) || getErrorMessage(error);
   // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
   return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
 }

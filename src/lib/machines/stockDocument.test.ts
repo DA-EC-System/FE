@@ -63,7 +63,8 @@ describe('kiểm hàng về', () => {
   });
 });
 
-it('phiếu nhập, xuất theo đơn không có nút', () => {
-  expect(stockDocMachine('receipt').available('posted', ceo)).toEqual([]);
-  expect(stockDocMachine('issue').available('draft', ceo)).toEqual([]);
+it('phiếu xuất theo kiện, huỷ bàn giao không có nút', () => {
+  expect(stockDocMachine('shipment').available('posted', ceo)).toEqual([]);
+  expect(stockDocMachine('shipment_reversal').available('posted', ceo)).toEqual([]);
+  expect(stockDocMachine('shipment').available('draft', ceo)).toEqual([]);
 });

@@ -98,20 +98,35 @@ test.describe('P2 · Kho', () => {
     });
 
     test('lọc nên nhập lại, chờ xử lý; thẻ kho theo khu vực', async ({ page }) => {
-      const nenNhap = page.getByRole('button', { name: /Nên nhập lại/ });
+      const nhom = page.getByRole('tablist', { name: 'Nhóm tồn' });
+      // Tab có số đếm (FE#136)
+      await expect(nhom.getByRole('tab', { name: /^Tất cả\s*\d+$/ })).toHaveAttribute('aria-selected', 'true');
+      const nenNhap = nhom.getByRole('tab', { name: /Nên nhập lại/ });
+      await expect(nenNhap).toHaveText(/Nên nhập lại\s*1$/);
       await nenNhap.click();
-      await expect(nenNhap).toHaveAttribute('aria-pressed', 'true');
+      await expect(nenNhap).toHaveAttribute('aria-selected', 'true');
       const rows = page.locator('tbody tr[data-row-id]');
       await expect(rows).toHaveCount(1);
       for (const tr of await rows.all()) await expect(tr.getByTestId('below-min')).toHaveCount(1);
-      await nenNhap.click();
+      await nhom.getByRole('tab', { name: /^Tất cả/ }).click();
 
-      await page.getByRole('button', { name: /Có hàng chờ xử lý/ }).click();
+      await nhom.getByRole('tab', { name: /Có hàng chờ xử lý/ }).click();
       await expect(dong(page, 'prd-002-v1').getByTestId('stock-chips')).toContainText('Chờ xử lý 2');
       await dong(page, 'prd-002-v1').getByRole('button', { name: 'Lịch sử biến động', exact: true }).click();
       const dialog = page.getByRole('dialog');
       for (const t of ['Chờ xử lý', 'Tạm khoá']) await expect(dialog.getByTestId('stock-figures')).toContainText(t);
       for (const t of ['CXL-000001', 'Chờ xử lý', 'Tồn thực']) await expect(dialog.getByTestId('stock-moves')).toContainText(t);
+    });
+
+    test('bấm mã SKU mở thẻ kho (FE#136)', async ({ page }) => {
+      const sku = dong(page, 'prd-001-v1').getByRole('button', { name: /^Xem thẻ kho / });
+      const ma = (await sku.textContent())?.trim() ?? '';
+      await sku.hover();
+      await expect(page.getByRole('tooltip')).toContainText('Xem thẻ kho');
+      await sku.click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('heading', { name: ma, exact: true })).toBeVisible();
+      await expect(dialog.getByTestId('stock-figures')).toContainText('Khả dụng');
     });
 
     test('đặt ngưỡng: kiểm số, lưu, bỏ ngưỡng', async ({ page }) => {
@@ -126,6 +141,9 @@ test.describe('P2 · Kho', () => {
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
       await toast(page, 'Đã đặt ngưỡng 60');
       await expect(dong(page, 'prd-003-v1').getByTestId('min-qty')).toHaveText('60');
+      // Dòng vừa đổi nháy xanh rồi tắt (FE#136)
+      await expect(dong(page, 'prd-003-v1')).toHaveClass(/\bflash\b/);
+      await expect(dong(page, 'prd-003-v1')).not.toHaveClass(/\bflash\b/);
       await expect(dong(page, 'prd-003-v1').getByTestId('below-min')).toBeAttached();
 
       await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt ngưỡng', exact: true }).click();
@@ -247,7 +265,7 @@ test.describe('P2 · Kho', () => {
     });
 
     test('huỷ phiếu nháp; phiếu theo đơn chỉ xem', async ({ page }) => {
-      await moPhieu(page, 'PX-000001');
+      await moPhieu(page, 'XK-000001');
       await expect(page.getByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
       await page.getByRole('button', { name: 'Danh sách', exact: true }).click();
 

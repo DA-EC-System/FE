@@ -9,6 +9,7 @@ import {
   PackageX,
   Puzzle,
   ScrollText,
+  ServerCrash,
   ShieldCheck,
   ShoppingCart,
   CreditCard,
@@ -120,13 +121,6 @@ export function companyNav(companyId: string): NavSection[] {
           icon: SlidersHorizontal,
           module: 'catalog',
           permission: PERMISSIONS.catalogSetup,
-        },
-        {
-          to: ROUTES.company.pricing(companyId),
-          label: 'Bảng giá',
-          icon: Tags,
-          module: 'pricing',
-          permission: PERMISSIONS.pricelistView,
         },
         {
           to: ROUTES.company.inventory(companyId),
@@ -277,6 +271,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: ScrollText,
           module: 'platform',
           permission: PERMISSIONS.auditView,
+        },
+        {
+          to: ROUTES.company.deadJobs(companyId),
+          label: 'Việc nền lỗi',
+          icon: ServerCrash,
+          module: 'platform',
+          permission: PERMISSIONS.jobManage,
         },
         {
           to: ROUTES.company.paymentGateways(companyId),

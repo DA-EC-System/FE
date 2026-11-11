@@ -140,21 +140,23 @@ pnpm e2e --repeat-each=3                   # bắt test chập chờn trước k
 - Test hỏng thì xem trace: `pnpm exec playwright show-trace test-results/<tên test>/trace.zip`.
   Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày); job `e2e-be` tải lên artifact `playwright-report-be`.
 
-**Với BE thật** (chạy lần lượt một worker, test sau dùng dữ liệu test trước để lại):
+**Với BE thật** (chạy lần lượt một worker): mỗi file spec tự đăng ký công ty giả mới qua API công khai rồi đăng nhập
+(`e2e/be/congTyGia.ts` cho `be/p4`, `be/p5`), không ghi thẳng DB, không cần seed. Chạy được trên cùng database nhiều lần.
 
-1. BE chạy ở cổng 3000 với database riêng cho E2E (vd `commerio_e2e`, đã `npm run db:migrate`).
-2. Dựng dữ liệu cho `be/p4`, `be/p5` từ thư mục BE (lệnh đầy đủ ở đầu `e2e/be/seed/tai-chinh.mts`, `doi-soat.mts`);
-   kết quả ghi ra `e2e/be/seed/*.json`. Mỗi lần chạy spec dựng lại một lần.
-3. `VITE_USE_MOCKS=false pnpm e2e:be` (PowerShell: `$env:VITE_USE_MOCKS='false'; pnpm e2e:be`).
+1. BE chạy ở cổng 3000 (đã `npm run db:migrate`).
+2. `VITE_USE_MOCKS=false pnpm e2e:be` (PowerShell: `$env:VITE_USE_MOCKS='false'; pnpm e2e:be`).
 
 Chạy trên staging thì không bật Vite: `PW_BASE_URL=https://116-118-6-7.sslip.io pnpm e2e:be` (lọc thư mục thì ghi đường dẫn
-ngay sau lệnh, vd `pnpm e2e:be e2e/be/p1`). `be/p4`, `be/p5/doi-soat` tự bỏ qua khi chưa có file seed tương ứng.
+ngay sau lệnh, vd `pnpm e2e:be e2e/be/p1`).
+Test cần đơn bán, gian hàng, bảng kê hay tài khoản thứ hai để `test.fixme`, ghi lý do trong spec: công ty mới không tạo được
+các thứ đó qua API (đơn chỉ vào từ sàn kết nối OAuth; route `dev/*` không gắn khi `NODE_ENV=production`).
 
 Trên CI, job `e2e-be` của `.github/workflows/e2e.yml` chạy `pnpm e2e:be` trên staging lúc 02:00 mỗi đêm (cùng giờ với `pnpm e2e`)
 và khi bấm "Run workflow" trên main (chọn bộ `be` để chỉ chạy bộ này); không chạy trên PR vì staging chỉ có code của main.
 Đỏ thì comment, tag tác giả các PR đã merge từ lần `e2e-be` xanh gần nhất; báo cáo ở artifact `playwright-report-be`.
-Staging giới hạn 20 lần gọi `/identity/login` và `/identity/register` mỗi 15 phút mỗi IP; một lần chạy đang gọi `/login` 14 lần,
-`/register` 5 lần, thêm spec thì giữ dưới 18.
+Staging giới hạn 20 lần gọi `/identity/login` và `/identity/register` mỗi 15 phút mỗi IP; một lần chạy đang gọi `/login` 17 lần,
+`/register` 8 lần (be/p1 14 và 5, mỗi file p4, p5/doi-soat, p5/finance-lifecycle một và một), thêm spec thì giữ dưới 18:
+spec mới dùng `taoCongTyGia` một lần trong `beforeAll`, các test trong file dùng chung trang đã đăng nhập.
 
 ## Cấu trúc thư mục
 

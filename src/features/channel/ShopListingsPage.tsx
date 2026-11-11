@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,6 +57,9 @@ interface PushError {
   code?: string;
   message: string;
 }
+
+/** Trạng thái phiếu kiểm kê đầu kỳ chưa ghi sổ (§18.6.2) */
+const STOCKTAKE_STATUS = { draft: 'đang nháp', pending: 'đang chờ duyệt', rejected: 'bị từ chối, cần sửa rồi gửi lại' } as const;
 
 const MATCH_FILTERS: { value: Exclude<MatchFilter, ''>; label: string }[] = [
   { value: 'matched', label: 'Đã ghép' },
@@ -251,7 +254,7 @@ export function ShopListingsPage() {
       toast.success(`Đã gỡ ${delisting.sku} khỏi sàn`);
     } catch (e) {
       if (problemCode(e) === 'version_conflict') {
-        toast.warning(`Listing của ${delisting.sku} vừa đổi trạng thái. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        toast.warning(`Trạng thái của ${delisting.sku} trên sàn vừa đổi. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
         void listingsQuery.refetch();
       } else {
         toast.error(problemMessage(e));
@@ -510,7 +513,7 @@ export function ShopListingsPage() {
           const r = row.original;
           const status = r.listing?.status;
           const busy =
-            status === 'pushing' ? 'Đang đẩy, chờ sàn phản hồi' : status === 'platform_hold' ? 'Sàn đang khoá listing' : null;
+            status === 'pushing' ? 'Đang đẩy, chờ sàn phản hồi' : status === 'platform_hold' ? 'Sàn đang khoá sản phẩm này' : null;
           return (
             <div className="flex justify-end gap-1">
               <RowAction
@@ -661,6 +664,21 @@ export function ShopListingsPage() {
               Kết nối lại
             </Button>
           )}
+        </AlertMessage>
+      )}
+      {shop?.openingStocktake && (
+        <AlertMessage severity="warning" className="mb-4">
+          <span data-testid="opening-stocktake-banner">
+            Gian hàng đang chờ kiểm kê đầu kỳ: phiếu{' '}
+            <Link
+              className="font-mono font-medium underline underline-offset-2"
+              to={ROUTES.company.inventoryDoc(companyId, shop.openingStocktake.documentId)}
+            >
+              {shop.openingStocktake.number}
+            </Link>{' '}
+            {STOCKTAKE_STATUS[shop.openingStocktake.status]}. Đến khi phiếu ghi sổ, Commerio chưa đẩy tồn và chưa đẩy sản
+            phẩm lên sàn; đơn vẫn kéo về.
+          </span>
         </AlertMessage>
       )}
       {shop && usable && !can(PERMISSIONS.listingManage) && (

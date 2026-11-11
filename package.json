@@ -13,7 +13,8 @@
     "e2e": "playwright test --project=mock",
     "e2e:ui": "playwright test --project=mock --ui",
     "e2e:be": "playwright test --project=be",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "quyen:sinh": "node scripts/sinh-quyen-mock.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -38,6 +39,7 @@
     "axios": "^1.7.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "1.1.1",
     "dayjs": "^1.11.13",
     "lucide-react": "^1.8.0",
     "qrcode.react": "^4.2.0",

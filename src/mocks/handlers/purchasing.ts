@@ -147,7 +147,7 @@ function validateSupplier(companyId: string, body: SupplierInput, exceptId?: str
   };
 }
 
-const supplierEntity = (s: MockSupplier) => ({ type: 'purchasing.suppliers', id: s.id, label: s.name });
+const supplierEntity = (s: MockSupplier) => ({ type: 'product.suppliers', id: s.id, label: s.name });
 
 /** Báo cáo theo NCC: số phiếu nhận từng giao thiếu, tỉ lệ lỗi trên hàng đã giao */
 function supplierReport(companyId: string, from: string | null, to: string | null): SupplierReport[] {
@@ -245,7 +245,7 @@ function toRequest(req: MockPurchaseRequest, permissions: string[]): PurchaseReq
   };
 }
 
-const requestEntity = (r: MockPurchaseRequest) => ({ type: 'purchasing.purchase_requests', id: r.id, label: r.number });
+const requestEntity = (r: MockPurchaseRequest) => ({ type: 'product.purchase_requests', id: r.id, label: r.number });
 const requestSnapshot = (r: MockPurchaseRequest) => ({
   status: r.status,
   supplierId: r.supplierId,
@@ -430,7 +430,7 @@ const receiptRecord = (r: MockGoodsReceipt): GoodsReceiptRecord => ({
   short: r.lines.reduce((s, l) => s + shortOf(l), 0),
 });
 
-const receiptEntity = (r: MockGoodsReceipt) => ({ type: 'purchasing.goods_receipts', id: r.id, label: r.number });
+const receiptEntity = (r: MockGoodsReceipt) => ({ type: 'product.goods_receipts', id: r.id, label: r.number });
 const receiptSnapshot = (r: MockGoodsReceipt) => ({
   status: r.status,
   deliveryMode: r.deliveryMode,
@@ -521,7 +521,7 @@ const returnRecord = (t: MockSupplierReturn): SupplierReturnRecord => ({
   hasSupplier: !!t.supplierId,
 });
 
-const returnEntity = (t: MockSupplierReturn) => ({ type: 'purchasing.supplier_returns', id: t.id, label: t.number });
+const returnEntity = (t: MockSupplierReturn) => ({ type: 'product.supplier_returns', id: t.id, label: t.number });
 const returnSnapshot = (t: MockSupplierReturn) => ({
   status: t.status,
   supplierId: t.supplierId,

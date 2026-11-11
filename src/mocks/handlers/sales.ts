@@ -284,7 +284,7 @@ export function toOrder(o: sales.MockOrder): Order {
   };
 }
 
-export const orderEntity = (o: sales.MockOrder) => ({ type: 'sales.orders', id: o.id, label: o.code });
+export const orderEntity = (o: sales.MockOrder) => ({ type: 'order.orders', id: o.id, label: o.code });
 export const orderSnapshot = (o: sales.MockOrder) => ({
   code: o.code,
   status: o.status,

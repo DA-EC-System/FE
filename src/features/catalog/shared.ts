@@ -3,8 +3,12 @@ import { skuPatternError, valueCode } from '@/utils/sku';
 import type { Attribute } from '@/types/catalog';
 
 export const MAX_IMAGES = 9;
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+/** Ảnh gửi lên kho: JPG, PNG, tối đa 1 MB, cạnh ngắn từ 330 px cho khớp yêu cầu của sàn (FE#205) */
+export const MAX_IMAGE_BYTES = 1024 * 1024;
+export const IMAGE_TYPES = ['image/jpeg', 'image/png'];
+export const MIN_IMAGE_SIDE = 330;
+/** Tệp người dùng chọn được: WebP đổi sang JPEG khi nén, không từ chối */
+export const SOURCE_IMAGE_TYPES = [...IMAGE_TYPES, 'image/webp'];
 
 // Không tự đổi chữ hoa: "ao-{SEQ}" phải báo lỗi đúng câu của bảng 9.3 (AC-4)
 export const categorySchema = z.object({
@@ -88,9 +92,14 @@ export function valueIndex(attributes: Attribute[]): Map<string, { value: string
   );
 }
 
-/** Kiểm file ảnh phía FE trước khi xin vé; BE kiểm lại */
+/** Kiểu tệp người dùng chọn: JPG, PNG, hoặc WebP (sẽ đổi sang JPG) */
+export function sourceImageError(file: File): string | null {
+  return SOURCE_IMAGE_TYPES.includes(file.type) ? null : `${file.name}: chỉ nhận ảnh JPG hoặc PNG`;
+}
+
+/** Kiểm tệp đã nén trước khi xin vé; BE kiểm lại */
 export function imageFileError(file: File): string | null {
-  if (!IMAGE_TYPES.includes(file.type)) return `${file.name}: chỉ nhận ảnh JPG, PNG hoặc WebP`;
-  if (file.size > MAX_IMAGE_BYTES) return `${file.name}: ảnh lớn hơn 5 MB`;
+  if (!IMAGE_TYPES.includes(file.type)) return `${file.name}: chỉ nhận ảnh JPG hoặc PNG`;
+  if (file.size > MAX_IMAGE_BYTES) return `${file.name}: ảnh lớn hơn 1 MB`;
   return null;
 }

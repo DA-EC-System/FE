@@ -25,6 +25,26 @@ export interface ProblemDetails {
   platformMessage?: string;
   /** Số đơn của gian hàng chưa xong khi ngắt bị chặn (409 `shop_has_open_orders`, §18.6.1) */
   openOrders?: number;
+  /**
+   * 409 `shop_mismatch` (§18.4): gian hàng đang kết nối lại và gian hàng vừa đăng nhập (`{ name, externalShopId }`, name có thể null).
+   * 409 `company_mismatch` (§18.7.4): công ty bắt đầu kết nối và công ty đang mở (`{ id, name }`)
+   */
+  expected?: { name: string | null; externalShopId: string } | { id: string; name: string };
+  actual?: { name: string | null; externalShopId: string } | { id: string; name: string };
+  /** 501 `not_implemented` (R13, §18.7.9): mã issue đang làm phần còn thiếu, vd "commerio-backend#245" */
+  issue?: string;
+  /** 501 `not_implemented`: người phụ trách issue đó */
+  owner?: string;
+}
+
+/**
+ * Câu chung cho mọi 501 `not_implemented` (Documents/21 R13: FE bắt chung, không hiện `detail` thô của BE).
+ * Thiếu issue hoặc owner thì chỉ báo chưa làm xong (Documents/21 §18.7.9).
+ */
+export function notImplementedMessage(issue?: unknown, owner?: unknown): string {
+  const i = typeof issue === 'string' ? issue.trim() : '';
+  const o = typeof owner === 'string' ? owner.trim() : '';
+  return i && o ? `Chức năng này chưa làm xong: thuộc ${i} (${o})` : 'Chức năng này chưa làm xong';
 }
 
 export const apiClient: AxiosInstance = axios.create({
@@ -131,6 +151,7 @@ export function getErrorMessage(error: unknown): string {
     if (!error.response) return 'Không kết nối được máy chủ. Kiểm tra mạng hoặc VITE_API_BASE_URL.';
     const data = error.response.data as (ProblemDetails & { message?: string }) | string | undefined;
     if (data && typeof data === 'object') {
+      if (data.code === 'not_implemented') return notImplementedMessage(data.issue, data.owner);
       const message = data.detail ?? data.title ?? data.message;
       if (message) return message;
     }

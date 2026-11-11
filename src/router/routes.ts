@@ -35,8 +35,6 @@ export const ROUTES = {
     catalogProduct: (companyId: string, productId: string) =>
       `/c/${companyId}/catalog/products/${productId}`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
-    pricing: (companyId: string) => `/c/${companyId}/pricing`,
-    pricelist: (companyId: string, pricelistId: string) => `/c/${companyId}/pricing/${pricelistId}`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,
     inventoryTab: (companyId: string, tab: 'stock' | 'documents') =>
       tab === 'stock' ? `/c/${companyId}/inventory` : `/c/${companyId}/inventory?tab=${tab}`,
@@ -86,6 +84,7 @@ export const ROUTES = {
     roles: (companyId: string) => `/c/${companyId}/admin/roles`,
     modules: (companyId: string) => `/c/${companyId}/admin/modules`,
     auditLogs: (companyId: string) => `/c/${companyId}/admin/audit-logs`,
+    deadJobs: (companyId: string) => `/c/${companyId}/admin/dead-jobs`,
     /** Sàn giả lập, chỉ có khi chạy mock (FE#55) */
     devMarketplace: (companyId: string) => `/c/${companyId}/dev/marketplace`,
   },
