@@ -12,10 +12,10 @@ const khongCoMenu = async (page: Page, label: string) => {
 };
 
 test.describe('P2 · Phân quyền', () => {
-  test('Sale: xem sản phẩm và bảng giá, không sửa; không vào Kho', async ({ page }) => {
+  test('Sale: xem sản phẩm, không sửa; không vào Kho; trang bảng giá đã bỏ (D9)', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await coMenu(page, 'Sản phẩm');
-    await coMenu(page, 'Bảng giá');
+    await khongCoMenu(page, 'Bảng giá');
     await khongCoMenu(page, 'Danh mục & thuộc tính');
     await khongCoMenu(page, 'Kho');
 
@@ -28,12 +28,6 @@ test.describe('P2 · Phân quyền', () => {
     await expect(page.getByRole('button', { name: 'Lưu', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Thêm biến thể', exact: true })).toHaveCount(0);
 
-    await menu(page, 'Bảng giá');
-    await expect(page.getByRole('button', { name: 'Tạo bảng giá', exact: true })).toHaveCount(0);
-    await dong(page, 'pl-std-001').click();
-    await expect(page.locator('main')).toContainText('Bạn chỉ có quyền xem bảng giá.');
-    await expect(page.locator('[data-price-input]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Lưu/ })).toHaveCount(0);
 
     await page.goto('/c/cmp-001/inventory');
     await thayChu(page, KHONG_CO_QUYEN);
@@ -41,9 +35,9 @@ test.describe('P2 · Phân quyền', () => {
     await expect(page.getByRole('button', { name: 'Thêm danh mục', exact: true })).toHaveCount(0);
   });
 
-  test('Nhân viên kho: lập phiếu, không thấy giá vốn, không đặt ngưỡng, không xem bảng giá', async ({ page }) => {
+  test('Nhân viên kho: lập phiếu, không thấy giá vốn, không đặt ngưỡng, không vào Sổ tiền', async ({ page }) => {
     await dangNhap(page, 'kho@commerio.vn', 'kho');
-    await khongCoMenu(page, 'Bảng giá');
+    await khongCoMenu(page, 'Sổ tiền');
     await menu(page, 'Kho');
     await expect(dong(page, 'prd-001-v1')).toBeAttached();
     await expect(page.locator('thead')).not.toContainText('Giá vốn BQ');
@@ -51,7 +45,7 @@ test.describe('P2 · Phân quyền', () => {
     await expect(page.getByRole('button', { name: 'Đặt ngưỡng', exact: true })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Phiếu kho', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Kiểm kê', exact: true })).toBeAttached();
-    await page.goto('/c/cmp-001/pricing');
+    await page.goto('/c/cmp-001/finance/ledger');
     await thayChu(page, KHONG_CO_QUYEN);
   });
 

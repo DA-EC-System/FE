@@ -15,7 +15,6 @@ import { platformHandlers } from './platform';
 import { identityHandlers } from './identity';
 import { companySettingsHandlers } from './companySettings';
 import { catalogHandlers } from './catalog';
-import { pricingHandlers } from './pricing';
 import { inventoryHandlers } from './inventory';
 import { purchasingHandlers } from './purchasing';
 import { shopHandlers } from './channel';
@@ -39,7 +38,6 @@ export const handlers = [
   ...identityHandlers,
   ...companySettingsHandlers,
   ...catalogHandlers,
-  ...pricingHandlers,
   ...inventoryHandlers,
   ...purchasingHandlers,
   ...shopHandlers,
