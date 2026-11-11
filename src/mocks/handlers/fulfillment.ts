@@ -47,6 +47,9 @@ import { findOwned, rid } from './catalog';
 import {
   createReturnInspection,
   nextDocNumber,
+  parseScannedLines,
+  receivedLines,
+  type ScannedLine,
   registerAllocator,
   stockDocEntity,
   stockDocSnapshot,
@@ -317,9 +320,9 @@ function backToStock(p: MockPackage, at: string, actor: CompanyActor) {
 }
 
 /** Hàng hoàn, kiện thất lạc tìm thấy: phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả NCC */
-function inspectReturn(p: MockPackage, note: string, at: string) {
+function inspectReturn(p: MockPackage, note: string, at: string, by: string, scanned: ScannedLine[] | null) {
   const o = orderOf(p);
-  createReturnInspection(o.companyId, { type: 'order', id: o.id, number: o.code }, p.lines, note, at);
+  createReturnInspection(o.companyId, { type: 'order', id: o.id, number: o.code }, receivedLines(p.lines, scanned), note, at, by);
   const row = payment.orderPayments.find((r) => r.orderId === o.id);
   if (row?.method === 'cod' && row.status === 'cod_pending' && !packagesOf(o).some((x) => x.status === 'delivered')) {
     row.status = 'not_collected';
@@ -863,7 +866,11 @@ export const fulfillmentHandlers = [
           errors: { code: `Mã quét không phải ${c.p.code}` },
         });
       }
-      return step(c, 'receive_return', { effect: () => inspectReturn(c.p, `Hàng hoàn kiện ${c.p.code}`, c.at) });
+      const scan = parseScannedLines(c.body.lines, c.o.companyId);
+      if (Object.keys(scan.errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors: scan.errors });
+      return step(c, 'receive_return', {
+        effect: () => inspectReturn(c.p, `Hàng hoàn kiện ${c.p.code}`, c.at, c.actor.account.id, scan.lines),
+      });
     }),
   ),
 
@@ -898,9 +905,13 @@ export const fulfillmentHandlers = [
   ),
 
   http.post(`${API}/fulfillment/packages/:id/found`, ({ params, request }) =>
-    withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) =>
-      step(c, 'found', { effect: () => inspectReturn(c.p, `Tìm thấy kiện thất lạc ${c.p.code}`, c.at) }),
-    ),
+    withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
+      const scan = parseScannedLines(c.body.lines, c.o.companyId);
+      if (Object.keys(scan.errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors: scan.errors });
+      return step(c, 'found', {
+        effect: () => inspectReturn(c.p, `Tìm thấy kiện thất lạc ${c.p.code}`, c.at, c.actor.account.id, scan.lines),
+      });
+    }),
   ),
 ];
 

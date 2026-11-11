@@ -429,10 +429,10 @@ export function applyDoc(doc: MockStockDoc, at: string, by: string) {
         break;
       }
       case 'return_inspection':
-        // Bán lại về tồn thực theo giá vốn hiện tại; hỏng và trả NCC vào chờ xử lý
+        // Số quét đã vào chờ xử lý lúc nhận (FE#212); bán lại chuyển về tồn thực, hỏng và trả NCC ở lại
         line.unitCost = cost;
+        move(doc, line.variantId, 'quarantine', -(line.resell ?? 0), cost, at, by);
         move(doc, line.variantId, 'stock', line.resell ?? 0, cost, at, by);
-        move(doc, line.variantId, 'quarantine', (line.damaged ?? 0) + (line.toSupplier ?? 0), cost, at, by);
         break;
     }
   }

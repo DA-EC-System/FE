@@ -28,7 +28,15 @@ import { isRefunded, returnMachine } from '@/lib/machines/returns';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { findOwned, rid } from './catalog';
-import { createReturnInspection, registerInspectionPosted, stockLevelOf, variantLabel } from './inventory';
+import {
+  createReturnInspection,
+  parseScannedLines,
+  receivedLines,
+  registerInspectionPosted,
+  stockLevelOf,
+  variantLabel,
+  type ScannedLine,
+} from './inventory';
 import { packagesOf, toStatusChange, tryComplete, userRef } from './sales';
 import { MAX_REASON, deliverForReturn } from './fulfillment';
 import { registerMarketplaceEvent } from '../engine/marketplace';
@@ -211,16 +219,15 @@ const RAW: Partial<Record<ReturnAction, string>> = {
 };
 
 /** Nhận hàng: lập phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả NCC; ghi sổ thì đóng yêu cầu */
-function receive(r: MockReturnRequest, at: string, by: string, reason: string | null = null) {
+function receive(r: MockReturnRequest, at: string, by: string, reason: string | null = null, scanned: ScannedLine[] | null = null) {
   const o = orderOfRequest(r);
-  const grouped = new Map<string, number>();
-  for (const l of r.lines) grouped.set(l.variantId, (grouped.get(l.variantId) ?? 0) + l.quantity);
   const doc = createReturnInspection(
     r.companyId,
     { type: 'return_request', id: r.id, number: r.code },
-    [...grouped].map(([variantId, quantity]) => ({ variantId, quantity })),
+    receivedLines(r.lines, scanned),
     `Hàng trả ${r.code}, đơn ${o.code}`,
     at,
+    by,
     o.id,
   );
   r.inspectionId = doc.id;
@@ -510,6 +517,8 @@ export const returnHandlers = [
     if (!code) return problem(422, 'Dữ liệu không hợp lệ', { errors: { code: 'Quét hoặc nhập mã' } });
     if (note.length > MAX_REASON) return tooLong('note');
     const actor = guard.value;
+    const scan = parseScannedLines(body.lines, actor.companyId);
+    if (Object.keys(scan.errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors: scan.errors });
     const at = db.now();
     const r = matchCode(actor.companyId, code);
     if (r) {
@@ -521,7 +530,7 @@ export const returnHandlers = [
         });
       }
       const before = returnSnapshot(r);
-      receive(r, at, actor.account.id, note || null);
+      receive(r, at, actor.account.id, note || null, scan.lines);
       writeCompanyLog(actor, 'update', returnEntity(r), before, returnSnapshot(r));
       return HttpResponse.json<ReceiveResult>({ kind: 'matched', request: toRequest(r, canCost(actor)) });
     }
@@ -537,6 +546,7 @@ export const returnHandlers = [
       resolvedAt: null,
       resolvedBy: null,
       resolution: null,
+      lines: scan.lines,
       version: 1,
     };
     returns.unmatchedParcels.push(parcel);
@@ -567,7 +577,7 @@ export const returnHandlers = [
     }
     const at = db.now();
     const before = returnSnapshot(target);
-    receive(target, at, actor.account.id, `Gắn kiện không khớp ${x.code}`);
+    receive(target, at, actor.account.id, `Gắn kiện không khớp ${x.code}`, x.lines);
     x.status = 'attached';
     x.returnRequestId = target.id;
     x.resolvedAt = at;
