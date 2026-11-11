@@ -138,7 +138,9 @@ test.describe('P3 · Gian hàng', () => {
       const ketQua = page.locator('[data-outcome=connected]');
       await expect(ketQua).toContainText('Đã nối ABC Thử nghiệm');
       await expect(ketQua).toContainText('mock-abc-01');
-      await expect(ketQua).toContainText('Mặt hàng trên sàn tìm thấy');
+      // Sàn giả lập có 4 phân loại của 1 sản phẩm: hai số khác nhau để lộ việc đọc nhầm trường (§18.7.4)
+      await expect(ketQua).toContainText('Hàng trên sàn');
+      await expect(ketQua).toContainText('1 sản phẩm · 4 phân loại');
       await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
       await expect.poll(() => duongDan(page)).toMatch(/\/channel\/shops\/[^/]+\/setup$/);
 

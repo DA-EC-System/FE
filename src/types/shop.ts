@@ -139,7 +139,7 @@ export interface ShopTokenInput {
 
 /**
  * POST /channel/shops/:platform/callback và /token. `shop`, `created`, `reconnect` ở gốc là của shops[0];
- * `previousStatus`, `remoteSkuCount` chỉ có trong từng phần tử shops[] (§18.7.4)
+ * `previousStatus`, `remoteProductCount`, `remoteSkuCount` chỉ có trong từng phần tử shops[] (§18.7.4)
  */
 export interface ShopCallbackResult {
   shop: Shop;
@@ -156,7 +156,9 @@ export interface ShopConnectionResult {
   reconnect: ShopReconnectSummary | null;
   /** Trạng thái ngay trước lần nối này; null khi tạo mới. BE chưa trả thì vắng */
   previousStatus?: ShopStatus | null;
-  /** Số SKU người bán tìm thấy trên sàn lúc nối. BE chưa trả thì vắng, FE không hiện số */
+  /** Số sản phẩm trên sàn lúc nối, không tính đã xoá; sàn nào cũng có. null khi sàn lỗi hoặc quá 10 giây (§18.7.4) */
+  remoteProductCount?: number | null;
+  /** Số phân loại (SKU của sàn) lúc nối. null khi sàn chưa cho biết: Lazada lúc nối luôn null, TikTok khi hơn 100 sản phẩm */
   remoteSkuCount?: number | null;
 }
 

@@ -27,7 +27,7 @@ const UUID = '[0-9a-f-]{36}';
 interface KetQuaKetNoi {
   shop: { id: string; status: string; shopName: string };
   created: boolean;
-  shops: { shop: { id: string; status: string }; created: boolean; previousStatus: string | null; remoteSkuCount: number | null }[];
+  shops: { shop: { id: string; status: string }; created: boolean; previousStatus: string | null; remoteProductCount: number | null; remoteSkuCount: number | null }[];
 }
 
 interface San {
@@ -103,11 +103,14 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     const ketQua = (await res.json()) as KetQuaKetNoi;
     expect(Array.isArray(ketQua.shops)).toBe(true);
     expect(ketQua.shops.length).toBeGreaterThanOrEqual(1);
-    // previousStatus, remoteSkuCount nằm trong từng phần tử shops[] (§18.7.4)
+    // previousStatus, remoteProductCount, remoteSkuCount nằm trong từng phần tử shops[] (§18.7.4)
     for (const item of ketQua.shops) {
       expect(item).toHaveProperty('previousStatus');
-      // null khi BE chưa đọc được SKU trên sàn (lỗi sàn, quá 10 giây), không phải 0 (§18.7.4)
+      // null khi BE chưa đọc được (lỗi sàn, quá 10 giây), không phải 0 (§18.7.4)
+      expect(item.remoteProductCount === null || typeof item.remoteProductCount === 'number').toBe(true);
       expect(item.remoteSkuCount === null || typeof item.remoteSkuCount === 'number').toBe(true);
+      // Chưa có số sản phẩm thì cũng chưa có số phân loại
+      if (item.remoteProductCount === null) expect(item.remoteSkuCount).toBeNull();
     }
 
     const motShopMoi = ketQua.shops.length === 1 && ketQua.shop.status === 'connecting';

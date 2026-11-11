@@ -679,7 +679,7 @@ function attachGranted(
       created: false,
       reconnect,
       previousStatus,
-      remoteSkuCount: channel.remoteSkus[current.id]?.length ?? 0,
+      ...remoteCounts(current.id, current.platform),
     });
   }
   const shop: MockShop = {
@@ -711,10 +711,22 @@ function attachGranted(
       created: true,
       reconnect: null,
       previousStatus: null,
-      remoteSkuCount: channel.remoteSkus[shop.id]?.length ?? 0,
+      ...remoteCounts(shop.id, platform),
     },
     { status: 201 },
   );
+}
+
+/**
+ * Hàng trên sàn lúc nối (§18.7.4): số sản phẩm là số sản phẩm khác nhau, số phân loại là số SKU của sàn.
+ * Lazada lúc nối luôn trả số phân loại null, như sàn thật
+ */
+function remoteCounts(shopId: string, platform: string) {
+  const list = channel.remoteSkus[shopId] ?? [];
+  return {
+    remoteProductCount: new Set(list.map((r) => r.externalProductId)).size,
+    remoteSkuCount: platform === 'lazada' ? null : list.length,
+  };
 }
 
 export const shopHandlers = [

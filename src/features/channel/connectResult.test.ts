@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Shop, ShopCallbackResult, ShopConnectionResult, ShopStatus } from '@/types/shop';
-import { connectedOutcome, firstConnection, reconnectSummary, remoteSkuSuffix, remoteSkuValue } from './connectResult';
+import {
+  connectedOutcome,
+  firstConnection,
+  reconnectSummary,
+  remoteCountsSuffix,
+  remoteCountsText,
+  remoteCountsValue,
+} from './connectResult';
 
 const shop = { id: 'shp-x', shopName: 'Shop thử', status: 'active' } as Shop;
 const connecting = { ...shop, status: 'connecting' } as Shop;
@@ -10,10 +17,11 @@ const item = (over: Partial<ShopConnectionResult> = {}): ShopConnectionResult =>
   created: false,
   reconnect: null,
   previousStatus: 'active',
+  remoteProductCount: 0,
   remoteSkuCount: 0,
   ...over,
 });
-/** Gốc response không có previousStatus, remoteSkuCount (§18.7.4) */
+/** Gốc response không có previousStatus, remoteProductCount, remoteSkuCount (§18.7.4) */
 const wrap = (...items: ShopConnectionResult[]): ShopCallbackResult => ({
   shop: items[0].shop,
   created: items[0].created,
@@ -46,6 +54,7 @@ describe('connectedOutcome', () => {
     const root = { ...before('needs_reauth'), previousStatus: 'active' } as ShopCallbackResult;
     expect(connectedOutcome(root)).toBe('reconnected');
     expect(firstConnection(wrap(item({ remoteSkuCount: 7 }))).remoteSkuCount).toBe(7);
+    expect(firstConnection(wrap(item({ remoteProductCount: 3 }))).remoteProductCount).toBe(3);
   });
 });
 
@@ -60,18 +69,35 @@ describe('reconnectSummary', () => {
   });
 });
 
-describe('remoteSkuCount khi BE chưa trả (phần 18.7 còn lại)', () => {
-  it('có số thì hiện số, kể cả 0', () => {
-    expect(remoteSkuSuffix(12)).toBe(' · 12 mặt hàng trên sàn');
-    expect(remoteSkuSuffix(0)).toBe(' · 0 mặt hàng trên sàn');
-    expect(remoteSkuValue(0)).toBe('0');
+describe('hàng trên sàn: số sản phẩm và số phân loại (§18.7.4)', () => {
+  const counts = (remoteProductCount?: number | null, remoteSkuCount?: number | null) => ({ remoteProductCount, remoteSkuCount });
+
+  it('có cả hai số thì hiện một cụm', () => {
+    expect(remoteCountsText(counts(305, 812))).toBe('305 sản phẩm · 812 phân loại');
+    expect(remoteCountsSuffix(counts(305, 812))).toBe(' · 305 sản phẩm · 812 phân loại');
+    expect(remoteCountsValue(counts(305, 812))).toBe('305 sản phẩm · 812 phân loại');
   });
 
-  it('vắng hoặc null thì bỏ cụm SKU và ô hiện "—"', () => {
-    expect(remoteSkuSuffix(undefined)).toBe('');
-    expect(remoteSkuSuffix(null)).toBe('');
-    expect(remoteSkuValue(undefined)).toBe('—');
-    expect(remoteSkuValue(null)).toBe('—');
+  it('chưa có số phân loại thì chỉ hiện số sản phẩm', () => {
+    expect(remoteCountsValue(counts(305, null))).toBe('305 sản phẩm');
+    expect(remoteCountsSuffix(counts(305, null))).toBe(' · 305 sản phẩm');
+  });
+
+  it('0 là gian hàng rỗng thật, vẫn hiện số', () => {
+    expect(remoteCountsValue(counts(0, 0))).toBe('0 sản phẩm · 0 phân loại');
+  });
+
+  it('chưa có số sản phẩm thì ô hiện "—", màn nhiều gian hàng bỏ cả cụm', () => {
+    expect(remoteCountsValue(counts(null, null))).toBe('—');
+    expect(remoteCountsSuffix(counts(null, null))).toBe('');
+    // Không suy từ số phân loại
+    expect(remoteCountsValue(counts(null, 812))).toBe('—');
+  });
+
+  it('BE chưa trả trường thì như null', () => {
+    expect(remoteCountsValue(counts())).toBe('—');
+    expect(remoteCountsSuffix(counts())).toBe('');
+    expect(remoteCountsValue(counts(12))).toBe('12 sản phẩm');
   });
 
   it('thiếu previousStatus thì coi là đã có, không phải nối lại', () => {

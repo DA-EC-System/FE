@@ -9,8 +9,8 @@ import {
   firstConnection,
   itemOutcome,
   reconnectSummary,
-  remoteSkuSuffix,
-  remoteSkuValue,
+  remoteCountsSuffix,
+  remoteCountsValue,
 } from './connectResult';
 import { platformLabel, STATUS_LABELS } from './shopSchemas';
 
@@ -28,7 +28,7 @@ interface ConnectedScreenProps {
 /** Màn kết quả khi sàn đã cấp token (.result của Test_UI): thay cho toast rồi tự chuyển trang */
 export function ConnectedScreen({ result, platformName, onSetup, onView, onLater, onAddAnother }: ConnectedScreenProps) {
   const outcome = connectedOutcome(result);
-  // previousStatus, remoteSkuCount chỉ có trong shops[] (§18.7.4)
+  // previousStatus, remoteProductCount, remoteSkuCount chỉ có trong shops[] (§18.7.4)
   const first = firstConnection(result);
   const { shop } = first;
   const name = shop.shopName;
@@ -64,7 +64,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
                 <span className="truncate text-xs text-muted-foreground">
                   <span className="font-mono">{item.shop.externalShopId}</span>
                   {item.previousStatus ? ` · trước: ${STATUS_LABELS[item.previousStatus]}` : ''}
-                  {remoteSkuSuffix(item.remoteSkuCount)}
+                  {remoteCountsSuffix(item)}
                 </span>
               </div>
               <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -98,7 +98,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         facts={[
           { label: 'Sàn', value: platform },
           { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
-          { label: 'Mặt hàng trên sàn tìm thấy', value: remoteSkuValue(first.remoteSkuCount) },
+          { label: 'Hàng trên sàn', value: remoteCountsValue(first) },
         ]}
         actions={
           <>
