@@ -371,7 +371,10 @@ export const GUIDES = {
     key: 'customers',
     version: 1,
     title: 'Khách hàng',
-    intro: ['Khách mua qua sàn, nhắn qua hộp thư hoặc được tạo tay khi lập đơn.'],
+    intro: [
+      'Khách mua qua sàn, nhắn qua hộp thư hoặc được tạo tay khi lập đơn.',
+      'Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh.',
+    ],
     primaryAction: { label: 'Tìm khách', target: 'customer-filters' },
     steps: [
       {
