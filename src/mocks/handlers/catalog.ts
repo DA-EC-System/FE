@@ -7,7 +7,8 @@ import * as inventory from '../inventoryData';
 import * as purchasing from '../purchasingData';
 import * as channel from '../channelData';
 import * as pricing from '../pricingData';
-import type { Attribute, AttributeInput, BusinessStatusInput, BusinessStatusResult, Category, CategoryInput, ProductCreateInput, ProductDetail, ProductListItem, ProductUpdateInput, ProductVariant, UploadTicket, VariantAttribute, VariantBusinessStatus, VariantMainLabel, VariantPresence } from '@/types/catalog';
+import { SPEC_LIMITS, specOf } from '../catalogBulkData';
+import type { Attribute, AttributeInput, BusinessStatusInput, BusinessStatusResult, Category, CategoryInput, ProductCreateInput, ProductDetail, ProductListItem, ProductUpdateInput, ProductVariant, UploadTicket, VariantAttribute, VariantBusinessStatus, VariantMainLabel, VariantMissing, VariantPresence, VariantUpdateInput } from '@/types/catalog';
 import { BUSINESS_ACTIONS, hidesListings, mainLabel, variantMachine } from '@/lib/machines/product';
 import { PERMISSIONS } from '@/utils/permissions';
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@/utils/files';
@@ -108,14 +109,25 @@ export function archiveBlockers(companyId: string, variantId: string): string[] 
   return reasons;
 }
 
-/** Thiếu ảnh hoặc mô tả ở cha thì mọi SKU con Chờ hoàn thiện; thiếu giá chuẩn tính theo SKU */
-function missingOf(p: MockProduct, v: MockVariant): string[] {
-  const standard = pricing.pricelists.find((pl) => pl.companyId === p.companyId && pl.type === 'standard');
-  return [
-    !p.imageFileIds.length && 'Ảnh',
-    !p.description.trim() && 'Mô tả',
-    standard?.prices[v.id] === undefined && 'Giá chuẩn',
-  ].filter((x): x is string => Boolean(x));
+const standardList = (companyId: string) =>
+  pricing.pricelists.find((pl) => pl.companyId === companyId && pl.type === 'standard');
+
+const reorderOf = (companyId: string, variantId: string) =>
+  inventory.reorderRules.find((r) => r.companyId === companyId && r.variantId === variantId);
+
+/** §17.1: cha thiếu tên, danh mục, ảnh thì mọi SKU con Chờ hoàn thiện; giá, ngưỡng tồn, khối lượng, kích thước tính theo SKU */
+function missingOf(p: MockProduct, v: MockVariant): VariantMissing[] {
+  const spec = specOf(v.id);
+  const checks: [VariantMissing, boolean][] = [
+    ['name', !p.name.trim()],
+    ['category', !p.categoryId],
+    ['image', !p.imageFileIds.length],
+    ['price', standardList(p.companyId)?.prices[v.id] === undefined],
+    ['minQty', !reorderOf(p.companyId, v.id)],
+    ['weight', spec.weightG === null],
+    ['dimensions', spec.lengthMm === null || spec.widthMm === null || spec.heightMm === null],
+  ];
+  return checks.filter(([, miss]) => miss).map(([k]) => k);
 }
 
 /** Listing còn trên sàn của SKU (bỏ listing đã gỡ) */
@@ -129,8 +141,16 @@ function presenceOf(companyId: string, variantId: string): VariantPresence {
 
 export const toVariant = (p: MockProduct, v: MockVariant): ProductVariant => {
   const missing = missingOf(p, v);
+  const spec = specOf(v.id);
   return {
     id: v.id,
+    standardPrice: standardList(p.companyId)?.prices[v.id] ?? null,
+    minQty: reorderOf(p.companyId, v.id)?.minQty ?? null,
+    weightG: spec.weightG,
+    lengthMm: spec.lengthMm,
+    widthMm: spec.widthMm,
+    heightMm: spec.heightMm,
+    version: spec.version,
     sku: v.sku,
     attributes: variantAttributes(p.companyId, v.valueIds),
     archivedAt: v.archivedAt,
@@ -555,6 +575,10 @@ export const catalogHandlers = [
 
     const combos = (body.variants ?? []).map((v) => v.attributeValueIds ?? []);
     const sets = combos.map((c) => comboAttributes(companyId, c));
+    // §17.4: tối đa 2 trục phân loại (Documents/25 §5.4)
+    if (sets.some((x) => x && x.length > 2)) {
+      return problem(422, 'Quá số trục phân loại', { code: 'too_many_axes' });
+    }
     if (!combos.length) errors.variants = 'Cần ít nhất một biến thể';
     else if (combos.length > 100) errors.variants = 'Tối đa 100 biến thể mỗi lần tạo';
     else if (sets.some((x) => x === null)) errors.variants = 'Biến thể có giá trị không hợp lệ';
@@ -736,6 +760,58 @@ export const catalogHandlers = [
       { product: product.name, sku: variant.sku, attributes: variantAttributes(companyId, variant.valueIds).map((a) => a.value) },
     );
     return HttpResponse.json<ProductVariant>(toVariant(product, variant), { status: 201 });
+  }),
+
+  // §17.2: sửa giá chuẩn, khối lượng, kích thước gói của một SKU (D9: giá chuẩn là cột của SKU)
+  http.patch(`${API}/catalog/products/:id/variants/:variantId`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.productManage);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(catalog.products, params.id, guard.value.companyId, 'sản phẩm');
+    if (!found.ok) return found.response;
+    const product = found.value;
+    const variant = product.variants.find((v) => v.id === params.variantId);
+    if (!variant) return problem(404, 'Không tìm thấy biến thể', { code: 'not_found' });
+    if (variant.businessStatus === 'archived') {
+      return problem(409, 'Biến thể đã lưu trữ', { code: 'variant_archived' });
+    }
+    const body = (await request.json()) as VariantUpdateInput;
+    const spec = specOf(variant.id);
+    if (body.version !== spec.version) {
+      return versionConflict(toProductDetail(product), 'SKU vừa được người khác sửa.');
+    }
+    const errors: Record<string, string> = {};
+    const fields = ['standardPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
+    for (const f of fields) {
+      const n = body[f];
+      if (n === undefined || n === null) continue;
+      if (!Number.isInteger(n) || n <= 0) errors[f] = 'Phải là số nguyên dương';
+      else if (f === 'standardPrice' && n > 10_000_000_000) errors[f] = 'Giá tối đa 10 tỷ đồng';
+      else if (f === 'weightG' && n > SPEC_LIMITS.weightG) errors[f] = 'Quá 50 kg, kiểm tra lại đơn vị gram';
+      else if (f !== 'standardPrice' && f !== 'weightG' && n > SPEC_LIMITS.sizeMm) errors[f] = 'Quá 2 m, kiểm tra lại đơn vị mm';
+    }
+    if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+
+    const before = toVariant(product, variant);
+    const now = db.now();
+    const list = standardList(product.companyId);
+    if (body.standardPrice !== undefined && list) {
+      if (body.standardPrice === null) delete list.prices[variant.id];
+      else list.prices[variant.id] = body.standardPrice;
+      list.version += 1;
+      list.updatedAt = now;
+    }
+    for (const f of ['weightG', 'lengthMm', 'widthMm', 'heightMm'] as const) {
+      if (body[f] !== undefined) spec[f] = body[f] ?? null;
+    }
+    spec.version += 1;
+    product.updatedAt = now;
+    const after = toVariant(product, variant);
+    const pick = (x: ProductVariant) => ({
+      standardPrice: x.standardPrice, weightG: x.weightG, lengthMm: x.lengthMm, widthMm: x.widthMm, heightMm: x.heightMm,
+    });
+    writeCompanyLog(guard.value, 'update', { type: 'product.product_variants', id: variant.id, label: variant.sku }, pick(before), pick(after));
+    return HttpResponse.json<ProductDetail>(toProductDetail(product));
   }),
 
   // ----- Ảnh: vé tải lên (presigned) và nơi nhận file thay cho SeaweedFS/S3 -----

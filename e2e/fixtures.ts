@@ -11,7 +11,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export { expect, test } from '@playwright/test';
 
-type Method = 'get' | 'post' | 'put' | 'delete';
+type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 type Scope = Page | Locator;
 
 interface MswBridge {

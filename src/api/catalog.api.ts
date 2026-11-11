@@ -25,6 +25,7 @@ import type {
   ProductUpdateInput,
   ProductVariant,
   UploadTicket,
+  VariantUpdateInput,
 } from '@/types/catalog';
 
 export const catalogKeys = {
@@ -207,6 +208,25 @@ export function useAddVariant() {
       const { data } = await apiClient.post<ProductVariant>(
         `/catalog/products/${productId}/variants`,
         { attributeValueIds },
+      );
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** §17.2: sửa giá chuẩn, khối lượng, kích thước gói của một SKU; trả ProductDetail mới */
+export function useUpdateVariant() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      variantId,
+      ...input
+    }: VariantUpdateInput & { productId: string; variantId: string }) => {
+      const { data } = await apiClient.patch<ProductDetail>(
+        `/catalog/products/${productId}/variants/${variantId}`,
+        input,
       );
       return data;
     },

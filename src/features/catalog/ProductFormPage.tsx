@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FormTextField } from '@/components/common/FormTextField';
@@ -53,11 +53,13 @@ import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
+import { priceText } from '@/utils/price';
 import { mainLabel, variantMachine } from '@/lib/machines/product';
-import type { ProductDetail, ProductVariant, VariantPresence } from '@/types/catalog';
+import { MISSING_LABELS, type ProductDetail, type ProductVariant, type VariantPresence } from '@/types/catalog';
 import { ProductImagesField, type ImageItem } from './ProductImagesField';
 import { VariantBuilder, emptyPlan, planCombos, planError, type VariantPlan } from './VariantBuilder';
 import { AddVariantDialog } from './AddVariantDialog';
+import { VariantSpecDialog } from './VariantSpecDialog';
 import { comboKey, productSchema, type ProductForm } from './shared';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
@@ -74,6 +76,18 @@ const variantChoices = (v: ProductVariant): ActionChoice[] =>
   variantMachine.transitions
     .filter((t) => (typeof t.from === 'string' ? t.from === v.businessStatus : t.from.includes(v.businessStatus)))
     .map((t) => ({ action: t.action, blocked: t.action === 'archive' ? v.archiveBlockers : undefined }));
+
+const missingText = (v: ProductVariant) => v.missing.map((k) => MISSING_LABELS[k]).join(', ');
+
+/** "200 g · 300×250×20 mm"; thiếu thì gạch ngang */
+function specText(v: ProductVariant) {
+  const weight = v.weightG === null ? null : `${v.weightG.toLocaleString('vi-VN')} g`;
+  const dims =
+    v.lengthMm === null || v.widthMm === null || v.heightMm === null
+      ? null
+      : `${v.lengthMm}×${v.widthMm}×${v.heightMm} mm`;
+  return [weight, dims].filter(Boolean).join(' · ') || '—';
+}
 
 const toImages = (p: ProductDetail): ImageItem[] =>
   [...p.images].sort((a, b) => a.position - b.position).map((i) => ({ fileId: i.fileId, url: i.url }));
@@ -110,6 +124,8 @@ export function ProductFormPage() {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [specVariantId, setSpecVariantId] = useState<string | null>(null);
+  const specVariant = product?.variants.find((v) => v.id === specVariantId) ?? null;
 
   const form = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
@@ -366,9 +382,11 @@ export function ProductFormPage() {
                           <TableHead>SKU</TableHead>
                           <TableHead>Thuộc tính</TableHead>
                           <TableHead>Trạng thái</TableHead>
+                          <TableHead className="text-right">Giá chuẩn</TableHead>
+                          <TableHead>Khối lượng · kích thước</TableHead>
                           <TableHead>Hoàn thiện</TableHead>
                           <TableHead>Trên sàn</TableHead>
-                          {canManage && <TableHead className="w-16" />}
+                          {canManage && <TableHead className="w-24" />}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -388,16 +406,22 @@ export function ProductFormPage() {
                             <TableCell data-testid="variant-status">
                               <StatusBadge status={mainLabel(v.businessStatus, v.presence)} statuses={MAIN_LABEL_META} />
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-right whitespace-nowrap" data-testid="variant-price">
+                              {priceText(v.standardPrice)}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap" data-testid="variant-spec">
+                              {specText(v)}
+                            </TableCell>
+                            <TableCell data-testid="variant-readiness">
                               {v.businessStatus === 'archived' ? null : v.readiness === 'ready' ? (
                                 <span className="text-muted-foreground">Sẵn sàng</span>
                               ) : (
-                                <Badge variant="warning" title={`Thiếu: ${v.missing.join(', ')}`}>
+                                <Badge variant="warning" title={`Thiếu: ${missingText(v)}`}>
                                   Chờ hoàn thiện
                                 </Badge>
                               )}
                               {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
-                                <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {v.missing.join(', ').toLowerCase()}</div>
+                                <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {missingText(v)}</div>
                               )}
                             </TableCell>
                             <TableCell className="whitespace-nowrap">
@@ -408,7 +432,19 @@ export function ProductFormPage() {
                                   : PRESENCE_LABELS[v.presence]}
                             </TableCell>
                             {canManage && (
-                              <TableCell className="text-right">
+                              <TableCell className="text-right whitespace-nowrap">
+                                {v.businessStatus !== 'archived' && !archived && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={`Sửa thông tin ${v.sku}`}
+                                    title="Giá chuẩn, khối lượng, kích thước gói"
+                                    onClick={() => setSpecVariantId(v.id)}
+                                  >
+                                    <Pencil />
+                                  </Button>
+                                )}
                                 <BusinessActionMenu
                                   label={`Đổi trạng thái ${v.sku}`}
                                   choices={variantChoices(v)}
@@ -447,6 +483,17 @@ export function ProductFormPage() {
 
         {business.dialog}
       </form>
+      {product && (
+        <VariantSpecDialog
+          productId={product.id}
+          variant={specVariant}
+          onClose={() => setSpecVariantId(null)}
+          onDone={(message) => {
+            setSpecVariantId(null);
+            toast.success(message);
+          }}
+        />
+      )}
     </Form>
   );
 }

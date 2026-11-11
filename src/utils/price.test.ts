@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrice } from './shared';
+import { parsePrice } from './price';
 
 describe('parsePrice (AC-G6)', () => {
   it('nhận số nguyên đồng, có hoặc không có phân cách nghìn', () => {
