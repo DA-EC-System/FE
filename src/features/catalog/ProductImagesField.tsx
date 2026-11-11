@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { uploadProductImage } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { cn } from '@/lib/utils';
-import { IMAGE_TYPES, MAX_IMAGES, imageFileError } from './shared';
+import { ImagePrepareError, prepareProductImage } from './compressImage';
+import { MAX_IMAGES, SOURCE_IMAGE_TYPES, imageFileError, sourceImageError } from './shared';
 
 export interface ImageItem {
   fileId: string;
@@ -52,7 +53,7 @@ export function ProductImagesField({
     const found: string[] = [];
     // Kiểm từng tệp trước, tệp hợp lệ mới tính vào chỗ còn trống (AC-10)
     const valid = files.filter((f) => {
-      const message = imageFileError(f);
+      const message = sourceImageError(f);
       if (message) found.push(message);
       return !message;
     });
@@ -62,11 +63,22 @@ export function ProductImagesField({
 
     setUploading(accepted.length);
     onBusyChange(accepted.length > 0);
-    const results = await Promise.allSettled(accepted.map((f) => uploadProductImage(f)));
+    // Nén, thu nhỏ rồi mới xin vé: vé ký đúng kiểu và cỡ của tệp sau khi nén (FE#205)
+    const results = await Promise.allSettled(
+      accepted.map(async (f) => {
+        const prepared = await prepareProductImage(f);
+        const message = imageFileError(prepared);
+        if (message) throw new ImagePrepareError(message.slice(prepared.name.length + 2));
+        return { fileId: await uploadProductImage(prepared), file: prepared };
+      }),
+    );
     const added: ImageItem[] = [];
     results.forEach((r, i) => {
-      if (r.status === 'fulfilled') added.push({ fileId: r.value, url: URL.createObjectURL(accepted[i]) });
-      else found.push(`${accepted[i].name}: ${getErrorMessage(r.reason)}`);
+      if (r.status === 'fulfilled') added.push({ fileId: r.value.fileId, url: URL.createObjectURL(r.value.file) });
+      else
+        found.push(
+          `${accepted[i].name}: ${r.reason instanceof ImagePrepareError ? r.reason.message : getErrorMessage(r.reason)}`,
+        );
     });
     setUploading(0);
     onBusyChange(false);
@@ -160,7 +172,7 @@ export function ProductImagesField({
         type="file"
         hidden
         multiple
-        accept={IMAGE_TYPES.join(',')}
+        accept={SOURCE_IMAGE_TYPES.join(',')}
         data-testid="image-input"
         onChange={(e) => {
           void pick(e.target.files);
@@ -170,7 +182,7 @@ export function ProductImagesField({
 
       {!disabled && (
         <p className="text-xs text-muted-foreground">
-          JPG, PNG hoặc WebP, tối đa 5 MB mỗi ảnh, {MAX_IMAGES} ảnh. Ảnh đầu tiên là ảnh đại diện.
+          JPG hoặc PNG, từ 330×330 px, {MAX_IMAGES} ảnh. Ảnh lớn hơn 1 MB tự nén trước khi tải. Ảnh đầu tiên là ảnh đại diện.
         </p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}

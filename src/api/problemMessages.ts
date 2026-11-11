@@ -37,8 +37,8 @@ const MESSAGES: Record<string, string> = {
   archive_blocked: 'Chưa lưu trữ được: SKU còn tồn, hàng đang về, hàng chờ xử lý hoặc chứng từ mở.',
   variant_archived: 'Tổ hợp này là biến thể đã lưu trữ. Dùng Khôi phục để bán lại với SKU cũ.',
   product_archived: 'Sản phẩm đã lưu trữ nên không sửa được.',
-  file_type_not_allowed: 'Chỉ nhận ảnh JPG, PNG hoặc WebP.',
-  file_too_large: 'Ảnh lớn hơn 5 MB.',
+  file_type_not_allowed: 'Kiểu tệp không được nhận (ảnh sản phẩm chỉ JPG hoặc PNG).',
+  file_too_large: 'Tệp quá cỡ cho phép (ảnh sản phẩm tối đa 1 MB).',
   // FE#8, chờ commerio-backend#19
   shop_not_connected: 'Gian hàng chưa kết nối hoặc đã mất uỷ quyền. Kết nối lại rồi thử lại.',
   invalid_state: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm Kết nối lại từ đầu.',
