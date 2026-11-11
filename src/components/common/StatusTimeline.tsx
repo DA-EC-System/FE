@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/utils/format';
 import type { StatusChange } from '@/lib/stateMachine';
+import { SelfApprovedTag } from './SelfApprovedTag';
 import { StatusBadge, type StatusMeta } from './StatusBadge';
 
 const actorOf = (h: StatusChange) => {
@@ -38,6 +39,7 @@ export function StatusTimeline<S extends string>({
             <span className="flex flex-wrap items-center gap-2">
               <StatusBadge status={h.to} statuses={statuses} />
               <span className="text-muted-foreground">{actorOf(h)}</span>
+              {h.selfApproved && <SelfApprovedTag />}
             </span>
             <span className="text-xs text-muted-foreground tabular-nums">{formatDateTime(h.at)}</span>
           </div>

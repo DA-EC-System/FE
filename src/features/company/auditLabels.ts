@@ -45,6 +45,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'finance.unmatched_receipts': 'Tiền về chưa khớp',
   'finance.gateway_configs': 'Cổng thanh toán',
   'finance.payment_links': 'Mã thanh toán',
+  'finance.config_versions': 'Cấu hình phí, thuế',
 };
 
 export const entityTypeLabel = (type: string) => AUDIT_ENTITY_LABELS[type] ?? type;
@@ -78,6 +79,9 @@ const FIELD_LABELS: Record<string, string> = {
   minQty: 'Ngưỡng tối thiểu',
   note: 'Ghi chú',
   lines: 'Dòng phiếu',
+  code: 'Mã chứng từ',
+  action: 'Thao tác',
+  selfApproved: 'Tự duyệt',
 };
 
 export const auditFieldLabel = (field: string) => FIELD_LABELS[field] ?? field;

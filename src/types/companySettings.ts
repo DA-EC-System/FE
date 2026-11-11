@@ -69,6 +69,8 @@ export interface CompanyAuditLog {
   /** Tên dễ đọc của đối tượng lúc ghi nhật ký (email, tên vai trò…) */
   entityLabel: string;
   actor: ActorRef;
+  /** Lần tự duyệt bước cần người duyệt khác (Documents/21 mục 14.1, #246): hiện nhãn "Tự duyệt" */
+  selfApproved: boolean;
   createdAt: string;
 }
 
@@ -86,4 +88,6 @@ export interface CompanyAuditParams {
   /** yyyy-mm-dd, tính theo cả ngày */
   from?: string;
   to?: string;
+  /** Chỉ các lần tự duyệt */
+  selfApproved?: boolean;
 }

@@ -6,6 +6,7 @@ import { PageSpinner } from '@/components/common/PageSpinner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
+import { SelfApprovedTag } from '@/components/common/SelfApprovedTag';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,7 +41,7 @@ export function FinanceConfigDetailPage() {
         {can(P.financeConfigManage) && ['active', 'expired'].includes(config.status) && <Button variant="outline" onClick={() => setEditing('correction')}>Soạn bản sửa lỗi</Button>}
         {actions.map((a) => <Button key={a.action} onClick={() => setAction(a.action)}>{a.label}</Button>)}
       </div>} />
-    <StatusBadge status={config.status} statuses={CONFIG_STATES} />{config.selfApproved && <span className="ms-2 text-sm">Tự duyệt</span>}
+    <StatusBadge status={config.status} statuses={CONFIG_STATES} />{config.selfApproved && <span className="ms-2"><SelfApprovedTag /></span>}
     {config.statusReason && <AlertMessage severity="info">{config.statusReason}</AlertMessage>}
     {config.isCorrection && <AlertMessage severity="warning">Bản sửa lỗi; hồi tố từ {formatDate(config.retroactiveFrom)}. <Link to={ROUTES.company.financeConfig(companyId, config.supersedesId!)}>Xem bản được sửa</Link></AlertMessage>}
     <Card className="my-4"><CardContent className="grid gap-3 pt-6 sm:grid-cols-2">{Object.entries(PAYLOAD_FIELDS[config.kind]).map(([key, label]) => <p key={key}>{label}: <strong>{Array.isArray(config.payload[key]) ? (config.payload[key] as number[]).join(', ') : key === 'regime' ? ({ company: 'Doanh nghiệp', household: 'Hộ kinh doanh', individual: 'Cá nhân' }[String(config.payload[key]) as 'company'] ?? '—') : String(config.payload[key] ?? '—')}</strong></p>)}

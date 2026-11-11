@@ -3,8 +3,18 @@ import { db } from '../db';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { OrderSource } from '@/types/sales';
 import { reportRows, type MockReportRow } from '../reportData';
-import type { DailyFigures, ReportDaily, ReportFigures, ReportKind, ReportOverview, ReportShops, ShopFigures } from '@/types/report';
-import { API, CompanyActor, Guard, LATENCY, problem, requireCompany } from './utils';
+import type {
+  DailyFigures,
+  ReportDaily,
+  ReportFigures,
+  ReportKind,
+  ReportOverview,
+  ReportSelfApprovals,
+  ReportShops,
+  ShopFigures,
+} from '@/types/report';
+import { API, CompanyActor, Guard, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
+import { actorRef, isSelfApprovedLog } from './companySettings';
 import { vnDate } from './sales';
 import { DATE_RE, invalid } from './finance';
 
@@ -173,7 +183,43 @@ export function figuresCsv<T extends ReportFigures>(
   return `${String.fromCharCode(0xfeff)}${all.map((r) => `${r.map(csvCell).join(',')}\r\n`).join('')}`;
 }
 
+/** Các lần tự duyệt lấy từ nhật ký của mock (dòng có `after.selfApproved`), mới trước */
+function selfApprovals(companyId: string, from: string, to: string, url: URL): ReportSelfApprovals {
+  const { page, pageSize } = pageParams(url);
+  const items = db.companyAuditLogs
+    .filter((l) => l.companyId === companyId && isSelfApprovedLog(l))
+    .filter((l) => vnDate(l.createdAt) >= from && vnDate(l.createdAt) <= to)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((l) => {
+      const actor = actorRef(l.actorId);
+      return {
+        at: l.createdAt,
+        from: (l.before?.status as string | undefined) ?? null,
+        to: String(l.after?.status ?? ''),
+        by: actor ? { id: actor.accountId, name: actor.fullName } : null,
+        source: 'user' as const,
+        reason: null,
+        selfApproved: true,
+        // Nhật ký ghi `<schema>.<bảng>`, BE trả tên bảng như `statusHistory`
+        entityType: l.entityType.split('.').pop()!,
+        entityId: l.entityId,
+        action: String(l.after?.action ?? ''),
+      };
+    });
+  return { from, to, ...paginate(items, page, pageSize) };
+}
+
 export const reportHandlers = [
+  http.get(`${API}/report/self-approvals`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireReport(request);
+    if (!guard.ok) return guard.response;
+    const url = new URL(request.url);
+    const range = reportRange(url);
+    if (!range.ok) return range.response;
+    return HttpResponse.json(selfApprovals(guard.value.companyId, range.from, range.to, url));
+  }),
+
   http.get(`${API}/report/overview`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireReport(request);

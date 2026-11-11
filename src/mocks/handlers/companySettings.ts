@@ -40,6 +40,9 @@ export function toCompanyModule(companyId: string, code: OptionalModuleKey): Com
   };
 }
 
+/** Dòng tự duyệt mang `after.selfApproved = true` (Documents/21 mục 14.1, #246) */
+export const isSelfApprovedLog = (l: { after: Record<string, unknown> | null }) => l.after?.selfApproved === true;
+
 export function toAuditLog(l: (typeof db.companyAuditLogs)[number]): CompanyAuditLog {
   return {
     id: l.id,
@@ -48,6 +51,7 @@ export function toAuditLog(l: (typeof db.companyAuditLogs)[number]): CompanyAudi
     entityId: l.entityId,
     entityLabel: l.entityLabel,
     actor: actorRef(l.actorId) ?? { accountId: l.actorId, email: '', fullName: 'Tài khoản đã xoá' },
+    selfApproved: isSelfApprovedLog(l),
     createdAt: l.createdAt,
   };
 }
@@ -132,6 +136,7 @@ export const companySettingsHandlers = [
     const action = url.searchParams.get('action');
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
+    const selfOnly = url.searchParams.get('selfApproved') === 'true';
 
     let items = db.companyAuditLogs
       .filter((l) => l.companyId === guard.value.companyId)
@@ -141,6 +146,7 @@ export const companySettingsHandlers = [
     if (action) items = items.filter((l) => l.action === action);
     if (from) items = items.filter((l) => l.createdAt.slice(0, 10) >= from);
     if (to) items = items.filter((l) => l.createdAt.slice(0, 10) <= to);
+    if (selfOnly) items = items.filter(isSelfApprovedLog);
     return HttpResponse.json(paginate(items.map(toAuditLog), page, pageSize));
   }),
 

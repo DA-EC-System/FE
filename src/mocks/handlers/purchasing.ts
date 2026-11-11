@@ -80,6 +80,7 @@ function pushStatus<S extends string>(
   actor: CompanyActor | null,
   at: string,
   reason?: string | null,
+  selfApproved = false,
 ) {
   rec.statusHistory.push({
     at,
@@ -88,9 +89,14 @@ function pushStatus<S extends string>(
     by: actor ? byOf(actor) : null,
     source: actor ? 'user' : 'system',
     reason: reason ?? null,
+    ...(selfApproved && { selfApproved: true }),
   });
   rec.status = to;
 }
+
+/** Lần tự duyệt: dòng nhật ký mang `action`, `selfApproved: true` như BE (Documents/21 mục 14.1, #246) */
+const selfApprovedSnapshot = (snapshot: Record<string, unknown>, action: string, selfApproved: boolean) =>
+  selfApproved ? { ...snapshot, action, selfApproved: true } : snapshot;
 
 const supplierOf = (id: string | null) => (id ? data.suppliers.find((s) => s.id === id) ?? null : null);
 const supplierBrief = (id: string | null) => {
@@ -914,11 +920,11 @@ export const purchasingHandlers = [
       closeShort(req, guard.value, at, reason!);
     } else {
       if (action === 'approve') createNewProducts(req, at);
-      pushStatus(req, next.value, guard.value, at, reason);
+      pushStatus(req, next.value, guard.value, at, reason, next.selfApproved);
       if (action === 'order' || action === 'cancel') data.syncIncoming(companyId);
     }
     req.version += 1;
-    writeCompanyLog(guard.value, 'update', requestEntity(req), before, requestSnapshot(req));
+    writeCompanyLog(guard.value, 'update', requestEntity(req), before, selfApprovedSnapshot(requestSnapshot(req), action, next.selfApproved));
     return HttpResponse.json<PurchaseRequest>(toRequest(req, permissions));
   }),
 
@@ -1147,11 +1153,11 @@ export const purchasingHandlers = [
       if (hasErrors(over)) return invalid(over, { code: 'over_outstanding' });
       postReceipt(r, guard.value, at);
     }
-    pushStatus(r, next.value, guard.value, at, reason);
+    pushStatus(r, next.value, guard.value, at, reason, next.selfApproved);
     // Đề nghị đã nhận đủ trong lần ghi sổ này: phiếu giao thiếu cũng xong luôn
     if (next.value === 'short' && requestOf(r).status === 'received') pushStatus(r, 'resolved', null, at);
     r.version += 1;
-    writeCompanyLog(guard.value, 'update', receiptEntity(r), before, receiptSnapshot(r));
+    writeCompanyLog(guard.value, 'update', receiptEntity(r), before, selfApprovedSnapshot(receiptSnapshot(r), action, next.selfApproved));
     return HttpResponse.json<GoodsReceipt>(toReceipt(r));
   }),
 
@@ -1324,9 +1330,9 @@ export const purchasingHandlers = [
       t.followUps.push({ type: 'stock_document', id: writeOff.id, number: writeOff.number });
     }
 
-    pushStatus(t, next.value, guard.value, at, reason);
+    pushStatus(t, next.value, guard.value, at, reason, next.selfApproved);
     t.version += 1;
-    writeCompanyLog(guard.value, 'update', returnEntity(t), before, returnSnapshot(t));
+    writeCompanyLog(guard.value, 'update', returnEntity(t), before, selfApprovedSnapshot(returnSnapshot(t), action, next.selfApproved));
     return HttpResponse.json<SupplierReturn>(toReturn(t, permissions));
   }),
 ];

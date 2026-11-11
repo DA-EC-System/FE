@@ -3,6 +3,7 @@
  * Hợp đồng theo Documents/21 mục 12.7, 12.8, BE ở commerio-backend#29 (PR #60).
  */
 
+import type { StatusChange } from '@/lib/stateMachine';
 import type { OrderSource } from './sales';
 
 /** Tiền là số nguyên đồng. `cogs`, `profit` là `null` khi người xem thiếu `inventory.cost.view` */
@@ -48,3 +49,19 @@ export interface ReportDaily extends ReportHead {
 }
 
 export type ReportKind = 'overview' | 'shops' | 'daily';
+
+/** Một lần tự duyệt (Documents/21 mục 14.1, commerio-backend#246): `entityType` là tên bảng như `statusHistory` */
+export interface SelfApproval extends StatusChange {
+  entityType: string;
+  entityId: string;
+  action: string;
+}
+
+export interface ReportSelfApprovals {
+  from: string;
+  to: string;
+  items: SelfApproval[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
