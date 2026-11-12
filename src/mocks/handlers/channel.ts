@@ -213,6 +213,7 @@ export function toListing(l: MockListing): ChannelListing {
     platformStock: l.platformStock,
     lastPushedAt: l.lastPushedAt,
     lastPushedPrice: l.lastPushedPrice,
+    pendingMapping: l.pendingMapping ?? null,
     version: l.version,
   };
 }
@@ -325,6 +326,38 @@ export function delistVariant(companyId: string, variantId: string) {
     l.version += 1;
   }
 }
+
+/** Listing "không quản tồn" (không có biến thể) dạng BE trả: thân của 200/202 `listings/match` */
+function unmanagedListing(u: channel.MockUnmanagedSku): ChannelListing {
+  const r = channel.remoteSkus[u.shopId]?.find((x) => x.externalSkuId === u.externalSkuId);
+  return {
+    id: u.id,
+    externalProductId: r?.externalProductId ?? null,
+    externalSkuId: u.externalSkuId,
+    sellerSku: r?.sellerSku ?? null,
+    status: 'live',
+    rejectReason: null,
+    pushError: null,
+    pushAttempts: 0,
+    hiddenBy: null,
+    stockSync: 'synced',
+    priceSync: 'synced',
+    stockSyncError: null,
+    priceSyncError: null,
+    qcAlert: null,
+    platformStock: r?.stock ?? null,
+    lastPushedAt: null,
+    lastPushedPrice: null,
+    pendingMapping: u.pendingMapping,
+    version: u.version,
+  };
+}
+
+/** Listing (có biến thể) và dòng "không quản tồn" của một SKU sàn */
+const listingOfSku = (shopId: string, externalSkuId: string) => ({
+  mapped: channel.listings.find((l) => l.shopId === shopId && l.externalSkuId === externalSkuId),
+  unmanaged: channel.unmanagedSkus.find((u) => u.shopId === shopId && u.externalSkuId === externalSkuId),
+});
 
 function newListing(shop: MockShop, variantId: string, r: MockRemoteSku, over: Partial<MockListing> = {}): MockListing {
   return {
@@ -1147,77 +1180,130 @@ export const shopHandlers = [
 
   http.get(`${API}/channel/shops/:id/remote-skus`, async ({ params, request }) => {
     await delay(LATENCY * 2);
-    const guard = requireCompany(request, PERMISSIONS.shopView);
+    // BE#220: `remote-skus` cần quyền ghép SKU
+    const guard = requireCompany(request, PERMISSIONS.listingMatch);
     if (!guard.ok) return guard.response;
     const found = ownShop(params.id, guard.value.companyId);
     if (!found.ok) return found.response;
     const shop = found.value;
     if (!usable(shop)) return shopNotConnected(shop);
     settleDuePushes(shop);
-    const skus: RemoteSku[] = (channel.remoteSkus[shop.id] ?? []).map((r) => ({
-      ...r,
-      matchedVariantId:
-        channel.listings.find((l) => l.shopId === shop.id && l.externalSkuId === r.externalSkuId)?.variantId ??
-        null,
-    }));
-    return HttpResponse.json<{ items: RemoteSku[] }>({ items: skus });
+    const skus: RemoteSku[] = (channel.remoteSkus[shop.id] ?? []).map((r) => {
+      const { mapped, unmanaged } = listingOfSku(shop.id, r.externalSkuId);
+      const row = mapped ?? unmanaged;
+      return {
+        externalProductId: r.externalProductId,
+        externalSkuId: r.externalSkuId,
+        title: r.title,
+        sellerSku: r.sellerSku,
+        matchedVariantId: mapped?.variantId ?? null,
+        mode: mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null,
+        listingId: row?.id ?? null,
+        listingVersion: row?.version ?? null,
+        pendingMapping: row?.pendingMapping ?? null,
+      };
+    });
+    const unmatched = new URL(request.url).searchParams.get('unmatched') === 'true';
+    return HttpResponse.json<{ items: RemoteSku[] }>({ items: unmatched ? skus.filter((s) => !s.mode) : skus });
   }),
 
-  http.put(`${API}/channel/shops/:id/listings/:variantId`, async ({ params, request }) => {
+  /**
+   * Ghép SKU tay theo SKU sàn (§18.3, §18.6.5, BE#220). `variantId: null` là "không quản tồn". Cần CEO duyệt khi
+   * "không quản tồn" hoặc đổi ghép SKU sàn gian hàng đã nhận đơn; người không tự duyệt được thì lưu ghép chờ, trả 202
+   */
+  http.post(`${API}/channel/shops/:id/listings/match`, async ({ params, request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.listingManage);
+    const guard = requireCompany(request, PERMISSIONS.listingMatch);
     if (!guard.ok) return guard.response;
-    const found = ownShop(params.id, guard.value.companyId);
+    const actor = guard.value;
+    const found = ownShop(params.id, actor.companyId);
     if (!found.ok) return found.response;
     const shop = found.value;
-    const target = sellableVariant(shop.companyId, params.variantId);
-    if (!target) return problem(404, 'Không tìm thấy biến thể');
-    if (!usable(shop)) return shopNotConnected(shop);
+    if (shop.status !== 'active') {
+      return problem(409, 'Hoàn tất thiết lập gian hàng trước khi ghép SKU', { code: 'shop_not_active', current: shop.status });
+    }
     const body = (await request.json()) as ListingMatchInput;
+    const invalid = (field: string, message: string) =>
+      problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors: { [field]: message } });
+    const { mapped, unmanaged } = listingOfSku(shop.id, body.externalSkuId);
+    const before = mapped ?? unmanaged;
+    if (before?.pendingMapping) {
+      return problem(409, 'Listing này đang chờ CEO duyệt ghép', {
+        code: 'mapping_pending',
+        current: mapped ? toListing(mapped) : unmanagedListing(unmanaged!),
+      });
+    }
+    if (mapped?.status === 'pushing') {
+      return problem(409, 'Listing đang đẩy lên sàn, ghép sau khi có kết quả', { code: 'invalid_transition' });
+    }
+    const target = body.variantId ? sellableVariant(shop.companyId, body.variantId) : null;
+    if (body.variantId) {
+      if (!target) return invalid('variantId', 'Biến thể không thuộc công ty');
+      const other = channel.listings.find(
+        (l) => l.shopId === shop.id && l.variantId === body.variantId && l.status !== 'delisted' && l !== mapped,
+      );
+      if (other) return invalid('variantId', 'Biến thể đã ghép SKU sàn khác của gian hàng này');
+    }
     const sku = (channel.remoteSkus[shop.id] ?? []).find((r) => r.externalSkuId === body.externalSkuId);
-    if (!sku) {
-      return problem(422, 'SKU sàn không hợp lệ', {
-        errors: { externalSkuId: 'Không tìm thấy SKU này trên sàn' },
-      });
+    if (!sku) return invalid('externalSkuId', 'SKU sàn không còn trên gian hàng');
+    if (!sku.sellerSku) return invalid('externalSkuId', 'SKU sàn chưa có SKU người bán, đặt trên sàn trước rồi ghép');
+    const mode = mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null;
+    if (mode === (body.variantId ? 'mapped' : 'unmanaged') && (mapped?.variantId ?? null) === body.variantId) {
+      return HttpResponse.json<ChannelListing>(mapped ? toListing(mapped) : unmanagedListing(unmanaged!));
     }
-    const idx = channel.listings.findIndex((l) => l.shopId === shop.id && l.variantId === target.variant.id);
-    const existing = idx === -1 ? null : channel.listings[idx];
-    if ((existing?.version ?? null) !== (body.version ?? null)) {
-      return versionConflict(existing && toListing(existing), 'Ghép SKU của biến thể vừa được người khác sửa.');
+    // 25 §8.1, §11: "không quản tồn" luôn cần CEO duyệt; đổi ghép cần khi gian hàng đã nhận đơn mang SKU người bán này
+    const needsCeo =
+      body.variantId === null ||
+      (before !== undefined && salesOrders.some((o) => o.shopId === shop.id && o.lines.some((x) => x.sku === sku.sellerSku)));
+    const label = sku.sellerSku || sku.externalSkuId;
+    if (needsCeo && !actor.canSelfApprove) {
+      const pendingMapping = {
+        variantId: body.variantId,
+        requestedBy: { id: actor.account.id, name: actor.account.fullName },
+        requestedAt: new Date().toISOString(),
+      };
+      let saved: ChannelListing;
+      if (mapped) {
+        Object.assign(mapped, { pendingMapping, version: mapped.version + 1 });
+        saved = toListing(mapped);
+      } else if (unmanaged) {
+        Object.assign(unmanaged, { pendingMapping, version: unmanaged.version + 1 });
+        saved = unmanagedListing(unmanaged);
+      } else {
+        const u = { id: rid('lst'), shopId: shop.id, externalSkuId: sku.externalSkuId, approved: false, pendingMapping, version: 1 };
+        channel.unmanagedSkus.push(u);
+        saved = unmanagedListing(u);
+      }
+      writeCompanyLog(actor, 'update', listingEntity(shop, label, saved.id), null, { pendingMapping });
+      return HttpResponse.json<ChannelListing>(saved, { status: 202 });
     }
-    // Ràng buộc unique(company_id, external_sku_id)
-    const taken = channel.listings.find(
-      (l) =>
-        l.companyId === shop.companyId &&
-        l.externalSkuId === sku.externalSkuId &&
-        l.variantId !== target.variant.id,
-    );
-    if (taken) {
-      return problem(409, 'SKU sàn đã được ghép', {
-        code: 'sku_taken',
-        detail: `SKU sàn ${sku.sellerSku || sku.externalSkuId} đang ghép với biến thể ${skuOf(shop.companyId, taken.variantId)}.`,
-      });
+    let saved: ChannelListing;
+    if (target && mapped) {
+      // Đổi ghép: tồn, giá của SKU sàn đẩy lại theo biến thể mới ở lượt đồng bộ sau
+      Object.assign(mapped, { variantId: target.variant.id, stockSync: 'pending', version: mapped.version + 1 });
+      saved = toListing(mapped);
+    } else if (target) {
+      if (unmanaged) channel.unmanagedSkus.splice(channel.unmanagedSkus.indexOf(unmanaged), 1);
+      // SKU sàn đã có sẵn trên sàn: ghép xong là đang bán (sơ đồ C2)
+      const next = newListing(shop, target.variant.id, sku);
+      if (hidesListings(target.variant.businessStatus)) hideListing(shop, next);
+      channel.listings.push(next);
+      saved = toListing(next);
+    } else {
+      if (mapped) channel.listings.splice(channel.listings.indexOf(mapped), 1);
+      const u = unmanaged ?? { id: mapped?.id ?? rid('lst'), shopId: shop.id, externalSkuId: sku.externalSkuId, approved: true, pendingMapping: null, version: 0 };
+      Object.assign(u, { approved: true, version: Math.max(u.version, mapped?.version ?? 0) + 1 });
+      if (!unmanaged) channel.unmanagedSkus.push(u);
+      saved = unmanagedListing(u);
     }
-    const same = existing?.externalSkuId === sku.externalSkuId;
-    // SKU sàn đã có sẵn trên sàn: ghép xong là đang bán (sơ đồ C2)
-    const next: MockListing =
-      same && existing
-        ? { ...existing, version: existing.version + 1 }
-        : newListing(shop, target.variant.id, sku, {
-            id: existing?.id ?? rid('lst'),
-            version: (existing?.version ?? 0) + 1,
-          });
-    if (!same && hidesListings(target.variant.businessStatus)) hideListing(shop, next);
-    if (existing) channel.listings[idx] = next;
-    else channel.listings.push(next);
     writeCompanyLog(
-      guard.value,
-      existing ? 'update' : 'create',
-      listingEntity(shop, target.variant.sku, next.id),
-      existing ? { externalSkuId: existing.externalSkuId } : null,
-      { externalSkuId: next.externalSkuId, sellerSku: sku.sellerSku },
+      actor,
+      before ? 'update' : 'create',
+      listingEntity(shop, label, saved.id),
+      before ? { variantId: mapped?.variantId ?? null } : null,
+      { variantId: body.variantId, externalSkuId: sku.externalSkuId, selfApproved: needsCeo },
     );
-    return HttpResponse.json<ChannelListing>(toListing(next));
+    return HttpResponse.json<ChannelListing>(saved);
   }),
 
   /** Gỡ khỏi sàn: giữ ghép để đẩy lại sau */

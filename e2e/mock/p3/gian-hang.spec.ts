@@ -496,18 +496,19 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã ghép 3 /');
     });
 
-    test('SKU sàn đã bị ghép thì báo trong hộp; xung đột phiên bản thì nạp lại', async ({ page }) => {
-      await mockApi(page, 'put', '/channel/shops/shp-001/listings/prd-001-v4', 409, {
-        status: 409,
-        title: 'SKU sàn đã được ghép',
-        code: 'sku_taken',
+    test('SKU sàn không còn trên sàn thì báo trong hộp; xung đột phiên bản thì nạp lại', async ({ page }) => {
+      await mockApi(page, 'post', '/channel/shops/shp-001/listings/match', 422, {
+        status: 422,
+        title: 'Dữ liệu không hợp lệ',
+        code: 'validation_failed',
+        errors: { externalSkuId: 'SKU sàn không còn trên gian hàng' },
       });
       await dong(page, 'prd-001-v4').getByRole('button', { name: 'Ghép', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
-      await thayChu(dialog, 'SKU sàn này đã ghép với biến thể khác');
+      await thayChu(dialog, 'SKU sàn không còn trên gian hàng');
 
-      await mockApi(page, 'put', '/channel/shops/shp-001/listings/prd-001-v4', 409, {
+      await mockApi(page, 'post', '/channel/shops/shp-001/listings/match', 409, {
         status: 409,
         title: 'Xung đột phiên bản',
         code: 'version_conflict',
@@ -538,6 +539,20 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dong(page, 'prd-003-v1')).toContainText('Chưa ghép');
       await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
+    });
+
+    test('CEO đặt SKU sàn đã có đơn là không quản tồn: áp luôn, không chờ duyệt', async ({ page }) => {
+      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await thayChu(dialog, 'Đang ghép với');
+      await expect(dialog.getByRole('radio', { checked: true })).toHaveAttribute('value', 'prd-001-v1');
+      await dialog.getByRole('radio', { name: /Không quản tồn/ }).click();
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, 'là không quản tồn');
+      await expect(dong(page, 'prd-001-v1')).toContainText('Chưa ghép');
+      // SKU "không quản tồn" là đã ghép, không còn ở tab Chưa ghép
+      await moTab(page, 'unmatched');
+      await expect(page.locator('[data-testid=remote-section]')).not.toContainText('shp-001-sku-001');
     });
 
     test('đẩy nhiều biến thể chạy nền: dòng mới Đang đẩy rồi lên sàn, dòng đã bán báo dùng Đồng bộ', async ({ page }) => {
@@ -715,7 +730,22 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.locator('[data-testid=remote-section]')).toContainText('chưa kết nối');
   });
 
-  test('Sale chỉ xem: không kết nối, không ghép, không đẩy', async ({ page }) => {
+  test('Admin đổi ghép SKU sàn đã có đơn: gửi CEO duyệt, ghép cũ giữ nguyên', async ({ page }) => {
+    await dangNhap(page, 'admin@commerio.vn', 'admin');
+    await menu(page, 'Kênh bán');
+    await moTrangGhep(page, 'shp-001');
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByPlaceholder('Tìm biến thể theo tên hoặc SKU...', { exact: true }).fill('Thắt lưng');
+    await dialog.getByRole('radio').click();
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await toast(page, 'Đã gửi CEO duyệt ghép');
+    await expect(dialog).toHaveCount(0);
+    await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-001');
+    await expect(dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true })).toBeDisabled();
+  });
+
+  test('Sale ghép SKU sàn nhưng không kết nối, không đẩy, không gỡ', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await menu(page, 'Kênh bán');
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
@@ -727,15 +757,23 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('menuitem', { name: /^Thiết lập lại/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await moTrangGhep(page, 'shp-001');
-    await thayChu(page, 'Bạn chỉ có quyền xem ghép SKU');
+    await thayChu(page, 'Bạn ghép được SKU sàn với biến thể');
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
-    await expect(dong(page, 'prd-001-v3')).toBeAttached();
-    await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Gỡ khỏi sàn|Bỏ ghép/ })).toHaveCount(0);
+    // Ghép SKU sàn chưa ghép: áp luôn
+    await dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await toast(page, 'Đã ghép');
+    await expect(dong(page, 'prd-001-v3').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-003');
+    // "Không quản tồn" luôn cần CEO duyệt
     await moTab(page, 'unmatched');
-    await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
-    await expect(
-      page.locator('[data-testid=remote-section]').getByRole('button', { name: 'Ghép với biến thể', exact: true }),
-    ).toHaveCount(0);
+    const remote = chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr');
+    await remote.getByRole('button', { name: 'Ghép với biến thể', exact: true }).click();
+    await dialog.getByRole('radio', { name: /Không quản tồn/ }).click();
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await toast(page, 'Đã gửi CEO duyệt ghép SKU sàn OLD-TEE-01');
+    await expect(remote.getByRole('button', { name: 'Ghép với biến thể', exact: true })).toBeDisabled();
   });
 
   test('không mở được gian hàng của công ty khác', async ({ page }) => {

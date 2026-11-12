@@ -27,7 +27,7 @@ import {
   useSyncListings,
   useUnmatchListing,
 } from '@/api/shops.api';
-import { apiClient, getErrorMessage } from '@/api/client';
+import { apiClient, getErrorMessage, getProblem } from '@/api/client';
 import { catalogKeys } from '@/api/catalog.api';
 import { codeMessage, problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -118,8 +118,16 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
 /** Gỡ được khi listing còn trên sàn và không đang đẩy */
 const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
 
-/** Hộp ghép đang mở: bắt đầu từ biến thể (chọn SKU sàn) hoặc từ SKU sàn (chọn biến thể) */
-type Matching = { from: 'variant'; row: ListingRow } | { from: 'remote'; sku: RemoteSku };
+/**
+ * Hộp ghép đang mở. BE ghép theo SKU sàn (§18.6.5): biến thể chưa ghép thì chọn SKU sàn; từ SKU sàn (chưa ghép, hoặc
+ * Đổi ghép ở dòng biến thể) thì chọn biến thể khác hoặc "không quản tồn"
+ */
+type Matching =
+  | { from: 'variant'; row: ListingRow }
+  | { from: 'remote'; externalSkuId: string; title: string; sellerSku: string | null; current: ListingRow | null };
+
+/** Lựa chọn "không quản tồn" trong hộp ghép: gửi `variantId: null` */
+const UNMANAGED = '__unmanaged__';
 
 /** UC-CH-02: ghép biến thể với SKU trên sàn, đẩy sản phẩm và giá theo kênh */
 export function ShopListingsPage() {
@@ -134,6 +142,8 @@ export function ShopListingsPage() {
   useBreadcrumb(shop?.shopName);
   const usable = shop ? isUsable(shop.status) : false;
   const canManage = can(PERMISSIONS.listingManage) && usable;
+  /** Ghép SKU tách quyền khỏi đẩy, gỡ (§18.6.5): Sale ghép được nhưng không đẩy */
+  const canMatch = can(PERMISSIONS.listingMatch) && usable;
   const canReconnect =
     can(PERMISSIONS.shopConnect) && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected');
 
@@ -152,7 +162,7 @@ export function ShopListingsPage() {
     pollFrom.current ??= now;
     return delay;
   });
-  const remoteQuery = useRemoteSkus(shopId, usable);
+  const remoteQuery = useRemoteSkus(shopId, canMatch);
   const matchMut = useMatchListing();
   const unmatchMut = useUnmatchListing();
   const pushMut = usePushListings();
@@ -180,7 +190,7 @@ export function ShopListingsPage() {
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const remoteSkus = useMemo(() => remoteQuery.data ?? [], [remoteQuery.data]);
-  const unmatchedRemote = remoteSkus.filter((r) => !r.matchedVariantId);
+  const unmatchedRemote = useMemo(() => remoteSkus.filter((r) => !r.matchedVariantId && !r.mode), [remoteSkus]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -247,53 +257,87 @@ export function ShopListingsPage() {
     if (!matching) return [];
     if (matching.from === 'variant') {
       const row = matching.row;
-      return remoteSkus
-        .filter((r) => !r.matchedVariantId || r.matchedVariantId === row.variantId)
+      return unmatchedRemote
+        .filter((r) => !r.pendingMapping)
         .map((r) => ({
           id: r.externalSkuId,
           title: r.title,
-          subtitle: `${r.sellerSku || 'Không có SKU người bán'} · ${r.externalSkuId} · ${priceText(r.price)}`,
+          subtitle: `${r.sellerSku || 'Không có SKU người bán'} · ${r.externalSkuId}`,
           suggested: Boolean(r.sellerSku) && r.sellerSku === row.sku,
         }));
     }
-    const sku = matching.sku;
-    return items
-      .filter((r) => !r.listing)
+    const { sellerSku, current } = matching;
+    const variants = items
+      .filter((r) => !r.listing || r.variantId === current?.variantId)
       .map((r) => ({
         id: r.variantId,
         title: [r.productName, r.attributesLabel].filter(Boolean).join(' · '),
         subtitle: r.sku,
-        suggested: Boolean(sku.sellerSku) && sku.sellerSku === r.sku,
+        suggested: Boolean(sellerSku) && sellerSku === r.sku,
       }));
-  }, [matching, remoteSkus, items]);
+    return [
+      ...variants,
+      {
+        id: UNMANAGED,
+        title: 'Không quản tồn',
+        subtitle: 'Đơn của SKU sàn này không trừ tồn biến thể nào. Cần CEO duyệt',
+        suggested: false,
+      },
+    ];
+  }, [matching, unmatchedRemote, items]);
+
+  /** Lý do chưa ghép, đổi ghép được ở dòng biến thể */
+  const matchBlock = (r: ListingRow) =>
+    r.listing?.pendingMapping
+      ? 'Đang chờ CEO duyệt ghép'
+      : r.listing?.status === 'pushing'
+        ? 'Đang đẩy, ghép sau khi sàn trả kết quả'
+        : r.listing && !r.listing.externalSkuId
+          ? 'Sàn chưa trả mã SKU'
+          : !r.listing && remoteQuery.isError
+            ? 'Chưa tải được SKU trên sàn'
+            : null;
+
+  /** Đổi ghép: mở hộp từ SKU sàn đang ghép với biến thể này */
+  const openRemap = (r: ListingRow) => {
+    const externalSkuId = r.listing!.externalSkuId!;
+    openMatch({
+      from: 'remote',
+      externalSkuId,
+      title: remoteSkus.find((x) => x.externalSkuId === externalSkuId)?.title ?? r.productName,
+      sellerSku: r.listing!.sellerSku,
+      current: r,
+    });
+  };
 
   const saveMatch = async (id: string) => {
     if (!matching) return;
-    const target =
+    const input =
       matching.from === 'variant'
-        ? { row: matching.row, externalSkuId: id }
-        : { row: items.find((r) => r.variantId === id)!, externalSkuId: matching.sku.externalSkuId };
+        ? { externalSkuId: id, variantId: matching.row.variantId }
+        : { externalSkuId: matching.externalSkuId, variantId: id === UNMANAGED ? null : id };
+    const variantSku = items.find((r) => r.variantId === input.variantId)?.sku;
+    const label = matching.from === 'variant' ? matching.row.sku : matching.sellerSku || matching.externalSkuId;
+    const reload = () => void Promise.all([listingsQuery.refetch(), remoteQuery.refetch()]);
     try {
-      await matchMut.mutateAsync({
-        shopId,
-        variantId: target.row.variantId,
-        externalSkuId: target.externalSkuId,
-        version: target.row.listing?.version ?? null,
-      });
+      const { pending } = await matchMut.mutateAsync({ shopId, ...input });
       setMatching(null);
-      toast.success(`Đã ghép ${target.row.sku}`);
+      if (pending) {
+        toast.info(`Đã gửi CEO duyệt ghép SKU sàn ${label}. Trong lúc chờ, ghép cũ giữ nguyên.`);
+      } else {
+        toast.success(input.variantId ? `Đã ghép ${variantSku ?? label}` : `Đã đặt SKU sàn ${label} là không quản tồn`);
+      }
     } catch (e) {
-      const code = problemCode(e);
-      if (code === 'version_conflict') {
+      const problem = getProblem(e);
+      const fieldError = problem?.errors?.variantId ?? problem?.errors?.externalSkuId;
+      if (problem?.code === 'version_conflict') {
         // UC-CH-02 ngoại lệ 5a: không đổi gì, nạp lại để chọn lại
         setMatching(null);
-        toast.warning(`Ghép SKU của ${target.row.sku} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
-        void Promise.all([listingsQuery.refetch(), remoteQuery.refetch()]);
-      } else if (code === 'sku_taken') {
-        setMatchError(problemMessage(e));
-        void remoteQuery.refetch();
+        toast.warning(`Ghép SKU của ${label} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        reload();
       } else {
-        setMatchError(problemMessage(e));
+        setMatchError(fieldError ?? problemMessage(e));
+        if (fieldError || problem?.code === 'mapping_pending' || problem?.code === 'sku_taken') reload();
       }
     }
   };
@@ -603,7 +647,7 @@ export function ShopListingsPage() {
         },
       },
     );
-    if (canManage) {
+    if (canManage || canMatch) {
       cols.push({
         id: 'actions',
         header: '',
@@ -619,19 +663,21 @@ export function ShopListingsPage() {
                 : null;
           return (
             <div className="flex justify-end gap-1">
-              <RowAction
-                label={r.listing ? 'Đổi ghép' : 'Ghép'}
-                reason={remoteQuery.isError ? 'Chưa tải được SKU trên sàn' : null}
-                onClick={() => openMatch({ from: 'variant', row: r })}
-              >
-                <Link2 />
-              </RowAction>
-              {r.listing && (
+              {canMatch && (
+                <RowAction
+                  label={r.listing ? 'Đổi ghép' : 'Ghép'}
+                  reason={matchBlock(r)}
+                  onClick={() => (r.listing ? openRemap(r) : openMatch({ from: 'variant', row: r }))}
+                >
+                  <Link2 />
+                </RowAction>
+              )}
+              {canManage && r.listing && (
                 <RowAction label="Bỏ ghép" destructive onClick={() => setUnmatching(r)}>
                   <Unlink />
                 </RowAction>
               )}
-              {status && REPUSH_STATUSES.includes(status) ? (
+              {!canManage ? null : status && REPUSH_STATUSES.includes(status) ? (
                 <RowAction
                   label="Đẩy lại"
                   reason={pushMut.isPending ? 'Đang đẩy...' : null}
@@ -648,7 +694,7 @@ export function ShopListingsPage() {
                   <Upload />
                 </RowAction>
               )}
-              {status && canDelist(status) && (
+              {canManage && status && canDelist(status) && (
                 <RowAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
                   <CloudOff />
                 </RowAction>
@@ -660,7 +706,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -672,30 +718,39 @@ export function ShopListingsPage() {
         cell: ({ row }) => row.original.sellerSku || <span className="text-muted-foreground">—</span>,
       },
       { accessorKey: 'externalSkuId', header: 'Mã SKU sàn', meta: { className: 'w-44 font-mono text-xs' } },
-      {
-        id: 'price',
-        header: 'Giá trên sàn',
-        meta: { className: 'w-32 text-right' },
-        cell: ({ row }) => priceText(row.original.price),
-      },
-      ...(canManage
+      ...(canMatch
         ? [
             {
               id: 'actions',
               header: '',
               meta: { className: 'w-16 text-right' },
-              cell: ({ row }: { row: { original: RemoteSku } }) => (
-                <div className="flex justify-end">
-                  <RowAction label="Ghép với biến thể" onClick={() => openMatch({ from: 'remote', sku: row.original })}>
-                    <Link2 />
-                  </RowAction>
-                </div>
-              ),
+              cell: ({ row }: { row: { original: RemoteSku } }) => {
+                const r = row.original;
+                return (
+                  <div className="flex justify-end">
+                    <RowAction
+                      label="Ghép với biến thể"
+                      reason={r.pendingMapping ? 'Đang chờ CEO duyệt ghép' : null}
+                      onClick={() =>
+                        openMatch({
+                          from: 'remote',
+                          externalSkuId: r.externalSkuId,
+                          title: r.title,
+                          sellerSku: r.sellerSku,
+                          current: null,
+                        })
+                      }
+                    >
+                      <Link2 />
+                    </RowAction>
+                  </div>
+                );
+              },
             } satisfies ColumnDef<RemoteSku>,
           ]
         : []),
     ],
-    [canManage],
+    [canMatch],
   );
 
   const backToList = () => navigate(ROUTES.company.shops(companyId));
@@ -792,7 +847,9 @@ export function ShopListingsPage() {
       )}
       {shop && usable && !can(PERMISSIONS.listingManage) && (
         <AlertMessage severity="info" className="mb-4">
-          Bạn chỉ có quyền xem ghép SKU của gian hàng.
+          {can(PERMISSIONS.listingMatch)
+            ? 'Bạn ghép được SKU sàn với biến thể. Đẩy sản phẩm, giá và gỡ khỏi sàn cần quyền đẩy sản phẩm lên sàn.'
+            : 'Bạn chỉ có quyền xem ghép SKU của gian hàng.'}
         </AlertMessage>
       )}
       {pollTimedOut && (
@@ -836,6 +893,8 @@ export function ShopListingsPage() {
               <p className="px-4 pb-6 text-sm text-muted-foreground">
                 Không tải được SKU trên sàn khi gian hàng chưa kết nối.
               </p>
+            ) : !can(PERMISSIONS.listingMatch) ? (
+              <p className="px-4 pb-6 text-sm text-muted-foreground">Xem SKU sàn chưa ghép cần quyền ghép SKU.</p>
             ) : remoteQuery.isError ? (
               <div className="px-4 pb-6">
                 <AlertMessage severity="error">{problemMessage(remoteQuery.error)}</AlertMessage>
@@ -882,12 +941,20 @@ export function ShopListingsPage() {
 
       <MatchDialog
         open={Boolean(matching)}
-        title={matching?.from === 'remote' ? 'Ghép SKU sàn với biến thể' : 'Ghép biến thể với SKU sàn'}
+        title={
+          matching?.from === 'remote'
+            ? matching.current
+              ? 'Đổi ghép SKU sàn'
+              : 'Ghép SKU sàn với biến thể'
+            : 'Ghép biến thể với SKU sàn'
+        }
         description={
           matching?.from === 'remote' ? (
             <>
-              SKU sàn <strong>{matching.sku.title}</strong> ({matching.sku.sellerSku || matching.sku.externalSkuId}).
-              Chọn biến thể chưa ghép.
+              SKU sàn <strong>{matching.title}</strong> ({matching.sellerSku || matching.externalSkuId}).{' '}
+              {matching.current
+                ? `Đang ghép với ${matching.current.sku}. Chọn biến thể khác hoặc không quản tồn. Gian hàng đã nhận đơn của SKU này thì đổi ghép cần CEO duyệt; đơn đã nhận giữ ghép cũ.`
+                : 'Chọn biến thể chưa ghép, hoặc không quản tồn.'}
             </>
           ) : matching ? (
             <>
@@ -897,7 +964,7 @@ export function ShopListingsPage() {
         }
         searchLabel={matching?.from === 'remote' ? 'Tìm biến thể theo tên hoặc SKU...' : 'Tìm SKU sàn...'}
         options={matchOptions}
-        initialId={matching?.from === 'variant' ? (matching.row.listing?.externalSkuId ?? null) : null}
+        initialId={matching?.from === 'remote' ? (matching.current?.variantId ?? null) : null}
         empty={matching?.from === 'remote' ? 'Không còn biến thể chưa ghép' : 'Không còn SKU sàn chưa ghép'}
         saving={matchMut.isPending}
         error={matchError}

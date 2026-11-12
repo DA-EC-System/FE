@@ -7,7 +7,7 @@ export interface MatrixPermission {
   label: string;
 }
 
-/** 53 quyền theo ma trận, gồm cả platform.* (chỉ vai trò có sẵn mang) */
+/** 54 quyền theo ma trận, gồm cả platform.* (chỉ vai trò có sẵn mang) */
 export const MATRIX_PERMISSIONS: readonly MatrixPermission[] = [
   { code: 'platform.module.manage', module: 'platform', label: 'Bật, tắt phân hệ' },
   { code: 'platform.audit.view', module: 'platform', label: 'Xem nhật ký thao tác' },
@@ -54,7 +54,8 @@ export const MATRIX_PERMISSIONS: readonly MatrixPermission[] = [
   { code: 'channel.shop.update', module: 'channel', label: 'Sửa gian hàng' },
   { code: 'channel.shop.disconnect', module: 'channel', label: 'Ngắt gian hàng' },
   { code: 'channel.shop.sync', module: 'channel', label: 'Đồng bộ gian hàng' },
-  { code: 'channel.listing.manage', module: 'channel', label: 'Ghép SKU, đẩy sản phẩm và giá lên sàn' },
+  { code: 'channel.listing.manage', module: 'channel', label: 'Đẩy sản phẩm và giá lên sàn' },
+  { code: 'channel.listing.match', module: 'channel', label: 'Ghép SKU sàn với biến thể' },
   { code: 'inbox.conversation.view', module: 'inbox', label: 'Xem hội thoại' },
   { code: 'inbox.conversation.reply', module: 'inbox', label: 'Trả lời khách, tạo đơn từ hội thoại' },
   { code: 'inbox.conversation.assign', module: 'inbox', label: 'Phân công hội thoại' },
@@ -113,6 +114,7 @@ export const MATRIX_ROLES = {
     'channel.shop.disconnect',
     'channel.shop.sync',
     'channel.listing.manage',
+    'channel.listing.match',
     'inbox.conversation.view',
     'inbox.conversation.reply',
     'inbox.conversation.assign',
@@ -151,6 +153,7 @@ export const MATRIX_ROLES = {
     'channel.shop.disconnect',
     'channel.shop.sync',
     'channel.listing.manage',
+    'channel.listing.match',
     'inbox.conversation.view',
     'inbox.conversation.reply',
     'inbox.conversation.assign',
@@ -171,6 +174,7 @@ export const MATRIX_ROLES = {
     'fulfillment.delivery.update',
     'payment.link.create',
     'channel.shop.view',
+    'channel.listing.match',
     'inbox.conversation.view',
     'inbox.conversation.reply',
     'assistant.chat.use',

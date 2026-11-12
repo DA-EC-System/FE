@@ -21,8 +21,10 @@ export const PERMISSIONS = {
   shopUpdate: 'channel.shop.update',
   shopDisconnect: 'channel.shop.disconnect',
   shopSync: 'channel.shop.sync',
-  /** Ghép SKU, đẩy sản phẩm và giá lên sàn (UC-CH-02) */
+  /** Đẩy sản phẩm và giá lên sàn, gỡ khỏi sàn (UC-CH-02) */
   listingManage: 'channel.listing.manage',
+  /** Ghép SKU sàn với biến thể (§18.6.5): CEO, Admin, Sale; Sale ghép được nhưng không đẩy, gỡ */
+  listingMatch: 'channel.listing.match',
   productView: 'catalog.product.view',
   productManage: 'catalog.product.manage',
   /** Danh mục, thuộc tính, quy tắc SKU (UC-CP-01) */

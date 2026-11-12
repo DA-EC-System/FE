@@ -237,19 +237,16 @@ export function useRemoteSkus(id: string, enabled: boolean) {
   });
 }
 
+/**
+ * Ghép SKU sàn với biến thể hoặc "không quản tồn" (§18.6.5). `pending` (202): người làm không tự duyệt được, ghép chờ CEO
+ * duyệt và ghép cũ giữ nguyên
+ */
 export function useMatchListing() {
   const invalidate = useInvalidateShops();
   return useMutation({
-    mutationFn: async ({
-      shopId,
-      variantId,
-      ...input
-    }: ListingMatchInput & { shopId: string; variantId: string }) => {
-      const { data } = await apiClient.put<ChannelListing>(
-        `/channel/shops/${shopId}/listings/${variantId}`,
-        input,
-      );
-      return data;
+    mutationFn: async ({ shopId, ...input }: ListingMatchInput & { shopId: string }) => {
+      const res = await apiClient.post<ChannelListing>(`/channel/shops/${shopId}/listings/match`, input);
+      return { listing: res.data, pending: res.status === 202 };
     },
     onSuccess: invalidate,
   });

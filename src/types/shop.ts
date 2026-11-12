@@ -236,7 +236,17 @@ export interface ChannelListing {
   platformStock: number | null;
   lastPushedAt: string | null;
   lastPushedPrice: number | null;
+  /** Ghép chờ CEO duyệt (§18.6.5); null khi không có */
+  pendingMapping: PendingMapping | null;
   version: number;
+}
+
+/** Yêu cầu ghép chờ CEO duyệt: "không quản tồn", hoặc đổi ghép SKU sàn đã có đơn (§18.6.5) */
+export interface PendingMapping {
+  /** Biến thể xin ghép; null là "không quản tồn" */
+  variantId: string | null;
+  requestedBy: { id: string; name: string };
+  requestedAt: string;
 }
 
 /** Một dòng màn hình ghép: biến thể đang bán kèm giá theo gian hàng và SKU sàn đã ghép */
@@ -254,21 +264,27 @@ export interface ListingRow {
   listing: ChannelListing | null;
 }
 
-/** SKU đang có trên sàn, BE lấy từ API của sàn */
+/** SKU đang có trên sàn, BE lấy từ API của sàn (§18.3 `remote-skus`) */
 export interface RemoteSku {
   externalProductId: string;
   externalSkuId: string;
   title: string;
   sellerSku: string;
-  price: number;
-  /** Biến thể đã ghép với SKU này; null là chưa ghép */
+  /** Biến thể đã ghép với SKU này; null là chưa ghép hoặc "không quản tồn" */
   matchedVariantId: string | null;
+  /** Ghép đang có hiệu lực; null khi chưa ghép (kể cả đang chờ CEO duyệt "không quản tồn") */
+  mode: 'mapped' | 'unmanaged' | null;
+  /** Listing chưa gỡ của SKU này, kể cả dòng chỉ chờ duyệt "không quản tồn" */
+  listingId: string | null;
+  listingVersion: number | null;
+  pendingMapping: PendingMapping | null;
 }
 
+/** `POST /channel/shops/:id/listings/match` (§18.6.5): ghép theo SKU sàn */
 export interface ListingMatchInput {
   externalSkuId: string;
-  /** version của ghép hiện có; null khi ghép mới */
-  version: number | null;
+  /** null là "không quản tồn", luôn cần CEO duyệt */
+  variantId: string | null;
 }
 
 /**
