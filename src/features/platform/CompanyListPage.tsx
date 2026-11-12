@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Lock, LockOpen } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { TapTooltip } from '@/components/common/TapTooltip';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
@@ -16,6 +17,7 @@ import { useLockCompany, usePlatformCompanies, useUnlockCompany } from '@/api/pl
 import { getErrorMessage, getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { MODULE_LABELS } from '@/utils/modules';
 import { formatDate, formatDateTime } from '@/utils/format';
 import type { Company, CompanyStatus } from '@/types/company';
@@ -70,6 +72,7 @@ export function CompanyListPage() {
     status: status || undefined,
   });
 
+  const { startTour } = usePageGuide('platform-companies', { ready: query.isSuccess });
   const lockMut = useLockCompany();
   const unlockMut = useUnlockCompany();
   const [locking, setLocking] = useState<Company | null>(null);
@@ -179,38 +182,43 @@ export function CompanyListPage() {
           c.status === 'active' ? (
             <Badge variant="success">{STATUS_LABELS.active}</Badge>
           ) : (
-            <div className="grid gap-1" title={c.lockReason}>
-              <Badge variant="destructive">{STATUS_LABELS.locked}</Badge>
-              <span className="line-clamp-2 text-xs text-muted-foreground">
-                {formatDateTime(c.lockedAt)} · {c.lockReason}
-              </span>
-            </div>
+            <TapTooltip content={`Lý do khoá: ${c.lockReason ?? ''}`}>
+              <div className="grid gap-1 rounded-sm" tabIndex={0}>
+                <Badge variant="destructive">{STATUS_LABELS.locked}</Badge>
+                <span className="line-clamp-2 text-xs text-muted-foreground">
+                  {formatDateTime(c.lockedAt)} · {c.lockReason}
+                </span>
+              </div>
+            </TapTooltip>
           ),
       },
       {
         id: 'actions',
         header: () => <span className="sr-only">Hành động</span>,
         meta: { className: 'w-32' },
-        cell: ({ row: { original: c } }) =>
-          c.status === 'active' ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              onClick={() => {
-                setLockFieldError(undefined);
-                setLocking(c);
-              }}
-            >
-              <Lock />
-              Khoá
-            </Button>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={() => setUnlocking(c)}>
-              <LockOpen />
-              Mở khoá
-            </Button>
-          ),
+        cell: ({ row: { original: c } }) => (
+          <div className="flex" data-guide="platform-lock">
+            {c.status === 'active' ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  setLockFieldError(undefined);
+                  setLocking(c);
+                }}
+              >
+                <Lock />
+                Khoá
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => setUnlocking(c)}>
+                <LockOpen />
+                Mở khoá
+              </Button>
+            )}
+          </div>
+        ),
       },
     ],
     [],
@@ -220,7 +228,9 @@ export function CompanyListPage() {
     <div>
       <PageHeader
         title="Công ty"
-        subtitle="Công ty tự đăng ký dùng Commerio. Quản trị nền tảng chỉ khoá hoặc mở khoá, không xem dữ liệu kinh doanh."
+        subtitle="Công ty tự đăng ký dùng Commerio."
+        help="Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái, khoá hoặc mở khoá công ty; không xem đơn, sản phẩm hay doanh thu của công ty. Khoá phải ghi lý do, lý do lưu vào Nhật ký nền tảng."
+        onTour={startTour}
       />
 
       {query.isError && (
@@ -230,7 +240,7 @@ export function CompanyListPage() {
       )}
 
       <Card className="gap-0 py-0">
-        <FilterBar>
+        <FilterBar guide="platform-filters">
           <SearchInput
             value={searchInput}
             onChange={setSearchInput}

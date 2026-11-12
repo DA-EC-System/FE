@@ -91,11 +91,11 @@ const LISTING_TABS: { value: ListingTab; label: string }[] = [
 const FAILED_STATUSES: ListingStatus[] = ['push_failed', 'rejected'];
 const HELD_STATUSES: ListingStatus[] = ['platform_hold', 'hidden', 'under_review'];
 
-/** Đã ghép nhưng chưa đẩy, hoặc giá đã đổi sau lần đẩy cuối */
+/** Đã ghép nhưng chưa đẩy, hoặc BE báo giá chưa đẩy (priceSync, §18.6.6): cùng điều kiện với nhãn ở cột Trạng thái */
 const isStale = (r: ListingRow) =>
   Boolean(r.listing) &&
   onPlatform(r.listing!.status) &&
-  (r.listing!.lastPushedAt === null || r.price !== r.listing!.lastPushedPrice);
+  (r.listing!.lastPushedAt === null || r.listing!.priceSync === 'pending');
 
 /** Biến thể thuộc tab nào; tab "Chưa ghép" là danh sách SKU sàn nên không chứa biến thể */
 function inTab(tab: ListingTab, r: ListingRow): boolean {
@@ -420,7 +420,9 @@ export function ShopListingsPage() {
     try {
       const r = await syncMut.mutateAsync(shopId);
       toast.success(
-        `Đã đồng bộ ${r.checked} sản phẩm: ${r.changed} đổi trạng thái, ${r.pushed} đẩy giá hoặc tồn${r.errors ? `, ${r.errors} lỗi` : ''}.`,
+        r.queued
+          ? 'Đã xếp lượt đồng bộ với sàn. Bảng tự tải lại sau khoảng 15 giây; chưa thấy đổi thì tải lại trang.'
+          : 'Gian hàng đã có lượt đồng bộ đang chờ, không xếp thêm.',
       );
     } catch (e) {
       toast.error(problemMessage(e));
@@ -639,7 +641,8 @@ export function ShopListingsPage() {
                   testId="stock-sync"
                 />
               )}
-              {live && l.stockSync === 'pending' && (
+              {/* Đẩy tồn lỗi thì BE giữ stockSync='pending' kèm stockSyncError: chỉ hiện nhãn lỗi bên dưới */}
+              {live && l.stockSync === 'pending' && !l.stockSyncError && (
                 <Badge variant="outline" data-testid="stock-sync">
                   {STOCK_SYNC_LABELS.pending}
                 </Badge>

@@ -238,6 +238,40 @@ test.describe('Hướng dẫn trang', () => {
     await expect(tour(page)).toHaveCount(0);
   });
 
+  test('Nhân viên, Vai trò, Phân hệ có hướng dẫn riêng (FE#141)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
+
+    const cacTrang: [string, string, string, string][] = [
+      ['Nhân viên', 'Nhân viên', 'Bước 1/3', 'Mời nhân viên'],
+      ['Vai trò', 'Vai trò', 'Bước 1/2', 'Tạo vai trò tuỳ biến'],
+      ['Phân hệ', 'Phân hệ', 'Bước 1/2', 'Bật, tắt phân hệ'],
+    ];
+    for (const [muc, tieuDe, buoc, buoc1] of cacTrang) {
+      await menu(page, muc);
+      await expect(popup(page).getByRole('heading', { name: tieuDe, exact: true })).toBeVisible();
+      await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+      await expect(tour(page).getByText(buoc, { exact: true })).toBeVisible();
+      await expect(tour(page).getByRole('heading', { name: buoc1, exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(tour(page)).toHaveCount(0);
+    }
+  });
+
+  test('quản trị nền tảng: trang Công ty có hướng dẫn (FE#141)', async ({ page }) => {
+    await page.goto('/login');
+    await page.locator('input[name=email]').fill('platform@commerio.vn');
+    await page.locator('input[name=password]').fill('platform');
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await page.getByRole('link', { name: 'Công ty', exact: true }).click();
+    await expect(popup(page).getByRole('heading', { name: 'Công ty', exact: true })).toBeVisible();
+    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
+    await expect(tour(page).getByText('Bước 1/2', { exact: true })).toBeVisible();
+    await expect(tour(page).getByRole('heading', { name: 'Tìm công ty', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tour(page)).toHaveCount(0);
+  });
+
   test('mobile chỉ hiện pop-up tóm tắt, không có tour', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');

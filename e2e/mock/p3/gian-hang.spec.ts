@@ -583,7 +583,7 @@ test.describe('P3 · Gian hàng', () => {
     test('Đồng bộ đẩy giá đã đổi; hết lượt gọi sàn thì báo theo §18.6.8', async ({ page }) => {
       await expect(dong(page, 'prd-001-v2')).toContainText('Giá đã đổi, chưa đẩy');
       await page.getByRole('button', { name: 'Đồng bộ', exact: true }).click();
-      await toast(page, /Đã đồng bộ \d+ sản phẩm/);
+      await toast(page, /Đã xếp lượt đồng bộ với sàn/);
       await expect(dong(page, 'prd-001-v2')).not.toContainText('Giá đã đổi');
 
       await mockApi(page, 'post', '/channel/shops/:id/listings/sync', 503, {

@@ -1445,7 +1445,7 @@ export const shopHandlers = [
     return HttpResponse.json<{ results: PushResult[] }>({ results });
   }),
 
-  /** Đồng bộ tay (§18.5): chạy việc đẩy tới hạn, đẩy giá và tồn của listing chưa khớp */
+  /** Đồng bộ tay (§18.5): BE xếp việc rồi trả 202 `{ queued }`; mock chạy luôn phần việc nền cho dễ xem */
   http.post(`${API}/channel/shops/:id/listings/sync`, async ({ params, request }) => {
     await delay(LATENCY * 2);
     const guard = requireCompany(request, PERMISSIONS.shopSync);
@@ -1453,12 +1453,10 @@ export const shopHandlers = [
     const found = ownShop(params.id, guard.value.companyId);
     if (!found.ok) return found.response;
     const shop = found.value;
-    if (!usable(shop)) return shopNotConnected(shop);
+    // BE chỉ xếp việc cho gian hàng `active` (gian hàng đang kết nối chưa có lịch đồng bộ).
+    if (shop.status !== 'active' || !usable(shop)) return shopNotConnected(shop);
     const own = channel.listings.filter((l) => l.shopId === shop.id);
-    const before = own.filter((l) => l.status === 'pushing').length;
     settleDuePushes(shop);
-    const changed = before - own.filter((l) => l.status === 'pushing').length;
-    let pushed = 0;
     for (const l of own) {
       if (!onPlatform(l.status) || l.status === 'pushing') continue;
       const { price } = shopPrice(shop, l.variantId);
@@ -1471,9 +1469,7 @@ export const shopHandlers = [
       }
       if (l.stockSync === 'pending') syncStock(l);
       l.version += 1;
-      pushed += 1;
     }
-    const result: ListingSyncResult = { checked: own.length, changed, pushed, errors: 0 };
-    return HttpResponse.json<ListingSyncResult>(result);
+    return HttpResponse.json<ListingSyncResult>({ queued: true }, { status: 202 });
   }),
 ];

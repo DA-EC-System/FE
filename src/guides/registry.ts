@@ -43,6 +43,105 @@ export const GUIDES = {
       },
     ],
   },
+  staff: {
+    key: 'staff',
+    version: 1,
+    title: 'Nhân viên',
+    intro: [
+      'Mỗi nhân viên mang một hoặc nhiều vai trò; vai trò quyết định họ thấy và làm được gì.',
+      'Không thao tác được trên tài khoản CEO và tài khoản của chính bạn.',
+    ],
+    primaryAction: { label: 'Thêm nhân viên', target: 'staff-invite' },
+    steps: [
+      {
+        target: 'staff-invite',
+        title: 'Mời nhân viên',
+        body: 'Nhập email, họ tên và chọn vai trò. Email đã có tài khoản trong công ty thì hệ thống hỏi thêm vai trò cho tài khoản đó.',
+        permission: 'identity.account.manage',
+      },
+      {
+        target: 'staff-roles',
+        title: 'Đổi vai trò',
+        body: 'Quyền mới có hiệu lực ở lần thao tác kế tiếp của người đó. Vai trò có quyền bạn không có thì không gán hay gỡ được.',
+        permission: 'identity.account.manage',
+      },
+      {
+        target: 'staff-lock',
+        title: 'Tạm khoá tài khoản',
+        body: 'Người bị khoá không làm việc được ở công ty này tới khi mở khoá; tài khoản ở công ty khác không bị ảnh hưởng.',
+        permission: 'identity.account.manage',
+      },
+    ],
+  },
+  roles: {
+    key: 'roles',
+    version: 1,
+    title: 'Vai trò',
+    intro: [
+      'Mỗi vai trò là một tập quyền. Vai trò có sẵn không sửa được.',
+      'Tạo vai trò tuỳ biến khi cần tập quyền riêng, ví dụ Trưởng ca đóng gói.',
+    ],
+    primaryAction: { label: 'Tạo vai trò', target: 'roles-create' },
+    steps: [
+      {
+        target: 'roles-create',
+        title: 'Tạo vai trò tuỳ biến',
+        body: 'Đặt tên rồi tích quyền theo từng phân hệ. Quyền bạn không có bị khoá; rê chuột hoặc Tab tới để xem lý do.',
+        permission: 'identity.role.manage',
+      },
+      {
+        target: 'roles-actions',
+        title: 'Xem, sửa tập quyền',
+        body: 'Vai trò có sẵn chỉ xem được. Vai trò tuỳ biến sửa được; xoá được khi không còn tài khoản nào mang.',
+      },
+    ],
+  },
+  modules: {
+    key: 'modules',
+    version: 1,
+    title: 'Phân hệ',
+    intro: [
+      'Bật, tắt năm phân hệ tuỳ chọn: Mua hàng, Kênh bán, Hộp thư chung, Trợ lý AI, Báo cáo.',
+      'Thay đổi có hiệu lực ngay với mọi nhân viên của công ty.',
+      'Phân hệ đã có dữ liệu thì không tắt được.',
+    ],
+    primaryAction: { label: 'Xem phân hệ tuỳ chọn', target: 'modules-optional' },
+    steps: [
+      {
+        target: 'modules-optional',
+        title: 'Bật, tắt phân hệ',
+        body: 'Gạt công tắc ở mỗi dòng. Tắt thì nhân viên không còn thấy màn hình của phân hệ đó. Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',
+        permission: 'platform.module.manage',
+      },
+      {
+        target: 'modules-core',
+        title: 'Phân hệ cốt lõi',
+        body: 'Sản phẩm, kho, đơn hàng, tài chính... luôn bật, không tắt được.',
+      },
+    ],
+  },
+  'platform-companies': {
+    key: 'platform-companies',
+    version: 1,
+    title: 'Công ty',
+    intro: [
+      'Công ty tự đăng ký dùng Commerio.',
+      'Quản trị nền tảng chỉ khoá hoặc mở khoá công ty, không xem dữ liệu kinh doanh.',
+    ],
+    primaryAction: { label: 'Tìm công ty', target: 'platform-filters' },
+    steps: [
+      {
+        target: 'platform-filters',
+        title: 'Tìm công ty',
+        body: 'Tìm theo tên, mã số thuế hoặc email CEO; lọc theo trạng thái.',
+      },
+      {
+        target: 'platform-lock',
+        title: 'Khoá, mở khoá',
+        body: 'Khoá phải ghi lý do; nhân viên của công ty bị khoá không đăng nhập được. Mở khoá chỉ cần xác nhận.',
+      },
+    ],
+  },
   reports: {
     key: 'reports',
     version: 1,
@@ -468,6 +567,35 @@ export const GUIDES = {
         target: 'customer-list',
         title: 'Mở khách',
         body: 'Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh.',
+      },
+    ],
+  },
+  settlements: {
+    key: 'settlements',
+    version: 1,
+    title: 'Đối soát sàn',
+    intro: [
+      'Mỗi đơn có trạng thái tiền riêng: so số sàn quyết toán với số Commerio ước tính.',
+      'Đơn lệch quá ngưỡng nằm ở khung Dòng lệch, chốt ngay trên dòng kèm lý do.',
+      'Lệch vượt hạn mức tự chốt thì CEO duyệt trước.',
+    ],
+    primaryAction: { label: 'Xem dòng lệch', target: 'settlement-mismatch' },
+    steps: [
+      {
+        target: 'settlement-kpis',
+        title: 'Tổng quan tiền theo đơn',
+        body: 'Số đơn chờ quyết toán, lệch tiền, đã khớp và đã chốt lệch. Bấm "?" để xem nghĩa từng trạng thái.',
+      },
+      {
+        target: 'settlement-mismatch',
+        title: 'Chốt đơn lệch',
+        body: 'Mỗi đơn lệch một dòng: sàn quyết toán, Commerio ước tính và số lệch. Chốt xong dòng chuyển xanh rồi ẩn.',
+        permission: 'finance.settlement.resolve',
+      },
+      {
+        target: 'settlement-tabs',
+        title: 'Lần đối soát và sao kê',
+        body: 'Lần đối soát để kéo quyết toán theo gian hàng; Khớp sao kê để gắn mã sao kê ngân hàng cho tiền rút về.',
       },
     ],
   },

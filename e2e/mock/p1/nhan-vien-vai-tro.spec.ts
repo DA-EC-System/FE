@@ -202,5 +202,11 @@ test.describe('P1 · Vai trò', () => {
     await expect(row.getByRole('button', { name: 'Xoá', exact: true })).toHaveCount(0);
     await row.getByRole('button', { name: 'Xem tập quyền', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveText(/có sẵn|quyền bạn không có/);
+    await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).first().click();
+
+    // Tạo vai trò: quyền Admin không có thì khoá, rê vào thấy lý do (FE#141)
+    await page.getByRole('button', { name: 'Tạo vai trò', exact: true }).click();
+    const khoa = page.getByRole('dialog').locator('[data-blocked-reason]');
+    await expect(khoa.first()).toHaveAttribute('data-blocked-reason', /không có quyền này/);
   });
 });
