@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
+import { FileSearch } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SelfApprovedTag } from '@/components/common/SelfApprovedTag';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -33,7 +34,7 @@ import {
   entityTypeLabel,
 } from './auditLabels';
 
-const columns: ColumnDef<CompanyAuditLog>[] = [
+const baseColumns: ColumnDef<CompanyAuditLog>[] = [
   {
     id: 'createdAt',
     header: 'Thời điểm',
@@ -85,6 +86,30 @@ export function CompanyAuditLogPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const columns = useMemo<ColumnDef<CompanyAuditLog>[]>(
+    () => [
+      ...baseColumns,
+      {
+        id: 'detail',
+        header: () => <span className="sr-only">Chi tiết</span>,
+        meta: { className: 'w-28 text-right' },
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedId(row.original.id);
+            }}
+          >
+            <FileSearch />
+            Chi tiết
+          </Button>
+        ),
+      },
+    ],
+    [],
+  );
 
   // Lọc theo người: chọn trong danh sách nhân viên (Admin và CEO đều xem được nhân viên)
   const staffQuery = useStaff({ pageSize: 100 });
@@ -111,7 +136,8 @@ export function CompanyAuditLogPage() {
     <div>
       <PageHeader
         title="Nhật ký thao tác"
-        subtitle="Mọi thao tác thêm, sửa, xoá trong công ty. Nhật ký chỉ xem, không ai sửa hay xoá được."
+        subtitle="Mọi thao tác thêm, sửa, xoá trong công ty."
+        help="Nhật ký chỉ xem, không ai sửa hay xoá được. Bấm một dòng hoặc nút Chi tiết để xem giá trị trước và sau của từng trường. Lọc Tự duyệt để xem các lần người làm tự duyệt chứng từ của chính mình."
       />
 
       {query.isError && (

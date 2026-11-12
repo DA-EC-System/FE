@@ -43,6 +43,105 @@ export const GUIDES = {
       },
     ],
   },
+  staff: {
+    key: 'staff',
+    version: 1,
+    title: 'Nhân viên',
+    intro: [
+      'Mỗi nhân viên mang một hoặc nhiều vai trò; vai trò quyết định họ thấy và làm được gì.',
+      'Không thao tác được trên tài khoản CEO và tài khoản của chính bạn.',
+    ],
+    primaryAction: { label: 'Thêm nhân viên', target: 'staff-invite' },
+    steps: [
+      {
+        target: 'staff-invite',
+        title: 'Mời nhân viên',
+        body: 'Nhập email, họ tên và chọn vai trò. Email đã có tài khoản trong công ty thì hệ thống hỏi thêm vai trò cho tài khoản đó.',
+        permission: 'identity.account.manage',
+      },
+      {
+        target: 'staff-roles',
+        title: 'Đổi vai trò',
+        body: 'Quyền mới có hiệu lực ở lần thao tác kế tiếp của người đó. Vai trò có quyền bạn không có thì không gán hay gỡ được.',
+        permission: 'identity.account.manage',
+      },
+      {
+        target: 'staff-lock',
+        title: 'Tạm khoá tài khoản',
+        body: 'Người bị khoá không làm việc được ở công ty này tới khi mở khoá; tài khoản ở công ty khác không bị ảnh hưởng.',
+        permission: 'identity.account.manage',
+      },
+    ],
+  },
+  roles: {
+    key: 'roles',
+    version: 1,
+    title: 'Vai trò',
+    intro: [
+      'Mỗi vai trò là một tập quyền. Vai trò có sẵn không sửa được.',
+      'Tạo vai trò tuỳ biến khi cần tập quyền riêng, ví dụ Trưởng ca đóng gói.',
+    ],
+    primaryAction: { label: 'Tạo vai trò', target: 'roles-create' },
+    steps: [
+      {
+        target: 'roles-create',
+        title: 'Tạo vai trò tuỳ biến',
+        body: 'Đặt tên rồi tích quyền theo từng phân hệ. Quyền bạn không có bị khoá; rê chuột hoặc Tab tới để xem lý do.',
+        permission: 'identity.role.manage',
+      },
+      {
+        target: 'roles-actions',
+        title: 'Xem, sửa tập quyền',
+        body: 'Vai trò có sẵn chỉ xem được. Vai trò tuỳ biến sửa được; xoá được khi không còn tài khoản nào mang.',
+      },
+    ],
+  },
+  modules: {
+    key: 'modules',
+    version: 1,
+    title: 'Phân hệ',
+    intro: [
+      'Bật, tắt năm phân hệ tuỳ chọn: Mua hàng, Kênh bán, Hộp thư chung, Trợ lý AI, Báo cáo.',
+      'Thay đổi có hiệu lực ngay với mọi nhân viên của công ty.',
+      'Phân hệ đã có dữ liệu thì không tắt được.',
+    ],
+    primaryAction: { label: 'Xem phân hệ tuỳ chọn', target: 'modules-optional' },
+    steps: [
+      {
+        target: 'modules-optional',
+        title: 'Bật, tắt phân hệ',
+        body: 'Gạt công tắc ở mỗi dòng. Tắt thì nhân viên không còn thấy màn hình của phân hệ đó. Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',
+        permission: 'platform.module.manage',
+      },
+      {
+        target: 'modules-core',
+        title: 'Phân hệ cốt lõi',
+        body: 'Sản phẩm, kho, đơn hàng, tài chính... luôn bật, không tắt được.',
+      },
+    ],
+  },
+  'platform-companies': {
+    key: 'platform-companies',
+    version: 1,
+    title: 'Công ty',
+    intro: [
+      'Công ty tự đăng ký dùng Commerio.',
+      'Quản trị nền tảng chỉ khoá hoặc mở khoá công ty, không xem dữ liệu kinh doanh.',
+    ],
+    primaryAction: { label: 'Tìm công ty', target: 'platform-filters' },
+    steps: [
+      {
+        target: 'platform-filters',
+        title: 'Tìm công ty',
+        body: 'Tìm theo tên, mã số thuế hoặc email CEO; lọc theo trạng thái.',
+      },
+      {
+        target: 'platform-lock',
+        title: 'Khoá, mở khoá',
+        body: 'Khoá phải ghi lý do; nhân viên của công ty bị khoá không đăng nhập được. Mở khoá chỉ cần xác nhận.',
+      },
+    ],
+  },
   reports: {
     key: 'reports',
     version: 1,

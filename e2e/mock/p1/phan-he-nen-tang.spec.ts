@@ -9,23 +9,24 @@ const KHONG_CO_QUYEN = /403|không có quyền/i;
 test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
   test.beforeEach(({ page }) => dangNhap(page, 'ceo@commerio.vn', 'ceo'));
 
-  test('5 thẻ phân hệ; Kênh bán đã có dữ liệu thì không tắt được (AC-11)', async ({ page }) => {
+  test('5 dòng phân hệ; Kênh bán đã có dữ liệu thì không tắt được (AC-11)', async ({ page }) => {
     await menu(page, 'Phân hệ');
     await expect(page.locator('[data-module]')).toHaveCount(5);
     const channel = page.locator('[data-module="channel"]');
-    await expect(channel.getByRole('button', { name: 'Tắt', exact: true })).toBeDisabled();
-    await expect(channel.getByTestId('has-data-note')).toContainText('không tắt được');
+    await expect(channel.getByRole('switch')).toBeDisabled();
+    await expect(channel.locator('[data-blocked-reason]')).toHaveAttribute('data-blocked-reason', /không tắt được/);
+    await expect(page.getByTestId('core-modules')).toContainText('Đơn hàng');
   });
 
   test('bật Trợ lý AI phải tích đồng ý; module_state_changed thì báo (AC-12)', async ({ page }) => {
     await menu(page, 'Phân hệ');
     const assistant = page.locator('[data-module="assistant"]');
-    await assistant.getByRole('button', { name: 'Bật', exact: true }).click();
+    await assistant.getByRole('switch').click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Đồng ý và bật', exact: true })).toBeDisabled();
     await dialog.getByRole('button', { name: 'Không đồng ý', exact: true }).click();
     await expect(assistant).toContainText('Đang tắt');
-    await assistant.getByRole('button', { name: 'Bật', exact: true }).click();
+    await assistant.getByRole('switch').click();
     await dialog.getByRole('checkbox').click();
     await dialog.getByRole('button', { name: 'Đồng ý và bật', exact: true }).click();
     await toast(page, 'Đã bật Trợ lý AI');
@@ -37,7 +38,7 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
       code: 'module_state_changed',
       current: { code: 'assistant', enabled: false, hasData: false, enabledAt: null, enabledBy: null, aiConsentAt: null, aiConsentBy: null },
     });
-    await assistant.getByRole('button', { name: 'Tắt', exact: true }).click();
+    await assistant.getByRole('switch').click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Tắt', exact: true }).click();
     await toast(page, 'vừa được người khác tắt');
   });
@@ -50,6 +51,13 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
     await moiPhanTu(rows, (t) => expect(t).toContain('Sửa'));
     await rows.first().click();
     await expect(page.getByTestId('audit-diff').locator('tr[data-changed]')).not.toHaveCount(0);
+  });
+
+  test('nhật ký: nút Chi tiết ở từng dòng mở trước/sau', async ({ page }) => {
+    await menu(page, 'Nhật ký thao tác');
+    const rows = page.locator('tbody tr[data-row-id]');
+    await rows.first().getByRole('button', { name: 'Chi tiết' }).click();
+    await expect(page.getByTestId('audit-diff')).toBeVisible();
   });
 });
 

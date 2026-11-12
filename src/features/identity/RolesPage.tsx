@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { missingPermissions, PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { Role } from '@/types/identity';
@@ -56,6 +57,7 @@ export function RolesPage() {
   const canManage = can(PERMISSIONS.roleManage);
   const rolesQuery = useRoles();
   const deleteMut = useDeleteRole();
+  const { startTour } = usePageGuide('roles', { ready: rolesQuery.isSuccess });
 
   const [form, setForm] = useState<{ role: Role | null } | null>(null);
   const [deleting, setDeleting] = useState<Role | null>(null);
@@ -123,11 +125,13 @@ export function RolesPage() {
         meta: { className: 'w-28' },
         cell: ({ row: { original: r } }) =>
           readOnlyReason(r) ? (
-            <IconAction label="Xem tập quyền" onClick={() => setForm({ role: r })}>
-              <Eye />
-            </IconAction>
+            <div className="flex gap-1" data-guide="roles-actions">
+              <IconAction label="Xem tập quyền" onClick={() => setForm({ role: r })}>
+                <Eye />
+              </IconAction>
+            </div>
           ) : (
-            <div className="flex gap-1">
+            <div className="flex gap-1" data-guide="roles-actions">
               <IconAction label="Sửa" onClick={() => setForm({ role: r })}>
                 <Pencil />
               </IconAction>
@@ -148,9 +152,11 @@ export function RolesPage() {
       <PageHeader
         title="Vai trò"
         subtitle="Vai trò có sẵn và vai trò tuỳ biến; mỗi vai trò là một tập quyền."
+        help="Vai trò có sẵn (CEO, Admin, Sale...) không sửa hay xoá được. Vai trò tuỳ biến chỉ gồm những quyền bạn đang có; vai trò còn tài khoản mang thì không xoá được."
+        onTour={startTour}
         action={
           canManage ? (
-            <Button onClick={() => setForm({ role: null })}>
+            <Button onClick={() => setForm({ role: null })} data-guide="roles-create">
               <Plus />
               Tạo vai trò
             </Button>

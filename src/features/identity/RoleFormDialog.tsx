@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { BlockedReason } from '@/components/common/BlockedReason';
 import { FormTextField } from '@/components/common/FormTextField';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { MODULE_LABELS } from '@/utils/modules';
 import type { PermissionDef, Role } from '@/types/identity';
 import { conflictCurrent, isAssignablePermission, roleSchema, type RoleForm } from './shared';
+
+const NOT_HELD = 'Bạn không có quyền này nên không gán được cho vai trò';
 
 interface RoleFormDialogProps {
   open: boolean;
@@ -117,11 +120,12 @@ export function RoleFormDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {readOnly ? 'Tập quyền của vai trò.' : 'Chỉ chọn được những quyền bạn đang có.'}
+            {readOnly
+              ? `${role?.permissions.length ?? 0} quyền, ${role?.memberCount ?? 0} tài khoản.${readOnlyReason ? ` ${readOnlyReason}` : ''}`
+              : 'Chỉ chọn được những quyền bạn đang có. Quyền nền tảng (bật phân hệ, xem nhật ký) không gán cho vai trò tuỳ biến.'}
           </DialogDescription>
         </DialogHeader>
 
-        {readOnly && readOnlyReason && <AlertMessage severity="info">{readOnlyReason}</AlertMessage>}
         {error && <AlertMessage severity="warning">{error}</AlertMessage>}
         {catalog.isError && (
           <AlertMessage severity="error">{getErrorMessage(catalog.error)}</AlertMessage>
@@ -145,21 +149,24 @@ export function RoleFormDialog({
                         </legend>
                         <div className="grid gap-1.5">
                           {defs.map((d) => {
-                            const disabled = readOnly || !held.has(d.code);
+                            const notHeld = !readOnly && !held.has(d.code);
+                            const disabled = readOnly || notHeld;
                             const id = `perm-${d.code}`;
                             return (
+                              <BlockedReason key={d.code} reason={notHeld ? NOT_HELD : null}>
                               <label
-                                key={d.code}
                                 htmlFor={id}
-                                title={!readOnly && disabled ? 'Bạn không có quyền này' : undefined}
+                                // Ô bị khoá không nhận focus: cho nhãn nhận Tab để đọc được lý do
+                                tabIndex={notHeld ? 0 : undefined}
                                 className={cn(
-                                  'flex items-center gap-2 text-sm',
+                                  'flex items-start gap-2 rounded-sm text-sm',
                                   disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
                                   readOnly && 'opacity-100',
                                 )}
                               >
                                 <Checkbox
                                   id={id}
+                                  className="mt-0.5"
                                   value={d.code}
                                   disabled={disabled}
                                   checked={field.value.includes(d.code)}
@@ -171,8 +178,12 @@ export function RoleFormDialog({
                                     )
                                   }
                                 />
-                                {d.label}
+                                <span className="grid">
+                                  {d.label}
+                                  <small className="font-mono text-xs text-muted-foreground">{d.code}</small>
+                                </span>
                               </label>
+                              </BlockedReason>
                             );
                           })}
                         </div>
