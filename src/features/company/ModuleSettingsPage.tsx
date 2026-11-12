@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ChartLine, Check, MessagesSquare, Sparkles, Store, Truck, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { BlockedReason } from '@/components/common/BlockedReason';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { HelpTip } from '@/components/common/HelpTip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -17,11 +20,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { useCompanyModules, useSetModule } from '@/api/companySettings.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { formatDateTime } from '@/utils/format';
-import { MODULE_LABELS, type OptionalModuleKey } from '@/utils/modules';
+import { CORE_MODULES, MODULE_LABELS, type OptionalModuleKey } from '@/utils/modules';
 import type { CompanyModule } from '@/types/companySettings';
 
 const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
@@ -32,12 +37,36 @@ const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
   report: 'Báo cáo doanh thu, lợi nhuận, tồn kho theo thời gian.',
 };
 
+/** Chi tiết trong HelpTip của từng dòng; dòng chỉ giữ một câu mô tả */
+const MODULE_HELP: Record<OptionalModuleKey, string> = {
+  purchasing:
+    'Thêm mục Mua hàng trên thanh bên: nhà cung cấp, đề nghị mua, đơn mua, phiếu nhập theo đơn mua và trả hàng nhà cung cấp.',
+  channel:
+    'Thêm mục Kênh bán: kết nối gian hàng, ghép SKU, kéo đơn sàn về và đẩy tồn, giá lên sàn.',
+  inbox: 'Tin nhắn khách gửi qua các kênh về một hộp thư, nhân viên trả lời ở một chỗ.',
+  assistant:
+    'Câu hỏi cùng dữ liệu liên quan của công ty được gửi tới OpenAI, nên khi bật CEO phải đồng ý gửi dữ liệu. Mật khẩu, khoá kết nối gian hàng và thông tin thanh toán không được gửi đi.',
+  report: 'Thêm mục Báo cáo kinh doanh: doanh thu, lợi nhuận, tồn kho theo khoảng thời gian chọn.',
+};
+
+const MODULE_ICONS: Record<OptionalModuleKey, LucideIcon> = {
+  purchasing: Truck,
+  channel: Store,
+  inbox: MessagesSquare,
+  assistant: Sparkles,
+  report: ChartLine,
+};
+
 const HAS_DATA_NOTE = 'Công ty đã có dữ liệu trong phân hệ này nên không tắt được.';
+
+const PAGE_HELP =
+  'Tắt một phân hệ thì nhân viên không còn thấy các màn hình của phân hệ đó, bật lại lúc nào cũng được. Phân hệ đã có dữ liệu thì không tắt được. Phân hệ cốt lõi luôn bật.';
 
 /** UC-PI-02: CEO bật/tắt năm phân hệ tuỳ chọn; có hiệu lực ngay với mọi nhân viên */
 export function ModuleSettingsPage() {
   const modulesQuery = useCompanyModules();
   const setModule = useSetModule();
+  const { startTour } = usePageGuide('modules', { ready: modulesQuery.isSuccess });
 
   const [disabling, setDisabling] = useState<CompanyModule | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -83,6 +112,8 @@ export function ModuleSettingsPage() {
       <PageHeader
         title="Phân hệ"
         subtitle="Bật hoặc tắt các phân hệ tuỳ chọn. Thay đổi có hiệu lực ngay với mọi nhân viên của công ty."
+        help={PAGE_HELP}
+        onTour={startTour}
       />
 
       {modulesQuery.isError && (
@@ -91,60 +122,94 @@ export function ModuleSettingsPage() {
         </AlertMessage>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <Card className="gap-0 py-0" data-guide="modules-optional">
+        <div className="flex items-center gap-2 border-b px-4 py-3 text-sm font-semibold">
+          Phân hệ tuỳ chọn
+          {modulesQuery.data && (
+            <span className="ms-auto text-[13px] font-normal text-muted-foreground">
+              {modulesQuery.data?.filter((m) => m.enabled).length ?? 0}/{modulesQuery.data.length} đang bật
+            </span>
+          )}
+        </div>
         {modulesQuery.isLoading &&
-          Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
-        {modulesQuery.data?.map((m) => (
-          <Card key={m.code} className="gap-3" data-module={m.code}>
-            <CardHeader>
-              <CardTitle className="text-base">{MODULE_LABELS[m.code]}</CardTitle>
-              <CardAction>
-                <Badge variant={m.enabled ? 'success' : 'secondary'}>
-                  {m.enabled ? 'Đang bật' : 'Đang tắt'}
-                </Badge>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-2 text-sm">
-              <p className="text-muted-foreground">{MODULE_DESCRIPTIONS[m.code]}</p>
-              {m.enabled && m.enabledAt && (
-                <p className="text-xs text-muted-foreground">
-                  Bật lúc {formatDateTime(m.enabledAt)}
-                  {m.enabledBy ? ` bởi ${m.enabledBy.fullName}` : ''}
-                </p>
-              )}
-              {m.code === 'assistant' && m.enabled && m.aiConsentAt && (
-                <p className="text-xs text-muted-foreground">
-                  Đã đồng ý gửi dữ liệu tới OpenAI lúc {formatDateTime(m.aiConsentAt)}
-                  {m.aiConsentBy ? ` (${m.aiConsentBy.fullName})` : ''}
-                </p>
-              )}
-            </CardContent>
-            <CardFooter className="flex-col items-start gap-2">
-              {m.enabled ? (
-                <>
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive"
-                    disabled={m.hasData || Boolean(busyCode)}
-                    onClick={() => setDisabling(m)}
-                  >
-                    {busyCode === m.code ? 'Đang tắt...' : 'Tắt'}
-                  </Button>
-                  {m.hasData && (
-                    <p className="text-xs text-muted-foreground" data-testid="has-data-note">
-                      {HAS_DATA_NOTE}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <Button disabled={Boolean(busyCode)} onClick={() => handleEnable(m)}>
-                  {busyCode === m.code ? 'Đang bật...' : 'Bật'}
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+          Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="border-b px-4 py-3 last:border-b-0">
+              <Skeleton className="h-12" />
+            </div>
+          ))}
+        {modulesQuery.data?.map((m) => {
+          const Icon = MODULE_ICONS[m.code];
+          const label = MODULE_LABELS[m.code];
+          const locked = m.enabled && m.hasData;
+          const toggle = (
+            <Switch
+              aria-label={label}
+              checked={m.enabled}
+              disabled={locked || Boolean(busyCode)}
+              onCheckedChange={(on) => (on ? handleEnable(m) : setDisabling(m))}
+            />
+          );
+          return (
+            <div
+              key={m.code}
+              data-module={m.code}
+              className="flex items-start gap-3 border-b px-4 py-3 last:border-b-0"
+            >
+              <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{label}</span>
+                  <HelpTip content={MODULE_HELP[m.code]} topic={label} />
+                  <Badge variant={m.enabled ? 'success' : 'secondary'}>
+                    {busyCode === m.code ? (m.enabled ? 'Đang tắt...' : 'Đang bật...') : m.enabled ? 'Đang bật' : 'Đang tắt'}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{MODULE_DESCRIPTIONS[m.code]}</p>
+                {m.enabled && m.enabledAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Bật lúc {formatDateTime(m.enabledAt)}
+                    {m.enabledBy ? ` bởi ${m.enabledBy.fullName}` : ''}
+                  </p>
+                )}
+                {m.code === 'assistant' && m.enabled && m.aiConsentAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Đã đồng ý gửi dữ liệu tới OpenAI lúc {formatDateTime(m.aiConsentAt)}
+                    {m.aiConsentBy ? ` (${m.aiConsentBy.fullName})` : ''}
+                  </p>
+                )}
+              </div>
+              <div className="pt-1.5">
+                {locked ? (
+                  <BlockedReason reason={HAS_DATA_NOTE}>
+                    <span tabIndex={0} className="inline-flex rounded-full">
+                      {toggle}
+                    </span>
+                  </BlockedReason>
+                ) : (
+                  toggle
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      <Card className="mt-4 gap-0 py-0" data-guide="modules-core">
+        <div className="flex items-center gap-2 border-b px-4 py-3 text-sm font-semibold">
+          Phân hệ cốt lõi
+          <span className="ms-auto text-[13px] font-normal text-muted-foreground">luôn bật, không tắt được</span>
+        </div>
+        <div className="flex flex-wrap gap-2 p-4" data-testid="core-modules">
+          {CORE_MODULES.map((c) => (
+            <Badge key={c} variant="outline">
+              <Check />
+              {MODULE_LABELS[c]}
+            </Badge>
+          ))}
+        </div>
+      </Card>
 
       <ConfirmDialog
         open={Boolean(disabling)}

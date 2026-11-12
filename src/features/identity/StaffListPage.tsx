@@ -17,6 +17,7 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { MembershipStatus } from '@/types/auth';
@@ -46,6 +47,7 @@ export function StaffListPage() {
   const rolesQuery = useRoles();
   const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
   const lockMut = useSetStaffLocked();
+  const { startTour } = usePageGuide('staff', { ready: staffQuery.isSuccess && rolesQuery.isSuccess });
 
   const handleLock = async () => {
     if (!locking) return;
@@ -133,9 +135,12 @@ export function StaffListPage() {
                 const locked = m.status === 'locked';
                 return (
                   <div className="flex gap-1">
-                    <RowAction label="Đổi vai trò" reason={reason} onClick={() => setEditing(m)}>
-                      <UserCog />
-                    </RowAction>
+                    <span className="inline-flex" data-guide="staff-roles">
+                      <RowAction label="Đổi vai trò" reason={reason} onClick={() => setEditing(m)}>
+                        <UserCog />
+                      </RowAction>
+                    </span>
+                    <span className="inline-flex" data-guide="staff-lock">
                     <RowAction
                       label={locked ? 'Mở khoá' : 'Tạm khoá'}
                       reason={reason}
@@ -144,6 +149,7 @@ export function StaffListPage() {
                     >
                       {locked ? <LockOpen /> : <Lock />}
                     </RowAction>
+                    </span>
                   </div>
                 );
               },
@@ -163,9 +169,11 @@ export function StaffListPage() {
       <PageHeader
         title="Nhân viên"
         subtitle={`Tài khoản làm việc tại ${companyContext?.companyName ?? ''}.`}
+        help="Mỗi nhân viên mang một hoặc nhiều vai trò, vai trò quyết định họ thấy và làm được gì. Không thao tác được trên tài khoản CEO và tài khoản của chính bạn."
+        onTour={startTour}
         action={
           canManage ? (
-            <Button onClick={() => setInviteOpen(true)}>
+            <Button onClick={() => setInviteOpen(true)} data-guide="staff-invite">
               <UserPlus />
               Thêm nhân viên
             </Button>
