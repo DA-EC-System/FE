@@ -66,6 +66,16 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await row.click();
     await expect(page.locator('[data-flag=tax_mismatch]')).toHaveText('Lệch thuế');
   });
+  test('tổng dòng tiền không cộng giá vốn: chỉ tính số thực tế của sàn (§21.1, FE#140)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
+    await page.locator('tbody tr').filter({ has: page.locator('[data-flag=tax_mismatch]') }).click();
+    const cogs = page.locator('tbody tr', { hasText: 'Giá vốn' });
+    await expect(cogs).toContainText('300.000');
+    await expect(cogs).toContainText('Không tính vào tổng');
+    // Ước tính 500.000 đã thay bằng thực tế 460.000; giá vốn -300.000 không cộng
+    await expect(page.getByTestId('lines-total')).toContainText('460.000');
+    await expect(page.getByTestId('lines-total')).not.toContainText('160.000');
+  });
   test('khung Dòng lệch: chốt ngay trên dòng, dòng chuyển Đã chốt rồi ẩn (FE#140)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
     const panel = page.getByTestId('mismatch-panel');

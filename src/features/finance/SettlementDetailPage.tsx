@@ -29,6 +29,9 @@ import type { SettlementLedgerLine } from '@/types/settlement';
 import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 
+/** Dòng giá vốn: chỉ người có inventory.cost.view thấy, không phải tiền mặt (§21.1) */
+const isCostLine = (l: SettlementLedgerLine) => l.kind === 'cogs' || l.kind === 'cogs_reversal';
+
 /** Tên khoản của sổ quyết toán (bộ kind khác LEDGER_KIND_LABELS của sổ cũ FE#76) */
 const SETTLEMENT_KINDS: Record<SettlementLedgerLine['kind'], string> = {
   revenue: 'Doanh thu', platform_subsidy: 'Sàn trợ giá', shipping_income: 'Phí ship thu khách', shipping_cost: 'Phí vận chuyển',
@@ -59,7 +62,8 @@ export function SettlementDetailPage() {
   const canCeo = payment.status === 'mismatch' && payment.needsCeoApproval && !payment.ceoApproval && actor.permissions.includes(P.settlementApprove);
   const lines = payment.lines;
   const live = lines.filter((l) => !l.replacedBy);
-  const total = live.reduce((s, l) => s + l.amount, 0);
+  // §21.1: cogs, cogs_reversal không phải tiền mặt, không cộng vào thực nhận
+  const total = live.filter((l) => !isCostLine(l)).reduce((s, l) => s + l.amount, 0);
 
   return (
     <div>
@@ -124,12 +128,12 @@ export function SettlementDetailPage() {
               { header: 'Khoản', cell: ({ row }) => <span className="flex flex-wrap items-center gap-1">{SETTLEMENT_KINDS[row.original.kind] ?? row.original.kind}<FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
               { header: 'Nguồn', cell: ({ row }) => row.original.estimated ? <Badge variant="warning">Ước tính</Badge> : <Badge variant="success">Thực tế</Badge> },
               { header: 'Số tiền', meta: { numeric: true }, cell: ({ row }) => <Money value={row.original.amount} className={row.original.replacedBy ? 'line-through' : undefined} /> },
-              { header: 'Ghi chú', cell: ({ row }) => row.original.replacedBy ? 'Đã thay bằng số thực tế' : row.original.reason ?? '' },
+              { header: 'Ghi chú', cell: ({ row }) => row.original.replacedBy ? 'Đã thay bằng số thực tế' : isCostLine(row.original) ? 'Không tính vào tổng (không phải tiền mặt)' : row.original.reason ?? '' },
             ]}
           />
           {live.length > 0 && (
             <div className="flex justify-end gap-6 border-t px-4 py-2.5 text-sm" data-testid="lines-total">
-              <span className="me-auto text-muted-foreground">Tổng (không tính dòng đã thay)</span>
+              <span className="me-auto text-muted-foreground">Tổng tiền (không tính dòng đã thay và giá vốn)</span>
               <Money className="font-medium" value={total} />
             </div>
           )}

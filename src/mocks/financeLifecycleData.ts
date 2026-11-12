@@ -55,4 +55,7 @@ for (const payment of payments) {
     replacedBy: payment.settledTotal === null ? null : `actual-${payment.orderId}` }];
   if (payment.settledTotal !== null) payment.lines.push({ ...common, id: `actual-${payment.orderId}`, kind: 'revenue', estimated: false,
     replacesId: `estimate-${payment.orderId}`, replacedBy: null, amount: payment.settledTotal, txnId: `txn-${payment.orderId}` });
+  // Đơn có cờ Lệch thuế có thêm dòng giá vốn (số âm, BE ledger.ts) để thử tổng không cộng giá vốn (§21.1)
+  if (payment.flags.includes('tax_mismatch')) payment.lines.push({ ...common, id: `cogs-${payment.orderId}`, kind: 'cogs', estimated: false,
+    replacesId: null, replacedBy: null, amount: -300000 });
 }
