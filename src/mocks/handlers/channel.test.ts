@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../db';
 import { listings } from '../channelData';
+import * as inventory from '../inventoryData';
 import { SETUP_JOB_MS, firstShopOfCompany, hideListing, settlePush, toShop, trigramSimilarity } from './channel';
 
 describe('Năng lực sàn từ dữ liệu', () => {
@@ -51,5 +52,51 @@ describe('Tiến độ thiết lập (§18.7.7)', () => {
     expect(status()).toEqual(['match:done', 'open_orders:done', 'push_stock:running']);
     vi.advanceTimersByTime(SETUP_JOB_MS);
     expect(status()).toEqual(['match:done', 'open_orders:done', 'push_stock:done']);
+  });
+});
+
+describe('Kiểm kê đầu kỳ và chia hàng (§18.6.11, §18.7.7)', () => {
+  afterEach(() => vi.useRealTimers());
+  it('phiếu huỷ vẫn giữ banner, ghi sổ thì kéo đơn lại và chia hàng rồi mới đẩy tồn', () => {
+    vi.useFakeTimers();
+    const doc = { ...inventory.docs[0], id: 'sd-kk-test', number: 'KK-TEST', status: 'cancelled' as const, postedAt: null };
+    inventory.docs.push(doc);
+    const shop = {
+      ...db.shops[0],
+      status: 'active' as const,
+      openingStocktakeDocId: doc.id,
+      setupRun: { mode: 'stocktake' as const, at: Date.now() - 2 * SETUP_JOB_MS, unmatchedCount: 0 },
+    };
+    const status = () => toShop(shop).setup?.steps.map((s) => `${s.key}:${s.status}`);
+    try {
+      expect(toShop(shop).openingStocktake?.status).toBe('cancelled');
+      expect(status()).toEqual([
+        'match:done',
+        'opening_stock:pending',
+        'open_orders:done',
+        'allocate:blocked',
+        'push_stock:blocked',
+      ]);
+      expect(toShop(shop).setup?.steps[3].blockedBy).toBe('opening_stock');
+      Object.assign(doc, { status: 'posted', postedAt: new Date().toISOString() });
+      expect(toShop(shop).openingStocktake).toBeNull();
+      expect(status()).toEqual([
+        'match:done',
+        'opening_stock:done',
+        'open_orders:running',
+        'allocate:running',
+        'push_stock:blocked',
+      ]);
+      vi.advanceTimersByTime(SETUP_JOB_MS);
+      expect(status()).toEqual([
+        'match:done',
+        'opening_stock:done',
+        'open_orders:done',
+        'allocate:done',
+        'push_stock:running',
+      ]);
+    } finally {
+      inventory.docs.splice(inventory.docs.indexOf(doc), 1);
+    }
   });
 });

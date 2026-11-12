@@ -79,26 +79,30 @@ export interface Shop {
   setup: ShopSetupProgress | null;
   /** Số ngày đổi trả đặt ở thiết lập; null khi sàn tự báo hạn (capabilities.returnWindow = platform_status) */
   returnWindowDays: number | null;
-  /** Phiếu kiểm kê đầu kỳ chưa ghi sổ; khác null thì trang gian hàng hiện banner dẫn tới phiếu (§18.6.2) */
+  /**
+   * Phiếu kiểm kê đầu kỳ; khác null là gian hàng còn chờ kiểm kê, trang gian hàng hiện banner dẫn tới phiếu (§18.6.2).
+   * Phiếu rejected, cancelled giữ tới khi lập lại phiếu (§18.6.11)
+   */
   openingStocktake: ShopOpeningStocktake | null;
   version: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export type ShopSetupStepKey = 'match' | 'opening_stock' | 'open_orders' | 'push_stock';
+/** allocate: chia hàng sau khi phiếu kiểm kê đầu kỳ ghi sổ, chỉ có khi chọn kiểm kê (§18.6.11, §18.7.7) */
+export type ShopSetupStepKey = 'match' | 'opening_stock' | 'open_orders' | 'allocate' | 'push_stock';
 /** pending: chờ người làm; running: việc nền đang chạy */
 export type ShopSetupStepStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked';
 
 export interface ShopSetupStep {
   key: ShopSetupStepKey;
   status: ShopSetupStepStatus;
-  /** Khoá bước đang chặn (opening_stock, open_orders) hoặc mã issue chưa làm (§18.7.9); null khi không blocked */
+  /** Khoá bước đang chặn (opening_stock, open_orders, allocate) hoặc mã issue chưa làm (§18.7.9); null khi không blocked */
   blockedBy: string | null;
 }
 
 export interface ShopSetupProgress {
-  /** opening_stock chỉ có khi chọn kiểm kê đầu kỳ */
+  /** opening_stock, allocate chỉ có khi chọn kiểm kê đầu kỳ */
   steps: ShopSetupStep[];
   /** SKU sàn chưa ghép sau thiết lập, gồm SKU người dùng bỏ qua */
   unmatchedCount: number;
@@ -112,7 +116,14 @@ export interface ShopSetupProgress {
 export interface ShopOpeningStocktake {
   documentId: string;
   number: string;
-  status: 'draft' | 'pending' | 'rejected';
+  /** posted chỉ thấy trong lúc BE xử lý phiếu, hoặc khi bước chốt lỗi lặp lại (§18.6.11) */
+  status: 'draft' | 'pending' | 'rejected' | 'cancelled' | 'posted';
+}
+
+/** POST /channel/shops/:id/opening-stocktake (§18.6.11) */
+export interface ShopOpeningStocktakeRestart {
+  shop: Shop;
+  stocktakeNumber: string;
 }
 
 /** Bắt đầu OAuth; shopId khi kết nối lại một gian hàng đã có */

@@ -48,6 +48,8 @@ function useInvalidateInventory() {
       // Kiểm hàng về ghi sổ thì yêu cầu trả đóng, đơn hết cờ Có yêu cầu trả (FE#60)
       qc.invalidateQueries({ queryKey: ['company', companyId, 'returns'] }),
       qc.invalidateQueries({ queryKey: ['company', companyId, 'sales'] }),
+      // Phiếu kiểm kê đầu kỳ đổi trạng thái thì banner và tiến độ thiết lập gian hàng đổi theo (§18.6.11)
+      qc.invalidateQueries({ queryKey: ['company', companyId, 'shops'] }),
     ]);
 }
 

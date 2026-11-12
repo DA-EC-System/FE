@@ -131,6 +131,9 @@ const MESSAGES: Record<string, string> = {
     'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
   // §18.6.11 (Documents#95); có `waitingFor` thì câu theo lý do, xem awaitingAllocationMessage
   shop_awaiting_allocation: 'Gian hàng đang giữ tồn. Đẩy sản phẩm sau khi kéo đơn và chia hàng xong.',
+  // §18.6.11: lập lại phiếu kiểm kê đầu kỳ; có `number` thì câu nêu số phiếu, xem problemMessage
+  shop_not_awaiting_stocktake: 'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ.',
+  opening_stocktake_open: 'Phiếu kiểm kê đầu kỳ vẫn đang mở. Sửa hoặc duyệt phiếu này.',
   // §18.6.8: hết lượt gọi sàn cho thao tác tay (`platformCode` company_call_limit, daily_call_limit)
   call_limit: 'Hôm nay đã hết lượt gọi sàn cho thao tác tay. Việc tự động vẫn chạy và sẽ đồng bộ sau.',
   // §18.5, §18.6.4: mã của từng dòng PushResult
@@ -219,7 +222,9 @@ export function problemMessage(error: unknown): string {
   const message =
     code === 'shop_awaiting_allocation'
       ? awaitingAllocationMessage(problem?.waitingFor)
-      : code === 'shop_has_open_orders'
+      : code === 'opening_stocktake_open' && problem?.number
+        ? `Phiếu ${problem.number} vẫn đang mở. Sửa hoặc duyệt phiếu này.`
+        : code === 'shop_has_open_orders'
         ? openOrdersMessage(problem?.openOrders)
         : code === 'shop_mismatch'
           ? shopMismatchMessage(problem?.expected, problem?.actual)

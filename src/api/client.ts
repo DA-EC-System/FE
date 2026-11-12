@@ -27,6 +27,8 @@ export interface ProblemDetails {
   openOrders?: number;
   /** 409 `shop_awaiting_allocation` (§18.6.11): đang chờ lượt kéo đơn còn mở hay chờ chia hàng */
   waitingFor?: 'open_orders' | 'allocation';
+  /** 409 `opening_stocktake_open` (§18.6.11): số phiếu kiểm kê đầu kỳ còn mở */
+  number?: string;
   /**
    * 409 `shop_mismatch` (§18.4): gian hàng đang kết nối lại và gian hàng vừa đăng nhập (`{ name, externalShopId }`, name có thể null).
    * 409 `company_mismatch` (§18.7.4): công ty bắt đầu kết nối và công ty đang mở (`{ id, name }`)

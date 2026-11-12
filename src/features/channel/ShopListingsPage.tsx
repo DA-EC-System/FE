@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,6 +32,7 @@ import { catalogKeys } from '@/api/catalog.api';
 import { codeMessage, problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
+import { OpeningStocktakeBanner } from './OpeningStocktakeBanner';
 import { priceText } from '@/utils/price';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -72,8 +73,6 @@ interface PushError {
 }
 
 /** Trạng thái phiếu kiểm kê đầu kỳ chưa ghi sổ (§18.6.2) */
-const STOCKTAKE_STATUS = { draft: 'đang nháp', pending: 'đang chờ duyệt', rejected: 'bị từ chối, cần sửa rồi gửi lại' } as const;
-
 /**
  * Tab theo Test_UI `v-listing`. "Chưa ghép" là SKU trên sàn chưa ghép biến thể nào;
  * các tab còn lại lọc biến thể Commerio theo trạng thái listing (sơ đồ C2).
@@ -777,21 +776,7 @@ export function ShopListingsPage() {
           )}
         </AlertMessage>
       )}
-      {shop?.openingStocktake && (
-        <AlertMessage severity="warning" className="mb-4">
-          <span data-testid="opening-stocktake-banner">
-            Gian hàng đang chờ kiểm kê đầu kỳ: phiếu{' '}
-            <Link
-              className="font-mono font-medium underline underline-offset-2"
-              to={ROUTES.company.inventoryDoc(companyId, shop.openingStocktake.documentId)}
-            >
-              {shop.openingStocktake.number}
-            </Link>{' '}
-            {STOCKTAKE_STATUS[shop.openingStocktake.status]}. Đến khi phiếu ghi sổ, Commerio chưa đẩy tồn và chưa đẩy sản
-            phẩm lên sàn; đơn vẫn kéo về.
-          </span>
-        </AlertMessage>
-      )}
+      {shop && <OpeningStocktakeBanner shop={shop} companyId={companyId} />}
       {shop && usable && !can(PERMISSIONS.listingManage) && (
         <AlertMessage severity="info" className="mb-4">
           Bạn chỉ có quyền xem ghép SKU của gian hàng.

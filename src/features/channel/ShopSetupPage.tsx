@@ -77,6 +77,7 @@ const SETUP_STEP_LABEL: Record<ShopSetupStepKey, string> = {
   match: 'Ghép sản phẩm',
   opening_stock: 'Kiểm kê đầu kỳ',
   open_orders: 'Kéo đơn đang mở',
+  allocate: 'Chia hàng sau kiểm kê',
   push_stock: 'Đẩy tồn lên sàn',
 };
 const SETUP_STATUS: Record<ShopSetupStepStatus, StatusMeta> = {
