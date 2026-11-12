@@ -82,6 +82,11 @@ describe('Listing (sơ đồ C2)', () => {
     expect(listingMachine.check('pushing', 'delist', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
   });
 
+  it('chưa lên sàn thì không có gì để gỡ (25 §6.4)', () => {
+    expect(listingMachine.check('not_listed', 'delist', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
+    expect(listingMachine.available('not_listed', owner).map((t) => t.action)).toEqual(['push']);
+  });
+
   it('người dùng chỉ thấy thao tác đẩy và gỡ, còn lại do sàn', () => {
     expect(listingMachine.available('live', owner).map((t) => t.action)).toEqual(['delist']);
     expect(listingMachine.available('rejected', owner).map((t) => t.action).sort()).toEqual(['delist', 'push']);

@@ -58,13 +58,15 @@ export const listingMachine = defineMachine<ListingMachineStatus, ListingAction>
   { from: 'hidden', to: 'live', action: 'unhide', label: 'Hiện lại', system: true },
   // Mọi trạng thái trừ pushing
   {
-    from: ['live', 'hidden', 'under_review', 'platform_hold', 'rejected', 'push_failed', 'not_listed'],
+    // `not_listed` chưa có bản ghi listing nên không gỡ (25 §6.4); trùng `domain/listing.ts` của backend.
+    from: ['live', 'hidden', 'under_review', 'platform_hold', 'rejected', 'push_failed'],
     to: 'delisted',
     action: 'delist',
     label: 'Gỡ khỏi sàn',
     permission: manage,
   },
-  // Sửa nội dung mà sàn đòi duyệt lại; đổi tồn hoặc giá không đổi trạng thái
+  // Sửa nội dung mà sàn đòi duyệt lại và ngừng bán bản cũ. Sàn vẫn bán bản cũ (TikTok) thì giữ `live`, ghi
+  // `pendingRevision` (21 §18.3, commerio-backend#293). Đổi tồn hoặc giá không đổi trạng thái.
   { from: 'live', to: 'under_review', action: 'request_review', label: 'Sàn duyệt lại nội dung', system: true },
 ]);
 
