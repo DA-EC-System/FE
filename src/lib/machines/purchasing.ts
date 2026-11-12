@@ -84,7 +84,8 @@ export const purchaseRequestMachine = defineMachine<PurchaseRequestStatus, Purch
   { from: ['ordered', 'partially_received'], to: 'partially_received', action: 'receive_partial', label: 'Nhận một phần', system: true },
   { from: ['ordered', 'partially_received'], to: 'received', action: 'receive_all', label: 'Nhận xong', system: true },
   {
-    from: ['ordered', 'partially_received'],
+    // Chỉ từ Nhận một phần (25 §3.2, BE#243): đã đặt chưa nhận lần nào thì huỷ
+    from: 'partially_received',
     to: 'closed_short',
     action: 'close_short',
     label: 'Đóng thiếu',

@@ -30,7 +30,14 @@ test.describe('P2 · Mua hàng', () => {
       await expect(page.getByTestId('request-status')).toContainText('Đã duyệt');
       await expect(page.getByRole('button', { name: 'Duyệt', exact: true })).toHaveCount(0);
 
-      await thaoTac(page, 'Đã đặt NCC');
+      // Đã đặt NCC cần ngày giao dự kiến (BE#243)
+      await page.getByRole('button', { name: 'Đã đặt NCC', exact: true }).click();
+      const datNcc = page.getByRole('dialog');
+      await datNcc.getByRole('button', { name: 'Đã đặt NCC', exact: true }).click();
+      await expect(datNcc.getByText('Nhập ngày NCC hẹn giao', { exact: true })).toBeVisible();
+      await datNcc.getByLabel('Ngày giao dự kiến', { exact: true }).fill('2026-11-20');
+      await datNcc.getByLabel('Mã đơn bên NCC (nếu có)', { exact: true }).fill('PO-778');
+      await datNcc.getByRole('button', { name: 'Đã đặt NCC', exact: true }).click();
       await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Lập phiếu', exact: true }).click();
       await toast(page, 'Đã lập phiếu nhận');
@@ -51,6 +58,22 @@ test.describe('P2 · Mua hàng', () => {
       await expect(page.getByRole('button', { name: 'Ghi sổ', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
       await thaoTac(page, 'Ghi sổ');
       await expect(page.getByTestId('receipt-status')).toContainText('Khớp');
+    });
+
+    test('loại dòng của đề nghị người khác lập: bắt buộc lý do, lý do hiện dưới dòng bị loại (US-NH-03; BE#243)', async ({ page }) => {
+      await moTab(page, 'Đề nghị nhập', 'DN-000004');
+      await thaoTac(page, 'Gửi duyệt');
+      await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
+      const dong = page.getByTestId('request-lines').locator('tbody tr').first();
+      await dong.getByRole('button', { name: 'Loại dòng', exact: true }).click();
+      const hop = page.getByRole('dialog');
+      await hop.getByRole('textbox').fill('NCC báo hết mẫu này');
+      await hop.getByRole('button', { name: 'Loại dòng', exact: true }).click();
+      await expect(dong).toContainText('Đã loại');
+      await expect(dong.getByTestId('excluded-reason')).toHaveText('Lý do loại: NCC báo hết mẫu này');
+      // Lấy lại dòng thì hết lý do
+      await dong.getByRole('button', { name: 'Lấy lại dòng', exact: true }).click();
+      await expect(dong.getByTestId('excluded-reason')).toHaveCount(0);
     });
 
     test('người gửi phiếu trả không tự ghi kết quả từ NCC (B4)', async ({ page }) => {
@@ -109,6 +132,19 @@ test.describe('P2 · Mua hàng', () => {
       await toast(page, 'NH-000002');
       await expect(page.getByTestId('receipt-status')).toContainText('Khớp');
       await expect(page.getByRole('button', { name: 'Ghi sổ', exact: true })).toHaveCount(0);
+    });
+
+    test('lập phiếu nhận giao bù: chọn phiếu Giao thiếu của cùng đề nghị, phiếu mới hiện phiếu được bù (A2; BE#244)', async ({ page }) => {
+      await moTab(page, 'Đề nghị nhập', 'DN-000002');
+      await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
+      const hop = page.getByRole('dialog');
+      await hop.getByLabel('Giao bù cho phiếu', { exact: true }).click();
+      await page.getByRole('option', { name: 'NH-000001 (giao thiếu)', exact: true }).click();
+      await hop.getByRole('button', { name: 'Lập phiếu', exact: true }).click();
+      await toast(page, 'Đã lập phiếu nhận');
+      await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
+      await thayChu(page, 'Giao bù cho phiếu');
+      await expect(page.getByRole('link', { name: 'NH-000001', exact: true })).toBeVisible();
     });
   });
 

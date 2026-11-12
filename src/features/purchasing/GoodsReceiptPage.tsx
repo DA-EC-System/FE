@@ -354,6 +354,11 @@ export function GoodsReceiptPage() {
               {receipt.createdBy} · {formatDateTime(receipt.createdAt)}
             </Info>
             <Info label="Ghi sổ">{receipt.postedAt ? `${receipt.postedBy} · ${formatDateTime(receipt.postedAt)}` : '—'}</Info>
+            {receipt.followsUp && (
+              <Info label="Giao bù cho phiếu">
+                <DocLink companyId={companyId} docRef={receipt.followsUp} />
+              </Info>
+            )}
             {receipt.followUps.length > 0 && (
               <Info label="Phiếu sinh tiếp">
                 <div className="flex flex-wrap gap-x-3">
