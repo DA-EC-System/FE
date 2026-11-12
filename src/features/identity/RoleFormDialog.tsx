@@ -6,6 +6,7 @@ import { BlockedReason } from '@/components/common/BlockedReason';
 import { FormTextField } from '@/components/common/FormTextField';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,15 @@ import type { PermissionDef, Role } from '@/types/identity';
 import { conflictCurrent, isAssignablePermission, roleSchema, type RoleForm } from './shared';
 
 const NOT_HELD = 'Bạn không có quyền này nên không gán được cho vai trò';
+
+/** Bỏ dấu, viết thường để tìm quyền không cần gõ dấu */
+const fold = (v: string) =>
+  v
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
 
 interface RoleFormDialogProps {
   open: boolean;
@@ -53,6 +63,7 @@ export function RoleFormDialog({
   const updateMut = useUpdateRole();
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(role?.version ?? 0);
+  const [search, setSearch] = useState('');
 
   const form = useForm<RoleForm>({
     resolver: zodResolver(roleSchema),
@@ -65,6 +76,7 @@ export function RoleFormDialog({
       reset({ name: role?.name ?? '', permissions: role?.permissions ?? [] });
       setVersion(role?.version ?? 0);
       setError(null);
+      setSearch('');
     }
   }, [open, role, reset]);
 
@@ -80,6 +92,38 @@ export function RoleFormDialog({
     shown.forEach((d) => map.set(d.module, [...(map.get(d.module) ?? []), d]));
     return [...map.entries()];
   }, [catalog.data, readOnly, role]);
+
+  const assignableCount = useMemo(() => groups.reduce((n, [, defs]) => n + defs.length, 0), [groups]);
+  const term = fold(search.trim());
+  const visibleGroups = useMemo(
+    () =>
+      term
+        ? groups
+            .map(([module, defs]) => {
+              const moduleHit = fold(MODULE_LABELS[module as keyof typeof MODULE_LABELS] ?? module).includes(term);
+              return [
+                module,
+                moduleHit ? defs : defs.filter((d) => fold(d.label).includes(term) || d.code.includes(term)),
+              ] as const;
+            })
+            .filter(([, defs]) => defs.length > 0)
+        : groups,
+    [groups, term],
+  );
+
+  const selected = form.watch('permissions');
+  // Sửa vai trò đang có người mang: nêu trước số quyền thêm, bỏ và số tài khoản bị ảnh hưởng
+  const diff = useMemo(() => {
+    if (!role || readOnly) return null;
+    const before = new Set(role.permissions);
+    const after = new Set(selected);
+    const added = selected.filter((c) => !before.has(c)).length;
+    const removed = role.permissions.filter((c) => !after.has(c)).length;
+    if (!added && !removed) return null;
+    const parts = [added ? `thêm ${added} quyền` : null, removed ? `bỏ ${removed} quyền` : null];
+    const text = parts.filter(Boolean).join(', ');
+    return { text: text.charAt(0).toUpperCase() + text.slice(1) };
+  }, [role, readOnly, selected]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
@@ -139,18 +183,78 @@ export function RoleFormDialog({
               name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  {!readOnly && <FormLabel>Quyền</FormLabel>}
+                  {!readOnly && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <FormLabel>Quyền</FormLabel>
+                      <span className="text-sm text-muted-foreground tabular-nums" aria-live="polite" data-testid="role-perm-count">
+                        {field.value.length}/{assignableCount} quyền đã chọn
+                      </span>
+                      <Input
+                        type="search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Tìm quyền hoặc phân hệ"
+                        aria-label="Tìm quyền"
+                        className="ms-auto h-8 w-full sm:w-56"
+                      />
+                    </div>
+                  )}
+                  {readOnly ? (
+                    <div className="grid max-h-[50vh] gap-x-6 gap-y-4 overflow-y-auto sm:grid-cols-2" data-testid="role-perm-list">
+                      {catalog.isLoading && <Skeleton className="h-40 sm:col-span-2" />}
+                      {groups.map(([module, defs]) => (
+                        <section key={module} data-module={module}>
+                          <h3 className="mb-1.5 text-sm font-semibold">
+                            {MODULE_LABELS[module as keyof typeof MODULE_LABELS] ?? module}
+                          </h3>
+                          <ul className="grid gap-1 text-sm">
+                            {defs.map((d) => (
+                              <li key={d.code} title={d.code} className="flex items-start gap-2">
+                                <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-primary" />
+                                {d.label}
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                    </div>
+                  ) : (
                   <div className="grid max-h-[50vh] gap-3 overflow-y-auto sm:grid-cols-2">
                     {catalog.isLoading && <Skeleton className="h-40 sm:col-span-2" />}
-                    {groups.map(([module, defs]) => (
+                    {!catalog.isLoading && visibleGroups.length === 0 && (
+                      <p className="py-6 text-center text-sm text-muted-foreground sm:col-span-2">
+                        Không có quyền nào khớp "{search.trim()}"
+                      </p>
+                    )}
+                    {visibleGroups.map(([module, defs]) => {
+                      const pickable = defs.filter((d) => held.has(d.code)).map((d) => d.code);
+                      const allOn = pickable.length > 0 && pickable.every((c) => field.value.includes(c));
+                      const moduleLabel = MODULE_LABELS[module as keyof typeof MODULE_LABELS] ?? module;
+                      return (
                       <fieldset key={module} className="rounded-md border p-3" data-module={module}>
-                        <legend className="px-1 text-sm font-semibold">
-                          {MODULE_LABELS[module as keyof typeof MODULE_LABELS] ?? module}
-                        </legend>
+                        <legend className="px-1 text-sm font-semibold">{moduleLabel}</legend>
+                        {pickable.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="-mt-1 mb-1 h-auto p-0 text-xs"
+                            aria-label={`${allOn ? 'Bỏ chọn' : 'Chọn'} mọi quyền nhóm ${moduleLabel}`}
+                            onClick={() =>
+                              field.onChange(
+                                allOn
+                                  ? field.value.filter((c) => !pickable.includes(c))
+                                  : [...new Set([...field.value, ...pickable])],
+                              )
+                            }
+                          >
+                            {allOn ? 'Bỏ chọn cả nhóm' : 'Chọn cả nhóm'}
+                          </Button>
+                        )}
                         <div className="grid gap-1.5">
                           {defs.map((d) => {
-                            const notHeld = !readOnly && !held.has(d.code);
-                            const disabled = readOnly || notHeld;
+                            const notHeld = !held.has(d.code);
+                            const disabled = notHeld;
                             const id = `perm-${d.code}`;
                             return (
                               <BlockedReason key={d.code} reason={notHeld ? NOT_HELD : null}>
@@ -161,7 +265,6 @@ export function RoleFormDialog({
                                 className={cn(
                                   'flex items-start gap-2 rounded-sm text-sm',
                                   disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-                                  readOnly && 'opacity-100',
                                 )}
                               >
                                 <Checkbox
@@ -188,12 +291,22 @@ export function RoleFormDialog({
                           })}
                         </div>
                       </fieldset>
-                    ))}
+                      );
+                    })}
                   </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {diff && (role?.memberCount ?? 0) > 0 && (
+              <div data-testid="role-diff">
+                <AlertMessage severity="info">
+                  {diff.text}. Áp dụng cho {role?.memberCount} tài khoản đang mang vai trò này từ lần thao tác kế
+                  tiếp của họ.
+                </AlertMessage>
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
                 {readOnly ? 'Đóng' : 'Huỷ'}

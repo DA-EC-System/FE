@@ -120,6 +120,50 @@ export const GUIDES = {
       },
     ],
   },
+  'audit-logs': {
+    key: 'audit-logs',
+    version: 1,
+    title: 'Nhật ký thao tác',
+    intro: [
+      'Mọi lần thêm, sửa, xoá trong công ty đều ghi ở đây, kể cả thao tác của CEO.',
+      'Nhật ký chỉ xem, không ai sửa hay xoá được.',
+    ],
+    primaryAction: { label: 'Lọc nhật ký', target: 'audit-filters' },
+    steps: [
+      {
+        target: 'audit-filters',
+        title: 'Lọc theo người, đối tượng, ngày',
+        body: 'Chọn Tự duyệt để xem các lần người làm tự duyệt chứng từ của chính mình. Bấm Xoá lọc để xem lại toàn bộ.',
+      },
+      {
+        target: 'audit-detail',
+        title: 'Xem trước và sau',
+        body: 'Bấm một dòng hoặc nút Chi tiết để xem giá trị cũ và mới của từng trường đã đổi.',
+      },
+    ],
+  },
+  'dead-jobs': {
+    key: 'dead-jobs',
+    version: 1,
+    title: 'Việc nền lỗi',
+    intro: [
+      'Việc chạy nền (lấy đơn, đồng bộ sản phẩm, làm mới kết nối sàn) đã thử 5 lần mà vẫn lỗi sẽ dừng ở đây.',
+      'Sửa nguyên nhân trước, ví dụ kết nối lại gian hàng, rồi mới chạy lại.',
+      'Việc lỗi được giữ 30 ngày.',
+    ],
+    steps: [
+      {
+        target: 'dead-jobs-filter',
+        title: 'Lọc theo loại việc',
+        body: 'Cột Lỗi cuối cho biết nguyên nhân. Lỗi kết nối hay hết hạn token thì vào Kênh bán kết nối lại gian hàng.',
+      },
+      {
+        target: 'dead-jobs-retry',
+        title: 'Chạy lại',
+        body: 'Việc về hàng chạy với lượt thử mới. Chưa sửa nguyên nhân thì việc có thể lỗi lại.',
+      },
+    ],
+  },
   'platform-companies': {
     key: 'platform-companies',
     version: 1,

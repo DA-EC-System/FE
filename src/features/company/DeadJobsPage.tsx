@@ -14,6 +14,7 @@ import { useShops } from '@/api/shops.api';
 import { getErrorMessage } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useCan } from '@/hooks/usePermission';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { formatDateTime } from '@/utils/format';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { DeadJob } from '@/types/companySettings';
@@ -31,6 +32,7 @@ export function DeadJobsPage() {
   const [retrying, setRetrying] = useState<DeadJob | null>(null);
 
   const query = useDeadJobs({ queue: queue || undefined, page, pageSize });
+  const { startTour } = usePageGuide('dead-jobs', { ready: query.isSuccess });
   const retryMut = useRetryDeadJob();
   // Response không có tên gian hàng: lấy từ danh sách gian hàng theo shopId
   const shopsQuery = useShops({ enabled: can(PERMISSIONS.shopView) });
@@ -77,12 +79,14 @@ export function DeadJobsPage() {
       },
       {
         id: 'actions',
-        header: '',
+        header: () => <span className="sr-only">Thao tác</span>,
         meta: { className: 'w-16 text-right' },
         cell: ({ row }) => (
-          <RowAction label="Chạy lại" onClick={() => setRetrying(row.original)}>
-            <RotateCcw />
-          </RowAction>
+          <span className="inline-flex" data-guide="dead-jobs-retry">
+            <RowAction label="Chạy lại" onClick={() => setRetrying(row.original)}>
+              <RotateCcw />
+            </RowAction>
+          </span>
         ),
       },
     ],
@@ -105,7 +109,9 @@ export function DeadJobsPage() {
     <div>
       <PageHeader
         title="Việc nền lỗi"
-        subtitle="Việc chạy nền đã thử 5 lần mà vẫn lỗi. Sửa nguyên nhân (vd kết nối lại gian hàng) rồi bấm Chạy lại. Việc lỗi được giữ 30 ngày."
+        subtitle="Việc chạy nền đã thử 5 lần mà vẫn lỗi."
+        help="Sửa nguyên nhân trước (ví dụ kết nối lại gian hàng) rồi bấm Chạy lại; chưa sửa thì việc có thể lỗi lại. Việc lỗi được giữ 30 ngày."
+        onTour={startTour}
       />
 
       {query.isError && (
@@ -115,7 +121,7 @@ export function DeadJobsPage() {
       )}
 
       <Card className="gap-0 py-0">
-        <FilterBar>
+        <FilterBar guide="dead-jobs-filter">
           <FilterSelect
             label="Loại việc"
             value={queue}

@@ -23,6 +23,7 @@ import { useCompanyAuditLog, useCompanyAuditLogs } from '@/api/companySettings.a
 import { useStaff } from '@/api/identity.api';
 import { getErrorMessage } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/utils/format';
 import type { AuditAction, CompanyAuditLog } from '@/types/companySettings';
@@ -97,6 +98,7 @@ export function CompanyAuditLogPage() {
           <Button
             size="sm"
             variant="ghost"
+            data-guide="audit-detail"
             onClick={(e) => {
               e.stopPropagation();
               setSelectedId(row.original.id);
@@ -131,6 +133,7 @@ export function CompanyAuditLogPage() {
       setPage(1);
     };
   const hasFilter = Boolean(actorId || entityType || action || from || to || selfOnly);
+  const { startTour } = usePageGuide('audit-logs', { ready: query.isSuccess });
 
   return (
     <div>
@@ -138,6 +141,7 @@ export function CompanyAuditLogPage() {
         title="Nhật ký thao tác"
         subtitle="Mọi thao tác thêm, sửa, xoá trong công ty."
         help="Nhật ký chỉ xem, không ai sửa hay xoá được. Bấm một dòng hoặc nút Chi tiết để xem giá trị trước và sau của từng trường. Lọc Tự duyệt để xem các lần người làm tự duyệt chứng từ của chính mình."
+        onTour={startTour}
       />
 
       {query.isError && (
@@ -147,7 +151,7 @@ export function CompanyAuditLogPage() {
       )}
 
       <Card className="gap-0 py-0">
-        <FilterBar>
+        <FilterBar guide="audit-filters">
           <FilterSelect loading={staffQuery.isLoading}
             label="Người làm"
             value={actorId}

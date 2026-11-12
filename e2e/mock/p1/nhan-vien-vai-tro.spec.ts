@@ -168,9 +168,9 @@ test.describe('P1 · Vai trò', () => {
     await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Có sẵn') })).toHaveCount(4);
     await dongCo(page, 'Sale').getByRole('button', { name: 'Xem tập quyền', exact: true }).click();
     const dialog = page.getByRole('dialog');
-    const checkboxes = dialog.getByRole('checkbox');
-    await expect(checkboxes.first()).toBeAttached();
-    for (const c of await checkboxes.all()) await expect(c).toBeDisabled();
+    // Chỉ xem: danh sách quyền vai trò đang có, không có checkbox
+    await expect(dialog.getByTestId('role-perm-list').getByRole('listitem').first()).toBeVisible();
+    await expect(dialog.getByRole('checkbox')).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: 'Lưu', exact: true })).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Đóng', exact: true }).first().click();
 
@@ -180,7 +180,19 @@ test.describe('P1 · Vai trò', () => {
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
     await expect(dialog.locator('[data-slot="form-message"]').nth(1)).toBeAttached();
     await dialog.locator('input[name=name]').fill('Sale');
+    const dem = dialog.getByTestId('role-perm-count');
+    await expect(dem).toHaveText(/^0\/\d+ quyền đã chọn$/);
+    // Tìm không dấu vẫn ra quyền; chọn cả nhóm rồi bỏ
+    await dialog.getByRole('searchbox', { name: 'Tìm quyền' }).fill('tra cuu san pham');
+    await expect(dialog.locator('fieldset')).toHaveCount(1);
+    await dialog.getByRole('searchbox', { name: 'Tìm quyền' }).fill('');
+    const nhom = dialog.getByRole('button', { name: /^Chọn mọi quyền nhóm / }).first();
+    await nhom.click();
+    await expect(dem).not.toHaveText(/^0\//);
+    await dialog.getByRole('button', { name: /^Bỏ chọn mọi quyền nhóm / }).first().click();
+    await expect(dem).toHaveText(/^0\//);
     await chua(dialog, 'Xem, tra cứu sản phẩm', 'label').click();
+    await expect(dem).toHaveText(/^1\//);
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
     await expect(loi(page, 'name')).not.toBeEmpty();
     await page.locator('input[name=name]').fill('Chăm sóc khách 2');
@@ -192,6 +204,15 @@ test.describe('P1 · Vai trò', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Xoá', exact: true }).click();
     await toast(page, 'còn tài khoản');
     await expect(dongCo(page, 'Chăm sóc khách hàng')).toBeAttached();
+
+    // Sửa vai trò còn người mang: thấy trước số quyền đổi và số tài khoản bị ảnh hưởng
+    await dongCo(page, 'Chăm sóc khách hàng').getByRole('button', { name: 'Sửa', exact: true }).click();
+    await expect(dialog.getByTestId('role-diff')).toHaveCount(0);
+    await chua(dialog, 'Xem, tra cứu sản phẩm', 'label').click();
+    await expect(dialog.getByTestId('role-diff')).toHaveText(/^(Thêm|Bỏ) 1 quyền\. Áp dụng cho \d+ tài khoản/);
+    await chua(dialog, 'Xem, tra cứu sản phẩm', 'label').click();
+    await expect(dialog.getByTestId('role-diff')).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Huỷ', exact: true }).click();
   });
 
   test('Admin: vai trò có quyền mình không có thì chỉ xem (AC-10)', async ({ page }) => {
