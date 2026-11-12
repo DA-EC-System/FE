@@ -36,6 +36,7 @@ import { priceText } from '@/utils/price';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
+import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, RemoteSku } from '@/types/shop';
 import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
@@ -169,6 +170,7 @@ export function ShopListingsPage() {
   const delistMut = useDelistListing();
   const syncMut = useSyncListings();
   const listingReview = shop?.capabilities.listingReview ?? false;
+  const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
   const connector = useStartConnect();
 
   const [search, setSearch] = useState('');
@@ -578,10 +580,8 @@ export function ShopListingsPage() {
                 ? l.status === 'pushing'
                   ? `Đang thử lại (${l.pushAttempts} lần): ${l.pushError.message}`
                   : l.pushError.message
-                : l.status === 'hidden'
-                  ? l.hiddenBy === 'zero_stock'
-                    ? 'Sàn không ẩn riêng phân loại: đã đẩy tồn 0'
-                    : 'Đã ẩn trên sàn'
+                : l.status === 'hidden' && l.hiddenBy !== 'zero_stock'
+                  ? 'Đã ẩn trên sàn'
                   : null;
           return (
             <div className="grid justify-items-start gap-1">
@@ -608,33 +608,57 @@ export function ShopListingsPage() {
                   {note}
                 </span>
               )}
+              {l.status === 'hidden' && l.hiddenBy === 'zero_stock' && (
+                <SyncBadge
+                  id={`hidden-zero-${r.variantId}`}
+                  variant="secondary"
+                  label="Đang ẩn bằng tồn 0"
+                  hint="Sàn không ẩn riêng từng phân loại nên Commerio đẩy tồn 0 để khách không đặt được SKU này."
+                  testId="hidden-zero"
+                />
+              )}
               {live &&
                 (l.lastPushedAt === null ? (
                   <Badge variant="warning">Chưa đẩy</Badge>
-                ) : r.price !== l.lastPushedPrice ? (
+                ) : l.priceSync === 'pending' ? (
                   <>
-                    <Badge variant="warning">Giá đã đổi, chưa đẩy</Badge>
+                    <Badge variant="warning" data-testid="price-sync">
+                      Giá đã đổi, chưa đẩy
+                    </Badge>
                     <span className="text-xs text-muted-foreground">Trên sàn: {priceText(l.lastPushedPrice)}</span>
                   </>
                 ) : (
                   <span className="text-xs text-muted-foreground">Đã đẩy {formatDateTime(l.lastPushedAt)}</span>
                 ))}
-              {live && l.stockSync !== 'synced' && (
-                <Badge variant={l.stockSync === 'error' ? 'destructive' : 'outline'} data-testid="stock-sync">
-                  {STOCK_SYNC_LABELS[l.stockSync]}
-                  {l.stockSync === 'error' && l.platformStock !== null && ` (sàn ${l.platformStock})`}
+              {live && l.stockSync === 'error' && (
+                <SyncBadge
+                  id={`stock-drift-${r.variantId}`}
+                  variant="destructive"
+                  label={`${STOCK_SYNC_LABELS.error}${l.platformStock !== null ? ` (sàn ${l.platformStock})` : ''}`}
+                  hint="Số tồn trên sàn khác Commerio hai lượt đối chiếu liền. Lượt đẩy tồn sau sẽ ghi đè số trên sàn."
+                  testId="stock-sync"
+                />
+              )}
+              {live && l.stockSync === 'pending' && (
+                <Badge variant="outline" data-testid="stock-sync">
+                  {STOCK_SYNC_LABELS.pending}
                 </Badge>
               )}
-              {/* Lỗi đẩy của riêng SKU này: câu của sàn, hiện nguyên văn (§18.4) */}
+              {/* Lỗi đẩy của riêng SKU này: câu của sàn hiện nguyên văn trong tooltip (§18.4, §18.6.6) */}
               {[
-                { label: 'Đẩy tồn lỗi', err: l.stockSyncError },
-                { label: 'Đẩy giá lỗi', err: l.priceSyncError },
+                { key: 'stock', label: 'Cập nhật tồn lên sàn lỗi', err: l.stockSyncError },
+                { key: 'price', label: 'Đẩy giá lỗi', err: l.priceSyncError },
               ].map(
-                ({ label, err }) =>
+                ({ key, label, err }) =>
                   err && (
-                    <span key={label} className="text-xs text-destructive" data-testid="sync-error" title={err.code}>
-                      {label}: {err.message} · {formatDateTime(err.at)}
-                    </span>
+                    <SyncBadge
+                      key={key}
+                      id={`sync-error-${key}-${r.variantId}`}
+                      variant="destructive"
+                      label={label}
+                      hint={`${err.message} · ${formatDateTime(err.at)}`}
+                      testId="sync-error"
+                    />
                   ),
               )}
               {l.qcAlert && (
@@ -662,7 +686,7 @@ export function ShopListingsPage() {
                 ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
                 : null;
           return (
-            <div className="flex justify-end gap-1">
+            <div className="flex justify-end gap-1" data-guide={canMatch ? 'listings-match' : undefined}>
               {canMatch && (
                 <RowAction
                   label={r.listing ? 'Đổi ghép' : 'Ghép'}
@@ -776,9 +800,11 @@ export function ShopListingsPage() {
         title={shop ? `Ghép SKU · ${shop.shopName}` : 'Ghép SKU'}
         subtitle={
           shop
-            ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn.`
+            ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
             : undefined
         }
+        help="Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio. Đơn sàn của SKU đã ghép trừ đúng tồn của biến thể, và Commerio đẩy tồn, giá lên đúng SKU đó. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn."
+        onTour={startTour}
         action={
           <div className="flex flex-wrap items-center gap-2">
             {shop && (
@@ -797,7 +823,11 @@ export function ShopListingsPage() {
               </Button>
             )}
             {canManage && (
-              <Button disabled={!selectedRows.length || pushMut.isPending} onClick={() => requestPush(selectedRows)}>
+              <Button
+                disabled={!selectedRows.length || pushMut.isPending}
+                onClick={() => requestPush(selectedRows)}
+                data-guide="listings-push"
+              >
                 <Upload />
                 {pushMut.isPending
                   ? 'Đang đẩy...'
@@ -867,7 +897,7 @@ export function ShopListingsPage() {
       )}
 
       <Card className="gap-0 py-0">
-        <Tabs value={tab} onValueChange={changeTab} className="overflow-x-auto px-4 pt-3">
+        <Tabs value={tab} onValueChange={changeTab} className="overflow-x-auto px-4 pt-3" data-guide="listings-tabs">
           <TabsList aria-label="Lọc theo trạng thái">
             {LISTING_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} data-testid={`listing-tab-${t.value}`}>
@@ -1016,5 +1046,33 @@ export function ShopListingsPage() {
         onClose={() => setPushing(null)}
       />
     </div>
+  );
+}
+
+/** Nhãn đồng bộ của một listing (§18.6.6); rê chuột, Tab tới hoặc chạm để xem lý do */
+function SyncBadge({
+  id,
+  variant,
+  label,
+  hint,
+  testId,
+}: {
+  id: string;
+  variant: 'secondary' | 'destructive';
+  label: string;
+  hint: string;
+  testId: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant={variant} data-testid={testId} tabIndex={0} aria-describedby={id}>
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent id={id} className="max-w-64" data-testid={`${testId}-hint`}>
+        {hint}
+      </TooltipContent>
+    </Tooltip>
   );
 }

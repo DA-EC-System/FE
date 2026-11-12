@@ -617,11 +617,15 @@ test.describe('P3 · Gian hàng', () => {
       await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toContainText('Ảnh chính có chữ và logo');
       await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true })).toBeAttached();
-      await expect(dong(page, 'prd-003-v1').locator('[data-testid=stock-sync]')).toHaveText('Lệch tồn sàn (sàn 12)');
-      // Lỗi đẩy theo từng SKU: câu của sàn hiện nguyên văn
-      await expect(dong(page, 'prd-003-v1').locator('[data-testid=sync-error]')).toContainText(
-        'Đẩy tồn lỗi: SellerSku is locked by campaign',
-      );
+      // Nhãn đồng bộ §18.6.6; câu của sàn hiện nguyên văn trong tooltip
+      await expect(dong(page, 'prd-003-v1').locator('[data-testid=stock-sync]')).toHaveText('Lệch tồn (sàn 12)');
+      const loi = dong(page, 'prd-003-v1').locator('[data-testid=sync-error]');
+      await expect(loi).toHaveText(['Cập nhật tồn lên sàn lỗi', 'Đẩy giá lỗi']);
+      const goiY = page.getByTestId('sync-error-hint');
+      await loi.first().hover();
+      await expect(goiY.filter({ hasText: 'SellerSku is locked by campaign' })).toBeVisible();
+      await loi.last().focus();
+      await expect(goiY.filter({ hasText: 'Price cannot be changed during promotion' })).toBeVisible();
       await expect(dong(page, 'prd-002-v1').locator('[data-testid=qc-alert]')).toContainText('Mô tả thiếu thông tin chất liệu');
       await moTab(page, 'failed');
       await expect(dong(page, 'prd-001-v3')).toBeAttached();
@@ -730,6 +734,40 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.locator('[data-testid=remote-section]')).toContainText('chưa kết nối');
   });
 
+  test('tạm ngừng SKU trên Shopee: listing "Đang ẩn bằng tồn 0" (§18.6.6)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Sản phẩm');
+    await chua(page, 'Áo thun basic cổ tròn', 'tbody tr').click();
+    const bienThe = page.locator('[data-testid=variants] tr[data-row-id=prd-001-v1]');
+    await bienThe.getByRole('button', { name: /^Đổi trạng thái/ }).click();
+    await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
+    await expect(bienThe.getByTestId('variant-status')).toContainText('Tạm ngừng');
+    await menu(page, 'Kênh bán');
+    await moTrangGhep(page, 'shp-001');
+    await expect(trangThaiListing(page, 'prd-001-v1')).toHaveText('Đang ẩn');
+    const nhan = dong(page, 'prd-001-v1').locator('[data-testid=hidden-zero]');
+    await expect(nhan).toHaveText('Đang ẩn bằng tồn 0');
+    await nhan.hover();
+    await expect(page.getByTestId('hidden-zero-hint')).toContainText('đẩy tồn 0');
+  });
+
+  test('dấu "?" giải thích ghép SKU và mở hướng dẫn từng bước: lọc chưa ghép, ghép, đẩy', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Kênh bán');
+    await moTrangGhep(page, 'shp-001');
+    await page.getByRole('button', { name: /^Giải thích: Ghép SKU/ }).click();
+    await thayChu(page.getByRole('dialog'), 'Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio');
+    await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
+    const tour = page.getByTestId('guide-tour');
+    await expect(tour.getByText('Bước 1/3', { exact: true })).toBeVisible();
+    await expect(tour.getByRole('heading', { name: 'Lọc chưa ghép', exact: true })).toBeVisible();
+    await tour.getByRole('button', { name: 'Tiếp', exact: true }).click();
+    await expect(tour.getByRole('heading', { name: 'Ghép SKU', exact: true })).toBeVisible();
+    await tour.getByRole('button', { name: 'Tiếp', exact: true }).click();
+    await expect(tour.getByRole('heading', { name: 'Đẩy lên sàn', exact: true })).toBeVisible();
+  });
+
   test('Admin đổi ghép SKU sàn đã có đơn: gửi CEO duyệt, ghép cũ giữ nguyên', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
     await menu(page, 'Kênh bán');
@@ -759,6 +797,12 @@ test.describe('P3 · Gian hàng', () => {
     await moTrangGhep(page, 'shp-001');
     await thayChu(page, 'Bạn ghép được SKU sàn với biến thể');
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
+    // Hướng dẫn từng bước bỏ bước Đẩy lên sàn khi thiếu quyền
+    await page.getByRole('button', { name: /^Giải thích: Ghép SKU/ }).click();
+    await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
+    await expect(page.getByTestId('guide-tour').getByText('Bước 1/2', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('guide-tour')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Gỡ khỏi sàn|Bỏ ghép/ })).toHaveCount(0);
     // Ghép SKU sàn chưa ghép: áp luôn
     await dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true }).click();

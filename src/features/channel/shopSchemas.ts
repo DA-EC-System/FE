@@ -99,5 +99,5 @@ export const LISTING_STATUS_VARIANTS: Record<
 export const STOCK_SYNC_LABELS: Record<SyncState, string> = {
   synced: 'Tồn đã đồng bộ',
   pending: 'Tồn chờ đẩy',
-  error: 'Lệch tồn sàn',
+  error: 'Lệch tồn',
 };
