@@ -169,7 +169,10 @@ export interface SupplierReturnRecord {
   hasSupplier: boolean;
 }
 
-/** Mua hàng lập, CEO duyệt và gửi (chờ xử lý giảm); người khác người gửi ghi kết quả */
+/**
+ * Mua hàng lập, CEO duyệt và gửi (chờ xử lý giảm); người khác người gửi ghi kết quả, CEO hoặc công ty một người tự ghi
+ * được, có nhãn (BE `domain/return-machine.ts`, commerio-backend#210).
+ */
 export const supplierReturnMachine = defineMachine<SupplierReturnStatus, SupplierReturnAction, SupplierReturnRecord>([
   {
     from: 'draft',
@@ -201,6 +204,7 @@ export const supplierReturnMachine = defineMachine<SupplierReturnStatus, Supplie
     label: 'NCC hoàn tiền',
     permission: P.supplierReturnManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
   },
   {
     from: 'sent',
@@ -209,6 +213,7 @@ export const supplierReturnMachine = defineMachine<SupplierReturnStatus, Supplie
     label: 'NCC bù hàng',
     permission: P.supplierReturnManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
   },
   {
     from: 'sent',
@@ -217,6 +222,7 @@ export const supplierReturnMachine = defineMachine<SupplierReturnStatus, Supplie
     label: 'NCC không nhận',
     permission: P.supplierReturnManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
   },
   {
     from: ['draft', 'pending_approval'],
