@@ -4,7 +4,7 @@
  */
 
 import { products, swatch } from './catalogData';
-import type { ListingStatus, QcAlert, RemoteSkuStatus, SyncError, SyncState } from '@/types/shop';
+import type { ListingStatus, PendingMapping, QcAlert, RemoteSkuStatus, SyncError, SyncState } from '@/types/shop';
 
 export interface MockListing {
   id: string;
@@ -35,8 +35,25 @@ export interface MockListing {
   delistedByDisconnect?: boolean;
   lastPushedAt: string | null;
   lastPushedPrice: number | null;
+  /** Ghép chờ CEO duyệt (§18.6.5) */
+  pendingMapping?: PendingMapping | null;
   version: number;
 }
+
+/**
+ * SKU sàn "không quản tồn" (listing `mode = 'unmanaged'`, không có biến thể). `approved = false`: dòng chỉ chờ CEO duyệt,
+ * vẫn tính là chưa ghép (§18.6.5)
+ */
+export interface MockUnmanagedSku {
+  id: string;
+  shopId: string;
+  externalSkuId: string;
+  approved: boolean;
+  pendingMapping: PendingMapping | null;
+  version: number;
+}
+
+export const unmanagedSkus: MockUnmanagedSku[] = [];
 
 export interface MockRemoteSku {
   externalProductId: string;

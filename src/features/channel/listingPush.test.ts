@@ -28,6 +28,7 @@ const listing = (status: ListingStatus, over: Partial<ChannelListing> = {}): Cha
   platformStock: null,
   lastPushedAt: null,
   lastPushedPrice: null,
+  pendingMapping: null,
   version: 1,
   ...over,
 });

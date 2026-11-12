@@ -50,6 +50,8 @@ const MESSAGES: Record<string, string> = {
   // §18.7.11; có `expected`, `actual` thì câu nêu tên hai công ty, xem companyMismatchMessage
   company_mismatch: 'Bạn bắt đầu kết nối ở một công ty khác với công ty đang mở. Chuyển về công ty đó rồi kết nối lại.',
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
+  // §18.6.5
+  mapping_pending: 'SKU sàn này đang chờ CEO duyệt ghép. Chờ CEO duyệt hoặc từ chối rồi ghép lại.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
   // FE#146, Documents/21 §18.5
