@@ -4,8 +4,9 @@
 #     Staging chạy code của main (merge vào main là deploy), nên chỉ chạy trên main, không chạy trên PR.
 #     Mỗi file spec tự đăng ký công ty giả mới qua API công khai (e2e/be/congTyGia.ts), không ghi DB. Test cần đơn sàn, gian
 #     hàng, bảng kê để test.fixme (ghi lý do trong spec); be/p3 bỏ qua vì không đặt E2E_SAN_BE207 (spec đó ngắt thật gian hàng Lazada).
-#     Staging giới hạn 20 lần gọi /identity/login và /identity/register mỗi 15 phút mỗi IP: một lần chạy gọi /login 17 lần,
-#     /register 8 lần (mỗi test p1 đỏ thêm một lần: Playwright mở worker mới, chạy lại beforeAll). Thêm spec thì giữ dưới 18.
+#     Staging giới hạn 20 lần gọi /identity/login và /identity/register mỗi 15 phút mỗi IP: một lần chạy gọi /login 18 lần,
+#     /register 9 lần (mỗi test p1 đỏ thêm một lần: Playwright mở worker mới, chạy lại beforeAll; be/p2 phiếu kho, trả NCC thêm
+#     một login, một register). Đã sát trần: thêm spec mới thì gộp vào file có sẵn, không thêm lần đăng nhập.
 # Khi nào chạy:
 #   - mỗi đêm 02:00 giờ Việt Nam trên main: cả hai bộ;
 #   - bấm "Run workflow" (workflow_dispatch), chọn bộ (all, mock, be); bộ `be` chỉ chạy khi chọn nhánh main;

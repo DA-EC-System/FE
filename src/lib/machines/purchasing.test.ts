@@ -155,9 +155,14 @@ describe('phiếu trả NCC', () => {
     expect(actions(supplierReturnMachine.available('draft', muaHang, rec))).toEqual(['submit']);
   });
 
-  it('người gửi không tự ghi kết quả', () => {
+  it('người gửi không tự ghi kết quả, trừ người được tự duyệt (CEO, công ty một người)', () => {
     const sent = { ...rec, createdBy: 'acc-001' };
     expect(supplierReturnMachine.available('sent', ceo, sent)).toEqual([]);
+    expect(supplierReturnMachine.check('sent', 'record_rejected', { actor: selfApprover, record: sent })).toEqual({
+      ok: true,
+      to: 'returned_to_us',
+      selfApproved: true,
+    });
     expect(actions(supplierReturnMachine.available('sent', muaHang, sent))).toEqual([
       'record_refund',
       'record_rejected',

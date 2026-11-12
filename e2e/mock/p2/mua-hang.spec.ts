@@ -76,12 +76,13 @@ test.describe('P2 · Mua hàng', () => {
       await expect(dong.getByTestId('excluded-reason')).toHaveCount(0);
     });
 
-    test('người gửi phiếu trả không tự ghi kết quả từ NCC (B4)', async ({ page }) => {
+    test('CEO là người gửi phiếu trả vẫn tự ghi kết quả từ NCC được (ngoại lệ tự duyệt, B4; BE#210)', async ({ page }) => {
       await moTab(page, 'Trả NCC', 'TN-000001');
       await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
-      await expect(page.getByTestId('lifecycle-blocked')).toContainText('Cần người thứ hai');
+      // Người gửi không phải CEO thì bị chặn (unit test bảng chuyển); CEO được tự làm nên không có dòng chặn
+      await expect(page.getByTestId('lifecycle-blocked')).toHaveCount(0);
       for (const label of ['NCC hoàn tiền', 'NCC bù hàng', 'NCC không nhận']) {
-        await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-disabled', 'true');
+        await expect(page.getByRole('button', { name: label, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
       }
     });
 

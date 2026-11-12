@@ -12,7 +12,10 @@ export interface StockDocRecord {
   missing: number;
 }
 
-/** Kiểm kê, xuất huỷ, chuyển chờ xử lý: kho lập, CEO duyệt mọi phiếu */
+/**
+ * Kiểm kê, xuất huỷ, chuyển chờ xử lý: kho lập, người có quyền duyệt khác người lập duyệt; CEO hoặc công ty một người
+ * tự duyệt được, có nhãn (BE `domain/stock-document.ts`, commerio-backend#208).
+ */
 export const adjustmentMachine = defineMachine<StockDocStatus, StockDocAction, StockDocRecord>([
   {
     from: 'draft',
@@ -22,13 +25,23 @@ export const adjustmentMachine = defineMachine<StockDocStatus, StockDocAction, S
     permission: PERMISSIONS.stockDocManage,
     guard: (r) => (r.lineCount ? null : 'empty_document'),
   },
-  { from: 'pending', to: 'posted', action: 'approve', label: 'Duyệt và ghi sổ', permission: PERMISSIONS.stockDocApprove },
+  {
+    from: 'pending',
+    to: 'posted',
+    action: 'approve',
+    label: 'Duyệt và ghi sổ',
+    permission: PERMISSIONS.stockDocApprove,
+    needsSecondPerson: true,
+    allowSelfApproval: true,
+  },
   {
     from: 'pending',
     to: 'rejected',
     action: 'reject',
     label: 'Từ chối',
     permission: PERMISSIONS.stockDocApprove,
+    needsSecondPerson: true,
+    allowSelfApproval: true,
     needsReason: true,
   },
   { from: 'draft', to: 'cancelled', action: 'cancel', label: 'Huỷ phiếu', permission: PERMISSIONS.stockDocManage },
@@ -62,6 +75,7 @@ export const inspectionMachine = defineMachine<StockDocStatus, StockDocAction, S
     label: 'Duyệt và ghi sổ',
     permission: PERMISSIONS.stockDocManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
   },
   {
     from: 'pending',
@@ -70,6 +84,7 @@ export const inspectionMachine = defineMachine<StockDocStatus, StockDocAction, S
     label: 'Yêu cầu kiểm lại',
     permission: PERMISSIONS.stockDocManage,
     needsSecondPerson: true,
+    allowSelfApproval: true,
     needsReason: true,
   },
 ]);
