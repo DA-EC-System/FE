@@ -4,9 +4,11 @@ import type { ConfigKind, ConfigStatus, CreateFinanceConfig, FinanceConfig } fro
 import type { SettlementStatus } from '@/types/settlement';
 
 export const PAYMENT_STATES: Record<SettlementStatus, StatusMeta> = {
-  none: { label: 'Chưa phát sinh', variant: 'outline' }, pending: { label: 'Chờ quyết toán', variant: 'warning' },
-  settled: { label: 'Đã khớp', variant: 'success' }, mismatch: { label: 'Lệch tiền', variant: 'destructive' },
-  resolved: { label: 'Đã chốt lệch', variant: 'info' },
+  none: { label: 'Chưa phát sinh', variant: 'outline', hint: 'Chưa có kiện nào giao thành công nên chưa phát sinh tiền.' },
+  pending: { label: 'Chờ quyết toán', variant: 'warning', hint: 'Đang chờ sàn quyết toán; số tiền hiện là số Commerio ước tính.' },
+  settled: { label: 'Đã khớp', variant: 'success', hint: 'Sàn quyết toán khớp ước tính trong ngưỡng lệch.' },
+  mismatch: { label: 'Lệch tiền', variant: 'destructive', hint: 'Lệch quá ngưỡng, cần chốt kèm lý do.' },
+  resolved: { label: 'Đã chốt lệch', variant: 'info', hint: 'Khoản lệch đã được chốt kèm lý do.' },
 };
 export const CONFIG_STATES: Record<ConfigStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'outline' }, pending_approval: { label: 'Chờ duyệt', variant: 'warning' },

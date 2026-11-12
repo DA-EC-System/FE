@@ -471,6 +471,35 @@ export const GUIDES = {
       },
     ],
   },
+  settlements: {
+    key: 'settlements',
+    version: 1,
+    title: 'Đối soát sàn',
+    intro: [
+      'Mỗi đơn có trạng thái tiền riêng: so số sàn quyết toán với số Commerio ước tính.',
+      'Đơn lệch quá ngưỡng nằm ở khung Dòng lệch, chốt ngay trên dòng kèm lý do.',
+      'Lệch vượt hạn mức tự chốt thì CEO duyệt trước.',
+    ],
+    primaryAction: { label: 'Xem dòng lệch', target: 'settlement-mismatch' },
+    steps: [
+      {
+        target: 'settlement-kpis',
+        title: 'Tổng quan tiền theo đơn',
+        body: 'Số đơn chờ quyết toán, lệch tiền, đã khớp và đã chốt lệch. Bấm "?" để xem nghĩa từng trạng thái.',
+      },
+      {
+        target: 'settlement-mismatch',
+        title: 'Chốt đơn lệch',
+        body: 'Mỗi đơn lệch một dòng: sàn quyết toán, Commerio ước tính và số lệch. Chốt xong dòng chuyển xanh rồi ẩn.',
+        permission: 'finance.settlement.resolve',
+      },
+      {
+        target: 'settlement-tabs',
+        title: 'Lần đối soát và sao kê',
+        body: 'Lần đối soát để kéo quyết toán theo gian hàng; Khớp sao kê để gắn mã sao kê ngân hàng cho tiền rút về.',
+      },
+    ],
+  },
 } satisfies Record<string, PageGuide>;
 
 export type GuideKey = keyof typeof GUIDES;
