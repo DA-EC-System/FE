@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { StockTab } from './StockTab';
 import { DocumentsTab } from './DocumentsTab';
 
@@ -15,19 +16,21 @@ export function InventoryPage() {
   ];
   const requested = searchParams.get('tab');
   const tab = tabs.find((t) => t.value === requested)?.value ?? 'stock';
+  const { startTour } = usePageGuide('inventory');
 
   return (
     <div>
       <PageHeader
         title="Kho hàng"
-        subtitle="Tồn và phiếu kho của từng biến thể."
-        help="Bảy con số tồn: tồn thực, đang giữ, tạm khoá, khả dụng nằm ở cột; đang về, chờ xử lý, thiếu là nhãn dưới tên biến thể."
+        subtitle="Khả dụng là số bán được và được đẩy lên các sàn."
+        help="Mỗi biến thể có bảy con số tồn. Tồn thực, đang giữ, tạm khoá, khả dụng nằm ở cột; đang về, chờ xử lý, thiếu là nhãn dưới mã SKU. Rê chuột vào dấu ? ở đầu cột để xem từng số."
+        onTour={startTour}
       />
       <Tabs
         value={tab}
         onValueChange={(value) => setSearchParams(value === 'stock' ? {} : { tab: value }, { replace: true })}
       >
-        <TabsList className="mb-2">
+        <TabsList className="mb-2" data-guide="inventory-tabs">
           {tabs.map((t) => (
             <TabsTrigger key={t.value} value={t.value}>
               {t.label}

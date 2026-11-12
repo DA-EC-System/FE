@@ -96,10 +96,16 @@ export type PackageCommand =
   | { kind: 'open' }
   | { kind: 'self-deliver' }
   | { kind: 'delivery'; action: DeliveryAction; reason?: string }
-  | { kind: 'receive-return'; code: string }
+  | { kind: 'receive-return'; code: string; lines: ScannedLine[] }
   | { kind: 'report-lost'; claimCode: string }
   | { kind: 'confirm-lost' }
-  | { kind: 'found' };
+  | { kind: 'found'; lines: ScannedLine[] };
+
+/** Số kho quét thật từng món lúc nhận hàng về; chờ xử lý tăng đúng số này (FE#212) */
+export interface ScannedLine {
+  variantId: string;
+  quantity: number;
+}
 
 export function usePackageCommand() {
   const invalidate = useInvalidateCompany();

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { HelpTip } from '@/components/common/HelpTip';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,13 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
 
   return (
     <div className="p-4">
+      <p className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
+        Kiện hàng trả quét ở kho nhưng chưa khớp yêu cầu nào
+        <HelpTip
+          topic="Kiện không khớp"
+          content="Mã quét không trùng mã yêu cầu hay mã vận đơn chiều về nào. Gắn kiện vào yêu cầu đang chờ hàng về, hoặc ghi cách xử lý khác."
+        />
+      </p>
       {query.isError && <AlertMessage severity="error">{problemMessage(query.error)}</AlertMessage>}
       <div className="overflow-x-auto">
         <Table data-testid="unmatched-parcels">
@@ -65,7 +73,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
           <TableBody>
             {items.map((x) => (
               <TableRow key={x.id} data-row-id={x.code}>
-                <TableCell className="font-medium">{x.code}</TableCell>
+                <TableCell className="font-mono font-medium">{x.code}</TableCell>
                 <TableCell>
                   <StatusBadge status={x.status} statuses={UNMATCHED_STATUS} />
                 </TableCell>

@@ -17,6 +17,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
@@ -47,6 +48,7 @@ export function ReturnListPage() {
   const source = (f.params.get('source') ?? '') as ReturnSource | '';
   const unmatched = tab === 'unmatched';
   const [receiving, setReceiving] = useState(false);
+  const { startTour } = usePageGuide('returns');
 
   const query = useReturns({
     status: tab === 'all' || unmatched ? undefined : (tab as ReturnStatus),
@@ -61,7 +63,7 @@ export function ReturnListPage() {
 
   const columns = useMemo<ColumnDef<ReturnRequestSummary>[]>(
     () => [
-      { id: 'code', header: 'Mã yêu cầu', meta: { className: 'w-32' }, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
+      { id: 'code', header: 'Mã yêu cầu', meta: { className: 'w-32' }, cell: ({ row }) => <span className="font-mono font-medium">{row.original.code}</span> },
       { id: 'order', header: 'Đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
       {
         id: 'source',
@@ -106,9 +108,11 @@ export function ReturnListPage() {
       <PageHeader
         title="Yêu cầu trả hàng"
         subtitle="Yêu cầu từ sàn và yêu cầu lập tay cho đơn tạo tay; kho quét nhận hàng trả về."
+        help="Sale chấp nhận, chỉ hoàn tiền hoặc từ chối yêu cầu. Hàng về thì kho quét nhận và ghi tình trạng trên phiếu kiểm hàng về. Kiện quét không khớp yêu cầu nào nằm ở tab Không khớp."
+        onTour={startTour}
         action={
           canReceive ? (
-            <Button onClick={() => setReceiving(true)}>
+            <Button data-guide="return-receive" onClick={() => setReceiving(true)}>
               <ScanLine />
               Quét nhận hàng trả
             </Button>
@@ -117,7 +121,7 @@ export function ReturnListPage() {
       />
       <Tabs value={tab} onValueChange={(v) => f.update({ tab: v === 'requested' ? undefined : v, page: undefined })}>
         <div className="mb-2 overflow-x-auto">
-          <TabsList>
+          <TabsList data-guide="return-tabs">
             {RETURN_TABS.map((t) => {
               const n = countOf(t.value);
               return (
@@ -139,7 +143,7 @@ export function ReturnListPage() {
           {problemMessage(query.error)}
         </AlertMessage>
       )}
-      <Card className="gap-0 py-0">
+      <Card className="gap-0 py-0" data-guide="return-list">
         {unmatched ? (
           <UnmatchedParcels companyId={companyId} canProcess={canReceive} />
         ) : (

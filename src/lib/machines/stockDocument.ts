@@ -74,12 +74,15 @@ export const inspectionMachine = defineMachine<StockDocStatus, StockDocAction, S
   },
 ]);
 
-/** Phiếu nhập, xuất của mô hình cũ: hệ thống ghi sổ ngay, chỉ xem */
-export const legacyMachine = defineMachine<StockDocStatus, StockDocAction, StockDocRecord>([]);
+/** Phiếu xuất theo kiện, phiếu huỷ bàn giao: hệ thống ghi sổ ngay, chỉ xem */
+export const systemMachine = defineMachine<StockDocStatus, StockDocAction, StockDocRecord>([]);
+
+/** Phiếu hệ thống sinh và ghi sổ ngay, không ai sửa (21 mục 11.1) */
+export const isShipmentDoc = (type: StockDocType) => type === 'shipment' || type === 'shipment_reversal';
 
 export function stockDocMachine(type: StockDocType) {
   if (type === 'return_inspection') return inspectionMachine;
-  if (type === 'receipt' || type === 'issue') return legacyMachine;
+  if (isShipmentDoc(type)) return systemMachine;
   return adjustmentMachine;
 }
 

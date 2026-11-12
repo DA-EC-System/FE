@@ -20,6 +20,8 @@ import type {
   ListingMatchInput,
   ListingRow,
   Marketplace,
+  ListingSyncResult,
+  PushListingsInput,
   PushResult,
   RemoteSku,
   Shop,
@@ -28,7 +30,6 @@ import type {
   ShopAuthorizeUrl,
   ShopCallbackInput,
   ShopCallbackResult,
-  ShopConnectionResult,
   ShopConnectInput,
   ShopDisconnectInput,
   ShopSetupInput,
@@ -88,11 +89,22 @@ export function useShopPlatforms(options: { enabled?: boolean } = {}) {
   });
 }
 
-export function useShop(id: string) {
+/**
+ * `poll` trả số ms giữa hai lần đọc lại, false để dừng; dùng cho tiến độ thiết lập (§18.7.7).
+ * Tab ẩn thì ngừng đọc, hiện lại thì đọc ngay.
+ */
+export function useShop(id: string, poll?: (shop: Shop | undefined) => number | false) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.detail(companyId, id),
     enabled: Boolean(companyId && id),
+    ...(poll
+      ? {
+          refetchInterval: (query: { state: { data?: Shop } }) => poll(query.state.data),
+          refetchIntervalInBackground: false,
+          refetchOnWindowFocus: 'always' as const,
+        }
+      : {}),
     queryFn: async () => {
       const { data } = await apiClient.get<Shop>(`/channel/shops/${id}`);
       return data;
@@ -129,7 +141,7 @@ export function useConnectShopByToken() {
   const invalidate = useInvalidateShops();
   return useMutation({
     mutationFn: async ({ platform, ...input }: ShopTokenInput & { platform: string }) => {
-      const { data } = await apiClient.post<ShopConnectionResult>(`/channel/shops/${platform}/token`, input);
+      const { data } = await apiClient.post<ShopCallbackResult>(`/channel/shops/${platform}/token`, input);
       return data;
     },
     onSuccess: invalidate,
@@ -188,11 +200,22 @@ export function useSyncShop() {
 }
 
 /** Mọi biến thể đang bán kèm giá theo gian hàng và ghép SKU; lọc, phân trang phía client */
-export function useShopListings(id: string) {
+/**
+ * `poll` trả số ms giữa hai lần đọc lại, false để dừng; dùng theo dõi listing đang đẩy (§18.6.4).
+ * Tab ẩn thì ngừng đọc, hiện lại thì đọc ngay một lần.
+ */
+export function useShopListings(id: string, poll?: (items: ListingRow[] | undefined) => number | false) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.listings(companyId, id),
     enabled: Boolean(companyId && id),
+    ...(poll
+      ? {
+          refetchInterval: (query: { state: { data?: ListingRow[] } }) => poll(query.state.data),
+          refetchIntervalInBackground: false,
+          refetchOnWindowFocus: 'always' as const,
+        }
+      : {}),
     queryFn: async () => {
       const { data } = await apiClient.get<{ items: ListingRow[] }>(`/channel/shops/${id}/listings`);
       return data.items;
@@ -257,16 +280,37 @@ export function useDelistListing() {
   });
 }
 
-/** Đẩy sản phẩm và giá; biến thể chưa có SKU sàn thì sàn tạo mới. Kết quả theo từng biến thể */
+/** BE nhận tối đa 20 biến thể một lần đẩy (§18.5) */
+export const PUSH_BATCH = 20;
+
+/**
+ * Đẩy sản phẩm lên sàn, chạy nền (§18.6.4): BE kiểm từng dòng, xếp việc rồi trả ngay.
+ * Chọn hơn 20 biến thể thì gửi nhiều lần, gộp kết quả. Lô sau lỗi cả request thì ném lỗi, lô trước đã xếp việc vẫn giữ
+ */
 export function usePushListings() {
   const invalidate = useInvalidateShops();
   return useMutation({
-    mutationFn: async ({ shopId, variantIds }: { shopId: string; variantIds: string[] }) => {
-      const { data } = await apiClient.post<{ results: PushResult[] }>(
-        `/channel/shops/${shopId}/listings/push`,
-        { variantIds },
-      );
-      return data.results;
+    mutationFn: async ({ shopId, variantIds, imageUrls }: PushListingsInput & { shopId: string }) => {
+      const results: PushResult[] = [];
+      for (let i = 0; i < variantIds.length; i += PUSH_BATCH) {
+        const body: PushListingsInput = { variantIds: variantIds.slice(i, i + PUSH_BATCH) };
+        if (imageUrls && Object.keys(imageUrls).length) body.imageUrls = imageUrls;
+        const { data } = await apiClient.post<{ results: PushResult[] }>(`/channel/shops/${shopId}/listings/push`, body);
+        results.push(...data.results);
+      }
+      return results;
+    },
+    onSettled: invalidate,
+  });
+}
+
+/** Đồng bộ tay với sàn (§18.5): đọc trạng thái sàn, đẩy giá và tồn chưa khớp (quyền shop.sync) */
+export function useSyncListings() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async (shopId: string) => {
+      const { data } = await apiClient.post<ListingSyncResult>(`/channel/shops/${shopId}/listings/sync`);
+      return data;
     },
     onSuccess: invalidate,
   });

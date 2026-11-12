@@ -43,8 +43,9 @@ import {
   type ReceiptFormInput,
   type ReceiptFormOutput,
 } from './shared';
-import { DocLink, Info, PageError, PageLoading, beforeUnloadGuard } from './parts';
+import { DetailGrid, DiffTag, DocLink, Info, PageError, PageLoading, beforeUnloadGuard, receiptDiff } from './parts';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { usePageGuide } from '@/guides/usePageGuide';
 
 type CountKey = 'announced' | 'accepted' | 'defectKept' | 'returnedOnSpot';
 
@@ -97,6 +98,7 @@ export function GoodsReceiptPage() {
   const query = useGoodsReceipt(receiptId);
   const receipt = query.data;
   useBreadcrumb(receipt?.number);
+  const { startTour } = usePageGuide('goods-receipt', { ready: Boolean(receipt) });
   const editable = canManage && receipt?.status === 'counting';
 
   const updateMut = useUpdateGoodsReceipt();
@@ -272,9 +274,11 @@ export function GoodsReceiptPage() {
     <div>
       <PageHeader
         title={`Phiếu nhận ${receipt.number}`}
-        subtitle="Đếm hàng theo từng dòng; thiếu = báo giao − đạt − lỗi giữ − trả tại chỗ. Ghi sổ một lần."
+        subtitle="Đếm hàng theo từng dòng rồi ghi sổ một lần."
+        help="Thiếu = báo giao − đạt − lỗi giữ − trả tại chỗ. Dòng có số chênh được đánh dấu ở mép trái; rê chuột vào nhãn Chênh để xem chênh gì. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu hoặc NCC nhận sai."
+        onTour={startTour}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-guide="gr-actions">
             <Button variant="outline" onClick={backToList}>
               <ArrowLeft />
               Danh sách
@@ -313,7 +317,7 @@ export function GoodsReceiptPage() {
       )}
 
       <Card className="mb-4 py-4">
-        <CardContent className="mb-2 border-b pb-4">
+        <CardContent>
           <LifecycleSteps
             path={RECEIPT_PATH}
             current={receipt.status}
@@ -325,217 +329,238 @@ export function GoodsReceiptPage() {
             )}
           />
         </CardContent>
-        <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Info label="Trạng thái">
-            <div data-testid="receipt-status">
-              <StatusBadge status={receipt.status} statuses={RECEIPT_STATUS} />
-            </div>
-          </Info>
-          <Info label="Đề nghị nhập">
-            <DocLink companyId={companyId} docRef={{ type: 'purchase_request', ...receipt.request }} />
-            {' · '}
-            {receipt.supplier.name}
-          </Info>
-          <Info label="Người lập">
-            {receipt.createdBy} · {formatDateTime(receipt.createdAt)}
-          </Info>
-          <Info label="Ghi sổ">{receipt.postedAt ? `${receipt.postedBy} · ${formatDateTime(receipt.postedAt)}` : '—'}</Info>
-          {receipt.followUps.length > 0 && (
-            <Info label="Phiếu sinh tiếp">
-              <div className="flex flex-wrap gap-x-3">
-                {receipt.followUps.map((f) => (
-                  <DocLink key={f.id} companyId={companyId} docRef={f} />
-                ))}
-              </div>
-            </Info>
-          )}
-          {receipt.shortResolution && (
-            <Info label="Kết quả giao thiếu">
-              {RESOLUTION_LABELS[receipt.shortResolution.kind]}
-              {receipt.shortResolution.followUp && (
-                <>
-                  {' · '}
-                  <DocLink companyId={companyId} docRef={receipt.shortResolution.followUp} />
-                </>
-              )}
-              {receipt.shortResolution.note && (
-                <p className="text-xs text-muted-foreground">{receipt.shortResolution.note}</p>
-              )}
-            </Info>
-          )}
-        </CardContent>
       </Card>
 
-      {receipt.status === 'short' && !receipt.shortResolution && canResolve && (
-        <ShortResolutionCard
-          receipt={receipt}
-          canCloseShort={canCloseShort}
-          loading={resolveMut.isPending}
-          onSubmit={async (input, setFieldError) => {
-            try {
-              const next = await resolveMut.mutateAsync({ id: receipt.id, ...input, version });
-              load(next);
-              toast.success(`${next.number}: đã ghi kết quả giao thiếu`);
-            } catch (e) {
-              const problem = getProblem(e);
-              const errs = problem?.errors ?? {};
-              if (errs.followUpNumber || errs.note) setFieldError(errs.followUpNumber ?? null, errs.note ?? null);
-              else handleError(e);
-            }
-          }}
-        />
-      )}
-
-      <Card className="py-4">
-        <CardContent className="grid gap-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label>Cách giao</Label>
-              {editable ? (
-                <RadioGroup
-                  value={deliveryMode}
-                  onValueChange={(v) => setValue('deliveryMode', v as DeliveryMode, { shouldDirty: true })}
-                  className="grid gap-1"
-                >
-                  {(Object.keys(DELIVERY_LABELS) as DeliveryMode[]).map((m) => (
-                    <label key={m} className="flex items-center gap-2 text-sm">
-                      <RadioGroupItem value={m} aria-label={DELIVERY_LABELS[m]} />
-                      {DELIVERY_LABELS[m]}
-                    </label>
-                  ))}
-                </RadioGroup>
-              ) : (
-                <p className="text-sm">{DELIVERY_LABELS[receipt.deliveryMode]}</p>
-              )}
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="receipt-note">Ghi chú</Label>
-              {editable ? (
-                <Textarea id="receipt-note" rows={2} aria-invalid={Boolean(errors.note)} {...register('note')} />
-              ) : (
-                <p className="text-sm whitespace-pre-line">{receipt.note || '—'}</p>
-              )}
-              {errors.note && <p className="text-sm text-destructive">{errors.note.message}</p>}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-md border">
-            <Table data-testid="receipt-lines">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Biến thể</TableHead>
-                  <TableHead className="w-20 text-right">Còn chờ</TableHead>
-                  <TableHead className="w-24 text-right">Báo giao</TableHead>
-                  <TableHead className="w-24 text-right">Đạt</TableHead>
-                  <TableHead className="w-24 text-right">Lỗi giữ</TableHead>
-                  <TableHead className="w-24 text-right">Trả tại chỗ</TableHead>
-                  <TableHead className="w-20 text-right">Thiếu</TableHead>
-                  <TableHead className="min-w-48">Lý do</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!fields.length && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
-                      Phiếu không có dòng nào.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {fields.map((f, i) => {
-                  const line = receipt.lines[i];
-                  const live = lines[i] ?? f;
-                  const lineShort = editable ? shortOfDraft(live) : (line?.short ?? 0);
-                  const reasonErr = errors.lines?.[i]?.reason;
-                  return (
-                    <TableRow key={f.key} data-row-id={f.lineId} className="align-top">
-                      <TableCell>
-                        <p className="font-medium">{f.sku}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {f.productName}
-                          {f.attributesLabel ? ` · ${f.attributesLabel}` : ''}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-right">{formatQty(f.outstanding)}</TableCell>
-                      {(['announced', 'accepted', 'defectKept', 'returnedOnSpot'] as CountKey[]).map((key) => (
-                        <TableCell key={key} className="text-right">
-                          {editable
-                            ? countInput(i, key, { announced: 'Báo giao', accepted: 'Đạt', defectKept: 'Lỗi giữ', returnedOnSpot: 'Trả tại chỗ' }[key], f.sku)
-                            : formatQty(line?.[key] ?? 0)}
-                        </TableCell>
-                      ))}
-                      <TableCell className={cn('text-right', lineShort > 0 && 'font-medium text-destructive')}>
-                        {formatQty(lineShort)}
-                      </TableCell>
-                      <TableCell>
-                        {editable ? (
-                          <div className="grid gap-1">
-                            <Input
-                              {...register(`lines.${i}.reason`)}
-                              aria-label={`Lý do ${f.sku}`}
-                              aria-invalid={Boolean(reasonErr)}
-                              className="h-8"
-                            />
-                            {reasonErr && <p className="text-xs text-destructive">{reasonErr.message}</p>}
-                          </div>
-                        ) : (
-                          <span className="text-sm">{line?.reason || '—'}</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-          {short > 0 && (
-            <p className="text-end text-sm">
-              Tổng thiếu <span className="font-medium text-destructive">{formatQty(short)}</span>
-            </p>
-          )}
-
-          <div className="grid gap-1.5">
-            <Label>Ảnh, biên bản giao nhận</Label>
-            {editable ? (
-              <AttachmentField
-                value={attachments}
-                onChange={(next) => {
-                  setAttachments(next);
-                  setAttachmentsDirty(true);
-                }}
-                onBusyChange={setUploading}
-                disabled={busy && !uploading}
-              />
-            ) : attachments.length ? (
-              <div className="flex flex-wrap gap-2">
-                {attachments.map((a) => (
-                  <a
-                    key={a.fileId}
-                    href={a.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm text-primary underline-offset-4 hover:underline"
-                  >
-                    {a.name}
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Không có đính kèm.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {receipt.statusHistory.length > 0 && (
-        <Card className="mt-4 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Lịch sử</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <DetailGrid
+        history={
+          receipt.statusHistory.length > 0 ? (
             <StatusTimeline history={receipt.statusHistory} statuses={RECEIPT_STATUS} />
+            ) : undefined
+          }
+        >
+        <Card className="py-4">
+          <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Info label="Trạng thái">
+              <div data-testid="receipt-status">
+                <StatusBadge status={receipt.status} statuses={RECEIPT_STATUS} />
+              </div>
+            </Info>
+            <Info label="Đề nghị nhập">
+              <DocLink companyId={companyId} docRef={{ type: 'purchase_request', ...receipt.request }} />
+              {' · '}
+              {receipt.supplier.name}
+            </Info>
+            <Info label="Người lập">
+              {receipt.createdBy} · {formatDateTime(receipt.createdAt)}
+            </Info>
+            <Info label="Ghi sổ">{receipt.postedAt ? `${receipt.postedBy} · ${formatDateTime(receipt.postedAt)}` : '—'}</Info>
+            {receipt.followsUp && (
+              <Info label="Giao bù cho phiếu">
+                <DocLink companyId={companyId} docRef={receipt.followsUp} />
+              </Info>
+            )}
+            {receipt.followUps.length > 0 && (
+              <Info label="Phiếu sinh tiếp">
+                <div className="flex flex-wrap gap-x-3">
+                  {receipt.followUps.map((f) => (
+                    <DocLink key={f.id} companyId={companyId} docRef={f} />
+                  ))}
+                </div>
+              </Info>
+            )}
+            {receipt.shortResolution && (
+              <Info label="Kết quả giao thiếu">
+                {RESOLUTION_LABELS[receipt.shortResolution.kind]}
+                {receipt.shortResolution.followUp && (
+                  <>
+                    {' · '}
+                    <DocLink companyId={companyId} docRef={receipt.shortResolution.followUp} />
+                  </>
+                )}
+                {receipt.shortResolution.note && (
+                  <p className="text-xs text-muted-foreground">{receipt.shortResolution.note}</p>
+                )}
+              </Info>
+            )}
           </CardContent>
         </Card>
-      )}
+
+        {receipt.status === 'short' && !receipt.shortResolution && canResolve && (
+          <ShortResolutionCard
+            receipt={receipt}
+            canCloseShort={canCloseShort}
+            loading={resolveMut.isPending}
+            onSubmit={async (input, setFieldError) => {
+              try {
+                const next = await resolveMut.mutateAsync({ id: receipt.id, ...input, version });
+                load(next);
+                toast.success(`${next.number}: đã ghi kết quả giao thiếu`);
+              } catch (e) {
+                const problem = getProblem(e);
+                const errs = problem?.errors ?? {};
+                if (errs.followUpNumber || errs.note) setFieldError(errs.followUpNumber ?? null, errs.note ?? null);
+                else handleError(e);
+              }
+            }}
+          />
+        )}
+
+        <Card className="py-4">
+          <CardContent className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label>Cách giao</Label>
+                {editable ? (
+                  <RadioGroup
+                    value={deliveryMode}
+                    onValueChange={(v) => setValue('deliveryMode', v as DeliveryMode, { shouldDirty: true })}
+                    className="grid gap-1"
+                  >
+                    {(Object.keys(DELIVERY_LABELS) as DeliveryMode[]).map((m) => (
+                      <label key={m} className="flex items-center gap-2 text-sm">
+                        <RadioGroupItem value={m} aria-label={DELIVERY_LABELS[m]} />
+                        {DELIVERY_LABELS[m]}
+                      </label>
+                    ))}
+                  </RadioGroup>
+                ) : (
+                  <p className="text-sm">{DELIVERY_LABELS[receipt.deliveryMode]}</p>
+                )}
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="receipt-note">Ghi chú</Label>
+                {editable ? (
+                  <Textarea id="receipt-note" rows={2} aria-invalid={Boolean(errors.note)} {...register('note')} />
+                ) : (
+                  <p className="text-sm whitespace-pre-line">{receipt.note || '—'}</p>
+                )}
+                {errors.note && <p className="text-sm text-destructive">{errors.note.message}</p>}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-md border" data-guide="gr-lines">
+              <Table data-testid="receipt-lines">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Biến thể</TableHead>
+                    <TableHead className="w-20 text-right">Còn chờ</TableHead>
+                    <TableHead className="w-24 text-right">Báo giao</TableHead>
+                    <TableHead className="w-24 text-right">Đạt</TableHead>
+                    <TableHead className="w-24 text-right">Lỗi giữ</TableHead>
+                    <TableHead className="w-24 text-right">Trả tại chỗ</TableHead>
+                    <TableHead className="w-20 text-right">Thiếu</TableHead>
+                    <TableHead className="min-w-48" data-guide="gr-reason">Lý do</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!fields.length && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
+                        Phiếu không có dòng nào.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {fields.map((f, i) => {
+                    const line = receipt.lines[i];
+                    const live = lines[i] ?? f;
+                    const lineShort = editable ? shortOfDraft(live) : (line?.short ?? 0);
+                    const reasonErr = errors.lines?.[i]?.reason;
+                    const num = (key: CountKey) => {
+                      if (!editable) return line?.[key] ?? 0;
+                      const v = Number(String(live[key]).trim().replace(/[\s.,]/g, ''));
+                      return Number.isInteger(v) && v >= 0 ? v : 0;
+                    };
+                    const diff = receiptDiff({
+                      outstanding: f.outstanding,
+                      announced: num('announced'),
+                      accepted: num('accepted'),
+                      defectKept: num('defectKept'),
+                      returnedOnSpot: num('returnedOnSpot'),
+                      short: lineShort,
+                    });
+                    return (
+                      <TableRow key={f.key} data-row-id={f.lineId} className={cn('align-top', diff && 'chg')}>
+                        <TableCell>
+                          <p className="font-medium">
+                            {f.sku}
+                            {diff && <DiffTag sku={f.sku} note={diff} />}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {f.productName}
+                            {f.attributesLabel ? ` · ${f.attributesLabel}` : ''}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right">{formatQty(f.outstanding)}</TableCell>
+                        {(['announced', 'accepted', 'defectKept', 'returnedOnSpot'] as CountKey[]).map((key) => (
+                          <TableCell key={key} className="text-right">
+                            {editable
+                              ? countInput(i, key, { announced: 'Báo giao', accepted: 'Đạt', defectKept: 'Lỗi giữ', returnedOnSpot: 'Trả tại chỗ' }[key], f.sku)
+                              : formatQty(line?.[key] ?? 0)}
+                          </TableCell>
+                        ))}
+                        <TableCell className={cn('text-right', lineShort > 0 && 'font-medium text-destructive')}>
+                          {formatQty(lineShort)}
+                        </TableCell>
+                        <TableCell>
+                          {editable ? (
+                            <div className="grid gap-1">
+                              <Input
+                                {...register(`lines.${i}.reason`)}
+                                aria-label={`Lý do ${f.sku}`}
+                                aria-invalid={Boolean(reasonErr)}
+                                className="h-8"
+                              />
+                              {reasonErr && <p className="text-xs text-destructive">{reasonErr.message}</p>}
+                            </div>
+                          ) : (
+                            <span className="text-sm">{line?.reason || '—'}</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            {short > 0 && (
+              <p className="text-end text-sm">
+                Tổng thiếu <span className="font-medium text-destructive">{formatQty(short)}</span>
+              </p>
+            )}
+
+            <div className="grid gap-1.5">
+              <Label>Ảnh, biên bản giao nhận</Label>
+              {editable ? (
+                <AttachmentField
+                  value={attachments}
+                  onChange={(next) => {
+                    setAttachments(next);
+                    setAttachmentsDirty(true);
+                  }}
+                  onBusyChange={setUploading}
+                  disabled={busy && !uploading}
+                />
+              ) : attachments.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {attachments.map((a) => (
+                    <a
+                      key={a.fileId}
+                      href={a.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                    >
+                      {a.name}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có đính kèm.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </DetailGrid>
 
       <SecondPersonDialog
         open={Boolean(confirmText)}
@@ -616,7 +641,7 @@ function ShortResolutionCard({
   };
 
   return (
-    <Card className="mb-4 border-destructive/40 py-4" data-testid="short-resolution">
+    <Card className="border-destructive/40 py-4" data-testid="short-resolution">
       <CardHeader>
         <CardTitle className="text-base">Ghi kết quả giao thiếu ({formatQty(receipt.shortQty)})</CardTitle>
       </CardHeader>

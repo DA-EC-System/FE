@@ -4,6 +4,12 @@ import { chon, chu, chua, dangNhap, dong, duongDan, expect, menu, mockApi, test,
 
 const CHAN_QUYEN_BAN_HANG = 'Vai trò của bạn trong công ty này không có quyền mở trang này.';
 
+/** Câu giải thích trạng thái đơn nằm trong nút "?" cạnh nhãn (FE#138) */
+const giaiThichDon = async (page: Page, text: string) => {
+  await page.getByRole('button', { name: 'Giải thích: Trạng thái đơn', exact: true }).hover();
+  await expect(page.getByRole('tooltip')).toContainText(text);
+};
+
 const timKhach = async (page: Page, text: string) => {
   await page.getByLabel('Tìm khách', { exact: true }).fill(text);
   await chua(page, text, '[role=option]').click();
@@ -50,14 +56,20 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
     });
 
     test('tab theo 4 trạng thái, giai đoạn suy từ kiện, lọc theo giai đoạn', async ({ page }) => {
-      await expect(page.getByRole('tab', { name: 'Tất cả', exact: true })).toHaveAttribute('data-state', 'active');
+      const tatCa = page.getByRole('tab', { name: /^Tất cả/ });
+      await expect(tatCa).toHaveAttribute('data-state', 'active');
+      // Tab có số đơn theo bộ lọc (FE#138)
+      await expect(tatCa).toHaveText(/^Tất cả\s*\d+$/);
+      await expect(page.getByRole('tab', { name: /^Chưa thanh toán/ })).toHaveText(/^Chưa thanh toán\s*\d+$/);
       await expect(dong(page, 'ord-1003')).toContainText('Chờ thanh toán');
+      await dong(page, 'ord-1003').getByText('Chờ thanh toán', { exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText('Đơn trả trước, chờ khách thanh toán.');
       await expect(dong(page, 'ord-1006')).toContainText('Chờ đóng gói');
       await expect(page.locator('tbody')).not.toContainText('DH-2001');
-      await page.getByRole('tab', { name: 'Chưa thanh toán', exact: true }).click();
+      await page.getByRole('tab', { name: /^Chưa thanh toán/ }).click();
       await expect(dong(page, 'ord-1003')).toBeAttached();
       await expect(dong(page, 'ord-1006')).toHaveCount(0);
-      await page.getByRole('tab', { name: 'Tất cả', exact: true }).click();
+      await tatCa.click();
       await chon(page, 'Giai đoạn', 'Đang giao');
       await expect(dong(page, 'ord-1016')).toBeAttached();
       await expect(dong(page, 'ord-1003')).toHaveCount(0);
@@ -131,6 +143,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
     });
 
     test('báo lỗi khi gửi form trống', async ({ page }) => {
+      await expect(page.locator('[data-testid=price-list-hint]')).toContainText('bảng giá chuẩn');
       await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
       await thayChu(page, 'Chọn khách hàng hoặc tạo khách mới');
       await thayChu(page, 'Thêm ít nhất một sản phẩm');
@@ -241,7 +254,11 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
 
     test('đơn trả trước không có nút xác nhận, chờ khách trả', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1003');
-      await thayChu(page, 'Đơn trả trước sang Đang xử lý khi khách thanh toán.');
+      await giaiThichDon(page, 'Đơn trả trước sang Đang xử lý khi khách thanh toán.');
+      // Thanh bước trên cùng, cột phải có thanh toán và lịch sử (FE#138)
+      await expect(page.locator('[data-testid=lifecycle] li').first()).toContainText('Chưa thanh toán');
+      await expect(page.locator('[data-guide=detail-history] [data-testid=status-history]')).toBeAttached();
+      await expect(page.locator('[data-testid=payment-panel]')).toBeAttached();
       await expect(page.getByRole('button', { name: 'Xác nhận đơn', exact: true })).toHaveCount(0);
     });
 
@@ -255,7 +272,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
 
     test('đơn sàn không có nút xác nhận và khung thanh toán', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1005');
-      await thayChu(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
+      await giaiThichDon(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
       await expect(page.getByRole('button', { name: 'Xác nhận đơn', exact: true })).toHaveCount(0);
       await expect(page.locator('[data-testid=payment-panel]')).toHaveCount(0);
     });

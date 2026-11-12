@@ -5,12 +5,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, Loader2, TriangleAlert } from 'lucide-react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
+import { ChartTip } from '@/components/common/ChartTip';
+import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
 import { PageHeader } from '@/components/common/PageHeader';
+import { Panel } from '@/components/common/Panel';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FilterSelect } from '@/components/common/FilterBar';
 import { Money } from '@/components/common/Money';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,11 +37,12 @@ import {
 } from '@/api/report.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useModuleEnabled } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
-import { formatCurrency, formatDate } from '@/utils/format';
+import { formatDate } from '@/utils/format';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { ReportFigures, ReportKind, ShopFigures } from '@/types/report';
 import type { OrderSource } from '@/types/sales';
@@ -73,6 +76,17 @@ const EXPORTS: { report: ReportKind; label: string }[] = [
 ];
 const COST_KEYS: FigureKey[] = ['cogs', 'profit'];
 
+/** Cách tính từng chỉ số, hiện ở nút "?" cạnh tên (FE#134) thay cho dòng chú thích dưới thẻ */
+const FIGURE_HELP: Record<FigureKey, string> = {
+  revenue: 'Tổng tiền hàng của các đơn trong khoảng ngày, chưa trừ phí.',
+  cashCollected: 'Tiền đã thực nhận về trong khoảng ngày.',
+  platformFee: 'Phí sàn lấy theo đối soát. Ngày chưa đối soát đang tính 0.',
+  paymentFee: 'Phí cổng thanh toán chưa được thu thập, đang tính 0.',
+  shippingFee: 'Chi phí vận chuyển của đơn tự giao chưa được thu thập, đang tính 0.',
+  cogs: 'Giá vốn của hàng đã bán trong khoảng ngày.',
+  profit: 'Doanh thu trừ phí sàn, phí cổng, phí vận chuyển và giá vốn.',
+};
+
 /** Cột số còn hiện: Giá vốn, Lãi ẩn khi dữ liệu là `null` (AC-B5) */
 const figureKeys = (withCost: boolean) => FIGURE_KEYS.filter((k) => withCost || !COST_KEYS.includes(k));
 
@@ -104,6 +118,7 @@ export function ReportPage() {
   const shopFilter = useReportShopOptions(range);
   const daily = useReportDaily(dailyParams);
   const exporter = useExportReport();
+  const { startTour } = usePageGuide('reports', { ready: !overview.isPending });
 
   const update = (patch: Record<string, string | undefined>) =>
     setParams(
@@ -156,11 +171,13 @@ export function ReportPage() {
       <PageHeader
         title="Báo cáo kinh doanh"
         subtitle={rangeText ?? 'Doanh thu, chi phí và lãi theo khoảng ngày.'}
+        help="Doanh thu, phí và lãi theo khoảng ngày; xem theo ngày, theo nguồn bán hoặc từng gian hàng."
+        onTour={startTour}
         action={
           can(PERMISSIONS.reportExport) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button disabled={exporter.isPending}>
+                <Button disabled={exporter.isPending} data-guide="report-export">
                   {exporter.isPending ? <Loader2 className="animate-spin" aria-label="Đang xuất" /> : <Download />}
                   Xuất CSV
                 </Button>
@@ -177,17 +194,25 @@ export function ReportPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Khoảng ngày">
+      <div
+        className="mb-4 inline-flex max-w-full flex-wrap gap-0.5 rounded-md border bg-card p-0.5"
+        role="group"
+        aria-label="Khoảng ngày"
+        data-guide="report-range"
+      >
         {PRESETS.map((p) => (
-          <Button
+          <button
             key={p}
-            size="sm"
-            variant={activePreset === p ? 'default' : 'outline'}
+            type="button"
             aria-pressed={activePreset === p}
             onClick={() => choosePreset(p)}
+            className={cn(
+              'h-7 rounded-[5px] px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground',
+              activePreset === p && 'bg-accent font-medium text-accent-foreground',
+            )}
           >
             {PRESET_LABELS[p]}
-          </Button>
+          </button>
         ))}
       </div>
       {(customOpen || hasRangeError) && (
@@ -208,10 +233,11 @@ export function ReportPage() {
         !hasRangeError && (
           <>
             <Overview data={overview.data} loading={overview.isLoading} companyId={companyId} canOpenSettlements={canOpenSettlements} />
-            <Card className="mb-6 gap-0">
-              <CardHeader className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <CardTitle>Theo ngày</CardTitle>
-                <div className="flex flex-col gap-3 md:flex-row">
+            <Panel
+              className="mb-4"
+              title="Theo ngày"
+              extra={
+                <div className="flex flex-col gap-3 py-1 md:flex-row" data-guide="report-filters">
                   <FilterSelect
                     label="Nguồn"
                     value={source ?? ''}
@@ -226,8 +252,8 @@ export function ReportPage() {
                     options={shopOptions(shopFilter.data?.items ?? [])}
                   />
                 </div>
-              </CardHeader>
-              <CardContent className="pt-4">
+              }
+            >
                 {daily.isError ? (
                   <AlertMessage severity="error">{problemMessage(daily.error)}</AlertMessage>
                 ) : daily.isLoading ? (
@@ -235,8 +261,7 @@ export function ReportPage() {
                 ) : (
                   <DailyChart items={daily.data?.items ?? []} />
                 )}
-              </CardContent>
-            </Card>
+            </Panel>
             <ShopTable data={shops.data} loading={shops.isLoading} />
             <SelfApprovalTable key={`${from}-${to}`} companyId={companyId} range={range} />
           </>
@@ -314,30 +339,30 @@ function Overview({
 }) {
   if (loading || !data) {
     return (
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <KpiStrip label="Tổng quan" className="mb-4">
         {FIGURE_KEYS.map((k) => (
-          <Skeleton key={k} className="h-24" />
+          <Kpi key={k} label={FIGURE_LABELS[k]} value={null} loading />
         ))}
-      </div>
+      </KpiStrip>
     );
   }
   return (
-    <div className="mb-6 grid gap-3">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Tổng quan">
-        {figureKeys(hasCost(data)).map((k) => (
-          <Card key={k} className="gap-1 py-4" data-figure={k}>
-            <CardContent className="px-4">
-              <p className="text-sm text-muted-foreground">{FIGURE_LABELS[k]}</p>
-              <Money value={data[k] ?? 0} className="text-xl font-semibold" />
-            </CardContent>
-          </Card>
-        ))}
+    <div className="mb-4 grid gap-3">
+      <div data-guide="report-kpis">
+        <KpiStrip label="Tổng quan">
+          {figureKeys(hasCost(data)).map((k) => (
+            <Kpi
+              key={k}
+              data-figure={k}
+              label={FIGURE_LABELS[k]}
+              help={FIGURE_HELP[k]}
+              value={<Money value={data[k] ?? 0} className="text-xl" />}
+            />
+          ))}
+        </KpiStrip>
       </div>
       <p className="text-sm text-muted-foreground">
         {data.asOf ? `Số liệu tính lúc ${formatDate(data.asOf, 'HH:mm DD/MM/YYYY')}` : 'Chưa có số liệu trong khoảng này'}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        Phí cổng thanh toán và chi phí vận chuyển của đơn tự giao chưa được thu thập, đang tính 0
       </p>
       {data.feesPending && (
         <AlertMessage severity="warning">
@@ -385,13 +410,17 @@ function DailyChart({ items }: { items: (ReportFigures & { day: string })[] }) {
     <div className="h-72 w-full" data-testid="daily-chart">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={items} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border" />
           <XAxis dataKey="day" tickFormatter={(d: string) => formatDate(d, 'DD/MM')} tick={{ fontSize: 12 }} minTickGap={16} />
           <YAxis tickFormatter={(v: number) => compact.format(v)} tick={{ fontSize: 12 }} width={56} />
           <ChartTooltip
-            labelFormatter={(d) => dayText(String(d))}
-            formatter={(value) => formatCurrency(Number(value))}
-            contentStyle={{ borderRadius: 8, fontSize: 13 }}
+            content={({ active, payload, label }) => (
+              <ChartTip
+                active={active}
+                label={label ? dayText(String(label)) : undefined}
+                rows={(payload ?? []).map((p) => ({ name: String(p.name), value: Number(p.value), color: p.color }))}
+              />
+            )}
           />
           <Legend />
           {lines.map((l) => (
@@ -443,17 +472,20 @@ function ShopTable({ data, loading }: { data?: { items: ShopFigures[]; total: Re
     ));
 
   return (
-    <Card className="gap-0">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Lãi theo gian hàng</CardTitle>
+    <Panel
+      title="Lãi theo gian hàng"
+      flush
+      extra={
         <div className="flex items-center gap-2">
           <Switch id="group-source" checked={grouped} onCheckedChange={setGrouped} />
           <Label htmlFor="group-source">Gộp theo nguồn</Label>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4">
+      }
+    >
         {loading ? (
-          <Skeleton className="h-40 w-full" />
+          <div className="p-4">
+            <Skeleton className="h-40 w-full" />
+          </div>
         ) : (
           <Table aria-label="Lãi theo gian hàng">
             <TableHeader>
@@ -523,7 +555,6 @@ function ShopTable({ data, loading }: { data?: { items: ShopFigures[]; total: Re
             )}
           </Table>
         )}
-      </CardContent>
-    </Card>
+    </Panel>
   );
 }

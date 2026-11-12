@@ -23,6 +23,7 @@ import { CompanyListPage } from '@/features/platform/CompanyListPage';
 import { PlatformAuditLogPage } from '@/features/platform/PlatformAuditLogPage';
 import { ModuleSettingsPage } from '@/features/company/ModuleSettingsPage';
 import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
+import { DeadJobsPage } from '@/features/company/DeadJobsPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
@@ -33,8 +34,6 @@ import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
 import { ProductFormPage } from '@/features/catalog/ProductFormPage';
 import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
-import { PricelistListPage } from '@/features/pricing/PricelistListPage';
-import { PricelistDetailPage } from '@/features/pricing/PricelistDetailPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
 import { PurchasingPage } from '@/features/purchasing/PurchasingPage';
@@ -187,6 +186,14 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: 'admin/dead-jobs',
+                    element: (
+                      <RequireModule module="platform" permission={PERMISSIONS.jobManage}>
+                        <DeadJobsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
                     path: 'catalog',
                     element: (
                       <RequireModule module="catalog" permission={PERMISSIONS.productView}>
@@ -216,22 +223,6 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="catalog" permission={PERMISSIONS.catalogSetup}>
                         <CatalogSetupPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'pricing',
-                    element: (
-                      <RequireModule module="pricing" permission={PERMISSIONS.pricelistView}>
-                        <PricelistListPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'pricing/:pricelistId',
-                    element: (
-                      <RequireModule module="pricing" permission={PERMISSIONS.pricelistView}>
-                        <PricelistDetailPage />
                       </RequireModule>
                     ),
                   },
@@ -427,7 +418,7 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
-                  { path: 'pricing/pending-prices', element: <RequireModule module="channel" permission={PERMISSIONS.listingManage}><PendingPricesPage /></RequireModule> },
+                  { path: 'channel/pending-prices', element: <RequireModule module="channel" permission={PERMISSIONS.listingManage}><PendingPricesPage /></RequireModule> },
                   { path: 'finance/configs', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigsPage /></RequireModule> },
                   { path: 'finance/configs/:id', element: <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}><FinanceConfigDetailPage /></RequireModule> },
                   {

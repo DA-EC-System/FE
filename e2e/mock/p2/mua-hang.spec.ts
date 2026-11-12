@@ -43,10 +43,37 @@ test.describe('P2 · Mua hàng', () => {
       await toast(page, 'Đã lập phiếu nhận');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
       await page.getByLabel(/^Báo giao /).first().fill('1');
+      await page.getByLabel(/^Đạt /).first().fill('0');
+      // Đạt ít hơn báo giao: dòng có vạch chênh và nhãn Chênh giải thích (FE#137)
+      const dong = page.getByTestId('receipt-lines').locator('tbody tr').first();
+      await expect(dong).toHaveClass(/\bchg\b/);
+      await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /thiếu 1/);
       await page.getByLabel(/^Đạt /).first().fill('1');
+      // Giao một phần vẫn là chênh với số còn chờ, nhưng hết thiếu
+      await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /: NCC báo giao 1, còn chờ \d+\.$/);
+      // Dòng chưa giao lần này không bị đánh dấu
+      const dong2 = page.getByTestId('receipt-lines').locator('tbody tr').nth(1);
+      await expect(dong2).not.toHaveClass(/\bchg\b/);
+      await expect(dong2.getByTestId('receipt-diff')).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Ghi sổ', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
       await thaoTac(page, 'Ghi sổ');
       await expect(page.getByTestId('receipt-status')).toContainText('Khớp');
+    });
+
+    test('loại dòng của đề nghị người khác lập: bắt buộc lý do, lý do hiện dưới dòng bị loại (US-NH-03; BE#243)', async ({ page }) => {
+      await moTab(page, 'Đề nghị nhập', 'DN-000004');
+      await thaoTac(page, 'Gửi duyệt');
+      await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
+      const dong = page.getByTestId('request-lines').locator('tbody tr').first();
+      await dong.getByRole('button', { name: 'Loại dòng', exact: true }).click();
+      const hop = page.getByRole('dialog');
+      await hop.getByRole('textbox').fill('NCC báo hết mẫu này');
+      await hop.getByRole('button', { name: 'Loại dòng', exact: true }).click();
+      await expect(dong).toContainText('Đã loại');
+      await expect(dong.getByTestId('excluded-reason')).toHaveText('Lý do loại: NCC báo hết mẫu này');
+      // Lấy lại dòng thì hết lý do
+      await dong.getByRole('button', { name: 'Lấy lại dòng', exact: true }).click();
+      await expect(dong.getByTestId('excluded-reason')).toHaveCount(0);
     });
 
     test('người gửi phiếu trả không tự ghi kết quả từ NCC (B4)', async ({ page }) => {
@@ -60,7 +87,7 @@ test.describe('P2 · Mua hàng', () => {
 
     test('tồn dưới ngưỡng: thêm vào đề nghị nhập nháp (B2 → A1)', async ({ page }) => {
       await menu(page, 'Kho');
-      await page.getByRole('button', { name: /Nên nhập lại/ }).click();
+      await page.getByRole('tab', { name: /Nên nhập lại/ }).click();
       await page
         .locator('tbody tr[data-row-id]')
         .first()
@@ -106,6 +133,19 @@ test.describe('P2 · Mua hàng', () => {
       await expect(page.getByTestId('receipt-status')).toContainText('Khớp');
       await expect(page.getByRole('button', { name: 'Ghi sổ', exact: true })).toHaveCount(0);
     });
+
+    test('lập phiếu nhận giao bù: chọn phiếu Giao thiếu của cùng đề nghị, phiếu mới hiện phiếu được bù (A2; BE#244)', async ({ page }) => {
+      await moTab(page, 'Đề nghị nhập', 'DN-000002');
+      await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
+      const hop = page.getByRole('dialog');
+      await hop.getByLabel('Giao bù cho phiếu', { exact: true }).click();
+      await page.getByRole('option', { name: 'NH-000001 (giao thiếu)', exact: true }).click();
+      await hop.getByRole('button', { name: 'Lập phiếu', exact: true }).click();
+      await toast(page, 'Đã lập phiếu nhận');
+      await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
+      await thayChu(page, 'Giao bù cho phiếu');
+      await expect(page.getByRole('link', { name: 'NH-000001', exact: true })).toBeVisible();
+    });
   });
 
   test.describe('Mua hàng ↔ CEO', () => {
@@ -127,7 +167,23 @@ test.describe('P2 · Mua hàng', () => {
       await moTab(page, 'Trả NCC', 'TN-000002');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-      await expect(page.getByRole('button', { name: 'Duyệt và gửi', exact: true })).toHaveCount(0);
+      // Thiếu quyền duyệt: nút vẫn hiện nhưng mờ, kèm lý do (FE#137)
+      const duyet = page.getByRole('button', { name: 'Duyệt và gửi', exact: true });
+      await expect(duyet).toHaveAttribute('aria-disabled', 'true');
+      await expect(duyet).toHaveAttribute('data-blocked-reason', 'Bạn không có quyền này.');
+    });
+
+    test('Mua hàng xem đề nghị chờ duyệt: nút Duyệt mờ kèm lý do (A1; FE#137)', async ({ page }) => {
+      await dangNhap(page, 'muahang@commerio.vn', 'muahang');
+      await moTab(page, 'Đề nghị nhập', 'DN-000003');
+      await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
+      const duyet = page.getByRole('button', { name: 'Duyệt', exact: true });
+      await expect(duyet).toHaveAttribute('aria-disabled', 'true');
+      await expect(duyet).toHaveAttribute('data-blocked-reason', 'Bạn không có quyền này.');
+      await duyet.hover();
+      await expect(page.getByRole('tooltip')).toContainText('Bạn không có quyền này');
+      // Thiếu quyền không phải chặn của quy trình nên không liệt kê dưới thanh bước
+      await expect(page.getByTestId('lifecycle-blocked')).toHaveCount(0);
     });
 
     // Đăng nhập lại tải trang làm mock về dữ liệu đầu, nên phần CEO duyệt chạy trong một phiên

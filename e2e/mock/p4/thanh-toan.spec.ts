@@ -102,7 +102,7 @@ test.describe('P4 · Thanh toán', () => {
       });
       await page.getByRole('dialog').getByRole('button', { name: 'Tạo mã', exact: true }).click();
       await expect(page.getByRole('dialog')).toHaveCount(0);
-      await expect(khung(page)).toContainText('Đơn đã có mã thanh toán còn hiệu lực');
+      await toast(page, 'Đơn đã có mã thanh toán còn hiệu lực');
     });
 
     test('mã cũ hết hạn thì cho tạo lại; lịch sử mã thu gọn mặc định', async ({ page }) => {

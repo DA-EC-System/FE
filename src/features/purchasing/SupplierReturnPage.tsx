@@ -14,7 +14,7 @@ import { RowAction } from '@/components/common/RowAction';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useSaveSupplierReturn, useSupplierReturn, useSupplierReturnAction, useSuppliers } from '@/api/purchasing.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { codeMessage, problemMessage } from '@/api/problemMessages';
+import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,7 +50,8 @@ import {
   type ReturnFormInput,
   type ReturnFormOutput,
 } from './shared';
-import { DocLink, Info, PageError, PageLoading, beforeUnloadGuard } from './parts';
+import { DetailGrid, DocLink, Info, PageError, PageLoading, beforeUnloadGuard, blockedText, withApprovalHint } from './parts';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const toForm = (r: SupplierReturn): ReturnFormInput => ({
@@ -99,6 +100,7 @@ export function SupplierReturnPage() {
   const query = useSupplierReturn(isNew ? undefined : returnId);
   const ret = query.data;
   useBreadcrumb(isNew ? 'Lập phiếu trả' : ret?.number);
+  const { startTour } = usePageGuide('supplier-return', { ready: isNew || Boolean(ret) });
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
   const editable = canManage && (isNew || ret?.status === 'draft');
 
@@ -156,7 +158,8 @@ export function SupplierReturnPage() {
     lineCount: lines.length,
     hasSupplier: Boolean(supplierId),
   };
-  const options = supplierReturnMachine.options(ret?.status ?? 'draft', actor, record);
+  const baseOptions = supplierReturnMachine.options(ret?.status ?? 'draft', actor, record);
+  const options = ret ? withApprovalHint(supplierReturnMachine, ret.status, baseOptions) : baseOptions;
 
   const handleError = (e: unknown) => {
     const problem = getProblem(e);
@@ -271,14 +274,19 @@ export function SupplierReturnPage() {
   const colCount = 3 + (showCost ? 1 : 0) + (editable ? 1 : 0);
   const supplierOptions = (suppliersQuery.data ?? []).filter((s) => s.active || s.id === supplierId);
   const canReplace = ret?.status === 'replaced' && !ret.replacementRequest && canRequest;
+  const lifecycleBlocked = options.flatMap(({ transition: t, blocked }) =>
+    blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
+  );
 
   return (
     <div>
       <PageHeader
         title={ret ? `Phiếu trả NCC ${ret.number}` : 'Lập phiếu trả NCC'}
-        subtitle="Trả hàng lỗi đang ở chờ xử lý cho nhà cung cấp. CEO duyệt và gửi; người khác người gửi ghi kết quả."
+        subtitle="Trả hàng lỗi đang chờ xử lý cho nhà cung cấp."
+        help="Lập phiếu từ hàng chờ xử lý rồi gửi duyệt. CEO duyệt và gửi hàng cho NCC. Người khác người gửi ghi kết quả: NCC hoàn tiền, bù hàng hoặc không nhận. NCC bù hàng thì lập đề nghị bù hàng ngay từ phiếu này."
+        onTour={startTour}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-guide="sr-actions">
             <Button variant="outline" onClick={backToList}>
               <ArrowLeft />
               Danh sách
@@ -290,7 +298,7 @@ export function SupplierReturnPage() {
               </Button>
             )}
             {canReplace && ret && (
-              <Button onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId, ret.id))}>
+              <Button data-guide="sr-replace" onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId, ret.id))}>
                 <FilePlus2 />
                 Lập đề nghị bù hàng
               </Button>
@@ -302,7 +310,7 @@ export function SupplierReturnPage() {
                   key={t.action}
                   variant={danger || t.action === 'send_back' ? 'outline' : 'default'}
                   className={cn(danger && 'text-destructive hover:text-destructive')}
-                  blockedReason={blocked && codeMessage(blocked)}
+                  blockedReason={blockedText(t.action, blocked)}
                   disabled={busy}
                   onClick={() => onActionClick(t.action)}
                 >
@@ -322,192 +330,192 @@ export function SupplierReturnPage() {
 
       {ret && (
         <Card className="mb-4 py-4">
-          <CardContent className="mb-2 border-b pb-4">
+          <CardContent>
             <LifecycleSteps
               path={RETURN_PATH}
               current={ret.status}
               history={ret.statusHistory}
               statuses={RETURN_STATUS}
               isFinal={supplierReturnMachine.isFinal}
-              blocked={options.flatMap(({ transition: t, blocked }) =>
-                blocked ? [{ label: t.label, reason: codeMessage(blocked) }] : [],
-              )}
+              blocked={lifecycleBlocked}
             />
           </CardContent>
-          <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Info label="Trạng thái">
-              <div data-testid="return-status">
-                <StatusBadge status={ret.status} statuses={RETURN_STATUS} />
-              </div>
-            </Info>
-            <Info label="Nguồn">{ret.source ? <DocLink companyId={companyId} docRef={ret.source} /> : 'Lập tay'}</Info>
-            <Info label="Người lập">
-              {ret.createdBy} · {formatDateTime(ret.createdAt)}
-            </Info>
-            <Info label="Gửi">{ret.sentAt ? `${ret.sentBy} · ${formatDateTime(ret.sentAt)}` : '—'}</Info>
-            {ret.refundAmount !== null && <Info label="NCC hoàn">{formatCurrency(ret.refundAmount)}</Info>}
-            {ret.replacementRequest && (
-              <Info label="Đề nghị bù hàng">
-                <DocLink companyId={companyId} docRef={ret.replacementRequest} />
-              </Info>
-            )}
-            {ret.cancelDecision && <Info label="Xử lý khi huỷ">{CANCEL_DECISION_LABELS[ret.cancelDecision]}</Info>}
-            {ret.followUps.length > 0 && (
-              <Info label="Phiếu sinh tiếp">
-                <div className="flex flex-wrap gap-x-3">
-                  {ret.followUps.map((f) => (
-                    <DocLink key={f.id} companyId={companyId} docRef={f} />
-                  ))}
+        </Card>
+      )}
+
+      <DetailGrid
+        history={
+          ret && ret.statusHistory.length > 0 ? (
+            <StatusTimeline history={ret.statusHistory} statuses={RETURN_STATUS} />
+            ) : undefined
+          }
+        >
+        {ret && (
+          <Card className="py-4">
+            <CardContent className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Info label="Trạng thái">
+                <div data-testid="return-status">
+                  <StatusBadge status={ret.status} statuses={RETURN_STATUS} />
                 </div>
               </Info>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="py-4">
-        <CardContent className="grid gap-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="ret-supplier">Nhà cung cấp</Label>
-              {editable ? (
-                <Select
-                  value={supplierId}
-                  disabled={suppliersQuery.isLoading}
-                  onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true })}
-                >
-                  <SelectTrigger id="ret-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
-                    <SelectValue
-                      placeholder={
-                        suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp (bắt buộc khi gửi duyệt)'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supplierOptions.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
+              <Info label="Nguồn">{ret.source ? <DocLink companyId={companyId} docRef={ret.source} /> : 'Lập tay'}</Info>
+              <Info label="Người lập">
+                {ret.createdBy} · {formatDateTime(ret.createdAt)}
+              </Info>
+              <Info label="Gửi">{ret.sentAt ? `${ret.sentBy} · ${formatDateTime(ret.sentAt)}` : '—'}</Info>
+              {ret.refundAmount !== null && <Info label="NCC hoàn">{formatCurrency(ret.refundAmount)}</Info>}
+              {ret.replacementRequest && (
+                <Info label="Đề nghị bù hàng">
+                  <DocLink companyId={companyId} docRef={ret.replacementRequest} />
+                </Info>
+              )}
+              {ret.cancelDecision && <Info label="Xử lý khi huỷ">{CANCEL_DECISION_LABELS[ret.cancelDecision]}</Info>}
+              {ret.followUps.length > 0 && (
+                <Info label="Phiếu sinh tiếp">
+                  <div className="flex flex-wrap gap-x-3">
+                    {ret.followUps.map((f) => (
+                      <DocLink key={f.id} companyId={companyId} docRef={f} />
                     ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-sm">{ret?.supplier?.name ?? '—'}</p>
+                  </div>
+                </Info>
               )}
-              {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="ret-note">Ghi chú</Label>
-              {editable ? (
-                <Textarea id="ret-note" rows={1} aria-invalid={Boolean(errors.note)} {...register('note')} />
-              ) : (
-                <p className="text-sm whitespace-pre-line">{ret?.note || '—'}</p>
-              )}
-              {errors.note && <p className="text-sm text-destructive">{errors.note.message}</p>}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+        )}
 
-          {editable && (
-            <VariantPicker
-              taken={taken}
-              disabled={busy}
-              onPick={(level) => {
-                if (level.quarantine <= 0) {
-                  toast.warning(`${level.sku} không có hàng chờ xử lý để trả`);
-                  return;
-                }
-                append({
-                  variantId: level.variantId,
-                  sku: level.sku,
-                  productName: level.productName,
-                  attributesLabel: level.attributesLabel,
-                  quarantine: level.quarantine,
-                  quantity: String(level.quarantine),
-                });
-              }}
-            />
-          )}
-          {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
-
-          <div className="overflow-x-auto rounded-md border">
-            <Table data-testid="return-lines">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Biến thể</TableHead>
-                  <TableHead className="w-28 text-right">Chờ xử lý</TableHead>
-                  <TableHead className="w-32 text-right">Số trả</TableHead>
-                  {showCost && <TableHead className="w-36 text-right">Giá vốn</TableHead>}
-                  {editable && <TableHead className="w-12" />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!fields.length && (
-                  <TableRow>
-                    <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                      {editable ? 'Tìm biến thể có hàng chờ xử lý để thêm vào phiếu.' : 'Phiếu không có dòng nào.'}
-                    </TableCell>
-                  </TableRow>
+        <Card className="py-4">
+          <CardContent className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="ret-supplier">Nhà cung cấp</Label>
+                {editable ? (
+                  <Select
+                    value={supplierId}
+                    disabled={suppliersQuery.isLoading}
+                    onValueChange={(v) => setValue('supplierId', v, { shouldDirty: true })}
+                  >
+                    <SelectTrigger id="ret-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
+                      <SelectValue
+                        placeholder={
+                          suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp (bắt buộc khi gửi duyệt)'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supplierOptions.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm">{ret?.supplier?.name ?? '—'}</p>
                 )}
-                {fields.map((f, i) => {
-                  const line = ret?.lines[i];
-                  const err = errors.lines?.[i]?.quantity;
-                  return (
-                    <TableRow key={f.key} data-row-id={f.variantId} className="align-top">
-                      <TableCell>
-                        <p className="font-medium">{f.sku}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {f.productName}
-                          {f.attributesLabel ? ` · ${f.attributesLabel}` : ''}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-right">{formatQty(f.quarantine)}</TableCell>
-                      <TableCell className="text-right">
-                        {editable ? (
-                          <div className="grid gap-1">
-                            <Input
-                              {...register(`lines.${i}.quantity`)}
-                              aria-label={`Số trả ${f.sku}`}
-                              inputMode="numeric"
-                              aria-invalid={Boolean(err)}
-                              className="h-8 text-right"
-                            />
-                            {err && <p className="text-start text-xs text-destructive">{err.message}</p>}
-                          </div>
-                        ) : (
-                          formatQty(line?.quantity ?? 0)
-                        )}
-                      </TableCell>
-                      {showCost && (
-                        <TableCell className="text-right">
-                          {line?.unitCost === null || line?.unitCost === undefined ? '—' : formatCurrency(line.unitCost)}
-                        </TableCell>
-                      )}
-                      {editable && (
-                        <TableCell>
-                          <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
-                            <Trash2 />
-                          </RowAction>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
+              </div>
+              <div className="grid gap-1.5" data-guide="sr-note">
+                <Label htmlFor="ret-note">Ghi chú</Label>
+                {editable ? (
+                  <Textarea id="ret-note" rows={1} aria-invalid={Boolean(errors.note)} {...register('note')} />
+                ) : (
+                  <p className="text-sm whitespace-pre-line">{ret?.note || '—'}</p>
+                )}
+                {errors.note && <p className="text-sm text-destructive">{errors.note.message}</p>}
+              </div>
+            </div>
 
-      {ret && ret.statusHistory.length > 0 && (
-        <Card className="mt-4 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Lịch sử</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StatusTimeline history={ret.statusHistory} statuses={RETURN_STATUS} />
+            {editable && (
+              <VariantPicker
+                taken={taken}
+                disabled={busy}
+                onPick={(level) => {
+                  if (level.quarantine <= 0) {
+                    toast.warning(`${level.sku} không có hàng chờ xử lý để trả`);
+                    return;
+                  }
+                  append({
+                    variantId: level.variantId,
+                    sku: level.sku,
+                    productName: level.productName,
+                    attributesLabel: level.attributesLabel,
+                    quarantine: level.quarantine,
+                    quantity: String(level.quarantine),
+                  });
+                }}
+              />
+            )}
+            {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
+
+            <div className="overflow-x-auto rounded-md border" data-guide="sr-lines">
+              <Table data-testid="return-lines">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Biến thể</TableHead>
+                    <TableHead className="w-28 text-right">Chờ xử lý</TableHead>
+                    <TableHead className="w-32 text-right">Số trả</TableHead>
+                    {showCost && <TableHead className="w-36 text-right">Giá vốn</TableHead>}
+                    {editable && <TableHead className="w-12" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!fields.length && (
+                    <TableRow>
+                      <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
+                        {editable ? 'Tìm biến thể có hàng chờ xử lý để thêm vào phiếu.' : 'Phiếu không có dòng nào.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {fields.map((f, i) => {
+                    const line = ret?.lines[i];
+                    const err = errors.lines?.[i]?.quantity;
+                    return (
+                      <TableRow key={f.key} data-row-id={f.variantId} className="align-top">
+                        <TableCell>
+                          <p className="font-medium">{f.sku}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {f.productName}
+                            {f.attributesLabel ? ` · ${f.attributesLabel}` : ''}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right">{formatQty(f.quarantine)}</TableCell>
+                        <TableCell className="text-right">
+                          {editable ? (
+                            <div className="grid gap-1">
+                              <Input
+                                {...register(`lines.${i}.quantity`)}
+                                aria-label={`Số trả ${f.sku}`}
+                                inputMode="numeric"
+                                aria-invalid={Boolean(err)}
+                                className="h-8 text-right"
+                              />
+                              {err && <p className="text-start text-xs text-destructive">{err.message}</p>}
+                            </div>
+                          ) : (
+                            formatQty(line?.quantity ?? 0)
+                          )}
+                        </TableCell>
+                        {showCost && (
+                          <TableCell className="text-right">
+                            {line?.unitCost === null || line?.unitCost === undefined ? '—' : formatCurrency(line.unitCost)}
+                          </TableCell>
+                        )}
+                        {editable && (
+                          <TableCell>
+                            <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                              <Trash2 />
+                            </RowAction>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
-      )}
+      </DetailGrid>
 
       <ConfirmDialog
         open={Boolean(confirmText)}

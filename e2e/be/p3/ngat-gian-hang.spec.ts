@@ -64,24 +64,43 @@ test.describe('P3-BE · Ngắt gian hàng còn đơn chưa xong (§18.6.1)', () 
     const disconnect = page.waitForResponse(
       (r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(`/channel/shops/${SHOP_ID}/disconnect`),
     );
-    await dong.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
-    const alert = page.getByRole('alertdialog');
-    await alert.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+    // Ngắt từ menu "..." của dòng, gõ NGAT để xác nhận
+    const moNgat = async () => {
+      await dong.getByRole('button', { name: /^Thao tác khác với / }).click();
+      await page.getByRole('menuitem', { name: 'Ngắt kết nối', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel(/để xác nhận/).fill('NGAT');
+      await dialog.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+    };
+    await moNgat();
     const res = await disconnect;
     expect(res.status()).toBe(409);
-    const body = (await res.json()) as { code?: string; openOrders?: number };
+    const body = (await res.json()) as {
+      code?: string;
+      openOrders?: number;
+      orders?: { id: string; code: string; externalOrderId: string | null }[];
+    };
     expect(body.code).toBe('shop_has_open_orders');
     expect(body.openOrders).toBeGreaterThanOrEqual(1);
+    // §18.7: mỗi đơn có id, code, externalOrderId; dòng đầu mở đúng đơn
+    const blockedRows = page.locator('[data-testid=disconnect-blocked] tbody tr[data-order-id]');
+    if (body.orders?.length) {
+      expect(Object.keys(body.orders[0]).sort()).toEqual(expect.arrayContaining(['code', 'externalOrderId', 'id']));
+      await expect(blockedRows.first().getByRole('link', { name: body.orders[0].code, exact: true })).toHaveAttribute(
+        'href',
+        `/c/${companyId}/sales/orders/${body.orders[0].id}`,
+      );
+    }
 
-    await thayChu(alert, `Còn ${body.openOrders} đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.`);
-    const link = alert.getByRole('link', { name: 'Xem đơn của gian hàng' });
+    const blocked = page.locator('[data-testid=disconnect-blocked]');
+    await thayChu(blocked, `Còn ${body.openOrders} đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.`);
+    const link = blocked.getByRole('link', { name: 'Mở đơn bán', exact: true });
     await expect(link).toHaveAttribute('href', `/c/${companyId}/sales/orders?shopId=${SHOP_ID}`);
-    await alert.getByRole('button', { name: 'Huỷ', exact: true }).click();
+    await blocked.getByRole('button', { name: 'Đóng', exact: true }).first().click();
     await expect(trangThai).toHaveText(truoc ?? '');
 
     // Link mở trang Đơn bán lọc theo gian hàng
-    await dong.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
-    await alert.getByRole('button', { name: 'Ngắt kết nối', exact: true }).click();
+    await moNgat();
     await link.click();
     await expect.poll(() => new URL(page.url()).searchParams.get('shopId')).toBe(SHOP_ID);
     await expect(page.getByRole('combobox', { name: 'Gian hàng', exact: true })).toBeVisible();

@@ -19,6 +19,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # Token đọc repo Documents (private). Chưa đặt secret thì bỏ qua bước so ma trận quyền (FE#152).
+      DOCS_TOKEN: ${{ secrets.DOCS_READ_TOKEN }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -32,3 +35,15 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # FE#152: mock quyền, vai trò phải sinh từ Documents/kiem-thu/ma-tran-quyen.md; lệch thì fail
+      - name: Checkout Documents (ma trận quyền)
+        if: env.DOCS_TOKEN != ''
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: DA-EC-System/Documents
+          token: ${{ env.DOCS_TOKEN }}
+          path: _docs
+          sparse-checkout: kiem-thu
+      - name: So mock quyền với ma trận
+        if: env.DOCS_TOKEN != ''
+        run: node scripts/sinh-quyen-mock.mjs _docs/kiem-thu/ma-tran-quyen.md --check

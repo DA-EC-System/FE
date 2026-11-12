@@ -9,6 +9,7 @@ import {
   PackageX,
   Puzzle,
   ScrollText,
+  ServerCrash,
   ShieldCheck,
   ShoppingCart,
   CreditCard,
@@ -122,13 +123,6 @@ export function companyNav(companyId: string): NavSection[] {
           permission: PERMISSIONS.catalogSetup,
         },
         {
-          to: ROUTES.company.pricing(companyId),
-          label: 'Bảng giá',
-          icon: Tags,
-          module: 'pricing',
-          permission: PERMISSIONS.pricelistView,
-        },
-        {
           to: ROUTES.company.inventory(companyId),
           label: 'Kho',
           icon: Warehouse,
@@ -233,7 +227,7 @@ export function companyNav(companyId: string): NavSection[] {
           anyPermission: FINANCE_VIEW_ANY,
         },
         {
-          to: `/c/${companyId}/pricing/pending-prices`, label: 'Giá chờ xác nhận', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
+          to: `/c/${companyId}/channel/pending-prices`, label: 'Giá chờ xác nhận', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
         },
         {
           to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_VIEW_ANY,
@@ -277,6 +271,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: ScrollText,
           module: 'platform',
           permission: PERMISSIONS.auditView,
+        },
+        {
+          to: ROUTES.company.deadJobs(companyId),
+          label: 'Việc nền lỗi',
+          icon: ServerCrash,
+          module: 'platform',
+          permission: PERMISSIONS.jobManage,
         },
         {
           to: ROUTES.company.paymentGateways(companyId),

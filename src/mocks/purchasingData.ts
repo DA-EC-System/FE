@@ -81,6 +81,8 @@ export interface MockShortResolution {
 
 export interface MockGoodsReceipt {
   id: string;
+  /** Phiếu giao thiếu mà phiếu này giao bù (BE#244) */
+  followsUpReceiptId?: string | null;
   companyId: string;
   number: string;
   status: GoodsReceiptStatus;
@@ -259,7 +261,7 @@ export const requests: MockPurchaseRequest[] = [
     status: 'draft',
     supplierId: 'sup-003',
     note: '',
-    lines: [line('prl-007', 'prd-002-v1', 10, 190000)],
+    lines: [line('prl-007', 'prd-002-v1', 10, 190000), line('prl-008', 'prd-002-v2', 5, 190000)],
     createdBy: MUA.id,
     createdAt: '2026-10-26T03:00:00.000Z',
     version: 1,

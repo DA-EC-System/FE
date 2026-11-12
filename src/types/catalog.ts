@@ -80,6 +80,19 @@ export interface VariantAttribute {
   value: string;
 }
 
+/** Phần còn thiếu theo Documents/21 §17.1; name, category, image tính ở cha, còn lại theo SKU */
+export type VariantMissing = 'name' | 'category' | 'image' | 'price' | 'minQty' | 'weight' | 'dimensions';
+
+export const MISSING_LABELS: Record<VariantMissing, string> = {
+  name: 'tên',
+  category: 'danh mục',
+  image: 'ảnh',
+  price: 'giá chuẩn',
+  minQty: 'ngưỡng tồn',
+  weight: 'khối lượng',
+  dimensions: 'kích thước gói',
+};
+
 export interface ProductVariant {
   id: string;
   sku: string;
@@ -88,8 +101,18 @@ export interface ProductVariant {
   archivedAt: string | null;
   businessStatus: VariantBusinessStatus;
   readiness: VariantReadiness;
-  /** Phần còn thiếu khi Chờ hoàn thiện, vd ["Ảnh", "Giá chuẩn"] */
-  missing: string[];
+  /** Phần còn thiếu khi Chờ hoàn thiện (§17.1) */
+  missing: VariantMissing[];
+  /** Giá chuẩn là cột của SKU (D9); null là chưa đặt */
+  standardPrice: number | null;
+  /** Ngưỡng tồn đặt ở §15 (quyền inventory.reorder.manage), ở đây chỉ để xem */
+  minQty: number | null;
+  weightG: number | null;
+  lengthMm: number | null;
+  widthMm: number | null;
+  heightMm: number | null;
+  /** Version của SKU, gửi kèm PATCH §17.2 */
+  version: number;
   presence: VariantPresence;
   /** Số listing trên sàn, kể cả listing đang ẩn do tạm ngừng */
   listingCount: number;
@@ -170,4 +193,64 @@ export interface UploadTicket {
   uploadUrl: string;
   /** Header bắt buộc khi PUT lên uploadUrl, vd Content-Type */
   headers: Record<string, string>;
+}
+
+// ---------- Sửa hàng loạt SKU (FE#155, BE#242; hợp đồng đề xuất cho Documents/21 §17) ----------
+
+/** Các ô sửa được trong bảng sửa hàng loạt */
+export type BulkField = 'standardPrice' | 'minQty' | 'weightG' | 'lengthMm' | 'widthMm' | 'heightMm';
+
+/** BE tính gợi ý, không tự ghi. `basis` nói vì sao ra số này để người dùng kiểm */
+export interface BulkSuggestion {
+  value: number;
+  basis: string;
+}
+
+export interface BulkEditRow {
+  variantId: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  /** "Trắng / L"; rỗng khi sản phẩm một SKU */
+  attributesLabel: string;
+  categoryName: string;
+  version: number;
+  /** Version của ngưỡng tồn (§15), null khi SKU chưa đặt ngưỡng */
+  reorderVersion: number | null;
+  current: Record<BulkField, number | null>;
+  /** Đề nghị nhập gần nhất có SKU này; `lastCost` null khi không có quyền xem giá vốn */
+  source: { purchaseRequestNumber: string; supplierName: string; lastCost: number | null } | null;
+  suggestions: Partial<Record<BulkField, BulkSuggestion>>;
+}
+
+export interface BulkEditParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  categoryId?: string;
+  /** Chỉ SKU còn trống ít nhất một ô */
+  incomplete?: boolean;
+}
+
+/** Một dòng gửi lưu: chỉ các ô người dùng đã sửa hoặc đã nhận gợi ý; null là xoá giá trị */
+export type BulkSaveRow = {
+  variantId: string;
+  version: number;
+  reorderVersion?: number | null;
+} & Partial<Record<BulkField, number | null>>;
+
+export interface BulkSaveResult {
+  saved: { variantId: string; version: number }[];
+  /** Dòng lỗi không làm hỏng dòng khác; `errors` theo tên ô */
+  failed: { variantId: string; code: string; message: string; errors?: Partial<Record<BulkField, string>> }[];
+}
+
+/** PATCH /catalog/products/:id/variants/:variantId (§17.2). Bỏ trường là giữ nguyên, null là xoá */
+export interface VariantUpdateInput {
+  version: number;
+  standardPrice?: number | null;
+  weightG?: number | null;
+  lengthMm?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
 }

@@ -87,7 +87,7 @@ export function AppSidebar({ sections, activeTo, counts, brand }: AppSidebarProp
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader className="px-2 pt-3 pb-2">{brand}</SidebarHeader>
-      <SidebarContent className="gap-0 px-2">
+      <SidebarContent className="gap-0 px-2" data-guide="sidebar-nav">
         {sections.map((section) => {
           const open = iconOnly || !collapsed.has(section.title);
           const hasActive = section.title === activeGroup;

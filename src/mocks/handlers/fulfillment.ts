@@ -47,6 +47,9 @@ import { findOwned, rid } from './catalog';
 import {
   createReturnInspection,
   nextDocNumber,
+  parseScannedLines,
+  receivedLines,
+  type ScannedLine,
   registerAllocator,
   stockDocEntity,
   stockDocSnapshot,
@@ -75,7 +78,7 @@ export const MAX_REASON = 500;
 export const MAX_BULK = 50;
 
 export const orderOf = (p: MockPackage) => sales.orders.find((o) => o.id === p.orderId)!;
-export const packageEntity = (p: MockPackage) => ({ type: 'fulfillment.packages', id: p.id, label: p.code });
+export const packageEntity = (p: MockPackage) => ({ type: 'order.packages', id: p.id, label: p.code });
 const packageSnapshot = (p: MockPackage) => ({ code: p.code, status: p.status, flags: packageFlags(p) });
 
 export function packageFlags(p: MockPackage): PackageFlag[] {
@@ -252,7 +255,7 @@ registerAllocator(rebalancePackages);
 
 // ---------- Hàng rời kho, quay lại kho ----------
 
-function stockDoc(o: MockOrder, p: MockPackage, type: 'issue' | 'receipt', note: string, at: string, by: string, byName: string) {
+function stockDoc(o: MockOrder, p: MockPackage, type: 'shipment' | 'shipment_reversal', note: string, at: string, by: string, byName: string) {
   const doc: MockStockDoc = {
     id: rid('sd'),
     companyId: o.companyId,
@@ -263,7 +266,7 @@ function stockDoc(o: MockOrder, p: MockPackage, type: 'issue' | 'receipt', note:
     area: null,
     note,
     orderId: o.id,
-    source: { type: 'order', id: o.id, number: o.code },
+    source: { type: 'package', id: p.id, number: p.code },
     claimFlag: false,
     lines: p.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity, unitCost: null })),
     createdBy: by,
@@ -284,7 +287,7 @@ function stockDoc(o: MockOrder, p: MockPackage, type: 'issue' | 'receipt', note:
 export function leaveStock(p: MockPackage, at: string, actor: CompanyActor | null): DocRef {
   const o = orderOf(p);
   const by = actor?.account.id ?? 'system';
-  const doc = stockDoc(o, p, 'issue', `Bàn giao kiện ${p.code}`, at, by, actor?.account.fullName ?? '');
+  const doc = stockDoc(o, p, 'shipment', `Bàn giao kiện ${p.code}`, at, by, actor?.account.fullName ?? '');
   for (const l of p.lines) {
     const level = stockLevelOf(o.companyId, l.variantId);
     level.reserved = Math.max(0, level.reserved - l.quantity);
@@ -309,7 +312,7 @@ export function leaveStock(p: MockPackage, at: string, actor: CompanyActor | nul
 /** Đảo bàn giao: hàng quay lại kệ, giữ lại cho kiện */
 function backToStock(p: MockPackage, at: string, actor: CompanyActor) {
   const o = orderOf(p);
-  const doc = stockDoc(o, p, 'receipt', `Đảo bàn giao kiện ${p.code}`, at, actor.account.id, actor.account.fullName);
+  const doc = stockDoc(o, p, 'shipment_reversal', `Đảo bàn giao kiện ${p.code}`, at, actor.account.id, actor.account.fullName);
   for (const l of p.lines) stockLevelOf(o.companyId, l.variantId).reserved += l.quantity;
   p.handedOverAt = null;
   p.handedOverBy = null;
@@ -317,9 +320,9 @@ function backToStock(p: MockPackage, at: string, actor: CompanyActor) {
 }
 
 /** Hàng hoàn, kiện thất lạc tìm thấy: phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả NCC */
-function inspectReturn(p: MockPackage, note: string, at: string) {
+function inspectReturn(p: MockPackage, note: string, at: string, by: string, scanned: ScannedLine[] | null) {
   const o = orderOf(p);
-  createReturnInspection(o.companyId, { type: 'order', id: o.id, number: o.code }, p.lines, note, at);
+  createReturnInspection(o.companyId, { type: 'order', id: o.id, number: o.code }, receivedLines(p.lines, scanned), note, at, by);
   const row = payment.orderPayments.find((r) => r.orderId === o.id);
   if (row?.method === 'cod' && row.status === 'cod_pending' && !packagesOf(o).some((x) => x.status === 'delivered')) {
     row.status = 'not_collected';
@@ -863,7 +866,11 @@ export const fulfillmentHandlers = [
           errors: { code: `Mã quét không phải ${c.p.code}` },
         });
       }
-      return step(c, 'receive_return', { effect: () => inspectReturn(c.p, `Hàng hoàn kiện ${c.p.code}`, c.at) });
+      const scan = parseScannedLines(c.body.lines, c.o.companyId);
+      if (Object.keys(scan.errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors: scan.errors });
+      return step(c, 'receive_return', {
+        effect: () => inspectReturn(c.p, `Hàng hoàn kiện ${c.p.code}`, c.at, c.actor.account.id, scan.lines),
+      });
     }),
   ),
 
@@ -898,9 +905,13 @@ export const fulfillmentHandlers = [
   ),
 
   http.post(`${API}/fulfillment/packages/:id/found`, ({ params, request }) =>
-    withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) =>
-      step(c, 'found', { effect: () => inspectReturn(c.p, `Tìm thấy kiện thất lạc ${c.p.code}`, c.at) }),
-    ),
+    withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
+      const scan = parseScannedLines(c.body.lines, c.o.companyId);
+      if (Object.keys(scan.errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors: scan.errors });
+      return step(c, 'found', {
+        effect: () => inspectReturn(c.p, `Tìm thấy kiện thất lạc ${c.p.code}`, c.at, c.actor.account.id, scan.lines),
+      });
+    }),
   ),
 ];
 
@@ -988,7 +999,7 @@ registerMarketplaceEvent({
     'Sàn đẩy đơn mới, chưa thanh toán (UNPAID). Kiện giữ hàng ngay nếu đủ; SKU chưa ghép thì đơn mang cờ Chưa ghép SKU.',
   group: 'Đơn bán',
   needsShop: true,
-  param: { key: 'sku', label: 'SKU (người bán)', placeholder: 'Bỏ trống: listing đầu tiên đã ghép' },
+  param: { key: 'sku', label: 'SKU (người bán)', placeholder: 'Bỏ trống: sản phẩm đã ghép đầu tiên' },
   realtime: null,
   run({ companyId, shop, params }) {
     if (!shop) throw new Error('Chọn gian hàng');

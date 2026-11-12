@@ -22,10 +22,6 @@ test.describe('P2 · Cách ly dữ liệu giữa các công ty', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Không tìm thấy', exact: true })).toBeAttached();
     await expect(page.locator('main')).not.toContainText('Gạo ST25');
 
-    await page.goto('/c/cmp-001/pricing/pl-std-002');
-    await thayChu(page, 'Không tìm thấy');
-    await expect(page.locator('[data-price-input]')).toHaveCount(0);
-
     await page.goto('/c/cmp-001/inventory/documents/sd-101');
     await thayChu(page, 'Không tìm thấy');
     await expect(page.getByTestId('doc-lines')).toHaveCount(0);

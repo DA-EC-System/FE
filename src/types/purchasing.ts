@@ -242,6 +242,8 @@ export interface GoodsReceipt extends GoodsReceiptSummary {
   attachments: Attachment[];
   /** Người lập đề nghị: người ghi sổ phải khác */
   requestCreatedById: string;
+  /** Phiếu giao thiếu mà phiếu này giao bù (BE#244) */
+  followsUp: DocRef | null;
   shortResolution: ShortResolution | null;
   followUps: DocRef[];
   statusHistory: StatusChange<GoodsReceiptStatus>[];
@@ -251,6 +253,8 @@ export interface GoodsReceiptCreateInput {
   requestId: string;
   deliveryMode: DeliveryMode;
   note: string;
+  /** Phiếu `short` của cùng đề nghị mà phiếu mới giao bù (BE#244) */
+  followsUpReceiptId?: string;
 }
 
 export interface GoodsReceiptUpdateInput {

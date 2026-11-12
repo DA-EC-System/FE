@@ -17,6 +17,8 @@ import type { Attribute, Category } from '@/types/catalog';
 import { cartesian, comboKey, valueIndex } from './shared';
 
 export const MAX_VARIANTS = 100;
+/** Tối đa 2 trục phân loại như TikTok Shop, Shopee (Documents/25 §5.4, §17.4 too_many_axes) */
+export const MAX_AXES = 2;
 
 /** Thuộc tính đã chọn, giá trị đã chọn của từng thuộc tính, tổ hợp bị bỏ */
 export interface VariantPlan {
@@ -38,6 +40,7 @@ export function planCombos(plan: VariantPlan, attributes: Attribute[]): string[]
 
 /** Lỗi của kế hoạch biến thể, null nếu tạo được */
 export function planError(plan: VariantPlan, attributes: Attribute[]): string | null {
+  if (plan.attributeIds.length > MAX_AXES) return `Tối đa ${MAX_AXES} thuộc tính phân loại`;
   const empty = attributes.find((a) => plan.attributeIds.includes(a.id) && !plan.values[a.id]?.length);
   if (empty) return `Chọn ít nhất một giá trị cho ${empty.name}`;
   const count = planCombos(plan, attributes).filter((c) => !plan.excluded.includes(comboKey(c))).length;
@@ -65,8 +68,10 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
   const index = useMemo(() => valueIndex(attributes), [attributes]);
   const combos = useMemo(() => planCombos(value, attributes), [value, attributes]);
 
+  const axesFull = value.attributeIds.length >= MAX_AXES;
   const toggleAttribute = (id: string) => {
     const on = value.attributeIds.includes(id);
+    if (!on && axesFull) return;
     onChange({
       attributeIds: on ? value.attributeIds.filter((x) => x !== id) : [...value.attributeIds, id],
       values: { ...value.values, [id]: on ? [] : (value.values[id] ?? []) },
@@ -113,13 +118,16 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">
-        Chọn thuộc tính làm biến thể. Không chọn thuộc tính nào thì sản phẩm có một biến thể.
+        Chọn tối đa {MAX_AXES} thuộc tính làm biến thể (vd màu, cỡ). Không chọn thuộc tính nào thì sản phẩm có
+        một biến thể.
       </p>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Thuộc tính">
         {attributes.map((a) => (
           <ToggleChip
             key={a.id}
             on={value.attributeIds.includes(a.id)}
+            disabled={axesFull && !value.attributeIds.includes(a.id)}
+            title={axesFull && !value.attributeIds.includes(a.id) ? `Tối đa ${MAX_AXES} thuộc tính phân loại` : undefined}
             onClick={() => toggleAttribute(a.id)}
           >
             {a.name}
@@ -134,6 +142,11 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
           !attributes.length && <p className="text-sm text-muted-foreground">Công ty chưa có thuộc tính nào.</p>
         )}
       </div>
+      {axesFull && attributes.length > MAX_AXES && (
+        <p className="text-xs text-muted-foreground" data-testid="axes-limit">
+          Đã chọn đủ {MAX_AXES} thuộc tính phân loại. Bỏ một thuộc tính để chọn thuộc tính khác.
+        </p>
+      )}
 
       {attributes
         .filter((a) => value.attributeIds.includes(a.id))
@@ -204,11 +217,15 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
 function ToggleChip({
   on,
   small,
+  disabled,
+  title,
   onClick,
   children,
 }: {
   on: boolean;
   small?: boolean;
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -216,9 +233,11 @@ function ToggleChip({
     <button
       type="button"
       aria-pressed={on}
+      disabled={disabled}
+      title={title}
       onClick={onClick}
       className={cn(
-        'rounded-full border font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+        'rounded-full border font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
         small ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm',
         on
           ? 'border-primary bg-primary text-primary-foreground'

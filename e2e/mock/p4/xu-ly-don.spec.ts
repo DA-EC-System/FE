@@ -15,6 +15,13 @@ const menuThanhBen = (page: Page, label: string) =>
   page.locator('[data-sidebar="menu-button"]', { hasText: new RegExp(`^\\s*${label}\\s*$`) });
 /** Cha, phần tử ngay sau của phần tử chứa chữ (nhãn và giá trị đứng cạnh nhau) */
 const chaCua = (page: Page, text: string) => chua(page, text).locator('..');
+
+/** Câu giải thích trạng thái đơn nằm trong nút "?" cạnh nhãn (FE#138) */
+const giaiThichDon = async (page: Page, text: string) => {
+  await page.getByRole('button', { name: 'Giải thích: Trạng thái đơn', exact: true }).hover();
+  await expect(page.getByRole('tooltip')).toContainText(text);
+};
+
 const sauCua = (page: Page, text: string) => chua(page, text).locator('xpath=following-sibling::*[1]');
 
 /** Quét đủ mọi dòng của kiện ở màn đóng gói */
@@ -109,7 +116,7 @@ test.describe('P4 · Xử lý đơn', () => {
 
     test('đơn sàn khách đang xin huỷ: có ghi chú, chỉ trả lời yêu cầu, không tự huỷ', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1015');
-      await thayChu(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
+      await giaiThichDon(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Đang xử lý');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Sàn: AWAITING_COLLECTION');
       await expect(page.locator('[data-testid=cancel-request]')).toContainText('Khách xin huỷ đơn trên sàn');
@@ -259,10 +266,14 @@ test.describe('P4 · Xử lý đơn', () => {
       await nutKien(page, 'Đóng gói').click();
       await thayChu(page, 'Đóng gói kiện KH-000010', 'h1');
       await expect(page.getByRole('button', { name: 'Đóng gói', exact: true })).toBeDisabled();
+      // Tiến độ quét (FE#139)
+      await expect(page.locator('[data-testid=pack-progress]')).toContainText(/Đã quét 0\/\d+ món/);
       await page.locator('#scan-sku').fill('KHONG-CO');
       await page.locator('#scan-sku').press('Enter');
       await thayChu(page, 'KHONG-CO không có trong kiện');
       await quetDu(page);
+      await expect(page.locator('[data-testid=pack-progress]')).toContainText('100%');
+      await expect(page.getByRole('progressbar', { name: 'Tiến độ quét' })).toBeAttached();
       await page.getByRole('button', { name: 'Đóng gói', exact: true }).click();
       await toast(page, 'Đã đóng gói kiện KH-000010');
       await expect(trangThaiKien(page)).toContainText('Đã đóng gói');
@@ -353,7 +364,12 @@ test.describe('P4 · Xử lý đơn', () => {
       await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
       await toast(page, /Đã báo thất lạc KH-\d+, chờ người khác xác nhận/);
       await thayChu(page, 'mã khiếu nại KN-001. Cần người khác xác nhận.');
+      await expect(page.locator('[data-testid=package-warnings]')).toContainText('KN-001');
       await expect(trangThaiKien(page)).toContainText('Báo thất lạc');
+      // Cờ có tooltip, lịch sử ở cột phải (FE#139)
+      await page.locator('[data-flag=lost_reported]').hover();
+      await expect(page.getByRole('tooltip')).toContainText('cần một người khác xác nhận');
+      await expect(page.locator('[data-guide=detail-history] [data-testid=status-history]')).toBeAttached();
       // Người báo không tự xác nhận được: không còn nút nào
       await expect(page.getByRole('button', { name: 'Báo thất lạc', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Xác nhận thất lạc', exact: true })).toHaveCount(0);
@@ -366,26 +382,33 @@ test.describe('P4 · Xử lý đơn', () => {
   });
 
   test.describe('chia kiện (sơ đồ D2)', () => {
-    test('chia kiện hai món thành hai kiện', async ({ page }) => {
-      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await page.goto('/c/cmp-001/sales/orders/ord-1010');
-      await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(1);
-      await kienCuaDon(page).getByRole('button', { name: 'Chia kiện', exact: true }).click();
+    // FE#153: nút ở trang kiện, Kho không có sales.order.view vẫn chia được
+    test('kho chia kiện hai món thành hai kiện ở trang kiện', async ({ page }) => {
+      await dangNhap(page, 'kho@commerio.vn', 'kho');
+      await page.goto('/c/cmp-001/fulfillment/packages/pkg-1010');
+      const actions = page.locator('[data-testid=package-actions]');
+      await actions.getByRole('button', { name: 'Chia kiện', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('button', { name: 'Chia kiện', exact: true })).toBeDisabled();
       await dialog.locator('[data-testid=split-lines] tbody tr').first().locator('input').fill('1');
       await dialog.getByRole('button', { name: 'Chia kiện', exact: true }).click();
-      await toast(page, /Đã chia kiện KH-/);
-      await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(2);
-      await expect(page.locator('[data-testid=order-packages]').getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
+      await toast(page, 'Đã chia kiện KH-000010');
+      await expect(page.locator('[data-testid=package-lines] tbody tr')).toHaveCount(1);
+      await expect(actions.getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
     });
 
-    test('sale không có quyền kho thì không thấy nút chia kiện', async ({ page }) => {
+    test('trang đơn không còn nút chia kiện', async ({ page }) => {
+      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+      await page.goto('/c/cmp-001/sales/orders/ord-1010');
+      await expect(kienCuaDon(page)).toContainText('KH-000010');
+      await expect(page.getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
+    });
+
+    test('sale không có quyền kho thì không mở được kiện', async ({ page }) => {
       await dangNhap(page, 'sale@commerio.vn', 'sale');
       await page.goto('/c/cmp-001/sales/orders/ord-1010');
       await expect(kienCuaDon(page)).toContainText('KH-000010');
       await expect(kienCuaDon(page).locator('a')).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Chia kiện', exact: true })).toHaveCount(0);
     });
   });
 
@@ -405,7 +428,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(kienCuaDon(page)).toContainText('Đã giao');
       await expect(kienCuaDon(page).getByRole('button', { name: 'Cập nhật giao', exact: true })).toHaveCount(0);
       await expect(page.locator('[data-testid=order-status]')).toContainText('Chờ hoàn tất');
-      await thayChu(page, 'Chưa hoàn tất:');
+      await expect(page.locator('[data-testid=completion-blocker]')).toContainText('Chưa hoàn tất:');
     });
 
     test('tự giao thất bại: bắt lý do, sau đó giao lại', async ({ page }) => {

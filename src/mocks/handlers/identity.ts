@@ -83,10 +83,10 @@ export function writeCompanyLog(
   });
 }
 
-export const roleEntity = (r: MockRole) => ({ type: 'access.roles', id: r.id, label: r.name });
+export const roleEntity = (r: MockRole) => ({ type: 'core.roles', id: r.id, label: r.name });
 export const roleSnapshot = (r: MockRole) => ({ name: r.name, permissions: [...r.permissions] });
 export const staffEntity = (m: MockMembership) => ({
-  type: 'staff.memberships',
+  type: 'core.memberships',
   id: m.accountId,
   label: toStaff(m).email,
 });

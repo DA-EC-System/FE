@@ -22,6 +22,7 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useCan } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
+import { usePageGuide } from '@/guides/usePageGuide';
 import type { Attribute, Category } from '@/types/catalog';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { AttributeFormDialog } from './AttributeFormDialog';
@@ -34,6 +35,7 @@ export function CatalogSetupPage() {
   const can = useCan();
   const canManage = can(PERMISSIONS.catalogSetup);
   const [tab, setTab] = useState<TabKey>('categories');
+  const { startTour } = usePageGuide('catalog-setup');
 
   const categoriesQuery = useCategories();
   const attributesQuery = useAttributes();
@@ -174,10 +176,13 @@ export function CatalogSetupPage() {
     <div>
       <PageHeader
         title="Danh mục & thuộc tính"
-        subtitle="Danh mục quyết định quy tắc SKU; thuộc tính dùng để tạo tổ hợp biến thể."
+        subtitle="Tạo danh mục trước, rồi tới thuộc tính."
+        help="Danh mục quyết định quy tắc sinh mã SKU của sản phẩm trong đó. Thuộc tính (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp biến thể."
+        onTour={startTour}
         action={
           canManage ? (
             <Button
+              data-guide="catalog-add"
               onClick={() =>
                 tab === 'categories' ? setCategoryForm({ item: null }) : setAttributeForm({ item: null })
               }
@@ -197,8 +202,12 @@ export function CatalogSetupPage() {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList>
-          <TabsTrigger value="categories">Danh mục</TabsTrigger>
-          <TabsTrigger value="attributes">Thuộc tính</TabsTrigger>
+          <TabsTrigger value="categories" data-guide="catalog-categories">
+            Danh mục
+          </TabsTrigger>
+          <TabsTrigger value="attributes" data-guide="catalog-attributes">
+            Thuộc tính
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="categories">
           <Card className="py-0">

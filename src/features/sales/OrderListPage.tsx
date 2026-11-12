@@ -9,7 +9,8 @@ import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useOrders } from '@/api/sales.api';
+import { useOrderTabCounts, useOrders } from '@/api/sales.api';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { useShops } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +37,7 @@ import { useUrlFilters } from '@/hooks/useUrlFilters';
 const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';
 const STATUS_TABS: OrderStatus[] = ['unpaid', 'processing', 'completed', 'cancelled'];
+const COUNT_TABS = ['all', ...STATUS_TABS] as const;
 
 /** Đơn hàng từ mọi nguồn: tab theo 4 trạng thái (sơ đồ D1), lọc theo giai đoạn suy từ kiện và cờ */
 export function OrderListPage() {
@@ -57,11 +59,8 @@ export function OrderListPage() {
   const shopId = f.params.get('shopId') ?? '';
   const shopsQuery = useShops({ enabled: can(PERMISSIONS.shopView) });
 
-  const query = useOrders({
-    page: f.page,
-    pageSize: f.pageSize,
+  const listFilters = {
     search: f.q || undefined,
-    status: status || undefined,
     source: source || undefined,
     shopId: shopId || undefined,
     paymentMethod: paymentMethod || undefined,
@@ -69,7 +68,12 @@ export function OrderListPage() {
     flag: flag || undefined,
     from: from || undefined,
     to: to || undefined,
-  });
+  };
+  const query = useOrders({ page: f.page, pageSize: f.pageSize, status: status || undefined, ...listFilters });
+  // Số trên tab theo bộ lọc đang chọn, giống chip đếm của Test_UI (FE#138)
+  const counts = useOrderTabCounts(listFilters, COUNT_TABS);
+  const { startTour } = usePageGuide('orders', { ready: !query.isLoading });
+  const countText = (n: number | undefined) => (n === undefined ? '' : n.toLocaleString('vi-VN'));
   const filtered = Boolean(f.q || source || shopId || paymentMethod || stage || flag || from || to);
 
   const columns = useMemo<ColumnDef<OrderSummary>[]>(
@@ -80,7 +84,7 @@ export function OrderListPage() {
         meta: { className: 'w-36' },
         cell: ({ row }) => (
           <div>
-            <p className="font-medium">{row.original.code}</p>
+            <p className="font-mono font-medium">{row.original.code}</p>
             {row.original.externalOrderId && (
               // Bấm chép mã đơn sàn không mở chi tiết đơn
               <div className="flex items-center gap-0.5 text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
@@ -190,6 +194,8 @@ export function OrderListPage() {
       <PageHeader
         title="Đơn hàng"
         subtitle="Đơn từ sàn, hộp thư và đơn tạo tay."
+        help="Số trên mỗi tab đếm theo bộ lọc đang chọn. Cột Trạng thái là giai đoạn suy từ các kiện; rê chuột vào nhãn để xem nghĩa."
+        onTour={startTour}
         // AC-R3: không có quyền tạo đơn thì không thấy nút
         actionLabel={canCreate ? 'Tạo đơn' : undefined}
         actionIcon={<Plus />}
@@ -197,11 +203,15 @@ export function OrderListPage() {
       />
       <Tabs value={status || ALL} onValueChange={(v) => f.update({ status: v === ALL ? undefined : v, page: undefined })}>
         <div className="mb-2 overflow-x-auto">
-          <TabsList>
-            <TabsTrigger value={ALL}>Tất cả</TabsTrigger>
+          <TabsList data-guide="order-tabs">
+            <TabsTrigger value={ALL}>
+              Tất cả
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">{countText(counts.all)}</span>
+            </TabsTrigger>
             {STATUS_TABS.map((s) => (
               <TabsTrigger key={s} value={s}>
                 {ORDER_STATUS[s].label}
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">{countText(counts[s])}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -212,8 +222,8 @@ export function OrderListPage() {
           {problemMessage(query.error)}
         </AlertMessage>
       )}
-      <Card className="gap-0 py-0">
-        <FilterBar>
+      <Card className="gap-0 py-0" data-guide="order-list">
+        <FilterBar guide="order-filters">
           <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, mã đơn sàn" />
           <FilterSelect
             label="Nguồn"

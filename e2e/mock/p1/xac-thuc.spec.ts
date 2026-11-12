@@ -33,9 +33,9 @@ test.describe('P1 · Xác thực và chặn trang', () => {
 
   test('F5 vẫn ở trang đang mở (AC-4)', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await page.goto('/c/cmp-001/pricing');
+    await page.goto('/c/cmp-001/sales/orders');
     await page.reload();
-    await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/pricing');
+    await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/sales/orders');
     await expect(page.locator('main')).not.toContainText('không có quyền');
   });
 
@@ -53,7 +53,7 @@ test.describe('P1 · Xác thực và chặn trang', () => {
     await expect(page.locator('body')).not.toContainText('hết hạn');
     // Cả refresh cũng hết
     await page.waitForTimeout(6500);
-    await menu(page, 'Bảng giá');
+    await menu(page, 'Khách hàng');
     await expect.poll(() => duongDan(page), { timeout: 10000 }).toBe('/login');
   });
 

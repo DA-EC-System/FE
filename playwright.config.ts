@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
  * E2E nghiệm thu theo phase (FE#18–22, FE#69).
  * - `mock`: Vite dev + MSW, dữ liệu trong bộ nhớ trang nên mỗi test có bộ dữ liệu riêng, chạy song song.
  * - `be`: gọi BE thật (Vite với VITE_USE_MOCKS=false), dùng chung DB, test sau dựa vào trạng thái test trước:
- *   chạy lần lượt một worker. Dựng dữ liệu trước bằng `e2e/be/seed/`.
+ *   chạy lần lượt một worker. Mỗi file tự đăng ký công ty giả qua API công khai (`e2e/be/congTyGia.ts`).
  * Playwright tự bật Vite; trên máy, nếu cổng 5173 đã có server thì dùng luôn server đó (nhóm `mock` cần server
  * bật mock). Đổi địa chỉ bằng PW_BASE_URL, vd chạy trên staging; khi đó không bật Vite.
  */
@@ -20,6 +20,11 @@ export default defineConfig({
     viewport: { width: 1366, height: 800 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Tắt tự hiện hướng dẫn lần đầu (FE#132) để pop-up không che spec cũ; spec hướng dẫn đặt lại storageState rỗng
+    storageState: {
+      cookies: [],
+      origins: [{ origin: new URL(baseURL).origin, localStorage: [{ name: 'commerio.guides', value: 'off' }] }],
+    },
   },
   webServer: process.env.PW_BASE_URL
     ? undefined
@@ -36,6 +41,6 @@ export default defineConfig({
       },
   projects: [
     { name: 'mock', testDir: 'e2e/mock', fullyParallel: true },
-    { name: 'be', testDir: 'e2e/be', testIgnore: 'seed/**', fullyParallel: false, workers: 1 },
+    { name: 'be', testDir: 'e2e/be', fullyParallel: false, workers: 1 },
   ],
 });

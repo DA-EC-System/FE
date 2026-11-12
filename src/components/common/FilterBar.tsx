@@ -12,8 +12,12 @@ import {
 import { cn } from '@/lib/utils';
 
 /** Hàng bộ lọc phía trên bảng */
-export function FilterBar({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col flex-wrap gap-3 p-4 md:flex-row md:items-end">{children}</div>;
+export function FilterBar({ children, guide }: { children: ReactNode; /** Đích của bước hướng dẫn (data-guide) */ guide?: string }) {
+  return (
+    <div className="flex flex-col flex-wrap gap-3 p-4 md:flex-row md:items-end" data-guide={guide}>
+      {children}
+    </div>
+  );
 }
 
 interface SearchInputProps {
@@ -52,6 +56,8 @@ interface FilterSelectProps {
   disabled?: boolean;
   /** Danh sách lựa chọn đang tải: khoá ô và hiện "Đang tải…" */
   loading?: boolean;
+  /** Đích của bước hướng dẫn trang (`data-guide`) */
+  guide?: string;
 }
 
 /** Ô chọn một giá trị lọc; chuỗi rỗng là không lọc */
@@ -64,9 +70,10 @@ export function FilterSelect({
   className,
   disabled,
   loading,
+  guide,
 }: FilterSelectProps) {
   return (
-    <div className={cn('grid gap-1.5', className)}>
+    <div className={cn('grid gap-1.5', className)} data-guide={guide}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)} disabled={disabled || loading}>
         <SelectTrigger className="w-full md:min-w-40" aria-label={label} aria-busy={loading || undefined}>

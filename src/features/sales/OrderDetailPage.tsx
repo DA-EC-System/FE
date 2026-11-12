@@ -6,7 +6,7 @@ import { PackageShipping } from '@/features/fulfillment/PackageShipping';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Pencil, Scissors, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Pencil, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -30,7 +30,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, packageButtons } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
-import type { CancelRequestDecision, Order } from '@/types/sales';
+import type { CancelRequestDecision, Order, OrderStatus } from '@/types/sales';
 import {
   COMPLETION_BLOCKER_LABELS,
   ORDER_STATUS,
@@ -40,7 +40,6 @@ import {
   sourceLabel,
 } from './shared';
 import { OrderStage } from './OrderStage';
-import { SplitPackageDialog } from './SplitPackageDialog';
 import { Info } from './Info';
 import { PaymentPanel } from './PaymentPanel';
 import { CONFLICT_CODES, CancelOrderDialog } from './CancelOrderDialog';
@@ -48,6 +47,10 @@ import { PlatformCancelDialog } from './PlatformCancelDialog';
 import { InvoiceNumberDialog } from './InvoiceNumberDialog';
 import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
+import { DetailGrid } from '@/components/common/DetailGrid';
+import { HelpTip } from '@/components/common/HelpTip';
+import { LifecycleSteps } from '@/components/common/LifecycleSteps';
+import { usePageGuide } from '@/guides/usePageGuide';
 import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
 import { OrderProfitCard } from '@/features/finance/OrderProfitCard';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
@@ -57,6 +60,9 @@ const orderRecord = (o: Order) => ({
   paymentMethod: o.paymentMethod,
   packages: o.packages.map((p) => p.status),
 });
+
+/** Thanh bước trên cùng: đường chính của trạng thái đơn (sơ đồ D1); Đã huỷ chen vào và dừng */
+const ORDER_PATH: OrderStatus[] = ['unpaid', 'processing', 'completed'];
 
 /** Chi tiết đơn (sơ đồ D1): kiện, dòng hàng, tiền, lịch sử; xác nhận, huỷ, chia kiện, cập nhật giao theo kiện */
 export function OrderDetailPage() {
@@ -69,12 +75,12 @@ export function OrderDetailPage() {
   const query = useOrder(orderId);
   const order = query.data;
   useBreadcrumb(order?.code);
+  const { startTour } = usePageGuide('order-detail', { ready: Boolean(order) });
   const confirmMut = useConfirmOrder();
   const decisionMut = useCancelRequestDecision();
   const [notice, setNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'cancel' | 'platform-cancel' | 'accept-cancel' | 'invoice' | null>(null);
   const [delivering, setDelivering] = useState<PackageSummary | null>(null);
-  const [splitting, setSplitting] = useState<PackageSummary | null>(null);
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ms-2" onClick={() => navigate(ROUTES.company.orders(companyId))}>
@@ -128,7 +134,6 @@ export function OrderDetailPage() {
   const onConflict = () => {
     setDialog(null);
     setDelivering(null);
-    setSplitting(null);
     setNotice('Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.');
   };
 
@@ -166,6 +171,8 @@ export function OrderDetailPage() {
       <PageHeader
         title={`Đơn ${order.code}`}
         subtitle={`${sourceLabel(order)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
+        help="Thanh bước là trạng thái đơn; nhãn giai đoạn bên dưới suy từ các kiện, rê chuột để xem nghĩa. Cột phải là thanh toán và lịch sử."
+        onTour={startTour}
         action={
           canConfirm || canCancel || canPlatformCancel ? (
             <div className="flex flex-wrap gap-2">
@@ -200,7 +207,17 @@ export function OrderDetailPage() {
             Sàn: {order.rawMarketplaceStatus}
           </Badge>
         )}
+        {/* Câu giải thích không cần thao tác: đưa vào "?" thay cho Alert (FE#138) */}
+        {note && <HelpTip content={note} topic="Trạng thái đơn" />}
       </div>
+      {order.completionBlocker && (
+        <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="completion-blocker">
+          Chưa hoàn tất: {COMPLETION_BLOCKER_LABELS[order.completionBlocker] ?? order.completionBlocker}
+          {order.returnWindowEndsAt && order.completionBlocker === 'return_window'
+            ? ` (hết hạn trả hàng ${formatDateTime(order.returnWindowEndsAt)})`
+            : ''}
+        </p>
+      )}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-testid="order-head">
         {order.externalOrderId && (
           <span className="inline-flex items-center gap-1" data-testid="external-order-id">
@@ -241,28 +258,30 @@ export function OrderDetailPage() {
           )}
         </div>
       )}
-      {note && (
-        <AlertMessage severity="info" className="mb-4">
-          {note}
-        </AlertMessage>
-      )}
-      {order.completionBlocker && (
-        <AlertMessage severity="info" className="mb-4">
-          Chưa hoàn tất: {COMPLETION_BLOCKER_LABELS[order.completionBlocker] ?? order.completionBlocker}
-          {order.returnWindowEndsAt && order.completionBlocker === 'return_window'
-            ? ` (hết hạn trả hàng ${formatDateTime(order.returnWindowEndsAt)})`
-            : ''}
-        </AlertMessage>
-      )}
       {notice && (
         <AlertMessage severity="error" className="mb-4" onClose={() => setNotice(null)}>
           {notice}
         </AlertMessage>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="grid gap-4 lg:col-span-2">
-          <Card className="py-4">
+      <Card className="mb-4 py-4" data-guide="order-steps">
+        <CardContent>
+          <LifecycleSteps
+            path={ORDER_PATH}
+            current={order.status}
+            history={order.statusHistory}
+            statuses={ORDER_STATUS}
+            isFinal={orderMachine.isFinal}
+          />
+        </CardContent>
+      </Card>
+
+      <DetailGrid
+        // Đơn sàn do sàn thu hộ, không gọi API thanh toán (AC-P1)
+        aside={isMarketplace ? undefined : <PaymentPanel order={order} />}
+        history={<StatusTimeline history={order.statusHistory} statuses={ORDER_STATUS} />}
+      >
+          <Card className="py-4" data-guide="order-info">
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Info label="Khách">
                 {order.customer ? (
@@ -324,7 +343,7 @@ export function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="gap-0 py-0">
+          <Card className="gap-0 py-0" data-guide="order-lines">
             <div className="overflow-x-auto">
               <Table data-testid="order-lines">
                 <TableHeader>
@@ -418,7 +437,7 @@ export function OrderDetailPage() {
             </div>
           </Card>
 
-          <Card className="py-4">
+          <Card className="py-4" data-guide="order-packages">
             <CardHeader>
               <CardTitle className="text-base">Kiện ({order.packages.length})</CardTitle>
             </CardHeader>
@@ -435,8 +454,6 @@ export function OrderDetailPage() {
                 <TableBody>
                   {order.packages.map((p) => {
                     const delivery = packageButtons(p, actor).actions.some((a) => DELIVERY_ACTIONS.includes(a));
-                    const splittable =
-                      canProcess && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
                     return (
                       <TableRow key={p.id} data-row-id={p.code}>
                         <TableCell className="font-medium">
@@ -460,12 +477,6 @@ export function OrderDetailPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {splittable && (
-                              <Button size="sm" variant="outline" onClick={() => setSplitting(p)}>
-                                <Scissors />
-                                Chia kiện
-                              </Button>
-                            )}
                             {delivery && (
                               <Button size="sm" onClick={() => setDelivering(p)}>
                                 <Truck />
@@ -485,20 +496,7 @@ export function OrderDetailPage() {
           <OrderReturnsCard order={order} companyId={companyId} />
 
           <OrderProfitCard orderId={order.id} companyId={companyId} />
-
-          <Card className="py-4">
-            <CardHeader>
-              <CardTitle className="text-base">Lịch sử trạng thái</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StatusTimeline history={order.statusHistory} statuses={ORDER_STATUS} />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Đơn sàn do sàn thu hộ, không gọi API thanh toán (AC-P1) */}
-        {!isMarketplace && <PaymentPanel order={order} />}
-      </div>
+      </DetailGrid>
 
       <CancelOrderDialog
         order={order}
@@ -531,7 +529,6 @@ export function OrderDetailPage() {
       {delivering && (
         <DeliveryDialog pkg={delivering} open onClose={() => setDelivering(null)} onConflict={onConflict} />
       )}
-      <SplitPackageDialog pkg={splitting} onClose={() => setSplitting(null)} onConflict={onConflict} />
     </div>
   );
 }

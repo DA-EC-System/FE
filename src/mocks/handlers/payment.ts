@@ -186,7 +186,7 @@ export const paymentHandlers = [
     writeCompanyLog(
       guard.value,
       current ? 'update' : 'create',
-      { type: 'payment.gateway_configs', id: gateway, label: GATEWAY_NAMES[gateway] },
+      { type: 'finance.gateway_configs', id: gateway, label: GATEWAY_NAMES[gateway] },
       null,
       { credentials: 'đổi khoá' },
     );
@@ -257,7 +257,7 @@ export const paymentHandlers = [
     writeCompanyLog(
       guard.value,
       'create',
-      { type: 'payment.payment_links', id: link.id, label: `${order.code} · ${code}` },
+      { type: 'finance.payment_links', id: link.id, label: `${order.code} · ${code}` },
       null,
       { gateway, paymentCode: code, amount },
     );

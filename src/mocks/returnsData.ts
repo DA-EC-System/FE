@@ -65,6 +65,8 @@ export interface MockUnmatchedParcel {
   resolvedAt: string | null;
   resolvedBy: string | null;
   resolution: string | null;
+  /** Hàng kho quét lúc nhận kiện (FE#212); null là kho không gửi */
+  lines: { variantId: string; quantity: number }[] | null;
   version: number;
 }
 
