@@ -304,7 +304,7 @@ export function usePushListings() {
   });
 }
 
-/** Đồng bộ tay với sàn (§18.5): đọc trạng thái sàn, đẩy giá và tồn chưa khớp (quyền shop.sync) */
+/** Đồng bộ tay với sàn (§18.5): BE xếp một lượt đồng bộ chạy nền, trả 202 `{ queued }` (quyền shop.sync) */
 export function useSyncListings() {
   const invalidate = useInvalidateShops();
   return useMutation({

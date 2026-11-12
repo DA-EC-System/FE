@@ -374,7 +374,9 @@ export function ShopListingsPage() {
     try {
       const r = await syncMut.mutateAsync(shopId);
       toast.success(
-        `Đã đồng bộ ${r.checked} sản phẩm: ${r.changed} đổi trạng thái, ${r.pushed} đẩy giá hoặc tồn${r.errors ? `, ${r.errors} lỗi` : ''}.`,
+        r.queued
+          ? 'Đã xếp lượt đồng bộ với sàn. Trạng thái, giá và tồn sẽ cập nhật sau ít phút.'
+          : 'Gian hàng đã có lượt đồng bộ đang chờ, không xếp thêm.',
       );
     } catch (e) {
       toast.error(problemMessage(e));
