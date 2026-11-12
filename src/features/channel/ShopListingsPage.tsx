@@ -375,7 +375,7 @@ export function ShopListingsPage() {
       const r = await syncMut.mutateAsync(shopId);
       toast.success(
         r.queued
-          ? 'Đã xếp lượt đồng bộ với sàn. Trạng thái, giá và tồn sẽ cập nhật sau ít phút.'
+          ? 'Đã xếp lượt đồng bộ với sàn. Bảng tự tải lại sau khoảng 15 giây; chưa thấy đổi thì tải lại trang.'
           : 'Gian hàng đã có lượt đồng bộ đang chờ, không xếp thêm.',
       );
     } catch (e) {

@@ -304,7 +304,13 @@ export function usePushListings() {
   });
 }
 
-/** Đồng bộ tay với sàn (§18.5): BE xếp một lượt đồng bộ chạy nền, trả 202 `{ queued }` (quyền shop.sync) */
+/** Khoảng chờ trước lần tải lại thứ hai sau khi bấm Đồng bộ: lượt chạy nền thường xong trong vài giây tới vài chục giây. */
+export const SYNC_RELOAD_DELAY_MS = 15_000;
+
+/**
+ * Đồng bộ tay với sàn (§18.5): BE xếp một lượt đồng bộ chạy nền, trả 202 `{ queued }` (quyền shop.sync). BE chưa phát
+ * sự kiện khi lượt chạy xong (commerio-backend#223), nên tải lại ngay và thêm một lần sau `SYNC_RELOAD_DELAY_MS`.
+ */
 export function useSyncListings() {
   const invalidate = useInvalidateShops();
   return useMutation({
@@ -312,7 +318,10 @@ export function useSyncListings() {
       const { data } = await apiClient.post<ListingSyncResult>(`/channel/shops/${shopId}/listings/sync`);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void invalidate();
+      setTimeout(() => void invalidate(), SYNC_RELOAD_DELAY_MS);
+    },
   });
 }
 

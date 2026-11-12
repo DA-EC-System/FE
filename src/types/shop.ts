@@ -291,7 +291,7 @@ export interface PushListingsInput {
 
 /**
  * Nút Đồng bộ (§18.5, commerio-backend#223): BE chỉ xếp một lượt đồng bộ chạy nền rồi trả 202. `queued = false` khi gian
- * hàng đã có lượt chờ. Kết quả xem bằng sự kiện `channel.listing_sync_changed` và tải lại listing.
+ * hàng đã có lượt chờ. BE chưa phát sự kiện khi lượt chạy xong: FE tải lại listing ngay và thêm một lần sau khoảng 15 giây.
  */
 export interface ListingSyncResult {
   queued: boolean;
