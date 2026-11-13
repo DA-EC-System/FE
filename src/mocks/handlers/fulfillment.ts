@@ -645,18 +645,18 @@ export const fulfillmentHandlers = [
     if (!guard.ok) return guard.response;
     const ids = new URL(request.url).searchParams.get('ids')?.split(',').filter(Boolean) ?? [];
     const picked = fulfillment.packages.filter(
-      (p) => p.companyId === guard.value.companyId && (ids.length ? ids.includes(p.id) : inTab(p, 'reserved')),
+      (p) => p.companyId === guard.value.companyId && (ids.length ? ids.includes(p.id) : inTab(p, 'reserved') && orderOf(p).status === 'processing'),
     );
-    return HttpResponse.json(buildPickList(picked.map(toPackageSummary)));
+    return HttpResponse.json(buildPickList(picked.sort(byDue).map(toPackageSummary), ids.length ? ids.length : 500));
   }),
 
   // Quét đóng gói: số quét phải khớp từng dòng của kiện
   http.post(`${API}/fulfillment/packages/:id/pack`, ({ params, request }) =>
     withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
       const scanned = Array.isArray(c.body.lines) ? (c.body.lines as { variantId: string; quantity: number }[]) : [];
-      const count = (variantId: string, from: { variantId: string; quantity: number }[]) =>
+      const count = (variantId: string, from: { variantId: string | null; quantity: number }[]) =>
         from.filter((l) => l.variantId === variantId).reduce((sum, l) => sum + l.quantity, 0);
-      const ids = new Set([...c.p.lines, ...scanned].map((l) => l.variantId));
+      const ids = new Set([...c.p.lines, ...scanned].flatMap((l) => l.variantId ? [l.variantId] : []));
       const mismatch = [...ids].filter((v) => count(v, scanned) !== count(v, c.p.lines));
       if (mismatch.length) {
         return problem(422, 'Số quét chưa khớp kiện', {

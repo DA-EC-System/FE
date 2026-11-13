@@ -32,12 +32,13 @@ export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDia
   }, [pkg]);
 
   if (!pkg) return null;
+  const lines = pkg.lines.flatMap((line) => line.variantId ? [{ ...line, variantId: line.variantId }] : []);
   const total = Object.values(moved).reduce((a, b) => a + b, 0);
   const valid = total > 0 && total < pkg.totalQty;
 
   const submit = async () => {
     setError(null);
-    const part = pkg.lines
+    const part = lines
       .map((l) => ({ variantId: l.variantId, quantity: moved[l.variantId] ?? 0 }))
       .filter((l) => l.quantity > 0);
     try {
@@ -69,7 +70,7 @@ export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDia
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pkg.lines.map((l) => (
+            {lines.map((l) => (
               <TableRow key={l.variantId} data-row-id={l.sku}>
                 <TableCell className="font-medium">{l.sku}</TableCell>
                 <TableCell className="text-right">{l.quantity}</TableCell>

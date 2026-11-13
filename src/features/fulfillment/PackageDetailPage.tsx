@@ -157,7 +157,7 @@ export function PackageDetailPage() {
             a === 'open_cancel'
               ? `Mở kiện ${p.code}, trả hàng về kệ. Kiện huỷ, hàng giữ được nhả.`
               : `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, cần đóng gói lại.${
-                  p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã và vận đơn mới.' : ''
+                  p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã và vận đơn mới.' : ''
                 }`,
           label,
           destructive: a === 'open_cancel',
