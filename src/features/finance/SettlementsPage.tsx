@@ -109,7 +109,7 @@ export function SettlementsPage() {
         {tab === 'payments' && (
           <>
             <DataTable data={items} loading={payments.isLoading} fetching={payments.isFetching} getRowId={(p) => p.orderId} pagination={pagination} empty="Chưa có trạng thái tiền" onRowClick={(p) => navigate(ROUTES.company.settlement(companyId, p.orderId))} columns={[
-              { header: 'Đơn', accessorKey: 'orderCode', cell: ({ row }) => <span className="font-mono">{row.original.orderCode ?? row.original.orderId}</span> },
+              { header: 'Đơn', accessorKey: 'orderCode', cell: ({ row }) => <span className="font-mono whitespace-nowrap">{row.original.orderCode ?? row.original.orderId}</span> },
               { header: 'Trạng thái tiền', cell: ({ row }) => <span className="flex flex-wrap gap-1"><StatusBadge status={row.original.status} statuses={PAYMENT_STATES} /><FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
               { header: 'Ước tính', meta: { numeric: true, help: 'Số Commerio tính theo cấu hình phí và thuế lúc giao.' }, cell: ({ row }) => <Money value={row.original.estimatedTotal} /> },
               { header: 'Quyết toán', meta: { numeric: true, help: 'Số sàn thực trả cho đơn, có sau khi kéo quyết toán.' }, cell: ({ row }) => row.original.settledTotal === null ? '—' : <Money value={row.original.settledTotal} /> },
