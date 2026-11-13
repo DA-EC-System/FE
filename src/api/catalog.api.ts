@@ -161,6 +161,33 @@ export function useProducts(params: ProductListParams) {
   });
 }
 
+/**
+ * BE chưa xong commerio-backend#204 thì biến thể chỉ có id, sku, attributes, archivedAt, standardPrice: thiếu trạng thái
+ * kinh doanh, độ hoàn thiện, khối lượng, kích thước... và trang sản phẩm sập khi đọc các trường đó. Điền mặc định
+ * cho trường BE chưa trả; trường BE đã trả giữ nguyên.
+ * TODO: BE#204 merge thì bỏ hàm này.
+ */
+export function withVariantDefaults(p: ProductDetail): ProductDetail {
+  return {
+    ...p,
+    variants: p.variants.map((v) => ({
+      ...v,
+      businessStatus: v.businessStatus ?? (v.archivedAt ? 'archived' : 'selling'),
+      readiness: v.readiness ?? 'ready',
+      missing: v.missing ?? [],
+      minQty: v.minQty ?? null,
+      weightG: v.weightG ?? null,
+      lengthMm: v.lengthMm ?? null,
+      widthMm: v.widthMm ?? null,
+      heightMm: v.heightMm ?? null,
+      version: v.version ?? 1,
+      presence: v.presence ?? 'not_listed',
+      listingCount: v.listingCount ?? 0,
+      archiveBlockers: v.archiveBlockers ?? [],
+    })),
+  };
+}
+
 export function useProduct(id: string | undefined) {
   const companyId = useCompanyId();
   return useQuery({
@@ -168,7 +195,7 @@ export function useProduct(id: string | undefined) {
     enabled: Boolean(companyId && id),
     queryFn: async () => {
       const { data } = await apiClient.get<ProductDetail>(`/catalog/products/${id}`);
-      return data;
+      return withVariantDefaults(data);
     },
   });
 }
