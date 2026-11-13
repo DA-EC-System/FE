@@ -1,4 +1,12 @@
-import type { ListingStatus, Marketplace, RemoteSkuStatus, ShopCapabilities, ShopStatus, SyncState } from '@/types/shop';
+import type {
+  ListingStatus,
+  Marketplace,
+  RemoteSkuStatus,
+  ShopCapabilities,
+  ShopOpeningStocktake,
+  ShopStatus,
+  SyncState,
+} from '@/types/shop';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { shopUsable } from '@/lib/machines/channel';
 
@@ -101,3 +109,15 @@ export const STOCK_SYNC_LABELS: Record<SyncState, string> = {
   pending: 'Tồn chờ đẩy',
   error: 'Lệch tồn sàn',
 };
+
+/** Trạng thái phiếu kiểm kê đầu kỳ, dùng trong câu "phiếu KK-… đã huỷ" (§18.6.2) */
+export const STOCKTAKE_STATUS_TEXT: Record<ShopOpeningStocktake['status'], string> = {
+  draft: 'đang nháp',
+  pending: 'đang chờ duyệt',
+  rejected: 'bị từ chối',
+  cancelled: 'đã huỷ',
+  posted: 'đã ghi sổ',
+};
+
+/** Phiếu bị từ chối hoặc đã huỷ không đi tiếp được, phải lập phiếu mới (§18.6.11) */
+export const canRedoStocktake = (s: ShopOpeningStocktake['status']) => s === 'rejected' || s === 'cancelled';

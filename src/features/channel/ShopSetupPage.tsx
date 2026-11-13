@@ -37,7 +37,13 @@ import type {
 } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { platformLabel, REMOTE_SKU_STATUS_LABELS, returnWindowNote } from './shopSchemas';
+import {
+  canRedoStocktake,
+  platformLabel,
+  REMOTE_SKU_STATUS_LABELS,
+  returnWindowNote,
+  STOCKTAKE_STATUS_TEXT,
+} from './shopSchemas';
 import {
   NAME_MATCH_SKIPPED_NOTE,
   SETUP_POLL_MAX_MS,
@@ -679,10 +685,21 @@ function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Sho
             {skippedNote}
           </span>
         )}
-        {doc && (
-          <Link to={ROUTES.company.inventoryDoc(companyId, doc.documentId)} className="text-xs text-primary underline-offset-4 hover:underline">
-            Mở phiếu kiểm kê {doc.number}
-          </Link>
+        {doc && canRedoStocktake(doc.status) ? (
+          // Phiếu bị từ chối hoặc đã huỷ không đi tiếp được: nút lập lại nằm trên trang gian hàng (§18.6.11)
+          <span className="text-xs text-warning" data-testid="setup-stocktake-redo">
+            Phiếu {doc.number} {STOCKTAKE_STATUS_TEXT[doc.status]}.{' '}
+            <Link to={ROUTES.company.shop(companyId, shop.id)} className="text-primary underline-offset-4 hover:underline">
+              Lập lại phiếu ở trang gian hàng
+            </Link>
+          </span>
+        ) : (
+          doc && (
+            <Link to={ROUTES.company.inventoryDoc(companyId, doc.documentId)} className="text-xs text-primary underline-offset-4 hover:underline">
+              Mở phiếu kiểm kê {doc.number}
+              {doc.status !== 'draft' && ` (${STOCKTAKE_STATUS_TEXT[doc.status]})`}
+            </Link>
+          )
         )}
       </span>
       <StatusBadge status={step.status} statuses={SETUP_STATUS} />

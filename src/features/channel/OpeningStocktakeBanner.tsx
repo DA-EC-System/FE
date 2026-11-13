@@ -8,18 +8,8 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useCan } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
-import type { Shop, ShopOpeningStocktake } from '@/types/shop';
-
-const STATUS_TEXT: Record<ShopOpeningStocktake['status'], string> = {
-  draft: 'đang nháp',
-  pending: 'đang chờ duyệt',
-  rejected: 'bị từ chối',
-  cancelled: 'đã huỷ',
-  posted: 'đã ghi sổ',
-};
-
-/** Phiếu bị từ chối hoặc đã huỷ không đi tiếp được, phải lập phiếu mới (§18.6.11) */
-const canRedo = (s: ShopOpeningStocktake['status']) => s === 'rejected' || s === 'cancelled';
+import type { Shop } from '@/types/shop';
+import { canRedoStocktake, STOCKTAKE_STATUS_TEXT } from './shopSchemas';
 
 function restartMessage(error: unknown) {
   // shop_not_active dùng chung câu của đẩy sản phẩm, ở đây nói theo việc lập lại phiếu
@@ -47,7 +37,8 @@ export function OpeningStocktakeBanner({ shop, companyId }: { shop: Shop; compan
       {st.number}
     </Link>
   );
-  const redo = canRedo(st.status);
+  const redo = canRedoStocktake(st.status);
+  const canRestart = redo && can(PERMISSIONS.shopConnect);
 
   const onRestart = () =>
     restart.mutate(shop.id, {
@@ -69,13 +60,14 @@ export function OpeningStocktakeBanner({ shop, companyId }: { shop: Shop; compan
           <>Đang xử lý phiếu kiểm kê {docLink}, quá lâu thì liên hệ quản trị nền tảng.</>
         ) : (
           <>
-            Gian hàng đang chờ kiểm kê đầu kỳ: phiếu {docLink} {STATUS_TEXT[st.status]}.{' '}
-            {redo && 'Lập lại phiếu kiểm kê để kho đếm lại. '}Đến khi phiếu ghi sổ, Commerio chưa đẩy tồn và chưa đẩy
-            sản phẩm lên sàn; đơn vẫn kéo về.
+            Gian hàng đang chờ kiểm kê đầu kỳ: phiếu {docLink} {STOCKTAKE_STATUS_TEXT[st.status]}.{' '}
+            {canRestart && 'Lập lại phiếu kiểm kê để kho đếm lại. '}
+            {redo && !canRestart && 'Nhờ người quản lý gian hàng lập lại phiếu kiểm kê. '}
+            Đến khi phiếu ghi sổ, Commerio chưa đẩy tồn và chưa đẩy sản phẩm lên sàn; đơn vẫn kéo về.
           </>
         )}
       </span>
-      {redo && can(PERMISSIONS.shopConnect) && (
+      {canRestart && (
         <Button size="sm" variant="outline" className="ms-3" disabled={restart.isPending} onClick={onRestart}>
           <RotateCcw />
           Lập lại phiếu kiểm kê

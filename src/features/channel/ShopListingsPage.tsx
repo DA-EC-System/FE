@@ -72,7 +72,6 @@ interface PushError {
   message: string;
 }
 
-/** Trạng thái phiếu kiểm kê đầu kỳ chưa ghi sổ (§18.6.2) */
 /**
  * Tab theo Test_UI `v-listing`. "Chưa ghép" là SKU trên sàn chưa ghép biến thể nào;
  * các tab còn lại lọc biến thể Commerio theo trạng thái listing (sơ đồ C2).

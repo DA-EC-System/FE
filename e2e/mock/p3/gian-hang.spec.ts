@@ -237,6 +237,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect.poll(() => duongDan(page)).toBe(trangGianHang);
       await expect(banner).toHaveAttribute('data-stocktake-status', 'cancelled');
       await expect(banner).toContainText(`phiếu ${soPhieuCu} đã huỷ`);
+      await expect(banner).toContainText('Lập lại phiếu kiểm kê để kho đếm lại.');
       const lapLai = page.getByRole('button', { name: 'Lập lại phiếu kiểm kê', exact: true });
       // BE thấy phiếu còn mở (máy khác vừa lập) thì báo số phiếu
       await mockApi(page, 'post', '/channel/shops/:id/opening-stocktake', 409, {

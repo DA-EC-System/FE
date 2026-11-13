@@ -1369,7 +1369,8 @@ export const shopHandlers = [
       return problem(409, 'Gian hàng chờ kiểm kê đầu kỳ', { code: 'shop_awaiting_stocktake' });
     }
     if (allocatingOf(shop)) {
-      return problem(409, 'Gian hàng đang giữ tồn', { code: 'shop_awaiting_allocation', waitingFor: 'allocation' });
+      // Mock cho lượt đơn mở chạy lại cùng lúc với chia hàng; §18.6.11: lượt đơn mở chưa xong thì báo open_orders trước
+      return problem(409, 'Gian hàng đang giữ tồn', { code: 'shop_awaiting_allocation', waitingFor: 'open_orders' });
     }
     if (!usable(shop)) return shopNotConnected(shop);
     const { variantIds, imageUrls = {} } = (await request.json()) as PushListingsInput;
