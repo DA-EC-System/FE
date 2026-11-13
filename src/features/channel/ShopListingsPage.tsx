@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RefreshCw, RotateCcw, Unlink, Upload } from 'lucide-react';
+import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RefreshCw, RotateCcw, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -21,11 +21,11 @@ import {
   useDelistListing,
   useMatchListing,
   usePushListings,
+  useRefreshRemoteSkus,
   useRemoteSkus,
   useShop,
   useShopListings,
   useSyncListings,
-  useUnmatchListing,
 } from '@/api/shops.api';
 import { apiClient, getErrorMessage, getProblem } from '@/api/client';
 import { catalogKeys } from '@/api/catalog.api';
@@ -165,7 +165,7 @@ export function ShopListingsPage() {
   });
   const remoteQuery = useRemoteSkus(shopId, canMatch);
   const matchMut = useMatchListing();
-  const unmatchMut = useUnmatchListing();
+  const refreshMut = useRefreshRemoteSkus();
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
   const syncMut = useSyncListings();
@@ -181,7 +181,6 @@ export function ShopListingsPage() {
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [matching, setMatching] = useState<Matching | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
-  const [unmatching, setUnmatching] = useState<ListingRow | null>(null);
   const [pushing, setPushing] = useState<ListingRow[] | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
   const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
@@ -191,7 +190,7 @@ export function ShopListingsPage() {
   const queryClient = useQueryClient();
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
-  const remoteSkus = useMemo(() => remoteQuery.data ?? [], [remoteQuery.data]);
+  const remoteSkus = useMemo(() => remoteQuery.data?.items ?? [], [remoteQuery.data]);
   const unmatchedRemote = useMemo(() => remoteSkus.filter((r) => !r.matchedVariantId && !r.mode), [remoteSkus]);
 
   const rows = useMemo(() => {
@@ -344,25 +343,12 @@ export function ShopListingsPage() {
     }
   };
 
-  const handleUnmatch = async () => {
-    if (!unmatching?.listing) return;
-    try {
-      await unmatchMut.mutateAsync({
-        shopId,
-        variantId: unmatching.variantId,
-        version: unmatching.listing.version,
-      });
-      toast.success(`Đã bỏ ghép ${unmatching.sku}`);
-    } catch (e) {
-      if (problemCode(e) === 'version_conflict') {
-        toast.warning(`Ghép SKU của ${unmatching.sku} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
-        void listingsQuery.refetch();
-      } else {
-        toast.error(problemMessage(e));
-      }
-    }
-    setUnmatching(null);
-  };
+  // Tải lại SKU sàn (§18.6.5): BE đọc trọn từ sàn; lỗi 429 kèm số phút chờ, 503 khi lượt khác đang tải
+  const refreshRemote = () =>
+    refreshMut.mutate(shopId, {
+      onSuccess: () => toast.success('Đã tải lại SKU trên sàn'),
+      onError: (e) => toast.error(problemMessage(e)),
+    });
 
   const handleDelist = async () => {
     if (!delisting?.listing) return;
@@ -699,11 +685,6 @@ export function ShopListingsPage() {
                   <Link2 />
                 </RowAction>
               )}
-              {canManage && r.listing && (
-                <RowAction label="Bỏ ghép" destructive onClick={() => setUnmatching(r)}>
-                  <Unlink />
-                </RowAction>
-              )}
               {!canManage ? null : status && REPUSH_STATUSES.includes(status) ? (
                 <RowAction
                   label="Đẩy lại"
@@ -918,10 +899,20 @@ export function ShopListingsPage() {
         </FilterBar>
         {tab === 'unmatched' ? (
           <div data-testid="remote-section">
-            <p className="px-4 pb-3 text-sm text-muted-foreground">
-              SKU lấy trực tiếp từ sàn, chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá
-              từ Commerio.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pb-3">
+              <p className="max-w-prose text-sm text-muted-foreground" data-testid="remote-synced">
+                SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio.
+                {remoteQuery.data?.syncedAt && (
+                  <> Danh sách tải lúc {formatDateTime(remoteQuery.data.syncedAt)}; vừa thêm SKU trên sàn thì bấm Tải lại.</>
+                )}
+              </p>
+              {canMatch && (
+                <Button size="sm" variant="outline" disabled={refreshMut.isPending} onClick={refreshRemote}>
+                  <RefreshCw />
+                  {refreshMut.isPending ? 'Đang tải...' : 'Tải lại'}
+                </Button>
+              )}
+            </div>
             {!usable ? (
               <p className="px-4 pb-6 text-sm text-muted-foreground">
                 Không tải được SKU trên sàn khi gian hàng chưa kết nối.
@@ -1003,21 +994,6 @@ export function ShopListingsPage() {
         error={matchError}
         onSave={saveMatch}
         onClose={() => setMatching(null)}
-      />
-      <ConfirmDialog
-        open={Boolean(unmatching)}
-        title="Bỏ ghép SKU?"
-        message={
-          <>
-            Bỏ ghép <strong>{unmatching?.sku}</strong> với SKU sàn {unmatching?.listing?.sellerSku || unmatching?.listing?.externalSkuId}.
-            Đơn mới của SKU sàn này sẽ không trừ tồn biến thể cho tới khi ghép lại.
-          </>
-        }
-        confirmLabel="Bỏ ghép"
-        destructive
-        loading={unmatchMut.isPending}
-        onConfirm={handleUnmatch}
-        onClose={() => setUnmatching(null)}
       />
       <ConfirmDialog
         open={Boolean(delisting)}

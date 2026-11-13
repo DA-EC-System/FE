@@ -4,7 +4,7 @@
  * mã chưa có ở đây thì dùng `detail` như cũ.
  */
 
-import { getErrorMessage, getProblem, notImplementedMessage } from './client';
+import { getErrorMessage, getProblem, notImplementedMessage, retryAfterSeconds } from './client';
 
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
@@ -52,6 +52,9 @@ const MESSAGES: Record<string, string> = {
   sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
   // §18.6.5
   mapping_pending: 'SKU sàn này đang chờ CEO duyệt ghép. Chờ CEO duyệt hoặc từ chối rồi ghép lại.',
+  // Tải SKU sàn (BE#220); có `Retry-After` thì câu nêu số phút, xem retryLaterMessage
+  remote_skus_retry_later: 'Lần tải SKU sàn trước bị lỗi. Thử lại sau ít phút.',
+  remote_skus_busy: 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
   // FE#146, Documents/21 §18.5
@@ -214,8 +217,17 @@ export function problemCode(error: unknown): string | undefined {
   return getProblem(error)?.code;
 }
 
+/** 429 `remote_skus_retry_later`: đổi `Retry-After` (giây) ra phút, làm tròn lên */
+function retryLaterMessage(error: unknown): string {
+  const seconds = retryAfterSeconds(error);
+  return seconds
+    ? `Lần tải SKU sàn trước bị lỗi. Thử lại sau ${Math.ceil(seconds / 60)} phút.`
+    : MESSAGES.remote_skus_retry_later;
+}
+
 export function problemMessage(error: unknown): string {
   const problem = getProblem(error);
+  if (problem?.code === 'remote_skus_retry_later') return retryLaterMessage(error);
   const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
   if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   const message =

@@ -148,6 +148,13 @@ export function getProblem(error: unknown): ProblemDetails | undefined {
   return undefined;
 }
 
+/** Header `Retry-After` (giây) của lỗi 429; không có hoặc không phải số thì null */
+export function retryAfterSeconds(error: unknown): number | null {
+  if (!axios.isAxiosError(error)) return null;
+  const seconds = Number(error.response?.headers?.['retry-after']);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return 'Không kết nối được máy chủ. Kiểm tra mạng hoặc VITE_API_BASE_URL.';

@@ -519,7 +519,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dong(page, 'prd-001-v4')).toContainText('Chưa ghép');
     });
 
-    test('ghép từ SKU sàn chưa ghép và bỏ ghép có xác nhận', async ({ page }) => {
+    test('ghép từ SKU sàn chưa ghép; không có nút Bỏ ghép vì BE chưa có route', async ({ page }) => {
       await moTab(page, 'unmatched');
       await chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr')
         .getByRole('button', { name: 'Ghép với biến thể', exact: true })
@@ -532,13 +532,41 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'Đã ghép');
       await moTab(page, 'all');
       await expect(dong(page, 'prd-003-v1').locator('[data-testid=remote-sku]')).toContainText('OLD-TEE-01');
+      // Hợp đồng §18.6.5 không có route bỏ ghép; đổi ghép hoặc "không quản tồn" đi qua nút Đổi ghép
+      await expect(dong(page, 'prd-003-v1').getByRole('button', { name: 'Đổi ghép', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Bỏ ghép', exact: true })).toHaveCount(0);
+    });
 
-      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Bỏ ghép', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Bỏ ghép', exact: true }).click();
-      await toast(page, 'Đã bỏ ghép');
-      await expect(dong(page, 'prd-003-v1')).toContainText('Chưa ghép');
+    test('Tải lại SKU sàn: báo giờ tải, lỗi 429 nêu số phút chờ, 503 khi lượt khác đang tải', async ({ page }) => {
       await moTab(page, 'unmatched');
-      await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
+      const khu = page.locator('[data-testid=remote-section]');
+      await expect(khu.locator('[data-testid=remote-synced]')).toContainText('Danh sách tải lúc');
+      const taiLai = khu.getByRole('button', { name: 'Tải lại', exact: true });
+
+      const yeuCau = page.waitForRequest(
+        (r) => r.method() === 'POST' && /\/channel\/shops\/shp-001\/remote-skus\/refresh$/.test(r.url()),
+      );
+      await taiLai.click();
+      await yeuCau;
+      await toast(page, 'Đã tải lại SKU trên sàn');
+      await expect(khu).toContainText('OLD-TEE-01');
+
+      await mockApi(
+        page,
+        'post',
+        '/channel/shops/:id/remote-skus/refresh',
+        429,
+        { status: 429, code: 'remote_skus_retry_later' },
+        { 'Retry-After': '250' },
+      );
+      await taiLai.click();
+      await toast(page, 'Lần tải SKU sàn trước bị lỗi. Thử lại sau 5 phút.');
+
+      await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 503, { status: 503, code: 'remote_skus_busy' });
+      await taiLai.click();
+      await toast(page, 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.');
+      // Lỗi tải lại không xoá danh sách đang có
+      await expect(khu).toContainText('OLD-TEE-01');
     });
 
     test('CEO đặt SKU sàn đã có đơn là không quản tồn: áp luôn, không chờ duyệt', async ({ page }) => {

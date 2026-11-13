@@ -9,6 +9,7 @@ import type {
   PushListingsInput,
   PushResult,
   RemoteSku,
+  RemoteSkuList,
   SetupDecision,
   SetupSuggestion,
   Shop,
@@ -38,7 +39,7 @@ import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, checkTransition, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
-import { fileUrl, rid, staleVersion, variantAttributes } from './catalog';
+import { fileUrl, rid, variantAttributes } from './catalog';
 import { ensureStandard, sellableVariants, skuOf } from './pricing';
 import { nextDocNumber, variantLabel } from './inventory';
 import { hidesListings } from '@/lib/machines/product';
@@ -811,6 +812,9 @@ function remoteCounts(shopId: string, platform: string) {
   };
 }
 
+/** Lần đọc trọn SKU sàn gần nhất theo gian hàng (`syncedAt` của `remote-skus`) */
+const remoteSyncedAt = new Map<string, string>();
+
 export const shopHandlers = [
   http.get(`${API}/channel/shops/platforms`, async ({ request }) => {
     await delay(LATENCY);
@@ -1178,34 +1182,47 @@ export const shopHandlers = [
     return HttpResponse.json<{ items: ListingRow[] }>({ items: rows });
   }),
 
-  http.get(`${API}/channel/shops/:id/remote-skus`, async ({ params, request }) => {
-    await delay(LATENCY * 2);
-    // BE#220: `remote-skus` cần quyền ghép SKU
-    const guard = requireCompany(request, PERMISSIONS.listingMatch);
-    if (!guard.ok) return guard.response;
-    const found = ownShop(params.id, guard.value.companyId);
-    if (!found.ok) return found.response;
-    const shop = found.value;
-    if (!usable(shop)) return shopNotConnected(shop);
-    settleDuePushes(shop);
-    const skus: RemoteSku[] = (channel.remoteSkus[shop.id] ?? []).map((r) => {
-      const { mapped, unmanaged } = listingOfSku(shop.id, r.externalSkuId);
-      const row = mapped ?? unmanaged;
-      return {
-        externalProductId: r.externalProductId,
-        externalSkuId: r.externalSkuId,
-        title: r.title,
-        sellerSku: r.sellerSku,
-        matchedVariantId: mapped?.variantId ?? null,
-        mode: mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null,
-        listingId: row?.id ?? null,
-        listingVersion: row?.version ?? null,
-        pendingMapping: row?.pendingMapping ?? null,
-      };
-    });
-    const unmatched = new URL(request.url).searchParams.get('unmatched') === 'true';
-    return HttpResponse.json<{ items: RemoteSku[] }>({ items: unmatched ? skus.filter((s) => !s.mode) : skus });
-  }),
+  // BE#220: `GET remote-skus` đọc bản sao, lần đầu thì tải từ sàn; `POST remote-skus/refresh` (Tải lại) tải lại ngay.
+  // Mock không giữ mốc 60 giây chống bấm liên tục của BE
+  ...(
+    [
+      ['get', 'remote-skus'],
+      ['post', 'remote-skus/refresh'],
+    ] as const
+  ).map(([method, path]) =>
+    http[method](`${API}/channel/shops/:id/${path}`, async ({ params, request }) => {
+      await delay(LATENCY * 2);
+      // BE#220: `remote-skus` cần quyền ghép SKU
+      const guard = requireCompany(request, PERMISSIONS.listingMatch);
+      if (!guard.ok) return guard.response;
+      const found = ownShop(params.id, guard.value.companyId);
+      if (!found.ok) return found.response;
+      const shop = found.value;
+      if (!usable(shop)) return shopNotConnected(shop);
+      settleDuePushes(shop);
+      const skus: RemoteSku[] = (channel.remoteSkus[shop.id] ?? []).map((r) => {
+        const { mapped, unmanaged } = listingOfSku(shop.id, r.externalSkuId);
+        const row = mapped ?? unmanaged;
+        return {
+          externalProductId: r.externalProductId,
+          externalSkuId: r.externalSkuId,
+          title: r.title,
+          sellerSku: r.sellerSku,
+          matchedVariantId: mapped?.variantId ?? null,
+          mode: mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null,
+          listingId: row?.id ?? null,
+          listingVersion: row?.version ?? null,
+          pendingMapping: row?.pendingMapping ?? null,
+        };
+      });
+      const unmatched = new URL(request.url).searchParams.get('unmatched') === 'true';
+      if (method === 'post' || !remoteSyncedAt.has(shop.id)) remoteSyncedAt.set(shop.id, new Date().toISOString());
+      return HttpResponse.json<RemoteSkuList>({
+        syncedAt: remoteSyncedAt.get(shop.id) ?? null,
+        items: unmatched ? skus.filter((s) => !s.mode) : skus,
+      });
+    }),
+  ),
 
   /**
    * Ghép SKU tay theo SKU sàn (§18.3, §18.6.5, BE#220). `variantId: null` là "không quản tồn". Cần CEO duyệt khi
@@ -1327,31 +1344,6 @@ export const shopHandlers = [
       status: l.status,
     });
     return HttpResponse.json<ChannelListing>(toListing(l));
-  }),
-
-  http.delete(`${API}/channel/shops/:id/listings/:variantId`, async ({ params, request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.listingManage);
-    if (!guard.ok) return guard.response;
-    const found = ownShop(params.id, guard.value.companyId);
-    if (!found.ok) return found.response;
-    const shop = found.value;
-    if (!usable(shop)) return shopNotConnected(shop);
-    const idx = channel.listings.findIndex((l) => l.shopId === shop.id && l.variantId === params.variantId);
-    if (idx === -1) return problem(404, 'Biến thể chưa ghép SKU sàn');
-    const existing = channel.listings[idx];
-    if (staleVersion(new URL(request.url), existing.version)) {
-      return versionConflict(toListing(existing), 'Ghép SKU của biến thể vừa được người khác sửa.');
-    }
-    channel.listings.splice(idx, 1);
-    writeCompanyLog(
-      guard.value,
-      'delete',
-      listingEntity(shop, skuOf(shop.companyId, existing.variantId), existing.id),
-      { externalSkuId: existing.externalSkuId },
-      null,
-    );
-    return new HttpResponse(null, { status: 204 });
   }),
 
   /** Đẩy chạy nền (§18.6.4): kiểm từng dòng, xếp việc rồi trả ngay; sàn trả kết quả sau PUSH_JOB_MS */
