@@ -98,10 +98,20 @@ function setupProgressOf(s: MockShop): ShopSetupProgress | null {
   }
   const now = Date.now();
   const steps: ShopSetupStep[] = [{ key: 'match', status: 'done', blockedBy: null }];
-  const stocktakeOpen = run.mode === 'stocktake' && openingStocktakeOf(s) !== null;
-  if (run.mode === 'stocktake') steps.push({ key: 'opening_stock', status: stocktakeOpen ? 'pending' : 'done', blockedBy: null });
-  const pulling = now - run.at < SETUP_JOB_MS;
+  const stocktake = run.mode === 'stocktake';
+  const stocktakeOpen = stocktake && openingStocktakeOf(s) !== null;
+  if (stocktake) steps.push({ key: 'opening_stock', status: stocktakeOpen ? 'pending' : 'done', blockedBy: null });
+  // §18.7.7: phiếu ghi sổ thì kéo đơn chạy lại và chia hàng; mock cho hai việc chạy cùng lúc SETUP_JOB_MS
+  const allocating = stocktake && !stocktakeOpen && allocatingOf(s, now);
+  const pulling = now - run.at < SETUP_JOB_MS || allocating;
   steps.push({ key: 'open_orders', status: pulling ? 'running' : 'done', blockedBy: null });
+  if (stocktake) {
+    steps.push(
+      stocktakeOpen
+        ? { key: 'allocate', status: 'blocked', blockedBy: 'opening_stock' }
+        : { key: 'allocate', status: allocating ? 'running' : 'done', blockedBy: null },
+    );
+  }
   if (stocktakeOpen || pulling) {
     steps.push({ key: 'push_stock', status: 'blocked', blockedBy: stocktakeOpen ? 'opening_stock' : 'open_orders' });
   } else {
@@ -122,12 +132,22 @@ function openOrdersOf(shopId: string) {
   return salesOrders.filter((o) => o.shopId === shopId && o.status !== 'completed' && o.status !== 'cancelled');
 }
 
-/** §18.6.2: phiếu kiểm kê đầu kỳ còn chưa ghi sổ (nháp, chờ duyệt, bị từ chối); ghi sổ hoặc huỷ thì thôi */
+/**
+ * §18.6.2, §18.6.11: phiếu kiểm kê đầu kỳ chưa ghi sổ (nháp, chờ duyệt, bị từ chối, đã huỷ). Phiếu bị từ chối
+ * hoặc đã huỷ giữ tới khi lập lại phiếu. Mock chốt ngay khi ghi sổ nên không trả posted
+ */
 function openingStocktakeOf(s: MockShop): Shop['openingStocktake'] {
   if (!s.openingStocktakeDocId) return null;
   const doc = inventory.docs.find((d) => d.id === s.openingStocktakeDocId);
-  if (!doc || (doc.status !== 'draft' && doc.status !== 'pending' && doc.status !== 'rejected')) return null;
+  if (!doc || doc.status === 'posted') return null;
   return { documentId: doc.id, number: doc.number, status: doc.status };
+}
+
+/** Còn trong SETUP_JOB_MS sau lúc ghi sổ phiếu kiểm kê đầu kỳ: kéo đơn lại và chia hàng chưa xong (§18.7.7) */
+function allocatingOf(s: MockShop, now = Date.now()) {
+  const doc = s.openingStocktakeDocId ? inventory.docs.find((d) => d.id === s.openingStocktakeDocId) : undefined;
+  if (!doc?.postedAt) return false;
+  return now - Date.parse(doc.postedAt) < SETUP_JOB_MS;
 }
 
 /**
@@ -477,6 +497,39 @@ function openingStocktake(actor: CompanyActor, shop: MockShop, lines: DecidedLin
     source: null,
     claimFlag: false,
     lines: lines.map((l) => {
+      const bookQty = inventory.levelOf(shop.companyId, l.variantId).onHand;
+      return { variantId: l.variantId, quantity: 0, counted: bookQty, bookQty, unitCost: null };
+    }),
+    createdBy: actor.account.id,
+    createdAt: at,
+    postedBy: null,
+    postedAt: null,
+    version: 1,
+    statusHistory: [
+      { at, from: null, to: 'draft', by: { id: actor.account.id, name: actor.account.fullName }, source: 'user' },
+    ],
+    followUps: [],
+    rejectDecision: null,
+  };
+  inventory.docs.push(doc);
+  return doc;
+}
+
+/** Lập lại phiếu kiểm kê đầu kỳ (§18.6.11): phiếu nháp mới chép các dòng của phiếu cũ, số sổ sách lấy lại theo kho */
+function restartOpeningStocktake(actor: CompanyActor, shop: MockShop, old: MockStockDoc | undefined, at: string) {
+  const doc: MockStockDoc = {
+    id: rid('sd'),
+    companyId: shop.companyId,
+    number: nextDocNumber(shop.companyId, 'stocktake'),
+    type: 'stocktake',
+    kind: 'manual',
+    status: 'draft',
+    area: 'stock',
+    note: `Lập lại kiểm kê đầu kỳ của ${shop.shopName}${old ? ` (thay phiếu ${old.number})` : ''}`,
+    orderId: null,
+    source: null,
+    claimFlag: false,
+    lines: (old?.lines ?? []).map((l) => {
       const bookQty = inventory.levelOf(shop.companyId, l.variantId).onHand;
       return { variantId: l.variantId, quantity: 0, counted: bookQty, bookQty, unitCost: null };
     }),
@@ -1354,6 +1407,38 @@ export const shopHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  /** Lập lại phiếu kiểm kê đầu kỳ (§18.6.11): chỉ khi phiếu cũ bị từ chối, đã huỷ hoặc không còn */
+  http.post(`${API}/channel/shops/:id/opening-stocktake`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.shopConnect);
+    if (!guard.ok) return guard.response;
+    const found = ownShop(params.id, guard.value.companyId);
+    if (!found.ok) return found.response;
+    const shop = found.value;
+    if (shop.status !== 'active') return problem(409, 'Gian hàng chưa hoạt động', { code: 'shop_not_active' });
+    const old = shop.openingStocktakeDocId ? inventory.docs.find((d) => d.id === shop.openingStocktakeDocId) : undefined;
+    if (!shop.openingStocktakeDocId || old?.status === 'posted') {
+      return problem(409, 'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ', { code: 'shop_not_awaiting_stocktake' });
+    }
+    if (old && (old.status === 'draft' || old.status === 'pending')) {
+      return problem(409, `Phiếu ${old.number} vẫn đang mở. Sửa hoặc duyệt phiếu này`, {
+        code: 'opening_stocktake_open',
+        number: old.number,
+        status: old.status,
+      });
+    }
+    const at = new Date().toISOString();
+    const before = shopSnapshot(shop);
+    const doc = restartOpeningStocktake(guard.value, shop, old, at);
+    Object.assign(shop, { openingStocktakeDocId: doc.id, updatedAt: at, version: shop.version + 1 });
+    writeCompanyLog(guard.value, 'update', shopEntity(shop), before, {
+      ...shopSnapshot(shop),
+      openingStocktake: doc.number,
+      replaced: old?.number ?? null,
+    });
+    return HttpResponse.json({ shop: toShop(shop), stocktakeNumber: doc.number });
+  }),
+
   /** Đẩy chạy nền (§18.6.4): kiểm từng dòng, xếp việc rồi trả ngay; sàn trả kết quả sau PUSH_JOB_MS */
   http.post(`${API}/channel/shops/:id/listings/push`, async ({ params, request }) => {
     await delay(LATENCY);
@@ -1368,6 +1453,10 @@ export const shopHandlers = [
     }
     if (openingStocktakeOf(shop)) {
       return problem(409, 'Gian hàng chờ kiểm kê đầu kỳ', { code: 'shop_awaiting_stocktake' });
+    }
+    if (allocatingOf(shop)) {
+      // Mock cho lượt đơn mở chạy lại cùng lúc với chia hàng; §18.6.11: lượt đơn mở chưa xong thì báo open_orders trước
+      return problem(409, 'Gian hàng đang giữ tồn', { code: 'shop_awaiting_allocation', waitingFor: 'open_orders' });
     }
     if (!usable(shop)) return shopNotConnected(shop);
     const { variantIds, imageUrls = {} } = (await request.json()) as PushListingsInput;

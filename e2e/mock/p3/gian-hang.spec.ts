@@ -204,6 +204,9 @@ test.describe('P3 · Gian hàng', () => {
       await expect(tienDo.locator('[data-step=open_orders]')).toHaveAttribute('data-step-status', 'done', { timeout: 10_000 });
       await expect(tienDo.locator('[data-step=opening_stock]')).toHaveAttribute('data-step-status', 'pending');
       await expect(tienDo.locator('[data-step=opening_stock]').getByRole('link', { name: /^Mở phiếu kiểm kê KK-/ })).toBeVisible();
+      // Chia hàng chỉ có khi kiểm kê, chờ phiếu ghi sổ (§18.7.7)
+      await expect(tienDo.locator('[data-step=allocate]')).toHaveAttribute('data-step-status', 'blocked');
+      await expect(tienDo.locator('[data-step=allocate]')).toContainText('Chờ bước kiểm kê đầu kỳ xong');
       await expect(tienDo.locator('[data-step=push_stock]')).toHaveAttribute('data-step-status', 'blocked');
       await expect(tienDo.locator('[data-step=push_stock]')).toContainText('Chờ bước kiểm kê đầu kỳ xong');
       const conLai = page.locator('[data-testid=setup-unmatched]');
@@ -221,6 +224,34 @@ test.describe('P3 · Gian hàng', () => {
       const banner = page.locator('[data-testid=opening-stocktake-banner]');
       await expect(banner).toContainText('Gian hàng đang chờ kiểm kê đầu kỳ');
       await expect(banner.getByRole('link', { name: /^KK-/ })).toHaveAttribute('href', /\/c\/cmp-001\/inventory\/documents\//);
+      await expect(page.getByRole('button', { name: 'Lập lại phiếu kiểm kê', exact: true })).toHaveCount(0);
+
+      // §18.6.11: huỷ phiếu thì banner vẫn còn, có nút lập lại phiếu
+      const soPhieuCu = (await banner.getByRole('link', { name: /^KK-/ }).textContent()) ?? '';
+      const trangGianHang = duongDan(page);
+      await banner.getByRole('link', { name: /^KK-/ }).click();
+      await page.getByRole('button', { name: 'Huỷ phiếu', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Huỷ phiếu', exact: true }).click();
+      await toast(page, `${soPhieuCu}: đã huỷ`);
+      await page.goBack();
+      await expect.poll(() => duongDan(page)).toBe(trangGianHang);
+      await expect(banner).toHaveAttribute('data-stocktake-status', 'cancelled');
+      await expect(banner).toContainText(`phiếu ${soPhieuCu} đã huỷ`);
+      await expect(banner).toContainText('Lập lại phiếu kiểm kê để kho đếm lại.');
+      const lapLai = page.getByRole('button', { name: 'Lập lại phiếu kiểm kê', exact: true });
+      // BE thấy phiếu còn mở (máy khác vừa lập) thì báo số phiếu
+      await mockApi(page, 'post', '/channel/shops/:id/opening-stocktake', 409, {
+        status: 409,
+        code: 'opening_stocktake_open',
+        number: 'KK-000099',
+      });
+      await lapLai.click();
+      await toast(page, 'Phiếu KK-000099 vẫn đang mở. Sửa hoặc duyệt phiếu này.');
+      await lapLai.click();
+      await toast(page, /^Đã lập phiếu kiểm kê KK-/);
+      await expect(banner).toHaveAttribute('data-stocktake-status', 'draft');
+      await expect(banner.getByRole('link', { name: /^KK-/ })).not.toHaveText(soPhieuCu);
+      await expect(lapLai).toHaveCount(0);
     });
 
     test('gian hàng đầu tiên của công ty chỉ được kiểm kê đầu kỳ; lỗi 422 gắn đúng bước', async ({ page }) => {

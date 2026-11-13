@@ -123,4 +123,16 @@ describe('đẩy listing (§18.6.8, §18.6.10)', () => {
       'Gian hàng đang giữ tồn. Đẩy sản phẩm sau khi kéo đơn và chia hàng xong.',
     );
   });
+
+  it('lập lại phiếu kiểm kê đầu kỳ: phiếu còn mở nêu số phiếu (§18.6.11)', () => {
+    expect(problemMessage(loi({ code: 'opening_stocktake_open', number: 'KK-000012' }))).toBe(
+      'Phiếu KK-000012 vẫn đang mở. Sửa hoặc duyệt phiếu này.',
+    );
+    expect(problemMessage(loi({ code: 'opening_stocktake_open' }))).toBe(
+      'Phiếu kiểm kê đầu kỳ vẫn đang mở. Sửa hoặc duyệt phiếu này.',
+    );
+    expect(problemMessage(loi({ code: 'shop_not_awaiting_stocktake' }))).toBe(
+      'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ.',
+    );
+  });
 });
