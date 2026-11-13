@@ -214,11 +214,11 @@ test.describe('Hướng dẫn trang', () => {
     await expect(tour(page).getByRole('heading', { name: 'Lọc theo trạng thái', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // Đơn tạo tay có khung thanh toán: tour đủ 5 bước
+    // Đơn tạo tay: thanh bước, hàng, kiện, lịch sử (khung thanh toán đã gỡ ở FE#150)
     await page.locator('tbody tr[data-row-id=ord-1003]').click();
     await expect(popup(page).getByRole('heading', { name: 'Chi tiết đơn', exact: true })).toBeVisible();
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
-    await expect(tour(page).getByText('Bước 1/5', { exact: true })).toBeVisible();
+    await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
     await expect(tour(page).getByRole('heading', { name: 'Đơn đang ở đâu', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(tour(page)).toHaveCount(0);

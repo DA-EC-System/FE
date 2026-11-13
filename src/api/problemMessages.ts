@@ -9,6 +9,9 @@ import { getErrorMessage, getProblem, notImplementedMessage } from './client';
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
   config_already_effective: 'Đã tới ngày hiệu lực, không thể huỷ. Hãy soạn bản mới.',
+  // commerio-backend#325: sửa lỗi cấu hình
+  invalid_correction_target: 'Chỉ sửa lỗi được bản đang áp dụng hoặc đã hết hiệu lực. Bản đang chờ hiệu lực thì huỷ rồi soạn bản mới.',
+  correction_date_mismatch: 'Bản sửa lỗi phải cùng ngày hiệu lực với bản bị sửa.',
   config_overlap: 'Đã có phiên bản cùng ngày hiệu lực.',
   ceo_approval_required: 'Lệch vượt hạn mức, cần CEO duyệt trước.',
   approval_not_needed: 'Khoản lệch này không cần CEO duyệt.',

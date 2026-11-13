@@ -68,7 +68,7 @@ import {
   tryComplete,
   userRef,
 } from './sales';
-import { toOrderPayment } from './payment';
+import { paymentStatusOf } from './payment';
 import { ensureStandard } from './pricing';
 import * as channel from '../channelData';
 
@@ -116,7 +116,7 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
     openPurpose: p.openPurpose,
     selfDelivery: p.selfDelivery,
     paymentMethod: o.paymentMethod,
-    paymentStatus: o.source === 'marketplace' ? null : toOrderPayment(o).status,
+    paymentStatus: o.source === 'marketplace' ? null : paymentStatusOf(o),
     trackingCode: p.trackingCode,
     platformPackageCode: p.platformPackageCode,
     carrier: p.carrier,

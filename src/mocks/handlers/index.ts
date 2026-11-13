@@ -21,10 +21,8 @@ import { purchasingHandlers } from './purchasing';
 import { shopHandlers } from './channel';
 import { categoryMapHandlers } from './categoryMaps';
 import { salesHandlers } from './sales';
-import { paymentHandlers } from './payment';
 import { fulfillmentHandlers } from './fulfillment';
 import { returnHandlers } from './returns';
-import { financeHandlers } from './finance';
 import { ledgerHandlers } from './ledger';
 import { reportHandlers } from './report';
 import { settlementHandlers } from './settlement';
@@ -45,11 +43,9 @@ export const handlers = [
   ...shopHandlers,
   ...categoryMapHandlers,
   ...salesHandlers,
-  ...paymentHandlers,
   ...fulfillmentHandlers,
   ...returnHandlers,
   ...ledgerHandlers,
-  ...financeHandlers,
   ...reportHandlers,
   ...settlementHandlers,
   ...devMarketplaceHandlers,

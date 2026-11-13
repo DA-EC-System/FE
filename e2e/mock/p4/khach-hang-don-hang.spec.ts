@@ -255,10 +255,9 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
     test('đơn trả trước không có nút xác nhận, chờ khách trả', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1003');
       await giaiThichDon(page, 'Đơn trả trước sang Đang xử lý khi khách thanh toán.');
-      // Thanh bước trên cùng, cột phải có thanh toán và lịch sử (FE#138)
+      // Thanh bước trên cùng, cột phải có lịch sử (FE#138)
       await expect(page.locator('[data-testid=lifecycle] li').first()).toContainText('Chưa thanh toán');
       await expect(page.locator('[data-guide=detail-history] [data-testid=status-history]')).toBeAttached();
-      await expect(page.locator('[data-testid=payment-panel]')).toBeAttached();
       await expect(page.getByRole('button', { name: 'Xác nhận đơn', exact: true })).toHaveCount(0);
     });
 
@@ -270,25 +269,22 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await thayChu(page, 'Đơn vừa được người khác cập nhật');
     });
 
-    test('đơn sàn không có nút xác nhận và khung thanh toán', async ({ page }) => {
+    test('đơn sàn không có nút xác nhận', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1005');
       await giaiThichDon(page, 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.');
       await expect(page.getByRole('button', { name: 'Xác nhận đơn', exact: true })).toHaveCount(0);
-      await expect(page.locator('[data-testid=payment-panel]')).toHaveCount(0);
     });
   });
 
   test.describe('phân quyền và cách ly (AC-R)', () => {
-    test('cskh chỉ xem đơn: không tạo, không xác nhận, không tạo mã thanh toán', async ({ page }) => {
+    test('cskh chỉ xem đơn: không tạo, không xác nhận', async ({ page }) => {
       await dangNhap(page, 'cskh@commerio.vn', 'cskh');
       await menu(page, 'Đơn hàng');
       await expect(dong(page, 'ord-1003')).toBeAttached();
       await expect(page.getByRole('button', { name: 'Tạo đơn', exact: true })).toHaveCount(0);
       await dong(page, 'ord-1003').click();
       await thayChu(page, 'Đơn DH-1003', 'h1');
-      await expect(page.locator('[data-testid=payment-panel]')).toContainText('Chưa thanh toán');
       await expect(page.getByRole('button', { name: 'Xác nhận đơn', exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Tạo mã thanh toán', exact: true })).toHaveCount(0);
     });
 
     test('kho không thấy menu bán hàng, mở thẳng URL thì bị chặn', async ({ page }) => {

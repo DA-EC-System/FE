@@ -35,8 +35,8 @@ const MENU: Record<string, string[]> = {
     'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả | Khách hàng',
-    'Tài chính: Sổ tiền | Chứng từ | Thu COD | Hoàn tiền | Khoản thu chưa khớp | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế | Giao dịch cổng',
-    'Quản trị: Nhân viên | Vai trò | Phân hệ | Nhật ký thao tác | Việc nền lỗi | Cổng thanh toán',
+    'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
+    'Quản trị: Nhân viên | Vai trò | Phân hệ | Nhật ký thao tác | Việc nền lỗi',
     'Dữ liệu giả: Sàn giả lập',
   ],
   admin: [
@@ -45,7 +45,7 @@ const MENU: Record<string, string[]> = {
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Yêu cầu trả | Khách hàng', // Admin có sales.return.view theo ma trận (FE#152)
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
-    'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Việc nền lỗi | Cổng thanh toán',
+    'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Việc nền lỗi',
     'Dữ liệu giả: Sàn giả lập',
   ],
   sale: [
