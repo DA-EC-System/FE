@@ -23,7 +23,7 @@ import type {
   ListingSyncResult,
   PushListingsInput,
   PushResult,
-  RemoteSku,
+  RemoteSkuList,
   Shop,
   ShopList,
   ShopPlatformList,
@@ -231,9 +231,25 @@ export function useRemoteSkus(id: string, enabled: boolean) {
     enabled: Boolean(companyId && id) && enabled,
     retry: false,
     queryFn: async () => {
-      const { data } = await apiClient.get<{ items: RemoteSku[] }>(`/channel/shops/${id}/remote-skus`);
-      return data.items;
+      const { data } = await apiClient.get<RemoteSkuList>(`/channel/shops/${id}/remote-skus`);
+      return data;
     },
+  });
+}
+
+/**
+ * Nút Tải lại (§18.6.5, BE#220): BE đọc trọn SKU từ sàn rồi trả như `GET remote-skus`. Lần đọc trọn trước còn trong 60 giây
+ * thì BE trả bản sao, không gọi sàn
+ */
+export function useRefreshRemoteSkus() {
+  const companyId = useCompanyId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (shopId: string) => {
+      const { data } = await apiClient.post<RemoteSkuList>(`/channel/shops/${shopId}/remote-skus/refresh`);
+      return data;
+    },
+    onSuccess: (data, shopId) => queryClient.setQueryData(shopKeys.remoteSkus(companyId, shopId), data),
   });
 }
 
@@ -247,16 +263,6 @@ export function useMatchListing() {
     mutationFn: async ({ shopId, ...input }: ListingMatchInput & { shopId: string }) => {
       const res = await apiClient.post<ChannelListing>(`/channel/shops/${shopId}/listings/match`, input);
       return { listing: res.data, pending: res.status === 202 };
-    },
-    onSuccess: invalidate,
-  });
-}
-
-export function useUnmatchListing() {
-  const invalidate = useInvalidateShops();
-  return useMutation({
-    mutationFn: async ({ shopId, variantId, version }: { shopId: string; variantId: string; version: number }) => {
-      await apiClient.delete(`/channel/shops/${shopId}/listings/${variantId}`, { params: { version } });
     },
     onSuccess: invalidate,
   });

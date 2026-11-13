@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RefreshCw, RotateCcw, Unlink, Upload } from 'lucide-react';
+import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RefreshCw, RotateCcw, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -21,11 +21,11 @@ import {
   useDelistListing,
   useMatchListing,
   usePushListings,
+  useRefreshRemoteSkus,
   useRemoteSkus,
   useShop,
   useShopListings,
   useSyncListings,
-  useUnmatchListing,
 } from '@/api/shops.api';
 import { apiClient, getErrorMessage, getProblem } from '@/api/client';
 import { catalogKeys } from '@/api/catalog.api';
@@ -36,6 +36,7 @@ import { priceText } from '@/utils/price';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
+import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, RemoteSku } from '@/types/shop';
 import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
@@ -90,11 +91,11 @@ const LISTING_TABS: { value: ListingTab; label: string }[] = [
 const FAILED_STATUSES: ListingStatus[] = ['push_failed', 'rejected'];
 const HELD_STATUSES: ListingStatus[] = ['platform_hold', 'hidden', 'under_review'];
 
-/** Đã ghép nhưng chưa đẩy, hoặc giá đã đổi sau lần đẩy cuối */
+/** Đã ghép nhưng chưa đẩy, hoặc BE báo giá chưa đẩy (priceSync, §18.6.6): cùng điều kiện với nhãn ở cột Trạng thái */
 const isStale = (r: ListingRow) =>
   Boolean(r.listing) &&
   onPlatform(r.listing!.status) &&
-  (r.listing!.lastPushedAt === null || r.price !== r.listing!.lastPushedPrice);
+  (r.listing!.lastPushedAt === null || r.listing!.priceSync === 'pending');
 
 /** Biến thể thuộc tab nào; tab "Chưa ghép" là danh sách SKU sàn nên không chứa biến thể */
 function inTab(tab: ListingTab, r: ListingRow): boolean {
@@ -164,11 +165,12 @@ export function ShopListingsPage() {
   });
   const remoteQuery = useRemoteSkus(shopId, canMatch);
   const matchMut = useMatchListing();
-  const unmatchMut = useUnmatchListing();
+  const refreshMut = useRefreshRemoteSkus();
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
   const syncMut = useSyncListings();
   const listingReview = shop?.capabilities.listingReview ?? false;
+  const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
   const connector = useStartConnect();
 
   const [search, setSearch] = useState('');
@@ -179,7 +181,6 @@ export function ShopListingsPage() {
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [matching, setMatching] = useState<Matching | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
-  const [unmatching, setUnmatching] = useState<ListingRow | null>(null);
   const [pushing, setPushing] = useState<ListingRow[] | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
   const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
@@ -189,7 +190,7 @@ export function ShopListingsPage() {
   const queryClient = useQueryClient();
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
-  const remoteSkus = useMemo(() => remoteQuery.data ?? [], [remoteQuery.data]);
+  const remoteSkus = useMemo(() => remoteQuery.data?.items ?? [], [remoteQuery.data]);
   const unmatchedRemote = useMemo(() => remoteSkus.filter((r) => !r.matchedVariantId && !r.mode), [remoteSkus]);
 
   const rows = useMemo(() => {
@@ -342,25 +343,12 @@ export function ShopListingsPage() {
     }
   };
 
-  const handleUnmatch = async () => {
-    if (!unmatching?.listing) return;
-    try {
-      await unmatchMut.mutateAsync({
-        shopId,
-        variantId: unmatching.variantId,
-        version: unmatching.listing.version,
-      });
-      toast.success(`Đã bỏ ghép ${unmatching.sku}`);
-    } catch (e) {
-      if (problemCode(e) === 'version_conflict') {
-        toast.warning(`Ghép SKU của ${unmatching.sku} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
-        void listingsQuery.refetch();
-      } else {
-        toast.error(problemMessage(e));
-      }
-    }
-    setUnmatching(null);
-  };
+  // Tải lại SKU sàn (§18.6.5): BE đọc trọn từ sàn; lỗi 429 kèm số phút chờ, 503 khi lượt khác đang tải
+  const refreshRemote = () =>
+    refreshMut.mutate(shopId, {
+      onSuccess: () => toast.success('Đã tải lại SKU trên sàn'),
+      onError: (e) => toast.error(problemMessage(e)),
+    });
 
   const handleDelist = async () => {
     if (!delisting?.listing) return;
@@ -580,10 +568,8 @@ export function ShopListingsPage() {
                 ? l.status === 'pushing'
                   ? `Đang thử lại (${l.pushAttempts} lần): ${l.pushError.message}`
                   : l.pushError.message
-                : l.status === 'hidden'
-                  ? l.hiddenBy === 'zero_stock'
-                    ? 'Sàn không ẩn riêng phân loại: đã đẩy tồn 0'
-                    : 'Đã ẩn trên sàn'
+                : l.status === 'hidden' && l.hiddenBy !== 'zero_stock'
+                  ? 'Đã ẩn trên sàn'
                   : null;
           return (
             <div className="grid justify-items-start gap-1">
@@ -610,33 +596,58 @@ export function ShopListingsPage() {
                   {note}
                 </span>
               )}
+              {l.status === 'hidden' && l.hiddenBy === 'zero_stock' && (
+                <SyncBadge
+                  id={`hidden-zero-${r.variantId}`}
+                  variant="secondary"
+                  label="Đang ẩn bằng tồn 0"
+                  hint="Sàn không ẩn riêng từng phân loại nên Commerio đẩy tồn 0 để khách không đặt được SKU này."
+                  testId="hidden-zero"
+                />
+              )}
               {live &&
                 (l.lastPushedAt === null ? (
                   <Badge variant="warning">Chưa đẩy</Badge>
-                ) : r.price !== l.lastPushedPrice ? (
+                ) : l.priceSync === 'pending' ? (
                   <>
-                    <Badge variant="warning">Giá đã đổi, chưa đẩy</Badge>
+                    <Badge variant="warning" data-testid="price-sync">
+                      Giá đã đổi, chưa đẩy
+                    </Badge>
                     <span className="text-xs text-muted-foreground">Trên sàn: {priceText(l.lastPushedPrice)}</span>
                   </>
                 ) : (
                   <span className="text-xs text-muted-foreground">Đã đẩy {formatDateTime(l.lastPushedAt)}</span>
                 ))}
-              {live && l.stockSync !== 'synced' && (
-                <Badge variant={l.stockSync === 'error' ? 'destructive' : 'outline'} data-testid="stock-sync">
-                  {STOCK_SYNC_LABELS[l.stockSync]}
-                  {l.stockSync === 'error' && l.platformStock !== null && ` (sàn ${l.platformStock})`}
+              {live && l.stockSync === 'error' && (
+                <SyncBadge
+                  id={`stock-drift-${r.variantId}`}
+                  variant="destructive"
+                  label={`${STOCK_SYNC_LABELS.error}${l.platformStock !== null ? ` (sàn ${l.platformStock})` : ''}`}
+                  hint="Số tồn trên sàn khác Commerio hai lượt đối chiếu liền. Lượt đẩy tồn sau sẽ ghi đè số trên sàn."
+                  testId="stock-sync"
+                />
+              )}
+              {/* Đẩy tồn lỗi thì BE giữ stockSync='pending' kèm stockSyncError: chỉ hiện nhãn lỗi bên dưới */}
+              {live && l.stockSync === 'pending' && !l.stockSyncError && (
+                <Badge variant="outline" data-testid="stock-sync">
+                  {STOCK_SYNC_LABELS.pending}
                 </Badge>
               )}
-              {/* Lỗi đẩy của riêng SKU này: câu của sàn, hiện nguyên văn (§18.4) */}
+              {/* Lỗi đẩy của riêng SKU này: câu của sàn hiện nguyên văn trong tooltip (§18.4, §18.6.6) */}
               {[
-                { label: 'Đẩy tồn lỗi', err: l.stockSyncError },
-                { label: 'Đẩy giá lỗi', err: l.priceSyncError },
+                { key: 'stock', label: 'Cập nhật tồn lên sàn lỗi', err: l.stockSyncError },
+                { key: 'price', label: 'Đẩy giá lỗi', err: l.priceSyncError },
               ].map(
-                ({ label, err }) =>
+                ({ key, label, err }) =>
                   err && (
-                    <span key={label} className="text-xs text-destructive" data-testid="sync-error" title={err.code}>
-                      {label}: {err.message} · {formatDateTime(err.at)}
-                    </span>
+                    <SyncBadge
+                      key={key}
+                      id={`sync-error-${key}-${r.variantId}`}
+                      variant="destructive"
+                      label={label}
+                      hint={`${err.message} · ${formatDateTime(err.at)}`}
+                      testId="sync-error"
+                    />
                   ),
               )}
               {l.qcAlert && (
@@ -664,7 +675,7 @@ export function ShopListingsPage() {
                 ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
                 : null;
           return (
-            <div className="flex justify-end gap-1">
+            <div className="flex justify-end gap-1" data-guide={canMatch ? 'listings-match' : undefined}>
               {canMatch && (
                 <RowAction
                   label={r.listing ? 'Đổi ghép' : 'Ghép'}
@@ -672,11 +683,6 @@ export function ShopListingsPage() {
                   onClick={() => (r.listing ? openRemap(r) : openMatch({ from: 'variant', row: r }))}
                 >
                   <Link2 />
-                </RowAction>
-              )}
-              {canManage && r.listing && (
-                <RowAction label="Bỏ ghép" destructive onClick={() => setUnmatching(r)}>
-                  <Unlink />
                 </RowAction>
               )}
               {!canManage ? null : status && REPUSH_STATUSES.includes(status) ? (
@@ -778,9 +784,11 @@ export function ShopListingsPage() {
         title={shop ? `Ghép SKU · ${shop.shopName}` : 'Ghép SKU'}
         subtitle={
           shop
-            ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn.`
+            ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
             : undefined
         }
+        help="Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio. Đơn sàn của SKU đã ghép trừ đúng tồn của biến thể, và Commerio đẩy tồn, giá lên đúng SKU đó. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn."
+        onTour={startTour}
         action={
           <div className="flex flex-wrap items-center gap-2">
             {shop && (
@@ -799,7 +807,11 @@ export function ShopListingsPage() {
               </Button>
             )}
             {canManage && (
-              <Button disabled={!selectedRows.length || pushMut.isPending} onClick={() => requestPush(selectedRows)}>
+              <Button
+                disabled={!selectedRows.length || pushMut.isPending}
+                onClick={() => requestPush(selectedRows)}
+                data-guide="listings-push"
+              >
                 <Upload />
                 {pushMut.isPending
                   ? 'Đang đẩy...'
@@ -869,7 +881,7 @@ export function ShopListingsPage() {
       )}
 
       <Card className="gap-0 py-0">
-        <Tabs value={tab} onValueChange={changeTab} className="overflow-x-auto px-4 pt-3">
+        <Tabs value={tab} onValueChange={changeTab} className="overflow-x-auto px-4 pt-3" data-guide="listings-tabs">
           <TabsList aria-label="Lọc theo trạng thái">
             {LISTING_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} data-testid={`listing-tab-${t.value}`}>
@@ -887,10 +899,20 @@ export function ShopListingsPage() {
         </FilterBar>
         {tab === 'unmatched' ? (
           <div data-testid="remote-section">
-            <p className="px-4 pb-3 text-sm text-muted-foreground">
-              SKU lấy trực tiếp từ sàn, chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá
-              từ Commerio.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pb-3">
+              <p className="max-w-prose text-sm text-muted-foreground" data-testid="remote-synced">
+                SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio.
+                {remoteQuery.data?.syncedAt && (
+                  <> Danh sách tải lúc {formatDateTime(remoteQuery.data.syncedAt)}; vừa thêm SKU trên sàn thì bấm Tải lại.</>
+                )}
+              </p>
+              {canMatch && (
+                <Button size="sm" variant="outline" disabled={refreshMut.isPending} onClick={refreshRemote}>
+                  <RefreshCw />
+                  {refreshMut.isPending ? 'Đang tải...' : 'Tải lại'}
+                </Button>
+              )}
+            </div>
             {!usable ? (
               <p className="px-4 pb-6 text-sm text-muted-foreground">
                 Không tải được SKU trên sàn khi gian hàng chưa kết nối.
@@ -974,21 +996,6 @@ export function ShopListingsPage() {
         onClose={() => setMatching(null)}
       />
       <ConfirmDialog
-        open={Boolean(unmatching)}
-        title="Bỏ ghép SKU?"
-        message={
-          <>
-            Bỏ ghép <strong>{unmatching?.sku}</strong> với SKU sàn {unmatching?.listing?.sellerSku || unmatching?.listing?.externalSkuId}.
-            Đơn mới của SKU sàn này sẽ không trừ tồn biến thể cho tới khi ghép lại.
-          </>
-        }
-        confirmLabel="Bỏ ghép"
-        destructive
-        loading={unmatchMut.isPending}
-        onConfirm={handleUnmatch}
-        onClose={() => setUnmatching(null)}
-      />
-      <ConfirmDialog
         open={Boolean(delisting)}
         title="Gỡ khỏi sàn?"
         message={
@@ -1018,5 +1025,33 @@ export function ShopListingsPage() {
         onClose={() => setPushing(null)}
       />
     </div>
+  );
+}
+
+/** Nhãn đồng bộ của một listing (§18.6.6); rê chuột, Tab tới hoặc chạm để xem lý do */
+function SyncBadge({
+  id,
+  variant,
+  label,
+  hint,
+  testId,
+}: {
+  id: string;
+  variant: 'secondary' | 'destructive';
+  label: string;
+  hint: string;
+  testId: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant={variant} data-testid={testId} tabIndex={0} aria-describedby={id}>
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent id={id} className="max-w-64" data-testid={`${testId}-hint`}>
+        {hint}
+      </TooltipContent>
+    </Tooltip>
   );
 }

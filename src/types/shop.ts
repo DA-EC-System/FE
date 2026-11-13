@@ -280,6 +280,12 @@ export interface RemoteSku {
   pendingMapping: PendingMapping | null;
 }
 
+/** `GET remote-skus` và `POST remote-skus/refresh` (§18.6.5). `syncedAt`: lần đọc trọn gần nhất */
+export interface RemoteSkuList {
+  syncedAt: string | null;
+  items: RemoteSku[];
+}
+
 /** `POST /channel/shops/:id/listings/match` (§18.6.5): ghép theo SKU sàn */
 export interface ListingMatchInput {
   externalSkuId: string;

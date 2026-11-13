@@ -599,6 +599,36 @@ export const GUIDES = {
       },
     ],
   },
+  'shop-listings': {
+    key: 'shop-listings',
+    version: 1,
+    title: 'Ghép SKU',
+    intro: [
+      'Mỗi biến thể trong Commerio ghép với một SKU trên sàn.',
+      'Đã ghép thì đơn sàn trừ đúng tồn, Commerio đẩy tồn và giá lên đúng SKU.',
+      'Nhãn ở cột Trạng thái báo SKU lệch tồn, đẩy lỗi hay giá chưa đẩy; rê chuột vào nhãn để xem lý do.',
+    ],
+    primaryAction: { label: 'Xem SKU chưa ghép', target: 'listings-tabs' },
+    steps: [
+      {
+        target: 'listings-tabs',
+        title: 'Lọc chưa ghép',
+        body: 'Tab Chưa ghép liệt kê SKU trên sàn chưa nối với biến thể nào. Các tab khác lọc biến thể chưa lên sàn, giá cũ hoặc đẩy lỗi.',
+      },
+      {
+        target: 'listings-match',
+        title: 'Ghép SKU',
+        body: 'Bấm Ghép ở dòng biến thể để chọn SKU sàn. Đổi ghép SKU đã có đơn hoặc đặt "không quản tồn" thì cần CEO duyệt.',
+        permission: 'channel.listing.match',
+      },
+      {
+        target: 'listings-push',
+        title: 'Đẩy lên sàn',
+        body: 'Tích các biến thể rồi bấm nút này để tạo sản phẩm mới trên sàn hoặc đẩy giá mới. Sàn trả kết quả sau, trang tự đọc lại.',
+        permission: 'channel.listing.manage',
+      },
+    ],
+  },
 } satisfies Record<string, PageGuide>;
 
 export type GuideKey = keyof typeof GUIDES;
