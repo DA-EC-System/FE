@@ -72,7 +72,9 @@ const MESSAGES: Record<string, string> = {
   self_delivery: 'Kiện tự giao, không báo sàn sẵn sàng.',
   carrier_delivery: 'Kiện giao qua đơn vị vận chuyển, không tự giao.',
   scan_mismatch: 'Số món quét chưa khớp với kiện.',
+  insufficient_stock: 'Không đủ hàng để giữ lại cả kiện. Chờ hàng về rồi mở.',
   package_mismatch: 'Mã quét không phải kiện này.',
+  package_group_not_ready: 'Gói gộp còn kiện chưa sẵn sàng.',
   package_sealed: 'Kiện đã đóng gói, mở kiện trước khi chia.',
   already_reported: 'Kiện đã được báo thất lạc.',
   not_reported: 'Chưa ai báo thất lạc kiện này.',
@@ -116,13 +118,13 @@ const MESSAGES: Record<string, string> = {
   package_status_not_allowed: 'Sàn không cho thao tác ở trạng thái hiện tại của kiện, tải lại để xem trạng thái mới.',
   item_not_packable: 'Có món sàn không cho đóng gói (đã huỷ hoặc đang xin huỷ).',
   rts_package_not_found: 'Sàn không thấy kiện để báo sẵn sàng giao, đóng gói lại rồi thử lại.',
-  document_not_ready: 'Kiện chưa có mã kiện sàn nên chưa in được vận đơn.',
+  document_not_ready: 'Vận đơn chưa sẵn sàng. Thử lại sau ít phút nếu sàn đang tạo tệp.',
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
   shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
   // §18.6.2
   // R13, §18.7.9: mọi 501 chức năng chờ issue khác; có `issue`, `owner` thì câu nêu issue, xem notImplementedMessage
   not_implemented: 'Chức năng này chưa làm xong',
-  shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ trước khi đẩy sản phẩm.',
+  shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ rồi thử lại.',
   // Documents#55 (21 mục 5, 16, 18.3, 19), FE#153
   product_in_use: 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.',
   too_many_axes: 'Một sản phẩm chỉ có tối đa 2 trục phân loại.',
