@@ -13,7 +13,7 @@ import type {
   PaymentMethod,
   ShippingAddress,
 } from '@/types/sales';
-import type { Gateway, LinkStatus, PaymentStatus, RefundStatus } from '@/types/payment';
+import type { Gateway, PaymentStatus } from '@/types/payment';
 
 export type { BadgeVariant } from '@/components/common/StatusBadge';
 import type { BadgeVariant, StatusMeta } from '@/components/common/StatusBadge';
@@ -171,19 +171,6 @@ export const PAYMENT_STATUS: Record<PaymentStatus, { label: string; variant: Bad
   cod_pending: { label: 'Chờ thu COD', variant: 'info' },
   cod_collected: { label: 'Đã thu COD', variant: 'success' },
   not_collected: { label: 'Không thu', variant: 'secondary' },
-};
-
-export const REFUND_LABELS: Record<RefundStatus, string> = {
-  none: '',
-  pending_refund: 'Chờ hoàn tiền',
-  refunded: 'Đã hoàn tiền',
-};
-
-export const LINK_STATUS: Record<LinkStatus, { label: string; variant: BadgeVariant }> = {
-  active: { label: 'Đang chờ trả', variant: 'info' },
-  paid: { label: 'Đã trả', variant: 'success' },
-  expired: { label: 'Hết hạn', variant: 'secondary' },
-  cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const GATEWAY_LABELS: Record<Gateway, string> = {
