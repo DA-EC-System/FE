@@ -28,6 +28,14 @@ const MESSAGES: Record<string, string> = {
   builtin_role: 'Vai trò có sẵn không sửa hay xoá được.',
   role_in_use: 'Vai trò còn tài khoản đang mang nên không xoá được. Gỡ vai trò khỏi các tài khoản đó trước.',
   role_name_taken: 'Tên vai trò đã được dùng trong công ty.',
+  // FE#148, Documents/21 §3.1: mời nhân viên bằng link
+  invitation_invalid: 'Link mời không hợp lệ hoặc đã hết hạn. Nhờ người mời tạo link mới.',
+  invitation_used: 'Link mời này đã được dùng. Nhờ người mời tạo link khác.',
+  invitation_outdated: 'Có vai trò của lời mời đã bị xoá. Từ chối yêu cầu này rồi tạo link mới.',
+  registration_expired: 'Phiên đăng ký đã hết hạn. Nhập lại mã xác minh.',
+  too_many_requests: 'Thử quá nhiều lần. Đợi một lát rồi thử lại.',
+  already_member: 'Người này đã là nhân viên của công ty.',
+  email_taken: 'Email này vừa được dùng cho một tài khoản khác. Từ chối yêu cầu rồi gửi link mới cho người đó.',
   // docs/21 M2
   module_has_data: 'Phân hệ đã có dữ liệu nên không tắt được.',
   ai_consent_required: 'Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',

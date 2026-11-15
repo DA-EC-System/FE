@@ -61,18 +61,51 @@ export interface StaffListParams {
   roleId?: string;
 }
 
-export interface InviteStaffInput {
-  email: string;
-  fullName: string;
-  roleIds: string[];
+/** Link mời vừa tạo (US-CT-05): `link` chỉ trả lần này, BE không lưu token */
+export interface CreatedInvitation {
+  id: string;
+  link: string;
+  expiresAt: string;
 }
 
-/**
- * - invited: tạo tài khoản mới, thư mời kèm mật khẩu
- * - added: email đã có tài khoản ở nơi khác, chỉ thêm vào công ty (thư báo không kèm mật khẩu).
- *   BE không cho biết email thuộc công ty nào khác.
- */
-export interface InviteStaffResult {
-  outcome: 'invited' | 'added';
-  member: StaffMember;
+export type InvitationStatus = 'open' | 'claimed' | 'pending' | 'approved' | 'rejected';
+
+/** Yêu cầu tham gia qua link (US-CT-07) */
+export interface Invitation {
+  id: string;
+  status: InvitationStatus;
+  /** Link đã quá hạn; yêu cầu `pending` vẫn duyệt được */
+  expired: boolean;
+  email: string | null;
+  fullName: string | null;
+  roles: RoleRef[];
+  /** Có vai trò đã bị xoá sau khi tạo link: duyệt sẽ bị 409 `invitation_outdated` */
+  outdated: boolean;
+  /** Email đã có tài khoản Commerio lúc nộp (không nói ở công ty nào) */
+  existingAccount: boolean;
+  createdBy: { id: string; fullName: string };
+  createdAt: string;
+  expiresAt: string;
+  submittedAt: string | null;
+  decidedAt: string | null;
+  version: number;
+}
+
+export interface InvitationListParams {
+  status?: InvitationStatus;
+  page?: number;
+  pageSize?: number;
+}
+
+// ---------- Tham gia qua link (US-CT-06): API công khai, token nằm trong body ----------
+export interface JoinCheck {
+  companyName: string;
+  expiresAt: string;
+}
+
+export interface JoinVerifyResult {
+  /** Sống 30 phút, gửi lại ở `/join/complete` */
+  registrationToken: string;
+  /** Email mới thì đặt mật khẩu, email đã có tài khoản thì nhập mật khẩu hiện có */
+  next: 'set_password' | 'sign_in';
 }

@@ -18,6 +18,8 @@ export const ROUTES = {
   mockOAuth: '/mock-oauth/authorize',
   /** Cổng trả khách về sau khi trả tiền: trang tĩnh, không cần đăng nhập (Documents/21 T7) */
   paymentResult: '/thanh-toan/ket-qua',
+  /** Trang công khai cho người được mời: `/tham-gia#<token>` (US-CT-06) */
+  join: '/tham-gia',
   platform: {
     root: '/platform',
     overview: '/platform/overview',

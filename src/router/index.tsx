@@ -30,6 +30,7 @@ import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
 import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
 import { MockOAuthPage, ShopOAuthCallbackPage, ShopOAuthRedirect } from '@/features/channel/ShopOAuthPages';
 import { StaffListPage } from '@/features/identity/StaffListPage';
+import { JoinPage } from '@/features/auth/JoinPage';
 import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
 import { ProductFormPage } from '@/features/catalog/ProductFormPage';
@@ -67,6 +68,8 @@ export const router = createBrowserRouter([
   { path: ROUTES.mockOAuth, element: <MockOAuthPage /> },
   // Khách được cổng thanh toán trả về đây, không có phiên đăng nhập
   { path: ROUTES.paymentResult, element: <PaymentResultPage /> },
+  // Link mời nhân viên: công khai, mở được cả khi đang đăng nhập tài khoản khác (US-CT-06)
+  { path: ROUTES.join, element: <JoinPage /> },
   {
     element: <RequireGuest />,
     children: [{ path: ROUTES.register, element: <RegisterPage /> }],
