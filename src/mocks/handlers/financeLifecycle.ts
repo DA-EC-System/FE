@@ -28,8 +28,8 @@ function activateDue() {
     if (config.status !== 'scheduled' || !config.effectiveFrom || config.effectiveFrom > todayVn()) continue;
     for (const old of configs) if (old.companyId === config.companyId && old.kind === config.kind && old.shopId === config.shopId && old.status === 'active') {
       if (!(old.effectiveTo && old.effectiveTo < config.effectiveFrom) && old.id !== config.supersedesId) continue;
-      old.statusHistory.push({ from: 'active', to: 'expired', at: now(), by: null, source: 'system', reason: null });
-      old.status = 'expired'; old.effectiveTo ??= old.effectiveFrom! < config.effectiveFrom ? previousDay(config.effectiveFrom) : old.effectiveFrom; old.version++;
+      old.statusHistory.push({ from: 'active', to: 'superseded', at: now(), by: null, source: 'system', reason: null });
+      old.status = 'superseded'; old.effectiveTo ??= old.effectiveFrom! < config.effectiveFrom ? previousDay(config.effectiveFrom) : old.effectiveFrom; old.version++;
     }
     config.statusHistory.push({ from: 'scheduled', to: 'active', at: now(), by: null, source: 'system', reason: null });
     config.status = 'active'; config.version++;
@@ -140,6 +140,13 @@ export const financeLifecycleHandlers = [
     const errors = validateConfig(body); if (Object.keys(errors).length) return problem(422, 'Kiểm tra dữ liệu', { errors });
     if (body.kind === 'fee' && !db.shops.some((s) => s.id === body.shopId && s.companyId === g.value.companyId)) return fail('not_found', 404);
     if (body.isCorrection && !configs.some((c) => c.id === body.supersedesId && c.companyId === g.value.companyId && c.kind === body.kind && c.shopId === (body.shopId ?? null))) return fail('not_found', 404);
+    if (body.isCorrection) {
+      // Documents/21 §21.4: chỉ sửa bản đã áp dụng chưa có bản sửa lỗi đã áp, và cùng ngày hiệu lực với bản bị sửa
+      const target = configs.find((c) => c.id === body.supersedesId)!;
+      const applied = (s: string) => s === 'active' || s === 'superseded';
+      if (!applied(target.status) || configs.some((c) => c.isCorrection && c.supersedesId === target.id && applied(c.status))) return fail('invalid_correction_target', 422);
+      if (body.effectiveFrom !== target.effectiveFrom) return fail('correction_date_mismatch', 422);
+    }
     const row = { id: crypto.randomUUID(), companyId: g.value.companyId, kind: body.kind, shopId: body.kind === 'fee' ? body.shopId! : null,
       payload: body.payload, effectiveFrom: body.effectiveFrom, effectiveTo: null, supersedesId: body.supersedesId ?? null,
       isCorrection: body.isCorrection ?? false, retroactiveFrom: body.retroactiveFrom ?? null, status: 'draft' as const, statusReason: null,

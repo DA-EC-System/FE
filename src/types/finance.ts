@@ -273,8 +273,8 @@ export interface TaxWarningList {
 
 // D4.4, Documents/21 §21.4.
 export type ConfigKind = 'fee' | 'tax_regime' | 'tax_rules' | 'mismatch_threshold' | 'min_margin';
-export type ConfigStatus = 'draft' | 'pending_approval' | 'scheduled' | 'active' | 'expired' | 'rejected' | 'cancelled';
-export type ConfigAction = 'submit' | 'approve' | 'request_changes' | 'reject' | 'cancel' | 'activate' | 'expire';
+export type ConfigStatus = 'draft' | 'pending_approval' | 'scheduled' | 'active' | 'superseded' | 'rejected' | 'cancelled';
+export type ConfigAction = 'submit' | 'approve' | 'request_changes' | 'reject' | 'cancel' | 'activate' | 'supersede';
 export interface FinanceConfigSummary {
   id: string; kind: ConfigKind; shopId: string | null; payload: Record<string, unknown>;
   effectiveFrom: string | null; effectiveTo: string | null; supersedesId: string | null;

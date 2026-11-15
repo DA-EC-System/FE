@@ -8,12 +8,19 @@ const day = (n: number) => new Date(Date.now() + n * 86400000 + 7 * 3600000).toI
 export type Owned<T> = T & { companyId: string };
 export const configs: Owned<FinanceConfig>[] = db.companies.flatMap((company) => {
   const shop = db.shops.find((s) => s.companyId === company.id);
-  return [{ id: `cfg-${company.id}`, companyId: company.id, kind: 'fee', shopId: shop?.id ?? null,
-    payload: { fixedPct: 3, transactionPct: 2, servicePct: 1, optionalPct: 0, returnFee: 10000 },
-    effectiveFrom: day(-30), effectiveTo: null, supersedesId: null, isCorrection: false, retroactiveFrom: null,
-    status: 'active', statusReason: null, createdBy: { id: 'acc-005', name: 'Admin demo' }, approvedBy: { id: 'acc-001', name: 'CEO demo' },
-    selfApproved: false, dryRun: null, createdAt: now(), version: 1, statusHistory: [],
-  } satisfies Owned<FinanceConfig>];
+  const base = { companyId: company.id, shopId: null, effectiveFrom: day(-30), effectiveTo: null, supersedesId: null, isCorrection: false,
+    retroactiveFrom: null, status: 'active' as const, statusReason: null, createdBy: { id: 'acc-005', name: 'Admin demo' },
+    approvedBy: { id: 'acc-001', name: 'CEO demo' }, selfApproved: false, dryRun: null, createdAt: now(), version: 1, statusHistory: [] };
+  // Bản phí đầu tiên giữ ở đầu danh sách: spec bản sửa lỗi mở dòng đầu (bản đang áp dụng)
+  return [{ ...base, id: `cfg-${company.id}`, kind: 'fee', shopId: shop?.id ?? null, effectiveTo: day(13),
+    payload: { fixedPct: 3, transactionPct: 2, servicePct: 1, optionalPct: 0, returnFee: 10000 } },
+  { ...base, id: `cfg-regime-${company.id}`, kind: 'tax_regime', payload: { regime: 'company' } },
+  { ...base, id: `cfg-tax-${company.id}`, kind: 'tax_rules', payload: { vatPct: 1, pitPct: 0.5, outputVatPct: 10, milestones: [] } },
+  { ...base, id: `cfg-threshold-${company.id}`, kind: 'mismatch_threshold', payload: { abs: 1000, pct: 1, resolveLimit: 100000 } },
+  // Bản phí mới đã duyệt, chờ tới ngày: để thấy lịch hiệu lực và cột so với bản đang áp dụng (#144)
+  { ...base, id: `cfg-next-${company.id}`, kind: 'fee', shopId: shop?.id ?? null, effectiveFrom: day(14), status: 'scheduled' as const,
+    payload: { fixedPct: 4, transactionPct: 2, servicePct: 1, optionalPct: 0, returnFee: 10000 } },
+  ] satisfies Owned<FinanceConfig>[];
 });
 let taxFlagged = false;
 export const payments: Owned<OrderPaymentDetail>[] = orders.map((order, i) => {

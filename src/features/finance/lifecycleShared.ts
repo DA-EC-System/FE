@@ -13,21 +13,43 @@ export const PAYMENT_STATES: Record<SettlementStatus, StatusMeta> = {
 export const CONFIG_STATES: Record<ConfigStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'outline' }, pending_approval: { label: 'Chờ duyệt', variant: 'warning' },
   scheduled: { label: 'Chờ hiệu lực', variant: 'info' }, active: { label: 'Đang áp dụng', variant: 'success' },
-  expired: { label: 'Hết hiệu lực', variant: 'secondary' }, rejected: { label: 'Bị từ chối', variant: 'destructive' },
+  superseded: { label: 'Hết hiệu lực', variant: 'secondary' }, rejected: { label: 'Bị từ chối', variant: 'destructive' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 export const CONFIG_KINDS: Record<ConfigKind, string> = { fee: 'Phí sàn', tax_regime: 'Loại hình thuế', tax_rules: 'Quy tắc thuế', mismatch_threshold: 'Ngưỡng lệch', min_margin: 'Biên tối thiểu' };
 export const PAYLOAD_FIELDS: Record<ConfigKind, Record<string, string>> = {
   fee: { fixedPct: 'Phí cố định (%)', transactionPct: 'Phí giao dịch (%)', servicePct: 'Phí dịch vụ (%)', optionalPct: 'Phí tuỳ chọn (%)', returnFee: 'Phí hoàn hàng (đ)' },
-  tax_regime: { regime: 'Loại hình thuế' }, tax_rules: { vatPct: 'Thuế GTGT (%)', pitPct: 'Thuế TNCN (%)', milestones: 'Mốc doanh thu (đ, cách nhau bằng dấu phẩy)' },
+  tax_regime: { regime: 'Loại hình thuế' }, tax_rules: { vatPct: 'Thuế GTGT (%)', pitPct: 'Thuế TNCN (%)', outputVatPct: 'Thuế GTGT đầu ra (%)', milestones: 'Mốc doanh thu (đ, cách nhau bằng dấu phẩy)' },
   mismatch_threshold: { abs: 'Ngưỡng tuyệt đối (đ)', pct: 'Ngưỡng phần trăm (%)', resolveLimit: 'Hạn mức tự chốt (đ)' }, min_margin: { pct: 'Biên tối thiểu (%)' },
 };
+/** Giải thích ngắn cạnh nhãn ô (HelpTip). `outputVatPct` theo Documents/21 §21.4, 25 §10.2 */
+export const PAYLOAD_HINTS: Record<string, string> = {
+  vatPct: 'Thuế khoán của hộ kinh doanh, cá nhân, tính trên doanh thu.',
+  pitPct: 'Thuế khoán của hộ kinh doanh, cá nhân, tính trên doanh thu.',
+  outputVatPct: 'Chỉ áp khi loại hình là doanh nghiệp. Lãi tính trên doanh thu không thuế = giá bán / (1 + thuế suất); sổ thu chi vẫn ghi đủ giá bán.',
+  resolveLimit: 'Lệch quá số này thì cần CEO duyệt trước khi chốt.',
+};
+export const REGIMES: Record<string, string> = { company: 'Doanh nghiệp', household: 'Hộ kinh doanh', individual: 'Cá nhân' };
+/** Một giá trị trong payload để hiện: % cho trường *Pct, đồng cho số tiền, danh sách mốc, tên loại hình */
+export function formatPayloadValue(key: string, value: unknown): string {
+  if (value === undefined || value === null || value === '') return '—';
+  if (key === 'regime') return REGIMES[String(value)] ?? String(value);
+  const money = (n: unknown) => `${Number(n).toLocaleString('de-DE')} ₫`;
+  if (Array.isArray(value)) return value.length ? value.map(money).join(', ') : 'Không có mốc';
+  if (/pct$/i.test(key)) return `${String(value).replace('.', ',')}%`;
+  return money(value);
+}
+/** Tóm tắt một dòng cho thẻ Đang áp dụng */
+export function payloadSummary(kind: ConfigKind, payload: Record<string, unknown>): string {
+  if (kind === 'fee') return `Tổng phí ${formatPayloadValue('pct', ['fixedPct', 'transactionPct', 'servicePct', 'optionalPct'].reduce((n, k) => n + Number(payload[k] ?? 0), 0))}, hoàn hàng ${formatPayloadValue('returnFee', payload.returnFee)}`;
+  return Object.keys(PAYLOAD_FIELDS[kind]).filter((k) => k !== 'milestones').map((k) => `${PAYLOAD_FIELDS[kind][k].replace(/ \(.*\)$/, '')} ${formatPayloadValue(k, payload[k])}`).join(', ');
+}
 const pct = z.number('Nhập số hợp lệ').min(0, 'Từ 0 đến 100%').max(100, 'Từ 0 đến 100%').multipleOf(0.01, 'Tối đa hai chữ số thập phân');
 const money = z.number('Nhập số hợp lệ').int('Nhập số nguyên đồng').nonnegative('Không được âm');
 export const PAYLOAD_SCHEMAS = {
   fee: z.strictObject({ fixedPct: pct, transactionPct: pct, servicePct: pct, optionalPct: pct, returnFee: money }),
   tax_regime: z.strictObject({ regime: z.enum(['company', 'household', 'individual'], 'Chọn loại hình thuế') }),
-  tax_rules: z.strictObject({ vatPct: pct, pitPct: pct, milestones: z.array(money).max(5, 'Tối đa 5 mốc') }),
+  tax_rules: z.strictObject({ vatPct: pct, pitPct: pct, outputVatPct: pct, milestones: z.array(money).max(5, 'Tối đa 5 mốc') }),
   mismatch_threshold: z.strictObject({ abs: money, pct, resolveLimit: money }), min_margin: z.strictObject({ pct }),
 };
 export const reasonSchema = z.string().trim().min(1, 'Nhập lý do').max(500, 'Tối đa 500 ký tự');
@@ -35,12 +57,14 @@ export const bankRefSchema = z.string().trim().min(1, 'Nhập mã sao kê').max(
 export const todayVn = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 export const configRecord = (config: FinanceConfig) => ({ createdBy: config.createdBy?.id ?? null,
   effectiveFrom: config.effectiveFrom, today: todayVn(), hasDryRun: Boolean(config.dryRun) });
-export function validateConfig(input: CreateFinanceConfig): Record<string, string> {
+/** `correctionDate`: ngày hiệu lực của bản bị sửa, bản sửa lỗi phải trùng (Documents/21 §21.4, 422 correction_date_mismatch) */
+export function validateConfig(input: CreateFinanceConfig, correctionDate?: string | null): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!z.iso.date().safeParse(input.effectiveFrom).success) errors.effectiveFrom = 'Nhập ngày hiệu lực hợp lệ';
   if (input.kind === 'fee' && !input.shopId) errors.shopId = 'Chọn gian hàng';
   if (input.isCorrection) {
     if (!input.supersedesId) errors.supersedesId = 'Chọn bản được sửa';
+    if (correctionDate && input.effectiveFrom !== correctionDate) errors.effectiveFrom = 'Bản sửa lỗi phải cùng ngày hiệu lực với bản bị sửa';
     if (!input.retroactiveFrom || !z.iso.date().safeParse(input.retroactiveFrom).success) errors.retroactiveFrom = 'Nhập ngày hồi tố hợp lệ';
     else if (input.retroactiveFrom > input.effectiveFrom) errors.retroactiveFrom = 'Ngày hồi tố không sau ngày hiệu lực';
   }

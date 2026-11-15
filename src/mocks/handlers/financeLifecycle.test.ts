@@ -41,4 +41,21 @@ describe('D4 mock dùng hợp đồng mới', () => {
     config = await (await call(`/finance/configs/${config.id}/approve`, 'acc-001', 'cmp-001', { version: config.version })).json();
     expect(config.status).toBe('active'); expect(config.selfApproved).toBe(true);
   });
+  it('bản mới cùng ô có hiệu lực thì bản cũ sang superseded, có ngày kết thúc (#144)', async () => {
+    const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+    let config = await (await call('/finance/configs', 'acc-001', 'cmp-001', { kind: 'tax_rules', payload: { vatPct: 1, pitPct: 0.5, outputVatPct: 8, milestones: [] }, effectiveFrom: today })).json();
+    for (const step of ['dry-run', 'submit', 'approve']) config = await (await call(`/finance/configs/${config.id}/${step}`, 'acc-001', 'cmp-001', { version: config.version })).json();
+    expect(config.status).toBe('active');
+    const old = configs.find((c) => c.id === 'cfg-tax-cmp-001')!;
+    expect(old.status).toBe('superseded'); expect(old.effectiveTo! < today).toBe(true);
+    expect(old.statusHistory.at(-1)).toMatchObject({ from: 'active', to: 'superseded', source: 'system' });
+  });
+  it('bản sửa lỗi: chỉ bản đã áp dụng, cùng ngày hiệu lực (Documents/21 §21.4)', async () => {
+    const active = configs.find((c) => c.id === 'cfg-threshold-cmp-001')!; const scheduled = configs.find((c) => c.id === 'cfg-next-cmp-001')!;
+    const body = (target: typeof active, effectiveFrom: string) => ({ kind: target.kind, shopId: target.shopId ?? undefined, payload: target.payload, effectiveFrom, isCorrection: true, supersedesId: target.id, retroactiveFrom: effectiveFrom });
+    const problem = async (res: Response) => [res.status, (await res.json()).code];
+    expect(await problem(await call('/finance/configs', 'acc-001', 'cmp-001', body(scheduled, scheduled.effectiveFrom!)))).toEqual([422, 'invalid_correction_target']);
+    expect(await problem(await call('/finance/configs', 'acc-001', 'cmp-001', body(active, '2026-01-01')))).toEqual([422, 'correction_date_mismatch']);
+    expect((await call('/finance/configs', 'acc-001', 'cmp-001', body(active, active.effectiveFrom!))).status).toBe(201);
+  });
 });
