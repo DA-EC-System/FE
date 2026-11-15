@@ -1,7 +1,7 @@
 import { http, HttpResponse, delay } from 'msw';
-import { CEO_ROLE_ID, db, passwords, permissionCatalog, type MockMembership, type MockRole } from '../db';
+import { CEO_ROLE_ID, db, permissionCatalog, type MockMembership, type MockRole } from '../db';
 import type { AuditAction } from '@/types/companySettings';
-import type { InviteStaffInput, InviteStaffResult, Role, RoleInput, StaffMember } from '@/types/identity';
+import type { Role, RoleInput, StaffMember } from '@/types/identity';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, CompanyActor, LATENCY, lag, enabledModulesOf, pageParams, paginate, problem, requireCompany, rolesOfMember } from './utils';
 
@@ -320,68 +320,6 @@ export const identityHandlers = [
     if (status) items = items.filter((m) => m.status === status);
     if (roleId) items = items.filter((m) => m.roles.some((r) => r.id === roleId));
     return HttpResponse.json(paginate(items, page, pageSize));
-  }),
-
-  http.post(`${API}/identity/staff`, async ({ request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.staffManage);
-    if (!guard.ok) return guard.response;
-    const actor = guard.value;
-    const body = (await request.json()) as InviteStaffInput;
-    const email = body.email?.trim().toLowerCase() ?? '';
-    const errors: Record<string, string> = {};
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Email không hợp lệ';
-    if (!body.fullName?.trim()) errors.fullName = 'Nhập họ tên';
-    if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { errors });
-    const rejected = checkRoleAssignment(actor, body.roleIds);
-    if (rejected) return rejected;
-
-    const existing = db.accounts.find((a) => a.email === email);
-    if (existing?.isPlatformAdmin) {
-      return problem(422, 'Dữ liệu không hợp lệ', {
-        errors: { email: 'Email này không mời làm nhân viên được' },
-      });
-    }
-    const already = existing && findMember(actor, existing.id);
-    if (already) {
-      // UC-PI-05: hỏi có thêm vai trò vừa chọn cho tài khoản này không
-      return problem(409, 'Email đã có tài khoản trong công ty', {
-        code: 'already_member',
-        member: toStaff(already),
-      });
-    }
-
-    let outcome: InviteStaffResult['outcome'] = 'added';
-    let account = existing;
-    if (!account) {
-      outcome = 'invited';
-      account = {
-        id: `acc-${Date.now().toString(36)}`,
-        email,
-        fullName: body.fullName.trim(),
-        isPlatformAdmin: false,
-        mustChangePassword: true,
-      };
-      db.accounts.push(account);
-      passwords[email] = `moi${Math.random().toString(36).slice(2, 8)}1`;
-      // Không có email trong mock: in mật khẩu thư mời ra console để thử đăng nhập
-      console.info(`[mock] Thư mời gửi ${email}, mật khẩu: ${passwords[email]}`);
-    }
-    const membership: MockMembership = {
-      accountId: account.id,
-      companyId: actor.companyId,
-      roleIds: [...new Set(body.roleIds)],
-      status: 'active',
-      joinedAt: db.now(),
-      version: 1,
-    };
-    db.memberships.push(membership);
-    writeCompanyLog(actor, 'create', staffEntity(membership), null, {
-      ...staffSnapshot(membership),
-      invited: outcome === 'invited',
-    });
-    const payload: InviteStaffResult = { outcome, member: toStaff(membership) };
-    return HttpResponse.json(payload, { status: 201 });
   }),
 
   http.put(`${API}/identity/staff/:accountId/roles`, async ({ params, request }) => {

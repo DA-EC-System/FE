@@ -3,15 +3,6 @@ import { type Page } from '@playwright/test';
 import { chon, chu, chua, dangNhap, expect, gan, loi, menu, mockApi, test, toast } from '../../fixtures';
 
 const dongCo = (page: Page, text: string) => chua(page, text, 'tbody tr[data-row-id]');
-const vaiTro = (page: Page, name: string) => chua(page.getByTestId('role-checklist'), name, 'label').click();
-const guiMoi = (page: Page) =>
-  page.getByRole('dialog').getByRole('button', { name: 'Lưu và gửi thư mời', exact: true }).click();
-const moFormMoi = async (page: Page, email: string, fullName: string, role?: string) => {
-  await page.getByRole('button', { name: 'Thêm nhân viên', exact: true }).click();
-  await page.locator('input[name=email]').fill(email);
-  await page.locator('input[name=fullName]').fill(fullName);
-  if (role) await vaiTro(page, role);
-};
 
 test.describe('P1 · Nhân viên (CEO)', () => {
   test.beforeEach(async ({ page }) => {
@@ -49,71 +40,13 @@ test.describe('P1 · Nhân viên (CEO)', () => {
     await expect(dongCo(page, 'Trần Thị Bán Hàng').locator('button').first()).toBeEnabled();
   });
 
-  test('bỏ trống báo tại ô; lỗi 422 gắn vào ô (AC-3); không có CEO trong danh sách vai trò (AC-6)', async ({ page }) => {
-    await page.getByRole('button', { name: 'Thêm nhân viên', exact: true }).click();
+  // Mời bằng link (US-CT-05..07): e2e/mock/p1/moi-nhan-vien-link.spec.ts
+  test('hộp thoại mời không có vai trò CEO; chưa chọn vai trò thì báo tại ô (AC-6)', async ({ page }) => {
+    await page.getByRole('button', { name: 'Mời nhân viên', exact: true }).click();
     const checklist = page.getByTestId('role-checklist');
     await expect(checklist.locator('label', { hasText: /^CEO$/ })).toHaveCount(0);
-    await guiMoi(page);
-    await expect(loi(page, 'email')).not.toBeEmpty();
-    await expect(loi(page, 'fullName')).not.toBeEmpty();
+    await page.getByRole('dialog').getByRole('button', { name: 'Tạo link mời', exact: true }).click();
     await expect(gan(checklist, 'data-slot', 'form-item').locator('[data-slot="form-message"]')).not.toBeEmpty();
-
-    await page.locator('input[name=email]').fill('loi.422@congty.vn');
-    await page.locator('input[name=fullName]').fill('Người Lỗi');
-    await vaiTro(page, 'Sale');
-    await mockApi(page, 'post', '/identity/staff', 422, {
-      status: 422,
-      title: 'Dữ liệu không hợp lệ',
-      code: 'validation_failed',
-      errors: { email: 'Email này BE không nhận' },
-    });
-    await guiMoi(page);
-    await expect(loi(page, 'email')).toHaveText('Email này BE không nhận');
-  });
-
-  test('mời tài khoản mới (invited) và tài khoản đã có ở công ty khác (added) (AC-4)', async ({ page }) => {
-    await moFormMoi(page, 'nv.moi@congty.vn', 'Phan Nhân Viên Mới', 'Sale');
-    await guiMoi(page);
-    await toast(page, 'Đã tạo tài khoản và gửi thư mời tới nv.moi@congty.vn');
-    await expect(dongCo(page, 'nv.moi@congty.vn')).toBeAttached();
-
-    await moFormMoi(page, 'da.co@congtykhac.vn', 'Đã Có Tài Khoản', 'Sale');
-    await mockApi(page, 'post', '/identity/staff', 201, {
-      outcome: 'added',
-      member: {
-        accountId: 'acc-x',
-        email: 'da.co@congtykhac.vn',
-        fullName: 'Đã Có Tài Khoản',
-        roles: [{ id: 'role-sale', name: 'Sale' }],
-        status: 'active',
-        isCeo: false,
-        pendingFirstLogin: false,
-        joinedAt: '2026-10-18T00:00:00.000Z',
-        version: 1,
-      },
-    });
-    await guiMoi(page);
-    await expect(await toast(page, /Đã thêm .* vào công ty/)).not.toContainText('mật khẩu');
-  });
-
-  test('email đã là thành viên thì hỏi thêm vai trò; CEO thì chặn (AC-5)', async ({ page }) => {
-    const dialog = page.getByRole('dialog');
-    await moFormMoi(page, 'sale@commerio.vn', 'Trần Thị Bán Hàng', 'Nhân viên kho');
-    await guiMoi(page);
-    await expect(page.getByTestId('already-member')).toContainText('sale@commerio.vn');
-    await expect(page.getByTestId('already-member')).toContainText('Sale');
-    await dialog.getByRole('button', { name: 'Không', exact: true }).click();
-    await expect(page.locator('input[name=email]')).toHaveValue('sale@commerio.vn');
-    await guiMoi(page);
-    await dialog.getByRole('button', { name: 'Thêm vai trò', exact: true }).click();
-    await toast(page, 'Đã thêm vai trò');
-    await expect(dongCo(page, 'sale@commerio.vn')).toContainText('Nhân viên kho');
-    await expect(dongCo(page, 'sale@commerio.vn')).toContainText('Sale');
-
-    await moFormMoi(page, 'ceo@commerio.vn', 'Lê Hoàng Minh', 'Sale');
-    await guiMoi(page);
-    await expect(page.getByTestId('already-member')).toContainText('không đổi được vai trò');
-    await expect(dialog.getByRole('button', { name: 'Thêm vai trò', exact: true })).toHaveCount(0);
   });
 
   test('permission_not_held, protected_account hiện câu tiếng Việt khác nhau (AC-6)', async ({ page }) => {

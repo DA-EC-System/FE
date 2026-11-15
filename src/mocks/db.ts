@@ -728,6 +728,69 @@ const deadJobs: MockDeadJob[] = [
   },
 ];
 
+/** Lời mời bằng link (US-CT-05..07). `token` là phần sau `#` của link; BE thật không lưu token. */
+export interface MockInvitation {
+  id: string;
+  companyId: string;
+  token: string;
+  status: 'open' | 'claimed' | 'pending' | 'approved' | 'rejected';
+  email: string | null;
+  fullName: string | null;
+  roleIds: string[];
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+  submittedAt: string | null;
+  decidedAt: string | null;
+  existingAccount: boolean;
+  /** Mã OTP vừa gửi (mock in ra console, không có thư) */
+  otp: string | null;
+  /** Mật khẩu đặt ở /join/complete cho email mới; tạo tài khoản lúc duyệt */
+  password: string | null;
+  version: number;
+}
+
+const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+const invitations: MockInvitation[] = [
+  {
+    id: 'inv-001',
+    companyId: 'cmp-001',
+    token: 'mock-inv-001',
+    status: 'pending',
+    email: 'ungvien@gmail.com',
+    fullName: 'Đỗ Thị Ứng Viên',
+    roleIds: ['role-sale'],
+    createdBy: 'acc-001',
+    createdAt: inHours(-30),
+    expiresAt: inHours(42),
+    submittedAt: inHours(-6),
+    decidedAt: null,
+    existingAccount: false,
+    otp: null,
+    password: 'ungvien123',
+    version: 3,
+  },
+  {
+    // Link quá 72 giờ nhưng đã nộp trước đó: vẫn duyệt được (US-CT-07 AC-3)
+    id: 'inv-002',
+    companyId: 'cmp-001',
+    token: 'mock-inv-002',
+    status: 'pending',
+    email: 'hethan@gmail.com',
+    fullName: 'Vũ Văn Hết Hạn',
+    roleIds: ['role-kho'],
+    createdBy: 'acc-001',
+    createdAt: inHours(-100),
+    expiresAt: inHours(-28),
+    submittedAt: inHours(-50),
+    decidedAt: null,
+    existingAccount: false,
+    otp: null,
+    password: 'hethan123',
+    version: 3,
+  },
+];
+
 export const db = {
   companies,
   shops,
@@ -739,5 +802,6 @@ export const db = {
   deadJobs,
   moduleStates,
   moduleData,
+  invitations,
   now,
 };

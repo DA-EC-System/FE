@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { Lock, LockOpen, UserCog, UserPlus } from 'lucide-react';
@@ -11,7 +12,8 @@ import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useRoles, useSetStaffLocked, useStaff } from '@/api/identity.api';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useInvitations, useRoles, useSetStaffLocked, useStaff } from '@/api/identity.api';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,13 +26,20 @@ import type { MembershipStatus } from '@/types/auth';
 import type { StaffMember } from '@/types/identity';
 import { InviteStaffDialog } from './InviteStaffDialog';
 import { EditStaffRolesDialog } from './EditStaffRolesDialog';
+import { PendingInvitations } from './PendingInvitations';
 import { conflictCurrent, protectedReason, STAFF_STATUS_LABELS } from './shared';
 
-/** UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn */
+/** UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn; tab Chờ duyệt cho yêu cầu tham gia qua link (US-CT-07) */
 export function StaffListPage() {
   const { account, companyContext } = useAuth();
   const can = useCan();
   const canManage = can(PERMISSIONS.staffManage);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'pending' ? 'pending' : 'staff';
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingPageSize, setPendingPageSize] = useState(25);
+  // Luôn đọc để tab hiện số yêu cầu đang chờ
+  const pendingQuery = useInvitations({ status: 'pending', page: pendingPage, pageSize: pendingPageSize });
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
@@ -43,7 +52,7 @@ export function StaffListPage() {
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [locking, setLocking] = useState<StaffMember | null>(null);
 
-  const staffQuery = useStaff({ page, pageSize, search: debouncedSearch, status, roleId });
+  const staffQuery = useStaff({ page, pageSize, search: debouncedSearch, status, roleId }, tab === 'staff');
   const rolesQuery = useRoles();
   const roles = useMemo(() => rolesQuery.data ?? [], [rolesQuery.data]);
   const lockMut = useSetStaffLocked();
@@ -175,75 +184,114 @@ export function StaffListPage() {
           canManage ? (
             <Button onClick={() => setInviteOpen(true)} data-guide="staff-invite">
               <UserPlus />
-              Thêm nhân viên
+              Mời nhân viên
             </Button>
           ) : null
         }
       />
 
-      {staffQuery.isError && (
-        <AlertMessage severity="error" className="mb-4">
-          {getErrorMessage(staffQuery.error)}
-        </AlertMessage>
-      )}
-
-      <Card className="gap-0 py-0">
-        <FilterBar>
-          <SearchInput
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              resetPage();
-            }}
-            placeholder="Tìm theo tên hoặc email..."
-          />
-          <FilterSelect
-            label="Trạng thái"
-            value={status}
-            onChange={(v) => {
-              setStatus(v as MembershipStatus | '');
-              resetPage();
-            }}
-            options={Object.entries(STAFF_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
-          />
-          <FilterSelect loading={rolesQuery.isLoading}
-            label="Vai trò"
-            value={roleId}
-            onChange={(v) => {
-              setRoleId(v);
-              resetPage();
-            }}
-            options={roles.map((r) => ({ value: r.id, label: r.name }))}
-          />
-        </FilterBar>
-        <DataTable
-          columns={columns}
-          data={staffQuery.data?.items ?? []}
-          getRowId={(m) => m.accountId}
-          loading={staffQuery.isLoading}
-          fetching={staffQuery.isFetching}
-          empty={filtered ? 'Không có nhân viên nào khớp bộ lọc' : 'Chưa có nhân viên'}
-          pagination={{
-            page,
-            pageSize,
-            total: staffQuery.data?.total ?? 0,
-            onChange: (p, size) => {
-              setPage(p);
-              setPageSize(size);
+      <Tabs
+        value={tab}
+        onValueChange={(v) =>
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              if (v === 'pending') next.set('tab', 'pending');
+              else next.delete('tab');
+              return next;
             },
+            { replace: true },
+          )
+        }
+      >
+        <div className="mb-2 overflow-x-auto">
+          <TabsList>
+            <TabsTrigger value="staff">Nhân viên</TabsTrigger>
+            <TabsTrigger value="pending" data-guide="staff-pending">
+              Chờ duyệt
+              {Boolean(pendingQuery.data?.total) && (
+                <Badge variant="secondary" className="ms-1" data-testid="pending-count">
+                  {pendingQuery.data?.total}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+      </Tabs>
+
+      {tab === 'pending' ? (
+        <PendingInvitations
+          data={pendingQuery.data}
+          loading={pendingQuery.isLoading}
+          fetching={pendingQuery.isFetching}
+          error={pendingQuery.error}
+          canManage={canManage}
+          page={pendingPage}
+          pageSize={pendingPageSize}
+          onPageChange={(p, size) => {
+            setPendingPage(p);
+            setPendingPageSize(size);
           }}
         />
-      </Card>
+      ) : (
+        <>
+          {staffQuery.isError && (
+            <AlertMessage severity="error" className="mb-4">
+              {getErrorMessage(staffQuery.error)}
+            </AlertMessage>
+          )}
 
-      <InviteStaffDialog
-        open={inviteOpen}
-        roles={roles}
-        onClose={() => setInviteOpen(false)}
-        onDone={(msg) => {
-          setInviteOpen(false);
-          toast.success(msg);
-        }}
-      />
+          <Card className="gap-0 py-0">
+            <FilterBar>
+              <SearchInput
+                value={search}
+                onChange={(v) => {
+                  setSearch(v);
+                  resetPage();
+                }}
+                placeholder="Tìm theo tên hoặc email..."
+              />
+              <FilterSelect
+                label="Trạng thái"
+                value={status}
+                onChange={(v) => {
+                  setStatus(v as MembershipStatus | '');
+                  resetPage();
+                }}
+                options={Object.entries(STAFF_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+              />
+              <FilterSelect loading={rolesQuery.isLoading}
+                label="Vai trò"
+                value={roleId}
+                onChange={(v) => {
+                  setRoleId(v);
+                  resetPage();
+                }}
+                options={roles.map((r) => ({ value: r.id, label: r.name }))}
+              />
+            </FilterBar>
+            <DataTable
+              columns={columns}
+              data={staffQuery.data?.items ?? []}
+              getRowId={(m) => m.accountId}
+              loading={staffQuery.isLoading}
+              fetching={staffQuery.isFetching}
+              empty={filtered ? 'Không có nhân viên nào khớp bộ lọc' : 'Chưa có nhân viên'}
+              pagination={{
+                page,
+                pageSize,
+                total: staffQuery.data?.total ?? 0,
+                onChange: (p, size) => {
+                  setPage(p);
+                  setPageSize(size);
+                },
+              }}
+            />
+          </Card>
+        </>
+      )}
+
+      <InviteStaffDialog open={inviteOpen} roles={roles} onClose={() => setInviteOpen(false)} />
 
       <EditStaffRolesDialog
         member={editing}

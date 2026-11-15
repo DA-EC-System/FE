@@ -45,19 +45,24 @@ export const GUIDES = {
   },
   staff: {
     key: 'staff',
-    version: 1,
+    version: 2,
     title: 'Nhân viên',
     intro: [
       'Mỗi nhân viên mang một hoặc nhiều vai trò; vai trò quyết định họ thấy và làm được gì.',
       'Không thao tác được trên tài khoản CEO và tài khoản của chính bạn.',
     ],
-    primaryAction: { label: 'Thêm nhân viên', target: 'staff-invite' },
+    primaryAction: { label: 'Mời nhân viên', target: 'staff-invite' },
     steps: [
       {
         target: 'staff-invite',
         title: 'Mời nhân viên',
-        body: 'Nhập email, họ tên và chọn vai trò. Email đã có tài khoản trong công ty thì hệ thống hỏi thêm vai trò cho tài khoản đó.',
+        body: 'Chọn vai trò rồi tạo link mời, gửi link cho nhân viên. Link chỉ hiện một lần, hạn 72 giờ.',
         permission: 'identity.account.manage',
+      },
+      {
+        target: 'staff-pending',
+        title: 'Duyệt yêu cầu',
+        body: 'Nhân viên mở link, xác minh email và đặt mật khẩu thì yêu cầu hiện ở tab này. Duyệt xong họ mới vào được công ty.',
       },
       {
         target: 'staff-roles',
