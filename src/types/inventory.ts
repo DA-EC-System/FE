@@ -78,7 +78,7 @@ export interface StockListResult {
 }
 
 /** Một dòng sổ inventory.stock_moves, kèm số chứng từ để đọc */
-/** Thẻ kho gắn phiếu kho, phiếu nhận hoặc phiếu trả NCC */
+/** Thẻ kho gắn phiếu kho, phiếu nhận hoặc phiếu trả nhà cung cấp */
 export type StockMoveDocType = StockDocType | 'goods_receipt' | 'supplier_return';
 
 export interface StockMove {
@@ -131,7 +131,7 @@ export type StockDocKind = 'manual' | 'purchase' | 'order' | 'auto';
 export type StockDocStatus = 'draft' | 'pending' | 'posted' | 'rejected' | 'cancelled';
 /** Khu vực đếm của kiểm kê, nguồn của xuất huỷ */
 export type StockArea = 'stock' | 'quarantine';
-/** Từ chối xuất huỷ hàng ở chờ xử lý: kho chọn nhập lại tồn hoặc trả NCC */
+/** Từ chối xuất huỷ hàng ở chờ xử lý: kho chọn nhập lại tồn hoặc trả nhà cung cấp */
 export type RejectDecision = 'restock' | 'supplier_return';
 export type StockDocAction = 'submit' | 'approve' | 'reject' | 'post' | 'cancel';
 
@@ -148,7 +148,7 @@ export interface StockDocLine {
   /** Kiểm kê: tồn sổ lúc đếm, số đếm */
   bookQty?: number;
   counted?: number;
-  /** Kiểm hàng về: số dự kiến (0 là sai mẫu), chia bán lại + hỏng + trả NCC = số quét */
+  /** Kiểm hàng về: số dự kiến (0 là sai mẫu), chia bán lại + hỏng + trả nhà cung cấp = số quét */
   expected?: number;
   resell?: number;
   damaged?: number;

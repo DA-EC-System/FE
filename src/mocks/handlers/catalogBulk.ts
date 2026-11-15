@@ -102,7 +102,7 @@ function suggestionsOf(
       const perDay = qty / VELOCITY_DAYS;
       out.minQty = {
         value: Math.ceil(perDay * rule.leadDays + rule.safetyStock),
-        basis: `Bán ${perDay.toFixed(2).replace('.', ',')}/ngày × ${rule.leadDays} ngày NCC giao + ${rule.safetyStock} dự phòng`,
+        basis: `Bán ${perDay.toFixed(2).replace('.', ',')}/ngày × ${rule.leadDays} ngày nhà cung cấp giao + ${rule.safetyStock} dự phòng`,
       };
     }
   }

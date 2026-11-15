@@ -38,7 +38,7 @@ const SETTLEMENT_KINDS: Record<SettlementLedgerLine['kind'], string> = {
   fee_fixed: 'Phí cố định', fee_transaction: 'Phí giao dịch', fee_service: 'Phí dịch vụ', fee_optional: 'Phí tuỳ chọn',
   withholding_tax: 'Thuế sàn khấu trừ', customer_refund: 'Hoàn tiền khách', return_fee: 'Phí hoàn hàng',
   lost_compensation: 'Bồi thường mất hàng', penalty: 'Phạt', cogs: 'Giá vốn', cogs_reversal: 'Hoàn giá vốn', ads: 'Quảng cáo',
-  opex: 'Chi phí vận hành', supplier_payment: 'Trả NCC', supplier_refund: 'NCC hoàn tiền', cod_collected: 'Thu COD',
+  opex: 'Chi phí vận hành', supplier_payment: 'Trả nhà cung cấp', supplier_refund: 'Nhà cung cấp hoàn tiền', cod_collected: 'Thu COD',
   withdrawal: 'Rút tiền', adjustment: 'Điều chỉnh',
 };
 

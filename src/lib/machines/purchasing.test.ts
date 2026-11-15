@@ -85,7 +85,7 @@ describe('đề nghị nhập', () => {
 
   it('đã duyệt, đã đặt: chỉ CEO huỷ kèm lý do; có phiếu nhận thì bị chặn', () => {
     expect(actions(purchaseRequestMachine.available('ordered', muaHang, rec))).toEqual([]);
-    expect(purchaseRequestMachine.check('ordered', 'cancel', { actor: ceo, record: rec, reason: 'NCC ngừng bán' })).toEqual({
+    expect(purchaseRequestMachine.check('ordered', 'cancel', { actor: ceo, record: rec, reason: 'Nhà cung cấp ngừng bán' })).toEqual({
       ok: true,
       to: 'cancelled',
     });
@@ -99,7 +99,7 @@ describe('đề nghị nhập', () => {
       purchaseRequestMachine.check('partially_received', 'close_short', {
         actor: ceo,
         record: { ...rec, countingReceipts: 1 },
-        reason: 'NCC hết hàng',
+        reason: 'Nhà cung cấp hết hàng',
       }),
     ).toEqual({ ok: false, code: 'receipt_counting' });
     expect(purchaseRequestMachine.check('partially_received', 'receive_all')).toEqual({ ok: true, to: 'received' });
@@ -140,10 +140,10 @@ describe('phiếu nhận', () => {
   });
 });
 
-describe('phiếu trả NCC', () => {
+describe('phiếu trả nhà cung cấp', () => {
   const rec = { createdBy: null, lineCount: 1, hasSupplier: true };
 
-  it('chưa chọn NCC thì không gửi duyệt được', () => {
+  it('chưa chọn nhà cung cấp thì không gửi duyệt được', () => {
     expect(supplierReturnMachine.check('draft', 'submit', { actor: muaHang, record: { ...rec, hasSupplier: false } })).toEqual({
       ok: false,
       code: 'supplier_required',
@@ -175,7 +175,7 @@ describe('phiếu nhận: ghi kết quả giao thiếu', () => {
   it('Kho hoặc CEO ghi kết quả giao thiếu, bắt buộc ghi chú; tách khỏi bước tự động của hệ thống (25 §4.1)', () => {
     const rec = { createdBy: 'acc-011', short: 5 };
     expect(goodsReceiptMachine.check('short', 'resolve', { actor: kho, record: rec })).toEqual({ ok: false, code: 'reason_required' });
-    expect(goodsReceiptMachine.check('short', 'resolve', { actor: kho, record: rec, reason: 'NCC giao bù phiếu PN-12' })).toEqual({
+    expect(goodsReceiptMachine.check('short', 'resolve', { actor: kho, record: rec, reason: 'Nhà cung cấp giao bù phiếu PN-12' })).toEqual({
       ok: true,
       to: 'resolved',
     });

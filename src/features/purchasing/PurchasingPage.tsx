@@ -9,14 +9,14 @@ import { usePageGuide } from '@/guides/usePageGuide';
 
 type PurchasingTab = 'requests' | 'receipts' | 'returns' | 'suppliers';
 
-/** Phân hệ Mua hàng: đề nghị nhập (sơ đồ A1), phiếu nhận (A2), phiếu trả NCC (B4), nhà cung cấp */
+/** Phân hệ Mua hàng: đề nghị nhập (sơ đồ A1), phiếu nhận (A2), phiếu trả nhà cung cấp (B4), nhà cung cấp */
 export function PurchasingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { startTour } = usePageGuide('purchasing');
   const tabs: { value: PurchasingTab; label: string }[] = [
     { value: 'requests', label: 'Đề nghị nhập' },
     { value: 'receipts', label: 'Phiếu nhận' },
-    { value: 'returns', label: 'Trả NCC' },
+    { value: 'returns', label: 'Trả nhà cung cấp' },
     { value: 'suppliers', label: 'Nhà cung cấp' },
   ];
   const requested = searchParams.get('tab');
@@ -27,7 +27,7 @@ export function PurchasingPage() {
       <PageHeader
         title="Mua hàng"
         subtitle="Đề nghị nhập, phiếu nhận và trả hàng cho nhà cung cấp."
-        help="Đề nghị nhập được duyệt rồi đặt NCC. Hàng tới thì Kho lập phiếu nhận từ đề nghị và ghi sổ. Hàng lỗi trả lại NCC bằng phiếu trả; NCC bù hàng thì lập đề nghị bù."
+        help="Đề nghị nhập được duyệt rồi đặt nhà cung cấp. Hàng tới thì Kho lập phiếu nhận từ đề nghị và ghi sổ. Hàng lỗi trả lại nhà cung cấp bằng phiếu trả; nhà cung cấp bù hàng thì lập đề nghị bù."
         onTour={startTour}
       />
       <Tabs

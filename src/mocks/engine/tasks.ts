@@ -12,9 +12,9 @@ export const DAY = 24 * HOUR;
 export const REMIND = {
   /** Phiếu nhận còn đang kiểm */
   goodsReceiptCounting: 24 * HOUR,
-  /** NCC giao thiếu chưa ghi kết quả */
+  /** Nhà cung cấp giao thiếu chưa ghi kết quả */
   shortDelivery: 7 * DAY,
-  /** Phiếu trả NCC đã gửi chưa có kết quả */
+  /** Phiếu trả nhà cung cấp đã gửi chưa có kết quả */
   supplierReturnSent: 14 * DAY,
   /** Đơn còn chờ xử lý */
   orderPending: 24 * HOUR,

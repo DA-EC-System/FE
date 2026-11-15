@@ -189,7 +189,7 @@ test.describe('Hướng dẫn trang', () => {
     const phieu: [string, string, string, string][] = [
       ['Đề nghị nhập', 'DN-000003', 'Đề nghị nhập', 'Đang ở bước nào'],
       ['Phiếu nhận', '', 'Phiếu nhận hàng', 'Số thực nhận'],
-      ['Trả NCC', 'TN-000001', 'Trả hàng nhà cung cấp', 'Chọn dòng trả'],
+      ['Trả nhà cung cấp', 'TN-000001', 'Trả hàng nhà cung cấp', 'Chọn dòng trả'],
     ];
     for (const [tab, so, tieuDe, buoc1] of phieu) {
       await menu(page, 'Mua hàng');

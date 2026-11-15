@@ -262,7 +262,7 @@ seed({
   combos: [['val-mp-5kg'], ['val-mp-10kg']],
 });
 
-/** Hàng về SKU đã lưu trữ (khách trả, NCC bù): SKU quay về Ngừng nhập, cha hiện lại (sơ đồ B1 "khôi phục / hàng về") */
+/** Hàng về SKU đã lưu trữ (khách trả, nhà cung cấp bù): SKU quay về Ngừng nhập, cha hiện lại (sơ đồ B1 "khôi phục / hàng về") */
 export function reviveOnArrival(variantId: string) {
   for (const p of products) {
     const v = p.variants.find((x) => x.id === variantId);

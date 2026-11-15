@@ -100,7 +100,7 @@ export function archiveBlockers(companyId: string, variantId: string): string[] 
       .map((r) => `phiếu nhận ${r.number}`),
     ...purchasing.returns
       .filter((r) => r.companyId === companyId && OPEN_RETURN.has(r.status) && has(r.lines))
-      .map((r) => `phiếu trả NCC ${r.number}`),
+      .map((r) => `phiếu trả nhà cung cấp ${r.number}`),
     ...inventory.docs
       .filter((d) => d.companyId === companyId && (d.status === 'draft' || d.status === 'pending') && has(d.lines))
       .map((d) => `phiếu kho ${d.number}`),

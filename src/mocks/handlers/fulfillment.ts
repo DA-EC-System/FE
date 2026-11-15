@@ -319,7 +319,7 @@ function backToStock(p: MockPackage, at: string, actor: CompanyActor) {
   writeCompanyLog(actor, 'create', stockDocEntity(doc), null, stockDocSnapshot(doc));
 }
 
-/** Hàng hoàn, kiện thất lạc tìm thấy: phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả NCC */
+/** Hàng hoàn, kiện thất lạc tìm thấy: phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả nhà cung cấp */
 function inspectReturn(p: MockPackage, note: string, at: string, by: string, scanned: ScannedLine[] | null) {
   const o = orderOf(p);
   createReturnInspection(o.companyId, { type: 'order', id: o.id, number: o.code }, receivedLines(p.lines, scanned), note, at, by);

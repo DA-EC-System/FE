@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { usePurchaseRequests, useSuppliers } from '@/api/purchasing.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,9 +19,9 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PurchaseRequestStatus, PurchaseRequestSummary } from '@/types/purchasing';
-import { REQUEST_STATUS, formatQty } from './shared';
+import { REQUEST_STATUS, formatQty, hasActiveSupplier } from './shared';
 
-/** Đề nghị nhập (sơ đồ A1): một NCC mỗi đề nghị; cột còn chờ và cờ NCC giao thiếu */
+/** Đề nghị nhập (sơ đồ A1): một nhà cung cấp mỗi đề nghị; cột còn chờ và cờ nhà cung cấp giao thiếu */
 export function RequestsTab() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -33,8 +34,13 @@ export function RequestsTab() {
   const [supplierId, setSupplierId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [noSupplierOpen, setNoSupplierOpen] = useState(false);
 
   const suppliersQuery = useSuppliers();
+  const openNewRequest = () => {
+    if (hasActiveSupplier(suppliersQuery.data) === false) setNoSupplierOpen(true);
+    else navigate(ROUTES.company.purchaseRequestNew(companyId));
+  };
   const query = usePurchaseRequests({
     page,
     pageSize,
@@ -104,7 +110,7 @@ export function RequestsTab() {
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
             <StatusBadge status={row.original.status} statuses={REQUEST_STATUS} />
-            {row.original.supplierShort && <Badge variant="destructive">NCC giao thiếu</Badge>}
+            {row.original.supplierShort && <Badge variant="destructive">Nhà cung cấp giao thiếu</Badge>}
           </div>
         ),
       },
@@ -132,7 +138,7 @@ export function RequestsTab() {
       )}
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số đề nghị, NCC, ghi chú" />
+          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số đề nghị, nhà cung cấp, ghi chú" />
           <FilterSelect
             label="Trạng thái"
             value={status}
@@ -152,7 +158,7 @@ export function RequestsTab() {
             <Button
               className="md:ms-auto"
               data-guide="purchasing-new"
-              onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId))}
+              onClick={openNewRequest}
             >
               <Plus />
               Lập đề nghị
@@ -179,6 +185,35 @@ export function RequestsTab() {
           }}
         />
       </Card>
+      <NoSupplierDialog
+        open={noSupplierOpen}
+        onClose={() => setNoSupplierOpen(false)}
+        suppliersHref={ROUTES.company.purchasing(companyId, 'suppliers')}
+      />
     </div>
+  );
+}
+
+/** Bấm Lập đề nghị khi chưa có nhà cung cấp đang giao dịch: đề nghị nhập bắt buộc chọn nhà cung cấp */
+function NoSupplierDialog({ open, onClose, suppliersHref }: { open: boolean; onClose: () => void; suppliersHref: string }) {
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Chưa có nhà cung cấp</DialogTitle>
+          <DialogDescription>
+            Đề nghị nhập phải chọn một nhà cung cấp đang giao dịch. Thêm nhà cung cấp trước rồi quay lại lập đề nghị.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Đóng
+          </Button>
+          <Button asChild onClick={onClose}>
+            <Link to={suppliersHref}>Thêm nhà cung cấp</Link>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -42,7 +42,7 @@ describe('receiptDiff (FE#137)', () => {
 
   it('liệt kê từng chênh lệch thành một câu', () => {
     expect(receiptDiff({ ...base, announced: 4, accepted: 2, defectKept: 1, short: 1 })).toBe(
-      'NCC báo giao 4, còn chờ 5, lỗi giữ 1, thiếu 1.',
+      'Nhà cung cấp báo giao 4, còn chờ 5, lỗi giữ 1, thiếu 1.',
     );
     expect(receiptDiff({ ...base, accepted: 4, returnedOnSpot: 1 })).toBe('Trả tại chỗ 1.');
   });

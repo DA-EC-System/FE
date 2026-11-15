@@ -117,13 +117,13 @@ test('B4 phiếu trả NCC: lập tay 2 cái từ chờ xử lý, gửi duyệt,
   // Gửi đi thì hàng rời chờ xử lý
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 1 });
 
-  await page.getByRole('button', { name: 'NCC hoàn tiền', exact: true }).click();
+  await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
   const hop = page.getByRole('dialog');
-  await hop.getByLabel(/Số tiền NCC hoàn/).fill('120000');
+  await hop.getByLabel(/Số tiền nhà cung cấp hoàn/).fill('120000');
   await hop.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
-  await expect(page.getByTestId('return-status')).toContainText('NCC hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
   await expect(page.locator('main')).toContainText('120.000');
 
   await page.reload();
-  await expect(page.getByTestId('return-status')).toContainText('NCC hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
 });

@@ -15,7 +15,7 @@ import type { SelfApproval } from '@/types/report';
 const ENTITIES: Record<string, { label: string; ref?: string }> = {
   purchase_requests: { label: 'Đề nghị nhập', ref: 'purchase_request' },
   goods_receipts: { label: 'Phiếu nhận', ref: 'goods_receipt' },
-  supplier_returns: { label: 'Phiếu trả NCC', ref: 'supplier_return' },
+  supplier_returns: { label: 'Phiếu trả nhà cung cấp', ref: 'supplier_return' },
   stock_documents: { label: 'Phiếu kho', ref: 'stock_document' },
   packages: { label: 'Kiện', ref: 'package' },
   config_versions: { label: 'Cấu hình phí, thuế' },

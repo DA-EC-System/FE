@@ -184,7 +184,7 @@ export function stockDocSnapshot(d: MockStockDoc) {
     const sku = skuOf(d.companyId, l.variantId);
     if (d.type === 'stocktake') return `${sku}: đếm ${l.counted} (sổ ${l.bookQty})`;
     if (d.type === 'return_inspection') {
-      return `${sku}: quét ${l.quantity}/${l.expected ?? 0} (bán lại ${l.resell ?? 0}, hỏng ${l.damaged ?? 0}, trả NCC ${l.toSupplier ?? 0})`;
+      return `${sku}: quét ${l.quantity}/${l.expected ?? 0} (bán lại ${l.resell ?? 0}, hỏng ${l.damaged ?? 0}, trả nhà cung cấp ${l.toSupplier ?? 0})`;
     }
     return `${sku}: ${l.quantity}`;
   };
@@ -400,7 +400,7 @@ function buildLines(
       else if (!exp && scanned < 1) errors[`lines.${i}.scanned`] = 'Dòng sai mẫu cần số quét từ 1';
       if (!parts.every((p) => isQty(p, 0))) errors[`lines.${i}.resell`] = 'Số chia là số nguyên không âm';
       else if (parts[0] + parts[1] + parts[2] !== scanned) {
-        errors[`lines.${i}.resell`] = 'Bán lại + hỏng + trả NCC phải bằng số quét';
+        errors[`lines.${i}.resell`] = 'Bán lại + hỏng + trả nhà cung cấp phải bằng số quét';
       }
       lines.push({
         variantId: line.variantId,
@@ -490,7 +490,7 @@ function postDoc(doc: MockStockDoc, actor: CompanyActor, at: string) {
   rebalance(doc.companyId, doc.lines.map((l) => l.variantId));
   if (doc.type !== 'return_inspection') return;
   inspectionPosted?.(doc, at);
-  // Phần trả NCC sinh phiếu trả NCC nháp, mua hàng chọn NCC (FE#17)
+  // Phần trả nhà cung cấp sinh phiếu trả nhà cung cấp nháp, mua hàng chọn nhà cung cấp (FE#17)
   const toSupplier = doc.lines.filter((l) => (l.toSupplier ?? 0) > 0);
   if (toSupplier.length) {
     const ret = purchasing.createSupplierReturnDraft(
@@ -498,7 +498,7 @@ function postDoc(doc: MockStockDoc, actor: CompanyActor, at: string) {
       docRef(doc),
       null,
       toSupplier.map((l) => ({ variantId: l.variantId, quantity: l.toSupplier ?? 0, unitCost: l.unitCost })),
-      `Hàng trả NCC từ ${doc.number}`,
+      `Hàng trả nhà cung cấp từ ${doc.number}`,
       at,
     );
     doc.followUps.push(purchasing.returnRef(ret));
@@ -519,7 +519,7 @@ function postDoc(doc: MockStockDoc, actor: CompanyActor, at: string) {
   }
 }
 
-/** Phiếu xuất huỷ nháp từ chờ xử lý: hàng hỏng của kiểm hàng về, phiếu trả NCC bị huỷ (FE#17) */
+/** Phiếu xuất huỷ nháp từ chờ xử lý: hàng hỏng của kiểm hàng về, phiếu trả nhà cung cấp bị huỷ (FE#17) */
 export function createQuarantineWriteOff(
   companyId: string,
   source: DocRef,
@@ -602,7 +602,7 @@ registerTaskSource({
             ? `Duyệt phần thiếu ${d.number}`
             : `Kiểm hàng về ${d.number}`,
         detail: needsDecision(d)
-          ? 'Xuất huỷ bị từ chối: nhập lại tồn hoặc trả NCC.'
+          ? 'Xuất huỷ bị từ chối: nhập lại tồn hoặc trả nhà cung cấp.'
           : `${d.source?.number ?? ''} ${d.note}`.trim(),
         ...dueState(d.createdAt, REMIND.stockDocPending, now),
         ref: { type: 'stock_document', id: d.id },
@@ -854,7 +854,7 @@ export const inventoryHandlers = [
     return HttpResponse.json<StockDoc>(toStockDoc(doc, permissions));
   }),
 
-  /** Xuất huỷ hàng chờ xử lý bị từ chối: kho chọn nhập lại tồn hoặc trả NCC */
+  /** Xuất huỷ hàng chờ xử lý bị từ chối: kho chọn nhập lại tồn hoặc trả nhà cung cấp */
   http.post(`${API}/inventory/documents/:id/decide`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.stockDocManage);
@@ -873,7 +873,7 @@ export const inventoryHandlers = [
       });
     }
     if (!DECISIONS.includes(body.decision)) {
-      return problem(422, 'Dữ liệu không hợp lệ', { errors: { decision: 'Chọn nhập lại tồn hoặc trả NCC' } });
+      return problem(422, 'Dữ liệu không hợp lệ', { errors: { decision: 'Chọn nhập lại tồn hoặc trả nhà cung cấp' } });
     }
     const before = stockDocSnapshot(doc);
     const at = db.now();
@@ -883,13 +883,13 @@ export const inventoryHandlers = [
       rebalance(companyId, doc.lines.map((l) => l.variantId));
     }
     if (body.decision === 'supplier_return') {
-      // Hàng nằm lại chờ xử lý, sinh phiếu trả NCC nháp (FE#17)
+      // Hàng nằm lại chờ xử lý, sinh phiếu trả nhà cung cấp nháp (FE#17)
       const ret = purchasing.createSupplierReturnDraft(
         companyId,
         docRef(doc),
         null,
         doc.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity, unitCost: l.unitCost })),
-        `Xuất huỷ ${doc.number} bị từ chối, trả NCC`,
+        `Xuất huỷ ${doc.number} bị từ chối, trả nhà cung cấp`,
         at,
       );
       doc.followUps.push(purchasing.returnRef(ret));

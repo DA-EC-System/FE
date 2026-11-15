@@ -13,7 +13,7 @@ export const LEDGER_KIND_LABELS: Record<LedgerKind, string> = {
   penalty: 'Phạt',
   ads: 'Quảng cáo',
   withdrawal: 'Rút về ngân hàng',
-  supplier_refund: 'NCC hoàn tiền',
+  supplier_refund: 'Nhà cung cấp hoàn tiền',
   adjustment: 'Điều chỉnh',
   cogs: 'Giá vốn',
 };

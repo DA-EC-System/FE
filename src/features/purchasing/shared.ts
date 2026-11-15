@@ -18,7 +18,7 @@ export const REQUEST_STATUS: Record<PurchaseRequestStatus, StatusMeta> = {
   changes_requested: { label: 'Bị trả về', variant: 'warning' },
   approved: { label: 'Đã duyệt', variant: 'info' },
   rejected: { label: 'Từ chối', variant: 'destructive' },
-  ordered: { label: 'Đã đặt NCC', variant: 'info' },
+  ordered: { label: 'Đã đặt nhà cung cấp', variant: 'info' },
   partially_received: { label: 'Nhận một phần', variant: 'info' },
   received: { label: 'Nhận xong', variant: 'success' },
   closed_short: { label: 'Đóng thiếu', variant: 'secondary' },
@@ -37,9 +37,9 @@ export const RETURN_STATUS: Record<SupplierReturnStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'warning' },
   pending_approval: { label: 'Chờ duyệt', variant: 'info' },
   sent: { label: 'Đã gửi', variant: 'info' },
-  refunded: { label: 'NCC hoàn tiền', variant: 'success' },
-  replaced: { label: 'NCC bù hàng', variant: 'success' },
-  returned_to_us: { label: 'NCC không nhận', variant: 'destructive' },
+  refunded: { label: 'Nhà cung cấp hoàn tiền', variant: 'success' },
+  replaced: { label: 'Nhà cung cấp bù hàng', variant: 'success' },
+  returned_to_us: { label: 'Nhà cung cấp không nhận', variant: 'destructive' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
@@ -49,9 +49,9 @@ export const DELIVERY_LABELS: Record<DeliveryMode, string> = {
 };
 
 export const RESOLUTION_LABELS: Record<ShortResolutionKind, string> = {
-  follow_up: 'NCC giao bù',
+  follow_up: 'Nhà cung cấp giao bù',
   close_short: 'Đóng thiếu đề nghị',
-  supplier_wrong: 'NCC báo đã giao đủ, mình nhận sai',
+  supplier_wrong: 'Nhà cung cấp báo đã giao đủ, mình nhận sai',
 };
 
 export const CANCEL_DECISION_LABELS: Record<SupplierReturnCancelDecision, string> = {
@@ -224,3 +224,10 @@ export interface ReturnFormInput {
 export type ReturnFormOutput = z.output<typeof returnFormSchema>;
 
 export const refundSchema = moneyText('Số tiền hoàn', 1);
+
+/**
+ * Đề nghị nhập phải có nhà cung cấp đang giao dịch. Chưa tải xong danh sách thì `undefined` (không chặn);
+ * tải xong mà không có ai đang giao dịch thì nút Lập đề nghị mở hộp thoại chỉ sang tab Nhà cung cấp.
+ */
+export const hasActiveSupplier = (suppliers: readonly { active: boolean }[] | undefined): boolean | undefined =>
+  suppliers === undefined ? undefined : suppliers.some((s) => s.active);

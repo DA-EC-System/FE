@@ -28,7 +28,7 @@ import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 import { MismatchPanel } from './MismatchPanel';
 
-const BANK_KINDS: Record<string, string> = { withdrawal: 'Rút tiền', supplier_refund: 'NCC hoàn tiền', lost_compensation: 'Bồi thường mất hàng' };
+const BANK_KINDS: Record<string, string> = { withdrawal: 'Rút tiền', supplier_refund: 'Nhà cung cấp hoàn tiền', lost_compensation: 'Bồi thường mất hàng' };
 
 /** Tổng của trang đang xem, cột chưa có số (null) không cộng */
 const sumOf = (items: OrderPayment[], pick: (p: OrderPayment) => number | null) =>
