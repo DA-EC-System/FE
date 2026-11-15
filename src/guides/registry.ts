@@ -505,7 +505,7 @@ export const GUIDES = {
     title: 'Chi tiết đơn',
     intro: [
       'Thanh bước cho biết đơn đang ở đâu; nhãn giai đoạn suy từ các kiện.',
-      'Cột phải là thanh toán (đơn tạo tay, hộp thư) và lịch sử của đơn.',
+      'Cột phải là lịch sử của đơn.',
     ],
     primaryAction: { label: 'Xem kiện', target: 'order-packages' },
     steps: [
@@ -515,11 +515,6 @@ export const GUIDES = {
         target: 'order-packages',
         title: 'Kiện của đơn',
         body: 'Mỗi kiện đi riêng: bấm mã kiện để mở trang kiện; tự giao thì cập nhật giao ở cột cuối.',
-      },
-      {
-        target: 'order-payment',
-        title: 'Thanh toán',
-        body: 'Đơn trả trước: tạo mã thanh toán rồi gửi QR hoặc link cho khách. Trạng thái tiền tự cập nhật.',
       },
       { target: 'detail-history', title: 'Lịch sử', body: 'Ai đổi trạng thái đơn, lúc nào, lý do gì.' },
     ],
