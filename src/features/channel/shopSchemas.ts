@@ -107,7 +107,7 @@ export const LISTING_STATUS_VARIANTS: Record<
 export const STOCK_SYNC_LABELS: Record<SyncState, string> = {
   synced: 'Tồn đã đồng bộ',
   pending: 'Tồn chờ đẩy',
-  error: 'Lệch tồn sàn',
+  error: 'Lệch tồn',
 };
 
 /** Trạng thái phiếu kiểm kê đầu kỳ, dùng trong câu "phiếu KK-… đã huỷ" (§18.6.2) */

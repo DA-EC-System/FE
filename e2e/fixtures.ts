@@ -95,16 +95,23 @@ export async function chon(scope: Scope, label: string, option: string | RegExp)
   await page.getByRole('option', { name: option, exact: true }).click();
 }
 
-/** Lần gọi kế tiếp tới `/api/v1<path>` trả về `status` + `body` (chỉ khi chạy MSW) */
-export async function mockApi(page: Page, method: Method, path: string, status: number, body: unknown) {
+/** Lần gọi kế tiếp tới `/api/v1<path>` trả về `status` + `body` (+ `headers`, vd. `Retry-After`) (chỉ khi chạy MSW) */
+export async function mockApi(
+  page: Page,
+  method: Method,
+  path: string,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+) {
   await page.evaluate(
-    ({ method, path, status, body }) => {
+    ({ method, path, status, body, headers }) => {
       const bridge = (window as unknown as { __msw?: MswBridge }).__msw;
       if (!bridge) throw new Error('Cần chạy Vite dev với MSW (VITE_USE_MOCKS) để giả lập phản hồi BE');
       const { worker, http, HttpResponse } = bridge;
-      worker.use(http[method](`*/api/v1${path}`, () => HttpResponse.json(body, { status }), { once: true }));
+      worker.use(http[method](`*/api/v1${path}`, () => HttpResponse.json(body, { status, headers }), { once: true }));
     },
-    { method, path, status, body },
+    { method, path, status, body, headers },
   );
 }
 

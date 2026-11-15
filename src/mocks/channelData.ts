@@ -159,6 +159,7 @@ export const listings: MockListing[] = [
     stockSync: 'error',
     platformStock: 12,
     stockSyncError: { code: 'E0506', message: 'SellerSku is locked by campaign', at: '2026-10-14T07:45:00.000Z' },
+    priceSyncError: { code: 'E0811', message: 'Price cannot be changed during promotion', at: '2026-10-14T07:46:00.000Z' },
   }),
   listing('shp-003', 'cmp-001', 'prd-001-v3', 'shp-003-sku-009', 150000, {
     status: 'rejected',

@@ -298,8 +298,8 @@ export function ShopListPage() {
     <div>
       <PageHeader
         title="Gian hàng"
-        subtitle="Gian hàng trên các sàn đã kết nối với công ty. Ghép biến thể với SKU sàn để đồng bộ đơn, giá và tồn."
-        help="Commerio giữ tồn và giá, sàn giữ thông tin giao vận. Gian hàng mới phải xong thiết lập lần đầu mới bắt đầu kéo đơn và đẩy tồn."
+        subtitle="Gian hàng trên các sàn đã kết nối với công ty."
+        help="Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio. Đơn sàn của SKU đã ghép trừ đúng tồn của biến thể, và Commerio đẩy tồn, giá lên đúng SKU đó. Commerio giữ tồn và giá, sàn giữ thông tin giao vận. Gian hàng mới phải xong thiết lập lần đầu mới bắt đầu kéo đơn và đẩy tồn."
         action={
           canConnect ? (
             <Button onClick={() => setAdding(true)}>
