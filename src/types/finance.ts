@@ -163,53 +163,11 @@ export interface CodConflictOrder {
   status: string;
 }
 
-// ---------- Sổ tiền (sơ đồ D4.1, FE#76, Documents/21 mục 21.1) ----------
+// ---------- Sổ tiền (sơ đồ D4.1, FE#150, Documents/21 mục 21.1) ----------
 
-/** `cogs` là giá vốn, không phải tiền; `withdrawal` là rút từ ví sàn về ngân hàng */
-export type LedgerKind =
-  | 'revenue'
-  | 'subsidy'
-  | 'fee_fixed'
-  | 'fee_txn'
-  | 'fee_optional'
-  | 'tax_withheld'
-  | 'return_fee'
-  | 'compensation'
-  | 'refund'
-  | 'penalty'
-  | 'ads'
-  | 'withdrawal'
-  | 'supplier_refund'
-  | 'adjustment'
-  | 'cogs';
-
-/** Dòng sổ không sửa tại chỗ: dòng ước tính bị thay bằng dòng thực tế khi sàn quyết toán */
-export interface LedgerLine {
-  id: string;
-  /** SO-000001 */
-  code: string;
-  at: string;
-  kind: LedgerKind;
-  /** Âm là tiền ra */
-  amount: number;
-  estimated: boolean;
-  replaced: boolean;
-  shopId: string | null;
-  shopName: string | null;
-  orderId: string | null;
-  orderCode: string | null;
-  packageId: string | null;
-  /** Phiên bản cấu hình phí, thuế dùng để ước tính (CH-000001) */
-  configVersion: string | null;
-  /** Mã giao dịch quyết toán của sàn */
-  txnId: string | null;
-  /** Mã đơn sàn của khoản quyết toán; có mà không có `orderId` là đơn không có trong app (E140, BE#250) */
-  externalOrderId?: string | null;
-  flags?: 'unknown_order'[];
-  ref: DocRef | null;
-  note: string | null;
-  bankMatched: boolean;
-}
+/** Dòng sổ chỉ thêm (§21.1): dùng chung kiểu với đối soát; `cogs`, `cogs_reversal` không phải tiền mặt */
+export type LedgerLine = import('./settlement').SettlementLedgerLine;
+export type LedgerKind = LedgerLine['kind'];
 
 export type LedgerFilter = 'all' | 'estimated' | 'actual' | 'replaced';
 
@@ -233,29 +191,71 @@ export interface LedgerResponse {
 
 /** Tiền của một đơn, chỉ tính phần đã giao. Không có `inventory.cost.view` thì `cogs`, `gross` là null */
 export interface OrderProfit {
-  /** Thực nhận: doanh thu trừ phí, thuế, hoàn, chưa trừ quảng cáo */
+  /** Thực nhận: doanh thu trừ phí, thuế, hoàn */
   net: number;
-  /** Quảng cáo gắn với đơn, số âm */
-  ads: number;
+  /** Giá vốn, số âm */
   cogs: number | null;
   gross: number | null;
   /** Còn dòng ước tính chưa được quyết toán */
   estimated: boolean;
-  /** Thuế khấu trừ thực tế trừ thuế ước tính; null khi chưa quyết toán hoặc khớp */
-  taxMismatch: number | null;
+  /** Có kiện đã giao không có giá vốn (giao trước khi bắt đầu lấy đơn): `cogs`, `gross` thiếu phần đó */
+  costMissing: boolean;
   lines: LedgerLine[];
 }
 
-export interface OrderProfitRow extends Omit<OrderProfit, 'lines'> {
-  order: OrderRef;
-  shopName: string | null;
+/** Tổng trên toàn bộ kết quả lọc, không chỉ trang */
+export interface ProfitTotals {
+  net: number;
+  cogs: number | null;
+  gross: number | null;
+}
+
+export interface OrderProfitRow {
+  orderId: string;
+  code: string | null;
+  shopId: string | null;
+  /** Kiện đầu tiên giao xong */
+  deliveredAt: string | null;
+  net: number;
+  cogs: number | null;
+  gross: number | null;
+  /** Lãi gộp / thực nhận (%); null khi thực nhận ≤ 0 hoặc thiếu quyền xem giá vốn */
+  marginPct: number | null;
+  estimated: boolean;
+  costMissing: boolean;
+  /** Dưới giá thấp nhất thực tế */
+  belowFloor: boolean;
 }
 
 export interface OrderProfitList {
   items: OrderProfitRow[];
+  totals: ProfitTotals;
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface SkuProfitRow {
+  /** null: dòng hàng chưa ghép SKU, gộp một dòng */
+  variantId: string | null;
+  sku: string | null;
+  productName: string | null;
+  soldQty: number;
+  net: number;
+  cogs: number | null;
+  gross: number | null;
+  marginPct: number | null;
+  costMissing: boolean;
+}
+
+export interface SkuProfitList {
+  items: SkuProfitRow[];
+  totals: ProfitTotals;
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Số đơn bị loại vì có kiện giao mà thiếu dòng hàng */
+  excludedOrders: number;
 }
 
 export interface TaxWarning {
@@ -266,10 +266,9 @@ export interface TaxWarning {
 }
 
 export interface TaxWarningList {
-  year: number;
+  regime: 'company' | 'household' | 'individual' | null;
   items: TaxWarning[];
 }
-
 
 // D4.4, Documents/21 §21.4.
 export type ConfigKind = 'fee' | 'tax_regime' | 'tax_rules' | 'mismatch_threshold' | 'min_margin';
