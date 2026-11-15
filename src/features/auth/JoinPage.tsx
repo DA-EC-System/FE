@@ -44,6 +44,16 @@ type Step =
 /** Lỗi làm link không dùng tiếp được: dừng luồng, chỉ còn câu báo */
 const FATAL = ['invitation_invalid', 'invitation_used'];
 
+/** Token sau `#`. Link bị sửa tay thành `%` sai thì giữ nguyên chuỗi để BE trả `invitation_invalid`, không làm trắng trang */
+function readToken(hash: string): string {
+  const raw = hash.replace(/^#/, '');
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 /** Đếm ngược theo `Retry-After` của lỗi 429 */
 function useCooldown() {
   const [until, setUntil] = useState(0);
@@ -71,7 +81,7 @@ function useCooldown() {
  */
 export function JoinPage() {
   const { hash } = useLocation();
-  const token = decodeURIComponent(hash.replace(/^#/, ''));
+  const token = readToken(hash);
   const [invite, setInvite] = useState<JoinCheck | null>(null);
   const [step, setStep] = useState<Step>({ kind: 'checking' });
   const [error, setError] = useState<string | null>(null);

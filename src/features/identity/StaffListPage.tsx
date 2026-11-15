@@ -234,61 +234,61 @@ export function StaffListPage() {
           }}
         />
       ) : (
-      <>
-      {staffQuery.isError && (
-        <AlertMessage severity="error" className="mb-4">
-          {getErrorMessage(staffQuery.error)}
-        </AlertMessage>
-      )}
+        <>
+          {staffQuery.isError && (
+            <AlertMessage severity="error" className="mb-4">
+              {getErrorMessage(staffQuery.error)}
+            </AlertMessage>
+          )}
 
-      <Card className="gap-0 py-0">
-        <FilterBar>
-          <SearchInput
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              resetPage();
-            }}
-            placeholder="Tìm theo tên hoặc email..."
-          />
-          <FilterSelect
-            label="Trạng thái"
-            value={status}
-            onChange={(v) => {
-              setStatus(v as MembershipStatus | '');
-              resetPage();
-            }}
-            options={Object.entries(STAFF_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
-          />
-          <FilterSelect loading={rolesQuery.isLoading}
-            label="Vai trò"
-            value={roleId}
-            onChange={(v) => {
-              setRoleId(v);
-              resetPage();
-            }}
-            options={roles.map((r) => ({ value: r.id, label: r.name }))}
-          />
-        </FilterBar>
-        <DataTable
-          columns={columns}
-          data={staffQuery.data?.items ?? []}
-          getRowId={(m) => m.accountId}
-          loading={staffQuery.isLoading}
-          fetching={staffQuery.isFetching}
-          empty={filtered ? 'Không có nhân viên nào khớp bộ lọc' : 'Chưa có nhân viên'}
-          pagination={{
-            page,
-            pageSize,
-            total: staffQuery.data?.total ?? 0,
-            onChange: (p, size) => {
-              setPage(p);
-              setPageSize(size);
-            },
-          }}
-        />
-      </Card>
-      </>
+          <Card className="gap-0 py-0">
+            <FilterBar>
+              <SearchInput
+                value={search}
+                onChange={(v) => {
+                  setSearch(v);
+                  resetPage();
+                }}
+                placeholder="Tìm theo tên hoặc email..."
+              />
+              <FilterSelect
+                label="Trạng thái"
+                value={status}
+                onChange={(v) => {
+                  setStatus(v as MembershipStatus | '');
+                  resetPage();
+                }}
+                options={Object.entries(STAFF_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+              />
+              <FilterSelect loading={rolesQuery.isLoading}
+                label="Vai trò"
+                value={roleId}
+                onChange={(v) => {
+                  setRoleId(v);
+                  resetPage();
+                }}
+                options={roles.map((r) => ({ value: r.id, label: r.name }))}
+              />
+            </FilterBar>
+            <DataTable
+              columns={columns}
+              data={staffQuery.data?.items ?? []}
+              getRowId={(m) => m.accountId}
+              loading={staffQuery.isLoading}
+              fetching={staffQuery.isFetching}
+              empty={filtered ? 'Không có nhân viên nào khớp bộ lọc' : 'Chưa có nhân viên'}
+              pagination={{
+                page,
+                pageSize,
+                total: staffQuery.data?.total ?? 0,
+                onChange: (p, size) => {
+                  setPage(p);
+                  setPageSize(size);
+                },
+              }}
+            />
+          </Card>
+        </>
       )}
 
       <InviteStaffDialog open={inviteOpen} roles={roles} onClose={() => setInviteOpen(false)} />

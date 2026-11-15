@@ -39,6 +39,8 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedInvitation | null>(null);
   const [copied, setCopied] = useState(false);
+  // Trình duyệt chặn clipboard: hướng dẫn tự Ctrl+C, không phải lỗi nên hiện ô cảnh báo
+  const [copyHint, setCopyHint] = useState<string | null>(null);
   // Bấm đóng khi chưa sao chép: hỏi lại vì link không xem lại được
   const [confirmClose, setConfirmClose] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
@@ -52,6 +54,7 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
       setError(null);
       setCreated(null);
       setCopied(false);
+      setCopyHint(null);
       setConfirmClose(false);
     }
   }, [open, reset]);
@@ -74,9 +77,10 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
     } catch {
       // Trình duyệt chặn clipboard (http, iframe): bôi đen để người dùng tự Ctrl+C
       linkRef.current?.select();
-      setError('Trình duyệt không cho sao chép tự động. Link đã được bôi đen, bấm Ctrl+C để sao chép.');
+      setCopyHint('Trình duyệt không cho sao chép tự động. Link đã được bôi đen, bấm Ctrl+C để sao chép.');
       return;
     }
+    setCopyHint(null);
     setCopied(true);
     setConfirmClose(false);
   };
@@ -105,6 +109,11 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
         {error && (
           <AlertMessage severity="error" onClose={() => setError(null)}>
             {error}
+          </AlertMessage>
+        )}
+        {copyHint && (
+          <AlertMessage severity="warning" onClose={() => setCopyHint(null)}>
+            {copyHint}
           </AlertMessage>
         )}
 
