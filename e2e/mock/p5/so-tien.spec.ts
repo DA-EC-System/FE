@@ -1,8 +1,10 @@
-// P5 · Sổ tiền (sơ đồ D4.1; FE#76): dòng sổ ước tính/thực tế, sàn quyết toán thay dòng, lãi theo đơn, cảnh báo mốc
+// P5 · Sổ tiền (sơ đồ D4.1; FE#76, FE#150 theo Documents/21 §21.1): dòng sổ ước tính/thực tế, sàn quyết toán thay dòng, lãi theo đơn, theo SKU, cảnh báo mốc
 import { type Page } from '@playwright/test';
-import { chu, chua, dangNhap, expect, test, thayChu, toast } from '../../fixtures';
+import { chu, chua, dangNhap, dong, expect, test, thayChu, toast } from '../../fixtures';
 
 const CHAN_QUYEN = 'Vai trò của bạn trong công ty này không có quyền mở trang này.';
+/** DH-1018 (đơn tạo tay) giao ngày 11/10/2026: kỳ chỉ có đơn này */
+const KY_DH1018 = 'from=2026-10-11&to=2026-10-11';
 
 const diToi = (page: Page, path: string) =>
   page.evaluate((path) => {
@@ -58,39 +60,50 @@ test.describe('P5 · Sổ tiền', () => {
       await thayChu(page, 'Không có dòng sổ nào');
     });
 
-    test('kiện sàn giao xong ghi ước tính; sàn quyết toán thay dòng, lệch thuế', async ({ page }) => {
+    test('kiện sàn giao xong ghi ước tính; sàn quyết toán thay từng dòng bằng số thực tế', async ({ page }) => {
       await giaoDH1015(page);
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
-      await coChu(tienDon(page), 'Ước tính', 'Thực nhận', 'Lãi đóng góp');
+      await coChu(tienDon(page), 'Ước tính', 'Thực nhận', 'Lãi gộp');
       await expect(tienDon(page)).not.toContainText('Giá vốn');
-      await coChu(await cachTinh(page), 'Giá vốn', 'Lãi gộp', 'Quảng cáo');
+      await coChu(await cachTinh(page), 'Thực nhận', 'Giá vốn', 'Lãi gộp');
       await page.keyboard.press('Escape');
-      await expect(tienDon(page)).not.toContainText('Lệch thuế');
 
+      // Ước tính: doanh thu, phí cố định, phí giao dịch, phí dịch vụ, thuế sàn khấu trừ
       await diToi(page, '/c/cmp-001/dev/marketplace');
-      await phat(page, 'finance.order_settled', 'DH-1015 9999 20000');
-      await toast(page, /DH-1015: thay 4 dòng ước tính/);
+      await phat(page, 'finance.order_settled', 'DH-1015 9999');
+      await toast(page, /DH-1015: thay 5 dòng ước tính/);
 
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
-      await coChu(tienDon(page), 'Theo quyết toán', 'Lệch thuế');
-      await expect(chua(await cachTinh(page), 'Quảng cáo').locator('..')).toContainText('-20.000');
-      await page.keyboard.press('Escape');
-
+      await thayChu(tienDon(page), 'Theo quyết toán');
       await chua(tienDon(page), 'dòng sổ của đơn').click();
       await page.getByRole('tab', { name: 'Đã thay', exact: true }).click();
-      await expect(page.locator('tbody tr')).toHaveCount(4);
+      await expect(page.locator('tbody tr')).toHaveCount(5);
       await expect(page.locator('tbody tr').first().locator('.line-through').first()).toBeAttached();
       await page.getByRole('tab', { name: 'Thực tế', exact: true }).click();
-      await coChu(chua(page, 'Thuế khấu trừ', 'tr'), '-9.999', 'TXN-DH-1015');
+      await coChu(chua(page, 'Thuế sàn khấu trừ', 'tr'), '-9.999', 'TXN-DH-1015');
 
       await page.getByRole('tab', { name: 'Lãi theo đơn', exact: true }).click();
-      await coChu(chua(page, 'DH-1015', 'tr'), 'Theo quyết toán', 'Lệch thuế');
+      await thayChu(chua(page, 'DH-1015', 'tr'), 'Theo quyết toán');
+      await coChu(page.getByTestId('profit-totals'), 'Tổng kỳ', 'Thực nhận', 'Giá vốn', 'Lãi gộp');
     });
 
-    test('đơn tạo tay đã giao: tiền thực tế, có giá vốn', async ({ page }) => {
+    test('đơn tạo tay đã giao: tiền thực tế, có giá vốn; lãi theo đơn và theo SKU của kỳ', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1018');
-      await coChu(tienDon(page), 'Theo quyết toán', 'Lãi đóng góp');
+      await coChu(tienDon(page), 'Theo quyết toán', 'Lãi gộp');
       await coChu(await cachTinh(page), 'Lãi gộp');
+      await page.keyboard.press('Escape');
+
+      await page.goto(`/c/cmp-001/finance/ledger?tab=orders&${KY_DH1018}`);
+      await expect(page.locator('tbody tr')).toHaveCount(1);
+      await coChu(dong(page, 'ord-1018'), 'DH-1018', 'Đơn tạo tay', 'Theo quyết toán');
+      await expect(dong(page, 'ord-1018').locator('[data-flag]')).toHaveCount(0);
+      await page.getByLabel('Thiếu giá vốn', { exact: true }).click();
+      await expect(page).toHaveURL(/costMissing=true/);
+      await thayChu(page, 'Không có đơn nào giao trong kỳ');
+
+      await page.getByRole('tab', { name: 'Lãi theo SKU', exact: true }).click();
+      await expect(dong(page, 'prd-001-v1')).toBeVisible();
+      await coChu(page.getByTestId('profit-totals'), 'Tổng kỳ', 'Lãi gộp');
     });
   });
 
@@ -102,8 +115,11 @@ test.describe('P5 · Sổ tiền', () => {
       await thayChu(page, 'DH-1018', 'tr');
       await expect(page.locator('td', { hasText: chu('Giá vốn') })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Xuất chứng từ kiểu MISA', exact: true })).toHaveCount(0);
-      await page.getByRole('tab', { name: 'Lãi theo đơn', exact: true }).click();
-      await expect(chua(page, 'DH-1018', 'tr')).not.toContainText('Lãi gộp');
+      await page.goto(`/c/cmp-001/finance/ledger?tab=orders&${KY_DH1018}`);
+      await thayChu(dong(page, 'ord-1018'), 'DH-1018');
+      await expect(page.getByTestId('profit-totals')).toContainText('Thực nhận');
+      await expect(page.getByTestId('profit-totals')).not.toContainText('Giá vốn');
+      await expect(page.getByTestId('profit-totals')).not.toContainText('Lãi gộp');
 
       await diToi(page, '/c/cmp-001/sales/orders/ord-1018');
       await coChu(tienDon(page), 'Thực nhận', 'Cần quyền xem giá vốn');
