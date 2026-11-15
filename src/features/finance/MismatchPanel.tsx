@@ -24,6 +24,11 @@ const GRID = 'grid gap-x-4 gap-y-2 px-4 py-3 grid-cols-2 md:grid-cols-[110px_min
 
 type Action = { payment: OrderPayment; kind: 'resolve' | 'ceo-approve' };
 
+/** Nhãn ô trên màn hẹp: từ md đã có hàng tiêu đề nên ẩn */
+function CellLabel({ children }: { children: string }) {
+  return <span className="block text-xs text-muted-foreground md:hidden">{children}</span>;
+}
+
 /**
  * Dòng lệch theo `.rc` của Test_UI (FE#140): mỗi đơn lệch tiền một dòng, nút xử lý ngay trên dòng.
  * Chốt xong dòng nền xanh nhạt rồi ẩn; CEO duyệt xong dòng ở lại để người chốt làm tiếp.
@@ -80,18 +85,23 @@ export function MismatchPanel({ companyId, shopId }: { companyId: string; shopId
             className={cn(GRID, 'border-t text-sm transition-colors duration-300', isSolved && 'bg-success-soft')}
           >
             <div className="grid gap-1">
-              <button type="button" className="text-start font-mono text-primary hover:underline" onClick={() => open(p)}>
+              <button type="button" className="text-start font-mono whitespace-nowrap text-primary hover:underline" onClick={() => open(p)}>
                 {p.orderCode ?? p.orderId}
               </button>
               <FlagChips flags={p.flags} meta={PAYMENT_FLAGS} />
             </div>
-            <div>
+            <div className="text-end md:text-start">
+              <CellLabel>Sàn quyết toán</CellLabel>
               {p.settledTotal === null ? <span className="text-muted-foreground">Chưa có trong quyết toán</span> : <Money value={p.settledTotal} />}
             </div>
             <div>
+              <CellLabel>Commerio ước tính</CellLabel>
               <Money value={p.estimatedTotal} />
             </div>
-            <div className="text-end font-medium">{p.diff === null ? '—' : <Money value={p.diff} />}</div>
+            <div className="text-end font-medium">
+              <CellLabel>Lệch</CellLabel>
+              {p.diff === null ? '—' : <Money value={p.diff} />}
+            </div>
             <div className="col-span-2 flex flex-wrap items-center justify-start gap-1.5 md:col-span-1 md:justify-end">
               {isSolved ? (
                 <Badge variant="success">Đã chốt</Badge>
