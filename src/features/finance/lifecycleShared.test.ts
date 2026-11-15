@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateConfig, bankRefSchema } from './lifecycleShared';
+import { validateConfig, bankRefSchema, formatPayloadValue, payloadSummary, PAYLOAD_SCHEMAS } from './lifecycleShared';
 import { feeConfigMachine } from '@/lib/machines/feeConfig';
 import { resolveBlock, settlementMachine } from '@/lib/machines/settlement';
 import { PERMISSIONS as P } from '@/utils/permissions';
@@ -16,13 +16,22 @@ describe('D4.4 cấu hình', () => {
   });
   it('không huỷ từ ngày hiệu lực, không sửa trạng thái cuối', () => {
     expect(feeConfigMachine.check('scheduled', 'cancel', { actor: admin, record: { ...record, today: '2026-11-01' } })).toMatchObject({ ok: false, code: 'config_already_effective' });
-    expect(feeConfigMachine.available('expired', ceo, record)).toHaveLength(0);
+    expect(feeConfigMachine.available('superseded', ceo, record)).toHaveLength(0);
   });
   it('kiểm tiền nguyên đồng, phần trăm, ngày hồi tố và gian hàng', () => {
     expect(validateConfig({ kind: 'fee', effectiveFrom: '2026-11-01', payload: { fixedPct: 101, transactionPct: 1, servicePct: 1, optionalPct: 0, returnFee: 1.5 } })).toHaveProperty('shopId');
     expect(validateConfig({ kind: 'mismatch_threshold', effectiveFrom: 'bad', payload: { abs: -1, pct: 1, resolveLimit: 1.5 } })).toHaveProperty('payload.resolveLimit');
     expect(validateConfig({ kind: 'min_margin', effectiveFrom: '2026-11-01', payload: { pct: 10 }, isCorrection: true, supersedesId: 'x', retroactiveFrom: '2026-11-02' })).toHaveProperty('retroactiveFrom');
     expect(bankRefSchema.safeParse('   ').success).toBe(false);
+    expect(validateConfig({ kind: 'min_margin', effectiveFrom: '2026-11-02', payload: { pct: 10 }, isCorrection: true, supersedesId: 'x', retroactiveFrom: '2026-11-01' }, '2026-11-01')).toHaveProperty('effectiveFrom');
+  });
+  it('quy tắc thuế cần outputVatPct; hiện giá trị theo đơn vị (#144)', () => {
+    expect(PAYLOAD_SCHEMAS.tax_rules.safeParse({ vatPct: 1, pitPct: 0.5, milestones: [] }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS.tax_rules.safeParse({ vatPct: 1, pitPct: 0.5, outputVatPct: 10, milestones: [] }).success).toBe(true);
+    expect(formatPayloadValue('outputVatPct', 1.5)).toBe('1,5%');
+    expect(formatPayloadValue('returnFee', 10000)).toBe('10.000 ₫');
+    expect(formatPayloadValue('regime', 'household')).toBe('Hộ kinh doanh');
+    expect(payloadSummary('fee', { fixedPct: 3, transactionPct: 2, servicePct: 1, optionalPct: 0, returnFee: 10000 })).toBe('Tổng phí 6%, hoàn hàng 10.000 ₫');
   });
 });
 describe('D4.2 chốt lệch', () => {
