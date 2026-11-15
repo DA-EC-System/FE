@@ -49,6 +49,21 @@ test.describe('P5-BE · Đối soát sàn', () => {
     await expect(page.getByRole('button', { name: 'Kéo quyết toán', exact: true })).toHaveCount(0);
   });
 
+  test('US-TI-09: lọc khớp sao kê theo loại, chưa khớp gửi đúng tham số; khớp dòng không có thì 404 (FE#151)', async () => {
+    const { page, api } = s;
+    await page.goto(url('/finance/settlements?tab=bank'));
+    const req = page.waitForRequest((r) => r.url().includes('/finance/bank-matching') && r.url().includes('kind=supplier_refund'));
+    await page.getByRole('combobox', { name: 'Loại', exact: true }).click();
+    await page.getByRole('option', { name: 'NCC hoàn tiền', exact: true }).click();
+    expect((await (await req).response())?.status()).toBe(200);
+    await thayChu(page, 'Chưa có khoản cần khớp');
+
+    // Documents/21 §21.3: kind chỉ nhận ba loại; dòng sổ không có thì 404
+    expect((await api.get('/api/v1/finance/bank-matching?kind=revenue')).status()).toBe(422);
+    const res = await api.post('/api/v1/finance/ledger/00000000-0000-4000-8000-000000000000/bank-match', { data: { bankRef: 'VCB-E2E' } });
+    expect(res.status()).toBe(404);
+  });
+
   test('danh sách bảng kê: mới nhất trước, số đếm, tiền về, phiếu thu đã sinh', () => {
     test.fixme(true, CAN_GIAN_HANG);
   });

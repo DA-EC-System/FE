@@ -39,11 +39,11 @@ export function SettlementsPage() {
   const can = useCan(); const navigate = useNavigate(); const f = useUrlFilters([25, 50, 100]);
   const { startTour } = usePageGuide('settlements');
   const tab = f.params.get('tab') ?? 'payments'; const shopId = f.params.get('shopId') ?? '';
-  const status = f.params.get('status') ?? ''; const matched = f.params.get('matched') ?? '';
+  const status = f.params.get('status') ?? ''; const matched = f.params.get('matched') ?? ''; const kind = f.params.get('kind') ?? '';
   const params = { page: f.page, pageSize: f.pageSize, shopId: shopId || undefined };
   const payments = useOrderPayments({ ...params, status: status || undefined });
   const runs = useSettlementRuns(params, tab === 'runs');
-  const bank = useBankMatching({ page: f.page, pageSize: f.pageSize, matched: matched || undefined }, tab === 'bank');
+  const bank = useBankMatching({ page: f.page, pageSize: f.pageSize, kind: kind || undefined, matched: matched || undefined }, tab === 'bank');
   const shops = useShops({ enabled: can(P.shopView) }); const start = useStartSettlement();
   const [match, setMatch] = useState<SettlementLedgerLine | null>(null);
   const query = tab === 'runs' ? runs : tab === 'bank' ? bank : payments;
@@ -63,7 +63,7 @@ export function SettlementsPage() {
         help="Trạng thái tiền của đơn độc lập với trạng thái đơn. Lệch quá ngưỡng thì cần chốt kèm lý do; lệch vượt hạn mức tự chốt thì CEO duyệt trước. Tiền rút về ngân hàng khớp với sao kê ở tab Khớp sao kê."
         onTour={startTour}
       />
-      <Tabs value={tab} onValueChange={(value) => f.update({ tab: value, page: undefined, status: undefined })}>
+      <Tabs value={tab} onValueChange={(value) => f.update({ tab: value, page: undefined, status: undefined, kind: undefined, matched: undefined })}>
         <div className="mb-2 overflow-x-auto">
           <TabsList data-guide="settlement-tabs">
             <TabsTrigger value="payments">
@@ -103,6 +103,7 @@ export function SettlementsPage() {
         <FilterBar>
           {tab !== 'bank' && <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} />}
           {tab === 'payments' && <FilterSelect label="Trạng thái tiền" value={status} onChange={f.setFilter('status')} options={Object.entries(PAYMENT_STATES).map(([value, meta]) => ({ value, label: `${meta.label} (${counts?.[value as keyof typeof PAYMENT_STATES] ?? 0})` }))} />}
+          {tab === 'bank' && <FilterSelect label="Loại" value={kind} onChange={f.setFilter('kind')} options={Object.entries(BANK_KINDS).map(([value, label]) => ({ value, label }))} />}
           {tab === 'bank' && <FilterSelect label="Khớp sao kê" value={matched} onChange={f.setFilter('matched')} options={[{ value: 'false', label: 'Chưa khớp' }, { value: 'true', label: 'Đã khớp' }]} />}
           {tab === 'runs' && can(P.settlementResolve) && <Button data-guide="settlement-pull" disabled={start.isPending || !shopId} onClick={() => void run()}>Kéo quyết toán</Button>}
         </FilterBar>
@@ -139,10 +140,10 @@ export function SettlementsPage() {
           { header: 'Loại', cell: ({ row }) => BANK_KINDS[row.original.kind] ?? row.original.kind },
           { header: 'Số tiền', meta: { numeric: true }, cell: ({ row }) => <Money value={row.original.amount} /> },
           { header: 'Mã giao dịch sàn', accessorKey: 'txnId', cell: ({ row }) => <span className="font-mono">{row.original.txnId ?? '—'}</span> },
-          { header: 'Sao kê', cell: ({ row }) => row.original.bankMatch ? <span className="flex flex-wrap items-center gap-2"><Badge variant="success">Khớp</Badge><span className="font-mono">{row.original.bankMatch.bankRef}</span></span> : can(P.settlementResolve) ? <Button size="sm" onClick={() => setMatch(row.original)}>Khớp sao kê</Button> : <Badge variant="warning">Chưa khớp</Badge> },
+          { header: 'Sao kê', cell: ({ row }) => row.original.bankMatch ? <span className="grid gap-0.5"><span className="flex flex-wrap items-center gap-2"><Badge variant="success">Đã khớp</Badge><span className="font-mono">{row.original.bankMatch.bankRef}</span></span><span className="text-xs text-muted-foreground" data-testid="bank-matched-by">{row.original.bankMatch.by.name}, {formatDateTime(row.original.bankMatch.at)}</span></span> : can(P.settlementResolve) ? <Button size="sm" onClick={() => setMatch(row.original)}>Khớp sao kê</Button> : <Badge variant="warning">Chưa khớp</Badge> },
         ]} />}
       </Card>
-      {match && <LifecycleActionDialog path={`/finance/ledger/${match.id}/bank-match`} title="Khớp sao kê" field="bankRef" onClose={() => setMatch(null)} />}
+      {match && <LifecycleActionDialog path={`/finance/ledger/${match.id}/bank-match`} title="Khớp sao kê" field="bankRef" description={`${BANK_KINDS[match.kind] ?? match.kind} ${formatDate(match.occurredOn)}: nhập mã giao dịch trên sao kê ngân hàng. Khớp rồi không sửa được.`} onClose={() => setMatch(null)} />}
     </div>
   );
 }

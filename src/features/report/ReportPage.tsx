@@ -39,7 +39,7 @@ import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { usePageGuide } from '@/guides/usePageGuide';
 import { useAuth } from '@/hooks/useAuth';
-import { useCan, useModuleEnabled } from '@/hooks/usePermission';
+import { useCan, useCanViewFinance, useModuleEnabled } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/utils/format';
@@ -96,7 +96,9 @@ const dayText = (day: string) => formatDate(day, 'DD/MM/YYYY');
 export function ReportPage() {
   const companyId = useAuth().companyContext?.companyId ?? '';
   const can = useCan();
-  const canOpenSettlements = useModuleEnabled('channel') && can(PERMISSIONS.financeView);
+  // Trang đối soát mở cho mọi quyền tiền (FINANCE_VIEW_ANY), không riêng finance.invoice.view (#151)
+  const canViewFinance = useCanViewFinance();
+  const canOpenSettlements = useModuleEnabled('channel') && canViewFinance;
   const [params, setParams] = useSearchParams();
   const today = vnToday();
 

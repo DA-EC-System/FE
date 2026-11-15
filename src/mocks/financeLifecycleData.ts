@@ -38,6 +38,12 @@ export const bankLines: Owned<SettlementLedgerLine>[] = db.companies.map((c) => 
   orderId: null, orderCode: null, packageId: null, returnRequestId: null, configVersionId: null, txnId: `txn-${c.id}`, externalOrderId: null, flags: [],
   source: null, reason: 'Rút tiền từ ví sàn demo', createdAt: now(), bankMatch: null,
 }));
+// Mỗi công ty thêm một khoản NCC hoàn tiền đã khớp sao kê, để màn Khớp sao kê có đủ hai trạng thái (#151)
+bankLines.push(...db.companies.map((c): Owned<SettlementLedgerLine> => ({
+  ...bankLines.find((l) => l.companyId === c.id)!, id: `supplier-refund-${c.id}`, kind: 'supplier_refund', amount: 300000,
+  shopId: null, txnId: null, reason: 'NCC hoàn tiền phiếu trả demo',
+  bankMatch: { bankRef: 'VCB-HOAN-001', by: { id: 'acc-001', name: 'Lê Hoàng Minh' }, at: now() },
+})));
 export const runs: Owned<SettlementRun>[] = db.shops.map((shop) => ({ id: `run-${shop.id}`, companyId: shop.companyId,
   shopId: shop.id, source: 'api', fileId: null, from: new Date(Date.now() - 86400000).toISOString(), to: now(),
   status: 'done', lineCount: 12, duplicates: 2, walletDiff: shop.id === 'shp-003' ? 12000 : null, error: null,
