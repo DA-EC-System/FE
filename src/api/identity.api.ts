@@ -9,8 +9,11 @@ import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
 import type {
-  InviteStaffInput,
-  InviteStaffResult,
+  CreatedInvitation,
+  Invitation,
+  InvitationListParams,
+  JoinCheck,
+  JoinVerifyResult,
   PermissionDef,
   Role,
   RoleInput,
@@ -25,6 +28,9 @@ export const identityKeys = {
   staff: (companyId: string) => [...identityKeys.all(companyId), 'staff'] as const,
   staffList: (companyId: string, params: StaffListParams) =>
     [...identityKeys.staff(companyId), params] as const,
+  invitations: (companyId: string) => [...identityKeys.all(companyId), 'invitations'] as const,
+  invitationList: (companyId: string, params: InvitationListParams) =>
+    [...identityKeys.invitations(companyId), params] as const,
 };
 
 function useCompanyId(): string {
@@ -103,28 +109,17 @@ export function useDeleteRole() {
 
 // ---------- Nhân viên (UC-PI-05) ----------
 
-export function useStaff(params: StaffListParams) {
+export function useStaff(params: StaffListParams, enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: identityKeys.staffList(companyId, params),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && enabled,
     placeholderData: (prev) => prev,
     queryFn: async () => {
       // BE trả 422 với chuỗi rỗng (status, roleId là enum/uuid): chỉ gửi bộ lọc có giá trị
       const { data } = await apiClient.get<PageResult<StaffMember>>('/identity/staff', { params: compactParams(params) });
       return data;
     },
-  });
-}
-
-export function useInviteStaff() {
-  const invalidate = useInvalidateIdentity();
-  return useMutation({
-    mutationFn: async (input: InviteStaffInput) => {
-      const { data } = await apiClient.post<InviteStaffResult>('/identity/staff', input);
-      return data;
-    },
-    onSuccess: invalidate,
   });
 }
 
@@ -172,3 +167,71 @@ export function useSetStaffLocked() {
     onSettled: invalidate,
   });
 }
+
+// ---------- Mời bằng link (US-CT-05, US-CT-07; Documents/21 §3.1) ----------
+
+/** Tạo link mời kèm vai trò sẽ gán; link chỉ trả lần này */
+export function useCreateInvitation() {
+  const invalidate = useInvalidateIdentity();
+  return useMutation({
+    mutationFn: async (roleIds: string[]) => {
+      const { data } = await apiClient.post<CreatedInvitation>('/identity/invitations', { roleIds });
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useInvitations(params: InvitationListParams, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: identityKeys.invitationList(companyId, params),
+    enabled: Boolean(companyId) && enabled,
+    // Yêu cầu do người ngoài nộp qua link: mở trang là nạp lại, không dùng bản cũ trong cache
+    refetchOnMount: 'always',
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResult<Invitation>>('/identity/invitations', {
+        params: compactParams(params),
+      });
+      return data;
+    },
+  });
+}
+
+/** Duyệt hoặc từ chối yêu cầu `pending`; lỗi gì cũng nạp lại danh sách để thấy trạng thái mới */
+export function useDecideInvitation() {
+  const invalidate = useInvalidateIdentity();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      decision,
+      version,
+    }: {
+      id: string;
+      decision: 'approve' | 'reject';
+      version: number;
+    }) => {
+      const { data } = await apiClient.post<{ invitation: Invitation; member?: StaffMember }>(
+        `/identity/invitations/${id}/${decision}`,
+        { version },
+      );
+      return data;
+    },
+    onSettled: invalidate,
+  });
+}
+
+// ---------- Tham gia qua link (US-CT-06): công khai, không cần đăng nhập ----------
+
+export const joinApi = {
+  check: async (token: string) =>
+    (await apiClient.post<JoinCheck>('/identity/join/check', { token })).data,
+  requestOtp: async (body: { token: string; email: string; fullName: string }) => {
+    await apiClient.post('/identity/join/otp', body);
+  },
+  verify: async (body: { token: string; email: string; code: string }) =>
+    (await apiClient.post<JoinVerifyResult>('/identity/join/verify', body)).data,
+  complete: async (body: { registrationToken: string; password: string; confirmPassword?: string }) =>
+    (await apiClient.post<{ status: 'pending' }>('/identity/join/complete', body)).data,
+};

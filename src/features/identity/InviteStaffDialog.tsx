@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Check, Copy } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
-import { FormTextField } from '@/components/common/FormTextField';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -13,90 +14,91 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useInviteStaff, useSetStaffRoles } from '@/api/identity.api';
+import { useCreateInvitation } from '@/api/identity.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
-import { useAuth } from '@/hooks/useAuth';
-import type { Role, StaffMember } from '@/types/identity';
+import { formatDateTime } from '@/utils/format';
+import type { CreatedInvitation, Role } from '@/types/identity';
 import { RoleChecklist } from './RoleChecklist';
-import { conflictCurrent, inviteSchema, protectedReason, type InviteForm } from './shared';
+import { inviteSchema, type InviteForm } from './shared';
 
 interface InviteStaffDialogProps {
   open: boolean;
   roles: Role[];
   onClose: () => void;
-  onDone: (message: string) => void;
 }
 
-const EMPTY: InviteForm = { email: '', fullName: '', roleIds: [] };
+const EMPTY: InviteForm = { roleIds: [] };
 
-/** UC-PI-05: thêm tài khoản nhân viên, gửi thư mời kèm mật khẩu */
-export function InviteStaffDialog({ open, roles, onClose, onDone }: InviteStaffDialogProps) {
-  const { account } = useAuth();
-  const invite = useInviteStaff();
-  const setRoles = useSetStaffRoles();
+/**
+ * US-CT-05: tạo link mời kèm vai trò sẽ gán. Nhân viên tự mở link, xác minh email, đặt mật khẩu
+ * rồi chờ duyệt ở tab Chờ duyệt. Link chỉ hiện một lần (BE không lưu token).
+ */
+export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogProps) {
+  const create = useCreateInvitation();
   const [error, setError] = useState<string | null>(null);
-  // Email đã có tài khoản trong công ty: hỏi có thêm vai trò vừa chọn không (docs/21 I2)
-  const [existing, setExisting] = useState<StaffMember | null>(null);
+  const [created, setCreated] = useState<CreatedInvitation | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Bấm đóng khi chưa sao chép: hỏi lại vì link không xem lại được
+  const [confirmClose, setConfirmClose] = useState(false);
+  const linkRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<InviteForm>({ resolver: zodResolver(inviteSchema), defaultValues: EMPTY });
-  const { control, reset, getValues, setError: setFieldError } = form;
+  const { control, reset, setError: setFieldError } = form;
 
   useEffect(() => {
     if (open) {
       reset(EMPTY);
       setError(null);
-      setExisting(null);
+      setCreated(null);
+      setCopied(false);
+      setConfirmClose(false);
     }
   }, [open, reset]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
-      const res = await invite.mutateAsync(values);
-      // Tài khoản sẵn có: không nhắc mật khẩu, không nêu công ty khác (AC-4)
-      onDone(
-        res.outcome === 'invited'
-          ? `Đã tạo tài khoản và gửi thư mời tới ${res.member.email}`
-          : `Đã thêm ${res.member.fullName} (${res.member.email}) vào công ty`,
-      );
+      setCreated(await create.mutateAsync(values.roleIds));
     } catch (e) {
-      const problem = getProblem(e);
-      const member = conflictCurrent<StaffMember>(e, 'member');
-      if (problem?.code === 'already_member' && member) {
-        setExisting(member);
-        return;
-      }
-      const fields = problem?.errors ?? {};
-      const known = (['email', 'fullName', 'roleIds'] as const).filter((name) => fields[name]);
-      known.forEach((name) => setFieldError(name, { message: fields[name] }));
-      if (!known.length) setError(problemMessage(e));
+      const message = getProblem(e)?.errors?.roleIds;
+      if (message) setFieldError('roleIds', { message });
+      else setError(problemMessage(e));
     }
   });
 
-  const addRolesToExisting = async () => {
-    if (!existing) return;
-    const roleIds = [...new Set([...existing.roles.map((r) => r.id), ...getValues('roleIds')])];
+  const copy = async () => {
+    if (!created) return;
     try {
-      await setRoles.mutateAsync({ accountId: existing.accountId, roleIds, version: existing.version });
-      onDone(`Đã thêm vai trò cho ${existing.fullName} (${existing.email})`);
-    } catch (e) {
-      setExisting(null);
-      setError(problemMessage(e));
+      await navigator.clipboard.writeText(created.link);
+    } catch {
+      // Trình duyệt chặn clipboard (http, iframe): bôi đen để người dùng tự Ctrl+C
+      linkRef.current?.select();
+      setError('Trình duyệt không cho sao chép tự động. Link đã được bôi đen, bấm Ctrl+C để sao chép.');
+      return;
     }
+    setCopied(true);
+    setConfirmClose(false);
   };
 
-  const busy = invite.isPending || setRoles.isPending;
-  const lockedReason = existing ? protectedReason(existing, account?.id) : null;
+  const requestClose = () => {
+    if (create.isPending) return;
+    if (created && !copied && !confirmClose) {
+      setConfirmClose(true);
+      return;
+    }
+    onClose();
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+    <Dialog open={open} onOpenChange={(next) => !next && requestClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Thêm nhân viên</DialogTitle>
+          <DialogTitle>{created ? 'Link mời đã tạo' : 'Mời nhân viên bằng link'}</DialogTitle>
           <DialogDescription>
-            Hệ thống sinh mật khẩu ngẫu nhiên và gửi thư mời tới email. Nhân viên phải đổi mật khẩu ở
-            lần đăng nhập đầu.
+            {created
+              ? 'Gửi link này cho nhân viên qua kênh bạn tin cậy. Họ mở link, xác minh email và đặt mật khẩu; bạn duyệt ở tab Chờ duyệt thì họ mới vào được công ty.'
+              : 'Chọn vai trò sẽ gán cho người được mời. Mỗi link dùng cho một người, hạn 72 giờ.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -106,38 +108,37 @@ export function InviteStaffDialog({ open, roles, onClose, onDone }: InviteStaffD
           </AlertMessage>
         )}
 
-        {existing ? (
-          <div className="grid gap-4" data-testid="already-member">
+        {created ? (
+          <div className="grid gap-4" data-testid="invitation-link">
+            <div className="flex gap-2">
+              <Input
+                ref={linkRef}
+                readOnly
+                value={created.link}
+                aria-label="Link mời"
+                onFocus={(e) => e.currentTarget.select()}
+                className="font-mono text-xs"
+              />
+              <Button type="button" variant={copied ? 'outline' : 'default'} onClick={copy}>
+                {copied ? <Check /> : <Copy />}
+                {copied ? 'Đã sao chép' : 'Sao chép'}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">Hết hạn lúc {formatDateTime(created.expiresAt)}.</p>
             <AlertMessage severity="warning">
-              <p>
-                <strong>{existing.email}</strong> đã có tài khoản trong công ty
-                {existing.roles.length > 0 && (
-                  <> với vai trò {existing.roles.map((r) => r.name).join(', ')}</>
-                )}
-                .
-              </p>
-              <p className="mt-1">
-                {lockedReason
-                  ? `${lockedReason}, nên không đổi được vai trò.`
-                  : 'Thêm các vai trò vừa chọn cho tài khoản này, ngoài các vai trò đang có?'}
-              </p>
+              {confirmClose
+                ? 'Bạn chưa sao chép link. Đóng hộp thoại thì không xem lại được link này, phải tạo link mới.'
+                : 'Link chỉ hiện một lần. Đóng hộp thoại thì không xem lại được.'}
             </AlertMessage>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setExisting(null)} disabled={busy}>
-                {lockedReason ? 'Quay lại' : 'Không'}
+              <Button type="button" variant={confirmClose ? 'destructive' : 'outline'} onClick={requestClose}>
+                {confirmClose ? 'Vẫn đóng' : 'Đóng'}
               </Button>
-              {!lockedReason && (
-                <Button onClick={addRolesToExisting} disabled={busy}>
-                  {setRoles.isPending ? 'Đang lưu...' : 'Thêm vai trò'}
-                </Button>
-              )}
             </DialogFooter>
           </div>
         ) : (
           <Form {...form}>
             <form onSubmit={onSubmit} noValidate className="grid gap-4">
-              <FormTextField control={control} name="email" label="Email" type="email" autoFocus />
-              <FormTextField control={control} name="fullName" label="Họ tên" />
               <FormField
                 control={control}
                 name="roleIds"
@@ -152,11 +153,11 @@ export function InviteStaffDialog({ open, roles, onClose, onDone }: InviteStaffD
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
+                <Button type="button" variant="outline" onClick={onClose} disabled={create.isPending}>
                   Huỷ
                 </Button>
-                <Button type="submit" disabled={busy}>
-                  {invite.isPending ? 'Đang lưu...' : 'Lưu và gửi thư mời'}
+                <Button type="submit" disabled={create.isPending}>
+                  {create.isPending ? 'Đang tạo...' : 'Tạo link mời'}
                 </Button>
               </DialogFooter>
             </form>

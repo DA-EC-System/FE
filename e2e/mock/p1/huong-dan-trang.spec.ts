@@ -243,7 +243,7 @@ test.describe('Hướng dẫn trang', () => {
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
 
     const cacTrang: [string, string, string, string][] = [
-      ['Nhân viên', 'Nhân viên', 'Bước 1/3', 'Mời nhân viên'],
+      ['Nhân viên', 'Nhân viên', 'Bước 1/4', 'Mời nhân viên'],
       ['Vai trò', 'Vai trò', 'Bước 1/2', 'Tạo vai trò tuỳ biến'],
       ['Phân hệ', 'Phân hệ', 'Bước 1/2', 'Bật, tắt phân hệ'],
     ];

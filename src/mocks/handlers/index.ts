@@ -13,6 +13,7 @@ import { financeLifecycleHandlers } from './financeLifecycle';
 import { authHandlers } from './auth';
 import { platformHandlers } from './platform';
 import { identityHandlers } from './identity';
+import { invitationHandlers } from './invitations';
 import { companySettingsHandlers } from './companySettings';
 import { catalogHandlers } from './catalog';
 import { catalogBulkHandlers } from './catalogBulk';
@@ -37,6 +38,7 @@ export const handlers = [
   ...authHandlers,
   ...platformHandlers,
   ...identityHandlers,
+  ...invitationHandlers,
   ...companySettingsHandlers,
   ...catalogHandlers,
   ...catalogBulkHandlers,

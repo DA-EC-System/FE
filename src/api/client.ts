@@ -69,7 +69,14 @@ apiClient.interceptors.request.use((config) => {
 });
 
 /** Lời gọi mà 401 là kết quả nghiệp vụ, không phải token hết hạn: không làm mới rồi gọi lại */
-const NO_REFRESH = ['/identity/login', '/identity/google', '/identity/refresh', '/identity/logout'];
+const NO_REFRESH = [
+  '/identity/login',
+  '/identity/google',
+  '/identity/refresh',
+  '/identity/logout',
+  // Trang /tham-gia công khai: BE không trả 401, mà có trả thì cũng không được đá về /login (US-CT-06)
+  '/identity/join/',
+];
 
 let refreshing: Promise<string> | null = null;
 
@@ -120,7 +127,7 @@ apiClient.interceptors.response.use(
         }
       }
       // Chỉ xoá phiên: RequireAuth tự chuyển về /login và nhớ trang đang mở để quay lại
-      if (!url.startsWith('/identity/login') && !url.startsWith('/identity/google')) {
+      if (!['/identity/login', '/identity/google', '/identity/join/'].some((p) => url.startsWith(p))) {
         useAuthStore.getState().clear();
       }
     } else if (
@@ -148,6 +155,13 @@ export function getProblem(error: unknown): ProblemDetails | undefined {
     return error.response?.data as ProblemDetails | undefined;
   }
   return undefined;
+}
+
+/** Số giây phải đợi của lỗi 429 (header `Retry-After`); không có thì undefined */
+export function retryAfterSeconds(error: unknown): number | undefined {
+  if (!axios.isAxiosError(error) || error.response?.status !== 429) return undefined;
+  const raw = Number(error.response.headers?.['retry-after']);
+  return Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : undefined;
 }
 
 export function getErrorMessage(error: unknown): string {

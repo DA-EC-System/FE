@@ -1,13 +1,11 @@
 import { z } from 'zod';
-import { emailSchema } from '@/features/auth/schemas';
 import { getProblem } from '@/api/client';
 import { missingPermissions } from '@/utils/permissions';
 import type { CompanyContext, MembershipStatus } from '@/types/auth';
 import type { Role, StaffMember } from '@/types/identity';
 
+/** US-CT-05: link mời chỉ mang vai trò; email, họ tên do người được mời tự nhập */
 export const inviteSchema = z.object({
-  email: emailSchema,
-  fullName: z.string().trim().min(1, 'Nhập họ tên').max(100, 'Họ tên tối đa 100 ký tự'),
   roleIds: z.array(z.string()).min(1, 'Chọn ít nhất một vai trò'),
 });
 export type InviteForm = z.infer<typeof inviteSchema>;

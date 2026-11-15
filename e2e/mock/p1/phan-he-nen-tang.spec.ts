@@ -75,7 +75,7 @@ test.describe('P1 · Phân quyền khu quản trị công ty', () => {
     await expect(thanhBen(page)).not.toContainText('Phân hệ');
     await expect(thanhBen(page)).not.toContainText('Nhật ký thao tác');
     await page.goto('/c/cmp-001/admin/staff');
-    await expect(page.getByRole('button', { name: 'Thêm nhân viên', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Mời nhân viên', exact: true })).toHaveCount(0);
     await expect(page.locator('tbody button')).toHaveCount(0);
     for (const p of ['/c/cmp-001/admin/audit-logs', '/c/cmp-001/admin/modules']) {
       await page.goto(p);
