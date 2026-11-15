@@ -34,6 +34,7 @@ const STATUS_LABELS: Record<Invitation['status'], string> = {
   pending: 'Chờ duyệt',
   approved: 'Đã duyệt',
   rejected: 'Đã từ chối',
+  revoked: 'Đã huỷ',
 };
 
 const who = (inv: Invitation) => inv.fullName ?? inv.email ?? 'yêu cầu này';

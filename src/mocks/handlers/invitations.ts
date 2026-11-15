@@ -54,7 +54,8 @@ function toInvitation(inv: MockInvitation): Invitation {
 /** Link dùng tiếp được cho /join/check, /join/otp, /join/verify */
 function usableInvitation(token: unknown): MockInvitation | Response {
   const inv = db.invitations.find((i) => i.token === token);
-  if (!inv) return invalidLink();
+  // Link đã huỷ báo như link sai (Documents/21 §3.1)
+  if (!inv || inv.status === 'revoked') return invalidLink();
   if (inv.status !== 'open' && inv.status !== 'claimed') return linkUsed();
   if (isExpired(inv)) return invalidLink();
   return inv;
@@ -115,9 +116,10 @@ export const invitationHandlers = [
     if (!guard.ok) return guard.response;
     const url = new URL(request.url);
     const { page, pageSize } = pageParams(url);
-    const status = url.searchParams.get('status') ?? 'pending';
+    // Nhiều trạng thái cách nhau bằng dấu phẩy, vd `open,claimed`
+    const statuses = (url.searchParams.get('status') ?? 'pending').split(',');
     const items = db.invitations
-      .filter((i) => i.companyId === guard.value.companyId && i.status === status)
+      .filter((i) => i.companyId === guard.value.companyId && statuses.includes(i.status))
       .sort((a, b) => (b.submittedAt ?? b.createdAt).localeCompare(a.submittedAt ?? a.createdAt))
       .map(toInvitation);
     return HttpResponse.json(paginate(items, page, pageSize));
@@ -187,6 +189,27 @@ export const invitationHandlers = [
       return HttpResponse.json({ invitation: toInvitation(inv), member: toStaff(membership) });
     }),
   ),
+
+  // Huỷ link chưa nộp (US-CT-05 AC 5, 6)
+  http.post(`${API}/identity/invitations/:id/revoke`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.staffManage);
+    if (!guard.ok) return guard.response;
+    const actor = guard.value;
+    const inv = db.invitations.find((i) => i.id === params.id && i.companyId === actor.companyId);
+    if (!inv) return problem(404, 'Không tìm thấy', { code: 'not_found', detail: 'Không tìm thấy lời mời' });
+    const { version } = (await request.json()) as { version: number };
+    if (version !== inv.version || (inv.status !== 'open' && inv.status !== 'claimed')) {
+      return versionConflict(toInvitation(inv), 'Lời mời vừa được người khác cập nhật');
+    }
+    const before = inv.status;
+    inv.status = 'revoked';
+    inv.decidedAt = db.now();
+    inv.otp = null;
+    inv.version += 1;
+    writeCompanyLog(actor, 'update', { type: 'core.invitations', id: inv.id, label: inv.email ?? 'Link mời' }, { status: before }, { status: 'revoked' });
+    return HttpResponse.json({ invitation: toInvitation(inv) });
+  }),
 
   // ---------- Người được mời: công khai, không bao giờ 401 ----------
   http.post(`${API}/identity/join/check`, async ({ request }) => {
@@ -268,7 +291,8 @@ export const invitationHandlers = [
       });
     }
     const inv = db.invitations.find((i) => i.id === reg.invitationId);
-    if (!inv || inv.status !== 'claimed') return linkUsed();
+    if (!inv || inv.status === 'revoked') return invalidLink();
+    if (inv.status !== 'claimed') return linkUsed();
     if (isMember(inv.companyId, reg.email)) return alreadyMember();
     if (reg.next === 'sign_in') {
       if (passwords[reg.email] !== body.password) {
