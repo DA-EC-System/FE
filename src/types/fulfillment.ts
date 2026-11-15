@@ -62,7 +62,7 @@ export type PackageFlag =
 export type OpenPurpose = 'cancel' | 'edit' | 'resplit';
 
 export interface FulfillmentLine {
-  variantId: string;
+  variantId: string | null;
   sku: string;
   productName: string;
   attributesLabel: string;
@@ -138,8 +138,14 @@ export interface CarrierList {
 export type PackageDocumentKind = 'awb';
 
 export interface PickListLine extends FulfillmentLine {
-  /** Số kiện có biến thể này */
+  /** Số kiện chứa biến thể hoặc SKU chưa ghép này */
   packageCount: number;
+}
+
+export interface PickList {
+  items: PickListLine[];
+  packageCount: number;
+  truncated: boolean;
 }
 
 export interface DocRef {

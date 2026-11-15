@@ -16,7 +16,7 @@ import type {
   PackageDocumentKind,
   PackageQueue,
   PackageTab,
-  PickListLine,
+  PickList,
   SplitInput,
 } from '@/types/fulfillment';
 
@@ -73,14 +73,14 @@ export function usePackage(id: string) {
   });
 }
 
-/** Danh sách nhặt gộp theo biến thể; không chọn kiện thì lấy mọi kiện Cần đóng gói */
+/** Danh sách nhặt. Không chọn kiện thì lấy tối đa 500 kiện Cần đóng gói. */
 export function usePickList(ids: string[], enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: fulfillmentKeys.pickList(companyId, ids),
     enabled: Boolean(companyId) && enabled,
     queryFn: async () => {
-      const { data } = await apiClient.get<PickListLine[]>('/fulfillment/pick-list', {
+      const { data } = await apiClient.get<PickList>('/fulfillment/pick-list', {
         params: ids.length ? { ids: ids.join(',') } : {},
       });
       return data;
@@ -133,7 +133,7 @@ export function usePackageCarriers(id: string, enabled = true) {
 }
 
 /**
- * In vận đơn của 1..50 kiện: BE lấy tệp PDF/HTML từ sàn (R10), FE mở ở tab mới để in.
+ * In vận đơn của 1..50 kiện: BE gộp vận đơn thành một PDF (R10), FE mở ở tab mới để in.
  * Trình duyệt chặn tab mới thì tải tệp về.
  */
 export function usePrintPackageDocuments() {
@@ -143,7 +143,7 @@ export function usePrintPackageDocuments() {
         .get<Blob>('/fulfillment/packages/documents', { params: { ids: ids.join(','), kind }, responseType: 'blob' })
         .catch(blobErrorToJson);
       const url = URL.createObjectURL(res.data);
-      if (!window.open(url, '_blank')) saveBlob(res.data, `van-don.${res.data.type.includes('html') ? 'html' : 'pdf'}`);
+      if (!window.open(url, '_blank')) saveBlob(res.data, 'van-don.pdf');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     },
   });

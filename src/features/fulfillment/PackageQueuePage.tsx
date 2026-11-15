@@ -251,7 +251,7 @@ export function PackageQueuePage() {
         <Card className="print-area mb-4">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
-              Danh sách nhặt · {selected.size > 0 ? `${selected.size} kiện đã chọn` : 'mọi kiện cần đóng gói'}
+              Danh sách nhặt · {pickList.data ? `${pickList.data.packageCount} kiện${selected.size > 0 ? ' đã chọn' : ''}` : selected.size > 0 ? `${selected.size} kiện đã chọn` : 'kiện cần đóng gói'}
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               <Printer />
@@ -259,6 +259,8 @@ export function PackageQueuePage() {
             </Button>
           </CardHeader>
           <CardContent>
+            {pickList.isError && <AlertMessage severity="error">{problemMessage(pickList.error)}</AlertMessage>}
+            {pickList.data?.truncated && <p className="mb-2 text-sm text-muted-foreground">Danh sách chỉ gồm 500 kiện đầu tiên.</p>}
             <Table data-testid="pick-list">
               <TableHeader>
                 <TableRow>
@@ -278,8 +280,8 @@ export function PackageQueuePage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {(pickList.data ?? []).map((l) => (
-                  <TableRow key={l.variantId} data-row-id={l.sku}>
+                {(pickList.data?.items ?? []).map((l) => (
+                  <TableRow key={l.variantId ?? `sku:${l.sku}`} data-row-id={l.sku}>
                     <TableCell className="font-medium">{l.sku}</TableCell>
                     <TableCell className="whitespace-normal">{l.productName}</TableCell>
                     <TableCell>{l.attributesLabel || '—'}</TableCell>
@@ -287,7 +289,7 @@ export function PackageQueuePage() {
                     <TableCell className="text-right">{l.packageCount}</TableCell>
                   </TableRow>
                 ))}
-                {pickList.data?.length === 0 && (
+                {pickList.data?.items.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Không có kiện cần nhặt

@@ -41,7 +41,6 @@ import {
 } from './shared';
 import { OrderStage } from './OrderStage';
 import { Info } from './Info';
-import { PaymentPanel } from './PaymentPanel';
 import { CONFLICT_CODES, CancelOrderDialog } from './CancelOrderDialog';
 import { PlatformCancelDialog } from './PlatformCancelDialog';
 import { InvoiceNumberDialog } from './InvoiceNumberDialog';
@@ -277,8 +276,6 @@ export function OrderDetailPage() {
       </Card>
 
       <DetailGrid
-        // Đơn sàn do sàn thu hộ, không gọi API thanh toán (AC-P1)
-        aside={isMarketplace ? undefined : <PaymentPanel order={order} />}
         history={<StatusTimeline history={order.statusHistory} statuses={ORDER_STATUS} />}
       >
           <Card className="py-4" data-guide="order-info">

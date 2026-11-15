@@ -61,25 +61,14 @@ export const ROUTES = {
     packages: (companyId: string) => `/c/${companyId}/fulfillment/packages`,
     package: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}`,
     packScan: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}/pack`,
-    financeDocuments: (companyId: string, tab: 'invoices' | 'receipts' | 'vouchers' = 'invoices') =>
-      tab === 'invoices' ? `/c/${companyId}/finance/documents` : `/c/${companyId}/finance/documents?tab=${tab}`,
-    invoice: (companyId: string, id: string) => `/c/${companyId}/finance/invoices/${id}`,
-    receipt: (companyId: string, id: string) => `/c/${companyId}/finance/receipts/${id}`,
-    paymentVoucher: (companyId: string, id: string) => `/c/${companyId}/finance/payment-vouchers/${id}`,
-    cod: (companyId: string) => `/c/${companyId}/finance/cod`,
     ledger: (companyId: string, tab?: 'profit') =>
       tab ? `/c/${companyId}/finance/ledger?tab=${tab}` : `/c/${companyId}/finance/ledger`,
-    refunds: (companyId: string) => `/c/${companyId}/finance/refunds`,
-    unmatched: (companyId: string, status?: 'assigned' | 'refunded') =>
-      status ? `/c/${companyId}/finance/unmatched?status=${status}` : `/c/${companyId}/finance/unmatched`,
     financeConfigs: (companyId: string) => `/c/${companyId}/finance/configs`,
     financeConfig: (companyId: string, id: string) => `/c/${companyId}/finance/configs/${id}`,
     settlements: (companyId: string, tab?: 'discrepancies') =>
       tab ? `/c/${companyId}/finance/settlements?tab=${tab}` : `/c/${companyId}/finance/settlements`,
     settlement: (companyId: string, id: string) => `/c/${companyId}/finance/settlements/${id}`,
     reports: (companyId: string) => `/c/${companyId}/reports`,
-    transactions: (companyId: string) => `/c/${companyId}/payment/transactions`,
-    paymentGateways: (companyId: string) => `/c/${companyId}/settings/payment-gateways`,
     staff: (companyId: string) => `/c/${companyId}/admin/staff`,
     roles: (companyId: string) => `/c/${companyId}/admin/roles`,
     modules: (companyId: string) => `/c/${companyId}/admin/modules`,

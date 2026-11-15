@@ -39,7 +39,7 @@ export const PACKAGE_FLAGS: Record<PackageFlag, StatusMeta> = {
   needs_open: { label: 'Chờ mở kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa hoặc chia lại kiện.' },
   needs_attention: { label: 'Cần xử lý', variant: 'destructive', hint: 'Kiện có vấn đề cần người xem, lý do ghi trong chi tiết kiện.' },
   lost_reported: { label: 'Báo thất lạc', variant: 'warning', hint: 'Đã báo thất lạc, cần một người khác xác nhận.' },
-  label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive', hint: 'Sàn chưa trả vận đơn cho kiện; thử in lại hoặc kiểm tra gian hàng.' },
+  label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive', hint: 'Lần báo sẵn sàng giao gần nhất gặp lỗi. Kiểm tra gian hàng rồi báo lại.' },
   cod_unconfirmed: { label: 'Chờ xác nhận COD', variant: 'warning', hint: 'Đã giao nhưng chưa xác nhận đã thu tiền COD.' },
   pickup_unconfirmed: { label: 'Chưa thấy sàn xác nhận lấy', variant: 'warning', hint: 'Đã bàn giao nhưng sàn chưa báo đơn vị vận chuyển lấy hàng.' },
 };
@@ -105,7 +105,7 @@ export function packageButtons(p: PackageSummary, actor: TransitionActor): Packa
   const actions = available.filter((a) => {
     // Mở kiện để huỷ chỉ khi kiện chờ mở vì đơn huỷ; kiện thường mở về Đã giữ
     if (a === 'open_cancel') return opening && p.openPurpose === 'cancel';
-    if (a === 'open') return !(opening && p.openPurpose === 'cancel');
+    if (a === 'open') return p.status === 'packed' && !(opening && p.openPurpose === 'cancel');
     // Xác nhận thất lạc (cả khi dỡ kiện không thấy) khi đã có người báo
     if (a === 'lose' || a === 'lose_on_unload') return Boolean(p.lostReport);
     return true;

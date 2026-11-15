@@ -4,7 +4,6 @@ import { chua, dangNhap, dong, expect, menu, mockApi, test, thayChu, toast } fro
 
 const CHAN_QUYEN = 'Vai trò của bạn trong công ty này không có quyền mở trang này.';
 
-const khung = (page: Page) => page.locator('[data-testid=payment-panel]');
 const lichSu = (page: Page) => page.locator('[data-testid=status-history] li').first();
 const kienCuaDon = (page: Page) => page.locator('[data-testid=order-packages] tbody tr').first();
 const trangThaiKien = (page: Page) => page.locator('[data-testid=package-status]');
@@ -54,14 +53,9 @@ test.describe('P4 · Xử lý đơn', () => {
   test.describe('huỷ đơn (sơ đồ D1)', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'sale@commerio.vn', 'sale'));
 
-    test('huỷ đơn có mã thanh toán đang hiệu lực', async ({ page }) => {
+    test('huỷ đơn trả trước chưa thanh toán', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1003');
-      await khung(page).getByRole('button', { name: 'Tạo mã thanh toán', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByLabel('VietQR', { exact: true }).click();
-      await dialog.getByRole('button', { name: 'Tạo mã', exact: true }).click();
-      await expect(page.locator('[data-testid=active-link]')).toBeAttached();
-
       await page.getByRole('button', { name: 'Huỷ đơn', exact: true }).click();
       await thayChu(dialog, 'Mã thanh toán còn hiệu lực (nếu có) bị huỷ.');
       await dialog.getByLabel('Lý do huỷ', { exact: true }).fill('Khách đổi ý');
@@ -72,19 +66,16 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(lichSu(page)).toContainText('Đã huỷ');
       await expect(lichSu(page)).toContainText('Lý do: Khách đổi ý');
       await expect(kienCuaDon(page)).toContainText('Đã huỷ');
-      await expect(page.locator('[data-testid=active-link]')).toHaveCount(0);
-      await chua(khung(page), 'Lịch sử mã').click();
-      await expect(page.locator('[data-testid=link-history]')).toContainText('Đã huỷ');
       await expect(page.getByRole('button', { name: 'Huỷ đơn', exact: true })).toHaveCount(0);
     });
 
-    test('đơn đã thanh toán sau khi huỷ thì chờ hoàn tiền', async ({ page }) => {
+    test('huỷ được đơn đã thanh toán', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1006');
       await page.getByRole('button', { name: 'Huỷ đơn', exact: true }).click();
       await page.getByLabel('Lý do huỷ', { exact: true }).fill('Hết hàng');
       await page.getByRole('dialog').getByRole('button', { name: 'Huỷ đơn', exact: true }).click();
       await toast(page, 'Đã huỷ đơn DH-1006');
-      await expect(khung(page)).toContainText('Chờ hoàn tiền');
+      await expect(lichSu(page)).toContainText('Đã huỷ');
     });
 
     test('bỏ trống lý do thì báo lỗi, không gọi API', async ({ page }) => {

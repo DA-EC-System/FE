@@ -90,6 +90,21 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await expect(dong).toHaveCount(0);
     await expect(page.locator('tbody tr', { hasText: ma }).first()).toContainText('Đã chốt lệch');
   });
+  test('màn hẹp: dòng lệch có nhãn từng số, mã đơn không xuống dòng (FE#140)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await page.goto(page.url().replace(/(\/c\/[^/]+).*/, '$1/finance/settlements'));
+    const dong = page.getByTestId('mismatch-panel').locator('[data-row-id]').first();
+    for (const nhan of ['Sàn quyết toán', 'Commerio ước tính', 'Lệch']) await expect(dong.getByText(nhan, { exact: true })).toBeVisible();
+    const ma = page.locator('tbody tr').first().locator('td').first().locator('span').first();
+    // Số dòng chữ thật của mã đơn: mỗi dòng một hình chữ nhật
+    const soDong = await ma.evaluate((el) => {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size;
+    });
+    expect(soDong).toBe(1);
+  });
   test('Sale không mở được trang tài chính', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale'); await page.goto('/c/cmp-001/finance/settlements');
     await expect(page.getByText('Vai trò của bạn trong công ty này không có quyền mở trang này.', { exact: true })).toBeVisible();

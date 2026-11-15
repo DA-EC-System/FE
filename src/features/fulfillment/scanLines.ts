@@ -12,10 +12,11 @@ import type { ScannedLine } from '@/api/fulfillment.api';
 
 /** Dòng của kiện hoặc yêu cầu trả, gộp theo biến thể; mặc định quét đủ */
 export function scanRowsFrom(
-  lines: { variantId: string; sku: string; productName: string; attributesLabel: string; quantity: number }[],
+  lines: { variantId: string | null; sku: string; productName: string; attributesLabel: string; quantity: number }[],
 ): ScanRow[] {
   const rows: ScanRow[] = [];
   for (const l of lines) {
+    if (!l.variantId) continue;
     const row = rows.find((r) => r.variantId === l.variantId);
     if (row) {
       row.expected = (row.expected ?? 0) + l.quantity;

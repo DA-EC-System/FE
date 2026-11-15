@@ -29,9 +29,10 @@ describe('findActiveNav', () => {
     expect(findActiveNav(nav, `/c/${C}/khong-co`)).toBeNull();
   });
 
-  it('trang chi tiết chứng từ tài chính thuộc mục Chứng từ', () => {
-    expect(findActiveNav(nav, `/c/${C}/finance/invoices/inv-1`)?.item.label).toBe('Chứng từ');
-    expect(findActiveNav(nav, `/c/${C}/finance/payment-vouchers/pc-1`)?.section.title).toBe('Tài chính');
+  it('trang chi tiết đối soát thuộc mục Đối soát sàn', () => {
+    const found = findActiveNav(nav, `/c/${C}/finance/settlements/st-1`);
+    expect(found?.item.label).toBe('Đối soát sàn');
+    expect(found?.section.title).toBe('Tài chính');
   });
 });
 

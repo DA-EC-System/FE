@@ -32,6 +32,7 @@ import type {
   ShopCallbackResult,
   ShopConnectInput,
   ShopDisconnectInput,
+  ShopOpeningStocktakeRestart,
   ShopSetupInput,
   ShopSetupPreview,
   ShopSetupResult,
@@ -157,6 +158,23 @@ export function useDisconnectShop() {
       return data;
     },
     onSuccess: invalidate,
+  });
+}
+
+/** Lập lại phiếu kiểm kê đầu kỳ khi phiếu cũ bị từ chối hoặc đã huỷ (§18.6.11) */
+export function useRestartOpeningStocktake() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.post<ShopOpeningStocktakeRestart>(`/channel/shops/${id}/opening-stocktake`);
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(shopKeys.detail(companyId, data.shop.id), data.shop);
+      return invalidate();
+    },
   });
 }
 

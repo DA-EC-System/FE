@@ -49,12 +49,17 @@ export function PackScanPage() {
     return <PageError severity="warning" message={`Kiện ${p.code} không ở bước đóng gói`} onBack={toDetail} />;
   }
 
-  const complete = p.lines.every((l) => (scanned[l.variantId] ?? 0) === l.quantity);
-  const scannedQty = p.lines.reduce((n, l) => n + (scanned[l.variantId] ?? 0), 0);
-  const percent = p.totalQty ? Math.round((scannedQty / p.totalQty) * 100) : 0;
+  const expected = new Map<string, number>();
+  for (const line of p.lines) {
+    if (line.variantId) expected.set(line.variantId, (expected.get(line.variantId) ?? 0) + line.quantity);
+  }
+  const totalToScan = [...expected.values()].reduce((sum, quantity) => sum + quantity, 0);
+  const scannedQty = [...expected.keys()].reduce((sum, id) => sum + (scanned[id] ?? 0), 0);
+  const complete = [...expected].every(([id, quantity]) => (scanned[id] ?? 0) === quantity);
+  const percent = totalToScan ? Math.round((scannedQty / totalToScan) * 100) : 100;
   const carrierItems = p.source === 'marketplace' ? (carriers.data?.items ?? []) : [];
   const carrierCode = carrier ?? carrierItems.find((c) => c.isDefault)?.code ?? null;
-  const needsCarrier = p.source === 'marketplace' && !carrierCode;
+  const needsCarrier = p.source === 'marketplace' && (carriers.isPending || carriers.isError || (carrierItems.length > 0 && !carrierCode));
 
   const scan = () => {
     const sku = input.trim().toUpperCase();
@@ -63,8 +68,10 @@ export function PackScanPage() {
     if (!sku) return;
     const line = p.lines.find((l) => l.sku.toUpperCase() === sku);
     if (!line) return setMessage({ severity: 'error', text: `${sku} không có trong kiện` });
+    if (!line.variantId) return setMessage({ severity: 'warning', text: `${line.sku} chưa ghép biến thể, không cần quét` });
     const n = scanned[line.variantId] ?? 0;
-    if (n >= line.quantity) return setMessage({ severity: 'warning', text: `${line.sku} đã đủ ${line.quantity}` });
+    const quantity = expected.get(line.variantId)!;
+    if (n >= quantity) return setMessage({ severity: 'warning', text: `${line.sku} đã đủ ${quantity}` });
     setMessage(null);
     setScanned({ ...scanned, [line.variantId]: n + 1 });
   };
@@ -76,7 +83,7 @@ export function PackScanPage() {
         version: p.version,
         command: {
           kind: 'pack',
-          lines: p.lines.map((l) => ({ variantId: l.variantId, quantity: scanned[l.variantId] ?? 0 })),
+          lines: [...expected.keys()].map((variantId) => ({ variantId, quantity: scanned[variantId] ?? 0 })),
           ...(carrierCode ? { carrierCode } : {}),
         },
       });
@@ -146,7 +153,7 @@ export function PackScanPage() {
           <div className="grid gap-1" data-testid="pack-progress">
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>
-                Đã quét {scannedQty}/{p.totalQty} món
+                Đã quét {scannedQty}/{totalToScan} món
               </span>
               <span className="font-mono">{percent}%</span>
             </div>
@@ -155,7 +162,7 @@ export function PackScanPage() {
               role="progressbar"
               aria-label="Tiến độ quét"
               aria-valuemin={0}
-              aria-valuemax={p.totalQty}
+              aria-valuemax={totalToScan}
               aria-valuenow={scannedQty}
             >
               <div className={cn('h-full transition-all', complete ? 'bg-success' : 'bg-primary')} style={{ width: `${percent}%` }} />
@@ -173,22 +180,24 @@ export function PackScanPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {p.lines.map((l) => {
-                const n = scanned[l.variantId] ?? 0;
+              {p.lines.map((l, index) => {
+                const previous = l.variantId ? p.lines.slice(0, index).filter((line) => line.variantId === l.variantId)
+                  .reduce((sum, line) => sum + line.quantity, 0) : 0;
+                const n = l.variantId ? Math.min(l.quantity, Math.max(0, (scanned[l.variantId] ?? 0) - previous)) : 0;
                 return (
-                  <TableRow key={l.variantId} data-row-id={l.sku} className={cn(n === l.quantity && 'bg-success/10')}>
+                  <TableRow key={`${l.variantId ?? l.sku}-${index}`} data-row-id={l.sku} className={cn(n === l.quantity && 'bg-success/10')}>
                     <TableCell className="font-mono font-medium">{l.sku}</TableCell>
                     <TableCell className="whitespace-normal">{l.productName}</TableCell>
                     <TableCell>{l.attributesLabel || '—'}</TableCell>
                     <TableCell className="text-right">
-                      {n}/{l.quantity}
+                      {l.variantId ? `${n}/${l.quantity}` : 'Chưa ghép SKU'}
                     </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
-          {p.source === 'marketplace' && (
+          {p.source === 'marketplace' && (carrierItems.length > 0 || carriers.isError) && (
             <div className="mt-4 grid gap-2" data-testid="pack-carrier">
               <Label>Đơn vị vận chuyển</Label>
               {carriers.isError && <AlertMessage severity="error">{problemMessage(carriers.error)}</AlertMessage>}

@@ -50,17 +50,8 @@ import { PackageDetailPage } from '@/features/fulfillment/PackageDetailPage';
 import { PackScanPage } from '@/features/fulfillment/PackScanPage';
 import { ReturnListPage } from '@/features/returns/ReturnListPage';
 import { ReturnDetailPage } from '@/features/returns/ReturnDetailPage';
-import { PaymentGatewaysPage } from '@/features/payment/PaymentGatewaysPage';
 import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
-import { TransactionsPage } from '@/features/payment/TransactionsPage';
-import { FinanceDocumentsPage } from '@/features/finance/FinanceDocumentsPage';
-import { InvoiceDetailPage } from '@/features/finance/InvoiceDetailPage';
-import { ReceiptDetailPage } from '@/features/finance/ReceiptDetailPage';
-import { PaymentVoucherDetailPage } from '@/features/finance/PaymentVoucherDetailPage';
-import { CodPage } from '@/features/finance/CodPage';
 import { LedgerPage } from '@/features/finance/LedgerPage';
-import { RefundsPage } from '@/features/finance/RefundsPage';
-import { UnmatchedPage } from '@/features/finance/UnmatchedPage';
 import { SettlementsPage } from '@/features/finance/SettlementsPage';
 import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { ReportPage } from '@/features/report/ReportPage';
@@ -355,66 +346,10 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'finance/documents',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <FinanceDocumentsPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'finance/invoices/:id',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <InvoiceDetailPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'finance/receipts/:id',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <ReceiptDetailPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'finance/payment-vouchers/:id',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <PaymentVoucherDetailPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
                     path: 'finance/ledger',
                     element: (
                       <RequireModule module="finance" anyPermission={FINANCE_VIEW_ANY}>
                         <LedgerPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'finance/cod',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <CodPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'finance/refunds',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <RefundsPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'finance/unmatched',
-                    element: (
-                      <RequireModule module="finance" permission={PERMISSIONS.financeView}>
-                        <UnmatchedPage />
                       </RequireModule>
                     ),
                   },
@@ -442,22 +377,6 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="report" permission={[PERMISSIONS.reportView, PERMISSIONS.financeView]}>
                         <ReportPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'payment/transactions',
-                    element: (
-                      <RequireModule module="payment" permission={PERMISSIONS.transactionView}>
-                        <TransactionsPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'settings/payment-gateways',
-                    element: (
-                      <RequireModule module="payment" permission={PERMISSIONS.gatewayManage}>
-                        <PaymentGatewaysPage />
                       </RequireModule>
                     ),
                   },
