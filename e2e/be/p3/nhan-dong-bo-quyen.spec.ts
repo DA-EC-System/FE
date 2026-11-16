@@ -6,7 +6,7 @@
 //   E2E_SAN_EMAIL, E2E_SAN_PASSWORD      tài khoản có quyền đẩy listing (CEO hoặc Admin)
 //   E2E_SAN_SALE_EMAIL, E2E_SAN_SALE_PASSWORD  (tuỳ chọn) tài khoản Sale cùng công ty: ghép được, không đẩy, không gỡ
 //   E2E_SAN_CONG_TY                      (tuỳ chọn) tên công ty, mặc định "Commerio Test Sàn"
-import { type Page } from '@playwright/test';
+import { type Page, type Response } from '@playwright/test';
 import { chu, duongDan, expect, test, thayChu } from '../../fixtures';
 
 const SHOP_ID = process.env.E2E_SAN_SHOP_ID ?? '';
@@ -51,13 +51,16 @@ async function dangNhap(page: Page, email: string, matKhau: string): Promise<str
   return duongDan(page).split('/')[2];
 }
 
+/** Response API (không phải trang HTML: route FE `/c/:id/channel/shops/:id` cũng kết thúc giống đường dẫn API) */
+const apiGet = (r: Response, suffix: string) =>
+  r.request().method() === 'GET' && r.request().resourceType() !== 'document' && new URL(r.url()).pathname.endsWith(suffix);
 /** Mở trang ghép SKU, trả các dòng BE gửi về; gian hàng không hoạt động thì bỏ qua */
 async function moTrangGhep(page: Page, companyId: string): Promise<Row[]> {
   const shopRes = page.waitForResponse(
-    (r) => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith(`/channel/shops/${SHOP_ID}`),
+    (r) => apiGet(r, `/channel/shops/${SHOP_ID}`),
   );
   const listRes = page.waitForResponse(
-    (r) => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith(`/channel/shops/${SHOP_ID}/listings`),
+    (r) => apiGet(r, `/channel/shops/${SHOP_ID}/listings`),
   );
   await page.goto(`/c/${companyId}/channel/shops/${SHOP_ID}`);
   const shop = (await (await shopRes).json()) as { status: string };
@@ -108,7 +111,8 @@ test.describe('P3-BE · Nhãn đồng bộ và quyền nút ghép SKU (§18.6.5,
   test('CEO hoặc Admin có nút Ghép và Đẩy', async ({ page }) => {
     const companyId = await dangNhap(page, EMAIL, MAT_KHAU);
     await moTrangGhep(page, companyId);
-    await expect(page.getByRole('button', { name: /^(Đẩy lên sàn|Đẩy \d+ biến thể lên sàn)$/ })).toBeVisible();
+    // Nút đầu trang (mỗi dòng cũng có nút icon cùng tên)
+    await expect(page.locator('[data-guide=listings-push]')).toHaveText(/^(Đẩy lên sàn|Đẩy \d+ biến thể lên sàn)$/);
     await expect(dongBienThe(page).getByRole('button', { name: /^(Ghép|Đổi ghép)$/ }).first()).toBeAttached();
   });
 
