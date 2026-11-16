@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { Ban } from 'lucide-react';
@@ -9,7 +9,6 @@ import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useInvitations, useRevokeInvitation } from '@/api/identity.api';
-import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { formatDateTime } from '@/utils/format';
 import type { Invitation, InvitationStatus } from '@/types/identity';
@@ -40,6 +39,14 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
   const query = useInvitations({ status: UNSUBMITTED, page, pageSize });
   const revoke = useRevokeInvitation();
   const [revoking, setRevoking] = useState<Invitation | null>(null);
+
+  // Huỷ dòng cuối của trang cuối thì trang hiện tại rỗng: lùi về trang cuối còn dữ liệu
+  const total = query.data?.total;
+  useEffect(() => {
+    if (total === undefined) return;
+    const lastPage = Math.max(1, Math.ceil(total / pageSize));
+    if (page > lastPage) setPage(lastPage);
+  }, [total, page, pageSize]);
 
   const run = async (inv: Invitation) => {
     try {
@@ -150,7 +157,7 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
     <>
       {query.isError && (
         <AlertMessage severity="error" className="mb-4">
-          {getErrorMessage(query.error)}
+          {problemMessage(query.error)}
         </AlertMessage>
       )}
       <Card className="gap-0 py-0">
