@@ -8,8 +8,8 @@ import { useFinanceWrite } from '@/api/financeLifecycle.api';
 import { problemMessage } from '@/api/problemMessages';
 import { bankRefSchema, reasonSchema } from './lifecycleShared';
 
-export function LifecycleActionDialog({ path, title, version, field, onDone, onClose }: {
-  path: string; title: string; version?: number; field?: 'reason' | 'bankRef'; onDone?: () => void; onClose: () => void;
+export function LifecycleActionDialog({ path, title, version, field, description, onDone, onClose }: {
+  path: string; title: string; version?: number; field?: 'reason' | 'bankRef'; description?: string; onDone?: () => void; onClose: () => void;
 }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
@@ -23,6 +23,6 @@ export function LifecycleActionDialog({ path, title, version, field, onDone, onC
     } catch (e) { setError(problemMessage(e)); }
   };
   return <ConfirmDialog open title={title} confirmLabel={title} loading={mutation.isPending} onClose={onClose} onConfirm={() => void submit()}
-    message={<div className="grid gap-3">{field ? <div><Label htmlFor="action-value">{field === 'reason' ? 'Lý do' : 'Mã sao kê'}</Label><Input id="action-value" value={value} onChange={(e) => setValue(e.target.value)} maxLength={field === 'reason' ? 500 : 100} /></div> : 'Xác nhận thực hiện thao tác này?'}
+    message={<div className="grid gap-3">{description && <p className="text-sm text-muted-foreground">{description}</p>}{field ? <div><Label htmlFor="action-value">{field === 'reason' ? 'Lý do' : 'Mã sao kê'}</Label><Input id="action-value" value={value} onChange={(e) => setValue(e.target.value)} maxLength={field === 'reason' ? 500 : 100} /></div> : 'Xác nhận thực hiện thao tác này?'}
       {error && <AlertMessage severity="error">{error}</AlertMessage>}</div>} />;
 }

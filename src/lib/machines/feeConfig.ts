@@ -17,5 +17,5 @@ export const feeConfigMachine = defineMachine<ConfigStatus, ConfigAction, Config
   { from: ['draft', 'pending_approval', 'scheduled'], to: 'cancelled', action: 'cancel', label: 'Huỷ phiên bản', permission: P.financeConfigManage,
     guard: (r) => r.effectiveFrom && r.effectiveFrom <= r.today ? 'config_already_effective' : null },
   { from: 'scheduled', to: 'active', action: 'activate', label: 'Áp dụng', system: true },
-  { from: 'active', to: 'expired', action: 'expire', label: 'Hết hiệu lực', system: true },
+  { from: 'active', to: 'superseded', action: 'supersede', label: 'Hết hiệu lực', system: true },
 ]);

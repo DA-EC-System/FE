@@ -1,16 +1,24 @@
 /**
- * API sổ tiền (sơ đồ D4.1, FE#76): dòng sổ, lãi theo đơn, cảnh báo mốc doanh thu, xuất chứng từ kiểu MISA.
- * Hợp đồng ở Documents/21 mục 21.1.
+ * API sổ tiền (sơ đồ D4.1, FE#150): dòng sổ, lãi theo đơn và theo SKU, lãi một đơn, cảnh báo mốc doanh thu.
+ * Hợp đồng ở Documents/21 mục 21.1. Xuất sổ ra tệp (`/finance/ledger/export`) BE chưa có, FE chưa gọi.
  */
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from './client';
-import { blobErrorToJson, filenameFromDisposition, saveBlob } from './report.api';
 import { useAuthStore } from '@/stores/authStore';
-import type { LedgerFilter, LedgerResponse, OrderProfit, OrderProfitList, TaxWarningList } from '@/types/finance';
+import type {
+  LedgerFilter,
+  LedgerKind,
+  LedgerResponse,
+  OrderProfit,
+  OrderProfitList,
+  SkuProfitList,
+  TaxWarningList,
+} from '@/types/finance';
 
 export interface LedgerParams {
   filter?: LedgerFilter;
+  kind?: LedgerKind;
   shopId?: string;
   orderId?: string;
   from?: string;
@@ -19,15 +27,25 @@ export interface LedgerParams {
   pageSize?: number;
 }
 
-export interface PageParams {
+/** Kỳ theo ngày giao (gồm cả hai ngày), bắt buộc ở BE */
+export interface ProfitParams {
+  from: string;
+  to: string;
+  shopId?: string;
   page?: number;
   pageSize?: number;
+}
+
+export interface OrderProfitParams extends ProfitParams {
+  costMissing?: boolean;
+  belowFloor?: boolean;
 }
 
 export const ledgerKeys = {
   all: (companyId: string) => ['company', companyId, 'ledger'] as const,
   list: (companyId: string, params: LedgerParams) => [...ledgerKeys.all(companyId), 'list', params] as const,
-  profits: (companyId: string, params: PageParams) => [...ledgerKeys.all(companyId), 'profits', params] as const,
+  orderProfits: (companyId: string, params: OrderProfitParams) => [...ledgerKeys.all(companyId), 'order-profits', params] as const,
+  skuProfits: (companyId: string, params: ProfitParams) => [...ledgerKeys.all(companyId), 'sku-profits', params] as const,
   orderProfit: (companyId: string, orderId: string) => [...ledgerKeys.all(companyId), 'order', orderId] as const,
   taxWarnings: (companyId: string) => [...ledgerKeys.all(companyId), 'tax-warnings'] as const,
 };
@@ -36,11 +54,11 @@ function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-export function useLedger(params: LedgerParams) {
+export function useLedger(params: LedgerParams, enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: ledgerKeys.list(companyId, params),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && enabled,
     queryFn: async () => {
       const { data } = await apiClient.get<LedgerResponse>('/finance/ledger', { params });
       return data;
@@ -48,13 +66,28 @@ export function useLedger(params: LedgerParams) {
   });
 }
 
-export function useOrderProfits(params: PageParams, enabled = true) {
+export function useOrderProfits(params: OrderProfitParams, enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: ledgerKeys.profits(companyId, params),
+    queryKey: ledgerKeys.orderProfits(companyId, params),
     enabled: Boolean(companyId) && enabled,
     queryFn: async () => {
-      const { data } = await apiClient.get<OrderProfitList>('/finance/orders/profit', { params });
+      // Cờ lọc chỉ gửi khi bật: BE nhận chuỗi true/false
+      const { costMissing, belowFloor, ...rest } = params;
+      const query = { ...rest, ...(costMissing && { costMissing: 'true' }), ...(belowFloor && { belowFloor: 'true' }) };
+      const { data } = await apiClient.get<OrderProfitList>('/finance/orders/profits', { params: query });
+      return data;
+    },
+  });
+}
+
+export function useSkuProfits(params: ProfitParams, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: ledgerKeys.skuProfits(companyId, params),
+    enabled: Boolean(companyId) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<SkuProfitList>('/finance/skus/profits', { params });
       return data;
     },
   });
@@ -80,23 +113,6 @@ export function useTaxWarnings() {
     queryFn: async () => {
       const { data } = await apiClient.get<TaxWarningList>('/finance/tax-warnings');
       return data;
-    },
-  });
-}
-
-/** Tải CSV chứng từ kiểu MISA; trả tên tệp đã lưu */
-export function useExportLedger() {
-  return useMutation({
-    mutationFn: async (params: { from?: string; to?: string }) => {
-      const res = await apiClient
-        .get<Blob>('/finance/ledger/export', { params: { ...params, format: 'misa' }, responseType: 'blob' })
-        .catch(blobErrorToJson);
-      const filename = filenameFromDisposition(
-        res.headers['content-disposition'] as string | undefined,
-        'so-tien-misa.csv',
-      );
-      saveBlob(res.data, filename);
-      return filename;
     },
   });
 }

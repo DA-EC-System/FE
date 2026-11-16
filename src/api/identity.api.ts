@@ -191,8 +191,10 @@ export function useInvitations(params: InvitationListParams, enabled = true) {
     refetchOnMount: 'always',
     placeholderData: (prev) => prev,
     queryFn: async () => {
+      const { status, ...rest } = params;
       const { data } = await apiClient.get<PageResult<Invitation>>('/identity/invitations', {
-        params: compactParams(params),
+        // Nhiều trạng thái gửi một tham số, cách nhau bằng dấu phẩy (Documents/21 §3.1)
+        params: compactParams({ ...rest, status: Array.isArray(status) ? status.join(',') : status }),
       });
       return data;
     },
@@ -216,6 +218,20 @@ export function useDecideInvitation() {
         `/identity/invitations/${id}/${decision}`,
         { version },
       );
+      return data;
+    },
+    onSettled: invalidate,
+  });
+}
+
+/** Huỷ link chưa nộp (`open`, `claimed`); lỗi gì cũng nạp lại danh sách để thấy trạng thái mới (US-CT-05 AC 5, 6) */
+export function useRevokeInvitation() {
+  const invalidate = useInvalidateIdentity();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      const { data } = await apiClient.post<{ invitation: Invitation }>(`/identity/invitations/${id}/revoke`, {
+        version,
+      });
       return data;
     },
     onSettled: invalidate,

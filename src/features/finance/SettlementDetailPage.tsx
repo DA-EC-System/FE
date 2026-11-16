@@ -25,22 +25,9 @@ import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import { resolveBlock } from '@/lib/machines/settlement';
 import { cn } from '@/lib/utils';
-import type { SettlementLedgerLine } from '@/types/settlement';
+import { LEDGER_KIND_LABELS, isCostKind } from '@/utils/ledger';
 import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
-
-/** Dòng giá vốn: chỉ người có inventory.cost.view thấy, không phải tiền mặt (§21.1) */
-const isCostLine = (l: SettlementLedgerLine) => l.kind === 'cogs' || l.kind === 'cogs_reversal';
-
-/** Tên khoản của sổ quyết toán (bộ kind khác LEDGER_KIND_LABELS của sổ cũ FE#76) */
-const SETTLEMENT_KINDS: Record<SettlementLedgerLine['kind'], string> = {
-  revenue: 'Doanh thu', platform_subsidy: 'Sàn trợ giá', shipping_income: 'Phí ship thu khách', shipping_cost: 'Phí vận chuyển',
-  fee_fixed: 'Phí cố định', fee_transaction: 'Phí giao dịch', fee_service: 'Phí dịch vụ', fee_optional: 'Phí tuỳ chọn',
-  withholding_tax: 'Thuế sàn khấu trừ', customer_refund: 'Hoàn tiền khách', return_fee: 'Phí hoàn hàng',
-  lost_compensation: 'Bồi thường mất hàng', penalty: 'Phạt', cogs: 'Giá vốn', cogs_reversal: 'Hoàn giá vốn', ads: 'Quảng cáo',
-  opex: 'Chi phí vận hành', supplier_payment: 'Trả nhà cung cấp', supplier_refund: 'Nhà cung cấp hoàn tiền', cod_collected: 'Thu COD',
-  withdrawal: 'Rút tiền', adjustment: 'Điều chỉnh',
-};
 
 function Person({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -63,7 +50,7 @@ export function SettlementDetailPage() {
   const lines = payment.lines;
   const live = lines.filter((l) => !l.replacedBy);
   // §21.1: cogs, cogs_reversal không phải tiền mặt, không cộng vào thực nhận
-  const total = live.filter((l) => !isCostLine(l)).reduce((s, l) => s + l.amount, 0);
+  const total = live.filter((l) => !isCostKind(l.kind)).reduce((s, l) => s + l.amount, 0);
 
   return (
     <div>
@@ -125,10 +112,10 @@ export function SettlementDetailPage() {
             rowClassName={(l) => cn(l.replacedBy && 'text-muted-foreground opacity-60')}
             columns={[
               { header: 'Ngày', cell: ({ row }) => formatDate(row.original.occurredOn) },
-              { header: 'Khoản', cell: ({ row }) => <span className="flex flex-wrap items-center gap-1">{SETTLEMENT_KINDS[row.original.kind] ?? row.original.kind}<FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
+              { header: 'Khoản', cell: ({ row }) => <span className="flex flex-wrap items-center gap-1">{LEDGER_KIND_LABELS[row.original.kind] ?? row.original.kind}<FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
               { header: 'Nguồn', cell: ({ row }) => row.original.estimated ? <Badge variant="warning">Ước tính</Badge> : <Badge variant="success">Thực tế</Badge> },
               { header: 'Số tiền', meta: { numeric: true }, cell: ({ row }) => <Money value={row.original.amount} className={row.original.replacedBy ? 'line-through' : undefined} /> },
-              { header: 'Ghi chú', cell: ({ row }) => row.original.replacedBy ? 'Đã thay bằng số thực tế' : isCostLine(row.original) ? 'Không tính vào tổng (không phải tiền mặt)' : row.original.reason ?? '' },
+              { header: 'Ghi chú', cell: ({ row }) => row.original.replacedBy ? 'Đã thay bằng số thực tế' : isCostKind(row.original.kind) ? 'Không tính vào tổng (không phải tiền mặt)' : row.original.reason ?? '' },
             ]}
           />
           {live.length > 0 && (

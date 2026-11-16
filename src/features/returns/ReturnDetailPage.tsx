@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -85,6 +85,7 @@ function PlatformHistory({ returnId }: { returnId: string }) {
 /** Chi tiết yêu cầu trả (sơ đồ D3): dòng trả theo kiện, tiền, phiếu kiểm hàng về, nút theo bảng chuyển */
 export function ReturnDetailPage() {
   const { returnId = '' } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
@@ -282,7 +283,9 @@ export function ReturnDetailPage() {
                   </TableCell>
                   <TableCell>
                     {can(PERMISSIONS.fulfillmentProcess) ? (
-                      <Link className="text-primary underline-offset-4 hover:underline" to={ROUTES.company.package(companyId, l.packageId)}>
+                      <Link className="text-primary underline-offset-4 hover:underline" to={ROUTES.company.package(companyId, l.packageId)}
+                        state={{ backTo: { path: location.pathname + location.search, label: `Về yêu cầu ${r.code}` } }}
+                      >
                         {l.packageCode}
                       </Link>
                     ) : (

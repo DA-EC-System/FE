@@ -29,7 +29,7 @@ const MESSAGES: Record<string, string> = {
   role_in_use: 'Vai trò còn tài khoản đang mang nên không xoá được. Gỡ vai trò khỏi các tài khoản đó trước.',
   role_name_taken: 'Tên vai trò đã được dùng trong công ty.',
   // FE#148, Documents/21 §3.1: mời nhân viên bằng link
-  invitation_invalid: 'Link mời không hợp lệ hoặc đã hết hạn. Nhờ người mời tạo link mới.',
+  invitation_invalid: 'Link mời không hợp lệ, đã hết hạn hoặc đã bị huỷ. Nhờ người mời tạo link mới.',
   invitation_used: 'Link mời này đã được dùng. Nhờ người mời tạo link khác.',
   invitation_outdated: 'Có vai trò của lời mời đã bị xoá. Từ chối yêu cầu này rồi tạo link mới.',
   registration_expired: 'Phiên đăng ký đã hết hạn. Nhập lại mã xác minh.',

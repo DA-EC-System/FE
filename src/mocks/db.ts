@@ -344,7 +344,8 @@ const roles: MockRole[] = [
     id: 'role-kiemsoat-cmp-001',
     companyId: 'cmp-001',
     name: 'Kiểm soát',
-    permissions: [P.financeView, P.transactionView],
+    // Xem nhân viên, lời mời nhưng không mời, duyệt, huỷ (US-CT-05 AC 4, US-CT-07: chỉ có quyền xem)
+    permissions: [P.financeView, P.transactionView, P.staffView],
     version: 1,
     updatedAt: '2026-09-01T00:00:00.000Z',
   },
@@ -733,7 +734,7 @@ export interface MockInvitation {
   id: string;
   companyId: string;
   token: string;
-  status: 'open' | 'claimed' | 'pending' | 'approved' | 'rejected';
+  status: 'open' | 'claimed' | 'pending' | 'approved' | 'rejected' | 'revoked';
   email: string | null;
   fullName: string | null;
   roleIds: string[];
@@ -788,6 +789,25 @@ const invitations: MockInvitation[] = [
     otp: null,
     password: 'hethan123',
     version: 3,
+  },
+  {
+    // Link đã gửi, chưa ai mở: hiện ở tab Link đã tạo, huỷ được (US-CT-05 AC 4, 5)
+    id: 'inv-003',
+    companyId: 'cmp-001',
+    token: 'mock-inv-003',
+    status: 'open',
+    email: null,
+    fullName: null,
+    roleIds: ['role-sale'],
+    createdBy: 'acc-001',
+    createdAt: inHours(-2),
+    expiresAt: inHours(70),
+    submittedAt: null,
+    decidedAt: null,
+    existingAccount: false,
+    otp: null,
+    password: null,
+    version: 1,
   },
 ];
 

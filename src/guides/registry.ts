@@ -45,7 +45,7 @@ export const GUIDES = {
   },
   staff: {
     key: 'staff',
-    version: 2,
+    version: 3,
     title: 'Nhân viên',
     intro: [
       'Mỗi nhân viên mang một hoặc nhiều vai trò; vai trò quyết định họ thấy và làm được gì.',
@@ -63,6 +63,11 @@ export const GUIDES = {
         target: 'staff-pending',
         title: 'Duyệt yêu cầu',
         body: 'Nhân viên mở link, xác minh email và đặt mật khẩu thì yêu cầu hiện ở tab này. Duyệt xong họ mới vào được công ty.',
+      },
+      {
+        target: 'staff-links',
+        title: 'Link đã tạo',
+        body: 'Link chưa có ai nộp yêu cầu nằm ở tab này. Lỡ gửi nhầm người thì huỷ link; người cầm link sẽ không dùng được nữa.',
       },
       {
         target: 'staff-roles',

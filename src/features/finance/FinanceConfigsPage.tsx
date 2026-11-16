@@ -18,6 +18,7 @@ import { ROUTES } from '@/router/routes';
 import { formatDate } from '@/utils/format';
 import { CONFIG_KINDS, CONFIG_STATES } from './lifecycleShared';
 import { FinanceConfigForm } from './FinanceConfigForm';
+import { ActiveConfigsPanel } from './ActiveConfigsPanel';
 
 export function FinanceConfigsPage() {
   const { companyContext } = useAuth(); const companyId = companyContext?.companyId ?? ''; const can = useCan();
@@ -25,9 +26,11 @@ export function FinanceConfigsPage() {
   const kind = f.params.get('kind') ?? ''; const status = f.params.get('status') ?? ''; const shopId = f.params.get('shopId') ?? '';
   const query = useFinanceConfigs({ page: f.page, pageSize: f.pageSize, kind: kind || undefined, status: status || undefined, shopId: shopId || undefined });
   const shops = useShops({ enabled: can(P.shopView) });
+  const shopName = (id: string) => shops.data?.items.find((s) => s.id === id)?.shopName ?? 'Gian hàng';
   return <div><PageHeader title="Cấu hình phí và thuế" subtitle="Phiên bản theo ngày hiệu lực. Chạy thử không ghi sổ; mọi thay đổi áp dụng sau khi được duyệt."
     action={can(P.financeConfigManage) ? <Button onClick={() => setCreating(true)}>Soạn phiên bản</Button> : undefined} />
     {query.isError && <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>}
+    <ActiveConfigsPanel companyId={companyId} shopName={shopName} />
     <Card className="gap-0 py-0"><FilterBar><FilterSelect label="Loại cấu hình" value={kind} onChange={f.setFilter('kind')} options={Object.entries(CONFIG_KINDS).map(([value, label]) => ({ value, label }))} />
       <FilterSelect label="Trạng thái" value={status} onChange={f.setFilter('status')} options={Object.entries(CONFIG_STATES).map(([value, meta]) => ({ value, label: meta.label }))} />
       <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} /></FilterBar>

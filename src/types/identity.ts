@@ -68,7 +68,8 @@ export interface CreatedInvitation {
   expiresAt: string;
 }
 
-export type InvitationStatus = 'open' | 'claimed' | 'pending' | 'approved' | 'rejected';
+/** `revoked`: Admin huỷ link chưa nộp (US-CT-05 AC 5) */
+export type InvitationStatus = 'open' | 'claimed' | 'pending' | 'approved' | 'rejected' | 'revoked';
 
 /** Yêu cầu tham gia qua link (US-CT-07) */
 export interface Invitation {
@@ -92,7 +93,8 @@ export interface Invitation {
 }
 
 export interface InvitationListParams {
-  status?: InvitationStatus;
+  /** Một hoặc nhiều trạng thái; FE gửi dạng `open,claimed` (Documents/21 §3.1) */
+  status?: InvitationStatus | InvitationStatus[];
   page?: number;
   pageSize?: number;
 }

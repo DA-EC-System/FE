@@ -27,15 +27,20 @@ import type { StaffMember } from '@/types/identity';
 import { InviteStaffDialog } from './InviteStaffDialog';
 import { EditStaffRolesDialog } from './EditStaffRolesDialog';
 import { PendingInvitations } from './PendingInvitations';
+import { CreatedLinks } from './CreatedLinks';
 import { conflictCurrent, protectedReason, STAFF_STATUS_LABELS } from './shared';
 
-/** UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn; tab Chờ duyệt cho yêu cầu tham gia qua link (US-CT-07) */
+/**
+ * UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn; tab Chờ duyệt cho yêu cầu tham gia qua link (US-CT-07),
+ * tab Link đã tạo để xem và huỷ link chưa nộp (US-CT-05 AC 4–6)
+ */
 export function StaffListPage() {
   const { account, companyContext } = useAuth();
   const can = useCan();
   const canManage = can(PERMISSIONS.staffManage);
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get('tab') === 'pending' ? 'pending' : 'staff';
+  const tabParam = searchParams.get('tab');
+  const tab = tabParam === 'pending' || tabParam === 'links' ? tabParam : 'staff';
   const [pendingPage, setPendingPage] = useState(1);
   const [pendingPageSize, setPendingPageSize] = useState(25);
   // Luôn đọc để tab hiện số yêu cầu đang chờ
@@ -196,7 +201,7 @@ export function StaffListPage() {
           setSearchParams(
             (prev) => {
               const next = new URLSearchParams(prev);
-              if (v === 'pending') next.set('tab', 'pending');
+              if (v === 'pending' || v === 'links') next.set('tab', v);
               else next.delete('tab');
               return next;
             },
@@ -215,11 +220,16 @@ export function StaffListPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="links" data-guide="staff-links">
+              Link đã tạo
+            </TabsTrigger>
           </TabsList>
         </div>
       </Tabs>
 
-      {tab === 'pending' ? (
+      {tab === 'links' ? (
+        <CreatedLinks canManage={canManage} />
+      ) : tab === 'pending' ? (
         <PendingInvitations
           data={pendingQuery.data}
           loading={pendingQuery.isLoading}

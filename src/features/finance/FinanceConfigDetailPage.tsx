@@ -10,7 +10,7 @@ import { SelfApprovedTag } from '@/components/common/SelfApprovedTag';
 import { DataTable } from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useFinanceConfig, useFinanceWrite } from '@/api/financeLifecycle.api';
+import { useFinanceConfig, useFinanceList, useFinanceWrite } from '@/api/financeLifecycle.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -18,8 +18,10 @@ import { PERMISSIONS as P } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { feeConfigMachine } from '@/lib/machines/feeConfig';
-import type { ConfigAction, FinanceConfig } from '@/types/finance';
-import { CONFIG_KINDS, CONFIG_STATES, PAYLOAD_FIELDS, configRecord } from './lifecycleShared';
+import type { PageResult } from '@/api/types';
+import type { ConfigAction, FinanceConfig, FinanceConfigSummary } from '@/types/finance';
+import { HelpTip } from '@/components/common/HelpTip';
+import { CONFIG_KINDS, CONFIG_STATES, PAYLOAD_FIELDS, PAYLOAD_HINTS, configRecord, formatPayloadValue } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 import { FinanceConfigForm } from './FinanceConfigForm';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
@@ -30,6 +32,11 @@ export function FinanceConfigDetailPage() {
   const [editing, setEditing] = useState<'edit' | 'correction' | null>(null); const [action, setAction] = useState<ConfigAction | null>(null);
   useBreadcrumb(query.data ? CONFIG_KINDS[query.data.kind] : undefined);
   const dryRun = useFinanceWrite<FinanceConfig, { version: number }>('post', `/finance/configs/${id}/dry-run`);
+  // So với bản đang áp dụng cùng ô (Test_UI cột "Khác bản đang hiệu lực"), chỉ cho bản chưa áp dụng
+  const pending = ['draft', 'pending_approval', 'scheduled'].includes(query.data?.status ?? '');
+  const live = useFinanceList<PageResult<FinanceConfigSummary>>('/finance/configs',
+    { kind: query.data?.kind, shopId: query.data?.shopId ?? undefined, status: 'active', page: 1, pageSize: 5 }, pending);
+  const current = pending ? live.data?.items.find((c) => c.id !== id) : undefined;
   if (query.isLoading) return <PageSpinner />;
   if (!query.data) return <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>;
   const config = query.data; const actions = feeConfigMachine.available(config.status, actor, configRecord(config));
@@ -38,14 +45,24 @@ export function FinanceConfigDetailPage() {
   return <div><Link to={ROUTES.company.financeConfigs(companyId)}>← Cấu hình phí và thuế</Link>
     <PageHeader title={CONFIG_KINDS[config.kind]} subtitle={`Hiệu lực ${formatDate(config.effectiveFrom)} → ${config.effectiveTo ? formatDate(config.effectiveTo) : 'Chưa kết thúc'}`}
       action={<div className="flex flex-wrap gap-2">{can(P.financeConfigManage) && config.status === 'draft' && <><Button variant="outline" onClick={() => setEditing('edit')}>Sửa nháp</Button><Button disabled={dryRun.isPending} variant="outline" onClick={() => void simulate()}>Chạy thử</Button></>}
-        {can(P.financeConfigManage) && ['active', 'expired'].includes(config.status) && <Button variant="outline" onClick={() => setEditing('correction')}>Soạn bản sửa lỗi</Button>}
+        {can(P.financeConfigManage) && ['active', 'superseded'].includes(config.status) && <Button variant="outline" onClick={() => setEditing('correction')}>Soạn bản sửa lỗi</Button>}
         {actions.map((a) => <Button key={a.action} onClick={() => setAction(a.action)}>{a.label}</Button>)}
       </div>} />
     <StatusBadge status={config.status} statuses={CONFIG_STATES} />{config.selfApproved && <span className="ms-2"><SelfApprovedTag /></span>}
     {config.statusReason && <AlertMessage severity="info">{config.statusReason}</AlertMessage>}
     {config.isCorrection && <AlertMessage severity="warning">Bản sửa lỗi; hồi tố từ {formatDate(config.retroactiveFrom)}. <Link to={ROUTES.company.financeConfig(companyId, config.supersedesId!)}>Xem bản được sửa</Link></AlertMessage>}
-    <Card className="my-4"><CardContent className="grid gap-3 pt-6 sm:grid-cols-2">{Object.entries(PAYLOAD_FIELDS[config.kind]).map(([key, label]) => <p key={key}>{label}: <strong>{Array.isArray(config.payload[key]) ? (config.payload[key] as number[]).join(', ') : key === 'regime' ? ({ company: 'Doanh nghiệp', household: 'Hộ kinh doanh', individual: 'Cá nhân' }[String(config.payload[key]) as 'company'] ?? '—') : String(config.payload[key] ?? '—')}</strong></p>)}
-      <p>Người soạn: {config.createdBy?.name ?? '—'}</p><p>Người duyệt: {config.approvedBy?.name ?? '—'}</p></CardContent></Card>
+    <Card className="my-4 gap-0 py-0"><table className="w-full text-sm" data-testid="config-payload"><thead className="border-b text-left text-xs text-muted-foreground"><tr>
+      <th className="px-4 py-2 font-medium">Mục</th><th className="px-4 py-2 font-medium">Bản này</th>
+      {current && <th className="px-4 py-2 font-medium"><Link className="hover:underline" to={ROUTES.company.financeConfig(companyId, current.id)}>Bản đang áp dụng</Link> <span className="font-normal">từ {formatDate(current.effectiveFrom)}</span></th>}
+    </tr></thead><tbody>{Object.entries(PAYLOAD_FIELDS[config.kind]).map(([key, label]) => {
+      const mine = formatPayloadValue(key, config.payload[key]); const theirs = current ? formatPayloadValue(key, current.payload[key]) : null; const changed = theirs !== null && theirs !== mine;
+      return <tr key={key} className="border-b last:border-0" data-changed={changed || undefined}>
+        <td className="px-4 py-2 text-muted-foreground">{label}{PAYLOAD_HINTS[key] && <HelpTip className="ms-1" topic={label} content={PAYLOAD_HINTS[key]} />}</td>
+        <td className={changed ? 'px-4 py-2 font-semibold text-warning-text' : 'px-4 py-2 font-medium'}>{mine}</td>
+        {current && <td className="px-4 py-2 text-muted-foreground">{theirs}</td>}
+      </tr>;
+    })}</tbody></table>
+      <CardContent className="grid gap-1 border-t py-3 text-sm sm:grid-cols-2"><p>Người soạn: {config.createdBy?.name ?? '—'}</p><p>Người duyệt: {config.approvedBy?.name ?? '—'}</p></CardContent></Card>
     {config.dryRun ? <Card className="mb-4 p-4"><h2 className="font-semibold">Kết quả chạy thử</h2><p>Lãi 30 ngày: {formatCurrency(config.dryRun.profit30.now)} → {formatCurrency(config.dryRun.profit30.next)}</p>
       <DataTable data={config.dryRun.rows} getRowId={(r) => r.shopId} columns={[
         { header: 'Gian hàng', accessorKey: 'shopName' }, { header: 'Phí (%)', accessorKey: 'feePct' }, { header: 'Thuế (%)', accessorKey: 'taxPct' },
