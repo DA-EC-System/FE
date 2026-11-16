@@ -1,4 +1,5 @@
-// P1 · Mời nhân viên bằng link (FE#148: US-CT-05 tạo link, US-CT-06 trang /tham-gia, US-CT-07 tab Chờ duyệt)
+// P1 · Mời nhân viên bằng link (FE#148: US-CT-05 tạo link, US-CT-06 trang /tham-gia, US-CT-07 tab Chờ duyệt;
+// US-CT-05 AC 4–6: tab Link đã tạo, huỷ link)
 // Dữ liệu mock nằm trong bộ nhớ trang: chuyển trang bằng pushState để giữ link vừa tạo và yêu cầu vừa nộp.
 import { type Page } from '@playwright/test';
 import { chua, dangNhap, expect, loi, menu, mockApi, test, toast } from '../../fixtures';
@@ -198,4 +199,71 @@ test.describe('P1 · Mời nhân viên bằng link', () => {
     const loiToast = await toast(page, /vai trò/i);
     await expect(loiToast).not.toContainText('invitation_outdated');
   });
+
+  test('tab Link đã tạo: link mới hiện, huỷ thì người cầm link báo không hợp lệ (US-CT-05 AC 4, 5; US-CT-06 AC 8)', async ({ page }) => {
+    const path = await taoLink(page, 'Sale');
+    await page.getByTestId('invitation-link').getByRole('button', { name: 'Đóng', exact: true }).click();
+    await page.getByTestId('invitation-link').getByRole('button', { name: 'Vẫn đóng', exact: true }).click();
+    const id = path.split('#mock-')[1]!;
+
+    await page.getByRole('tab', { name: /Link đã tạo/ }).click();
+    await expect(page).toHaveURL(/tab=links/);
+    for (const h of ['Trạng thái', 'Vai trò của link', 'Người tạo', 'Tạo lúc', 'Hạn link'])
+      await expect(page.locator('thead')).toContainText(h);
+    const row = page.locator(`tbody tr[data-row-id="${id}"]`);
+    await expect(row).toContainText('Chưa dùng');
+    await expect(row).toContainText('Sale');
+    // Link có sẵn trong mock vẫn ở đó
+    await expect(page.locator('tbody tr[data-row-id="inv-003"]')).toBeVisible();
+
+    await row.getByRole('button', { name: 'Huỷ link', exact: true }).click();
+    const confirm = page.getByRole('alertdialog').or(page.getByRole('dialog'));
+    await expect(confirm).toContainText('không dùng được nữa');
+    await confirm.getByRole('button', { name: 'Huỷ link', exact: true }).click();
+    await toast(page, 'Đã huỷ link mời');
+    await expect(row).toHaveCount(0);
+
+    await toi(page, path);
+    await expect(page.getByTestId('join-fatal')).toContainText('đã bị huỷ');
+    await expect(page.locator('input[name=email]')).toHaveCount(0);
+  });
+
+  test('tab Link đã tạo: link đang đăng ký hiện email; người đó vừa nộp thì huỷ báo version_conflict (US-CT-05 AC 6)', async ({ page }) => {
+    const path = await taoLink(page, 'Sale');
+    await page.getByTestId('invitation-link').getByRole('button', { name: 'Đóng', exact: true }).click();
+    await page.getByTestId('invitation-link').getByRole('button', { name: 'Vẫn đóng', exact: true }).click();
+    const id = path.split('#mock-')[1]!;
+    await toi(page, path);
+    await page.locator('input[name=email]').fill('dang.ky@gmail.com');
+    await page.locator('input[name=fullName]').fill('Đang Đăng Ký');
+    await page.getByRole('button', { name: 'Gửi mã xác minh', exact: true }).click();
+    await expect(page.getByText('Mã 6 số gửi tới dang.ky@gmail.com')).toBeVisible();
+
+    await toi(page, '/c/cmp-001/admin/staff?tab=links');
+    const row = page.locator(`tbody tr[data-row-id="${id}"]`);
+    await expect(row).toContainText('Đang đăng ký');
+    await expect(row).toContainText('dang.ky@gmail.com');
+
+    await mockApi(page, 'post', '/identity/invitations/:id/revoke', 409, {
+      status: 409,
+      title: 'Conflict',
+      code: 'version_conflict',
+      current: { id, status: 'pending', email: 'dang.ky@gmail.com', fullName: 'Đang Đăng Ký' },
+    });
+    await row.getByRole('button', { name: 'Huỷ link', exact: true }).click();
+    const confirm = page.getByRole('alertdialog').or(page.getByRole('dialog'));
+    await expect(confirm).toContainText('dang.ky@gmail.com');
+    await confirm.getByRole('button', { name: 'Huỷ link', exact: true }).click();
+    const canhBao = await toast(page, 'Chờ duyệt');
+    await expect(canhBao).not.toContainText('version_conflict');
+  });
+});
+
+test('chỉ có quyền xem nhân viên: thấy tab Link đã tạo nhưng không có nút huỷ, không mời được (US-CT-05 AC 4)', async ({ page }) => {
+  await dangNhap(page, 'kiemsoat@commerio.vn', 'kiemsoat');
+  await menu(page, 'Nhân viên');
+  await expect(page.getByRole('button', { name: 'Mời nhân viên', exact: true })).toHaveCount(0);
+  await page.getByRole('tab', { name: /Link đã tạo/ }).click();
+  await expect(page.locator('tbody tr[data-row-id="inv-003"]')).toContainText('Chưa dùng');
+  await expect(page.getByRole('button', { name: 'Huỷ link', exact: true })).toHaveCount(0);
 });
