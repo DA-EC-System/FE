@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, PackageCheck, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -40,7 +40,9 @@ export function PackScanPage() {
   const [message, setMessage] = useState<{ severity: 'error' | 'warning'; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { startTour } = usePageGuide('pack-scan', { ready: Boolean(query.data) });
-  const toDetail = () => navigate(ROUTES.company.package(companyId, packageId));
+  const location = useLocation();
+  // Giữ nơi quay về của chi tiết kiện (vd chi tiết đơn) khi quay lại từ trang quét
+  const toDetail = () => navigate(ROUTES.company.package(companyId, packageId), { state: location.state });
 
   if (query.isLoading) return <PageLoading />;
   if (query.isError || !query.data) return <PageError message={problemMessage(query.error)} onBack={toDetail} />;

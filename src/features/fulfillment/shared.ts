@@ -123,3 +123,17 @@ export const DELIVERY_ACTIONS: readonly PackageAction[] = ['deliver', 'fail', 'r
 export const PACKAGE_ACTION_LABELS: Record<PackageAction, string> = Object.fromEntries(
   packageMachine.transitions.map((t) => [t.action, t.label]),
 ) as Record<PackageAction, string>;
+
+/**
+ * Trang mở chi tiết kiện gửi kèm nơi quay về qua `location.state` (vd chi tiết đơn, yêu cầu trả).
+ * Không có thì nút quay về đưa tới hàng đợi kiện.
+ */
+export interface PackageBackTo {
+  path: string;
+  label: string;
+}
+
+export const packageBackTo = (state: unknown): PackageBackTo | null => {
+  const b = (state as { backTo?: Partial<PackageBackTo> } | null)?.backTo;
+  return typeof b?.path === 'string' && typeof b.label === 'string' ? { path: b.path, label: b.label } : null;
+};

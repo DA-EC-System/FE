@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageSummary } from '@/types/fulfillment';
-import { handoverFailureLabel, isHotPackage, packageButtons } from './shared';
+import { handoverFailureLabel, isHotPackage, packageBackTo, packageButtons } from './shared';
 
 const P = PERMISSIONS;
 const kho = { accountId: 'kho', permissions: [P.fulfillmentProcess] };
@@ -93,5 +93,16 @@ describe('isHotPackage (FE#139)', () => {
   it('kiện đã giao đi hoặc không có hạn thì không gấp', () => {
     expect(isHotPackage({ status: 'in_transit', shipBy: at(-2) }, now)).toBe(false);
     expect(isHotPackage({ status: 'reserved', shipBy: null }, now)).toBe(false);
+  });
+});
+
+describe('packageBackTo', () => {
+  it('đọc nơi quay về hợp lệ, bỏ state thiếu hoặc sai kiểu', () => {
+    expect(packageBackTo({ backTo: { path: '/c/1/sales/orders/2', label: 'Về đơn DH1' } })).toEqual({
+      path: '/c/1/sales/orders/2',
+      label: 'Về đơn DH1',
+    });
+    expect(packageBackTo(null)).toBeNull();
+    expect(packageBackTo({ backTo: { path: 1, label: 'x' } })).toBeNull();
   });
 });

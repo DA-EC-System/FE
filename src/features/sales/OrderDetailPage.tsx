@@ -4,7 +4,7 @@ import { LineThumb } from './LineThumb';
 import { LineIssue } from './LineIssue';
 import { PackageShipping } from '@/features/fulfillment/PackageShipping';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, CheckCircle2, Pencil, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -67,6 +67,7 @@ const ORDER_PATH: OrderStatus[] = ['unpaid', 'processing', 'completed'];
 export function OrderDetailPage() {
   const navigate = useNavigate();
   const { orderId = '' } = useParams();
+  const location = useLocation();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
@@ -455,7 +456,11 @@ export function OrderDetailPage() {
                       <TableRow key={p.id} data-row-id={p.code}>
                         <TableCell className="font-medium">
                           {canProcess ? (
-                            <Link to={ROUTES.company.package(companyId, p.id)} className="text-primary hover:underline">
+                            <Link
+                              to={ROUTES.company.package(companyId, p.id)}
+                              state={{ backTo: { path: location.pathname + location.search, label: `Về đơn ${order.code}` } }}
+                              className="text-primary hover:underline"
+                            >
                               {p.code}
                             </Link>
                           ) : (
