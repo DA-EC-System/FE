@@ -862,7 +862,7 @@ test.describe('P3 · Gian hàng', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-001');
-    await page.getByRole('button', { name: /^Giải thích: Ghép SKU/ }).click();
+    await page.getByRole('button', { name: /^Giải thích: Sản phẩm trên sàn và giá/ }).click();
     await thayChu(page.getByRole('dialog'), 'Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio');
     await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
     const tour = page.getByTestId('guide-tour');
@@ -904,7 +904,7 @@ test.describe('P3 · Gian hàng', () => {
     await thayChu(page, 'Bạn ghép được SKU sàn với biến thể');
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
     // Hướng dẫn từng bước bỏ bước Đẩy lên sàn khi thiếu quyền
-    await page.getByRole('button', { name: /^Giải thích: Ghép SKU/ }).click();
+    await page.getByRole('button', { name: /^Giải thích: Sản phẩm trên sàn và giá/ }).click();
     await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
     await expect(page.getByTestId('guide-tour').getByText('Bước 1/2', { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
