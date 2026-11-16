@@ -1,5 +1,5 @@
 /**
- * Bảng chuyển của nhập hàng (sơ đồ A1 Đề nghị nhập, A2 Phiếu nhận, B4 Phiếu trả NCC; FE#17).
+ * Bảng chuyển của nhập hàng (sơ đồ A1 Đề nghị nhập, A2 Phiếu nhận, B4 Phiếu trả nhà cung cấp; FE#17).
  * Mock kiểm bằng `check`, UI hiện nút bằng `available`.
  */
 import { defineMachine } from '@/lib/stateMachine';
@@ -29,8 +29,8 @@ export interface PurchaseRequestRecord {
 const notEmpty = (r: PurchaseRequestRecord) => (r.lineCount ? null : 'empty_document');
 
 /**
- * Mua hàng lập nháp một NCC, gửi duyệt; CEO (khác người lập) duyệt, trả về hoặc từ chối.
- * Đặt NCC thì "đang về" tăng; phiếu nhận ghi sổ chuyển sang nhận một phần / nhận xong.
+ * Mua hàng lập nháp một nhà cung cấp, gửi duyệt; CEO (khác người lập) duyệt, trả về hoặc từ chối.
+ * Đặt nhà cung cấp thì "đang về" tăng; phiếu nhận ghi sổ chuyển sang nhận một phần / nhận xong.
  */
 export const purchaseRequestMachine = defineMachine<PurchaseRequestStatus, PurchaseRequestAction, PurchaseRequestRecord>([
   {
@@ -80,7 +80,7 @@ export const purchaseRequestMachine = defineMachine<PurchaseRequestStatus, Purch
     allowSelfApproval: true,
     needsReason: true,
   },
-  { from: 'approved', to: 'ordered', action: 'order', label: 'Đã đặt NCC', permission: P.purchaseRequestManage },
+  { from: 'approved', to: 'ordered', action: 'order', label: 'Đã đặt nhà cung cấp', permission: P.purchaseRequestManage },
   { from: ['ordered', 'partially_received'], to: 'partially_received', action: 'receive_partial', label: 'Nhận một phần', system: true },
   { from: ['ordered', 'partially_received'], to: 'received', action: 'receive_all', label: 'Nhận xong', system: true },
   {
@@ -151,7 +151,7 @@ export const goodsReceiptMachine = defineMachine<GoodsReceiptStatus, GoodsReceip
   },
   // Đề nghị nhận đủ hoặc bị đóng thiếu
   { from: 'short', to: 'resolved', action: 'auto_resolve', label: 'Đã xử lý', system: true },
-  // Kho hoặc CEO ghi kết quả làm việc với NCC (25 §4.1): chọn `GoodsReceiptResolution`, ghi chú bắt buộc
+  // Kho hoặc CEO ghi kết quả làm việc với nhà cung cấp (25 §4.1): chọn `GoodsReceiptResolution`, ghi chú bắt buộc
   {
     from: 'short',
     to: 'resolved',
@@ -201,7 +201,7 @@ export const supplierReturnMachine = defineMachine<SupplierReturnStatus, Supplie
     from: 'sent',
     to: 'refunded',
     action: 'record_refund',
-    label: 'NCC hoàn tiền',
+    label: 'Nhà cung cấp hoàn tiền',
     permission: P.supplierReturnManage,
     needsSecondPerson: true,
     allowSelfApproval: true,
@@ -210,7 +210,7 @@ export const supplierReturnMachine = defineMachine<SupplierReturnStatus, Supplie
     from: 'sent',
     to: 'replaced',
     action: 'record_replaced',
-    label: 'NCC bù hàng',
+    label: 'Nhà cung cấp bù hàng',
     permission: P.supplierReturnManage,
     needsSecondPerson: true,
     allowSelfApproval: true,
@@ -219,7 +219,7 @@ export const supplierReturnMachine = defineMachine<SupplierReturnStatus, Supplie
     from: 'sent',
     to: 'returned_to_us',
     action: 'record_rejected',
-    label: 'NCC không nhận',
+    label: 'Nhà cung cấp không nhận',
     permission: P.supplierReturnManage,
     needsSecondPerson: true,
     allowSelfApproval: true,

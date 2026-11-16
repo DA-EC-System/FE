@@ -149,7 +149,7 @@ function validateSupplier(companyId: string, body: SupplierInput, exceptId?: str
 
 const supplierEntity = (s: MockSupplier) => ({ type: 'product.suppliers', id: s.id, label: s.name });
 
-/** Báo cáo theo NCC: số phiếu nhận từng giao thiếu, tỉ lệ lỗi trên hàng đã giao */
+/** Báo cáo theo nhà cung cấp: số phiếu nhận từng giao thiếu, tỉ lệ lỗi trên hàng đã giao */
 function supplierReport(companyId: string, from: string | null, to: string | null): SupplierReport[] {
   const inPeriod = (postedAt: string) => (!from || vnDate(postedAt) >= from) && (!to || vnDate(postedAt) <= to);
   return data.suppliers
@@ -456,7 +456,7 @@ function checkOutstanding(r: MockGoodsReceipt): Errors {
   return errors;
 }
 
-/** Ghi sổ một lần: nhận đạt vào tồn (tính lại giá vốn), lỗi giữ vào chờ xử lý và sinh phiếu trả NCC nháp */
+/** Ghi sổ một lần: nhận đạt vào tồn (tính lại giá vốn), lỗi giữ vào chờ xử lý và sinh phiếu trả nhà cung cấp nháp */
 function postReceipt(r: MockGoodsReceipt, actor: CompanyActor, at: string) {
   const req = requestOf(r);
   const ref = data.receiptRef(r);
@@ -482,7 +482,7 @@ function postReceipt(r: MockGoodsReceipt, actor: CompanyActor, at: string) {
 
 const RECEIPT_ACTIONS: GoodsReceiptAction[] = ['post', 'post_short', 'cancel'];
 
-// ---------- Phiếu trả NCC ----------
+// ---------- Phiếu trả nhà cung cấp ----------
 
 function toReturnSummary(t: MockSupplierReturn): SupplierReturnSummary {
   return {
@@ -633,7 +633,7 @@ registerTaskSource({
         id: `supplier_return.sent:${t.id}`,
         kind: 'supplier_return.sent',
         group: 'Mua hàng',
-        title: `Ghi kết quả trả NCC ${t.number}`,
+        title: `Ghi kết quả trả nhà cung cấp ${t.number}`,
         detail: `${supplierOf(t.supplierId)?.name ?? ''} chưa phản hồi`,
         ...dueState(t.sentAt ?? t.createdAt, REMIND.supplierReturnSent, now),
         ref: { type: 'supplier_return', id: t.id },
@@ -754,7 +754,7 @@ export const purchasingHandlers = [
       ? data.returns.find((t) => t.id === body.sourceReturnId && t.companyId === companyId)
       : null;
     if (body.sourceReturnId && (!source || source.status !== 'replaced' || source.replacementRequest)) {
-      errors.sourceReturnId = 'Phiếu trả NCC không ở trạng thái bù hàng, hoặc đã có đề nghị bù';
+      errors.sourceReturnId = 'Phiếu trả nhà cung cấp không ở trạng thái bù hàng, hoặc đã có đề nghị bù';
     }
     if (hasErrors(errors)) return invalid(errors);
     const at = db.now();
@@ -932,8 +932,8 @@ export const purchasingHandlers = [
     } else {
       if (action === 'approve') createNewProducts(req, at);
       if (action === 'order') {
-        // Ngày giao dự kiến bắt buộc, mã đơn NCC tuỳ chọn (BE#243)
-        if (!body.expectedDeliveryDate) return invalid({ expectedDeliveryDate: 'Nhập ngày NCC hẹn giao' });
+        // Ngày giao dự kiến bắt buộc, mã đơn nhà cung cấp tuỳ chọn (BE#243)
+        if (!body.expectedDeliveryDate) return invalid({ expectedDeliveryDate: 'Nhập ngày nhà cung cấp hẹn giao' });
         req.expectedDeliveryDate = body.expectedDeliveryDate;
         req.supplierOrderCode = body.supplierOrderCode?.trim() || null;
       }
@@ -988,7 +988,7 @@ export const purchasingHandlers = [
     const req = data.requests.find((r) => r.id === body.requestId && r.companyId === companyId);
     if (!req) return invalid({ requestId: 'Chọn đề nghị nhập' });
     if (req.status !== 'ordered' && req.status !== 'partially_received') {
-      return problem(409, 'Đề nghị chưa đặt NCC hoặc đã đóng', { code: 'invalid_transition', current: req.status });
+      return problem(409, 'Đề nghị chưa đặt nhà cung cấp hoặc đã đóng', { code: 'invalid_transition', current: req.status });
     }
     const lines = req.lines.filter((l) => l.variantId && data.outstandingOf(l) > 0);
     if (!lines.length) return problem(409, 'Đề nghị không còn hàng chờ', { code: 'empty_document' });
@@ -1096,7 +1096,7 @@ export const purchasingHandlers = [
     return HttpResponse.json<GoodsReceipt>(toReceipt(r));
   }),
 
-  /** Ghi kết quả giao thiếu: giao bù, đóng thiếu (CEO), NCC nhận sai */
+  /** Ghi kết quả giao thiếu: giao bù, đóng thiếu (CEO), nhà cung cấp nhận sai */
   http.post(`${API}/purchasing/goods-receipts/:id/short-resolution`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, P.purchaseRequestManage);
@@ -1130,7 +1130,7 @@ export const purchasingHandlers = [
         ) ?? null;
       if (!followUp) return invalid({ followUpNumber: 'Không có phiếu nhận này trong cùng đề nghị' }, { code: 'follow_up_invalid' });
     } else if (body.kind === 'supplier_wrong') {
-      if (!note) return invalid({ note: 'Ghi NCC nhận sai thế nào' });
+      if (!note) return invalid({ note: 'Ghi nhà cung cấp nhận sai thế nào' });
     } else {
       return invalid({ kind: 'Chọn kết quả' });
     }
@@ -1184,7 +1184,7 @@ export const purchasingHandlers = [
     return HttpResponse.json<GoodsReceipt>(toReceipt(r));
   }),
 
-  // ----- Phiếu trả NCC -----
+  // ----- Phiếu trả nhà cung cấp -----
 
   http.get(`${API}/purchasing/supplier-returns`, async ({ request }) => {
     await delay(LATENCY);
@@ -1213,12 +1213,12 @@ export const purchasingHandlers = [
     await delay(LATENCY);
     const guard = requireViewer(request);
     if (!guard.ok) return guard.response;
-    const found = findOwned(data.returns, params.id, guard.value.companyId, 'phiếu trả NCC');
+    const found = findOwned(data.returns, params.id, guard.value.companyId, 'phiếu trả nhà cung cấp');
     if (!found.ok) return found.response;
     return HttpResponse.json<SupplierReturn>(toReturn(found.value, guard.value.permissions));
   }),
 
-  /** Lập tay phiếu trả NCC từ hàng đang ở chờ xử lý */
+  /** Lập tay phiếu trả nhà cung cấp từ hàng đang ở chờ xử lý */
   http.post(`${API}/purchasing/supplier-returns`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, P.supplierReturnManage);
@@ -1259,7 +1259,7 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, P.supplierReturnManage);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả NCC');
+    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả nhà cung cấp');
     if (!found.ok) return found.response;
     const t = found.value;
     const body = (await request.json()) as SupplierReturnInput;
@@ -1286,7 +1286,7 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, null);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả NCC');
+    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả nhà cung cấp');
     if (!found.ok) return found.response;
     const t = found.value;
     const action = params.action as SupplierReturnAction;
@@ -1305,7 +1305,7 @@ export const purchasingHandlers = [
 
     if (action === 'record_refund') {
       if (typeof body.refundAmount !== 'number' || !Number.isInteger(body.refundAmount) || body.refundAmount <= 0 || body.refundAmount > MAX_COST) {
-        return invalid({ refundAmount: 'Nhập số tiền NCC hoàn' }, { code: 'refund_required' });
+        return invalid({ refundAmount: 'Nhập số tiền nhà cung cấp hoàn' }, { code: 'refund_required' });
       }
       t.refundAmount = body.refundAmount;
     }
@@ -1334,7 +1334,7 @@ export const purchasingHandlers = [
       t.sentAt = at;
     }
     if (action === 'record_rejected') {
-      // NCC không nhận: hàng về lại chờ xử lý
+      // Nhà cung cấp không nhận: hàng về lại chờ xử lý
       for (const l of t.lines) {
         const cost = l.unitCost ?? stockLevelOf(companyId, l.variantId).avgCost;
         inventory.postMove(companyId, { docId: t.id, ref }, l.variantId, 'quarantine', l.quantity, cost, at, by);
@@ -1349,7 +1349,7 @@ export const purchasingHandlers = [
       rebalance(companyId, t.lines.map((l) => l.variantId));
     }
     if (action === 'cancel' && t.cancelDecision === 'write_off') {
-      const writeOff = createQuarantineWriteOff(companyId, ref, t.lines, `Huỷ phiếu trả NCC ${t.number}`, at, by);
+      const writeOff = createQuarantineWriteOff(companyId, ref, t.lines, `Huỷ phiếu trả nhà cung cấp ${t.number}`, at, by);
       t.followUps.push({ type: 'stock_document', id: writeOff.id, number: writeOff.number });
     }
 

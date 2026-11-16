@@ -238,7 +238,7 @@ test.describe('P2 · Kho', () => {
       await expect(page.locator('main')).toContainText('DH-1001');
       const lines = page.getByTestId('doc-lines');
       await o2(lines, 'Số quét', 1).fill('3');
-      await o2(lines, 'Trả NCC', 1).fill('3');
+      await o2(lines, 'Trả nhà cung cấp', 1).fill('3');
       await o2(lines, 'Số quét', 0).fill('2');
       await o2(lines, 'Bán lại', 0).fill('1');
       await page.getByRole('button', { name: 'Ghi sổ', exact: true }).click();

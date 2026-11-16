@@ -296,7 +296,7 @@ export const GUIDES = {
       {
         target: 'purchasing-tabs',
         title: 'Ba loại chứng từ',
-        body: 'Tab Đề nghị nhập, Phiếu nhận và Trả NCC. Mỗi tab lọc được theo trạng thái và nhà cung cấp.',
+        body: 'Tab Đề nghị nhập, Phiếu nhận và Trả nhà cung cấp. Mỗi tab lọc được theo trạng thái và nhà cung cấp.',
       },
       {
         target: 'purchasing-new',
@@ -316,7 +316,7 @@ export const GUIDES = {
     version: 1,
     title: 'Đề nghị nhập',
     intro: [
-      'Thêm dòng, gửi duyệt, người khác duyệt rồi mới đặt NCC.',
+      'Thêm dòng, gửi duyệt, người khác duyệt rồi mới đặt nhà cung cấp.',
       'Đã đặt thì Kho lập phiếu nhận từ đề nghị khi hàng tới.',
       'Nút mờ là thao tác chưa làm được, rê chuột để xem lý do.',
     ],
@@ -335,7 +335,7 @@ export const GUIDES = {
       {
         target: 'pr-actions',
         title: 'Gửi rồi duyệt',
-        body: 'Gửi duyệt khi đủ dòng. Người duyệt phải khác người soạn; đã duyệt thì đặt NCC rồi lập phiếu nhận.',
+        body: 'Gửi duyệt khi đủ dòng. Người duyệt phải khác người soạn; đã duyệt thì đặt nhà cung cấp rồi lập phiếu nhận.',
       },
       {
         target: 'detail-history',
@@ -357,7 +357,7 @@ export const GUIDES = {
       {
         target: 'gr-lines',
         title: 'Số thực nhận',
-        body: 'Ghi số NCC báo giao, số đạt, lỗi giữ và trả tại chỗ. Thiếu được tính tự động.',
+        body: 'Ghi số nhà cung cấp báo giao, số đạt, lỗi giữ và trả tại chỗ. Thiếu được tính tự động.',
       },
       {
         target: 'gr-reason',
@@ -377,7 +377,7 @@ export const GUIDES = {
     title: 'Trả hàng nhà cung cấp',
     intro: [
       'Chọn dòng hàng lỗi cần trả, ghi lý do rồi gửi duyệt.',
-      'NCC bù hàng thì lập đề nghị bù hàng ngay từ phiếu.',
+      'Nhà cung cấp bù hàng thì lập đề nghị bù hàng ngay từ phiếu.',
     ],
     primaryAction: { label: 'Xem các dòng', target: 'sr-lines' },
     steps: [
@@ -389,7 +389,7 @@ export const GUIDES = {
       {
         target: 'sr-note',
         title: 'Lý do',
-        body: 'Ghi lý do trả để NCC và người duyệt biết hàng lỗi thế nào.',
+        body: 'Ghi lý do trả để nhà cung cấp và người duyệt biết hàng lỗi thế nào.',
       },
       {
         target: 'sr-actions',
@@ -399,7 +399,7 @@ export const GUIDES = {
       {
         target: 'sr-replace',
         title: 'Đề nghị bù hàng',
-        body: 'NCC bù hàng thì bấm đây để lập đề nghị nhập mới cho phần được bù.',
+        body: 'Nhà cung cấp bù hàng thì bấm đây để lập đề nghị nhập mới cho phần được bù.',
         permission: 'purchasing.request.manage',
       },
     ],

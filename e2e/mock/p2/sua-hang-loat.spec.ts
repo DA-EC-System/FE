@@ -17,7 +17,7 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
   });
 
   test('hiện nguồn từ đề nghị nhập và gợi ý giá, khối lượng kèm cách tính', async ({ page }) => {
-    // AC1: SKU có trong đề nghị nhập hiện NCC và giá nhập
+    // AC1: SKU có trong đề nghị nhập hiện nhà cung cấp và giá nhập
     await expect(dong(page, 'prd-003-v1').getByTestId('bulk-source')).toContainText('giá nhập 205.000');
     // AC2: giá nhập 205.000 × 1,6 (Phụ kiện) làm tròn nghìn = 328.000, nhãn "gợi ý"
     const gia = goiY(page, 'prd-003-v1', 'Giá chuẩn');
@@ -27,10 +27,10 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
     // AC4: SKU mới lấy khối lượng, kích thước theo SKU cùng sản phẩm gần nhất
     await expect(goiY(page, 'prd-001-v4', 'Khối lượng')).toContainText('200');
     await expect(goiY(page, 'prd-001-v4', 'Dài')).toContainText('300');
-    // AC3: SKU đã có bán, chưa đặt ngưỡng: tốc độ bán × ngày NCC giao + dự phòng
+    // AC3: SKU đã có bán, chưa đặt ngưỡng: tốc độ bán × ngày nhà cung cấp giao + dự phòng
     await expect(page.getByRole('button', { name: /^Nhận gợi ý Ngưỡng tồn/ }).first()).toHaveAttribute(
       'title',
-      /\/ngày × \d+ ngày NCC giao \+ \d+ dự phòng/,
+      /\/ngày × \d+ ngày nhà cung cấp giao \+ \d+ dự phòng/,
     );
     // Ô chưa nhận gợi ý vẫn trống
     await expect(o(page, 'prd-001-v4', /^Khối lượng/)).toHaveValue('');

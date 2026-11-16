@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -119,23 +119,23 @@ const ACTION_CONFIRM: Partial<Record<PurchaseRequestAction, { title: string; mes
   withdraw: { title: 'Rút lại', message: 'Đề nghị quay về nháp để sửa.' },
   approve: {
     title: 'Duyệt',
-    message: 'Giá nhập được chốt; dòng sản phẩm mới được tạo SKU. Dòng đã loại không đặt NCC.',
+    message: 'Giá nhập được chốt; dòng sản phẩm mới được tạo SKU. Dòng đã loại không đặt nhà cung cấp.',
   },
-  order: { title: 'Đã đặt NCC', message: 'Số lượng còn chờ được cộng vào "đang về" của từng biến thể. Kho lập phiếu nhận khi hàng tới.' },
-  cancel: { title: 'Huỷ đề nghị', message: 'Đề nghị bị huỷ, không đặt NCC được nữa.' },
+  order: { title: 'Đã đặt nhà cung cấp', message: 'Số lượng còn chờ được cộng vào "đang về" của từng biến thể. Kho lập phiếu nhận khi hàng tới.' },
+  cancel: { title: 'Huỷ đề nghị', message: 'Đề nghị bị huỷ, không đặt nhà cung cấp được nữa.' },
 };
 
 const REASON_TEXT: Partial<Record<PurchaseRequestAction, string>> = {
   request_changes: 'Đề nghị quay về người lập để sửa rồi gửi lại.',
-  reject: 'Đề nghị kết thúc, không đặt NCC.',
+  reject: 'Đề nghị kết thúc, không đặt nhà cung cấp.',
   close_short: 'Phần còn chờ bị bỏ: "đang về" giảm, phiếu giao thiếu chuyển sang đã xử lý.',
   cancel: 'Đề nghị đã duyệt hoặc đã đặt bị huỷ; "đang về" giảm theo phần còn chờ.',
 };
 
 /**
- * Đề nghị nhập (sơ đồ A1). Mua hàng lập nháp một NCC nhiều dòng (biến thể có sẵn hoặc sản phẩm mới),
- * gửi duyệt; CEO khác người lập duyệt (loại dòng nếu cần), trả về hoặc từ chối. Đặt NCC rồi kho lập phiếu nhận.
- * `/purchasing/requests/new?from=<phiếu trả>` là đề nghị bù hàng điền sẵn từ phiếu trả NCC.
+ * Đề nghị nhập (sơ đồ A1). Mua hàng lập nháp một nhà cung cấp nhiều dòng (biến thể có sẵn hoặc sản phẩm mới),
+ * gửi duyệt; CEO khác người lập duyệt (loại dòng nếu cần), trả về hoặc từ chối. Đặt nhà cung cấp rồi kho lập phiếu nhận.
+ * `/purchasing/requests/new?from=<phiếu trả>` là đề nghị bù hàng điền sẵn từ phiếu trả nhà cung cấp.
  */
 export function PurchaseRequestPage() {
   const navigate = useNavigate();
@@ -201,7 +201,7 @@ export function PurchaseRequestPage() {
     }
   }, [req, reset]);
 
-  // Bù hàng: điền NCC và dòng từ phiếu trả NCC (giá nhập theo giá vốn của phiếu nếu được xem)
+  // Bù hàng: điền nhà cung cấp và dòng từ phiếu trả nhà cung cấp (giá nhập theo giá vốn của phiếu nếu được xem)
   const source = returnQuery.data;
   useEffect(() => {
     if (!source || loaded.current === `from:${source.id}`) return;
@@ -417,7 +417,7 @@ export function PurchaseRequestPage() {
       <PageHeader
         title={title}
         subtitle="Mỗi đề nghị một nhà cung cấp."
-        help="Mua hàng lập nháp rồi gửi duyệt. Người duyệt phải khác người soạn. Đã duyệt thì đặt NCC; số còn chờ hiện ở cột đang về của tồn kho. Hàng tới thì Kho lập phiếu nhận từ đề nghị."
+        help="Mua hàng lập nháp rồi gửi duyệt. Người duyệt phải khác người soạn. Đã duyệt thì đặt nhà cung cấp; số còn chờ hiện ở cột đang về của tồn kho. Hàng tới thì Kho lập phiếu nhận từ đề nghị."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2" data-guide="pr-actions">
@@ -495,7 +495,7 @@ export function PurchaseRequestPage() {
               <Info label="Trạng thái">
                 <div className="flex flex-wrap items-center gap-1" data-testid="request-status">
                   <StatusBadge status={req.status} statuses={REQUEST_STATUS} />
-                  {req.supplierShort && <Badge variant="destructive">NCC giao thiếu</Badge>}
+                  {req.supplierShort && <Badge variant="destructive">Nhà cung cấp giao thiếu</Badge>}
                 </div>
               </Info>
               <Info label="Người lập">
@@ -551,6 +551,14 @@ export function PurchaseRequestPage() {
                   <p className="text-sm">{req?.supplier.name}</p>
                 )}
                 {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
+                {editable && suppliersQuery.isSuccess && !supplierOptions.length && (
+                  <p className="text-xs text-muted-foreground">
+                    Chưa có nhà cung cấp đang giao dịch.{' '}
+                    <Link className="text-primary hover:underline" to={ROUTES.company.purchasing(companyId, 'suppliers')}>
+                      Thêm nhà cung cấp
+                    </Link>
+                  </p>
+                )}
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="req-note">Ghi chú</Label>
@@ -770,7 +778,7 @@ export function PurchaseRequestPage() {
       <ReasonDialog
         open={excludeFor !== null}
         title={`Loại dòng khỏi ${req?.number ?? 'đề nghị'}`}
-        message="Dòng bị loại không đặt NCC; lý do hiện ngay dưới dòng đó."
+        message="Dòng bị loại không đặt nhà cung cấp; lý do hiện ngay dưới dòng đó."
         label="Lý do loại"
         confirmLabel="Loại dòng"
         destructive
@@ -929,7 +937,7 @@ function CreateReceiptDialog({
   );
 }
 
-/** Đã đặt NCC: ngày NCC hẹn giao bắt buộc, mã đơn bên NCC tuỳ chọn (25 §3.2, BE#243) */
+/** Đã đặt nhà cung cấp: ngày nhà cung cấp hẹn giao bắt buộc, mã đơn bên nhà cung cấp tuỳ chọn (25 §3.2, BE#243) */
 function OrderDialog({
   open,
   number,
@@ -958,7 +966,7 @@ function OrderDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Đã đặt NCC {number}?</DialogTitle>
+          <DialogTitle>Đã đặt nhà cung cấp {number}?</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Số lượng còn chờ được cộng vào "đang về" của từng biến thể. Kho lập phiếu nhận khi hàng tới.
@@ -969,7 +977,7 @@ function OrderDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="order-code">Mã đơn bên NCC (nếu có)</Label>
+          <Label htmlFor="order-code">Mã đơn bên nhà cung cấp (nếu có)</Label>
           <Input id="order-code" maxLength={100} value={code} onChange={(e) => setCode(e.target.value)} />
         </div>
         <DialogFooter>
@@ -980,13 +988,13 @@ function OrderDialog({
             disabled={loading}
             onClick={() => {
               if (!date) {
-                setError('Nhập ngày NCC hẹn giao');
+                setError('Nhập ngày nhà cung cấp hẹn giao');
                 return;
               }
               onOrder({ expectedDeliveryDate: date, supplierOrderCode: code.trim() || null });
             }}
           >
-            Đã đặt NCC
+            Đã đặt nhà cung cấp
           </Button>
         </DialogFooter>
       </DialogContent>

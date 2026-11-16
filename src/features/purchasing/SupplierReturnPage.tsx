@@ -73,16 +73,16 @@ const RETURN_PATH: SupplierReturnStatus[] = ['draft', 'pending_approval', 'sent'
 
 const ACTION_CONFIRM: Partial<Record<SupplierReturnAction, { title: string; message: string }>> = {
   submit: { title: 'Gửi duyệt', message: 'Phiếu chờ CEO duyệt và gửi; trong lúc chờ không sửa được.' },
-  approve_send: { title: 'Duyệt và gửi', message: 'Hàng rời kho: chờ xử lý giảm theo số trên phiếu. Người khác bạn sẽ ghi kết quả từ NCC.' },
+  approve_send: { title: 'Duyệt và gửi', message: 'Hàng rời kho: chờ xử lý giảm theo số trên phiếu. Người khác bạn sẽ ghi kết quả từ nhà cung cấp.' },
   record_replaced: {
-    title: 'NCC bù hàng',
+    title: 'Nhà cung cấp bù hàng',
     message: 'Phiếu kết thúc. Sau đó lập đề nghị bù hàng (điền sẵn từ phiếu này) để kho nhận hàng bù như một lần nhập.',
   },
-  record_rejected: { title: 'NCC không nhận', message: 'Hàng quay về chờ xử lý; lập phiếu xuất huỷ hoặc trả lại lần khác.' },
+  record_rejected: { title: 'Nhà cung cấp không nhận', message: 'Hàng quay về chờ xử lý; lập phiếu xuất huỷ hoặc trả lại lần khác.' },
 };
 
 /**
- * Phiếu trả NCC (sơ đồ B4). Hệ thống sinh nháp khi phiếu nhận có hàng lỗi giữ lại; Mua hàng cũng lập tay từ
+ * Phiếu trả nhà cung cấp (sơ đồ B4). Hệ thống sinh nháp khi phiếu nhận có hàng lỗi giữ lại; Mua hàng cũng lập tay từ
  * hàng chờ xử lý. CEO duyệt và gửi (chờ xử lý giảm). Người khác người gửi ghi kết quả: hoàn tiền, bù hàng, không nhận.
  * Huỷ phải chọn nhập lại tồn hoặc xuất huỷ.
  */
@@ -263,7 +263,7 @@ export function SupplierReturnPage() {
   const backToList = () => navigate(ROUTES.company.purchasing(companyId, 'returns'));
 
   if (isNew && !canManage) {
-    return <PageError severity="warning" message="Bạn không có quyền lập phiếu trả NCC." onBack={backToList} />;
+    return <PageError severity="warning" message="Bạn không có quyền lập phiếu trả nhà cung cấp." onBack={backToList} />;
   }
   if (query.isError) return <PageError message={getErrorMessage(query.error)} onBack={backToList} />;
   if (!isNew && !ret) return <PageLoading />;
@@ -281,9 +281,9 @@ export function SupplierReturnPage() {
   return (
     <div>
       <PageHeader
-        title={ret ? `Phiếu trả NCC ${ret.number}` : 'Lập phiếu trả NCC'}
+        title={ret ? `Phiếu trả nhà cung cấp ${ret.number}` : 'Lập phiếu trả nhà cung cấp'}
         subtitle="Trả hàng lỗi đang chờ xử lý cho nhà cung cấp."
-        help="Lập phiếu từ hàng chờ xử lý rồi gửi duyệt. CEO duyệt và gửi hàng cho NCC. Người khác người gửi ghi kết quả: NCC hoàn tiền, bù hàng hoặc không nhận. NCC bù hàng thì lập đề nghị bù hàng ngay từ phiếu này."
+        help="Lập phiếu từ hàng chờ xử lý rồi gửi duyệt. CEO duyệt và gửi hàng cho nhà cung cấp. Người khác người gửi ghi kết quả: nhà cung cấp hoàn tiền, bù hàng hoặc không nhận. Nhà cung cấp bù hàng thì lập đề nghị bù hàng ngay từ phiếu này."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2" data-guide="sr-actions">
@@ -363,7 +363,7 @@ export function SupplierReturnPage() {
                 {ret.createdBy} · {formatDateTime(ret.createdAt)}
               </Info>
               <Info label="Gửi">{ret.sentAt ? `${ret.sentBy} · ${formatDateTime(ret.sentAt)}` : '—'}</Info>
-              {ret.refundAmount !== null && <Info label="NCC hoàn">{formatCurrency(ret.refundAmount)}</Info>}
+              {ret.refundAmount !== null && <Info label="Nhà cung cấp hoàn">{formatCurrency(ret.refundAmount)}</Info>}
               {ret.replacementRequest && (
                 <Info label="Đề nghị bù hàng">
                   <DocLink companyId={companyId} docRef={ret.replacementRequest} />
@@ -611,11 +611,11 @@ function RefundDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>NCC hoàn tiền cho {number}</DialogTitle>
+          <DialogTitle>Nhà cung cấp hoàn tiền cho {number}</DialogTitle>
         </DialogHeader>
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
         <div className="grid gap-1.5">
-          <Label htmlFor="refund-amount">Số tiền NCC hoàn (đồng)</Label>
+          <Label htmlFor="refund-amount">Số tiền nhà cung cấp hoàn (đồng)</Label>
           <Input
             id="refund-amount"
             inputMode="numeric"

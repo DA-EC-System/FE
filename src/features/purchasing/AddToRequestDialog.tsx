@@ -21,7 +21,7 @@ const NEW_DRAFT = '__new__';
 export const suggestedQty = (level: StockLevel) => Math.max(1, (level.minQty ?? 0) - level.available - level.incoming);
 
 /**
- * Gợi ý nhập lại (sơ đồ B2) đưa vào đề nghị nhập nháp (sơ đồ A1): chọn nháp có sẵn hoặc lập nháp mới theo NCC.
+ * Gợi ý nhập lại (sơ đồ B2) đưa vào đề nghị nhập nháp (sơ đồ A1): chọn nháp có sẵn hoặc lập nháp mới theo nhà cung cấp.
  * Trùng biến thể trong nháp thì cộng dồn số lượng.
  */
 export function AddToRequestDialog({

@@ -74,7 +74,7 @@ export interface MockStockMove {
   qtyChange: number;
   onHandAfter: number;
   docId: string;
-  /** Chứng từ ngoài phiếu kho (phiếu nhận, phiếu trả NCC; FE#17) */
+  /** Chứng từ ngoài phiếu kho (phiếu nhận, phiếu trả nhà cung cấp; FE#17) */
   ref?: DocRef;
   unitCost: number;
   doneAt: string;
@@ -429,7 +429,7 @@ export function applyDoc(doc: MockStockDoc, at: string, by: string) {
         break;
       }
       case 'return_inspection':
-        // Số quét đã vào chờ xử lý lúc nhận (FE#212); bán lại chuyển về tồn thực, hỏng và trả NCC ở lại
+        // Số quét đã vào chờ xử lý lúc nhận (FE#212); bán lại chuyển về tồn thực, hỏng và trả nhà cung cấp ở lại
         line.unitCost = cost;
         move(doc, line.variantId, 'quarantine', -(line.resell ?? 0), cost, at, by);
         move(doc, line.variantId, 'stock', line.resell ?? 0, cost, at, by);

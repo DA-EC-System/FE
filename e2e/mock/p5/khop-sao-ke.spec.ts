@@ -40,16 +40,16 @@ test.describe('US-TI-09 · Khớp sao kê', () => {
     const dialog = page.getByRole('alertdialog');
     await dialog.getByLabel('Mã sao kê', { exact: true }).fill('VCB-X');
     await dialog.getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
-    await expect(dialog).toContainText('Chỉ khớp khoản rút tiền, NCC hoàn tiền hoặc bồi thường thực tế.');
+    await expect(dialog).toContainText('Chỉ khớp khoản rút tiền, nhà cung cấp hoàn tiền hoặc bồi thường thực tế.');
   });
 
   test('AC4: lọc Chưa khớp và theo loại; dòng chưa khớp vẫn nằm ở Chưa khớp', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await moTabKhop(page);
     await chon(page, 'Khớp sao kê', 'Chưa khớp');
     await expect(dongRut(page)).toHaveCount(1);
-    await expect(page.locator('tbody')).not.toContainText('NCC hoàn tiền');
+    await expect(page.locator('tbody')).not.toContainText('Nhà cung cấp hoàn tiền');
     await chon(page, 'Khớp sao kê', 'Đã khớp');
-    await expect(page.locator('tbody tr').filter({ hasText: 'NCC hoàn tiền' })).toContainText('VCB-HOAN-001');
+    await expect(page.locator('tbody tr').filter({ hasText: 'Nhà cung cấp hoàn tiền' })).toContainText('VCB-HOAN-001');
     await expect(dongRut(page)).toHaveCount(0);
     await chon(page, 'Loại', 'Rút tiền');
     await expect(page.getByText('Chưa có khoản cần khớp', { exact: true })).toBeVisible();

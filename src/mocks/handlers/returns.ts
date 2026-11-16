@@ -218,7 +218,7 @@ const RAW: Partial<Record<ReturnAction, string>> = {
   buyer_cancel: 'CANCELLED',
 };
 
-/** Nhận hàng: lập phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả NCC; ghi sổ thì đóng yêu cầu */
+/** Nhận hàng: lập phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả nhà cung cấp; ghi sổ thì đóng yêu cầu */
 function receive(r: MockReturnRequest, at: string, by: string, reason: string | null = null, scanned: ScannedLine[] | null = null) {
   const o = orderOfRequest(r);
   const doc = createReturnInspection(

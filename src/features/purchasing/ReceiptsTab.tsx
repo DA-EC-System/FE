@@ -15,7 +15,7 @@ import { formatDateTime } from '@/utils/format';
 import type { GoodsReceiptStatus, GoodsReceiptSummary } from '@/types/purchasing';
 import { RECEIPT_STATUS, formatQty } from './shared';
 
-/** Phiếu nhận (sơ đồ A2): kho lập từ đề nghị đã đặt NCC; lập phiếu ở trang đề nghị */
+/** Phiếu nhận (sơ đồ A2): kho lập từ đề nghị đã đặt nhà cung cấp; lập phiếu ở trang đề nghị */
 export function ReceiptsTab() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -119,7 +119,7 @@ export function ReceiptsTab() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu nhận nào. Lập phiếu ở đề nghị đã đặt NCC.'}
+          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu nhận nào. Lập phiếu ở đề nghị đã đặt nhà cung cấp.'}
           onRowClick={(r) => navigate(ROUTES.company.goodsReceipt(companyId, r.id))}
           pagination={{
             page,

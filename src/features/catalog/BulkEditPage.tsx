@@ -34,7 +34,7 @@ const FIELD_LABELS: Record<BulkField, string> = {
 const FIELDS = Object.keys(FIELD_LABELS) as BulkField[];
 const FIELD_HELP: Partial<Record<BulkField, string>> = {
   standardPrice: 'Giá bán chuẩn của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số của danh mục.',
-  minQty: 'Tồn khả dụng xuống tới số này thì gợi ý nhập lại. Gợi ý tính từ tốc độ bán, số ngày NCC giao và tồn dự phòng.',
+  minQty: 'Tồn khả dụng xuống tới số này thì gợi ý nhập lại. Gợi ý tính từ tốc độ bán, số ngày nhà cung cấp giao và tồn dự phòng.',
   weightG: 'Dùng tính phí vận chuyển. Gợi ý lấy theo SKU cùng sản phẩm gần nhất.',
 };
 

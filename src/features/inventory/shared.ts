@@ -55,11 +55,11 @@ export const docLineSchema = (type: StockDocType) =>
       scanned: isInspection(type) ? qtyText(0, MAX_QTY, 'Số quét') : blank,
       resell: isInspection(type) ? qtyText(0, MAX_QTY, 'Bán lại') : blank,
       damaged: isInspection(type) ? qtyText(0, MAX_QTY, 'Hỏng') : blank,
-      toSupplier: isInspection(type) ? qtyText(0, MAX_QTY, 'Trả NCC') : blank,
+      toSupplier: isInspection(type) ? qtyText(0, MAX_QTY, 'Trả nhà cung cấp') : blank,
     })
     .superRefine((l, ctx) => {
       if (isInspection(type) && (l.resell ?? 0) + (l.damaged ?? 0) + (l.toSupplier ?? 0) !== l.scanned) {
-        ctx.addIssue({ code: 'custom', path: ['resell'], message: 'Bán lại + hỏng + trả NCC phải bằng số quét' });
+        ctx.addIssue({ code: 'custom', path: ['resell'], message: 'Bán lại + hỏng + trả nhà cung cấp phải bằng số quét' });
       }
     });
 
@@ -150,7 +150,7 @@ export const DOC_TYPE_LABELS: Record<StockDocType, string> = {
 export const MOVE_DOC_LABELS: Record<StockMoveDocType, string> = {
   ...DOC_TYPE_LABELS,
   goods_receipt: 'Phiếu nhận',
-  supplier_return: 'Trả NCC',
+  supplier_return: 'Trả nhà cung cấp',
 };
 
 export const DOC_TYPE_HELP: Record<StockDocType, string> = {
@@ -158,7 +158,7 @@ export const DOC_TYPE_HELP: Record<StockDocType, string> = {
   write_off: 'Hàng hỏng, mất không bán được. Gửi duyệt thì hàng bị tạm khoá, CEO duyệt mới trừ tồn.',
   to_quarantine: 'Hàng lỗi phát hiện trên kệ: chuyển từ tồn thực sang chờ xử lý, không bán được. CEO duyệt.',
   return_inspection:
-    'Quét hàng quay về và chia bán lại, hỏng, trả NCC. Không thiếu thì ghi sổ thẳng; có thiếu thì người thứ hai duyệt.',
+    'Quét hàng quay về và chia bán lại, hỏng, trả nhà cung cấp. Không thiếu thì ghi sổ thẳng; có thiếu thì người thứ hai duyệt.',
   shipment: 'Hệ thống ghi sổ khi bàn giao kiện cho đơn vị vận chuyển: trừ tồn thực một lần, theo từng dòng kiện.',
   shipment_reversal: 'Hệ thống ghi sổ khi huỷ lượt bàn giao nhầm: cộng lại tồn thực và đang giữ cho kiện.',
 };
@@ -185,7 +185,7 @@ export const AREA_LABELS: Record<StockArea, string> = {
 
 export const DECISION_LABELS: Record<RejectDecision, string> = {
   restock: 'Nhập lại tồn',
-  supplier_return: 'Trả NCC',
+  supplier_return: 'Trả nhà cung cấp',
 };
 
 export const STOCK_STATE: Record<StockState, StatusMeta> = {

@@ -273,7 +273,7 @@ export function useShortResolution() {
   });
 }
 
-// ---------- Phiếu trả NCC (sơ đồ B4) ----------
+// ---------- Phiếu trả nhà cung cấp (sơ đồ B4) ----------
 
 export function useSupplierReturns(params: SupplierReturnListParams) {
   const companyId = useCompanyId();

@@ -54,7 +54,7 @@ test.describe('P5-BE · Đối soát sàn', () => {
     await page.goto(url('/finance/settlements?tab=bank'));
     const req = page.waitForRequest((r) => r.url().includes('/finance/bank-matching') && r.url().includes('kind=supplier_refund'));
     await page.getByRole('combobox', { name: 'Loại', exact: true }).click();
-    await page.getByRole('option', { name: 'NCC hoàn tiền', exact: true }).click();
+    await page.getByRole('option', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
     expect((await (await req).response())?.status()).toBe(200);
     await thayChu(page, 'Chưa có khoản cần khớp');
 

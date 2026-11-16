@@ -1,6 +1,6 @@
-// B3 phiếu kho có duyệt, B4 phiếu trả NCC trên BE thật (commerio-backend#208, #210). Một công ty giả riêng (một register,
+// B3 phiếu kho có duyệt, B4 phiếu trả nhà cung cấp trên BE thật (commerio-backend#208, #210). Một công ty giả riêng (một register,
 // một login, e2e/be/congTyGia.ts): công ty một người nên CEO tự duyệt được, mỗi lần tự duyệt có nhãn.
-// Dữ liệu nền (danh mục, sản phẩm một biến thể, NCC) dựng qua API công khai; tồn chỉ có được bằng phiếu kiểm kê.
+// Dữ liệu nền (danh mục, sản phẩm một biến thể, nhà cung cấp) dựng qua API công khai; tồn chỉ có được bằng phiếu kiểm kê.
 import { type Page, expect, test } from '@playwright/test';
 import { type CongTyGia, taoCongTyGia } from '../congTyGia';
 
@@ -103,7 +103,7 @@ test('B3a chuyển chờ xử lý 3 cái: duyệt xong tồn thực 7, chờ x�
   for (const so of ['KK-000001', 'XH-000001', 'CXL-000001']) await expect(page.getByText(so, { exact: true })).toBeVisible();
 });
 
-test('B4 phiếu trả NCC: lập tay 2 cái từ chờ xử lý, gửi duyệt, duyệt và gửi, ghi NCC hoàn tiền', async () => {
+test('B4 phiếu trả nhà cung cấp: lập tay 2 cái từ chờ xử lý, gửi duyệt, duyệt và gửi, ghi nhà cung cấp hoàn tiền', async () => {
   await page.goto(`/c/${cty.companyId}/purchasing/returns/new`);
   await page.locator('#ret-supplier').click();
   await page.getByRole('option', { name: NCC, exact: true }).click();
@@ -117,13 +117,13 @@ test('B4 phiếu trả NCC: lập tay 2 cái từ chờ xử lý, gửi duyệt,
   // Gửi đi thì hàng rời chờ xử lý
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 1 });
 
-  await page.getByRole('button', { name: 'NCC hoàn tiền', exact: true }).click();
+  await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
   const hop = page.getByRole('dialog');
-  await hop.getByLabel(/Số tiền NCC hoàn/).fill('120000');
+  await hop.getByLabel(/Số tiền nhà cung cấp hoàn/).fill('120000');
   await hop.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
-  await expect(page.getByTestId('return-status')).toContainText('NCC hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
   await expect(page.locator('main')).toContainText('120.000');
 
   await page.reload();
-  await expect(page.getByTestId('return-status')).toContainText('NCC hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
 });

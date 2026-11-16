@@ -28,7 +28,7 @@ export interface MockCategoryRule {
   markup: number;
   /** Làm tròn giá gợi ý tới bội số này */
   roundTo: number;
-  /** Số ngày NCC giao, dùng cho ngưỡng tồn gợi ý */
+  /** Số ngày nhà cung cấp giao, dùng cho ngưỡng tồn gợi ý */
   leadDays: number;
   safetyStock: number;
 }

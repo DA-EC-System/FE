@@ -178,7 +178,7 @@ export function useStockDocAction() {
   });
 }
 
-/** Xuất huỷ hàng chờ xử lý bị từ chối: nhập lại tồn hoặc trả NCC */
+/** Xuất huỷ hàng chờ xử lý bị từ chối: nhập lại tồn hoặc trả nhà cung cấp */
 export function useDecideStockDoc() {
   const saveDoc = useSaveStockDoc();
   return useMutation({

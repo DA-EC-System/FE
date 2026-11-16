@@ -1,5 +1,5 @@
 /**
- * Dữ liệu giả purchasing.* theo sơ đồ Đề nghị nhập, Phiếu nhận, Phiếu trả NCC (FE#17). Chỉ dùng cho MSW.
+ * Dữ liệu giả purchasing.* theo sơ đồ Đề nghị nhập, Phiếu nhận, Phiếu trả nhà cung cấp (FE#17). Chỉ dùng cho MSW.
  * Phiếu nhận đã ghi sổ và phiếu trả đã gửi trong seed đổi tồn qua inventoryData để số liệu khớp thẻ kho.
  */
 
@@ -45,7 +45,7 @@ export interface MockPurchaseRequestLine {
 
 export interface MockPurchaseRequest {
   id: string;
-  /** Ghi lúc đặt NCC (BE#243) */
+  /** Ghi lúc đặt nhà cung cấp (BE#243) */
   expectedDeliveryDate?: string | null;
   supplierOrderCode?: string | null;
   companyId: string;
@@ -394,7 +394,7 @@ export function syncIncoming(companyId: string) {
   }
 }
 
-/** Phiếu trả NCC nháp do hệ thống lập: lỗi giữ lại khi nhận, phần trả NCC của kiểm hàng về, xuất huỷ bị từ chối */
+/** Phiếu trả nhà cung cấp nháp do hệ thống lập: lỗi giữ lại khi nhận, phần trả nhà cung cấp của kiểm hàng về, xuất huỷ bị từ chối */
 export function createSupplierReturnDraft(
   companyId: string,
   source: DocRef | null,

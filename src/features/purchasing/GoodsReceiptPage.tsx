@@ -72,17 +72,17 @@ const RECEIPT_PATH: GoodsReceiptStatus[] = ['counting', 'matched'];
 const ACTION_CONFIRM: Partial<Record<GoodsReceiptAction, { title: string; message: string }>> = {
   post: {
     title: 'Ghi sổ',
-    message: 'Hàng đạt vào tồn thực, hàng lỗi giữ lại vào chờ xử lý (kèm phiếu trả NCC nháp). Phiếu đã ghi sổ không sửa được.',
+    message: 'Hàng đạt vào tồn thực, hàng lỗi giữ lại vào chờ xử lý (kèm phiếu trả nhà cung cấp nháp). Phiếu đã ghi sổ không sửa được.',
   },
   post_short: {
     title: 'Ghi sổ, báo giao thiếu',
-    message: 'Ghi sổ như trên; đề nghị gắn cờ "NCC giao thiếu" đến khi Mua hàng ghi kết quả.',
+    message: 'Ghi sổ như trên; đề nghị gắn cờ "Nhà cung cấp giao thiếu" đến khi Mua hàng ghi kết quả.',
   },
 };
 
 /**
- * Phiếu nhận (sơ đồ A2). Kho lập từ đề nghị đã đặt NCC, nhập báo giao, đạt, lỗi giữ, trả tại chỗ; thiếu tự tính.
- * Người ghi sổ khác người lập đề nghị. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu, NCC nhận sai.
+ * Phiếu nhận (sơ đồ A2). Kho lập từ đề nghị đã đặt nhà cung cấp, nhập báo giao, đạt, lỗi giữ, trả tại chỗ; thiếu tự tính.
+ * Người ghi sổ khác người lập đề nghị. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu, nhà cung cấp nhận sai.
  */
 export function GoodsReceiptPage() {
   const navigate = useNavigate();
@@ -275,7 +275,7 @@ export function GoodsReceiptPage() {
       <PageHeader
         title={`Phiếu nhận ${receipt.number}`}
         subtitle="Đếm hàng theo từng dòng rồi ghi sổ một lần."
-        help="Thiếu = báo giao − đạt − lỗi giữ − trả tại chỗ. Dòng có số chênh được đánh dấu ở mép trái; rê chuột vào nhãn Chênh để xem chênh gì. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu hoặc NCC nhận sai."
+        help="Thiếu = báo giao − đạt − lỗi giữ − trả tại chỗ. Dòng có số chênh được đánh dấu ở mép trái; rê chuột vào nhãn Chênh để xem chênh gì. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu hoặc nhà cung cấp nhận sai."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2" data-guide="gr-actions">
@@ -630,7 +630,7 @@ function ShortResolutionCard({
     const f = followUp.trim();
     const n = note.trim();
     const fe = kind === 'follow_up' && !f ? 'Nhập số phiếu nhận giao bù' : null;
-    const ne = kind !== 'follow_up' && !n ? (kind === 'close_short' ? 'Nhập lý do đóng thiếu' : 'Ghi NCC nhận sai thế nào') : n.length > 500 ? 'Tối đa 500 ký tự' : null;
+    const ne = kind !== 'follow_up' && !n ? (kind === 'close_short' ? 'Nhập lý do đóng thiếu' : 'Ghi nhà cung cấp nhận sai thế nào') : n.length > 500 ? 'Tối đa 500 ký tự' : null;
     setFollowUpError(fe);
     setNoteError(ne);
     if (fe || ne) return;

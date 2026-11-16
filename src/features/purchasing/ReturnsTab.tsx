@@ -19,7 +19,7 @@ import { formatDateTime } from '@/utils/format';
 import type { SupplierReturnStatus, SupplierReturnSummary } from '@/types/purchasing';
 import { RETURN_STATUS, formatQty } from './shared';
 
-/** Phiếu trả NCC (sơ đồ B4): hệ thống sinh nháp từ hàng lỗi; Mua hàng lập tay từ hàng chờ xử lý */
+/** Phiếu trả nhà cung cấp (sơ đồ B4): hệ thống sinh nháp từ hàng lỗi; Mua hàng lập tay từ hàng chờ xử lý */
 export function ReturnsTab() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -121,7 +121,7 @@ export function ReturnsTab() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu trả NCC nào'}
+          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu trả nhà cung cấp nào'}
           onRowClick={(r) => navigate(ROUTES.company.supplierReturn(companyId, r.id))}
           pagination={{
             page,

@@ -46,7 +46,7 @@ export const ROUTES = {
     purchasing: (companyId: string, tab?: 'receipts' | 'returns' | 'suppliers') =>
       tab ? `/c/${companyId}/purchasing?tab=${tab}` : `/c/${companyId}/purchasing`,
     purchaseRequest: (companyId: string, id: string) => `/c/${companyId}/purchasing/requests/${id}`,
-    /** from: phiếu trả NCC bù hàng, điền sẵn NCC và dòng */
+    /** from: phiếu trả nhà cung cấp bù hàng, điền sẵn nhà cung cấp và dòng */
     purchaseRequestNew: (companyId: string, from?: string) =>
       from ? `/c/${companyId}/purchasing/requests/new?from=${from}` : `/c/${companyId}/purchasing/requests/new`,
     goodsReceipt: (companyId: string, id: string) => `/c/${companyId}/purchasing/receipts/${id}`,

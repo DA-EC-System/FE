@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { receiptFormSchema, returnFormSchema, shortOfDraft, type ReceiptLineDraft } from './shared';
+import { hasActiveSupplier, receiptFormSchema, returnFormSchema, shortOfDraft, type ReceiptLineDraft } from './shared';
 
 const line = (over: Partial<ReceiptLineDraft> = {}): ReceiptLineDraft => ({
   lineId: 'l1',
@@ -32,7 +32,7 @@ describe('Phiếu nhận: kiểm đếm (sơ đồ A2)', () => {
 
   it('có thiếu, lỗi hoặc trả tại chỗ thì bắt buộc lý do', () => {
     expect(issues(receipt(line({ accepted: '8' })))).toEqual(['lines.0.reason: Ghi lý do khi có thiếu, lỗi hoặc trả tại chỗ']);
-    expect(receipt(line({ accepted: '8', reason: 'NCC giao thiếu 2' })).success).toBe(true);
+    expect(receipt(line({ accepted: '8', reason: 'Nhà cung cấp giao thiếu 2' })).success).toBe(true);
     expect(receipt(line({ accepted: '9', defectKept: '1' })).success).toBe(false);
   });
 
@@ -46,7 +46,7 @@ describe('Phiếu nhận: kiểm đếm (sơ đồ A2)', () => {
   });
 });
 
-describe('Phiếu trả NCC (sơ đồ B4)', () => {
+describe('Phiếu trả nhà cung cấp (sơ đồ B4)', () => {
   it('số trả không vượt hàng chờ xử lý, phải có ít nhất một dòng', () => {
     const parse = (quantity: string) =>
       returnFormSchema.safeParse({ supplierId: 's1', note: '', lines: [{ variantId: 'v1', quarantine: 3, quantity }] });
@@ -55,5 +55,18 @@ describe('Phiếu trả NCC (sơ đồ B4)', () => {
     expect(over.success ? '' : over.error.issues[0]?.message).toBe('Chỉ còn 3 chờ xử lý');
     const empty = returnFormSchema.safeParse({ supplierId: '', note: '', lines: [] });
     expect(empty.success ? '' : empty.error.issues[0]?.message).toBe('Thêm ít nhất một dòng');
+  });
+});
+
+describe('hasActiveSupplier: chặn Lập đề nghị khi chưa có nhà cung cấp', () => {
+  it('chưa tải xong danh sách thì không chặn', () => {
+    expect(hasActiveSupplier(undefined)).toBeUndefined();
+  });
+  it('chưa có nhà cung cấp nào, hoặc tất cả đã ngừng giao dịch, thì chặn', () => {
+    expect(hasActiveSupplier([])).toBe(false);
+    expect(hasActiveSupplier([{ active: false }])).toBe(false);
+  });
+  it('có ít nhất một nhà cung cấp đang giao dịch thì cho lập', () => {
+    expect(hasActiveSupplier([{ active: false }, { active: true }])).toBe(true);
   });
 });

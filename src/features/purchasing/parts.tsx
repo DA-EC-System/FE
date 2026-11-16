@@ -69,7 +69,7 @@ export function receiptDiff(l: {
 }): string | null {
   const parts: string[] = [];
   if (l.announced > 0 && l.announced !== l.outstanding) {
-    parts.push(`NCC báo giao ${l.announced}, còn chờ ${l.outstanding}`);
+    parts.push(`Nhà cung cấp báo giao ${l.announced}, còn chờ ${l.outstanding}`);
   }
   if (l.defectKept > 0) parts.push(`lỗi giữ ${l.defectKept}`);
   if (l.returnedOnSpot > 0) parts.push(`trả tại chỗ ${l.returnedOnSpot}`);

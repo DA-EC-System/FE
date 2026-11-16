@@ -30,7 +30,7 @@ export interface SupplierReportParams {
   to?: string;
 }
 
-/** Báo cáo theo NCC (sơ đồ A2): số phiếu từng giao thiếu, tỉ lệ hàng lỗi */
+/** Báo cáo theo nhà cung cấp (sơ đồ A2): số phiếu từng giao thiếu, tỉ lệ hàng lỗi */
 export interface SupplierReport {
   supplierId: string;
   supplierName: string;
@@ -127,9 +127,9 @@ export interface PurchaseRequestSummary {
 export interface PurchaseRequest extends PurchaseRequestSummary {
   lines: PurchaseRequestLine[];
   receipts: (DocRef & { status: GoodsReceiptStatus })[];
-  /** Phiếu trả NCC bù hàng sinh ra đề nghị này */
+  /** Phiếu trả nhà cung cấp bù hàng sinh ra đề nghị này */
   sourceReturn: DocRef | null;
-  /** Ngày NCC hẹn giao (yyyy-mm-dd), có từ lúc đặt; mã đơn bên NCC (BE#243) */
+  /** Ngày nhà cung cấp hẹn giao (yyyy-mm-dd), có từ lúc đặt; mã đơn bên nhà cung cấp (BE#243) */
   expectedDeliveryDate: string | null;
   supplierOrderCode: string | null;
   /** Còn phiếu nhận đang kiểm: chặn đóng thiếu */
@@ -141,12 +141,12 @@ export interface PurchaseRequestInput {
   supplierId: string;
   note: string;
   lines: PurchaseRequestLineInput[];
-  /** Lập từ phiếu trả NCC bù hàng */
+  /** Lập từ phiếu trả nhà cung cấp bù hàng */
   sourceReturnId?: string | null;
   version?: number;
 }
 
-/** Thêm một dòng từ gợi ý nhập lại: vào đề nghị nháp có sẵn, hoặc lập nháp mới với NCC */
+/** Thêm một dòng từ gợi ý nhập lại: vào đề nghị nháp có sẵn, hoặc lập nháp mới với nhà cung cấp */
 export interface AddRequestLineInput {
   requestId: string | null;
   supplierId: string | null;
@@ -280,7 +280,7 @@ export interface GoodsReceiptListParams {
   requestId?: string;
 }
 
-// ---------- Phiếu trả NCC (sơ đồ B4) ----------
+// ---------- Phiếu trả nhà cung cấp (sơ đồ B4) ----------
 
 export type SupplierReturnStatus =
   | 'draft'

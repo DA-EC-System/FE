@@ -31,7 +31,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'product.suppliers': 'Nhà cung cấp',
   'product.purchase_requests': 'Đề nghị nhập',
   'product.goods_receipts': 'Phiếu nhận',
-  'product.supplier_returns': 'Phiếu trả NCC',
+  'product.supplier_returns': 'Phiếu trả nhà cung cấp',
   'channel.shops': 'Gian hàng',
   'channel.listings': 'Ghép SKU',
   'channel.category_maps': 'Ghép danh mục sàn',

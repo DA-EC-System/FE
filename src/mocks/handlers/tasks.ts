@@ -6,7 +6,7 @@ import { collectTasks, dueState, registerTaskSource, REMIND } from '../engine/ta
 import { API, LATENCY, requireCompany } from './utils';
 import { authorizationDeadline } from '@/features/channel/shopSchemas';
 
-// ---------- Việc cần làm theo hạn (FE#55); phiếu nhận, giao thiếu, trả NCC đăng ký ở các PR sau ----------
+// ---------- Việc cần làm theo hạn (FE#55); phiếu nhận, giao thiếu, trả nhà cung cấp đăng ký ở các PR sau ----------
 
 registerTaskSource({
   kind: 'shop.reauth',

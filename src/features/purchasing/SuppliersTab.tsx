@@ -246,7 +246,7 @@ function SupplierDialog({ supplier, onClose }: { supplier: Supplier | 'new' | nu
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Switch checked={active} onCheckedChange={(v) => setValue('active', v, { shouldDirty: true })} />
-            Đang giao dịch (tắt thì không lập đề nghị mới với NCC này)
+            Đang giao dịch (tắt thì không lập đề nghị mới với nhà cung cấp này)
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>

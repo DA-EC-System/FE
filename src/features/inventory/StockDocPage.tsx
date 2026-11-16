@@ -111,7 +111,7 @@ const ACTION_CONFIRM: Partial<Record<StockDocAction, { title: string; message: s
   },
   post: {
     title: 'Ghi sổ',
-    message: 'Hàng bán lại vào tồn thực; hỏng và trả NCC vào chờ xử lý. Phiếu đã ghi sổ không sửa được.',
+    message: 'Hàng bán lại vào tồn thực; hỏng và trả nhà cung cấp vào chờ xử lý. Phiếu đã ghi sổ không sửa được.',
   },
   cancel: { title: 'Huỷ phiếu', message: 'Phiếu nháp bị huỷ không ghi sổ được nữa; tồn kho không đổi.' },
 };
@@ -146,7 +146,7 @@ function RefLink({ companyId, docRef }: { companyId: string; docRef: DocRef }) {
 /**
  * Phiếu kho theo sơ đồ B3. Kiểm kê, xuất huỷ, chuyển chờ xử lý: kho lập nháp, gửi duyệt (hàng bị tạm khoá),
  * CEO duyệt mới ghi sổ. Kiểm hàng về: hệ thống sinh khi kiện quay về; kho quét và chia bán lại, hỏng,
- * trả NCC; không thiếu thì ghi sổ thẳng, có thiếu thì người thứ hai duyệt. Phiếu xuất theo kiện, huỷ bàn giao chỉ xem.
+ * trả nhà cung cấp; không thiếu thì ghi sổ thẳng, có thiếu thì người thứ hai duyệt. Phiếu xuất theo kiện, huỷ bàn giao chỉ xem.
  * `/inventory/documents/new?type=stocktake|write_off|to_quarantine` là phiếu mới.
  */
 export function StockDocPage() {
@@ -614,7 +614,7 @@ export function StockDocPage() {
                       <TableHead className="w-28 text-right">Số quét</TableHead>
                       <TableHead className="w-28 text-right">Bán lại</TableHead>
                       <TableHead className="w-28 text-right">Hỏng</TableHead>
-                      <TableHead className="w-28 text-right">Trả NCC</TableHead>
+                      <TableHead className="w-28 text-right">Trả nhà cung cấp</TableHead>
                       <TableHead className="w-20 text-right">Thiếu</TableHead>
                     </>
                   )}
@@ -685,7 +685,7 @@ export function StockDocPage() {
                             {editable ? qtyInput(i, 'damaged', 'Hỏng', f.sku) : formatQty(docLine?.damaged ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {editable ? qtyInput(i, 'toSupplier', 'Trả NCC', f.sku) : formatQty(docLine?.toSupplier ?? 0)}
+                            {editable ? qtyInput(i, 'toSupplier', 'Trả nhà cung cấp', f.sku) : formatQty(docLine?.toSupplier ?? 0)}
                           </TableCell>
                           <TableCell className={cn('text-right', missingOf(live) > 0 && 'font-medium text-destructive')}>
                             {formatQty(missingOf(live))}
@@ -771,7 +771,7 @@ export function StockDocPage() {
         message={
           isInspection
             ? 'Phiếu quay về nháp để kho kiểm lại.'
-            : 'Hàng tạm khoá được trả lại. Xuất huỷ hàng chờ xử lý bị từ chối thì kho phải chọn nhập lại tồn hoặc trả NCC.'
+            : 'Hàng tạm khoá được trả lại. Xuất huỷ hàng chờ xử lý bị từ chối thì kho phải chọn nhập lại tồn hoặc trả nhà cung cấp.'
         }
         confirmLabel={isInspection ? 'Yêu cầu kiểm lại' : 'Từ chối'}
         destructive

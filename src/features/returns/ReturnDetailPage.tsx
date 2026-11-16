@@ -329,7 +329,7 @@ export function ReturnDetailPage() {
         message={
           <>
             {pending?.action === 'receive'
-              ? `Nhận hàng trả ${r.code}. Phiếu kiểm hàng về được lập để kho chia bán lại, hỏng, trả NCC.`
+              ? `Nhận hàng trả ${r.code}. Phiếu kiểm hàng về được lập để kho chia bán lại, hỏng, trả nhà cung cấp.`
               : pending && ACTION_MESSAGES[pending.action]}
             {error && (
               <AlertMessage severity="error" className="mt-3">
