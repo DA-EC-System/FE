@@ -5,6 +5,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
+import { shopKeys } from './shops.api';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
 import type {
@@ -223,10 +224,7 @@ export function useUpdateProduct() {
     onSuccess: () => {
       invalidate();
       // Listing gian hàng hiện tên, ảnh đại diện của sản phẩm (FE#205): đổi ảnh xong quay lại gian hàng phải thấy ngay
-      void qc.invalidateQueries({
-        predicate: (q) =>
-          q.queryKey[0] === 'company' && q.queryKey[1] === companyId && q.queryKey[2] === 'shops' && q.queryKey[3] === 'listings',
-      });
+      void qc.invalidateQueries({ queryKey: [...shopKeys.all(companyId), 'listings'] });
     },
   });
 }

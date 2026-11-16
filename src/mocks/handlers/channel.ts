@@ -283,6 +283,11 @@ export function settlePush(shop: MockShop, l: MockListing, paused: boolean) {
     Object.assign(l, { externalProductId: l.pendingRemote.externalProductId, externalSkuId: l.pendingRemote.externalSkuId });
     l.pendingRemote = undefined;
   }
+  // Như listing-push.ts của BE: giữ ảnh đã có trên sàn, chưa có thì lấy ảnh catalog lúc đẩy
+  if (!l.externalImageUrls?.length) {
+    const product = sellableVariant(shop.companyId, l.variantId)?.product;
+    l.externalImageUrls = product?.imageFileIds.map(fileUrl).filter(Boolean) ?? null;
+  }
   l.pushQueuedAt = undefined;
   l.pushError = null;
   l.pushAttempts = 0;
@@ -1478,20 +1483,17 @@ export const shopHandlers = [
         return blocked(variantId, 'category_unmapped', l);
       }
       if (shopPrice(shop, variantId).price === null) return blocked(variantId, 'price_missing', l);
-      // Như BE (push-block.ts): đủ khi sản phẩm có ảnh catalog, hoặc đã có SKU cùng sản phẩm trên sàn (sàn giữ ảnh)
-      const productOnPlatform = channel.listings.some(
-        (x) =>
-          x.shopId === shop.id &&
-          x.externalProductId !== null &&
-          sellableVariant(shop.companyId, x.variantId)?.product.id === target.product.id,
-      );
-      if (!productOnPlatform && !target.product.imageFileIds.length) return blocked(variantId, 'images_missing', l);
+      // Như BE (listings.ts, push-block.ts): đủ ảnh khi listing của chính SKU này đã có ảnh trên sàn, hoặc sản phẩm có
+      // ảnh catalog. SKU khác cùng sản phẩm đã lên sàn không tính
+      if (!l?.externalImageUrls?.length && !target.product.imageFileIds.length) {
+        return blocked(variantId, 'images_missing', l);
+      }
 
       const queuedAt = Date.now();
       if (l) {
         // Đẩy lại: lỗi đẩy, sàn từ chối, sàn khoá; listing đã gỡ thì BE tạo bản ghi mới
         Object.assign(l, {
-          ...(l.status === 'delisted' ? { id: rid('lst'), delistedByDisconnect: false } : {}),
+          ...(l.status === 'delisted' ? { id: rid('lst'), delistedByDisconnect: false, externalImageUrls: null } : {}),
           status: 'pushing',
           pushQueuedAt: queuedAt,
           pushError: null,
