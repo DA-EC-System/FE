@@ -19,20 +19,6 @@ export const REPUSH_STATUSES: ListingStatus[] = ['push_failed', 'rejected', 'pla
 /** Đã trên sàn: đẩy lại trả `already_listed`, giá và tồn cập nhật bằng Đồng bộ */
 export const LISTED_STATUSES: ListingStatus[] = ['under_review', 'live', 'hidden'];
 
-/**
- * Ảnh gửi kèm lần đầu đẩy (§18.5): sản phẩm chưa có SKU nào lên sàn ở gian hàng này thì gửi ảnh đại diện.
- * Đường dẫn ảnh đổi thành URL đầy đủ để sàn tải được.
- */
-export function imageUrlsFor(targets: ListingRow[], items: ListingRow[], origin: string): Record<string, string[]> {
-  const onPlatform = new Set(items.filter((r) => r.listing?.externalProductId).map((r) => r.productId));
-  const out: Record<string, string[]> = {};
-  for (const r of targets) {
-    if (onPlatform.has(r.productId) || !r.thumbnailUrl || out[r.productId]) continue;
-    out[r.productId] = [new URL(r.thumbnailUrl, origin).href];
-  }
-  return out;
-}
-
 /** Tách kết quả đẩy: dòng đã xếp việc và dòng bị chặn (có `code`) */
 export function splitPushResults(results: PushResult[]) {
   const blocked = results.filter((r) => r.code !== null);

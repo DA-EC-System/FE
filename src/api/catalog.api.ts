@@ -213,12 +213,21 @@ export function useCreateProduct() {
 
 export function useUpdateProduct() {
   const invalidate = useInvalidateCatalog();
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
   return useMutation({
     mutationFn: async ({ id, ...body }: ProductUpdateInput & { id: string }) => {
       const { data } = await apiClient.put<ProductDetail>(`/catalog/products/${id}`, body);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      // Listing gian hàng hiện tên, ảnh đại diện của sản phẩm (FE#205): đổi ảnh xong quay lại gian hàng phải thấy ngay
+      void qc.invalidateQueries({
+        predicate: (q) =>
+          q.queryKey[0] === 'company' && q.queryKey[1] === companyId && q.queryKey[2] === 'shops' && q.queryKey[3] === 'listings',
+      });
+    },
   });
 }
 

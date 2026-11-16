@@ -1451,7 +1451,8 @@ export const shopHandlers = [
       return problem(409, 'Gian hàng đang giữ tồn', { code: 'shop_awaiting_allocation', waitingFor: 'open_orders' });
     }
     if (!usable(shop)) return shopNotConnected(shop);
-    const { variantIds, imageUrls = {} } = (await request.json()) as PushListingsInput;
+    // `imageUrls` của FE cũ BE bỏ qua (commerio-backend#303): ảnh lấy từ catalog
+    const { variantIds } = (await request.json()) as PushListingsInput;
     if (!Array.isArray(variantIds) || !variantIds.length || variantIds.length > 20) {
       return problem(422, 'Số biến thể không hợp lệ', { errors: { variantIds: 'Chọn từ 1 đến 20 biến thể' } });
     }
@@ -1477,14 +1478,14 @@ export const shopHandlers = [
         return blocked(variantId, 'category_unmapped', l);
       }
       if (shopPrice(shop, variantId).price === null) return blocked(variantId, 'price_missing', l);
-      // Sản phẩm chưa có ảnh trên sàn (chưa SKU nào cùng sản phẩm lên sàn) thì phải gửi imageUrls
+      // Như BE (push-block.ts): đủ khi sản phẩm có ảnh catalog, hoặc đã có SKU cùng sản phẩm trên sàn (sàn giữ ảnh)
       const productOnPlatform = channel.listings.some(
         (x) =>
           x.shopId === shop.id &&
           x.externalProductId !== null &&
           sellableVariant(shop.companyId, x.variantId)?.product.id === target.product.id,
       );
-      if (!productOnPlatform && !imageUrls[target.product.id]?.length) return blocked(variantId, 'images_missing', l);
+      if (!productOnPlatform && !target.product.imageFileIds.length) return blocked(variantId, 'images_missing', l);
 
       const queuedAt = Date.now();
       if (l) {

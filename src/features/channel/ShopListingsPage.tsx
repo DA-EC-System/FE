@@ -43,7 +43,6 @@ import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import {
-  imageUrlsFor,
   LISTED_STATUSES,
   LISTING_POLL_MAX_MS,
   listingPollDelay,
@@ -373,11 +372,7 @@ export function ShopListingsPage() {
   /** Đẩy chạy nền (§18.6.4): dòng được xếp việc chuyển Đang đẩy, trang tự đọc lại tới khi sàn trả kết quả */
   const push = async (targets: ListingRow[]) => {
     try {
-      const results = await pushMut.mutateAsync({
-        shopId,
-        variantIds: targets.map((r) => r.variantId),
-        imageUrls: imageUrlsFor(targets, items, window.location.origin),
-      });
+      const results = await pushMut.mutateAsync({ shopId, variantIds: targets.map((r) => r.variantId) });
       const { queued, blocked } = splitPushResults(results);
       setPushErrors((prev) => {
         const next = new Map(prev);

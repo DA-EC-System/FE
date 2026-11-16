@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { ChannelListing, ListingRow, ListingStatus, PushResult } from '@/types/shop';
 import {
   hasPushing,
-  imageUrlsFor,
   LISTING_POLL_MAX_MS,
   LISTING_POLL_MS,
   listingPollDelay,
@@ -63,27 +62,6 @@ describe('theo dõi listing đang đẩy (§18.6.4)', () => {
   it('quá 30 phút thì dừng dù còn dòng đang đẩy', () => {
     expect(listingPollDelay(pushing, 0, LISTING_POLL_MAX_MS - 1)).toBe(LISTING_POLL_MS);
     expect(listingPollDelay(pushing, 0, LISTING_POLL_MAX_MS)).toBe(false);
-  });
-});
-
-describe('ảnh gửi kèm lần đầu đẩy (§18.5)', () => {
-  it('chỉ gửi cho sản phẩm chưa có SKU nào trên sàn, mỗi sản phẩm một lần, URL đầy đủ', () => {
-    const items = [
-      row('v1', 'p1', listing('live')),
-      row('v2', 'p1', null),
-      row('v3', 'p2', null, '/img/b.png'),
-      row('v4', 'p2', null, '/img/b2.png'),
-      row('v5', 'p3', null, null),
-    ];
-    const targets = items.slice(1);
-    expect(imageUrlsFor(targets, items, 'https://app.example')).toEqual({
-      p2: ['https://app.example/img/b.png'],
-    });
-  });
-
-  it('listing đang đẩy lần đầu (chưa có mã sàn) vẫn tính là chưa lên sàn', () => {
-    const items = [row('v1', 'p1', listing('pushing', { externalProductId: null }))];
-    expect(imageUrlsFor(items, items, 'https://app.example')).toEqual({ p1: ['https://app.example/img/a.png'] });
   });
 });
 
