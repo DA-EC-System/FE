@@ -1,4 +1,4 @@
-// P2 · Mua hàng (sơ đồ A1 đề nghị nhập, A2 phiếu nhận, B4 trả NCC; FE#17)
+// P2 · Mua hàng (sơ đồ A1 đề nghị nhập, A2 phiếu nhận, B4 trả nhà cung cấp; FE#17)
 import { type Page } from '@playwright/test';
 import { chua, dangNhap, expect, menu, test, thayChu, toast } from '../../fixtures';
 
@@ -67,16 +67,16 @@ test.describe('P2 · Mua hàng', () => {
       const dong = page.getByTestId('request-lines').locator('tbody tr').first();
       await dong.getByRole('button', { name: 'Loại dòng', exact: true }).click();
       const hop = page.getByRole('dialog');
-      await hop.getByRole('textbox').fill('NCC báo hết mẫu này');
+      await hop.getByRole('textbox').fill('Nhà cung cấp báo hết mẫu này');
       await hop.getByRole('button', { name: 'Loại dòng', exact: true }).click();
       await expect(dong).toContainText('Đã loại');
-      await expect(dong.getByTestId('excluded-reason')).toHaveText('Lý do loại: NCC báo hết mẫu này');
+      await expect(dong.getByTestId('excluded-reason')).toHaveText('Lý do loại: Nhà cung cấp báo hết mẫu này');
       // Lấy lại dòng thì hết lý do
       await dong.getByRole('button', { name: 'Lấy lại dòng', exact: true }).click();
       await expect(dong.getByTestId('excluded-reason')).toHaveCount(0);
     });
 
-    test('CEO là người gửi phiếu trả vẫn tự ghi kết quả từ NCC được (ngoại lệ tự duyệt, B4; BE#210)', async ({ page }) => {
+    test('CEO là người gửi phiếu trả vẫn tự ghi kết quả từ nhà cung cấp được (ngoại lệ tự duyệt, B4; BE#210)', async ({ page }) => {
       await moTab(page, 'Trả nhà cung cấp', 'TN-000001');
       await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
       // Người gửi không phải CEO thì bị chặn (unit test bảng chuyển); CEO được tự làm nên không có dòng chặn
@@ -103,7 +103,7 @@ test.describe('P2 · Mua hàng', () => {
       await toast(page, 'Đã thêm vào DN-000004');
     });
 
-    test('báo cáo NCC lọc theo kỳ ghi sổ (A2)', async ({ page }) => {
+    test('báo cáo nhà cung cấp lọc theo kỳ ghi sổ (A2)', async ({ page }) => {
       await menu(page, 'Mua hàng');
       await page.getByRole('tab', { name: 'Nhà cung cấp', exact: true }).click();
       const phieuNhan = () => chua(page, 'Xưởng may Thành Công', 'tbody tr').locator('td').nth(1);
@@ -150,7 +150,7 @@ test.describe('P2 · Mua hàng', () => {
   });
 
   test.describe('Mua hàng ↔ CEO', () => {
-    test('Mua hàng ghi NCC hoàn tiền cho phiếu CEO đã gửi (B4)', async ({ page }) => {
+    test('Mua hàng ghi nhà cung cấp hoàn tiền cho phiếu CEO đã gửi (B4)', async ({ page }) => {
       await dangNhap(page, 'muahang@commerio.vn', 'muahang');
       await moTab(page, 'Trả nhà cung cấp', 'TN-000001');
       await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();

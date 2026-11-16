@@ -17,7 +17,7 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
   });
 
   test('hiện nguồn từ đề nghị nhập và gợi ý giá, khối lượng kèm cách tính', async ({ page }) => {
-    // AC1: SKU có trong đề nghị nhập hiện NCC và giá nhập
+    // AC1: SKU có trong đề nghị nhập hiện nhà cung cấp và giá nhập
     await expect(dong(page, 'prd-003-v1').getByTestId('bulk-source')).toContainText('giá nhập 205.000');
     // AC2: giá nhập 205.000 × 1,6 (Phụ kiện) làm tròn nghìn = 328.000, nhãn "gợi ý"
     const gia = goiY(page, 'prd-003-v1', 'Giá chuẩn');

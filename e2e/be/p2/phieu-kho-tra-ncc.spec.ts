@@ -1,6 +1,6 @@
-// B3 phiếu kho có duyệt, B4 phiếu trả NCC trên BE thật (commerio-backend#208, #210). Một công ty giả riêng (một register,
+// B3 phiếu kho có duyệt, B4 phiếu trả nhà cung cấp trên BE thật (commerio-backend#208, #210). Một công ty giả riêng (một register,
 // một login, e2e/be/congTyGia.ts): công ty một người nên CEO tự duyệt được, mỗi lần tự duyệt có nhãn.
-// Dữ liệu nền (danh mục, sản phẩm một biến thể, NCC) dựng qua API công khai; tồn chỉ có được bằng phiếu kiểm kê.
+// Dữ liệu nền (danh mục, sản phẩm một biến thể, nhà cung cấp) dựng qua API công khai; tồn chỉ có được bằng phiếu kiểm kê.
 import { type Page, expect, test } from '@playwright/test';
 import { type CongTyGia, taoCongTyGia } from '../congTyGia';
 
@@ -103,7 +103,7 @@ test('B3a chuyển chờ xử lý 3 cái: duyệt xong tồn thực 7, chờ x�
   for (const so of ['KK-000001', 'XH-000001', 'CXL-000001']) await expect(page.getByText(so, { exact: true })).toBeVisible();
 });
 
-test('B4 phiếu trả NCC: lập tay 2 cái từ chờ xử lý, gửi duyệt, duyệt và gửi, ghi NCC hoàn tiền', async () => {
+test('B4 phiếu trả nhà cung cấp: lập tay 2 cái từ chờ xử lý, gửi duyệt, duyệt và gửi, ghi nhà cung cấp hoàn tiền', async () => {
   await page.goto(`/c/${cty.companyId}/purchasing/returns/new`);
   await page.locator('#ret-supplier').click();
   await page.getByRole('option', { name: NCC, exact: true }).click();
