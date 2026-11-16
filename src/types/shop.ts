@@ -316,10 +316,9 @@ export interface PushResult {
   message: string | null;
 }
 
-/** Body đẩy: tối đa 20 biến thể một lần; `imageUrls` theo sản phẩm cho lần đầu đẩy (§18.5) */
+/** Body đẩy: tối đa 20 biến thể một lần. Ảnh BE tự lấy từ catalog (§18.5, commerio-backend#303) */
 export interface PushListingsInput {
   variantIds: string[];
-  imageUrls?: Record<string, string[]>;
 }
 
 /**

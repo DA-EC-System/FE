@@ -311,11 +311,10 @@ export const PUSH_BATCH = 20;
 export function usePushListings() {
   const invalidate = useInvalidateShops();
   return useMutation({
-    mutationFn: async ({ shopId, variantIds, imageUrls }: PushListingsInput & { shopId: string }) => {
+    mutationFn: async ({ shopId, variantIds }: PushListingsInput & { shopId: string }) => {
       const results: PushResult[] = [];
       for (let i = 0; i < variantIds.length; i += PUSH_BATCH) {
         const body: PushListingsInput = { variantIds: variantIds.slice(i, i + PUSH_BATCH) };
-        if (imageUrls && Object.keys(imageUrls).length) body.imageUrls = imageUrls;
         const { data } = await apiClient.post<{ results: PushResult[] }>(`/channel/shops/${shopId}/listings/push`, body);
         results.push(...data.results);
       }

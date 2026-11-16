@@ -622,10 +622,8 @@ test.describe('P3 · Gian hàng', () => {
       const alert = page.getByRole('alertdialog');
       await thayChu(alert, '1 biến thể chưa có SKU sàn');
       await alert.getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
-      // Chỉ sản phẩm chưa có trên sàn mới gửi kèm ảnh đại diện
-      const body = (await yeuCau).postDataJSON();
-      expect(body.variantIds).toEqual(['prd-001-v2', 'prd-002-v2']);
-      expect(Object.keys(body.imageUrls)).toEqual(['prd-002']);
+      // Chỉ gửi mã biến thể: ảnh BE lấy từ catalog (commerio-backend#303)
+      expect((await yeuCau).postDataJSON()).toEqual({ variantIds: ['prd-001-v2', 'prd-002-v2'] });
       await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
       await toast(page, '1 biến thể không đẩy được');
       await expect(dong(page, 'prd-001-v2').locator('[data-testid=push-error]')).toContainText('cập nhật bằng đồng bộ');
@@ -651,6 +649,55 @@ test.describe('P3 · Gian hàng', () => {
       });
       await page.getByRole('button', { name: 'Đồng bộ', exact: true }).click();
       await toast(page, 'Hôm nay đã hết lượt gọi sàn cho thao tác tay');
+    });
+
+    test('đẩy theo ảnh catalog: sản phẩm chưa có ảnh bị chặn, thêm ảnh ở trang sản phẩm thì đẩy được', async ({ page }) => {
+      // FE#205: bỏ ảnh duy nhất của Quần kaki (chưa SKU nào lên sàn ở gian hàng này)
+      const anh = page.getByTestId('product-images').locator('[data-image-id]');
+      await diToi(page, '/c/cmp-001/catalog/products/prd-002');
+      await expect(anh).toHaveCount(1);
+      await page.getByRole('button', { name: 'Bỏ ảnh 1', exact: true }).click();
+      await expect(anh).toHaveCount(0);
+      await page.getByRole('button', { name: 'Lưu', exact: true }).click();
+      await toast(page, 'Đã lưu Quần kaki ống suông');
+
+      await diToi(page, '/c/cmp-001/channel/shops/shp-001');
+      await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+      await toast(page, '1 biến thể không đẩy được');
+      await expect(dong(page, 'prd-002-v2').locator('[data-testid=push-error]')).toContainText(
+        'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đẩy lại.',
+      );
+      await expect(dong(page, 'prd-002-v2').locator('img')).toHaveCount(0);
+
+      // Thêm ảnh JPG 400×400 rồi đẩy lại: không còn images_missing, dòng hiện ảnh đại diện
+      await diToi(page, '/c/cmp-001/catalog/products/prd-002');
+      await expect(page.getByTestId('image-input')).toBeAttached();
+      const jpg = Buffer.from(
+        await page.evaluate(async () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 400;
+          const ctx = canvas.getContext('2d')!;
+          ctx.fillStyle = '#3b6';
+          ctx.fillRect(0, 0, 400, 400);
+          const blob = await new Promise<Blob>((r) => canvas.toBlob((b) => r(b!), 'image/jpeg', 0.9));
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          return btoa(String.fromCharCode(...bytes));
+        }),
+        'base64',
+      );
+      await page.getByTestId('image-input').setInputFiles({ name: 'quan.jpg', mimeType: 'image/jpeg', buffer: jpg });
+      await expect(anh).toHaveCount(1);
+      await page.getByRole('button', { name: 'Lưu', exact: true }).click();
+      await toast(page, 'Đã lưu Quần kaki ống suông');
+
+      await diToi(page, '/c/cmp-001/channel/shops/shp-001');
+      await expect(dong(page, 'prd-002-v2').locator('img')).toBeVisible();
+      await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+      await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
+      await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang đẩy');
+      await expect(dong(page, 'prd-002-v2').locator('[data-testid=push-error]')).toHaveCount(0);
     });
 
     test('biến thể chưa có giá thì báo lỗi theo dòng', async ({ page }) => {

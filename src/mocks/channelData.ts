@@ -23,6 +23,11 @@ export interface MockListing {
   pushQueuedAt?: number;
   /** Sản phẩm sàn sẽ tạo khi việc đẩy lần đầu xong */
   pendingRemote?: MockRemoteSku;
+  /**
+   * Ảnh đã đưa lên sàn khi Commerio đẩy listing này (BE `external_image_urls`); listing có do ghép SKU thì không có.
+   * Đẩy lại mà có ảnh ở đây thì không cần ảnh catalog (push-block.ts của BE)
+   */
+  externalImageUrls?: string[] | null;
   hiddenBy: 'platform' | 'zero_stock' | null;
   /** Đồng bộ tồn lưu theo lần đẩy; đồng bộ giá tính khi trả về (giá hiện tại so với giá đã đẩy) */
   stockSync: SyncState;
