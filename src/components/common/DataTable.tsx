@@ -64,6 +64,8 @@ interface DataTableProps<T> {
   /** Chuỗi thì hiện thành ô trống (EmptyState); phần tử thì hiện nguyên */
   empty?: ReactNode;
   onRowClick?: (row: T) => void;
+  /** Nhấp đúp vào dòng; bỏ qua khi nhấp đúp lên nút, ô chọn, ô nhập, link trong dòng */
+  onRowDoubleClick?: (row: T) => void;
   pagination?: ServerPagination;
   /** Nội dung mở rộng dưới một dòng; trả `null` là dòng đang đóng */
   renderExpanded?: (row: T) => ReactNode;
@@ -80,6 +82,7 @@ export function DataTable<T>({
   fetching,
   empty = 'Không có dữ liệu',
   onRowClick,
+  onRowDoubleClick,
   pagination,
   renderExpanded,
   rowClassName,
@@ -140,6 +143,14 @@ export function DataTable<T>({
                       data-row-id={row.id}
                       className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
                       onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                      onDoubleClick={
+                        onRowDoubleClick
+                          ? (e) => {
+                              if ((e.target as HTMLElement).closest(INTERACTIVE)) return;
+                              onRowDoubleClick(row.original);
+                            }
+                          : undefined
+                      }
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell
@@ -179,6 +190,9 @@ function HeaderLabel({ help, topic, children }: { help?: ReactNode; topic: unkno
     </span>
   );
 }
+
+/** Phần tử tự xử lý thao tác chuột; nhấp đúp lên đây không tính là nhấp đúp dòng */
+const INTERACTIVE = 'button, a, input, textarea, select, label, [role="checkbox"], [role="combobox"], [role="menuitem"]';
 
 const metaClass = (meta?: { className?: string; numeric?: boolean }) =>
   cn(meta?.numeric && 'text-end tabular-nums', meta?.className);

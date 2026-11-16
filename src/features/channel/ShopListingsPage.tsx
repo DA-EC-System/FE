@@ -923,6 +923,7 @@ export function ShopListingsPage() {
             columns={columns}
             data={pageRows}
             getRowId={(r) => r.variantId}
+            onRowDoubleClick={(r) => navigate(ROUTES.company.catalogProduct(companyId, r.productId))}
             loading={listingsQuery.isLoading}
             fetching={listingsQuery.isFetching}
             empty={
