@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, PackageCheck, Printer, Scissors } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -35,7 +35,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
-import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageButtons, shippingProviderTypeLabel } from './shared';
+import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { SplitPackageDialog } from './SplitPackageDialog';
 import { ScannedLines } from './ScannedLines';
@@ -76,7 +76,9 @@ export function PackageDetailPage() {
   const [code, setCode] = useState('');
   const [scanRows, setScanRows] = useState<ScanRow[]>([]);
   const [scanErrors, setScanErrors] = useState<Record<string, string> | null>(null);
-  const back = () => navigate(ROUTES.company.packages(companyId));
+  const location = useLocation();
+  const backTo = packageBackTo(location.state);
+  const back = () => navigate(backTo?.path ?? ROUTES.company.packages(companyId));
 
   useEffect(() => {
     setCode('');
@@ -126,7 +128,7 @@ export function PackageDetailPage() {
 
   const onAction = (a: PackageAction) => {
     const label = PACKAGE_ACTION_LABELS[a];
-    if (a === 'pack') return navigate(ROUTES.company.packScan(companyId, p.id));
+    if (a === 'pack') return navigate(ROUTES.company.packScan(companyId, p.id), { state: location.state });
     if (a === 'hand_over') return void doHandOver();
     const direct = DIRECT[a];
     if (direct) return void run(direct, `${p.code}: ${label}`);
@@ -233,7 +235,7 @@ export function PackageDetailPage() {
         action={
           <Button variant="outline" onClick={back}>
             <ArrowLeft />
-            Về hàng đợi
+            {backTo?.label ?? 'Về hàng đợi'}
           </Button>
         }
       />
