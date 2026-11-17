@@ -486,10 +486,15 @@ export function ShopListingsPage() {
           );
         },
       },
-      { accessorKey: 'sku', header: 'SKU', meta: { className: 'w-40 font-mono text-xs' } },
+      {
+        accessorKey: 'sku',
+        header: 'SKU Commerio',
+        meta: { className: 'w-40' },
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.sku}</span>,
+      },
       {
         id: 'price',
-        header: 'Giá đẩy',
+        header: 'Giá ở gian hàng này',
         meta: { className: 'w-36 text-right whitespace-nowrap' },
         cell: ({ row }) => {
           const r = row.original;
@@ -552,7 +557,7 @@ export function ShopListingsPage() {
             );
           }
           const l = r.listing;
-          if (!l) return <span className="text-muted-foreground">Chưa lên sàn</span>;
+          if (!l) return <Badge variant="info">Chưa lên sàn</Badge>;
           const live = onPlatform(l.status);
           const note =
             l.status === 'rejected'
@@ -774,7 +779,7 @@ export function ShopListingsPage() {
   return (
     <div>
       <PageHeader
-        title={shop ? `Ghép SKU · ${shop.shopName}` : 'Ghép SKU'}
+        title={shop ? `Sản phẩm trên sàn và giá · ${shop.shopName}` : 'Sản phẩm trên sàn và giá'}
         subtitle={
           shop
             ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
