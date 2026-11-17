@@ -260,10 +260,27 @@ export function settleDuePushes(shop: MockShop, now = Date.now()) {
       }
       continue;
     }
+    // Như BE (#305): chỉ tạo sản phẩm mới mới kiểm điều kiện đăng; đẩy lại không kiểm
+    if (l.pendingRemote && shop.precheckFail) {
+      Object.assign(l, {
+        status: 'push_failed',
+        pushQueuedAt: undefined,
+        pushAttempts: 1,
+        pushError: { code: shop.precheckFail, message: PRECHECK_MESSAGES[shop.precheckFail], at: db.now() },
+      });
+      l.version += 1;
+      continue;
+    }
     completePush(shop, l);
     l.version += 1;
   }
 }
+
+/** Câu sàn trả ở bước kiểm trước khi tạo; câu tiêu đề lấy theo lần gọi thật 17/11/2026 (channel/CLAUDE.md của BE) */
+const PRECHECK_MESSAGES = {
+  shop_not_eligible: 'Shop has not completed onboarding tasks required for product listing',
+  listing_check_failed: '12052051: product name must be between 25 and 255 characters',
+} as const;
 
 /** Sàn nhận một việc đẩy: ghi giá đã đẩy rồi chuyển trạng thái theo năng lực sàn */
 function completePush(shop: MockShop, l: MockListing) {
@@ -673,6 +690,36 @@ registerMarketplaceEvent({
     return `${shop.shopName}: sàn hoạt động lại${pending.length ? `, sàn nhận ${pending.length} sản phẩm đang đẩy` : ''}`;
   },
 });
+
+/** TikTok kiểm điều kiện đăng trước khi tạo sản phẩm (21 §18.6.4, commerio-backend#305) */
+for (const [type, code, label, description] of [
+  [
+    'shop.not_eligible',
+    'shop_not_eligible',
+    'Gian hàng chưa đủ điều kiện đăng (bật/tắt)',
+    'Bật: sản phẩm mới đẩy lên chuyển Lỗi đẩy vì gian hàng chưa đủ điều kiện, không tạo trên sàn. Đẩy lại SKU đã có trên sàn không bị kiểm.',
+  ],
+  [
+    'listing.check_failed',
+    'listing_check_failed',
+    'Sàn báo sản phẩm sai luật đăng (bật/tắt)',
+    'Bật: sản phẩm mới đẩy lên chuyển Lỗi đẩy vì Check Product Listing báo lỗi (tiêu đề ngắn), không tạo trên sàn.',
+  ],
+] as const) {
+  registerMarketplaceEvent({
+    type,
+    label,
+    description,
+    group: 'Sản phẩm trên sàn',
+    needsShop: true,
+    platforms: ['tiktok'],
+    run({ shop }) {
+      if (!shop) throw new Error('Chọn gian hàng');
+      shop.precheckFail = shop.precheckFail === code ? null : code;
+      return shop.precheckFail ? `${shop.shopName}: ${label.replace(' (bật/tắt)', '')}` : `${shop.shopName}: kiểm trước khi tạo đạt`;
+    },
+  });
+}
 
 registerMarketplaceEvent({
   type: 'listing.push_timeout',

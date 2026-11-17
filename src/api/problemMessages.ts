@@ -74,6 +74,11 @@ const MESSAGES: Record<string, string> = {
   images_missing: 'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đẩy lại.',
   // FE#261, commerio-backend#347: danh mục sàn bắt buộc bảng kích cỡ (quần áo, giày dép)
   size_chart_missing: 'Danh mục sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ trong trang sản phẩm rồi đẩy lại.',
+  // FE#266, Documents/21 §18.6.4 (commerio-backend#305): TikTok kiểm trước khi tạo sản phẩm
+  shop_not_eligible:
+    'Gian hàng chưa đủ điều kiện đăng sản phẩm trên sàn. Hoàn tất các mục sàn yêu cầu trên Seller Center rồi đẩy lại.',
+  listing_check_failed:
+    'Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.',
   already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
   // FE#9, chờ commerio-backend#24 và #23
   invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
