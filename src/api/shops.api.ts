@@ -41,6 +41,7 @@ import type {
   ShopSetupPreview,
   ShopSetupResult,
   ShopTokenInput,
+  ShopUpdateInput,
 } from '@/types/shop';
 
 export const shopKeys = {
@@ -151,6 +152,23 @@ export function useConnectShopByToken() {
       return data;
     },
     onSuccess: invalidate,
+  });
+}
+
+/** Sửa hạn trả hàng của gian hàng (§18.4, FE#273); trả Shop mới */
+export function useUpdateShop() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ShopUpdateInput & { id: string }) => {
+      const { data } = await apiClient.patch<Shop>(`/channel/shops/${id}`, input);
+      return data;
+    },
+    onSuccess: (shop) => {
+      qc.setQueryData(shopKeys.detail(companyId, shop.id), shop);
+      return invalidate();
+    },
   });
 }
 

@@ -41,6 +41,7 @@ import {
   canRedoStocktake,
   platformLabel,
   REMOTE_SKU_STATUS_LABELS,
+  returnDaysError,
   returnWindowNote,
   STOCKTAKE_STATUS_TEXT,
 } from './shopSchemas';
@@ -96,17 +97,10 @@ const SETUP_STATUS: Record<ShopSetupStepStatus, StatusMeta> = {
 
 const setupSchema = z.object({
   openingStock: z.enum(['push', 'stocktake']),
-  /** Chỉ kiểm khi sàn tính hạn trả theo số ngày (xem daysError) */
+  /** Chỉ kiểm khi sàn tính hạn trả theo số ngày (xem returnDaysError) */
   returnWindowDays: z.string(),
 });
 type SetupForm = z.infer<typeof setupSchema>;
-
-/** Số ngày đổi trả: số nguyên 1–60 (§18.6.2) */
-function daysError(value: string): string | null {
-  if (!value.trim()) return 'Nhập số ngày đổi trả';
-  const n = Number(value);
-  return /^\d+$/.test(value.trim()) && n >= 1 && n <= 60 ? null : 'Số ngày đổi trả là số nguyên từ 1 đến 60';
-}
 
 const OPENING: { value: OpeningStockMode; label: string; hint: string }[] = [
   {
@@ -184,7 +178,7 @@ export function ShopSetupPage() {
   const onSubmit = async (values: SetupForm) => {
     setError(null);
     setRowErrors({});
-    const badDays = needDays ? daysError(values.returnWindowDays) : null;
+    const badDays = needDays ? returnDaysError(values.returnWindowDays) : null;
     if (badDays) {
       form.setError('returnWindowDays', { message: badDays });
       return;

@@ -67,6 +67,13 @@ export function returnWindowNote(c: ShopCapabilities, platformName: string): str
   return `${platformName} tự khoá đổi trả khi đơn hoàn tất, nên không cần đặt số ngày đổi trả.`;
 }
 
+/** Số ngày đổi trả: số nguyên 1–60 (§18.6.2, §18.4) */
+export function returnDaysError(value: string): string | null {
+  if (!value.trim()) return 'Nhập số ngày đổi trả';
+  const n = Number(value);
+  return /^\d+$/.test(value.trim()) && n >= 1 && n <= 60 ? null : 'Số ngày đổi trả là số nguyên từ 1 đến 60';
+}
+
 /** Token sàn còn dùng được: gọi được API sàn để đồng bộ, ghép, đẩy */
 export const isUsable = shopUsable;
 

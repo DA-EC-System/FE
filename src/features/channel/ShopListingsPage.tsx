@@ -51,6 +51,7 @@ import { codeMessage, problemCode, problemMessage, remoteRefreshErrorMessage } f
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { OpeningStocktakeBanner } from './OpeningStocktakeBanner';
+import { ReturnWindowPanel } from './ReturnWindowPanel';
 import { priceText } from '@/utils/price';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -1115,6 +1116,7 @@ export function ShopListingsPage() {
         </AlertMessage>
       )}
       {shop && <OpeningStocktakeBanner shop={shop} companyId={companyId} />}
+      {shop && <ReturnWindowPanel shop={shop} />}
       {shop && usable && !can(PERMISSIONS.listingManage) && (
         <AlertMessage severity="info" className="mb-4">
           {can(PERMISSIONS.listingMatch)
