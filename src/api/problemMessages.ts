@@ -4,7 +4,9 @@
  * mã chưa có ở đây thì dùng `detail` như cũ.
  */
 
+import axios from 'axios';
 import { getErrorMessage, getProblem, notImplementedMessage, retryAfterSeconds } from './client';
+import type { RemoteSkusRefreshError } from '@/types/shop';
 
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
@@ -172,6 +174,42 @@ const MESSAGES: Record<string, string> = {
   platform_hold: 'Sàn đang khoá sản phẩm này.',
 };
 
+/**
+ * 409 `marketplace_rejected` sàn trả thiếu danh sách SKU. BE trước BE#361 trả lỗi này ngay trên POST Tải lại; BE#361
+ * chuyển vào `refresh.error` (xem remoteRefreshErrorMessage). Không có `Retry-After` thì lấy mốc khoá 10 phút của BE
+ */
+export const INCOMPLETE_LIST_CODES = ['incomplete_list', 'too_many_calls'];
+const REMOTE_SKUS_LOCK_MINUTES = 10;
+
+function incompleteListMessage(error: unknown): string {
+  const raw = axios.isAxiosError(error) ? Number(error.response?.headers?.['retry-after']) : NaN;
+  const minutes = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw / 60) : REMOTE_SKUS_LOCK_MINUTES;
+  return `Sàn trả thiếu danh sách SKU, thử lại sau ${minutes} phút.`;
+}
+
+/** Lỗi của lượt tải SKU sàn chạy nền (`refresh.error`, §18.3, BE#361) không có câu chung trong MESSAGES */
+const REFRESH_ERROR_MESSAGES: Record<string, string> = {
+  timed_out: 'Sàn trả danh sách SKU quá 10 phút nên lượt tải đã dừng.',
+  marketplace_unavailable: 'Sàn đang lỗi, chưa tải được danh sách SKU.',
+  marketplace_unauthorized: 'Sàn từ chối quyền truy cập của gian hàng. Kết nối lại gian hàng rồi tải lại.',
+};
+
+/**
+ * Câu báo lượt tải SKU sàn hỏng (§18.3, BE#361). `secondsLeft`: số giây còn lại tới lúc được tải lại, đếm ngược từ
+ * `error.retryAfterSeconds`; còn thì câu nêu số phút làm tròn lên, hết thì mời bấm Tải lại
+ */
+export function remoteRefreshErrorMessage(error: RemoteSkusRefreshError, secondsLeft: number | null): string {
+  const minutes = secondsLeft && secondsLeft > 0 ? Math.ceil(secondsLeft / 60) : null;
+  if (error.code === 'marketplace_rejected' && error.platformCode && INCOMPLETE_LIST_CODES.includes(error.platformCode)) {
+    return minutes
+      ? `Sàn trả thiếu danh sách SKU, thử lại sau ${minutes} phút.`
+      : 'Sàn trả thiếu danh sách SKU. Bấm Tải lại để thử lại.';
+  }
+  if (error.platformCode && CALL_LIMIT_CODES.includes(error.platformCode)) return MESSAGES.call_limit;
+  const base = REFRESH_ERROR_MESSAGES[error.code] ?? MESSAGES[error.code] ?? error.message;
+  return minutes ? `${base} Thử lại sau ${minutes} phút.` : `${base} Bấm Tải lại để thử lại.`;
+}
+
 /** 503 `marketplace_unavailable` vì hết hạn mức gọi sàn trong ngày (§18.6.8) */
 export const CALL_LIMIT_CODES = ['company_call_limit', 'daily_call_limit'];
 
@@ -278,7 +316,9 @@ export function problemMessage(error: unknown): string {
     : (problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined));
   if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   const message =
-    code === 'shop_awaiting_allocation'
+    code === 'marketplace_rejected' && problem?.platformCode && INCOMPLETE_LIST_CODES.includes(problem.platformCode)
+      ? incompleteListMessage(error)
+      : code === 'shop_awaiting_allocation'
       ? awaitingAllocationMessage(problem?.waitingFor)
       : code === 'opening_stocktake_open' && problem?.number
         ? `Phiếu ${problem.number} vẫn đang mở. Sửa hoặc duyệt phiếu này.`

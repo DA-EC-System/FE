@@ -314,10 +314,38 @@ export interface RemoteSku {
   pendingMapping: PendingMapping | null;
 }
 
-/** `GET remote-skus` và `POST remote-skus/refresh` (§18.6.5). `syncedAt`: lần đọc trọn gần nhất */
+/** Lỗi của lượt tải SKU sàn (§18.3, BE#361); `retryAfterSeconds`: số giây còn lại tới lúc được tải lại */
+export interface RemoteSkusRefreshError {
+  code: string;
+  platformCode: string | null;
+  message: string;
+  retryAfterSeconds: number | null;
+}
+
+/**
+ * Lượt tải SKU sàn gần nhất của gian hàng (§18.3, BE#361). Mỗi gian hàng mỗi lúc chỉ chạy một lượt; `startedAt` là định
+ * danh lượt
+ */
+export interface RemoteSkusRefresh {
+  status: 'running' | 'succeeded' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  error: RemoteSkusRefreshError | null;
+}
+
+/**
+ * `GET remote-skus` (§18.6.5). `syncedAt`: lần đọc trọn gần nhất; lần mở đầu chưa có bản sao thì `syncedAt: null`,
+ * `items: []` và `refresh.status = 'running'`. `refresh` null khi chưa từng chạy; BE trước BE#361 không gửi trường này
+ */
 export interface RemoteSkuList {
   syncedAt: string | null;
   items: RemoteSku[];
+  refresh?: RemoteSkusRefresh | null;
+}
+
+/** `POST remote-skus/refresh` (202 đang chạy, 200 lượt thành công trong 60 giây) và `GET remote-skus/refresh` */
+export interface RemoteSkusRefreshResult {
+  refresh: RemoteSkusRefresh | null;
 }
 
 /** `POST /channel/shops/:id/listings/match` (§18.6.5): ghép theo SKU sàn */

@@ -168,6 +168,11 @@ export function retryAfterSeconds(error: unknown): number | undefined {
   return Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : undefined;
 }
 
+/** Lời gọi hết thời gian chờ của axios (`timeout`), không có phản hồi từ BE */
+export function isTimeout(error: unknown): boolean {
+  return axios.isAxiosError(error) && !error.response && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT');
+}
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return 'Không kết nối được máy chủ. Kiểm tra mạng hoặc VITE_API_BASE_URL.';
