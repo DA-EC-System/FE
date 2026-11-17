@@ -4,7 +4,8 @@ import type { ChangePasswordRequest, LoginRequest, LoginResponse } from '@/types
 import { authApi } from '@/api/auth.api';
 import { refreshAccessToken } from '@/api/client';
 import { appPath } from '@/utils/env';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@/api/useMutation';
 
 export function useAuth() {
   const status = useAuthStore((s) => s.status);

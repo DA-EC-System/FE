@@ -3,7 +3,8 @@
  * ảnh (UC-CP-02). Hợp đồng theo commerio-backend#13, #14; BE lấy công ty từ token.
  */
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { shopKeys } from './shops.api';
 import { useAuthStore } from '@/stores/authStore';

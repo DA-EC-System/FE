@@ -5,7 +5,8 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type {

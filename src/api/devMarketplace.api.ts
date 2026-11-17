@@ -2,7 +2,8 @@
  * Sàn giả lập (FE#55): chỉ có với mock, BE không làm. Dùng để phát sự kiện của sàn khi trình bày.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type {

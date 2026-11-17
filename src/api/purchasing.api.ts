@@ -3,7 +3,8 @@
  * BE lấy công ty từ token; companyId chỉ nằm trong query key.
  */
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import type { PageResult } from './types';
 import { inventoryKeys } from './inventory.api';

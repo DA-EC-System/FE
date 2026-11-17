@@ -4,7 +4,8 @@
  */
 
 import axios from 'axios';
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { OrderSource } from '@/types/sales';

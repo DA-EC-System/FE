@@ -18,6 +18,19 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // FE#247: useMutation chặn bấm đúp ở src/api/useMutation.ts
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@tanstack/react-query',
+              importNames: ['useMutation'],
+              message: "Dùng useMutation của '@/api/useMutation' (chặn bấm đúp, FE#247).",
+            },
+          ],
+        },
+      ],
     },
   },
   {
