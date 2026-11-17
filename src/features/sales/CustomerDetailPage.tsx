@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomer, useOrders } from '@/api/sales.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
@@ -81,7 +81,7 @@ export function CustomerDetailPage() {
 
   if (query.isError) {
     // C4: không có hoặc của công ty khác đều là 404 (AC-K2, AC-R5)
-    const notFound = getProblem(query.error)?.status === 404;
+    const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
     return (
       <div>
         {back}

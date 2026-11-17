@@ -41,7 +41,9 @@ export function TaskList({ companyId }: { companyId: string }) {
         </div>
       ) : tasks.isError ? (
         <div className="p-4">
-          <AlertMessage severity="error">{problemMessage(tasks.error)}</AlertMessage>
+          <AlertMessage severity="error">
+            <span data-testid="task-list-error">Chưa tải được việc cần làm. {problemMessage(tasks.error)}</span>
+          </AlertMessage>
         </div>
       ) : items.length === 0 ? (
         <p className="px-4 py-6 text-sm text-muted-foreground">Không có việc nào tới hạn.</p>

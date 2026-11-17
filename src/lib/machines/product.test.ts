@@ -10,6 +10,7 @@ const counts = (over: Partial<Record<VariantMainLabel, number>>): Record<Variant
   discontinued: 0,
   paused: 0,
   live: 0,
+  error: 0,
   pending: 0,
   not_listed: 0,
   ...over,
@@ -45,10 +46,10 @@ describe('Trạng thái kinh doanh SKU (sơ đồ B1)', () => {
 });
 
 describe('Nhãn (sơ đồ B1)', () => {
-  it('nhãn chính: trạng thái kinh doanh đè hiện diện; Có lỗi chỉ là nhãn phụ', () => {
+  it('nhãn chính: trạng thái kinh doanh đè hiện diện; error là nhãn chính khi chưa live', () => {
     expect(mainLabel('paused', 'live')).toBe('paused');
     expect(mainLabel('selling', 'pending')).toBe('pending');
-    expect(mainLabel('selling', 'error')).toBe('live');
+    expect(mainLabel('selling', 'error')).toBe('error');
   });
 
   it('nhãn cha suy từ con, không tính SKU đã lưu trữ', () => {
@@ -56,5 +57,10 @@ describe('Nhãn (sơ đồ B1)', () => {
     expect(parentLabel(counts({ live: 2 }))).toEqual({ label: 'live', text: 'Đang bán' });
     expect(parentLabel(counts({ not_listed: 1, discontinued: 2 }))).toEqual({ label: 'discontinued', text: 'Ngừng nhập 2/3' });
     expect(parentLabel(counts({ archived: 3 }))).toEqual({ label: 'archived', text: 'Lưu trữ' });
+  });
+
+  it('FE#260: SKU có lỗi tính vào đang bán của cha; không SKU nào live thì nhãn nhiều nhất', () => {
+    expect(parentLabel(counts({ live: 1, error: 1 }))).toEqual({ label: 'live', text: 'Đang bán 1/2' });
+    expect(parentLabel(counts({ error: 2, not_listed: 1 })).label).toBe('error');
   });
 });

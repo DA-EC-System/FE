@@ -20,6 +20,8 @@ const MESSAGES: Record<string, string> = {
   already_matched: 'Khoản tiền đã được khớp sao kê.',
   not_bank_matchable: 'Chỉ khớp khoản rút tiền, nhà cung cấp hoàn tiền hoặc bồi thường thực tế.',
   not_found: 'Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.',
+  // FE#248: BE chưa có route này (404 not_found, detail "Không có đường dẫn ..."), không phải bản ghi bị xoá
+  route_missing: 'Chức năng này chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.',
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   version_conflict: 'Dữ liệu vừa được người khác sửa. Chưa có gì thay đổi.',
   // docs/21 I3
@@ -47,7 +49,8 @@ const MESSAGES: Record<string, string> = {
   // FE#57, sơ đồ Sản phẩm B1
   archive_blocked: 'Chưa lưu trữ được: SKU còn tồn, hàng đang về, hàng chờ xử lý hoặc chứng từ mở.',
   variant_archived: 'Tổ hợp này là biến thể đã lưu trữ. Dùng Khôi phục để bán lại với SKU cũ.',
-  product_archived: 'Sản phẩm đã lưu trữ nên không sửa được.',
+  // Documents/21 §17.4: SKU còn listing chưa gỡ thì không xoá trống trường bắt buộc chung
+  listing_field_required: 'SKU đang có trên sàn nên không để trống được giá muốn bán, cân nặng, kích thước hoặc ảnh. Gỡ khỏi sàn trước nếu muốn xoá.',
   file_type_not_allowed: 'Kiểu tệp không được nhận (ảnh sản phẩm chỉ JPG hoặc PNG).',
   file_too_large: 'Tệp quá cỡ cho phép (ảnh sản phẩm tối đa 1 MB).',
   // FE#8, chờ commerio-backend#19
@@ -74,6 +77,11 @@ const MESSAGES: Record<string, string> = {
   images_missing: 'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đẩy lại.',
   // FE#261, commerio-backend#347: danh mục sàn bắt buộc bảng kích cỡ (quần áo, giày dép)
   size_chart_missing: 'Danh mục sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ trong trang sản phẩm rồi đẩy lại.',
+  // FE#266, Documents/21 §18.6.4 (commerio-backend#305): TikTok kiểm trước khi tạo sản phẩm
+  shop_not_eligible:
+    'Gian hàng chưa đủ điều kiện đăng sản phẩm trên sàn. Hoàn tất các mục sàn yêu cầu trên Seller Center rồi đẩy lại.',
+  listing_check_failed:
+    'Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.',
   already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
   // FE#264, Documents/21 §18.3 (commerio-backend#360)
   below_floor: 'Giá trên sàn thấp hơn giá thấp nhất. Đẩy lại giá Commerio hoặc gỡ khỏi sàn.',
@@ -237,6 +245,23 @@ export function problemCode(error: unknown): string | undefined {
   return getProblem(error)?.code;
 }
 
+/** Câu BE ghi khi không có route (`error-handler.ts` của BE: 404 not_found) */
+const ROUTE_MISSING_PREFIX = 'Không có đường dẫn ';
+
+/**
+ * 404 vì BE chưa có route (chức năng chưa mở), khác 404 bản ghi không có hay thuộc công ty khác (FE#248).
+ * BE trả cùng mã `not_found`, chỉ khác `detail`.
+ */
+export function isRouteMissing(error: unknown): boolean {
+  const problem = getProblem(error);
+  return (
+    problem?.status === 404 &&
+    (problem.code === undefined || problem.code === 'not_found') &&
+    typeof problem.detail === 'string' &&
+    problem.detail.startsWith(ROUTE_MISSING_PREFIX)
+  );
+}
+
 /** 429 `remote_skus_retry_later`: đổi `Retry-After` (giây) ra phút, làm tròn lên */
 function retryLaterMessage(error: unknown): string {
   const seconds = retryAfterSeconds(error);
@@ -248,7 +273,9 @@ function retryLaterMessage(error: unknown): string {
 export function problemMessage(error: unknown): string {
   const problem = getProblem(error);
   if (problem?.code === 'remote_skus_retry_later') return retryLaterMessage(error);
-  const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
+  const code = isRouteMissing(error)
+    ? 'route_missing'
+    : (problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined));
   if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   const message =
     code === 'shop_awaiting_allocation'

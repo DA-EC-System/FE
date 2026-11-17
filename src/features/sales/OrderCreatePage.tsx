@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateOrder, useCustomer, useCustomers, useOrderVariants } from '@/api/sales.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
@@ -218,7 +218,7 @@ export function OrderCreatePage() {
       navigate(ROUTES.company.order(companyId, order.id));
     } catch (e) {
       const problem = getProblem(e);
-      if (problem?.status === 404) {
+      if (problem?.status === 404 && !isRouteMissing(e)) {
         // Khách đã chọn không còn (AC-T5)
         clearCustomer();
         setError('customerId', { message: 'Không tìm thấy khách hàng. Chọn khách khác.' });

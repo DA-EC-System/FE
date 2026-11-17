@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   BadgeCheck,
+  Check,
   CloudOff,
   ImageIcon,
   Link2,
@@ -14,10 +15,12 @@ import {
   RefreshCw,
   RotateCcw,
   Upload,
+  X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
@@ -29,6 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
+  useDecideMapping,
   useDelistListing,
   useMatchListing,
   usePushListings,
@@ -50,7 +54,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
-import type { ListingRow, ListingStatus, OutsideChangeAction, RemoteSku } from '@/types/shop';
+import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
 import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
@@ -61,6 +65,7 @@ import {
   listingStatusHint,
   outsideChangeHint,
   outsideChangeLabel,
+  pushErrorText,
   REPUSH_STATUSES,
   splitPushResults,
 } from './listingPush';
@@ -78,11 +83,22 @@ import { useStartConnect } from './useStartConnect';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** Tab của bảng theo Test_UI `v-listing` */
-type ListingTab = 'all' | 'unmatched' | 'not_listed' | 'stale' | 'failed' | 'held';
+type ListingTab = 'all' | 'unmatched' | 'pending' | 'not_listed' | 'stale' | 'failed' | 'held';
+
+/** Hộp CEO duyệt hoặc từ chối ghép chờ đang mở (§18.6.5) */
+interface Deciding {
+  action: MappingDecision;
+  listingId: string;
+  version: number;
+  /** SKU sàn hiện trong câu thông báo */
+  label: string;
+  /** Biến thể xin ghép, hoặc "Không quản tồn" */
+  target: string;
+}
 
 /** Lỗi đẩy của một biến thể; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
 /** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */
-const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing']);
+const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing', 'listing_check_failed']);
 
 function EditProductLink({ companyId, productId }: { companyId: string; productId: string }) {
   const navigate = useNavigate();
@@ -115,6 +131,7 @@ interface PushError {
 const LISTING_TABS: { value: ListingTab; label: string }[] = [
   { value: 'all', label: 'Tất cả' },
   { value: 'unmatched', label: 'Chưa ghép' },
+  { value: 'pending', label: 'Chờ duyệt' },
   { value: 'not_listed', label: 'Chưa lên sàn' },
   { value: 'stale', label: 'Giá chưa đẩy' },
   { value: 'failed', label: 'Đẩy lỗi' },
@@ -137,6 +154,7 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
     case 'all':
       return true;
     case 'unmatched':
+    case 'pending':
       return false;
     case 'not_listed':
       return !status || status === 'delisted';
@@ -181,6 +199,8 @@ export function ShopListingsPage() {
   const canEditProduct = can(PERMISSIONS.productManage);
   /** Quyết thay đổi ngoài app: `listing.manage` + vai trò CEO (§18.3, commerio-backend#360) */
   const canDecideOutside = canManage && Boolean(companyContext?.roles.includes('CEO'));
+  /** Duyệt ghép chờ cần quyền đẩy listing và vai trò CEO (§18.6.5); FE dựa `canSelfApprove` của BE */
+  const canDecide = can(PERMISSIONS.listingManage) && Boolean(companyContext?.canSelfApprove) && usable;
   const canReconnect =
     can(PERMISSIONS.shopConnect) && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected');
 
@@ -205,6 +225,7 @@ export function ShopListingsPage() {
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
   const outsideMut = useResolveOutsideChange();
+  const decideMut = useDecideMapping();
   const syncMut = useSyncListings();
   const listingReview = shop?.capabilities.listingReview ?? false;
   const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
@@ -213,13 +234,15 @@ export function ShopListingsPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ListingTab>('all');
   const [delisting, setDelisting] = useState<ListingRow | null>(null);
-  const [deciding, setDeciding] = useState<{ row: ListingRow; action: OutsideChangeAction } | null>(null);
+  const [decidingOutside, setDecidingOutside] = useState<{ row: ListingRow; action: OutsideChangeAction } | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [matching, setMatching] = useState<Matching | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [pushing, setPushing] = useState<ListingRow[] | null>(null);
+  const [deciding, setDeciding] = useState<Deciding | null>(null);
+  const [decideError, setDecideError] = useState<string | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
   const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
   /** Danh mục Commerio đang mở hộp ghép danh mục sàn (FE#146) */
@@ -230,6 +253,8 @@ export function ShopListingsPage() {
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const remoteSkus = useMemo(() => remoteQuery.data?.items ?? [], [remoteQuery.data]);
   const unmatchedRemote = useMemo(() => remoteSkus.filter((r) => !r.matchedVariantId && !r.mode), [remoteSkus]);
+  /** SKU sàn có ghép chờ CEO duyệt: `remote-skus` có cả dòng chỉ chờ "không quản tồn" mà `listings` không có */
+  const pendingRemote = useMemo(() => remoteSkus.filter((r) => r.pendingMapping), [remoteSkus]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -245,24 +270,91 @@ export function ShopListingsPage() {
 
   const remoteRows = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const source = tab === 'pending' ? pendingRemote : unmatchedRemote;
     return q
-      ? unmatchedRemote.filter(
+      ? source.filter(
           (r) =>
             r.title.toLowerCase().includes(q) ||
             r.externalSkuId.toLowerCase().includes(q) ||
             r.sellerSku?.toLowerCase().includes(q),
         )
-      : unmatchedRemote;
-  }, [unmatchedRemote, search]);
+      : source;
+  }, [unmatchedRemote, pendingRemote, search, tab]);
 
-  /** Số dòng mỗi tab, không tính ô tìm kiếm */
+  /** Số dòng mỗi tab, không tính ô tìm kiếm. Chưa tải được SKU sàn thì "Chờ duyệt" đếm theo biến thể */
   const tabCounts = useMemo(() => {
     const counts = {} as Record<ListingTab, number>;
     for (const t of LISTING_TABS) {
-      counts[t.value] = t.value === 'unmatched' ? unmatchedRemote.length : items.filter((r) => inTab(t.value, r)).length;
+      counts[t.value] =
+        t.value === 'unmatched'
+          ? unmatchedRemote.length
+          : t.value === 'pending'
+            ? remoteQuery.data
+              ? pendingRemote.length
+              : items.filter((r) => r.listing?.pendingMapping).length
+            : items.filter((r) => inTab(t.value, r)).length;
     }
     return counts;
-  }, [items, unmatchedRemote]);
+  }, [items, unmatchedRemote, pendingRemote, remoteQuery.data]);
+
+  /** Đích của ghép chờ: SKU biến thể xin ghép, hoặc "Không quản tồn" */
+  const pendingTarget = (p: PendingMapping) =>
+    p.variantId ? (items.find((r) => r.variantId === p.variantId)?.sku ?? 'biến thể khác') : 'Không quản tồn';
+
+  const reloadMatching = () => void Promise.all([listingsQuery.refetch(), remoteQuery.refetch()]);
+
+  const openDecide = (action: MappingDecision, listingId: string, version: number, label: string, p: PendingMapping) => {
+    setDecideError(null);
+    setDeciding({ action, listingId, version, label, target: pendingTarget(p) });
+  };
+
+  /** UC-CH-02: CEO duyệt hoặc từ chối ghép chờ; xung đột phiên bản hay yêu cầu đã xử lý thì nạp lại */
+  const decide = async (reason?: string) => {
+    if (!deciding) return;
+    const { action, listingId, version, label } = deciding;
+    try {
+      await decideMut.mutateAsync({ shopId, listingId, action, version, reason });
+      setDeciding(null);
+      toast.success(
+        action === 'approve'
+          ? `Đã duyệt ghép SKU sàn ${label}`
+          : `Đã từ chối ghép SKU sàn ${label}. Ghép cũ giữ nguyên.`,
+      );
+      reloadMatching();
+    } catch (e) {
+      const problem = getProblem(e);
+      if (problem?.errors?.reason) {
+        setDecideError(problem.errors.reason);
+      } else if (problem?.code === 'version_conflict') {
+        setDeciding(null);
+        toast.warning(`Ghép SKU sàn ${label} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        reloadMatching();
+      } else if (problem?.code === 'invalid_transition') {
+        setDeciding(null);
+        toast.info(`Yêu cầu ghép SKU sàn ${label} đã được xử lý hoặc không còn. Đã nạp lại dữ liệu.`);
+        reloadMatching();
+      } else if (action === 'reject') {
+        setDecideError(problemMessage(e));
+      } else {
+        setDeciding(null);
+        toast.error(problem?.errors?.variantId ?? problemMessage(e));
+        reloadMatching();
+      }
+    }
+  };
+
+  /** Nút Duyệt, Từ chối của CEO trên dòng có ghép chờ */
+  const decideActions = (listingId: string | null, version: number | null, label: string, p: PendingMapping | null) =>
+    canDecide && p && listingId && version !== null ? (
+      <>
+        <RowAction label="Duyệt ghép" onClick={() => openDecide('approve', listingId, version, label, p)}>
+          <Check />
+        </RowAction>
+        <RowAction label="Từ chối ghép" destructive onClick={() => openDecide('reject', listingId, version, label, p)}>
+          <X />
+        </RowAction>
+      </>
+    ) : null;
 
   const changeTab = (v: string) => {
     setTab(v as ListingTab);
@@ -405,9 +497,9 @@ export function ShopListingsPage() {
   };
 
   const handleOutside = async () => {
-    const l = deciding?.row.listing;
-    if (!deciding || !l) return;
-    const { row, action } = deciding;
+    const l = decidingOutside?.row.listing;
+    if (!decidingOutside || !l) return;
+    const { row, action } = decidingOutside;
     try {
       const saved = await outsideMut.mutateAsync({ shopId, listingId: l.id, action, version: l.version });
       const done = action === 'restore' ? `Đã đẩy lại giá Commerio cho ${row.sku}` : `Đã nhận giá trên sàn cho ${row.sku}`;
@@ -420,7 +512,7 @@ export function ShopListingsPage() {
         toast.error(problemMessage(e));
       }
     }
-    setDeciding(null);
+    setDecidingOutside(null);
   };
 
   /** Biến thể chưa có SKU sàn sẽ được tạo mới: hỏi trước (ngoại lệ 7a) */
@@ -627,8 +719,8 @@ export function ShopListingsPage() {
               ? l.rejectReason
               : (l.status === 'push_failed' || l.status === 'pushing') && l.pushError
                 ? l.status === 'pushing'
-                  ? `Đang thử lại (${l.pushAttempts} lần): ${l.pushError.message}`
-                  : l.pushError.message
+                  ? `Đang thử lại (${l.pushAttempts} lần): ${pushErrorText(l.pushError)}`
+                  : pushErrorText(l.pushError)
                 : null;
           return (
             <div className="grid justify-items-start gap-1">
@@ -647,6 +739,9 @@ export function ShopListingsPage() {
                   {listingStatusHint(l, listingReview)}
                 </TooltipContent>
               </Tooltip>
+              {l.pendingMapping && (
+                <PendingBadge id={`pending-${r.variantId}`} pending={l.pendingMapping} target={pendingTarget(l.pendingMapping)} />
+              )}
               {note && (
                 <span
                   className={l.status === 'hidden' ? 'text-xs text-muted-foreground' : 'text-xs text-destructive'}
@@ -741,7 +836,7 @@ export function ShopListingsPage() {
         },
       },
     );
-    if (canManage || canMatch) {
+    if (canManage || canMatch || canDecide) {
       cols.push({
         id: 'actions',
         header: '',
@@ -757,6 +852,8 @@ export function ShopListingsPage() {
                 : null;
           return (
             <div className="flex justify-end gap-1" data-guide={canMatch ? 'listings-match' : undefined}>
+              {r.listing &&
+                decideActions(r.listing.id, r.listing.version, r.listing.sellerSku || r.sku, r.listing.pendingMapping)}
               {canMatch && (
                 <RowAction
                   label={r.listing ? 'Đổi ghép' : 'Ghép'}
@@ -788,7 +885,7 @@ export function ShopListingsPage() {
                   <RowAction
                     label="Bật lại, đẩy giá Commerio"
                     reason={outsideMut.isPending ? 'Đang gửi...' : null}
-                    onClick={() => setDeciding({ row: r, action: 'restore' })}
+                    onClick={() => setDecidingOutside({ row: r, action: 'restore' })}
                   >
                     <Power />
                   </RowAction>
@@ -796,7 +893,7 @@ export function ShopListingsPage() {
                     <RowAction
                       label="Nhận giá trên sàn"
                       reason={outsideMut.isPending ? 'Đang gửi...' : null}
-                      onClick={() => setDeciding({ row: r, action: 'accept-price' })}
+                      onClick={() => setDecidingOutside({ row: r, action: 'accept-price' })}
                     >
                       <BadgeCheck />
                     </RowAction>
@@ -815,7 +912,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecideOutside, outsideMut.isPending, companyId, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, companyId, items, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -827,31 +924,61 @@ export function ShopListingsPage() {
         cell: ({ row }) => row.original.sellerSku || <span className="text-muted-foreground">—</span>,
       },
       { accessorKey: 'externalSkuId', header: 'Mã SKU sàn', meta: { className: 'w-44 font-mono text-xs' } },
-      ...(canMatch
+      {
+        id: 'pending',
+        header: 'Trạng thái',
+        meta: { className: 'min-w-40' },
+        cell: ({ row }) => {
+          const r = row.original;
+          const current = r.matchedVariantId
+            ? `Đang ghép ${items.find((x) => x.variantId === r.matchedVariantId)?.sku ?? 'biến thể khác'}`
+            : r.mode === 'unmanaged'
+              ? 'Đang không quản tồn'
+              : 'Chưa ghép';
+          return (
+            <div className="grid justify-items-start gap-1">
+              {r.pendingMapping && (
+                <PendingBadge
+                  id={`pending-remote-${r.externalSkuId}`}
+                  pending={r.pendingMapping}
+                  target={pendingTarget(r.pendingMapping)}
+                />
+              )}
+              <span className="text-xs text-muted-foreground" data-testid="remote-current">
+                {current}
+              </span>
+            </div>
+          );
+        },
+      },
+      ...(canMatch || canDecide
         ? [
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-16 text-right' },
+              meta: { className: 'w-28 text-right' },
               cell: ({ row }: { row: { original: RemoteSku } }) => {
                 const r = row.original;
                 return (
-                  <div className="flex justify-end">
-                    <RowAction
-                      label="Ghép với biến thể"
-                      reason={r.pendingMapping ? 'Đang chờ CEO duyệt ghép' : null}
-                      onClick={() =>
-                        openMatch({
-                          from: 'remote',
-                          externalSkuId: r.externalSkuId,
-                          title: r.title,
-                          sellerSku: r.sellerSku,
-                          current: null,
-                        })
-                      }
-                    >
-                      <Link2 />
-                    </RowAction>
+                  <div className="flex justify-end gap-1">
+                    {decideActions(r.listingId, r.listingVersion, r.sellerSku || r.externalSkuId, r.pendingMapping)}
+                    {canMatch && !r.matchedVariantId && !r.mode && (
+                      <RowAction
+                        label="Ghép với biến thể"
+                        reason={r.pendingMapping ? 'Đang chờ CEO duyệt ghép' : null}
+                        onClick={() =>
+                          openMatch({
+                            from: 'remote',
+                            externalSkuId: r.externalSkuId,
+                            title: r.title,
+                            sellerSku: r.sellerSku,
+                            current: null,
+                          })
+                        }
+                      >
+                        <Link2 />
+                      </RowAction>
+                    )}
                   </div>
                 );
               },
@@ -859,7 +986,8 @@ export function ShopListingsPage() {
           ]
         : []),
     ],
-    [canMatch],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canMatch, canDecide, items],
   );
 
   const backToList = () => navigate(ROUTES.company.shops(companyId));
@@ -984,11 +1112,15 @@ export function ShopListingsPage() {
             Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
           </p>
         </FilterBar>
-        {tab === 'unmatched' ? (
+        {tab === 'unmatched' || tab === 'pending' ? (
           <div data-testid="remote-section">
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pb-3">
               <p className="max-w-prose text-sm text-muted-foreground" data-testid="remote-synced">
-                SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio.
+                {tab === 'pending'
+                  ? canDecide
+                    ? 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Duyệt thì ghép mới có hiệu lực; từ chối thì ghép cũ giữ nguyên.'
+                    : 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Trong lúc chờ, ghép cũ giữ nguyên.'
+                  : 'SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio.'}
                 {remoteQuery.data?.syncedAt && (
                   <> Danh sách tải lúc {formatDateTime(remoteQuery.data.syncedAt)}; vừa thêm SKU trên sàn thì bấm Tải lại.</>
                 )}
@@ -1017,7 +1149,13 @@ export function ShopListingsPage() {
                 getRowId={(r) => r.externalSkuId}
                 loading={remoteQuery.isLoading}
                 fetching={remoteQuery.isFetching}
-                empty={searching ? 'Không có SKU sàn khớp ô tìm kiếm' : 'Mọi SKU trên sàn đã được ghép'}
+                empty={
+                  searching
+                    ? 'Không có SKU sàn khớp ô tìm kiếm'
+                    : tab === 'pending'
+                      ? 'Không có yêu cầu ghép nào chờ duyệt'
+                      : 'Mọi SKU trên sàn đã được ghép'
+                }
               />
             )}
           </div>
@@ -1099,25 +1237,25 @@ export function ShopListingsPage() {
         onClose={() => setDelisting(null)}
       />
       <ConfirmDialog
-        open={Boolean(deciding)}
-        title={deciding?.action === 'accept-price' ? 'Nhận giá trên sàn?' : 'Bật lại trên sàn?'}
+        open={Boolean(decidingOutside)}
+        title={decidingOutside?.action === 'accept-price' ? 'Nhận giá trên sàn?' : 'Bật lại trên sàn?'}
         message={
-          deciding?.action === 'accept-price' ? (
+          decidingOutside?.action === 'accept-price' ? (
             <>
-              Lấy giá <strong>{priceText(deciding.row.listing?.outsideChange?.platformPrice)}</strong> đang có trên sàn làm
-              giá riêng của <strong>{deciding.row.sku}</strong> ở {shop?.shopName}, rồi bật lại SKU.
+              Lấy giá <strong>{priceText(decidingOutside.row.listing?.outsideChange?.platformPrice)}</strong> đang có trên sàn làm
+              giá riêng của <strong>{decidingOutside.row.sku}</strong> ở {shop?.shopName}, rồi bật lại SKU.
             </>
           ) : (
             <>
-              Đẩy lại giá Commerio <strong>{priceText(deciding?.row.price)}</strong> và bật lại{' '}
-              <strong>{deciding?.row.sku}</strong> trên {shop?.shopName}.
+              Đẩy lại giá Commerio <strong>{priceText(decidingOutside?.row.price)}</strong> và bật lại{' '}
+              <strong>{decidingOutside?.row.sku}</strong> trên {shop?.shopName}.
             </>
           )
         }
-        confirmLabel={deciding?.action === 'accept-price' ? 'Nhận giá trên sàn' : 'Bật lại'}
+        confirmLabel={decidingOutside?.action === 'accept-price' ? 'Nhận giá trên sàn' : 'Bật lại'}
         loading={outsideMut.isPending}
         onConfirm={handleOutside}
-        onClose={() => setDeciding(null)}
+        onClose={() => setDecidingOutside(null)}
       />
       <ConfirmDialog
         open={Boolean(pushing)}
@@ -1133,7 +1271,54 @@ export function ShopListingsPage() {
         onConfirm={() => pushing && push(pushing)}
         onClose={() => setPushing(null)}
       />
+      <ConfirmDialog
+        open={deciding?.action === 'approve'}
+        title="Duyệt ghép SKU sàn?"
+        message={
+          <>
+            Ghép SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>. Đơn mới của SKU
+            này trừ tồn theo ghép mới; đơn đã nhận giữ ghép cũ.
+          </>
+        }
+        confirmLabel="Duyệt ghép"
+        loading={decideMut.isPending}
+        onConfirm={() => void decide()}
+        onClose={() => setDeciding(null)}
+      />
+      <ReasonDialog
+        open={deciding?.action === 'reject'}
+        title="Từ chối ghép SKU sàn?"
+        message={
+          <>
+            Từ chối yêu cầu ghép SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>.
+            Ghép cũ giữ nguyên; người xin ghép thấy lý do trong nhật ký.
+          </>
+        }
+        label="Lý do từ chối"
+        confirmLabel="Từ chối ghép"
+        destructive
+        loading={decideMut.isPending}
+        error={decideError}
+        onConfirm={(reason) => void decide(reason)}
+        onClose={() => setDeciding(null)}
+      />
     </div>
+  );
+}
+
+/** Nhãn "Chờ CEO duyệt" của ghép chờ (§18.6.5): tooltip nêu người xin, lúc xin và đích ghép */
+function PendingBadge({ id, pending, target }: { id: string; pending: PendingMapping; target: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="warning" data-testid="pending-mapping" tabIndex={0} aria-describedby={id}>
+          Chờ CEO duyệt
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent id={id} className="max-w-64" data-testid="pending-mapping-hint">
+        {pending.requestedBy.name} xin ghép với {target} · {formatDateTime(pending.requestedAt)}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

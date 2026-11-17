@@ -1,4 +1,5 @@
-import type { ChannelListing, ListingRow, ListingStatus, OutsideChange, PushResult } from '@/types/shop';
+import { codeMessage } from '@/api/problemMessages';
+import type { ChannelListing, ListingRow, ListingStatus, OutsideChange, PushResult, SyncError } from '@/types/shop';
 import { priceText } from '@/utils/price';
 
 /** Còn dòng đang đẩy thì đọc lại mỗi 5 giây, tối đa 30 phút (§18.6.4) */
@@ -67,4 +68,17 @@ export function outsideChangeHint(oc: OutsideChange): string {
   return oc.kind === 'disabled'
     ? 'SKU bị tắt trên sàn, ngoài Commerio. Kiểm tra trên Seller Center của sàn. Commerio thôi đẩy tồn cho tới khi CEO bật lại hoặc gỡ khỏi sàn.'
     : 'Giá gốc trên sàn khác giá Commerio đẩy lần trước nên Commerio tạm ẩn SKU. CEO chọn đẩy lại giá Commerio hoặc nhận giá trên sàn. Giá khuyến mãi của sàn không tính.';
+}
+
+/** Mã lỗi đẩy BE ghi riêng, `message` là câu gốc của sàn (§18.6.4, commerio-backend#305) */
+const PRECHECK_CODES = new Set(['shop_not_eligible', 'listing_check_failed']);
+
+/**
+ * Câu hiện cho lỗi đẩy của listing. Mã kiểm trước khi tạo sản phẩm của TikTok: câu tiếng Việt kèm câu gốc của sàn;
+ * mã khác giữ `message` BE trả
+ */
+export function pushErrorText(e: SyncError): string {
+  if (!PRECHECK_CODES.has(e.code)) return e.message;
+  const vi = codeMessage(e.code);
+  return e.message ? `${vi} Sàn báo: ${e.message}` : vi;
 }

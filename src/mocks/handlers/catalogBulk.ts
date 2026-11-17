@@ -10,7 +10,7 @@ import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow, BulkSuggestio
 import type { PageResult } from '@/api/types';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
-import { companyProducts, variantAttributes } from './catalog';
+import { companyProducts, listingsOf, variantAttributes } from './catalog';
 
 // ---------- Sửa hàng loạt SKU (FE#155). Hợp đồng đề xuất cho BE#242, chờ ghi vào Documents/21 §17 ----------
 
@@ -214,6 +214,17 @@ export const catalogBulkHandlers = [
       if (Object.keys(errors).length) {
         fail('validation_failed', 'Có ô chưa hợp lệ', errors);
         continue;
+      }
+      // §17.4: SKU còn listing chưa gỡ thì không xoá trống cân nặng, kích thước đang có giá trị
+      if (listingsOf(companyId, row.variantId).length) {
+        const required: Partial<Record<BulkField, string>> = {};
+        for (const f of SPEC_FIELDS) {
+          if (row[f] === null && spec[f] !== null) required[f] = 'SKU đang có trên sàn nên không để trống được';
+        }
+        if (Object.keys(required).length) {
+          fail('listing_field_required', 'SKU đang có trên sàn nên không để trống được', required);
+          continue;
+        }
       }
       const rule = ruleFor(companyId, row.variantId);
       if (row.minQty !== undefined && (rule?.version ?? null) !== (row.reorderVersion ?? null)) {

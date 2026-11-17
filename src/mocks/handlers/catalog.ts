@@ -16,7 +16,7 @@ import type { PageResult } from '@/api/types';
 import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { delistVariant, setListingsHidden } from './channel';
-import { onPlatform, presenceFrom } from '@/lib/machines/channel';
+import { isListingError, onPlatform, presenceFrom } from '@/lib/machines/channel';
 
 // ---------- Catalog (UC-CP-01, UC-CP-02) và ảnh qua module files ----------
 export const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -115,14 +115,29 @@ const standardList = (companyId: string) =>
 const reorderOf = (companyId: string, variantId: string) =>
   inventory.reorderRules.find((r) => r.companyId === companyId && r.variantId === variantId);
 
-/** §17.1: cha thiếu tên, danh mục, ảnh thì mọi SKU con Chờ hoàn thiện; giá, ngưỡng tồn, khối lượng, kích thước tính theo SKU */
+/** Giá muốn bán của SKU (D7); dữ liệu mẫu chưa có thì lấy giá chuẩn đang đặt làm số khởi đầu */
+export function targetOf(p: MockProduct, v: MockVariant): number | null {
+  const spec = specOf(v.id);
+  if (spec.targetNetPrice === undefined) spec.targetNetPrice = standardList(p.companyId)?.prices[v.id] ?? null;
+  return spec.targetNetPrice;
+}
+
+/** Mã cha (Documents/21 §17.1): SKU đầu tiên bỏ phần mã giá trị thuộc tính; SKU không thuộc tính thì trùng SKU */
+export function productCode(p: MockProduct): string {
+  const first = p.variants[0];
+  if (!first) return '';
+  const codes = new Set(first.valueIds.map((id) => findValue(p.companyId, id)?.value.code).filter(Boolean));
+  return first.sku.split('-').filter((seg) => !codes.has(seg)).join('-');
+}
+
+/** §17.1: cha thiếu tên, danh mục, ảnh thì mọi SKU con Chờ hoàn thiện; giá muốn bán, ngưỡng tồn, cân nặng, kích thước tính theo SKU */
 function missingOf(p: MockProduct, v: MockVariant): VariantMissing[] {
   const spec = specOf(v.id);
   const checks: [VariantMissing, boolean][] = [
     ['name', !p.name.trim()],
     ['category', !p.categoryId],
     ['image', !p.imageFileIds.length],
-    ['price', standardList(p.companyId)?.prices[v.id] === undefined],
+    ['price', targetOf(p, v) === null],
     ['minQty', !reorderOf(p.companyId, v.id)],
     ['weight', spec.weightG === null],
     ['dimensions', spec.lengthMm === null || spec.widthMm === null || spec.heightMm === null],
@@ -131,7 +146,7 @@ function missingOf(p: MockProduct, v: MockVariant): VariantMissing[] {
 }
 
 /** Listing còn trên sàn của SKU (bỏ listing đã gỡ) */
-const listingsOf = (companyId: string, variantId: string) =>
+export const listingsOf = (companyId: string, variantId: string) =>
   channel.listings.filter((l) => l.companyId === companyId && l.variantId === variantId && onPlatform(l.status));
 
 /** Hiện diện trên sàn suy từ trạng thái listing (sơ đồ C2) */
@@ -145,6 +160,7 @@ export const toVariant = (p: MockProduct, v: MockVariant): ProductVariant => {
   return {
     id: v.id,
     standardPrice: standardList(p.companyId)?.prices[v.id] ?? null,
+    targetNetPrice: targetOf(p, v),
     minQty: reorderOf(p.companyId, v.id)?.minQty ?? null,
     weightG: spec.weightG,
     lengthMm: spec.lengthMm,
@@ -158,6 +174,7 @@ export const toVariant = (p: MockProduct, v: MockVariant): ProductVariant => {
     readiness: missing.length ? 'incomplete' : 'ready',
     missing,
     presence: presenceOf(p.companyId, v.id),
+    hasListingError: listingsOf(p.companyId, v.id).some((l) => isListingError(l.status)),
     listingCount: listingsOf(p.companyId, v.id).length,
     archiveBlockers: v.businessStatus === 'archived' ? [] : archiveBlockers(p.companyId, v.id),
   };
@@ -187,18 +204,21 @@ export function fileUrl(id: string) {
 export function toProductItem(p: MockProduct): ProductListItem {
   const category = catalog.categories.find((c) => c.id === p.categoryId);
   const variants = p.variants.map((v) => toVariant(p, v));
-  const labelCounts: Record<VariantMainLabel, number> = { archived: 0, discontinued: 0, paused: 0, live: 0, pending: 0, not_listed: 0 };
+  const labelCounts: Record<VariantMainLabel, number> = {
+    archived: 0, discontinued: 0, paused: 0, live: 0, error: 0, pending: 0, not_listed: 0,
+  };
   for (const v of variants) labelCounts[mainLabel(v.businessStatus, v.presence)] += 1;
   const current = variants.filter((v) => v.businessStatus !== 'archived');
   return {
     id: p.id,
+    code: productCode(p),
     name: p.name,
     category: { id: p.categoryId, name: category?.name ?? '' },
     variantCount: current.length,
     variantTotal: variants.length,
     labelCounts,
     incompleteCount: current.filter((v) => v.readiness === 'incomplete').length,
-    errorCount: current.filter((v) => v.presence === 'error').length,
+    errorCount: current.filter((v) => v.hasListingError).length,
     thumbnailUrl: p.imageFileIds[0] ? fileUrl(p.imageFileIds[0]) : null,
     status: p.archivedAt ? 'archived' : 'active',
     updatedAt: p.updatedAt,
@@ -636,14 +656,19 @@ export const catalogHandlers = [
     if (body.version !== product.version) {
       return versionConflict(toProductDetail(product), 'Sản phẩm vừa được người khác sửa.');
     }
-    if (product.archivedAt) {
-      return problem(409, 'Sản phẩm đã lưu trữ', { code: 'product_archived' });
-    }
     const errors: Record<string, string> = {};
     validateProductText(body, errors);
     validateImages(guard.value.companyId, body.imageFileIds, errors);
     validateSizeChart(guard.value.companyId, body.sizeChartFileId, errors);
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+    // §17.4: gỡ hết ảnh khi còn SKU có listing chưa gỡ
+    const listed = product.variants.some((v) => listingsOf(product.companyId, v.id).length);
+    if (product.imageFileIds.length && !(body.imageFileIds ?? []).length && listed) {
+      return problem(409, 'Sản phẩm đang có trên sàn', {
+        code: 'listing_field_required',
+        errors: { images: 'Sản phẩm đang có trên sàn nên cần ít nhất một ảnh' },
+      });
+    }
     if (productNameTaken(guard.value.companyId, body.name, product.id)) {
       return nameTaken('Đã có sản phẩm cùng tên');
     }
@@ -657,6 +682,38 @@ export const catalogHandlers = [
     product.updatedAt = db.now();
     writeCompanyLog(guard.value, 'update', productEntity(product), before, productSnapshot(product));
     return HttpResponse.json<ProductDetail>(toProductDetail(product));
+  }),
+
+  // §17.2 xoá hẳn: mọi SKU Chờ hoàn thiện và chưa dùng ở tồn kho, chứng từ, listing nào (kể cả listing đã gỡ)
+  http.delete(`${API}/catalog/products/:id`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.productManage);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(catalog.products, params.id, guard.value.companyId, 'sản phẩm');
+    if (!found.ok) return found.response;
+    const product = found.value;
+    if (staleVersion(new URL(request.url), product.version)) {
+      return versionConflict(toProductDetail(product), 'Sản phẩm vừa được người khác sửa.');
+    }
+    const ids = new Set(product.variants.map((v) => v.id));
+    const has = (lines: { variantId: string | null }[]) => lines.some((l) => l.variantId !== null && ids.has(l.variantId));
+    const inUse =
+      product.variants.some((v) => missingOf(product, v).length === 0) ||
+      inventory.levels.some((l) => ids.has(l.variantId)) ||
+      purchasing.requests.some((r) => has(r.lines)) ||
+      purchasing.receipts.some((r) => has(r.lines)) ||
+      purchasing.returns.some((r) => has(r.lines)) ||
+      inventory.docs.some((d) => has(d.lines)) ||
+      channel.listings.some((l) => ids.has(l.variantId));
+    if (inUse) {
+      return problem(409, 'Sản phẩm đang được dùng', {
+        code: 'product_in_use',
+        detail: 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.',
+      });
+    }
+    catalog.products.splice(catalog.products.indexOf(product), 1);
+    writeCompanyLog(guard.value, 'delete', productEntity(product), productSnapshot(product), null);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   // Đổi trạng thái kinh doanh: không có variantIds thì áp cho mọi SKU con (sơ đồ B1: thao tác trên cha áp cho con)
@@ -734,7 +791,6 @@ export const catalogHandlers = [
     const found = findOwned(catalog.products, params.id, companyId, 'sản phẩm');
     if (!found.ok) return found.response;
     const product = found.value;
-    if (product.archivedAt) return problem(409, 'Sản phẩm đã lưu trữ', { code: 'product_archived' });
     const { attributeValueIds = [] } = (await request.json()) as { attributeValueIds: string[] };
     const productAttrs = comboAttributes(companyId, product.variants[0]?.valueIds ?? []) ?? [];
     if (!productAttrs.length) {
@@ -796,18 +852,31 @@ export const catalogHandlers = [
       return versionConflict(toProductDetail(product), 'SKU vừa được người khác sửa.');
     }
     const errors: Record<string, string> = {};
-    const fields = ['standardPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
+    const fields = ['standardPrice', 'targetNetPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
+    for (const k of Object.keys(body)) {
+      if (k !== 'version' && !(fields as readonly string[]).includes(k)) errors[k] = 'Trường không được sửa ở đây';
+    }
     for (const f of fields) {
       const n = body[f];
       if (n === undefined || n === null) continue;
       if (!Number.isInteger(n) || n <= 0) errors[f] = 'Phải là số nguyên dương';
-      else if (f === 'standardPrice' && n > 10_000_000_000) errors[f] = 'Giá tối đa 10 tỷ đồng';
+      else if ((f === 'standardPrice' || f === 'targetNetPrice') && n > 10_000_000_000) errors[f] = 'Giá tối đa 10 tỷ đồng';
       else if (f === 'weightG' && n > SPEC_LIMITS.weightG) errors[f] = 'Quá 50 kg, kiểm tra lại đơn vị gram';
-      else if (f !== 'standardPrice' && f !== 'weightG' && n > SPEC_LIMITS.sizeMm) errors[f] = 'Quá 2 m, kiểm tra lại đơn vị mm';
+      else if (f !== 'standardPrice' && f !== 'targetNetPrice' && f !== 'weightG' && n > SPEC_LIMITS.sizeMm) errors[f] = 'Quá 2 m, kiểm tra lại đơn vị mm';
     }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
 
     const before = toVariant(product, variant);
+    // §17.4: SKU còn listing chưa gỡ thì không xoá trống giá muốn bán, cân nặng, kích thước đang có giá trị
+    if (listingsOf(product.companyId, variant.id).length) {
+      const required: Record<string, string> = {};
+      for (const f of ['targetNetPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const) {
+        if (body[f] === null && before[f] !== null) required[f] = 'SKU đang có trên sàn nên không để trống được';
+      }
+      if (Object.keys(required).length) {
+        return problem(409, 'SKU đang có trên sàn', { code: 'listing_field_required', errors: required });
+      }
+    }
     const now = db.now();
     const list = standardList(product.companyId);
     if (body.standardPrice !== undefined && list) {
@@ -816,14 +885,14 @@ export const catalogHandlers = [
       list.version += 1;
       list.updatedAt = now;
     }
-    for (const f of ['weightG', 'lengthMm', 'widthMm', 'heightMm'] as const) {
+    for (const f of ['targetNetPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const) {
       if (body[f] !== undefined) spec[f] = body[f] ?? null;
     }
     spec.version += 1;
     product.updatedAt = now;
     const after = toVariant(product, variant);
     const pick = (x: ProductVariant) => ({
-      standardPrice: x.standardPrice, weightG: x.weightG, lengthMm: x.lengthMm, widthMm: x.widthMm, heightMm: x.heightMm,
+      standardPrice: x.standardPrice, targetNetPrice: x.targetNetPrice, weightG: x.weightG, lengthMm: x.lengthMm, widthMm: x.widthMm, heightMm: x.heightMm,
     });
     writeCompanyLog(guard.value, 'update', { type: 'product.product_variants', id: variant.id, label: variant.sku }, pick(before), pick(after));
     return HttpResponse.json<ProductDetail>(toProductDetail(product));

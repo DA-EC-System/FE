@@ -105,8 +105,11 @@ describe('Listing (sơ đồ C2)', () => {
     expect(presenceFrom([])).toBe('not_listed');
     expect(presenceFrom(['delisted'])).toBe('not_listed');
     expect(presenceFrom(['under_review', 'pushing'])).toBe('pending');
-    expect(presenceFrom(['hidden', 'under_review'])).toBe('live');
-    expect(presenceFrom(['live', 'rejected'])).toBe('error');
+    // hidden không tính là live (Documents/21 §17.1)
+    expect(presenceFrom(['hidden', 'under_review'])).toBe('pending');
+    expect(presenceFrom(['hidden'])).toBe('not_listed');
+    expect(presenceFrom(['live', 'rejected'])).toBe('live');
+    expect(presenceFrom(['push_failed', 'pushing'])).toBe('error');
     expect(presenceFrom(['live', 'delisted'])).toBe('live');
   });
 });
