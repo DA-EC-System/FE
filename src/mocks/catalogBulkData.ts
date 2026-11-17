@@ -8,6 +8,8 @@ export interface MockVariantSpec {
   lengthMm: number | null;
   widthMm: number | null;
   heightMm: number | null;
+  /** Giá muốn bán (D7). undefined là dữ liệu mẫu chưa đặt: lần đọc đầu lấy giá chuẩn làm số khởi đầu */
+  targetNetPrice?: number | null;
   version: number;
 }
 

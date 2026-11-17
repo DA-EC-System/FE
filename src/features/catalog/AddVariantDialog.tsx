@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useAddVariant } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { renderSku } from '@/utils/sku';
 import type { Attribute, Category, ProductDetail } from '@/types/catalog';
 import { comboKey, valueIndex } from './shared';
@@ -34,6 +34,8 @@ interface AddVariantDialogProps {
   loading?: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
+  /** Tổ hợp trùng SKU đã lưu trữ: mở hộp Khôi phục SKU đó (§17.2, không bán lại ngầm) */
+  onRestore: (variantId: string) => void;
 }
 
 /** UC-CP-02 bước 5–7: thêm tổ hợp mới; tổ hợp đã có thì báo biến thể đã tồn tại (AC-12) */
@@ -45,15 +47,19 @@ export function AddVariantDialog({
   loading,
   onClose,
   onDone,
+  onRestore,
 }: AddVariantDialogProps) {
   const addMut = useAddVariant();
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  /** 409 variant_archived kèm variantId (người khác vừa lưu trữ đúng tổ hợp này) */
+  const [archivedId, setArchivedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setPicked({});
       setError(null);
+      setArchivedId(null);
     }
   }, [open]);
 
@@ -78,10 +84,16 @@ export function AddVariantDialog({
 
   const submit = async () => {
     setError(null);
+    setArchivedId(null);
     try {
       const variant = await addMut.mutateAsync({ productId: product.id, attributeValueIds: ids });
       onDone(`Đã thêm biến thể ${variant.sku}`);
     } catch (e) {
+      if (problemCode(e) === 'variant_archived' && getProblem(e)?.variantId) {
+        setArchivedId(getProblem(e)!.variantId!);
+        setError(problemMessage(e));
+        return;
+      }
       // V23: thiếu hoặc thừa thuộc tính so với các biến thể đang có
       setError(getProblem(e)?.errors?.attributeValueIds ?? problemMessage(e));
     }
@@ -140,7 +152,7 @@ export function AddVariantDialog({
             )}
             {existing?.businessStatus === 'archived' && (
               <AlertMessage severity="info">
-                Tổ hợp này là biến thể đã lưu trữ. Đóng hộp này và dùng Khôi phục ở dòng {existing.sku} để bán lại với SKU cũ.
+                Tổ hợp này là biến thể {existing.sku} đã lưu trữ. Khôi phục để bán lại với SKU cũ.
               </AlertMessage>
             )}
           </div>
@@ -151,13 +163,19 @@ export function AddVariantDialog({
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
             Huỷ
           </Button>
-          <Button
-            type="button"
-            onClick={submit}
-            disabled={loading || !complete || Boolean(existing) || busy}
-          >
-            {busy ? 'Đang lưu...' : 'Thêm'}
-          </Button>
+          {existing?.businessStatus === 'archived' || archivedId ? (
+            <Button type="button" onClick={() => onRestore(existing?.id ?? archivedId!)}>
+              Khôi phục {existing?.sku ?? 'SKU đó'}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={submit}
+              disabled={loading || !complete || Boolean(existing) || busy}
+            >
+              {busy ? 'Đang lưu...' : 'Thêm'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

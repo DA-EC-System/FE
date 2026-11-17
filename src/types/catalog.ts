@@ -62,8 +62,8 @@ export type VariantReadiness = 'incomplete' | 'ready';
 /** Hiện diện trên sàn (tính từ listing): live đang bán, pending chờ sàn, error có lỗi, not_listed chưa đăng */
 export type VariantPresence = 'live' | 'pending' | 'error' | 'not_listed';
 
-/** Nhãn chính của SKU: Lưu trữ → Ngừng nhập → Tạm ngừng → hiện diện trên sàn */
-export type VariantMainLabel = 'archived' | 'discontinued' | 'paused' | 'live' | 'pending' | 'not_listed';
+/** Nhãn chính của SKU (7 giá trị, Documents/21 §17.1): Lưu trữ → Ngừng nhập → Tạm ngừng → hiện diện trên sàn */
+export type VariantMainLabel = 'archived' | 'discontinued' | 'paused' | 'live' | 'error' | 'pending' | 'not_listed';
 
 export interface ProductImage {
   id: string;
@@ -87,9 +87,9 @@ export const MISSING_LABELS: Record<VariantMissing, string> = {
   name: 'tên',
   category: 'danh mục',
   image: 'ảnh',
-  price: 'giá chuẩn',
+  price: 'giá muốn bán',
   minQty: 'ngưỡng tồn',
-  weight: 'khối lượng',
+  weight: 'cân nặng',
   dimensions: 'kích thước gói',
 };
 
@@ -105,6 +105,8 @@ export interface ProductVariant {
   missing: VariantMissing[];
   /** Giá chuẩn là cột của SKU (D9); null là chưa đặt */
   standardPrice: number | null;
+  /** Giá muốn bán, số muốn thực nhận (D7); thiếu thì SKU Chờ hoàn thiện vì giá */
+  targetNetPrice: number | null;
   /** Ngưỡng tồn đặt ở §15 (quyền inventory.reorder.manage), ở đây chỉ để xem */
   minQty: number | null;
   weightG: number | null;
@@ -114,6 +116,8 @@ export interface ProductVariant {
   /** Version của SKU, gửi kèm PATCH §17.2 */
   version: number;
   presence: VariantPresence;
+  /** Có listing lỗi (push_failed, rejected, platform_hold) kể cả khi đã live: nhãn phụ "Có lỗi" */
+  hasListingError: boolean;
   /** Số listing trên sàn, kể cả listing đang ẩn do tạm ngừng */
   listingCount: number;
   /** Lý do chưa lưu trữ được (tồn, đang về, chờ xử lý, chứng từ mở); rỗng là lưu trữ được */
@@ -122,17 +126,20 @@ export interface ProductVariant {
 
 export interface ProductListItem {
   id: string;
+  /** Mã sản phẩm cha, duy nhất trong công ty, sinh theo quy tắc danh mục */
+  code: string;
   name: string;
   category: { id: string; name: string };
   /** Số SKU chưa lưu trữ */
   variantCount: number;
   /** Mọi SKU, kể cả đã lưu trữ */
   variantTotal: number;
-  /** Số SKU theo nhãn chính, để suy nhãn cha ("Đang bán 4/6"); BE chưa trả khi chưa xong commerio-backend#204.
-   * TODO: BE#204 merge thì đổi lại bắt buộc, xoá nhánh dự phòng ở businessStatus.tsx */
-  labelCounts?: Record<VariantMainLabel, number>;
-  incompleteCount?: number;
-  errorCount?: number;
+  /** Số SKU theo nhãn chính (đủ 7 khoá, tính cả SKU lưu trữ), để suy nhãn cha ("Đang bán 4/6") */
+  labelCounts: Record<VariantMainLabel, number>;
+  /** Số SKU chưa lưu trữ Chờ hoàn thiện */
+  incompleteCount: number;
+  /** Số SKU chưa lưu trữ có listing lỗi, kể cả SKU đang bán */
+  errorCount: number;
   thumbnailUrl: string | null;
   status: ProductStatus;
   updatedAt: string;
@@ -249,6 +256,7 @@ export interface BulkSaveResult {
 export interface VariantUpdateInput {
   version: number;
   standardPrice?: number | null;
+  targetNetPrice?: number | null;
   weightG?: number | null;
   lengthMm?: number | null;
   widthMm?: number | null;

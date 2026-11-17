@@ -651,45 +651,16 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'Hôm nay đã hết lượt gọi sàn cho thao tác tay');
     });
 
-    test('đẩy theo ảnh catalog: sản phẩm chưa có ảnh bị chặn, thêm ảnh ở trang sản phẩm thì đẩy được', async ({ page }) => {
-      // FE#205: bỏ ảnh duy nhất của Quần kaki (chưa SKU nào lên sàn ở gian hàng này)
+    test('đẩy theo ảnh catalog: SKU khác còn trên sàn thì không gỡ hết ảnh được, đẩy SKU mới dùng ảnh catalog', async ({ page }) => {
+      // FE#260 (§17.4): Quần kaki có SKU đang trên Lazada nên gỡ hết ảnh bị 409 listing_field_required.
+      // Ca sản phẩm hết ảnh bị images_missing (FE#205) kiểm ở src/mocks/handlers/pushImages.test.ts
       const anh = page.getByTestId('product-images').locator('[data-image-id]');
       await diToi(page, '/c/cmp-001/catalog/products/prd-002');
       await expect(anh).toHaveCount(1);
       await page.getByRole('button', { name: 'Bỏ ảnh 1', exact: true }).click();
       await expect(anh).toHaveCount(0);
       await page.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await toast(page, 'Đã lưu Quần kaki ống suông');
-
-      await diToi(page, '/c/cmp-001/channel/shops/shp-001');
-      await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
-      await toast(page, '1 biến thể không đẩy được');
-      await expect(dong(page, 'prd-002-v2').locator('[data-testid=push-error]')).toContainText(
-        'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đẩy lại.',
-      );
-      await expect(dong(page, 'prd-002-v2').locator('img')).toHaveCount(0);
-
-      // Thêm ảnh JPG 400×400 rồi đẩy lại: không còn images_missing, dòng hiện ảnh đại diện
-      await diToi(page, '/c/cmp-001/catalog/products/prd-002');
-      await expect(page.getByTestId('image-input')).toBeAttached();
-      const jpg = Buffer.from(
-        await page.evaluate(async () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = canvas.height = 400;
-          const ctx = canvas.getContext('2d')!;
-          ctx.fillStyle = '#3b6';
-          ctx.fillRect(0, 0, 400, 400);
-          const blob = await new Promise<Blob>((r) => canvas.toBlob((b) => r(b!), 'image/jpeg', 0.9));
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          return btoa(String.fromCharCode(...bytes));
-        }),
-        'base64',
-      );
-      await page.getByTestId('image-input').setInputFiles({ name: 'quan.jpg', mimeType: 'image/jpeg', buffer: jpg });
-      await expect(anh).toHaveCount(1);
-      await page.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await toast(page, 'Đã lưu Quần kaki ống suông');
+      await thayChu(page, 'SKU đang có trên sàn nên không để trống');
 
       await diToi(page, '/c/cmp-001/channel/shops/shp-001');
       await expect(dong(page, 'prd-002-v2').locator('img')).toBeVisible();

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useChangeBusinessStatus } from '@/api/catalog.api';
-import { getErrorMessage } from '@/api/client';
+import { getErrorMessage, getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { BUSINESS_ACTIONS, MAIN_LABELS, actionLabel, parentLabel, variantMachine } from '@/lib/machines/product';
 import type {
@@ -29,6 +29,7 @@ export const MAIN_LABEL_META: Record<VariantMainLabel, StatusMeta> = {
   discontinued: { label: MAIN_LABELS.discontinued, variant: 'outline' },
   paused: { label: MAIN_LABELS.paused, variant: 'warning' },
   live: { label: MAIN_LABELS.live, variant: 'success' },
+  error: { label: MAIN_LABELS.error, variant: 'destructive' },
   pending: { label: MAIN_LABELS.pending, variant: 'info' },
   not_listed: { label: MAIN_LABELS.not_listed, variant: 'outline' },
 };
@@ -54,28 +55,19 @@ const ACTION_EFFECT: Record<VariantBusinessAction, string> = {
 
 /** Nhãn cha suy từ con ("Đang bán 4/6") kèm nhãn phụ Chờ hoàn thiện, Có lỗi */
 export function ParentStatus({ item }: { item: ProductListItem }) {
-  // BE chưa trả số đếm nhãn (commerio-backend#204): hiện trạng thái kinh doanh theo trạng thái sản phẩm, không sập trang
-  if (!item.labelCounts) {
-    return (
-      <span className="flex flex-wrap items-center gap-1" data-testid="product-status">
-        <Badge variant={item.status === 'archived' ? 'secondary' : 'success'} data-status={item.status}>
-          {item.status === 'archived' ? BUSINESS_STATUS_LABELS.archived : BUSINESS_STATUS_LABELS.selling}
-        </Badge>
-      </span>
-    );
-  }
   const { label, text } = parentLabel(item.labelCounts);
   return (
     <span className="flex flex-wrap items-center gap-1" data-testid="product-status">
       <Badge variant={MAIN_LABEL_META[label].variant} data-status={label}>
         {text}
       </Badge>
-      {label !== 'archived' && (item.incompleteCount ?? 0) > 0 && (
+      {label !== 'archived' && item.incompleteCount > 0 && (
         <Badge variant="warning" data-flag="incomplete">
           Chờ hoàn thiện
         </Badge>
       )}
-      {label !== 'archived' && (item.errorCount ?? 0) > 0 && (
+      {/* Nhãn chính đã là Có lỗi thì không lặp nhãn phụ */}
+      {label !== 'archived' && label !== 'error' && item.errorCount > 0 && (
         <Badge variant="destructive" data-flag="error">
           Có lỗi
         </Badge>
@@ -87,11 +79,11 @@ export function ParentStatus({ item }: { item: ProductListItem }) {
 /** Trạng thái kinh doanh đang có trong các SKU con, suy từ số đếm nhãn */
 function childStatuses(item: ProductListItem): VariantBusinessStatus[] {
   const c = item.labelCounts;
-  // Không biết SKU con đang ở đâu: mở mọi thao tác, BE bỏ qua SKU không làm được
-  if (!c) return item.status === 'archived' ? ['archived'] : ['selling', 'paused', 'discontinued'];
+  // BE cũ chưa trả labelCounts: không đoán, mở mọi trạng thái chưa lưu trữ để menu không mất thao tác
+  if (!c) return ['selling', 'paused', 'discontinued'];
   return (
     [
-      c.live + c.pending + c.not_listed > 0 && 'selling',
+      c.live + c.error + c.pending + c.not_listed > 0 && 'selling',
       c.paused > 0 && 'paused',
       c.discontinued > 0 && 'discontinued',
       c.archived > 0 && 'archived',
@@ -199,8 +191,13 @@ export function useBusinessAction() {
       });
       resultToast(target, result);
     } catch (e) {
-      if (problemCode(e) === 'archive_blocked') toast.warning(getErrorMessage(e));
-      else toast.error(problemMessage(e));
+      const code = problemCode(e);
+      const reasons = getProblem(e)?.reasons ?? [];
+      if (code === 'archive_blocked' || (code === 'invalid_transition' && reasons.length)) {
+        toast.warning(`Chưa ${actionLabel(target.action).toLowerCase()} được ${target.name}`, {
+          description: reasons.join('; ') || getErrorMessage(e),
+        });
+      } else toast.error(problemMessage(e));
     }
     setTarget(null);
   };

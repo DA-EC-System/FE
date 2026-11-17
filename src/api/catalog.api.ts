@@ -163,10 +163,9 @@ export function useProducts(params: ProductListParams) {
 }
 
 /**
- * BE chưa xong commerio-backend#204 thì biến thể chỉ có id, sku, attributes, archivedAt, standardPrice: thiếu trạng thái
- * kinh doanh, độ hoàn thiện, khối lượng, kích thước... và trang sản phẩm sập khi đọc các trường đó. Điền mặc định
- * cho trường BE chưa trả; trường BE đã trả giữ nguyên.
- * TODO: BE#204 merge thì bỏ hàm này.
+ * Điền mặc định cho vài trường số của biến thể để trang không sập khi BE cũ chưa trả.
+ * Độ hoàn thiện (`readiness`, `missing`) và hiện diện (`presence`) không điền: BE luôn trả (commerio-backend#204);
+ * thiếu thì trang hiện "Chưa tính", không mặc định Sẵn sàng hay Chưa đăng.
  */
 export function withVariantDefaults(p: ProductDetail): ProductDetail {
   return {
@@ -174,15 +173,15 @@ export function withVariantDefaults(p: ProductDetail): ProductDetail {
     variants: p.variants.map((v) => ({
       ...v,
       businessStatus: v.businessStatus ?? (v.archivedAt ? 'archived' : 'selling'),
-      readiness: v.readiness ?? 'ready',
       missing: v.missing ?? [],
+      targetNetPrice: v.targetNetPrice ?? null,
       minQty: v.minQty ?? null,
       weightG: v.weightG ?? null,
       lengthMm: v.lengthMm ?? null,
       widthMm: v.widthMm ?? null,
       heightMm: v.heightMm ?? null,
       version: v.version ?? 1,
-      presence: v.presence ?? 'not_listed',
+      hasListingError: v.hasListingError ?? false,
       listingCount: v.listingCount ?? 0,
       archiveBlockers: v.archiveBlockers ?? [],
     })),
@@ -249,7 +248,21 @@ export function useAddVariant() {
   });
 }
 
-/** §17.2: sửa giá chuẩn, khối lượng, kích thước gói của một SKU; trả ProductDetail mới */
+/**
+ * Xoá hẳn (§17.2): chỉ sản phẩm mọi SKU Chờ hoàn thiện, chưa dùng ở chứng từ, listing nào; ngược lại 409 product_in_use.
+ * Lưu trữ đi qua business-status.
+ */
+export function useDeleteProduct() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      await apiClient.delete(`/catalog/products/${id}`, { params: { version } });
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** §17.2: sửa giá chuẩn, giá muốn bán, cân nặng, kích thước gói của một SKU; trả ProductDetail mới */
 export function useUpdateVariant() {
   const invalidate = useInvalidateCatalog();
   return useMutation({

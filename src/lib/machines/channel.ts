@@ -73,11 +73,15 @@ export const listingMachine = defineMachine<ListingMachineStatus, ListingAction>
 /** Listing còn hiện diện trên sàn (tính vào "Trên sàn" của SKU) */
 export const onPlatform = (status: ListingStatus) => status !== 'delisted';
 
+/** Listing lỗi: SKU mang cờ `hasListingError` (nhãn phụ "Có lỗi") kể cả khi đã live ở gian hàng khác */
+export const isListingError = (status: ListingStatus) =>
+  status === 'push_failed' || status === 'rejected' || status === 'platform_hold';
+
 /** Hiện diện của SKU suy từ các listing (sơ đồ B1, lớp thứ ba) */
 export function presenceFrom(statuses: ListingStatus[]): VariantPresence {
-  const present = statuses.filter(onPlatform);
-  if (!present.length) return 'not_listed';
-  if (present.some((s) => s === 'push_failed' || s === 'rejected' || s === 'platform_hold')) return 'error';
-  if (present.some((s) => s === 'live' || s === 'hidden')) return 'live';
-  return 'pending';
+  // Documents/21 §17.1: live > error > pending > not_listed; hidden không tính là live
+  if (statuses.some((s) => s === 'live')) return 'live';
+  if (statuses.some(isListingError)) return 'error';
+  if (statuses.some((s) => s === 'pushing' || s === 'under_review')) return 'pending';
+  return 'not_listed';
 }

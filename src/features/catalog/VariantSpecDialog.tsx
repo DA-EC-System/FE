@@ -41,6 +41,7 @@ const size = positiveInt(2000, 'Quá 2 m, kiểm tra lại đơn vị mm');
 const specSchema = z
   .object({
     standardPrice: priceTextSchema,
+    targetNetPrice: priceTextSchema,
     weightG: positiveInt(50000, 'Quá 50 kg, kiểm tra lại đơn vị gram'),
     lengthMm: size,
     widthMm: size,
@@ -56,10 +57,11 @@ const specSchema = z
     }
   });
 type SpecForm = z.input<typeof specSchema>;
-const FIELDS = ['standardPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
+const FIELDS = ['standardPrice', 'targetNetPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
 
 const toForm = (v: ProductVariant): SpecForm => ({
   standardPrice: v.standardPrice?.toString() ?? '',
+  targetNetPrice: v.targetNetPrice?.toString() ?? '',
   weightG: v.weightG?.toString() ?? '',
   lengthMm: v.lengthMm?.toString() ?? '',
   widthMm: v.widthMm?.toString() ?? '',
@@ -74,7 +76,7 @@ interface VariantSpecDialogProps {
   onDone: (message: string) => void;
 }
 
-/** FE#154 (D9): giá chuẩn, khối lượng, kích thước gói là cột của SKU; gọi PATCH §17.2 */
+/** FE#154, FE#260 (D7, D9): giá chuẩn, giá muốn bán, cân nặng, kích thước gói là cột của SKU; gọi PATCH §17.2 */
 export function VariantSpecDialog({ productId, variant, onClose, onDone }: VariantSpecDialogProps) {
   const updateMut = useUpdateVariant();
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
   const form = useForm<SpecForm>({
     // Resolver trả số đã đổi (z.output) dù form giữ chữ; FormTextField chỉ nhận Control<SpecForm>
     resolver: zodResolver(specSchema) as unknown as Resolver<SpecForm>,
-    defaultValues: { standardPrice: '', weightG: '', lengthMm: '', widthMm: '', heightMm: '' },
+    defaultValues: { standardPrice: '', targetNetPrice: '', weightG: '', lengthMm: '', widthMm: '', heightMm: '' },
   });
   const { control, reset, setError: setFieldError } = form;
 
@@ -122,7 +124,8 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
       }
       const fieldErrors = getProblem(e)?.errors ?? {};
       for (const f of FIELDS) if (fieldErrors[f]) setFieldError(f, { message: fieldErrors[f] });
-      if (!FIELDS.some((f) => fieldErrors[f])) setError(problemMessage(e));
+      // 409 listing_field_required (§17.4): đánh dấu ô và nói rõ vì sao
+      if (problemCode(e) === 'listing_field_required' || !FIELDS.some((f) => fieldErrors[f])) setError(problemMessage(e));
     }
   });
 
@@ -144,17 +147,24 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
             <DialogHeader>
               <DialogTitle>Thông tin SKU {variant?.sku}</DialogTitle>
               <DialogDescription>
-                Giá chuẩn, khối lượng và kích thước gói dùng để đăng sàn và tính phí vận chuyển. Để trống là chưa có.
+                Giá muốn bán, cân nặng và kích thước gói cần đủ để đăng sàn và tính phí vận chuyển. Để trống là chưa có.
               </DialogDescription>
             </DialogHeader>
             <FormTextField
               control={control}
               name="standardPrice"
-              label="Giá muốn bán (đ)"
+              label="Giá chuẩn (đ)"
               inputMode="numeric"
-              hint="Giá chuẩn của SKU. Giá niêm yết trên từng sàn tính từ giá này ở phần Kênh bán."
+              hint="Giá tham khảo của SKU, không bắt buộc để đăng sàn."
             />
-            <FormTextField control={control} name="weightG" label="Khối lượng (g)" inputMode="numeric" />
+            <FormTextField
+              control={control}
+              name="targetNetPrice"
+              label="Giá muốn bán – số muốn thực nhận (đ)"
+              inputMode="numeric"
+              hint="Số tiền muốn nhận về sau phí sàn. Giá niêm yết trên từng sàn tính ngược từ số này ở phần Kênh bán."
+            />
+            <FormTextField control={control} name="weightG" label="Cân nặng (g)" inputMode="numeric" />
             <fieldset className="grid gap-2">
               <legend className="mb-1 text-sm font-medium">Kích thước gói (mm)</legend>
               <div className="grid grid-cols-3 gap-2">

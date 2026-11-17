@@ -5,7 +5,7 @@ import { HelpTip } from './HelpTip';
 interface PageHeaderProps {
   title: string;
   /** Một câu mô tả trang; phần giải thích dài đưa vào `help` */
-  subtitle?: string;
+  subtitle?: ReactNode;
   /** Giải thích hiện sau nút "?" cạnh tiêu đề (HelpTip) */
   help?: ReactNode;
   /** Mở hướng dẫn từng bước của trang từ HelpTip */
