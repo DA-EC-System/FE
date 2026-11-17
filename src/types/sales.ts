@@ -72,30 +72,10 @@ export interface UserRef {
   name: string;
 }
 
-export interface CustomerSummary {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  channels: CustomerChannel[];
-  orderCount: number;
-  /** Tổng các đơn chưa huỷ */
-  totalSpent: number;
-  lastOrderAt: string | null;
-  createdAt: string;
-}
-
 export interface CustomerIdentity {
   channelKind: Marketplace;
   externalUserId: string;
   displayName: string;
-}
-
-export interface Customer extends CustomerSummary {
-  address: string;
-  note: string;
-  identities: CustomerIdentity[];
-  version: number;
 }
 
 export interface ShippingAddress {
@@ -220,32 +200,6 @@ export interface Order extends OrderSummary {
   /** Lý do chưa hoàn tất được khi mọi kiện đã dừng */
   completionBlocker: string | null;
   statusHistory: OrderStatusChange[];
-}
-
-/** Biến thể đang bán để chọn khi tạo đơn; price null là chưa có giá chuẩn */
-export interface OrderVariantOption {
-  variantId: string;
-  productName: string;
-  sku: string;
-  attributesLabel: string;
-  thumbnailUrl: string | null;
-  price: number | null;
-  available: number;
-}
-
-export type CreateOrderCustomer =
-  | { id: string }
-  | { name: string; phone: string; email?: string; address?: string };
-
-export interface CreateOrderInput {
-  customer: CreateOrderCustomer;
-  shippingAddress: ShippingAddress;
-  lines: { variantId: string; quantity: number }[];
-  shippingFee: number;
-  paymentMethod: PaymentMethod;
-  /** Người của cửa hàng tự giao, không qua đơn vị vận chuyển */
-  selfDelivery?: boolean;
-  note?: string;
 }
 
 /** Huỷ đơn: huỷ ngay, hay chờ mở các kiện đã đóng gói (cờ Đang huỷ) */

@@ -30,6 +30,7 @@ import type {
   ShopSetupPreview,
   ShopSetupResult,
   ShopTokenInput,
+  ShopUpdateInput,
 } from '@/types/shop';
 import * as channel from '../channelData';
 import type { MockListing, MockRemoteSku, MockUnmanagedSku } from '../channelData';
@@ -1214,7 +1215,7 @@ export const shopHandlers = [
     return HttpResponse.json<ShopCallbackResult>({ shop, created, reconnect, shops }, { status: shops.some((s) => s.created) ? 201 : 200 });
   }),
 
-  // Shop thử không đi OAuth được: dán token lấy trên console của sàn. Mock: token "sai" bị sàn từ chối
+  // Shop thử không đi OAuth được: dán token lấy ở trang nhà phát triển của sàn. Mock: token "sai", "khong-shop", "cong-ty-khac" ra lỗi
   http.post(`${API}/channel/shops/:platform/token`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopConnect);
@@ -1227,10 +1228,23 @@ export const shopHandlers = [
     if (!accessToken || accessToken.length > 2000) {
       return problem(422, 'Dữ liệu không hợp lệ', {
         code: 'validation_failed',
-        errors: { accessToken: 'Nhập access token' },
+        errors: { accessToken: 'Nhập mã truy cập' },
       });
     }
-    if (accessToken === 'sai') return problem(409, 'Sàn từ chối yêu cầu', { code: 'marketplace_rejected' });
+    // Như BE (Documents/21 §18.4): token sai là `marketplace_unauthorized`; token không ra gian hàng là `no_shop`
+    if (accessToken === 'sai') {
+      return problem(409, 'Sàn từ chối token của gian hàng, cần kết nối lại', {
+        code: 'marketplace_unauthorized',
+        platformCode: 'IllegalAccessToken',
+        platformMessage: 'The specified access token is invalid or expired',
+      });
+    }
+    if (accessToken === 'khong-shop') {
+      return problem(409, 'Sàn từ chối yêu cầu', { code: 'marketplace_rejected', platformCode: 'no_shop' });
+    }
+    if (accessToken === 'cong-ty-khac') {
+      return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
+    }
     const seller = accessToken.slice(-6).toUpperCase();
     const response = attachGranted(guard.value, platform, { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` }, null);
     if (!response.ok) return response;
@@ -1249,6 +1263,40 @@ export const shopHandlers = [
     const found = ownShop(params.id, guard.value.companyId);
     if (!found.ok) return found.response;
     return HttpResponse.json<Shop>(toShop(found.value));
+  }),
+
+  /** Sửa hạn trả hàng (§18.4, BE#377): 422 body → 404 → 409 version → 422 sàn không tính theo ngày */
+  http.patch(`${API}/channel/shops/:id`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.shopConnect);
+    if (!guard.ok) return guard.response;
+    const body = (await request.json()) as Partial<ShopUpdateInput>;
+    const errors: Record<string, string> = {};
+    if (typeof body.version !== 'number') errors.version = 'Thiếu version';
+    const days = body.returnWindowDays;
+    if (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 60) {
+      errors.returnWindowDays = 'Số ngày đổi trả là số nguyên từ 1 đến 60';
+    }
+    if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors });
+    const idx = findShop(params.id, guard.value.companyId);
+    if (idx === -1) return problem(404, 'Không tìm thấy gian hàng');
+    const current = db.shops[idx];
+    if (body.version !== current.version) {
+      return versionConflict(toShop(current), 'Gian hàng vừa được người khác sửa.');
+    }
+    if (current.capabilities.returnWindow !== 'days') {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        code: 'validation_failed',
+        errors: { returnWindowDays: 'Sàn tự báo hạn trả hàng, không đặt số ngày' },
+      });
+    }
+    const before = { ...shopSnapshot(current), returnWindowDays: current.returnWindowDays ?? null };
+    db.shops[idx] = { ...current, returnWindowDays: days, updatedAt: db.now(), version: current.version + 1 };
+    writeCompanyLog(guard.value, 'update', shopEntity(db.shops[idx]), before, {
+      ...shopSnapshot(db.shops[idx]),
+      returnWindowDays: days,
+    });
+    return HttpResponse.json<Shop>(toShop(db.shops[idx]));
   }),
 
   http.post(`${API}/channel/shops/:id/disconnect`, async ({ params, request }) => {

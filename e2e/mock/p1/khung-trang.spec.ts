@@ -30,11 +30,11 @@ const khongCuonNgang = async (page: Page) =>
 /** Menu từng vai trò, đúng thứ tự nhóm và mục như trước khi đổi khung */
 const MENU: Record<string, string[]> = {
   ceo: [
-    'Tổng quan: Tổng quan | Báo cáo kinh doanh',
+    'Tổng quan: Tổng quan',
     'Nhập hàng: Mua hàng',
     'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
     'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả | Khách hàng',
+    'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả',
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
     'Quản trị: Nhân viên | Vai trò | Phân hệ | Nhật ký thao tác | Việc nền lỗi',
     'Dữ liệu giả: Sàn giả lập',
@@ -43,7 +43,7 @@ const MENU: Record<string, string[]> = {
     'Tổng quan: Tổng quan',
     'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
     'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Yêu cầu trả | Khách hàng', // Admin có sales.return.view theo ma trận (FE#152)
+    'Đơn hàng: Đơn hàng | Yêu cầu trả', // Admin có sales.return.view theo ma trận (FE#152)
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
     'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Việc nền lỗi',
     'Dữ liệu giả: Sàn giả lập',
@@ -52,7 +52,7 @@ const MENU: Record<string, string[]> = {
     'Tổng quan: Tổng quan',
     'Sản phẩm và kho: Sản phẩm',
     'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Yêu cầu trả | Khách hàng',
+    'Đơn hàng: Đơn hàng | Yêu cầu trả',
     'Dữ liệu giả: Sàn giả lập',
   ],
   kho: [

@@ -10,9 +10,25 @@ export function shopPlatformOptions(shops: readonly Shop[]) {
 /** Nhóm của thanh chọn trên bảng: tất cả, cần xử lý, đã ngắt */
 export type ShopSegment = 'all' | 'needs_action' | 'disconnected';
 
-/** Cần người dùng làm gì đó: mất quyền, chưa thiết lập, hoặc uỷ quyền sắp hết hạn (nhãn, không phải trạng thái) */
+/**
+ * Gian hàng đang bán, sàn tính hạn trả theo số ngày mà chưa có số ngày: nối trước khi thiết lập bắt buộc
+ * hạn trả (§18.7.2, FE#273). Rẽ theo capabilities, không theo mã sàn.
+ */
+export function missingReturnWindow(shop: Shop) {
+  return shop.status === 'active' && shop.capabilities.returnWindow === 'days' && shop.returnWindowDays == null;
+}
+
+/**
+ * Cần người dùng làm gì đó: mất quyền, chưa thiết lập, uỷ quyền sắp hết hạn, hoặc chưa nhập số ngày hạn trả
+ * (nhãn, không phải trạng thái; §18.7.2)
+ */
 export function needsAction(shop: Shop) {
-  return shop.status === 'needs_reauth' || shop.status === 'connecting' || (shop.status === 'active' && shop.tokenExpiringSoon);
+  return (
+    shop.status === 'needs_reauth' ||
+    shop.status === 'connecting' ||
+    (shop.status === 'active' && shop.tokenExpiringSoon) ||
+    missingReturnWindow(shop)
+  );
 }
 
 function inSegment(shop: Shop, segment: ShopSegment) {

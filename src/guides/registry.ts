@@ -152,39 +152,6 @@ export const GUIDES = {
       },
     ],
   },
-  reports: {
-    key: 'reports',
-    version: 1,
-    title: 'Báo cáo kinh doanh',
-    intro: [
-      'Doanh thu, phí và lãi của công ty trong khoảng ngày bạn chọn.',
-      'Xem theo ngày, theo nguồn bán hay từng gian hàng.',
-      'Tải số liệu về để làm việc tiếp trên bảng tính.',
-    ],
-    primaryAction: { label: 'Chọn khoảng ngày', target: 'report-range' },
-    steps: [
-      {
-        target: 'report-range',
-        title: 'Chọn khoảng ngày',
-        body: 'Bấm nút nhanh như 7 ngày, tháng này, hoặc chọn từ ngày tới ngày. Mọi số trên trang đổi theo.',
-      },
-      {
-        target: 'report-kpis',
-        title: 'Số liệu chính',
-        body: 'Mỗi chỉ số có dấu "?" giải thích cách tính và phần nào chưa được thu thập.',
-      },
-      {
-        target: 'report-filters',
-        title: 'Đổi nguồn, gian hàng',
-        body: 'Lọc biểu đồ theo ngày theo nguồn bán hoặc một gian hàng.',
-      },
-      {
-        target: 'report-export',
-        title: 'Tải số liệu',
-        body: 'Tải tổng hợp, theo ngày hoặc theo gian hàng ra tệp CSV.',
-      },
-    ],
-  },
   'catalog-setup': {
     key: 'catalog-setup',
     version: 1,
@@ -491,7 +458,7 @@ export const GUIDES = {
     version: 1,
     title: 'Đơn hàng',
     intro: [
-      'Đơn từ sàn, hộp thư và đơn tạo tay nằm chung một danh sách.',
+      'Đơn từ mọi gian hàng trên sàn nằm chung một danh sách.',
       'Tab lọc theo trạng thái, số trên tab đếm theo bộ lọc đang chọn.',
     ],
     primaryAction: { label: 'Xem danh sách', target: 'order-list' },
@@ -527,52 +494,6 @@ export const GUIDES = {
         body: 'Mỗi kiện đi riêng: bấm mã kiện để mở trang kiện; tự giao thì cập nhật giao ở cột cuối.',
       },
       { target: 'detail-history', title: 'Lịch sử', body: 'Ai đổi trạng thái đơn, lúc nào, lý do gì.' },
-    ],
-  },
-  'order-create': {
-    key: 'order-create',
-    version: 1,
-    title: 'Tạo đơn',
-    intro: [
-      'Chọn khách, thêm sản phẩm, nhập địa chỉ giao và cách thanh toán.',
-      'Giá lấy theo bảng giá chuẩn lúc tạo đơn.',
-    ],
-    primaryAction: { label: 'Chọn khách', target: 'oc-customer' },
-    steps: [
-      { target: 'oc-customer', title: 'Khách hàng', body: 'Chọn khách có sẵn hoặc nhập khách mới.' },
-      {
-        target: 'oc-lines',
-        title: 'Sản phẩm',
-        body: 'Tìm theo tên hoặc SKU. Thiếu hàng vẫn tạo được, app hỏi lại trước khi tạo.',
-      },
-      {
-        target: 'oc-payment',
-        title: 'Thanh toán',
-        body: 'Trả trước thì tạo mã thanh toán ở chi tiết đơn sau khi tạo; COD thu khi giao.',
-      },
-      { target: 'oc-summary', title: 'Tóm tắt', body: 'Kiểm tạm tính, phí giao và tổng rồi bấm Tạo đơn.' },
-    ],
-  },
-  customers: {
-    key: 'customers',
-    version: 1,
-    title: 'Khách hàng',
-    intro: [
-      'Khách mua qua sàn, nhắn qua hộp thư hoặc được tạo tay khi lập đơn.',
-      'Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh.',
-    ],
-    primaryAction: { label: 'Tìm khách', target: 'customer-filters' },
-    steps: [
-      {
-        target: 'customer-filters',
-        title: 'Tìm khách',
-        body: 'Tìm theo tên, số điện thoại hoặc email; lọc theo kênh và ngày đặt đơn.',
-      },
-      {
-        target: 'customer-list',
-        title: 'Mở khách',
-        body: 'Bấm một dòng để xem số đơn, tổng đã mua và danh tính theo kênh.',
-      },
     ],
   },
   settlements: {

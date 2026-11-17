@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { DataTable } from '@/components/common/DataTable';
@@ -58,6 +59,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { OpeningStocktakeBanner } from './OpeningStocktakeBanner';
+import { ReturnWindowPanel } from './ReturnWindowPanel';
 import { priceText } from '@/utils/price';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -527,7 +529,7 @@ export function ShopListingsPage() {
         toast.error(
           isTimeout(e)
             ? 'Sàn trả danh sách SKU quá lâu. Thử lại sau ít phút; danh sách đang có vẫn giữ nguyên.'
-            : problemMessage(e),
+            : problemMessage(e, 'remote_skus'),
         ),
     });
 
@@ -616,7 +618,7 @@ export function ShopListingsPage() {
       }
       if (blocked.length) toast.warning(`${blocked.length} biến thể không đẩy được, xem lý do ở cột Trạng thái`);
     } catch (e) {
-      toast.error(problemMessage(e));
+      toast.error(problemMessage(e, 'push'));
     }
     setPushing(null);
   };
@@ -788,13 +790,14 @@ export function ShopListingsPage() {
           const l = r.listing;
           if (!l) return <Badge variant="info">Chưa lên sàn</Badge>;
           const live = onPlatform(l.status);
+          const pushErr = (l.status === 'push_failed' || l.status === 'pushing') && l.pushError ? pushErrorText(l.pushError) : null;
           const note =
             l.status === 'rejected'
               ? l.rejectReason
-              : (l.status === 'push_failed' || l.status === 'pushing') && l.pushError
+              : pushErr
                 ? l.status === 'pushing'
-                  ? `Đang thử lại (${l.pushAttempts} lần): ${pushErrorText(l.pushError)}`
-                  : pushErrorText(l.pushError)
+                  ? `Đang thử lại (${l.pushAttempts} lần): ${pushErr.text}`
+                  : pushErr.text
                 : null;
           return (
             <div className="grid justify-items-start gap-1">
@@ -824,6 +827,7 @@ export function ShopListingsPage() {
                   {note}
                 </span>
               )}
+              <PlatformDetail text={pushErr?.platformMessage} />
               {l.status === 'push_failed' &&
                 l.pushError &&
                 PRODUCT_FIX_CODES.has(l.pushError.code) &&
@@ -1171,6 +1175,7 @@ export function ShopListingsPage() {
         </AlertMessage>
       )}
       {shop && <OpeningStocktakeBanner shop={shop} companyId={companyId} />}
+      {shop && <ReturnWindowPanel shop={shop} />}
       {shop && usable && !can(PERMISSIONS.listingManage) && (
         <AlertMessage severity="info" className="mb-4">
           {can(PERMISSIONS.listingMatch)
@@ -1236,7 +1241,7 @@ export function ShopListingsPage() {
                   {refreshPoll.stuck
                     ? 'Tải danh sách SKU lâu bất thường. Tải lại trang để xem kết quả.'
                     : refreshPoll.error
-                      ? problemMessage(refreshPoll.error)
+                      ? problemMessage(refreshPoll.error, 'remote_skus')
                       : refreshFailure}
                 </AlertMessage>
               </div>
@@ -1249,7 +1254,7 @@ export function ShopListingsPage() {
               <p className="px-4 pb-6 text-sm text-muted-foreground">Xem SKU sàn chưa ghép cần quyền ghép SKU.</p>
             ) : remoteQuery.isError ? (
               <div className="px-4 pb-6">
-                <AlertMessage severity="error">{problemMessage(remoteQuery.error)}</AlertMessage>
+                <AlertMessage severity="error">{problemMessage(remoteQuery.error, 'remote_skus')}</AlertMessage>
               </div>
             ) : (
               <DataTable

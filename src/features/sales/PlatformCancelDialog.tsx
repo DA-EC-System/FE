@@ -64,12 +64,12 @@ export function PlatformCancelDialog({ order, open, onClose, onConflict }: Platf
       const problem = getProblem(e);
       if (problem?.code && CONFLICT_CODES.includes(problem.code)) onConflict();
       else if (problem?.errors?.reasonId) form.setError('reasonId', { message: problem.errors.reasonId });
-      else setError(problemMessage(e));
+      else setError(problemMessage(e, 'cancel'));
     }
   };
 
   const loading = mutation.isPending;
-  const rejected = reasons.isError ? problemMessage(reasons.error) : null;
+  const rejected = reasons.isError ? problemMessage(reasons.error, 'cancel') : null;
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-lg">

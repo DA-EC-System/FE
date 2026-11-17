@@ -30,7 +30,7 @@ export interface ShopPlatform {
   reason?: string | null;
 }
 
-/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
+/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy ở trang nhà phát triển của sàn (shop thử) */
 export type ShopConnectMethod = 'oauth' | 'token';
 
 export interface ShopList { items: Shop[] }
@@ -461,6 +461,13 @@ export interface ShopSetupResult {
   matched: number;
   /** Số phiếu kiểm kê nháp vừa lập (khi chọn stocktake và có SKU lệch) */
   stocktakeNumber: string | null;
+}
+
+/** PATCH /channel/shops/:id (§18.4, BE#377): sửa hạn trả hàng khi capabilities.returnWindow = days */
+export interface ShopUpdateInput {
+  version: number;
+  /** Số nguyên 1–60 */
+  returnWindowDays: number;
 }
 
 export interface ShopDisconnectInput {

@@ -129,21 +129,67 @@ describe('giải thích trạng thái listing', () => {
 
 describe('pushErrorText (FE#266, commerio-backend#305)', () => {
   const at = '2026-11-17T00:00:00.000Z';
-  it('gian hàng TikTok chưa đủ điều kiện: câu tiếng Việt kèm câu của sàn', () => {
+  it('gian hàng TikTok chưa đủ điều kiện: câu tiếng Việt, câu của sàn tách riêng', () => {
     const t = pushErrorText({ code: 'shop_not_eligible', message: 'Shop onboarding incomplete', at });
-    expect(t).toContain('Gian hàng chưa đủ điều kiện');
-    expect(t).toContain('Seller Center');
-    expect(t).toMatch(/Sàn báo: Shop onboarding incomplete$/);
+    expect(t.text).toContain('Gian hàng chưa đủ điều kiện');
+    expect(t.text).toContain('Seller Center');
+    expect(t.platformMessage).toBe('Shop onboarding incomplete');
   });
 
-  it('sai luật đăng: câu tiếng Việt kèm mã và câu của sàn', () => {
-    const t = pushErrorText({ code: 'listing_check_failed', message: '12052051: product name must be between 25 and 255 characters', at });
-    expect(t).toContain('chưa đạt luật đăng bán');
-    expect(t).toContain('Sàn báo: 12052051');
+  it('sai luật đăng mà không có câu dịch: câu chung, câu của sàn tách riêng', () => {
+    const t = pushErrorText({ code: 'listing_check_failed', message: '12099999: something else', at });
+    expect(t.text).toBe(
+      'Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.',
+    );
+    expect(t.platformMessage).toBe('12099999: something else');
   });
 
-  it('mã khác giữ nguyên câu BE trả', () => {
-    expect(pushErrorText({ code: 'marketplace_rejected', message: 'Sàn từ chối sản phẩm', at })).toBe('Sàn từ chối sản phẩm');
+  it('mã khác, câu không khớp bảng dịch: giữ nguyên câu BE trả', () => {
+    expect(pushErrorText({ code: 'marketplace_rejected', message: 'Sàn từ chối sản phẩm', at })).toEqual({ text: 'Sàn từ chối sản phẩm' });
+  });
+});
+
+describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
+  const at = '2026-11-17T00:00:00.000Z';
+  const TITLE = 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đẩy lại.';
+  const SIZE = 'Danh mục TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đẩy lại.';
+
+  it.each([
+    ['listing_check_failed', '12052051: The product name must be between 25 and 255 characters, inclusive.', TITLE],
+    ['marketplace_rejected', 'Value Out Of Range. The parameter `product title` must be within 25 to 255', TITLE],
+    ['marketplace_rejected', 'Missing Parameter. `size_chart_image` is required. Please provide it and retry.', SIZE],
+    [
+      'listing_check_failed',
+      '12052104: attribute Material is required',
+      'Danh mục sàn bắt buộc một thuộc tính còn thiếu. Bổ sung ở trang sản phẩm rồi đẩy lại.',
+    ],
+    [
+      'marketplace_rejected',
+      'E0501: Category attribute "brand" is mandatory',
+      'Danh mục Lazada bắt buộc thuộc tính "brand". Bổ sung ở trang sản phẩm rồi đẩy lại.',
+    ],
+  ])('%s: %s', (code, message, text) => {
+    expect(pushErrorText({ code, message, at })).toEqual({ text, platformMessage: message });
+  });
+
+  it('nhiều lỗi nối bằng "; ": dịch từng phần, phần không dịch được thì thêm câu chung', () => {
+    const message = '12052051: product name must be between 25 and 255 characters; 12099999: other';
+    expect(pushErrorText({ code: 'listing_check_failed', message, at })).toEqual({
+      text: `${TITLE} Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.`,
+      platformMessage: message,
+    });
+  });
+
+  it('câu độ dài tên không phải 25–255 của TikTok thì không dịch', () => {
+    expect(pushErrorText({ code: 'marketplace_rejected', message: 'product name must be within 255 characters', at })).toEqual({
+      text: 'product name must be within 255 characters',
+    });
+  });
+
+  it('mã chặn của app không dịch theo câu', () => {
+    expect(pushErrorText({ code: 'images_missing', message: 'size_chart_image is required', at })).toEqual({
+      text: 'size_chart_image is required',
+    });
   });
 });
 

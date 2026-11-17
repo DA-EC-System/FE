@@ -94,7 +94,7 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     if ((await radioToken.count()) > 0) await radioToken.click();
     await section.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
     const form = page.locator('[data-testid=token-form]');
-    await form.getByLabel('Access token', { exact: true }).fill(TOKEN);
+    await form.getByLabel('Mã truy cập (access token)', { exact: true }).fill(TOKEN);
     const ketNoi = page.waitForResponse(laApi('POST', new RegExp(`/channel/shops/${PLATFORM}/token$`)));
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
     const res = await ketNoi;

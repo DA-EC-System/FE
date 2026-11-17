@@ -7,26 +7,19 @@ import * as payment from '../paymentData';
 import * as fulfillment from '../fulfillmentData';
 import { openRequestsOf } from '../returnsData';
 import type {
-  Customer,
-  CustomerChannel,
-  CustomerSummary,
-  CreateOrderInput,
   Order,
   OrderFlag,
   OrderSummary,
-  OrderVariantOption,
-  ShippingAddress,
   StatusChangeSource,
   UserRef,
 } from '@/types/sales';
-import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
-import { fileUrl, findOwned, rid } from './catalog';
-import { ensureStandard, sellableVariants } from './pricing';
-import { findVariant, isQty, stockLevelOf, variantLabel } from './inventory';
+import { fileUrl, findOwned } from './catalog';
+import { findVariant, stockLevelOf, variantLabel } from './inventory';
 import { availableOf as stockAvailable } from '../engine/stock';
 import type { StatusChange } from '@/lib/stateMachine';
-import { newPackage, placePackage, toPackageSummary } from './fulfillment';
+import { toPackageSummary } from './fulfillment';
 import {
   RETURN_WINDOW_DAYS,
   completionBlocker,
@@ -38,11 +31,7 @@ import {
   type OrderRecord,
 } from '@/lib/machines/order';
 
-// ---------- Bán hàng: khách hàng, đơn (UC-SF-01, 02; đơn theo sơ đồ D1, FE#59) ----------
-
-export const PHONE_RE = /^0\d{9}$/;
-export const MAX_LINE_QTY = 9999;
-export const MAX_ORDER_LINES = 100;
+// ---------- Bán hàng: đơn (UC-SF-01, 02; đơn theo sơ đồ D1, FE#59) ----------
 
 /** Ngày theo giờ Việt Nam (C6) */
 export const vnDate = (iso: string) => new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 10);
@@ -54,36 +43,6 @@ export const userRef = (accountId: string | null): UserRef | null => {
 
 /** Khả dụng = tồn thực − đang giữ − tạm khoá (sơ đồ B2) */
 export const availableOf = (companyId: string, variantId: string) => stockAvailable(stockLevelOf(companyId, variantId));
-
-export function customerStats(c: sales.MockCustomer) {
-  const own = sales.orders.filter((o) => o.customerId === c.id);
-  const lastOrderAt = own.reduce<string | null>((max, o) => (!max || o.createdAt > max ? o.createdAt : max), null);
-  return {
-    orderCount: own.length,
-    totalSpent: own.filter((o) => o.status !== 'cancelled').reduce((sum, o) => sum + sales.totalOf(o), 0),
-    lastOrderAt,
-  };
-}
-
-export function toCustomerSummary(c: sales.MockCustomer): CustomerSummary {
-  return {
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    email: c.email,
-    channels: c.channels,
-    ...customerStats(c),
-    createdAt: c.createdAt,
-  };
-}
-
-export const toCustomer = (c: sales.MockCustomer): Customer => ({
-  ...toCustomerSummary(c),
-  address: c.address,
-  note: c.note,
-  identities: c.identities,
-  version: c.version,
-});
 
 export const packagesOf = (o: sales.MockOrder) => fulfillment.packages.filter((p) => p.orderId === o.id);
 
@@ -292,50 +251,7 @@ export const orderSnapshot = (o: sales.MockOrder) => ({
   total: sales.totalOf(o),
 });
 
-export function validateAddress(a: Partial<ShippingAddress> | undefined, prefix: string, errors: Record<string, string>) {
-  if (!a?.name?.trim()) errors[`${prefix}.name`] = 'Nhập tên người nhận';
-  if (!a?.phone?.trim()) errors[`${prefix}.phone`] = 'Nhập số điện thoại';
-  else if (!PHONE_RE.test(a.phone.trim())) errors[`${prefix}.phone`] = 'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0';
-  if (!a?.address?.trim()) errors[`${prefix}.address`] = 'Nhập địa chỉ giao';
-}
-
 export const salesHandlers = [
-  http.get(`${API}/sales/customers`, async ({ request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.customerView);
-    if (!guard.ok) return guard.response;
-    const url = new URL(request.url);
-    const { page, pageSize } = pageParams(url);
-    const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
-    const channel = url.searchParams.get('channel');
-    const from = url.searchParams.get('from');
-    const to = url.searchParams.get('to');
-    const items = sales.customers
-      .filter((c) => c.companyId === guard.value.companyId)
-      .map(toCustomerSummary)
-      .filter(
-        (c) =>
-          (!search ||
-            c.name.toLowerCase().includes(search) ||
-            c.phone.includes(search) ||
-            c.email.toLowerCase().includes(search)) &&
-          (!channel || c.channels.includes(channel as CustomerChannel)) &&
-          (!from || (c.lastOrderAt !== null && vnDate(c.lastOrderAt) >= from)) &&
-          (!to || (c.lastOrderAt !== null && vnDate(c.lastOrderAt) <= to)),
-      )
-      .sort((a, b) => (b.lastOrderAt ?? b.createdAt).localeCompare(a.lastOrderAt ?? a.createdAt));
-    return HttpResponse.json(paginate(items, page, pageSize));
-  }),
-
-  http.get(`${API}/sales/customers/:id`, async ({ params, request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.customerView);
-    if (!guard.ok) return guard.response;
-    const found = findOwned(sales.customers, params.id, guard.value.companyId, 'khách hàng');
-    if (!found.ok) return found.response;
-    return HttpResponse.json(toCustomer(found.value));
-  }),
-
   http.get(`${API}/sales/orders`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.orderView);
@@ -375,168 +291,6 @@ export const salesHandlers = [
     const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
     if (!found.ok) return found.response;
     return HttpResponse.json(toOrder(found.value));
-  }),
-
-  http.get(`${API}/sales/order-variants`, async ({ request }) => {
-    await delay(lag(150));
-    const guard = requireCompany(request, PERMISSIONS.orderCreate);
-    if (!guard.ok) return guard.response;
-    const { companyId } = guard.value;
-    const url = new URL(request.url);
-    const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
-    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? '20')));
-    const prices = ensureStandard(companyId).prices;
-    const items: OrderVariantOption[] = sellableVariants(companyId)
-      .filter(
-        ({ product, variant }) =>
-          !search || product.name.toLowerCase().includes(search) || variant.sku.toLowerCase().includes(search),
-      )
-      .slice(0, limit)
-      .map(({ product, variant }) => ({
-        variantId: variant.id,
-        productName: product.name,
-        sku: variant.sku,
-        attributesLabel: variantLabel(companyId, variant.id).attributesLabel,
-        thumbnailUrl: product.imageFileIds[0] ? fileUrl(product.imageFileIds[0]) : null,
-        price: prices[variant.id] ?? null,
-        available: availableOf(companyId, variant.id),
-      }));
-    return HttpResponse.json(items);
-  }),
-
-  http.post(`${API}/sales/orders`, async ({ request }) => {
-    await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.orderCreate);
-    if (!guard.ok) return guard.response;
-    const { companyId } = guard.value;
-    const body = (await request.json()) as Partial<CreateOrderInput>;
-    const errors: Record<string, string> = {};
-    let priceMissing = false;
-
-    const customerInput = body.customer;
-    const existingId = customerInput && 'id' in customerInput ? customerInput.id : null;
-    if (!customerInput) errors.customer = 'Chọn khách hàng';
-    else if (!existingId && 'name' in customerInput) {
-      if (!customerInput.name?.trim()) errors['customer.name'] = 'Nhập tên khách';
-      if (!customerInput.phone?.trim()) errors['customer.phone'] = 'Nhập số điện thoại';
-      else if (!PHONE_RE.test(customerInput.phone.trim()))
-        errors['customer.phone'] = 'Số điện thoại gồm 10 chữ số, bắt đầu bằng 0';
-    }
-    validateAddress(body.shippingAddress, 'shippingAddress', errors);
-
-    const lines = Array.isArray(body.lines) ? body.lines : [];
-    if (lines.length === 0) errors.lines = 'Thêm ít nhất một sản phẩm';
-    if (lines.length > MAX_ORDER_LINES) errors.lines = `Tối đa ${MAX_ORDER_LINES} dòng`;
-    const sellable = new Map(sellableVariants(companyId).map((x) => [x.variant.id, x]));
-    const prices = ensureStandard(companyId).prices;
-    const seen = new Set<string>();
-    lines.forEach((l, i) => {
-      if (!isQty(l.quantity, 1, MAX_LINE_QTY)) errors[`lines.${i}.quantity`] = `Số lượng từ 1 đến ${MAX_LINE_QTY}`;
-      if (seen.has(l.variantId)) errors[`lines.${i}.variantId`] = 'Sản phẩm bị lặp';
-      else if (!sellable.has(l.variantId)) errors[`lines.${i}.variantId`] = 'Sản phẩm không còn bán';
-      else if (prices[l.variantId] == null) {
-        errors[`lines.${i}.variantId`] = 'Sản phẩm chưa có giá bán';
-        priceMissing = true;
-      }
-      seen.add(l.variantId);
-    });
-    const fee = body.shippingFee;
-    if (typeof fee !== 'number' || !Number.isInteger(fee) || fee < 0) errors.shippingFee = 'Phí giao là số nguyên không âm';
-    if (body.paymentMethod !== 'prepaid' && body.paymentMethod !== 'cod') errors.paymentMethod = 'Chọn cách thanh toán';
-    if (body.selfDelivery !== undefined && typeof body.selfDelivery !== 'boolean') errors.selfDelivery = 'Chọn cách giao';
-
-    if (Object.keys(errors).length > 0) {
-      return problem(422, 'Dữ liệu không hợp lệ', { errors, ...(priceMissing ? { code: 'price_missing' } : {}) });
-    }
-    let customer: sales.MockCustomer | undefined;
-    if (existingId) {
-      const found = findOwned(sales.customers, existingId, companyId, 'khách hàng');
-      if (!found.ok) return found.response;
-      customer = found.value;
-    }
-
-    const at = db.now();
-    const actorId = guard.value.account.id;
-    if (!customer) {
-      const input = customerInput as { name: string; phone: string; email?: string; address?: string };
-      customer = {
-        id: rid('cus'),
-        companyId,
-        name: input.name.trim(),
-        phone: input.phone.trim(),
-        email: input.email?.trim() ?? '',
-        address: input.address?.trim() ?? '',
-        note: '',
-        channels: ['manual'],
-        identities: [],
-        createdAt: at,
-        version: 1,
-      };
-      sales.customers.push(customer);
-    } else if (!customer.channels.includes('manual')) {
-      customer.channels.push('manual');
-    }
-
-    const order: sales.MockOrder = {
-      id: rid('ord'),
-      companyId,
-      code: sales.nextOrderCode(companyId),
-      source: 'manual',
-      shopId: null,
-      customerId: customer.id,
-      status: 'unpaid',
-      flags: [],
-      outcome: null,
-      rawMarketplaceStatus: null,
-      externalOrderId: null,
-      buyerNote: null,
-      shipBy: null,
-      paymentMethod: body.paymentMethod!,
-      shippingAddress: {
-        name: body.shippingAddress!.name.trim(),
-        phone: body.shippingAddress!.phone.trim(),
-        address: body.shippingAddress!.address.trim(),
-      },
-      shippingFee: fee as number,
-      note: body.note?.trim() ?? '',
-      cancelReason: null,
-      invoiceNumber: null,
-      // Giá lấy từ bảng giá chuẩn lúc tạo rồi ghi cứng vào dòng; FE không gửi giá
-      lines: lines.map((l, i) => {
-        const { product, variant } = sellable.get(l.variantId)!;
-        return {
-          id: `${rid('orl')}-${i}`,
-          variantId: l.variantId,
-          sku: variant.sku,
-          productName: product.name,
-          quantity: l.quantity,
-          unitPrice: prices[l.variantId] as number,
-        };
-      }),
-      history: [{ from: null, to: 'unpaid', at, by: actorId }],
-      createdAt: at,
-      createdBy: actorId,
-      version: 1,
-    };
-    sales.orders.push(order);
-    // Một kiện mặc định, giữ hàng ngay nếu đủ (đơn chưa thanh toán bị lấy lại trước)
-    placePackage(
-      newPackage(order, order.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })), body.selfDelivery === true, at),
-      at,
-    );
-    // Trả trước: chờ khách trả (mã thanh toán, chuyển khoản); COD tạo dòng khi xác nhận
-    if (order.paymentMethod === 'prepaid') {
-      payment.orderPayments.push({
-        companyId,
-        orderId: order.id,
-        method: 'prepaid',
-        status: 'unpaid',
-        refundStatus: 'none',
-        paidAt: null,
-      });
-    }
-    writeCompanyLog(guard.value, 'create', orderEntity(order), null, orderSnapshot(order));
-    return HttpResponse.json(toOrder(order), { status: 201 });
   }),
 
   http.post(`${API}/sales/orders/:id/confirm`, async ({ params, request }) => {
