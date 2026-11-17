@@ -568,7 +568,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByRole('button', { name: 'Bỏ ghép', exact: true })).toHaveCount(0);
     });
 
-    test('Tải lại SKU sàn: báo giờ tải, lỗi 429 nêu số phút chờ, 503 khi lượt khác đang tải', async ({ page }) => {
+    test('Tải lại SKU sàn chạy nền: 202 rồi hỏi lại tới khi xong, lỗi 429 nêu số phút chờ, lượt lỗi báo số phút', async ({ page }) => {
       await moTab(page, 'unmatched');
       const khu = page.locator('[data-testid=remote-section]');
       await expect(khu.locator('[data-testid=remote-synced]')).toContainText('Danh sách tải lúc');
@@ -579,7 +579,9 @@ test.describe('P3 · Gian hàng', () => {
       );
       await taiLai.click();
       await yeuCau;
+      // FE#265: BE trả 202, FE hỏi lại `remote-skus/refresh`; xong mới báo
       await toast(page, 'Đã tải lại SKU trên sàn');
+      await expect(taiLai).toBeEnabled();
       await expect(khu).toContainText('OLD-TEE-01');
 
       await mockApi(
@@ -593,18 +595,21 @@ test.describe('P3 · Gian hàng', () => {
       await taiLai.click();
       await toast(page, 'Lần tải SKU sàn trước bị lỗi. Thử lại sau 5 phút.');
 
-      await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 503, { status: 503, code: 'remote_skus_busy' });
-      await taiLai.click();
-      await toast(page, 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.');
-
-      // FE#265: sàn trả thiếu danh sách (409 incomplete_list) có câu riêng, không dùng câu huỷ đơn
-      await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 409, {
-        status: 409,
-        code: 'marketplace_rejected',
-        platformCode: 'incomplete_list',
+      // FE#265: lượt chạy nền lỗi vì sàn trả thiếu danh sách; số phút lấy từ `error.retryAfterSeconds`, làm tròn lên
+      const startedAt = '2026-11-17T08:00:00.000Z';
+      await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 202, {
+        refresh: { status: 'running', startedAt, finishedAt: null, error: null },
+      });
+      await mockApi(page, 'get', '/channel/shops/:id/remote-skus/refresh', 200, {
+        refresh: {
+          status: 'failed',
+          startedAt,
+          finishedAt: '2026-11-17T08:00:05.000Z',
+          error: { code: 'marketplace_rejected', platformCode: 'incomplete_list', message: 'x', retryAfterSeconds: 250 },
+        },
       });
       await taiLai.click();
-      await toast(page, 'Sàn trả thiếu danh sách SKU, thử lại sau 10 phút.');
+      await toast(page, 'Sàn trả thiếu danh sách SKU, thử lại sau 5 phút.');
       // Lỗi tải lại không xoá danh sách đang có
       await expect(khu).toContainText('OLD-TEE-01');
     });

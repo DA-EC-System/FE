@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
@@ -25,13 +25,14 @@ import {
   usePushListings,
   useRefreshRemoteSkus,
   useRemoteSkus,
+  useRemoteSkusRefresh,
   useShop,
   useShopListings,
   useSyncListings,
 } from '@/api/shops.api';
 import { apiClient, getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import { catalogKeys } from '@/api/catalog.api';
-import { codeMessage, problemCode, problemMessage } from '@/api/problemMessages';
+import { codeMessage, problemCode, problemMessage, remoteRefreshErrorMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { OpeningStocktakeBanner } from './OpeningStocktakeBanner';
@@ -204,6 +205,34 @@ export function ShopListingsPage() {
   const remoteQuery = useRemoteSkus(shopId, canMatch);
   const matchMut = useMatchListing();
   const refreshMut = useRefreshRemoteSkus();
+  // Lượt tải SKU sàn chạy nền (§18.3, BE#361): mở trang lần đầu hay bấm Tải lại thì BE chạy nền, FE hỏi lại tới khi xong
+  const remoteRefresh = remoteQuery.data?.refresh ?? null;
+  const refreshPoll = useRemoteSkusRefresh(shopId, remoteRefresh);
+  const refreshing = refreshMut.isPending || refreshPoll.running;
+  /** Lượt do người dùng bấm Tải lại: xong thì báo bằng toast */
+  const userRefresh = useRef<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const retrySeconds = remoteRefresh?.status === 'failed' ? (remoteRefresh.error?.retryAfterSeconds ?? null) : null;
+  // Đếm ngược số phút được tải lại theo `error.retryAfterSeconds`, tính từ lúc nhận phản hồi
+  useEffect(() => {
+    if (!retrySeconds) return;
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, [retrySeconds]);
+  const secondsLeft =
+    retrySeconds === null ? null : Math.max(0, retrySeconds - Math.max(0, now - remoteQuery.dataUpdatedAt) / 1000);
+  const refreshFailure =
+    remoteRefresh?.status === 'failed' && remoteRefresh.error
+      ? remoteRefreshErrorMessage(remoteRefresh.error, secondsLeft)
+      : null;
+  useEffect(() => {
+    if (!remoteRefresh || remoteRefresh.status === 'running' || userRefresh.current !== remoteRefresh.startedAt) return;
+    userRefresh.current = null;
+    if (remoteRefresh.status === 'succeeded') toast.success('Đã tải lại SKU trên sàn');
+    else if (remoteRefresh.error) {
+      toast.error(remoteRefreshErrorMessage(remoteRefresh.error, remoteRefresh.error.retryAfterSeconds));
+    }
+  }, [remoteRefresh]);
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
   const decideMut = useDecideMapping();
@@ -453,10 +482,14 @@ export function ShopListingsPage() {
     }
   };
 
-  // Tải lại SKU sàn (§18.6.5): BE đọc trọn từ sàn; lỗi 429 kèm số phút chờ, 503 khi lượt khác đang tải
+  // Tải lại SKU sàn (§18.3, BE#361): 202 thì chờ lượt chạy nền xong mới báo; 200 là lượt thành công trong 60 giây.
+  // Lỗi trả ngay trên POST (429 kèm số phút chờ, gian hàng chưa nối) báo luôn
   const refreshRemote = () =>
     refreshMut.mutate(shopId, {
-      onSuccess: () => toast.success('Đã tải lại SKU trên sàn'),
+      onSuccess: (data) => {
+        if (!('items' in data) && data.refresh?.status === 'running') userRefresh.current = data.refresh.startedAt;
+        else toast.success('Đã tải lại SKU trên sàn');
+      },
       onError: (e) =>
         toast.error(
           isTimeout(e)
@@ -1054,14 +1087,26 @@ export function ShopListingsPage() {
                 {remoteQuery.data?.syncedAt && (
                   <> Danh sách tải lúc {formatDateTime(remoteQuery.data.syncedAt)}; vừa thêm SKU trên sàn thì bấm Tải lại.</>
                 )}
+                {refreshPoll.running && <> Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.</>}
               </p>
               {canMatch && (
-                <Button size="sm" variant="outline" disabled={refreshMut.isPending} onClick={refreshRemote}>
+                <Button size="sm" variant="outline" disabled={refreshing} onClick={refreshRemote}>
                   <RefreshCw />
-                  {refreshMut.isPending ? 'Đang tải danh sách SKU…' : 'Tải lại'}
+                  {refreshing ? 'Đang tải danh sách SKU…' : 'Tải lại'}
                 </Button>
               )}
             </div>
+            {usable && canMatch && (refreshFailure || refreshPoll.stuck || refreshPoll.error) && (
+              <div className="px-4 pb-3" data-testid="remote-refresh-alert">
+                <AlertMessage severity={refreshPoll.stuck ? 'warning' : 'error'}>
+                  {refreshPoll.stuck
+                    ? 'Tải danh sách SKU lâu bất thường. Tải lại trang để xem kết quả.'
+                    : refreshPoll.error
+                      ? problemMessage(refreshPoll.error)
+                      : refreshFailure}
+                </AlertMessage>
+              </div>
+            )}
             {!usable ? (
               <p className="px-4 pb-6 text-sm text-muted-foreground">
                 Không tải được SKU trên sàn khi gian hàng chưa kết nối.
@@ -1077,14 +1122,16 @@ export function ShopListingsPage() {
                 columns={remoteColumns}
                 data={remoteRows}
                 getRowId={(r) => r.externalSkuId}
-                loading={remoteQuery.isLoading}
+                loading={remoteQuery.isLoading || (refreshPoll.running && !remoteQuery.data?.syncedAt)}
                 fetching={remoteQuery.isFetching}
                 empty={
                   searching
                     ? 'Không có SKU sàn khớp ô tìm kiếm'
                     : tab === 'pending'
                       ? 'Không có yêu cầu ghép nào chờ duyệt'
-                      : 'Mọi SKU trên sàn đã được ghép'
+                      : remoteQuery.data && !remoteQuery.data.syncedAt
+                        ? 'Chưa có danh sách SKU trên sàn'
+                        : 'Mọi SKU trên sàn đã được ghép'
                 }
               />
             )}
