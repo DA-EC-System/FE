@@ -17,7 +17,8 @@ test('BE thật: cấu hình nháp → chạy thử → gửi → tự duyệt; 
     await page.getByRole('alertdialog').getByRole('button', { name, exact: true }).click();
   }
   await expect(page.locator('[data-status=active]').first()).toBeVisible();
-  await expect(page.getByText('Tự duyệt', { exact: true })).toBeVisible();
+  // Nhãn hiện ở dòng phiên bản và ở lịch sử trạng thái.
+  await expect(page.getByText('Tự duyệt', { exact: true }).first()).toBeVisible();
   await page.reload();
   await expect(page.locator('[data-status=active]').first()).toBeVisible();
 

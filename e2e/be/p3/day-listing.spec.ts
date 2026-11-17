@@ -49,7 +49,11 @@ test.describe('P3-BE · Đẩy listing chạy nền (§18.6.4)', () => {
     const companyId = await dangNhap(page);
 
     const shopRes = page.waitForResponse(
-      (r) => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith(`/channel/shops/${SHOP_ID}`),
+      // Bỏ trang HTML: route FE `/c/:id/channel/shops/:id` cũng kết thúc giống đường dẫn API.
+      (r) =>
+        r.request().method() === 'GET' &&
+        r.request().resourceType() !== 'document' &&
+        new URL(r.url()).pathname.endsWith(`/channel/shops/${SHOP_ID}`),
     );
     await page.goto(`/c/${companyId}/channel/shops/${SHOP_ID}`);
     const shop = (await (await shopRes).json()) as { platform: string; status: string };
