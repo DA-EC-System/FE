@@ -53,7 +53,7 @@ test.describe('P1 · Xác thực và chặn trang', () => {
     await expect(page.locator('body')).not.toContainText('hết hạn');
     // Cả refresh cũng hết
     await page.waitForTimeout(6500);
-    await menu(page, 'Khách hàng');
+    await menu(page, 'Đơn hàng');
     await expect.poll(() => duongDan(page), { timeout: 10000 }).toBe('/login');
   });
 

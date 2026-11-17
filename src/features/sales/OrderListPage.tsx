@@ -2,7 +2,6 @@ import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
@@ -45,7 +44,6 @@ export function OrderListPage() {
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
-  const canCreate = can(PERMISSIONS.orderCreate);
   const f = useUrlFilters(PAGE_SIZES);
   const statusParam = f.params.get('status');
   const status = STATUS_TABS.includes(statusParam as OrderStatus) ? (statusParam as OrderStatus) : '';
@@ -193,13 +191,9 @@ export function OrderListPage() {
     <div>
       <PageHeader
         title="Đơn hàng"
-        subtitle="Đơn từ sàn, hộp thư và đơn tạo tay."
+        subtitle="Đơn từ các gian hàng trên sàn."
         help="Số trên mỗi tab đếm theo bộ lọc đang chọn. Cột Trạng thái là giai đoạn suy từ các kiện; rê chuột vào nhãn để xem nghĩa."
         onTour={startTour}
-        // AC-R3: không có quyền tạo đơn thì không thấy nút
-        actionLabel={canCreate ? 'Tạo đơn' : undefined}
-        actionIcon={<Plus />}
-        onAction={() => navigate(ROUTES.company.orderNew(companyId))}
       />
       <Tabs value={status || ALL} onValueChange={(v) => f.update({ status: v === ALL ? undefined : v, page: undefined })}>
         <div className="mb-2 overflow-x-auto">

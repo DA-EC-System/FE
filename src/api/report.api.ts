@@ -1,14 +1,14 @@
 /**
- * API báo cáo kinh doanh: tổng quan, lãi theo gian hàng, chuỗi theo ngày, xuất CSV (UC-RP-01, UC-RP-02).
+ * API số liệu kinh doanh của trang chủ: tổng quan, chuỗi theo ngày (UC-RP-01). Trang /reports ngoài MVP, gỡ ở FE#249.
  * Hợp đồng theo Documents/21 mục 12.7, 12.8, BE ở commerio-backend#29.
  */
 
 import axios from 'axios';
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { OrderSource } from '@/types/sales';
-import type { ReportDaily, ReportKind, ReportOverview, ReportSelfApprovals, ReportShops } from '@/types/report';
+import type { ReportDaily, ReportKind, ReportOverview } from '@/types/report';
 
 /** Bỏ trống cả hai thì BE lấy 30 ngày tới hôm nay */
 export interface RangeParams {
@@ -31,12 +31,11 @@ function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-function useReport<T>(kind: ReportKind, params: object, enabled: boolean, keepPrevious = false) {
+function useReport<T>(kind: ReportKind, params: object, enabled: boolean) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: reportKeys.of(companyId, kind, params),
     enabled: Boolean(companyId) && enabled,
-    placeholderData: keepPrevious ? keepPreviousData : undefined,
     retry: false,
     queryFn: async () => {
       const { data } = await apiClient.get<T>(`/report/${kind}`, { params });
@@ -47,41 +46,8 @@ function useReport<T>(kind: ReportKind, params: object, enabled: boolean, keepPr
 
 export const useReportOverview = (params: RangeParams, enabled = true) =>
   useReport<ReportOverview>('overview', params, enabled);
-export const useReportShops = (params: RangeParams, enabled = true) => useReport<ReportShops>('shops', params, enabled);
-/** Cùng truy vấn với `useReportShops` nhưng giữ danh sách cũ khi đổi khoảng ngày: dùng cho ô lọc gian hàng */
-export const useReportShopOptions = (params: RangeParams) => useReport<ReportShops>('shops', params, true, true);
 export const useReportDaily = (params: DailyParams, enabled = true) => useReport<ReportDaily>('daily', params, enabled);
 
-/** Các lần tự duyệt trong khoảng (Documents/25 mục 11: "hiện trên báo cáo CEO") */
-export function useReportSelfApprovals(params: RangeParams & { page: number; pageSize: number }) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: [...reportKeys.all(companyId), 'self-approvals', params] as const,
-    enabled: Boolean(companyId),
-    placeholderData: keepPreviousData,
-    retry: false,
-    queryFn: async () => {
-      const { data } = await apiClient.get<ReportSelfApprovals>('/report/self-approvals', { params });
-      return data;
-    },
-  });
-}
-
-/** Tên tệp trong `Content-Disposition`: `filename*=UTF-8''…` trước, rồi `filename="…"` */
-export function filenameFromDisposition(header: string | null | undefined, fallback: string): string {
-  if (!header) return fallback;
-  const star = header.match(/filename\*\s*=\s*(?:UTF-8'[^']*')?([^;]+)/i);
-  if (star) {
-    try {
-      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''));
-    } catch {
-      // tên mã hoá sai thì thử dạng thường
-    }
-  }
-  const plain = header.match(/filename\s*=\s*("([^"]*)"|[^;]+)/i);
-  const name = (plain?.[2] ?? plain?.[1])?.trim();
-  return name || fallback;
-}
 
 /** Lỗi của lời gọi `responseType: 'blob'` có thân là Blob: đọc lại thành Problem Details để `problemMessage` dùng được */
 export async function blobErrorToJson(error: unknown): Promise<never> {
@@ -106,23 +72,3 @@ export function saveBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export interface ExportParams extends DailyParams {
-  report: ReportKind;
-}
-
-/** Tải CSV về máy; trả tên tệp đã lưu */
-export function useExportReport() {
-  return useMutation({
-    mutationFn: async (params: ExportParams) => {
-      const res = await apiClient
-        .get<Blob>('/report/export', { params, responseType: 'blob' })
-        .catch(blobErrorToJson);
-      const filename = filenameFromDisposition(
-        res.headers['content-disposition'] as string | undefined,
-        `bao-cao-${params.report}.csv`,
-      );
-      saveBlob(res.data, filename);
-      return filename;
-    },
-  });
-}

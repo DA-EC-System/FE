@@ -1,4 +1,4 @@
-import { ClipboardPlus, PackagePlus, ShoppingCart, Store, type LucideIcon } from 'lucide-react';
+import { ClipboardPlus, PackagePlus, Store, type LucideIcon } from 'lucide-react';
 import { ROUTES } from '@/router/routes';
 import type { CompanyContext } from '@/types/auth';
 import { PERMISSIONS, hasPermission, isModuleEnabled } from '@/utils/permissions';
@@ -83,14 +83,6 @@ interface QuickActionDef {
 }
 
 const QUICK_ACTIONS: QuickActionDef[] = [
-  {
-    id: 'order-new',
-    label: 'Tạo đơn',
-    icon: ShoppingCart,
-    module: 'sales',
-    permission: PERMISSIONS.orderCreate,
-    to: ROUTES.company.orderNew,
-  },
   {
     id: 'purchase-request-new',
     label: 'Tạo đề nghị nhập',

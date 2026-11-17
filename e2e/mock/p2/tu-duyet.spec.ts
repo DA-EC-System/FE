@@ -1,4 +1,4 @@
-// Nhãn "Tự duyệt" ở lịch sử trạng thái, nhật ký thao tác và báo cáo CEO (commerio-backend#246; Documents/21 mục 14.1,
+// Nhãn "Tự duyệt" ở lịch sử trạng thái và nhật ký thao tác; trang chủ CEO mở nhật ký lọc sẵn (commerio-backend#246, FE#249; Documents/21 mục 14.1,
 // Documents/25 mục 11; US-CT-10 dòng 2, US-NH-03 dòng 9)
 import { type Page } from '@playwright/test';
 import { chua, dangNhap, expect, menu, test, toast } from '../../fixtures';
@@ -44,13 +44,14 @@ test.describe('Nền tảng · Nhãn tự duyệt', () => {
     await expect(rows.first().getByTestId('self-approved')).toBeVisible();
   });
 
-  test('báo cáo CEO liệt kê lần tự duyệt, bấm mở đúng chứng từ', async ({ page }) => {
+  test('trang chủ mở nhật ký lọc sẵn lần tự duyệt, bấm mã chứng từ mở đúng chứng từ (FE#249)', async ({ page }) => {
     await ceoTuDuyet(page);
-    await diToi(page, '/c/cmp-001/reports');
-    const khung = page.getByTestId('self-approvals');
-    await expect(khung.locator('tbody tr[data-row-id]')).toHaveCount(1);
-    await expect(khung).toContainText('approve');
-    await khung.getByRole('link', { name: 'Đề nghị nhập', exact: true }).click();
+    await diToi(page, '/c/cmp-001');
+    await page.getByRole('link', { name: 'Xem lần tự duyệt', exact: true }).click();
+    const rows = page.locator('tbody tr[data-row-id]');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first().getByTestId('self-approved')).toBeVisible();
+    await rows.first().getByRole('link', { name: 'DN-000003', exact: true }).click();
     await expect(page.getByTestId('request-status')).toContainText('Đã duyệt');
   });
 });

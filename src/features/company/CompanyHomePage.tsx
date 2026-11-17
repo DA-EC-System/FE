@@ -77,7 +77,10 @@ export function CompanyHomePage() {
   const spark = daily.data?.items.slice(-7).map((d) => d.revenue);
   const money = compactMoney(revenue);
   const profitMoney = profit === null ? null : compactMoney(profit);
-  const reportLink = ROUTES.company.reports(companyContext.companyId);
+  // Lần tự duyệt xem ở Nhật ký thao tác, lọc sẵn (Documents/25 mục 11; FE#249)
+  const selfApprovalLink = can(PERMISSIONS.auditView)
+    ? `${ROUTES.company.auditLogs(companyContext.companyId)}?selfApproved=true`
+    : null;
 
   return (
     <>
@@ -181,11 +184,6 @@ export function CompanyHomePage() {
                 ) : (
                   <RevenueChart items={daily.data?.items ?? []} />
                 )}
-                {reportLink && (
-                  <Link to={reportLink} className="mt-3 inline-block text-sm text-primary hover:underline">
-                    Xem báo cáo kinh doanh
-                  </Link>
-                )}
               </Panel>
             )}
           </div>
@@ -218,6 +216,17 @@ export function CompanyHomePage() {
                   )}
                 </dd>
               </div>
+              {selfApprovalLink && (
+                <div className="grid gap-2">
+                  <dt className="text-muted-foreground">Lần tự duyệt</dt>
+                  <dd className="grid gap-1">
+                    <span>CEO, hoặc công ty chỉ có một người, tự làm bước cần người duyệt khác.</span>
+                    <Link to={selfApprovalLink} className="text-primary hover:underline">
+                      Xem lần tự duyệt
+                    </Link>
+                  </dd>
+                </div>
+              )}
             </dl>
           </Panel>
         </div>
