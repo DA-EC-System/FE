@@ -42,32 +42,44 @@ import { PurchaseRequestPage } from '@/features/purchasing/PurchaseRequestPage';
 import { GoodsReceiptPage } from '@/features/purchasing/GoodsReceiptPage';
 import { SupplierReturnPage } from '@/features/purchasing/SupplierReturnPage';
 import { OrderListPage } from '@/features/sales/OrderListPage';
-import { OrderCreatePage } from '@/features/sales/OrderCreatePage';
 import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
-import { CustomerListPage } from '@/features/sales/CustomerListPage';
-import { CustomerDetailPage } from '@/features/sales/CustomerDetailPage';
 import { PackageQueuePage } from '@/features/fulfillment/PackageQueuePage';
 import { PackageDetailPage } from '@/features/fulfillment/PackageDetailPage';
 import { PackScanPage } from '@/features/fulfillment/PackScanPage';
 import { ReturnListPage } from '@/features/returns/ReturnListPage';
 import { ReturnDetailPage } from '@/features/returns/ReturnDetailPage';
-import { PaymentResultPage } from '@/features/payment/PaymentResultPage';
 import { LedgerPage } from '@/features/finance/LedgerPage';
 import { SettlementsPage } from '@/features/finance/SettlementsPage';
 import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
-import { ReportPage } from '@/features/report/ReportPage';
 import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
+import { PlaceholderPage } from '@/components/common/PlaceholderPage';
 import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH, USE_MOCKS } from '@/utils/env';
+
+/** Màn ngoài MVP (Documents/27 mục 8.1): gỡ khỏi menu, URL gõ thẳng hiện câu này trong khung app (FE#249) */
+const OUT_OF_SCOPE = {
+  sales: (
+    <PlaceholderPage
+      title="Ngoài phạm vi MVP"
+      phase="Commerio chỉ bán qua sàn"
+      description="Đơn tạo tay và hồ sơ khách không thuộc bản này. Đơn từ sàn xem ở Đơn hàng."
+    />
+  ),
+  reports: (
+    <PlaceholderPage
+      title="Ngoài phạm vi MVP"
+      phase="Commerio chỉ bán qua sàn"
+      description="Lãi theo đơn xem ở Sổ tiền, số liệu chính ở Tổng quan."
+    />
+  ),
+};
 
 export const router = createBrowserRouter([
   { path: ROUTES.home, element: <HomeRedirect /> },
   { path: ROUTES.login, element: <LoginPage /> },
   // Trang uỷ quyền của sàn giả lập: đứng ngoài app như trang của sàn thật
   { path: ROUTES.mockOAuth, element: <MockOAuthPage /> },
-  // Khách được cổng thanh toán trả về đây, không có phiên đăng nhập
-  { path: ROUTES.paymentResult, element: <PaymentResultPage /> },
   // Link mời nhân viên: công khai, mở được cả khi đang đăng nhập tài khoản khác (US-CT-06)
   { path: ROUTES.join, element: <JoinPage /> },
   {
@@ -276,14 +288,8 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
-                  {
-                    path: 'sales/orders/new',
-                    element: (
-                      <RequireModule module="sales" permission={PERMISSIONS.orderCreate}>
-                        <OrderCreatePage />
-                      </RequireModule>
-                    ),
-                  },
+                  // Ngoài MVP: giữ route tĩnh để URL cũ không rơi vào `sales/orders/:orderId` với id "new"
+                  { path: 'sales/orders/new', element: OUT_OF_SCOPE.sales },
                   {
                     path: 'sales/orders/:orderId',
                     element: (
@@ -292,22 +298,7 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
-                  {
-                    path: 'sales/customers',
-                    element: (
-                      <RequireModule module="sales" permission={PERMISSIONS.customerView}>
-                        <CustomerListPage />
-                      </RequireModule>
-                    ),
-                  },
-                  {
-                    path: 'sales/customers/:customerId',
-                    element: (
-                      <RequireModule module="sales" permission={PERMISSIONS.customerView}>
-                        <CustomerDetailPage />
-                      </RequireModule>
-                    ),
-                  },
+                  { path: 'sales/customers/*', element: OUT_OF_SCOPE.sales },
                   {
                     path: 'sales/returns',
                     element: (
@@ -375,14 +366,7 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
-                  {
-                    path: 'reports',
-                    element: (
-                      <RequireModule module="report" permission={[PERMISSIONS.reportView, PERMISSIONS.financeView]}>
-                        <ReportPage />
-                      </RequireModule>
-                    ),
-                  },
+                  { path: 'reports', element: OUT_OF_SCOPE.reports },
                   ...(USE_MOCKS
                     ? [
                         {

@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { chon, chua, dangNhap, dong, duongDan, expect, menu, mockApi, test, thayChu } from '../../fixtures';
+import { chua, dangNhap, dong, duongDan, expect, menu, mockApi, test, thayChu } from '../../fixtures';
 
 interface MswHandlerBridge {
   worker: { use: (handler: unknown) => void };
@@ -104,23 +104,5 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
     await expect(dong(page, 'a').locator('[data-testid=shop-expiring]')).toContainText('02/01/2099');
     await expect(dong(page, 'b')).toBeAttached();
     await expect(dong(page, 'b').locator('[data-testid=shop-expiring]')).toHaveCount(0);
-  });
-
-  test('bộ lọc khách hàng có kênh ở trang sau và không mất sau khi lọc', async ({ page }) => {
-    await page.evaluate(() => {
-      const bridge = (window as unknown as { __msw: MswHandlerBridge }).__msw;
-      bridge.worker.use(bridge.http.get('*/api/v1/sales/customers', ({ request }) => {
-        const query = new URL(request.url).searchParams;
-        const second = query.get('page') === '2' || query.get('channel') === 'shopee_v2';
-        return bridge.HttpResponse.json({ items: [{ id: second ? 'c2' : 'c1', name: second ? 'Khách sàn mới' : 'Khách tạo tay',
-          phone: '', email: '', channels: [second ? 'shopee_v2' : 'manual'], orderCount: 0, totalSpent: 0, lastOrderAt: null,
-          createdAt: '2026-01-01' }], total: query.has('channel') ? 1 : 2, page: Number(query.get('page') ?? 1), pageSize: 100 });
-      }));
-    });
-    await menu(page, 'Khách hàng');
-    await chon(page, 'Kênh', 'shopee_v2');
-    await thayChu(page, 'Khách sàn mới', 'tbody');
-    await page.getByRole('combobox', { name: 'Kênh', exact: true }).click();
-    await expect(page.getByRole('option', { name: 'Tạo tay', exact: true })).toBeAttached();
   });
 });

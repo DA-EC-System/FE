@@ -16,8 +16,6 @@ export const ROUTES = {
   shopOAuthCallback: '/channel/:platform/callback',
   /** Trang uỷ quyền của sàn giả lập (chỉ dùng với mock) */
   mockOAuth: '/mock-oauth/authorize',
-  /** Cổng trả khách về sau khi trả tiền: trang tĩnh, không cần đăng nhập (Documents/21 T7) */
-  paymentResult: '/thanh-toan/ket-qua',
   /** Trang công khai cho người được mời: `/tham-gia#<token>` (US-CT-06) */
   join: '/tham-gia',
   platform: {
@@ -53,13 +51,10 @@ export const ROUTES = {
     supplierReturn: (companyId: string, id: string) => `/c/${companyId}/purchasing/returns/${id}`,
     supplierReturnNew: (companyId: string) => `/c/${companyId}/purchasing/returns/new`,
     orders: (companyId: string) => `/c/${companyId}/sales/orders`,
-    orderNew: (companyId: string) => `/c/${companyId}/sales/orders/new`,
     order: (companyId: string, orderId: string) => `/c/${companyId}/sales/orders/${orderId}`,
-    customers: (companyId: string) => `/c/${companyId}/sales/customers`,
     returns: (companyId: string, tab?: string) =>
       tab ? `/c/${companyId}/sales/returns?tab=${tab}` : `/c/${companyId}/sales/returns`,
     returnRequest: (companyId: string, id: string) => `/c/${companyId}/sales/returns/${id}`,
-    customer: (companyId: string, customerId: string) => `/c/${companyId}/sales/customers/${customerId}`,
     packages: (companyId: string) => `/c/${companyId}/fulfillment/packages`,
     package: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}`,
     packScan: (companyId: string, id: string) => `/c/${companyId}/fulfillment/packages/${id}/pack`,
@@ -70,7 +65,6 @@ export const ROUTES = {
     settlements: (companyId: string, tab?: 'discrepancies') =>
       tab ? `/c/${companyId}/finance/settlements?tab=${tab}` : `/c/${companyId}/finance/settlements`,
     settlement: (companyId: string, id: string) => `/c/${companyId}/finance/settlements/${id}`,
-    reports: (companyId: string) => `/c/${companyId}/reports`,
     staff: (companyId: string) => `/c/${companyId}/admin/staff`,
     roles: (companyId: string) => `/c/${companyId}/admin/roles`,
     modules: (companyId: string) => `/c/${companyId}/admin/modules`,

@@ -203,7 +203,7 @@ test.describe('Hướng dẫn trang', () => {
     }
   });
 
-  test('Đơn hàng, chi tiết đơn, tạo đơn, khách hàng có hướng dẫn riêng (FE#138)', async ({ page }) => {
+  test('Đơn hàng, chi tiết đơn có hướng dẫn riêng (FE#138; tạo đơn, khách hàng gỡ ở FE#249)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
 
@@ -220,20 +220,6 @@ test.describe('Hướng dẫn trang', () => {
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
     await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
     await expect(tour(page).getByRole('heading', { name: 'Đơn đang ở đâu', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(tour(page)).toHaveCount(0);
-
-    await menu(page, 'Đơn hàng');
-    await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-    await expect(popup(page).getByRole('heading', { name: 'Tạo đơn', exact: true })).toBeVisible();
-    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
-    await expect(tour(page).getByRole('heading', { name: 'Khách hàng', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-
-    await menu(page, 'Khách hàng');
-    await expect(popup(page).getByRole('heading', { name: 'Khách hàng', exact: true })).toBeVisible();
-    await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
-    await expect(tour(page).getByRole('heading', { name: 'Tìm khách', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(tour(page)).toHaveCount(0);
   });
