@@ -3,7 +3,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CloudOff, ImageIcon, Link2, PlugZap, RefreshCw, RotateCcw, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  CloudOff,
+  ImageIcon,
+  Link2,
+  PlugZap,
+  Power,
+  RefreshCw,
+  RotateCcw,
+  Upload,
+} from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -23,6 +34,7 @@ import {
   usePushListings,
   useRefreshRemoteSkus,
   useRemoteSkus,
+  useResolveOutsideChange,
   useShop,
   useShopListings,
   useSyncListings,
@@ -38,7 +50,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
-import type { ListingRow, ListingStatus, RemoteSku } from '@/types/shop';
+import type { ListingRow, ListingStatus, OutsideChangeAction, RemoteSku } from '@/types/shop';
 import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
@@ -47,6 +59,8 @@ import {
   LISTING_POLL_MAX_MS,
   listingPollDelay,
   listingStatusHint,
+  outsideChangeHint,
+  outsideChangeLabel,
   REPUSH_STATUSES,
   splitPushResults,
 } from './listingPush';
@@ -165,6 +179,8 @@ export function ShopListingsPage() {
   /** Ghép SKU tách quyền khỏi đẩy, gỡ (§18.6.5): Sale ghép được nhưng không đẩy */
   const canMatch = can(PERMISSIONS.listingMatch) && usable;
   const canEditProduct = can(PERMISSIONS.productManage);
+  /** Quyết thay đổi ngoài app: `listing.manage` + vai trò CEO (§18.3, commerio-backend#360) */
+  const canDecideOutside = canManage && Boolean(companyContext?.roles.includes('CEO'));
   const canReconnect =
     can(PERMISSIONS.shopConnect) && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected');
 
@@ -188,6 +204,7 @@ export function ShopListingsPage() {
   const refreshMut = useRefreshRemoteSkus();
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
+  const outsideMut = useResolveOutsideChange();
   const syncMut = useSyncListings();
   const listingReview = shop?.capabilities.listingReview ?? false;
   const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
@@ -196,6 +213,7 @@ export function ShopListingsPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ListingTab>('all');
   const [delisting, setDelisting] = useState<ListingRow | null>(null);
+  const [deciding, setDeciding] = useState<{ row: ListingRow; action: OutsideChangeAction } | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -384,6 +402,25 @@ export function ShopListingsPage() {
       }
     }
     setDelisting(null);
+  };
+
+  const handleOutside = async () => {
+    const l = deciding?.row.listing;
+    if (!deciding || !l) return;
+    const { row, action } = deciding;
+    try {
+      const saved = await outsideMut.mutateAsync({ shopId, listingId: l.id, action, version: l.version });
+      const done = action === 'restore' ? `Đã đẩy lại giá Commerio cho ${row.sku}` : `Đã nhận giá trên sàn cho ${row.sku}`;
+      toast.success(saved.status === 'hidden' ? `${done}. SKU đang tạm ngừng nên vẫn ẩn trên sàn.` : done);
+    } catch (e) {
+      if (problemCode(e) === 'version_conflict') {
+        toast.warning(`Trạng thái của ${row.sku} trên sàn vừa đổi. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        void listingsQuery.refetch();
+      } else {
+        toast.error(problemMessage(e));
+      }
+    }
+    setDeciding(null);
   };
 
   /** Biến thể chưa có SKU sàn sẽ được tạo mới: hỏi trước (ngoại lệ 7a) */
@@ -592,9 +629,7 @@ export function ShopListingsPage() {
                 ? l.status === 'pushing'
                   ? `Đang thử lại (${l.pushAttempts} lần): ${l.pushError.message}`
                   : l.pushError.message
-                : l.status === 'hidden' && l.hiddenBy !== 'zero_stock'
-                  ? 'Đã ẩn trên sàn'
-                  : null;
+                : null;
           return (
             <div className="grid justify-items-start gap-1">
               <Tooltip>
@@ -624,6 +659,24 @@ export function ShopListingsPage() {
                 l.pushError &&
                 PRODUCT_FIX_CODES.has(l.pushError.code) &&
                 canEditProduct && <EditProductLink companyId={companyId} productId={r.productId} />}
+              {l.outsideChange && (
+                <SyncBadge
+                  id={`outside-change-${r.variantId}`}
+                  variant="warning"
+                  label={outsideChangeLabel(l.outsideChange)}
+                  hint={outsideChangeHint(l.outsideChange)}
+                  testId="outside-change"
+                />
+              )}
+              {l.status === 'hidden' && !l.outsideChange && l.hiddenBy !== 'zero_stock' && (
+                <SyncBadge
+                  id={`hidden-paused-${r.variantId}`}
+                  variant="secondary"
+                  label="Đã ẩn: SKU tạm ngừng"
+                  hint="Bỏ tạm ngừng ở trang sản phẩm thì SKU tự hiện lại trên sàn. Không ẩn hoặc hiện tay ở đây."
+                  testId="hidden-paused"
+                />
+              )}
               {l.status === 'hidden' && l.hiddenBy === 'zero_stock' && (
                 <SyncBadge
                   id={`hidden-zero-${r.variantId}`}
@@ -730,6 +783,26 @@ export function ShopListingsPage() {
                   <Upload />
                 </RowAction>
               )}
+              {canDecideOutside && r.listing?.outsideChange && (
+                <>
+                  <RowAction
+                    label="Bật lại, đẩy giá Commerio"
+                    reason={outsideMut.isPending ? 'Đang gửi...' : null}
+                    onClick={() => setDeciding({ row: r, action: 'restore' })}
+                  >
+                    <Power />
+                  </RowAction>
+                  {r.listing.outsideChange.kind === 'price_changed' && (
+                    <RowAction
+                      label="Nhận giá trên sàn"
+                      reason={outsideMut.isPending ? 'Đang gửi...' : null}
+                      onClick={() => setDeciding({ row: r, action: 'accept-price' })}
+                    >
+                      <BadgeCheck />
+                    </RowAction>
+                  )}
+                </>
+              )}
               {canManage && status && canDelist(status) && (
                 <RowAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
                   <CloudOff />
@@ -742,7 +815,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, companyId, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecideOutside, outsideMut.isPending, companyId, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -1026,6 +1099,27 @@ export function ShopListingsPage() {
         onClose={() => setDelisting(null)}
       />
       <ConfirmDialog
+        open={Boolean(deciding)}
+        title={deciding?.action === 'accept-price' ? 'Nhận giá trên sàn?' : 'Bật lại trên sàn?'}
+        message={
+          deciding?.action === 'accept-price' ? (
+            <>
+              Lấy giá <strong>{priceText(deciding.row.listing?.outsideChange?.platformPrice)}</strong> đang có trên sàn làm
+              giá riêng của <strong>{deciding.row.sku}</strong> ở {shop?.shopName}, rồi bật lại SKU.
+            </>
+          ) : (
+            <>
+              Đẩy lại giá Commerio <strong>{priceText(deciding?.row.price)}</strong> và bật lại{' '}
+              <strong>{deciding?.row.sku}</strong> trên {shop?.shopName}.
+            </>
+          )
+        }
+        confirmLabel={deciding?.action === 'accept-price' ? 'Nhận giá trên sàn' : 'Bật lại'}
+        loading={outsideMut.isPending}
+        onConfirm={handleOutside}
+        onClose={() => setDeciding(null)}
+      />
+      <ConfirmDialog
         open={Boolean(pushing)}
         title="Đẩy lên sàn?"
         message={
@@ -1052,7 +1146,7 @@ function SyncBadge({
   testId,
 }: {
   id: string;
-  variant: 'secondary' | 'destructive';
+  variant: 'secondary' | 'destructive' | 'warning';
   label: string;
   hint: string;
   testId: string;

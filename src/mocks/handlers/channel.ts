@@ -1,5 +1,5 @@
 import { http, HttpResponse, delay } from 'msw';
-import { db, type MockSetupRun, type MockShop } from '../db';
+import { CEO_ROLE_ID, db, type MockSetupRun, type MockShop } from '../db';
 import type {
   ChannelListing,
   ListingMatchInput,
@@ -225,6 +225,7 @@ export function toListing(l: MockListing): ChannelListing {
     pushError: l.pushError,
     pushAttempts: l.pushAttempts,
     hiddenBy: l.hiddenBy,
+    outsideChange: l.outsideChange ?? null,
     stockSync: l.stockSync,
     // Giá: tính so với giá đã đẩy; chưa đẩy lần nào hoặc giá đổi là đang chờ
     priceSync: l.status === 'push_failed' ? 'error' : price !== null && price === l.lastPushedPrice ? 'synced' : 'pending',
@@ -325,6 +326,8 @@ export function hideListing(shop: MockShop, l: MockListing) {
 export function setListingsHidden(companyId: string, variantId: string, hide: boolean) {
   for (const l of channel.listings) {
     if (l.companyId !== companyId || l.variantId !== variantId || !onPlatform(l.status)) continue;
+    // Sàn đổi ngoài app: giữ ẩn cho tới khi CEO quyết (§18.3)
+    if (!hide && l.outsideChange) continue;
     const shop = db.shops.find((x) => x.id === l.shopId);
     if (!shop) continue;
     if (hide) hideListing(shop, l);
@@ -348,6 +351,7 @@ export function delistVariant(companyId: string, variantId: string) {
     if (l.companyId !== companyId || l.variantId !== variantId || !onPlatform(l.status)) continue;
     l.status = 'delisted';
     l.hiddenBy = null;
+    l.outsideChange = null;
     l.platformStock = 0;
     l.version += 1;
   }
@@ -366,6 +370,7 @@ function unmanagedListing(u: channel.MockUnmanagedSku): ChannelListing {
     pushError: null,
     pushAttempts: 0,
     hiddenBy: null,
+    outsideChange: null,
     stockSync: 'synced',
     priceSync: 'synced',
     stockSyncError: null,
@@ -724,6 +729,52 @@ registerMarketplaceEvent({
     const all = withSiblings(shop!, found);
     for (const l of all) bump(l, { status: 'rejected', rejectReason: 'Thiếu thông tin chất liệu trong mô tả sản phẩm' });
     return `${skusOf(shop!, all)}: sàn từ chối`;
+  },
+});
+
+/** Sàn đổi listing ngoài app (21 §18.3, commerio-backend#360): Commerio ẩn listing, thôi đẩy tồn, chờ CEO quyết */
+registerMarketplaceEvent({
+  type: 'listing.outside_disabled',
+  label: 'Tắt SKU trên Seller Center',
+  description: 'Người bán tắt SKU ngoài Commerio (TikTok SELLER_DEACTIVATED, Lazada inactive): listing ẩn, chờ CEO quyết.',
+  group: 'Sản phẩm trên sàn',
+  needsShop: true,
+  platforms: ['lazada', 'tiktok'],
+  param: SKU_PARAM,
+  run({ shop, params }) {
+    const { found } = pickListings(shop, params.sku, ['live'], 'đang bán');
+    const outsideChange = { kind: 'disabled' as const, platformPrice: null, detectedAt: db.now() };
+    for (const l of found) bump(l, { status: 'hidden', hiddenBy: 'platform', outsideChange });
+    return `${skusOf(shop!, found)}: sàn tắt ngoài app`;
+  },
+});
+
+registerMarketplaceEvent({
+  type: 'listing.outside_price',
+  label: 'Sửa giá trên Seller Center',
+  description:
+    'Giá gốc trên sàn thấp hơn giá Commerio đẩy lần trước 10%: Commerio tắt SKU (sàn không ẩn riêng phân loại thì đẩy tồn 0), chờ CEO quyết.',
+  group: 'Sản phẩm trên sàn',
+  needsShop: true,
+  param: SKU_PARAM,
+  run({ shop, params }) {
+    const { found } = pickListings(shop, params.sku, ['live', 'hidden'], 'đang bán hoặc đang ẩn');
+    const pushed = found.filter((l) => l.lastPushedPrice !== null);
+    if (!pushed.length) throw new Error('Chưa đẩy giá lần nào nên không so được giá trên sàn');
+    for (const l of pushed) {
+      const outsideChange = {
+        kind: 'price_changed' as const,
+        platformPrice: Math.round((l.lastPushedPrice! * 0.9) / 1000) * 1000,
+        detectedAt: db.now(),
+      };
+      // Listing app đã ẩn (SKU tạm ngừng) thì giữ ẩn, chỉ ghi thay đổi
+      if (l.status === 'hidden') bump(l, { outsideChange });
+      else {
+        bump(l, { status: 'hidden', outsideChange });
+        hideListing(shop!, l);
+      }
+    }
+    return `${skusOf(shop!, pushed)}: giá trên sàn bị sửa ngoài app`;
   },
 });
 
@@ -1381,6 +1432,57 @@ export const shopHandlers = [
     return HttpResponse.json<ChannelListing>(saved);
   }),
 
+  /** CEO quyết thay đổi ngoài app (§18.3, commerio-backend#360): bật lại với giá app, hoặc nhận giá sàn */
+  http.post(`${API}/channel/shops/:id/listings/:listingId/outside-change/:action`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.listingManage);
+    if (!guard.ok) return guard.response;
+    if (!guard.value.membership.roleIds.includes(CEO_ROLE_ID)) {
+      return problem(403, 'Chỉ CEO quyết thay đổi ngoài app', { code: 'forbidden' });
+    }
+    const action = params.action;
+    if (action !== 'restore' && action !== 'accept-price') return problem(404, 'Không có thao tác này');
+    const found = ownShop(params.id, guard.value.companyId);
+    if (!found.ok) return found.response;
+    const shop = found.value;
+    if (!usable(shop)) return shopNotConnected(shop);
+    const l = channel.listings.find((x) => x.shopId === shop.id && x.id === params.listingId);
+    if (!l) return problem(404, 'Không tìm thấy sản phẩm trên sàn');
+    const { version } = (await request.json()) as { version: number };
+    if (version !== l.version) return versionConflict(toListing(l), 'Sản phẩm trên sàn vừa được người khác sửa.');
+    const oc = l.outsideChange;
+    if (!oc || l.status !== 'hidden' || (action === 'accept-price' && oc.kind !== 'price_changed')) {
+      return problem(409, 'Sản phẩm không còn chờ quyết thay đổi ngoài app', { code: 'invalid_transition' });
+    }
+    const before = { status: l.status, outsideChange: oc };
+    if (action === 'accept-price') {
+      // Giá ghi đè tay của listing: mock ghi vào bảng giá của gian hàng
+      let list = pricing.pricelists.find((p) => p.shopId === shop.id);
+      if (!list) {
+        list = { id: rid('pl'), companyId: shop.companyId, name: `Giá ${shop.shopName}`, type: 'channel', shopId: shop.id, prices: {}, version: 1, updatedAt: db.now() };
+        pricing.pricelists.push(list);
+      }
+      list.prices[l.variantId] = oc.platformPrice!;
+      list.version += 1;
+    }
+    l.outsideChange = null;
+    l.lastPushedPrice = shopPrice(shop, l.variantId).price;
+    l.lastPushedAt = db.now();
+    // SKU đang tạm ngừng: xoá thay đổi ngoài app nhưng listing giữ ẩn
+    const variant = sellableVariant(shop.companyId, l.variantId)?.variant;
+    if (!variant || !hidesListings(variant.businessStatus)) {
+      l.status = 'live';
+      l.hiddenBy = null;
+      syncStock(l);
+    }
+    l.version += 1;
+    writeCompanyLog(guard.value, 'update', listingEntity(shop, skuOf(shop.companyId, l.variantId), l.id), before, {
+      status: l.status,
+      outsideChange: null,
+    });
+    return HttpResponse.json<ChannelListing>(toListing(l));
+  }),
+
   /** Gỡ khỏi sàn: giữ ghép để đẩy lại sau */
   http.post(`${API}/channel/shops/:id/listings/:variantId/delist`, async ({ params, request }) => {
     await delay(LATENCY);
@@ -1397,7 +1499,7 @@ export const shopHandlers = [
     const step = checkTransition(listingMachine, l.status, 'delist', guard.value, { createdBy: null, id: l.id });
     if (!step.ok) return step.response;
     const before = { status: l.status };
-    Object.assign(l, { status: step.value, hiddenBy: null, platformStock: 0, version: l.version + 1 });
+    Object.assign(l, { status: step.value, hiddenBy: null, outsideChange: null, platformStock: 0, version: l.version + 1 });
     writeCompanyLog(guard.value, 'update', listingEntity(shop, skuOf(shop.companyId, l.variantId), l.id), before, {
       status: l.status,
     });

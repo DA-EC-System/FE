@@ -1,4 +1,5 @@
-import type { ChannelListing, ListingRow, ListingStatus, PushResult } from '@/types/shop';
+import type { ChannelListing, ListingRow, ListingStatus, OutsideChange, PushResult } from '@/types/shop';
+import { priceText } from '@/utils/price';
 
 /** Còn dòng đang đẩy thì đọc lại mỗi 5 giây, tối đa 30 phút (§18.6.4) */
 export const LISTING_POLL_MS = 5000;
@@ -45,10 +46,25 @@ export function listingStatusHint(l: ChannelListing, listingReview: boolean): st
     case 'platform_hold':
       return 'Sàn đang khoá sản phẩm. Sửa trên sàn rồi đẩy lại.';
     case 'hidden':
+      if (l.outsideChange) return outsideChangeHint(l.outsideChange);
       return l.hiddenBy === 'zero_stock'
-        ? 'SKU tạm ngừng bán. Sàn không ẩn riêng phân loại nên Commerio đẩy tồn 0.'
-        : 'SKU tạm ngừng bán nên đang ẩn trên sàn.';
+        ? 'SKU tạm ngừng bán. Sàn không ẩn riêng phân loại nên Commerio đẩy tồn 0. Bỏ tạm ngừng ở trang sản phẩm thì bán lại.'
+        : 'SKU tạm ngừng bán nên đang ẩn trên sàn. Bỏ tạm ngừng ở trang sản phẩm thì tự hiện lại.';
     case 'delisted':
       return 'Đã gỡ khỏi sàn. Ghép SKU vẫn giữ để đẩy lại.';
   }
+}
+
+/** Nhãn khi sàn đổi listing ngoài app (§18.6.6, commerio-backend#360) */
+export function outsideChangeLabel(oc: OutsideChange): string {
+  return oc.kind === 'disabled'
+    ? 'Sàn tắt ngoài app (chờ CEO quyết)'
+    : `Giá trên sàn bị sửa: ${priceText(oc.platformPrice)} (chờ CEO quyết)`;
+}
+
+/** Giải thích thay đổi ngoài app cho tooltip */
+export function outsideChangeHint(oc: OutsideChange): string {
+  return oc.kind === 'disabled'
+    ? 'SKU bị tắt trên sàn, ngoài Commerio. Kiểm tra trên Seller Center của sàn. Commerio thôi đẩy tồn cho tới khi CEO bật lại hoặc gỡ khỏi sàn.'
+    : 'Giá gốc trên sàn khác giá Commerio đẩy lần trước nên Commerio tạm ẩn SKU. CEO chọn đẩy lại giá Commerio hoặc nhận giá trên sàn. Giá khuyến mãi của sàn không tính.';
 }

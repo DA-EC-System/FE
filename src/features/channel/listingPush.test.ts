@@ -6,6 +6,7 @@ import {
   LISTING_POLL_MS,
   listingPollDelay,
   listingStatusHint,
+  outsideChangeLabel,
   splitPushResults,
 } from './listingPush';
 
@@ -19,6 +20,7 @@ const listing = (status: ListingStatus, over: Partial<ChannelListing> = {}): Cha
   pushError: null,
   pushAttempts: 0,
   hiddenBy: null,
+  outsideChange: null,
   stockSync: 'synced',
   priceSync: 'synced',
   stockSyncError: null,
@@ -90,5 +92,32 @@ describe('giải thích trạng thái listing', () => {
 
   it('ẩn do đẩy tồn 0 thì nói rõ', () => {
     expect(listingStatusHint(listing('hidden', { hiddenBy: 'zero_stock' }), false)).toContain('tồn 0');
+  });
+
+  it('ẩn vì SKU tạm ngừng thì chỉ bỏ tạm ngừng ở trang sản phẩm', () => {
+    for (const hiddenBy of ['platform', null] as const) {
+      expect(listingStatusHint(listing('hidden', { hiddenBy }), false)).toContain('Bỏ tạm ngừng ở trang sản phẩm');
+    }
+    expect(listingStatusHint(listing('hidden', { hiddenBy: 'zero_stock' }), false)).toContain('Bỏ tạm ngừng');
+  });
+
+  it('sàn tắt ngoài app thì nhắc kiểm tra Seller Center, chờ CEO', () => {
+    const l = listing('hidden', {
+      hiddenBy: 'platform',
+      outsideChange: { kind: 'disabled', platformPrice: null, detectedAt: '2026-11-17T00:00:00.000Z' },
+    });
+    expect(listingStatusHint(l, false)).toContain('Seller Center');
+    expect(listingStatusHint(l, false)).toContain('CEO');
+    expect(outsideChangeLabel(l.outsideChange!)).toBe('Sàn tắt ngoài app (chờ CEO quyết)');
+  });
+
+  it('giá trên sàn bị sửa thì nêu giá sàn, kể cả khi listing đang ẩn bằng tồn 0', () => {
+    const l = listing('hidden', {
+      hiddenBy: 'zero_stock',
+      outsideChange: { kind: 'price_changed', platformPrice: 149000, detectedAt: '2026-11-17T00:00:00.000Z' },
+    });
+    expect(listingStatusHint(l, false)).toContain('nhận giá trên sàn');
+    expect(listingStatusHint(l, false)).not.toContain('tồn 0');
+    expect(outsideChangeLabel(l.outsideChange!)).toMatch(/^Giá trên sàn bị sửa: 149\.000.*\(chờ CEO quyết\)$/);
   });
 });

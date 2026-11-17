@@ -200,7 +200,23 @@ export type ListingAction =
   | 'hide'
   | 'unhide'
   | 'delist'
-  | 'request_review';
+  | 'request_review'
+  | 'outside_hold'
+  | 'outside_resolve';
+
+/**
+ * Sàn đổi listing ngoài app (21 §18.3, commerio-backend#360): sàn tắt SKU (`disabled`) hoặc giá gốc trên sàn khác giá
+ * app đẩy lần trước (`price_changed`). Listing giữ `hidden`, thôi đẩy tồn, chờ CEO quyết
+ */
+export interface OutsideChange {
+  kind: 'disabled' | 'price_changed';
+  /** Giá đang có trên sàn; null khi `disabled` */
+  platformPrice: number | null;
+  detectedAt: string;
+}
+
+/** CEO quyết thay đổi ngoài app: `restore` đẩy lại giá app và bật SKU, `accept-price` nhận giá sàn (chỉ `price_changed`) */
+export type OutsideChangeAction = 'restore' | 'accept-price';
 
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
@@ -238,6 +254,8 @@ export interface ChannelListing {
   pushAttempts: number;
   /** Ẩn bằng cách nào: sàn ẩn riêng SKU, hoặc đẩy tồn 0 khi sàn không ẩn riêng phân loại */
   hiddenBy: 'platform' | 'zero_stock' | null;
+  /** Sàn đổi listing ngoài app, chờ CEO quyết; null khi không có (§18.3) */
+  outsideChange: OutsideChange | null;
   stockSync: SyncState;
   priceSync: SyncState;
   stockSyncError: SyncError | null;

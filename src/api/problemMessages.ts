@@ -75,6 +75,8 @@ const MESSAGES: Record<string, string> = {
   // FE#261, commerio-backend#347: danh mục sàn bắt buộc bảng kích cỡ (quần áo, giày dép)
   size_chart_missing: 'Danh mục sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ trong trang sản phẩm rồi đẩy lại.',
   already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
+  // FE#264, Documents/21 §18.3 (commerio-backend#360)
+  below_floor: 'Giá trên sàn thấp hơn giá thấp nhất. Đẩy lại giá Commerio hoặc gỡ khỏi sàn.',
   // FE#9, chờ commerio-backend#24 và #23
   invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
   not_allowed_for_source: 'Đơn sàn lấy trạng thái từ sàn, không cập nhật tay được.',
