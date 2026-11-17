@@ -15,7 +15,7 @@ import { Card } from '@/components/ui/card';
 import { LockCompanyDialog } from './LockCompanyDialog';
 import { useLockCompany, usePlatformCompanies, useUnlockCompany } from '@/api/platform.api';
 import { getErrorMessage, getProblem } from '@/api/client';
-import { problemCode, problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePageGuide } from '@/guides/usePageGuide';
 import { MODULE_LABELS } from '@/utils/modules';
@@ -92,7 +92,7 @@ export function CompanyListPage() {
       return;
     }
     toast.error(
-      problemCode(error) === 'not_found' ? `Không tìm thấy công ty ${name}` : problemMessage(error),
+      problemCode(error) === 'not_found' && !isRouteMissing(error) ? `Không tìm thấy công ty ${name}` : problemMessage(error),
     );
   };
 

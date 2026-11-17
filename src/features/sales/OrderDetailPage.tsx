@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useConfirmOrder, useOrder } from '@/api/sales.api';
 import { useCancelRequestDecision } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
 import { orderMachine } from '@/lib/machines/order';
@@ -91,7 +91,7 @@ export function OrderDetailPage() {
 
   if (query.isError) {
     // Không có hoặc của công ty khác đều là 404 (AC-R5)
-    const notFound = getProblem(query.error)?.status === 404;
+    const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
     return (
       <div>
         {back}

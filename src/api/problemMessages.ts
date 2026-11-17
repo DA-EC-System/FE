@@ -20,6 +20,8 @@ const MESSAGES: Record<string, string> = {
   already_matched: 'Khoản tiền đã được khớp sao kê.',
   not_bank_matchable: 'Chỉ khớp khoản rút tiền, nhà cung cấp hoàn tiền hoặc bồi thường thực tế.',
   not_found: 'Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.',
+  // FE#248: BE chưa có route này (404 not_found, detail "Không có đường dẫn ..."), không phải bản ghi bị xoá
+  route_missing: 'Chức năng này chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.',
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   version_conflict: 'Dữ liệu vừa được người khác sửa. Chưa có gì thay đổi.',
   // docs/21 I3
@@ -241,6 +243,23 @@ export function problemCode(error: unknown): string | undefined {
   return getProblem(error)?.code;
 }
 
+/** Câu BE ghi khi không có route (`error-handler.ts` của BE: 404 not_found) */
+const ROUTE_MISSING_PREFIX = 'Không có đường dẫn ';
+
+/**
+ * 404 vì BE chưa có route (chức năng chưa mở), khác 404 bản ghi không có hay thuộc công ty khác (FE#248).
+ * BE trả cùng mã `not_found`, chỉ khác `detail`.
+ */
+export function isRouteMissing(error: unknown): boolean {
+  const problem = getProblem(error);
+  return (
+    problem?.status === 404 &&
+    (problem.code === undefined || problem.code === 'not_found') &&
+    typeof problem.detail === 'string' &&
+    problem.detail.startsWith(ROUTE_MISSING_PREFIX)
+  );
+}
+
 /** 429 `remote_skus_retry_later`: đổi `Retry-After` (giây) ra phút, làm tròn lên */
 function retryLaterMessage(error: unknown): string {
   const seconds = retryAfterSeconds(error);
@@ -252,7 +271,9 @@ function retryLaterMessage(error: unknown): string {
 export function problemMessage(error: unknown): string {
   const problem = getProblem(error);
   if (problem?.code === 'remote_skus_retry_later') return retryLaterMessage(error);
-  const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
+  const code = isRouteMissing(error)
+    ? 'route_missing'
+    : (problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined));
   if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   const message =
     code === 'shop_awaiting_allocation'
