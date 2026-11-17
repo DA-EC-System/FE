@@ -15,6 +15,7 @@ import type {
   CategoryMapInput,
   CategoryMapList,
   ChannelListing,
+  OutsideChangeAction,
   MappingDecision,
   MarketplaceCategory,
   MarketplaceCategoryList,
@@ -392,6 +393,31 @@ export function useDelistListing() {
     mutationFn: async ({ shopId, variantId, version }: { shopId: string; variantId: string; version: number }) => {
       const { data } = await apiClient.post<ChannelListing>(
         `/channel/shops/${shopId}/listings/${variantId}/delist`,
+        { version },
+      );
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** CEO quyết thay đổi ngoài app của listing (§18.3, commerio-backend#360) */
+export function useResolveOutsideChange() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({
+      shopId,
+      listingId,
+      action,
+      version,
+    }: {
+      shopId: string;
+      listingId: string;
+      action: OutsideChangeAction;
+      version: number;
+    }) => {
+      const { data } = await apiClient.post<ChannelListing>(
+        `/channel/shops/${shopId}/listings/${listingId}/outside-change/${action}`,
         { version },
       );
       return data;

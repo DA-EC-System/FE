@@ -56,6 +56,9 @@ export const listingMachine = defineMachine<ListingMachineStatus, ListingAction>
   { from: 'platform_hold', to: 'live', action: 'release', label: 'Sàn gỡ khoá', system: true },
   { from: 'live', to: 'hidden', action: 'hide', label: 'Ẩn', system: true },
   { from: 'hidden', to: 'live', action: 'unhide', label: 'Hiện lại', system: true },
+  // Sàn tắt SKU hoặc giá gốc bị sửa ngoài app (21 §18.3, commerio-backend#360); CEO quyết thì bán lại
+  { from: 'live', to: 'hidden', action: 'outside_hold', label: 'Sàn đổi ngoài app', system: true },
+  { from: 'hidden', to: 'live', action: 'outside_resolve', label: 'CEO quyết thay đổi ngoài app', permission: manage },
   // Mọi trạng thái trừ pushing
   {
     // `not_listed` chưa có bản ghi listing nên không gỡ (25 §6.4); trùng `domain/listing.ts` của backend.
