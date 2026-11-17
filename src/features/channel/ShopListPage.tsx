@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { MoreHorizontal, PlugZap, Plus } from 'lucide-react';
@@ -28,7 +28,8 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDate, formatDateTime } from '@/utils/format';
 import type { Shop } from '@/types/shop';
-import { needsAction, shopPage, shopPlatformOptions, type ShopSegment } from './shopList';
+import { missingReturnWindow, needsAction, shopPage, shopPlatformOptions, type ShopSegment } from './shopList';
+import { RETURN_WINDOW_EDIT } from './ReturnWindowPanel';
 import { authorizationDeadline, platformLabel, STATUS_META } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { AddShopDialog } from './AddShopDialog';
@@ -43,7 +44,7 @@ const BLOCKED_BY_STATUS: Record<Shop['status'], string | null> = {
 };
 
 /** Dòng chữ nhỏ dưới chip trạng thái */
-function StatusLine({ shop }: { shop: Shop }) {
+function StatusLine({ shop, companyId }: { shop: Shop; companyId: string }) {
   const deadline = authorizationDeadline(shop);
   return (
     <>
@@ -66,6 +67,17 @@ function StatusLine({ shop }: { shop: Shop }) {
         <span className="text-xs text-muted-foreground" data-testid="shop-status-line">
           {shop.statusChangedAt ? `Từ ${formatDate(shop.statusChangedAt)}, vẫn giữ lịch sử` : 'Vẫn giữ lịch sử'}
         </span>
+      )}
+      {missingReturnWindow(shop) && (
+        // Bấm thì mở trang gian hàng với ô sửa hạn trả đang mở (FE#273); không kích hoạt bấm dòng
+        <Link
+          to={`${ROUTES.company.shop(companyId, shop.id)}?${RETURN_WINDOW_EDIT}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs text-warning underline underline-offset-2"
+          data-testid="shop-missing-return-window"
+        >
+          Chưa nhập số ngày hạn trả
+        </Link>
       )}
       {shop.pendingJobs > 0 && (
         <span className="text-xs text-muted-foreground" data-testid="shop-pending-jobs">
@@ -175,7 +187,7 @@ export function ShopListPage() {
             <span data-testid="shop-status" className="inline-flex">
               <StatusBadge status={row.original.status} statuses={STATUS_META} />
             </span>
-            <StatusLine shop={row.original} />
+            <StatusLine shop={row.original} companyId={companyId} />
           </div>
         ),
       },

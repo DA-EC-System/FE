@@ -226,6 +226,7 @@ const shops: MockShop[] = [
     tokenExpiringSoon: false,
     externalShopId: 'mock-xyz-internal',
     shopName: 'XYZ — sàn giả lập',
+    returnWindowDays: 7,
     region: 'VN',
     status: 'active',
     accessExpiresAt: '2027-01-10T00:00:00.000Z',

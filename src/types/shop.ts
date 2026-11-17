@@ -450,6 +450,13 @@ export interface ShopSetupResult {
   stocktakeNumber: string | null;
 }
 
+/** PATCH /channel/shops/:id (§18.4, BE#377): sửa hạn trả hàng khi capabilities.returnWindow = days */
+export interface ShopUpdateInput {
+  version: number;
+  /** Số nguyên 1–60 */
+  returnWindowDays: number;
+}
+
 export interface ShopDisconnectInput {
   version: number;
   /** Đặt tồn trên sàn về 0 trước khi ngắt (chỉ làm được khi token còn dùng được) */
