@@ -256,9 +256,14 @@ export interface ChannelListing {
 export interface PendingMapping {
   /** Biến thể xin ghép; null là "không quản tồn" */
   variantId: string | null;
+  /** SKU sàn xin ghép vào listing đẩy lỗi chưa có mã sàn; null khi listing đã có mã */
+  externalSkuId: string | null;
   requestedBy: { id: string; name: string };
   requestedAt: string;
 }
+
+/** CEO duyệt hoặc từ chối ghép chờ (§18.6.5) */
+export type MappingDecision = 'approve' | 'reject';
 
 /** Một dòng màn hình ghép: biến thể đang bán kèm giá theo gian hàng và SKU sàn đã ghép */
 export interface ListingRow {

@@ -15,6 +15,7 @@ import type {
   CategoryMapInput,
   CategoryMapList,
   ChannelListing,
+  MappingDecision,
   MarketplaceCategory,
   MarketplaceCategoryList,
   ListingMatchInput,
@@ -294,6 +295,30 @@ export function useDelistListing() {
       const { data } = await apiClient.post<ChannelListing>(
         `/channel/shops/${shopId}/listings/${variantId}/delist`,
         { version },
+      );
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export interface MappingDecisionInput {
+  shopId: string;
+  listingId: string;
+  action: MappingDecision;
+  version: number;
+  /** Bắt buộc khi từ chối */
+  reason?: string;
+}
+
+/** CEO duyệt hoặc từ chối ghép chờ (§18.6.5): duyệt thì ghép mới có hiệu lực, từ chối thì giữ ghép cũ */
+export function useDecideMapping() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ shopId, listingId, action, version, reason }: MappingDecisionInput) => {
+      const { data } = await apiClient.post<ChannelListing>(
+        `/channel/shops/${shopId}/listings/${listingId}/mapping/${action}`,
+        action === 'reject' ? { version, reason } : { version },
       );
       return data;
     },

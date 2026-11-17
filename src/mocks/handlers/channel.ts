@@ -1,5 +1,5 @@
 import { http, HttpResponse, delay } from 'msw';
-import { db, type MockSetupRun, type MockShop } from '../db';
+import { CEO_ROLE_ID, db, type MockSetupRun, type MockShop } from '../db';
 import type {
   ChannelListing,
   ListingMatchInput,
@@ -30,7 +30,7 @@ import type {
   ShopTokenInput,
 } from '@/types/shop';
 import * as channel from '../channelData';
-import type { MockListing, MockRemoteSku } from '../channelData';
+import type { MockListing, MockRemoteSku, MockUnmanagedSku } from '../channelData';
 import * as pricing from '../pricingData';
 import * as inventory from '../inventoryData';
 import { orders as salesOrders } from '../salesData';
@@ -401,6 +401,37 @@ const listingOfSku = (shopId: string, externalSkuId: string) => ({
   mapped: channel.listings.find((l) => l.shopId === shopId && l.externalSkuId === externalSkuId),
   unmanaged: channel.unmanagedSkus.find((u) => u.shopId === shopId && u.externalSkuId === externalSkuId),
 });
+
+/**
+ * Áp ghép cho SKU sàn: `target` là biến thể, null là "không quản tồn". Dùng cho ghép tự duyệt và CEO duyệt ghép chờ;
+ * xoá `pendingMapping` của dòng
+ */
+function applyMapping(
+  shop: MockShop,
+  sku: MockRemoteSku,
+  mapped: MockListing | undefined,
+  unmanaged: MockUnmanagedSku | undefined,
+  target: ReturnType<typeof sellableVariant> | null,
+): ChannelListing {
+  if (target && mapped) {
+    // Đổi ghép: tồn, giá của SKU sàn đẩy lại theo biến thể mới ở lượt đồng bộ sau
+    Object.assign(mapped, { variantId: target.variant.id, stockSync: 'pending', pendingMapping: null, version: mapped.version + 1 });
+    return toListing(mapped);
+  }
+  if (target) {
+    if (unmanaged) channel.unmanagedSkus.splice(channel.unmanagedSkus.indexOf(unmanaged), 1);
+    // SKU sàn đã có sẵn trên sàn: ghép xong là đang bán (sơ đồ C2)
+    const next = newListing(shop, target.variant.id, sku);
+    if (hidesListings(target.variant.businessStatus)) hideListing(shop, next);
+    channel.listings.push(next);
+    return toListing(next);
+  }
+  if (mapped) channel.listings.splice(channel.listings.indexOf(mapped), 1);
+  const u = unmanaged ?? { id: mapped?.id ?? rid('lst'), shopId: shop.id, externalSkuId: sku.externalSkuId, approved: true, pendingMapping: null, version: 0 };
+  Object.assign(u, { approved: true, pendingMapping: null, version: Math.max(u.version, mapped?.version ?? 0) + 1 });
+  if (!unmanaged) channel.unmanagedSkus.push(u);
+  return unmanagedListing(u);
+}
 
 function newListing(shop: MockShop, variantId: string, r: MockRemoteSku, over: Partial<MockListing> = {}): MockListing {
   return {
@@ -1381,6 +1412,7 @@ export const shopHandlers = [
     if (needsCeo && !actor.canSelfApprove) {
       const pendingMapping = {
         variantId: body.variantId,
+        externalSkuId: null,
         requestedBy: { id: actor.account.id, name: actor.account.fullName },
         requestedAt: new Date().toISOString(),
       };
@@ -1399,25 +1431,7 @@ export const shopHandlers = [
       writeCompanyLog(actor, 'update', listingEntity(shop, label, saved.id), null, { pendingMapping });
       return HttpResponse.json<ChannelListing>(saved, { status: 202 });
     }
-    let saved: ChannelListing;
-    if (target && mapped) {
-      // Đổi ghép: tồn, giá của SKU sàn đẩy lại theo biến thể mới ở lượt đồng bộ sau
-      Object.assign(mapped, { variantId: target.variant.id, stockSync: 'pending', version: mapped.version + 1 });
-      saved = toListing(mapped);
-    } else if (target) {
-      if (unmanaged) channel.unmanagedSkus.splice(channel.unmanagedSkus.indexOf(unmanaged), 1);
-      // SKU sàn đã có sẵn trên sàn: ghép xong là đang bán (sơ đồ C2)
-      const next = newListing(shop, target.variant.id, sku);
-      if (hidesListings(target.variant.businessStatus)) hideListing(shop, next);
-      channel.listings.push(next);
-      saved = toListing(next);
-    } else {
-      if (mapped) channel.listings.splice(channel.listings.indexOf(mapped), 1);
-      const u = unmanaged ?? { id: mapped?.id ?? rid('lst'), shopId: shop.id, externalSkuId: sku.externalSkuId, approved: true, pendingMapping: null, version: 0 };
-      Object.assign(u, { approved: true, version: Math.max(u.version, mapped?.version ?? 0) + 1 });
-      if (!unmanaged) channel.unmanagedSkus.push(u);
-      saved = unmanagedListing(u);
-    }
+    const saved = applyMapping(shop, sku, mapped, unmanaged, target);
     writeCompanyLog(
       actor,
       before ? 'update' : 'create',
@@ -1425,6 +1439,77 @@ export const shopHandlers = [
       before ? { variantId: mapped?.variantId ?? null } : null,
       { variantId: body.variantId, externalSkuId: sku.externalSkuId, selfApproved: needsCeo },
     );
+    return HttpResponse.json<ChannelListing>(saved);
+  }),
+
+  /**
+   * CEO duyệt hoặc từ chối ghép chờ (§18.6.5, Documents/21 dòng mapping/:action). Duyệt thì ghép mới có hiệu lực,
+   * từ chối thì giữ ghép cũ; dòng "không quản tồn" chỉ tạo để chờ duyệt thì bỏ hẳn
+   */
+  http.post(`${API}/channel/shops/:id/listings/:listingId/mapping/:action`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.listingManage);
+    if (!guard.ok) return guard.response;
+    const actor = guard.value;
+    if (params.action !== 'approve' && params.action !== 'reject') return problem(404, 'Không tìm thấy');
+    if (!actor.membership.roleIds.includes(CEO_ROLE_ID)) {
+      return problem(403, 'Chỉ CEO duyệt ghép SKU', { code: 'forbidden' });
+    }
+    const found = ownShop(params.id, actor.companyId);
+    if (!found.ok) return found.response;
+    const shop = found.value;
+    const mapped = channel.listings.find((l) => l.shopId === shop.id && l.id === params.listingId);
+    const unmanaged = mapped
+      ? undefined
+      : channel.unmanagedSkus.find((u) => u.shopId === shop.id && u.id === params.listingId);
+    const row = mapped ?? unmanaged;
+    if (!row) return problem(404, 'Không tìm thấy listing');
+    const current = () => (mapped ? toListing(mapped) : unmanagedListing(unmanaged!));
+    const body = (await request.json()) as { version: number; reason?: string };
+    if (body.version !== row.version) return versionConflict(current(), 'Ghép SKU vừa được người khác sửa.');
+    const pending = row.pendingMapping;
+    if (!pending) return problem(409, 'Listing không còn ghép chờ duyệt', { code: 'invalid_transition' });
+    const sku = (channel.remoteSkus[shop.id] ?? []).find((r) => r.externalSkuId === (row.externalSkuId ?? pending.externalSkuId));
+    const label = sku?.sellerSku || row.externalSkuId || pending.externalSkuId || row.id;
+    if (params.action === 'reject') {
+      const reason = body.reason?.trim() ?? '';
+      if (!reason) {
+        return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors: { reason: 'Nhập lý do từ chối' } });
+      }
+      let saved: ChannelListing;
+      if (unmanaged && !unmanaged.approved) {
+        // Dòng chỉ có để chờ duyệt "không quản tồn": từ chối thì SKU sàn về lại Chưa ghép
+        channel.unmanagedSkus.splice(channel.unmanagedSkus.indexOf(unmanaged), 1);
+        saved = { ...unmanagedListing(unmanaged), pendingMapping: null, version: unmanaged.version + 1 };
+      } else {
+        Object.assign(row, { pendingMapping: null, version: row.version + 1 });
+        saved = current();
+      }
+      writeCompanyLog(actor, 'update', listingEntity(shop, label, row.id), { pendingMapping: pending }, {
+        pendingMapping: null,
+        rejectReason: reason,
+      });
+      return HttpResponse.json<ChannelListing>(saved);
+    }
+    if (!sku) return problem(409, 'SKU sàn không còn trên gian hàng', { code: 'invalid_transition' });
+    const target = pending.variantId ? sellableVariant(shop.companyId, pending.variantId) : null;
+    if (pending.variantId) {
+      const other = channel.listings.find(
+        (l) => l.shopId === shop.id && l.variantId === pending.variantId && l.status !== 'delisted' && l !== mapped,
+      );
+      if (!target || other) {
+        return problem(422, 'Dữ liệu không hợp lệ', {
+          code: 'validation_failed',
+          errors: { variantId: target ? 'Biến thể đã ghép SKU sàn khác của gian hàng này' : 'Biến thể không còn bán' },
+        });
+      }
+    }
+    const before = { variantId: mapped?.variantId ?? null };
+    const saved = applyMapping(shop, sku, mapped, unmanaged, target);
+    writeCompanyLog(actor, 'update', listingEntity(shop, label, saved.id), before, {
+      variantId: pending.variantId,
+      approvedBy: actor.account.id,
+    });
     return HttpResponse.json<ChannelListing>(saved);
   }),
 
