@@ -5,8 +5,7 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { useEffect, useState } from 'react';
-import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type {
@@ -276,9 +275,26 @@ function writeRefresh(queryClient: QueryClient, key: readonly unknown[], refresh
 }
 
 /**
+ * Ghi kết quả POST Tải lại vào bản sao `remote-skus`. BE trước BE#361 trả cả danh sách: ghi thẳng, không hỏi lại.
+ * 202 (lượt chạy): ghi lượt, `useRemoteSkusRefresh` hỏi tiếp. 200 (thành công trong 60 giây): nạp lại danh sách
+ */
+export function applyRefreshResult(
+  queryClient: QueryClient,
+  key: readonly unknown[],
+  data: RemoteSkusRefreshResult | RemoteSkuList,
+) {
+  if ('items' in data) {
+    queryClient.setQueryData(key, data);
+    return;
+  }
+  writeRefresh(queryClient, key, data.refresh);
+  if (data.refresh?.status !== 'running') void queryClient.invalidateQueries({ queryKey: key });
+}
+
+/**
  * Nút Tải lại (§18.3, §18.6.5, BE#361): BE chạy nền, POST chỉ trả lượt tải. 202 khi vừa bắt đầu hoặc đang có lượt chạy;
  * 200 khi lần đọc trọn thành công trước còn trong 60 giây thì nạp lại `GET remote-skus`. Lượt chạy thì
- * useRemoteSkusRefresh hỏi lại tới khi xong. BE trước BE#361 trả cả danh sách: ghi thẳng vào bản sao
+ * useRemoteSkusRefresh hỏi lại tới khi xong
  */
 export function useRefreshRemoteSkus() {
   const companyId = useCompanyId();
@@ -290,39 +306,40 @@ export function useRefreshRemoteSkus() {
       );
       return data;
     },
-    onSuccess: (data, shopId) => {
-      const key = shopKeys.remoteSkus(companyId, shopId);
-      if ('items' in data) {
-        queryClient.setQueryData(key, data);
-        return;
-      }
-      writeRefresh(queryClient, key, data.refresh);
-      if (data.refresh?.status !== 'running') void queryClient.invalidateQueries({ queryKey: key });
-    },
+    onSuccess: (data, shopId) => applyRefreshResult(queryClient, shopKeys.remoteSkus(companyId, shopId), data),
   });
 }
 
+/** Một lần hỏi lượt tải: `since` là lúc bắt đầu hỏi lượt này, `stuck` khi đã hỏi quá 10 phút mà vẫn chạy */
+export interface RemoteRefreshPoll {
+  refresh: RemoteSkusRefresh | null;
+  pollMs: number;
+  since: number;
+  stuck: boolean;
+}
+
 /**
- * Hỏi `GET remote-skus/refresh` theo `Retry-After` (mặc định 3 giây) khi lượt tải gần nhất đang chạy, từ nút Tải lại hay
- * từ lần mở trang. Lượt xong thì ghi vào bản sao rồi nạp lại danh sách. `stuck`: đã hỏi 10 phút mà vẫn chạy
+ * Cấu hình hỏi `GET remote-skus/refresh` cho lượt đang chạy `startedAt` (null thì không hỏi). Hỏi theo `Retry-After`
+ * (mặc định 3 giây); lượt xong (succeeded/failed) thì ghi vào bản sao, nạp lại danh sách rồi thôi hỏi; quá 10 phút vẫn chạy
+ * thì `stuck` và thôi hỏi. Tách khỏi hook để test bằng QueryObserver (bộ máy của useQuery)
  */
-export function useRemoteSkusRefresh(shopId: string, refresh: RemoteSkusRefresh | null | undefined) {
-  const companyId = useCompanyId();
-  const queryClient = useQueryClient();
-  const running = refresh?.status === 'running' ? refresh.startedAt : null;
-  const [stuck, setStuck] = useState<string | null>(null);
-  useEffect(() => {
-    if (!running) return;
-    const timer = setTimeout(() => setStuck(running), REMOTE_REFRESH_LIMIT_MS);
-    return () => clearTimeout(timer);
-  }, [running]);
-  const isStuck = running !== null && stuck === running;
-  const status = useQuery({
-    queryKey: [...shopKeys.remoteSkusRefresh(companyId, shopId), running],
-    enabled: Boolean(companyId && shopId && running) && !isStuck,
+export function remoteSkusRefreshOptions(
+  queryClient: QueryClient,
+  companyId: string,
+  shopId: string,
+  startedAt: string | null,
+) {
+  const queryKey = [...shopKeys.remoteSkusRefresh(companyId, shopId), startedAt] as const;
+  return queryOptions({
+    queryKey,
+    enabled: Boolean(companyId && shopId && startedAt),
     gcTime: 0,
-    refetchInterval: (q) => (q.state.data?.refresh?.status === 'running' ? q.state.data.pollMs : false),
-    queryFn: async () => {
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.refresh?.status === 'running' && !data.stuck ? data.pollMs : false;
+    },
+    queryFn: async (): Promise<RemoteRefreshPoll> => {
+      const since = queryClient.getQueryData<RemoteRefreshPoll>(queryKey)?.since ?? Date.now();
       const res = await apiClient.get<RemoteSkusRefreshResult>(`/channel/shops/${shopId}/remote-skus/refresh`);
       const next = res.data.refresh;
       if (next?.status !== 'running') {
@@ -330,10 +347,27 @@ export function useRemoteSkusRefresh(shopId: string, refresh: RemoteSkusRefresh 
         writeRefresh(queryClient, key, next);
         await queryClient.invalidateQueries({ queryKey: key });
       }
-      return { refresh: next, pollMs: pollDelay(res.headers) };
+      return {
+        refresh: next,
+        pollMs: pollDelay(res.headers),
+        since,
+        stuck: next?.status === 'running' && Date.now() - since >= REMOTE_REFRESH_LIMIT_MS,
+      };
     },
   });
-  return { running: running !== null, stuck: isStuck, error: running ? status.error : null };
+}
+
+/** Hỏi lại khi lượt tải gần nhất đang chạy, từ nút Tải lại hay từ lần mở trang (xem remoteSkusRefreshOptions) */
+export function useRemoteSkusRefresh(shopId: string, refresh: RemoteSkusRefresh | null | undefined) {
+  const companyId = useCompanyId();
+  const queryClient = useQueryClient();
+  const running = refresh?.status === 'running' ? refresh.startedAt : null;
+  const status = useQuery(remoteSkusRefreshOptions(queryClient, companyId, shopId, running));
+  return {
+    running: running !== null,
+    stuck: running !== null && Boolean(status.data?.stuck),
+    error: running ? status.error : null,
+  };
 }
 
 /**
