@@ -258,14 +258,19 @@ export function useRemoteSkus(id: string, enabled: boolean) {
 
 /**
  * Nút Tải lại (§18.6.5, BE#220): BE đọc trọn SKU từ sàn rồi trả như `GET remote-skus`. Lần đọc trọn trước còn trong 60 giây
- * thì BE trả bản sao, không gọi sàn
+ * thì BE trả bản sao, không gọi sàn. BE cho lượt đọc trọn tới 30 giây (quá thì lượt sau báo `remote_skus_busy`) nên lời
+ * gọi này chờ lâu hơn mức 15 giây chung (FE#265, BE#361)
  */
+export const REMOTE_SKUS_REFRESH_TIMEOUT = 45_000;
+
 export function useRefreshRemoteSkus() {
   const companyId = useCompanyId();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (shopId: string) => {
-      const { data } = await apiClient.post<RemoteSkuList>(`/channel/shops/${shopId}/remote-skus/refresh`);
+      const { data } = await apiClient.post<RemoteSkuList>(`/channel/shops/${shopId}/remote-skus/refresh`, undefined, {
+        timeout: REMOTE_SKUS_REFRESH_TIMEOUT,
+      });
       return data;
     },
     onSuccess: (data, shopId) => queryClient.setQueryData(shopKeys.remoteSkus(companyId, shopId), data),

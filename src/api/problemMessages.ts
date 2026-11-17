@@ -4,6 +4,7 @@
  * mã chưa có ở đây thì dùng `detail` như cũ.
  */
 
+import axios from 'axios';
 import { getErrorMessage, getProblem, notImplementedMessage, retryAfterSeconds } from './client';
 
 const MESSAGES: Record<string, string> = {
@@ -170,6 +171,19 @@ const MESSAGES: Record<string, string> = {
   platform_hold: 'Sàn đang khoá sản phẩm này.',
 };
 
+/**
+ * 409 `marketplace_rejected` khi Tải lại SKU sàn (§18.3, BE#220, BE#361): sàn trả thiếu danh sách. BE khoá đọc trọn
+ * 10 phút sau lần lỗi (429 `remote_skus_retry_later`), nên câu nêu số phút theo `Retry-After` nếu có, không thì 10
+ */
+export const INCOMPLETE_LIST_CODES = ['incomplete_list', 'too_many_calls'];
+const REMOTE_SKUS_LOCK_MINUTES = 10;
+
+function incompleteListMessage(error: unknown): string {
+  const raw = axios.isAxiosError(error) ? Number(error.response?.headers?.['retry-after']) : NaN;
+  const minutes = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw / 60) : REMOTE_SKUS_LOCK_MINUTES;
+  return `Sàn trả thiếu danh sách SKU, thử lại sau ${minutes} phút.`;
+}
+
 /** 503 `marketplace_unavailable` vì hết hạn mức gọi sàn trong ngày (§18.6.8) */
 export const CALL_LIMIT_CODES = ['company_call_limit', 'daily_call_limit'];
 
@@ -276,7 +290,9 @@ export function problemMessage(error: unknown): string {
     : (problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined));
   if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   const message =
-    code === 'shop_awaiting_allocation'
+    code === 'marketplace_rejected' && problem?.platformCode && INCOMPLETE_LIST_CODES.includes(problem.platformCode)
+      ? incompleteListMessage(error)
+      : code === 'shop_awaiting_allocation'
       ? awaitingAllocationMessage(problem?.waitingFor)
       : code === 'opening_stocktake_open' && problem?.number
         ? `Phiếu ${problem.number} vẫn đang mở. Sửa hoặc duyệt phiếu này.`

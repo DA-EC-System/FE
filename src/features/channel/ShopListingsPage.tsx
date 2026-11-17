@@ -29,7 +29,7 @@ import {
   useShopListings,
   useSyncListings,
 } from '@/api/shops.api';
-import { apiClient, getErrorMessage, getProblem } from '@/api/client';
+import { apiClient, getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import { catalogKeys } from '@/api/catalog.api';
 import { codeMessage, problemCode, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -457,7 +457,12 @@ export function ShopListingsPage() {
   const refreshRemote = () =>
     refreshMut.mutate(shopId, {
       onSuccess: () => toast.success('Đã tải lại SKU trên sàn'),
-      onError: (e) => toast.error(problemMessage(e)),
+      onError: (e) =>
+        toast.error(
+          isTimeout(e)
+            ? 'Sàn trả danh sách SKU quá lâu. Thử lại sau ít phút; danh sách đang có vẫn giữ nguyên.'
+            : problemMessage(e),
+        ),
     });
 
   const handleDelist = async () => {
@@ -1053,7 +1058,7 @@ export function ShopListingsPage() {
               {canMatch && (
                 <Button size="sm" variant="outline" disabled={refreshMut.isPending} onClick={refreshRemote}>
                   <RefreshCw />
-                  {refreshMut.isPending ? 'Đang tải...' : 'Tải lại'}
+                  {refreshMut.isPending ? 'Đang tải danh sách SKU…' : 'Tải lại'}
                 </Button>
               )}
             </div>

@@ -596,6 +596,15 @@ test.describe('P3 · Gian hàng', () => {
       await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 503, { status: 503, code: 'remote_skus_busy' });
       await taiLai.click();
       await toast(page, 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.');
+
+      // FE#265: sàn trả thiếu danh sách (409 incomplete_list) có câu riêng, không dùng câu huỷ đơn
+      await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 409, {
+        status: 409,
+        code: 'marketplace_rejected',
+        platformCode: 'incomplete_list',
+      });
+      await taiLai.click();
+      await toast(page, 'Sàn trả thiếu danh sách SKU, thử lại sau 10 phút.');
       // Lỗi tải lại không xoá danh sách đang có
       await expect(khu).toContainText('OLD-TEE-01');
     });
