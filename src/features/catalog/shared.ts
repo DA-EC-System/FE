@@ -103,3 +103,12 @@ export function imageFileError(file: File): string | null {
   if (file.size > MAX_IMAGE_BYTES) return `${file.name}: ảnh lớn hơn 1 MB`;
   return null;
 }
+
+/**
+ * `sizeChartFileId` của PUT (Documents/21, FE#261): không đổi thì bỏ trống để BE giữ nguyên,
+ * gỡ ảnh thì `null`, chọn ảnh mới thì gửi id mới
+ */
+export function sizeChartPatch(initial: string | null, current: string | null): { sizeChartFileId?: string | null } {
+  if (initial === current) return {};
+  return { sizeChartFileId: current };
+}

@@ -67,6 +67,28 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 type ListingTab = 'all' | 'unmatched' | 'not_listed' | 'stale' | 'failed' | 'held';
 
 /** Lỗi đẩy của một biến thể; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
+/** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */
+const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing']);
+
+function EditProductLink({ companyId, productId }: { companyId: string; productId: string }) {
+  const navigate = useNavigate();
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      className="h-auto p-0"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigate(ROUTES.company.catalogProduct(companyId, productId));
+      }}
+      data-testid="edit-product"
+    >
+      Sửa sản phẩm
+    </Button>
+  );
+}
+
 interface PushError {
   code?: string;
   message: string;
@@ -142,6 +164,7 @@ export function ShopListingsPage() {
   const canManage = can(PERMISSIONS.listingManage) && usable;
   /** Ghép SKU tách quyền khỏi đẩy, gỡ (§18.6.5): Sale ghép được nhưng không đẩy */
   const canMatch = can(PERMISSIONS.listingMatch) && usable;
+  const canEditProduct = can(PERMISSIONS.productManage);
   const canReconnect =
     can(PERMISSIONS.shopConnect) && shop && (shop.status === 'needs_reauth' || shop.status === 'disconnected');
 
@@ -553,6 +576,9 @@ export function ShopListingsPage() {
                     Ghép danh mục
                   </Button>
                 )}
+                {PRODUCT_FIX_CODES.has(err.code) && canEditProduct && (
+                  <EditProductLink companyId={companyId} productId={r.productId} />
+                )}
               </div>
             );
           }
@@ -594,6 +620,10 @@ export function ShopListingsPage() {
                   {note}
                 </span>
               )}
+              {l.status === 'push_failed' &&
+                l.pushError &&
+                PRODUCT_FIX_CODES.has(l.pushError.code) &&
+                canEditProduct && <EditProductLink companyId={companyId} productId={r.productId} />}
               {l.status === 'hidden' && l.hiddenBy === 'zero_stock' && (
                 <SyncBadge
                   id={`hidden-zero-${r.variantId}`}
@@ -712,7 +742,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, companyId, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [

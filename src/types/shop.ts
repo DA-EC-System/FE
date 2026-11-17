@@ -457,9 +457,13 @@ export interface CategoryMap {
   externalCategoryId: string;
   /** Giá trị thuộc tính bắt buộc, theo `CategoryAttribute.name` */
   attributes: Record<string, string>;
+  /** Bảng kích cỡ của danh mục sàn: `required` thì sản phẩm cần ảnh bảng kích cỡ mới đẩy được; null là chưa biết */
+  sizeChartRule: SizeChartRule | null;
   version: number;
   updatedAt: string;
 }
+
+export type SizeChartRule = 'required' | 'optional' | 'unsupported';
 
 export interface CategoryMapList {
   items: CategoryMap[];

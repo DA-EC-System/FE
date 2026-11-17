@@ -142,6 +142,8 @@ export interface ProductListItem {
 export interface ProductDetail extends ProductListItem {
   description: string;
   images: ProductImage[];
+  /** Ảnh bảng kích cỡ, một ảnh dùng chung mọi SKU và gian hàng; `url` rỗng khi máy chủ chưa cấu hình link ảnh */
+  sizeChart: { fileId: string; url: string } | null;
   variants: ProductVariant[];
 }
 
@@ -162,6 +164,7 @@ export interface ProductCreateInput {
   description: string;
   /** Theo thứ tự hiển thị, phần tử đầu là ảnh đại diện */
   imageFileIds: string[];
+  sizeChartFileId?: string | null;
   /** Mỗi biến thể một tổ hợp giá trị; sản phẩm không có thuộc tính thì một biến thể rỗng */
   variants: { attributeValueIds: string[] }[];
 }
@@ -170,6 +173,8 @@ export interface ProductUpdateInput {
   name: string;
   description: string;
   imageFileIds: string[];
+  /** Bỏ trống thì giữ nguyên, `null` thì gỡ, id thì thay */
+  sizeChartFileId?: string | null;
   version: number;
 }
 

@@ -1488,6 +1488,11 @@ export const shopHandlers = [
       if (!l?.externalImageUrls?.length && !target.product.imageFileIds.length) {
         return blocked(variantId, 'images_missing', l);
       }
+      // commerio-backend#347 (push-block.ts): danh mục sàn bắt buộc bảng kích cỡ mà sản phẩm chưa có
+      const map = channel.categoryMaps.find((m) => m.shopId === shop.id && m.categoryId === target.product.categoryId);
+      if (map?.sizeChartRule === 'required' && !target.product.sizeChartFileId) {
+        return blocked(variantId, 'size_chart_missing', l);
+      }
 
       const queuedAt = Date.now();
       if (l) {
