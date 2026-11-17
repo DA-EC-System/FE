@@ -43,6 +43,8 @@ export interface MockProduct {
   description: string;
   /** catalog.product_images theo position */
   imageFileIds: string[];
+  /** catalog.products.size_chart_file_id */
+  sizeChartFileId?: string | null;
   variants: MockVariant[];
   archivedAt: string | null;
   updatedAt: string;

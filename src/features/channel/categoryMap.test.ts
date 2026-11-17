@@ -19,6 +19,7 @@ const map = (categoryId: string): CategoryMap => ({
   platform: 'lazada',
   externalCategoryId: '10000',
   attributes: { brand: 'ABC' },
+  sizeChartRule: null,
   version: 1,
   updatedAt: '2026-10-28T03:00:00.000Z',
 });
