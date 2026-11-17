@@ -30,9 +30,9 @@ describe('409 marketplace_rejected khi sàn trả thiếu danh sách SKU', () =>
     expect(problemMessage(e)).toBe('Sàn trả thiếu danh sách SKU, thử lại sau 10 phút. Sàn báo: Partial');
   });
 
-  it('platformCode khác giữ câu cũ của marketplace_rejected', () => {
+  it('platformCode khác dùng câu chung của marketplace_rejected', () => {
     expect(problemMessage(loi({ status: 409, code: 'marketplace_rejected', platformCode: 'other' }))).toBe(
-      'Sàn không cho huỷ đơn này.',
+      'Sàn từ chối thao tác này.',
     );
   });
 });
@@ -74,6 +74,18 @@ describe('remoteRefreshErrorMessage: lỗi của lượt tải chạy nền (BE#
     );
     expect(remoteRefreshErrorMessage(err('marketplace_unavailable'), null)).toBe(
       'Sàn đang lỗi, chưa tải được danh sách SKU. Bấm Tải lại để thử lại.',
+    );
+  });
+
+  it('sàn từ chối vì lý do khác: câu tải SKU, không câu huỷ đơn (FE#250)', () => {
+    expect(remoteRefreshErrorMessage(err('marketplace_rejected', 'other'), null)).toBe(
+      'Sàn chưa trả được danh sách SKU. Bấm Tải lại để thử lại.',
+    );
+  });
+
+  it('gian hàng quá 10.000 sản phẩm: không mời bấm Tải lại', () => {
+    expect(remoteRefreshErrorMessage(err('marketplace_rejected', 'too_many_products'), 300)).toBe(
+      'Gian hàng quá 10.000 sản phẩm, sàn không cho đọc hết danh sách.',
     );
   });
 

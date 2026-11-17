@@ -111,7 +111,7 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     await section.getByRole('radio', { name: /^Dán token/ }).click();
     await section.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
     const form = page.locator('[data-testid=token-form]');
-    await form.getByLabel('Access token', { exact: true }).fill('tt-token-abc123');
+    await form.getByLabel('Mã truy cập (access token)', { exact: true }).fill('tt-token-abc123');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
     const ketQua = section.locator('[data-outcome=connected]');
     await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();

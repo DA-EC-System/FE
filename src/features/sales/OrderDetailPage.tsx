@@ -148,7 +148,7 @@ export function OrderDetailPage() {
       if (problem?.code && CONFLICT_CODES.includes(problem.code)) onConflict();
       else {
         setDialog(null);
-        setNotice(problemMessage(e));
+        setNotice(problemMessage(e, 'cancel'));
       }
     }
   };
