@@ -6,6 +6,7 @@ import {
   LISTING_POLL_MS,
   listingPollDelay,
   listingStatusHint,
+  pushErrorText,
   splitPushResults,
 } from './listingPush';
 
@@ -90,5 +91,25 @@ describe('giải thích trạng thái listing', () => {
 
   it('ẩn do đẩy tồn 0 thì nói rõ', () => {
     expect(listingStatusHint(listing('hidden', { hiddenBy: 'zero_stock' }), false)).toContain('tồn 0');
+  });
+});
+
+describe('pushErrorText (FE#266, commerio-backend#305)', () => {
+  const at = '2026-11-17T00:00:00.000Z';
+  it('gian hàng TikTok chưa đủ điều kiện: câu tiếng Việt kèm câu của sàn', () => {
+    const t = pushErrorText({ code: 'shop_not_eligible', message: 'Shop onboarding incomplete', at });
+    expect(t).toContain('Gian hàng chưa đủ điều kiện');
+    expect(t).toContain('Seller Center');
+    expect(t).toMatch(/Sàn báo: Shop onboarding incomplete$/);
+  });
+
+  it('sai luật đăng: câu tiếng Việt kèm mã và câu của sàn', () => {
+    const t = pushErrorText({ code: 'listing_check_failed', message: '12052051: product name must be between 25 and 255 characters', at });
+    expect(t).toContain('chưa đạt luật đăng bán');
+    expect(t).toContain('Sàn báo: 12052051');
+  });
+
+  it('mã khác giữ nguyên câu BE trả', () => {
+    expect(pushErrorText({ code: 'marketplace_rejected', message: 'Sàn từ chối sản phẩm', at })).toBe('Sàn từ chối sản phẩm');
   });
 });

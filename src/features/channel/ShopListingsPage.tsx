@@ -47,6 +47,7 @@ import {
   LISTING_POLL_MAX_MS,
   listingPollDelay,
   listingStatusHint,
+  pushErrorText,
   REPUSH_STATUSES,
   splitPushResults,
 } from './listingPush';
@@ -68,7 +69,7 @@ type ListingTab = 'all' | 'unmatched' | 'not_listed' | 'stale' | 'failed' | 'hel
 
 /** Lỗi đẩy của một biến thể; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
 /** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */
-const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing']);
+const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing', 'listing_check_failed']);
 
 function EditProductLink({ companyId, productId }: { companyId: string; productId: string }) {
   const navigate = useNavigate();
@@ -590,8 +591,8 @@ export function ShopListingsPage() {
               ? l.rejectReason
               : (l.status === 'push_failed' || l.status === 'pushing') && l.pushError
                 ? l.status === 'pushing'
-                  ? `Đang thử lại (${l.pushAttempts} lần): ${l.pushError.message}`
-                  : l.pushError.message
+                  ? `Đang thử lại (${l.pushAttempts} lần): ${pushErrorText(l.pushError)}`
+                  : pushErrorText(l.pushError)
                 : l.status === 'hidden' && l.hiddenBy !== 'zero_stock'
                   ? 'Đã ẩn trên sàn'
                   : null;
