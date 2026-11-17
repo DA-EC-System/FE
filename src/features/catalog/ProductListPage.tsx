@@ -98,7 +98,12 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
                 <ImageIcon className="size-4 text-muted-foreground" />
               </AvatarFallback>
             </Avatar>
-            <span className="min-w-0 font-medium">{row.original.name}</span>
+            <span className="grid min-w-0">
+              <span className="font-medium">{row.original.name}</span>
+              <span className="font-mono text-xs text-muted-foreground" data-testid="product-code">
+                {row.original.code}
+              </span>
+            </span>
           </div>
         ),
       },
@@ -122,7 +127,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         header: 'Trạng thái',
         meta: {
           className: 'w-48',
-          help: 'Trạng thái kinh doanh gộp từ các SKU: đang bán, tạm ngừng hoặc ngừng bán, kèm số SKU ở mỗi trạng thái.',
+          help: 'Gộp từ các SKU: có SKU đang bán thì "Đang bán x/n", không thì nhãn của nhiều SKU nhất. Nhãn phụ Chờ hoàn thiện, Có lỗi đếm SKU chưa lưu trữ.',
         },
         cell: ({ row }) => <ParentStatus item={row.original} />,
       },

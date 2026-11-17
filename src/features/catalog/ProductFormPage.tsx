@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FormTextField } from '@/components/common/FormTextField';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +42,7 @@ import {
   useAttributes,
   useCategories,
   useCreateProduct,
+  useDeleteProduct,
   useProduct,
   useUpdateProduct,
 } from '@/api/catalog.api';
@@ -81,6 +83,9 @@ const variantChoices = (v: ProductVariant): ActionChoice[] =>
 
 const missingText = (v: ProductVariant) => v.missing.map((k) => MISSING_LABELS[k]).join(', ');
 
+/** BE luôn trả độ hoàn thiện và hiện diện (§17.1); thiếu thì không đoán */
+const NOT_COMPUTED = <span className="text-muted-foreground">Chưa tính</span>;
+
 /** "200 g · 300×250×20 mm"; thiếu thì gạch ngang */
 function specText(v: ProductVariant) {
   const weight = v.weightG === null ? null : `${v.weightG.toLocaleString('vi-VN')} g`;
@@ -112,6 +117,8 @@ export function ProductFormPage() {
   const attributes = attributesQuery.data ?? [];
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
+  const deleteMut = useDeleteProduct();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const business = useBusinessAction();
 
   const archived = product?.status === 'archived';
@@ -212,6 +219,12 @@ export function ProductFormPage() {
         setError('Sản phẩm vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
         return;
       }
+      // §17.4: gỡ hết ảnh khi SKU còn trên sàn
+      if (problemCode(e) === 'listing_field_required') {
+        applyFieldErrors(e);
+        setError(problemMessage(e));
+        return;
+      }
       if (problemCode(e) === 'name_taken') {
         setFieldError('name', { message: getProblem(e)?.errors?.name ?? 'Đã có sản phẩm cùng tên' });
         return;
@@ -249,6 +262,19 @@ export function ProductFormPage() {
   }
 
   const busy = createMut.isPending || updateMut.isPending;
+  // Xoá hẳn chỉ khi mọi SKU Chờ hoàn thiện (§17.2); BE kiểm thêm chứng từ, listing và trả 409 product_in_use
+  const deletable = Boolean(product && canManage && product.variants.every((v) => v.readiness === 'incomplete'));
+  const removeProduct = async () => {
+    if (!product) return;
+    try {
+      await deleteMut.mutateAsync({ id: product.id, version: product.version });
+      toast.success(`Đã xoá ${product.name}`);
+      backToList();
+    } catch (e) {
+      toast.error(problemMessage(e));
+      setDeleteOpen(false);
+    }
+  };
   const title = isNew ? 'Thêm sản phẩm' : readOnly ? (product?.name ?? '') : 'Sửa sản phẩm';
 
   return (
@@ -257,12 +283,29 @@ export function ProductFormPage() {
         {back}
         <PageHeader
           title={title}
-          subtitle={product ? `Cập nhật lần cuối ${formatDateTime(product.updatedAt)}` : undefined}
+          subtitle={
+            product ? (
+              <>
+                Mã <span className="font-mono" data-testid="product-code">{product.code}</span> · Cập nhật lần cuối{' '}
+                {formatDateTime(product.updatedAt)}
+              </>
+            ) : undefined
+          }
           action={
-            readOnly ? null : (
-              <Button type="submit" disabled={busy || uploading || chartUploading}>
-                {busy ? 'Đang lưu...' : uploading || chartUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
-              </Button>
+            readOnly && !deletable ? null : (
+              <div className="flex flex-wrap gap-2">
+                {deletable && (
+                  <Button type="button" variant="outline" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 />
+                    Xoá hẳn
+                  </Button>
+                )}
+                {!readOnly && (
+                  <Button type="submit" disabled={busy || uploading || chartUploading}>
+                    {busy ? 'Đang lưu...' : uploading || chartUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
+                  </Button>
+                )}
+              </div>
             )
           }
         />
@@ -421,7 +464,8 @@ export function ProductFormPage() {
                           <TableHead>Thuộc tính</TableHead>
                           <TableHead>Trạng thái</TableHead>
                           <TableHead className="text-right">Giá chuẩn</TableHead>
-                          <TableHead>Khối lượng · kích thước</TableHead>
+                          <TableHead className="text-right">Giá muốn bán</TableHead>
+                          <TableHead>Cân nặng · kích thước</TableHead>
                           <TableHead>Hoàn thiện</TableHead>
                           <TableHead>Trên sàn</TableHead>
                           {canManage && <TableHead className="w-24" />}
@@ -442,16 +486,33 @@ export function ProductFormPage() {
                                 'Mặc định'}
                             </TableCell>
                             <TableCell data-testid="variant-status">
-                              <StatusBadge status={mainLabel(v.businessStatus, v.presence)} statuses={MAIN_LABEL_META} />
+                              {v.presence === undefined && v.businessStatus === 'selling' ? (
+                                NOT_COMPUTED
+                              ) : (
+                                <span className="flex flex-wrap items-center gap-1">
+                                  <StatusBadge status={mainLabel(v.businessStatus, v.presence)} statuses={MAIN_LABEL_META} />
+                                  {/* Nhãn phụ: đang bán nhưng có listing lỗi ở gian hàng khác */}
+                                  {v.businessStatus === 'selling' && v.presence === 'live' && v.hasListingError && (
+                                    <Badge variant="destructive" data-flag="error">
+                                      Có lỗi
+                                    </Badge>
+                                  )}
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right whitespace-nowrap" data-testid="variant-price">
                               {priceText(v.standardPrice)}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap" data-testid="variant-target-price">
+                              {priceText(v.targetNetPrice)}
                             </TableCell>
                             <TableCell className="whitespace-nowrap" data-testid="variant-spec">
                               {specText(v)}
                             </TableCell>
                             <TableCell data-testid="variant-readiness">
-                              {v.businessStatus === 'archived' ? null : v.readiness === 'ready' ? (
+                              {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
+                                NOT_COMPUTED
+                              ) : v.readiness === 'ready' ? (
                                 <span className="text-muted-foreground">Sẵn sàng</span>
                               ) : (
                                 <Badge variant="warning" title={`Thiếu: ${missingText(v)}`}>
@@ -465,7 +526,9 @@ export function ProductFormPage() {
                             <TableCell className="whitespace-nowrap">
                               {v.businessStatus === 'archived'
                                 ? null
-                                : v.listingCount
+                                : v.presence === undefined
+                                  ? NOT_COMPUTED
+                                  : v.listingCount
                                   ? `${PRESENCE_LABELS[v.presence]} · ${v.listingCount} gian hàng`
                                   : PRESENCE_LABELS[v.presence]}
                             </TableCell>
@@ -477,7 +540,7 @@ export function ProductFormPage() {
                                     variant="ghost"
                                     size="icon"
                                     aria-label={`Sửa thông tin ${v.sku}`}
-                                    title="Giá chuẩn, khối lượng, kích thước gói"
+                                    title="Giá chuẩn, giá muốn bán, cân nặng, kích thước gói"
                                     onClick={() => setSpecVariantId(v.id)}
                                   >
                                     <Pencil />
@@ -516,10 +579,27 @@ export function ProductFormPage() {
               setAddOpen(false);
               toast.success(message);
             }}
+            onRestore={(variantId) => {
+              setAddOpen(false);
+              const sku = product.variants.find((v) => v.id === variantId)?.sku ?? 'SKU đã lưu trữ';
+              business.request({ productId: product.id, name: sku, action: 'restore', variantIds: [variantId] });
+            }}
           />
         )}
 
         {business.dialog}
+        {product && (
+          <ConfirmDialog
+            open={deleteOpen}
+            title={`Xoá hẳn ${product.name}?`}
+            message="Sản phẩm và các SKU bị xoá, không khôi phục được. Chỉ xoá được sản phẩm chưa dùng ở chứng từ, tồn kho hay sàn nào; sản phẩm đã dùng thì Lưu trữ."
+            confirmLabel="Xoá hẳn"
+            destructive
+            loading={deleteMut.isPending}
+            onConfirm={removeProduct}
+            onClose={() => setDeleteOpen(false)}
+          />
+        )}
       </form>
       {product && (
         <VariantSpecDialog

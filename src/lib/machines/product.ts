@@ -44,10 +44,12 @@ export const hidesListings = (status: VariantBusinessStatus) => status === 'paus
 /** Ngừng nhập và lưu trữ không còn trong gợi ý nhập lại, không thêm được vào đề nghị nhập */
 export const purchasable = (status: VariantBusinessStatus) => status === 'selling' || status === 'paused';
 
-/** Nhãn chính: Lưu trữ → Ngừng nhập → Tạm ngừng → hiện diện trên sàn. "Có lỗi" là nhãn phụ */
+/**
+ * Nhãn chính: Lưu trữ → Ngừng nhập → Tạm ngừng → hiện diện trên sàn (Documents/21 §17.1).
+ * `error` là nhãn chính khi không có listing live nào; SKU live có listing lỗi hiện thêm nhãn phụ "Có lỗi"
+ */
 export function mainLabel(status: VariantBusinessStatus, presence: VariantPresence): VariantMainLabel {
-  if (status !== 'selling') return status;
-  return presence === 'error' ? 'live' : presence;
+  return status !== 'selling' ? status : presence;
 }
 
 export const MAIN_LABELS: Record<VariantMainLabel, string> = {
@@ -55,6 +57,7 @@ export const MAIN_LABELS: Record<VariantMainLabel, string> = {
   discontinued: 'Ngừng nhập',
   paused: 'Tạm ngừng',
   live: 'Đang bán',
+  error: 'Có lỗi',
   pending: 'Chờ sàn',
   not_listed: 'Chưa đăng',
 };

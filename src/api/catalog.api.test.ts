@@ -23,17 +23,23 @@ describe('withVariantDefaults', () => {
     const [v] = withVariantDefaults(tuBe({ archivedAt: null })).variants;
     expect(v).toMatchObject({
       businessStatus: 'selling',
-      readiness: 'ready',
       missing: [],
+      targetNetPrice: null,
+      hasListingError: false,
       minQty: null,
       weightG: null,
       lengthMm: null,
       widthMm: null,
       heightMm: null,
-      presence: 'not_listed',
       listingCount: 0,
       archiveBlockers: [],
     });
+  });
+
+  it('FE#260: thiếu độ hoàn thiện, hiện diện thì để trống cho UI hiện "Chưa tính"', () => {
+    const [v] = withVariantDefaults(tuBe({ archivedAt: null })).variants;
+    expect(v.readiness).toBeUndefined();
+    expect(v.presence).toBeUndefined();
   });
 
   it('SKU đã lưu trữ suy ra archived; trường BE đã trả thì giữ nguyên', () => {

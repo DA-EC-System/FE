@@ -39,6 +39,10 @@ export interface ProblemDetails {
   issue?: string;
   /** 501 `not_implemented`: người phụ trách issue đó */
   owner?: string;
+  /** 409 `archive_blocked`, `invalid_transition` của business-status một SKU (§17.3): lý do chưa làm được */
+  reasons?: string[];
+  /** 409 `variant_archived` (§17.2): SKU đã lưu trữ trùng tổ hợp, dùng Khôi phục */
+  variantId?: string;
 }
 
 /**
