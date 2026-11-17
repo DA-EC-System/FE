@@ -4,7 +4,15 @@
  */
 
 import { products, swatch } from './catalogData';
-import type { ListingStatus, PendingMapping, QcAlert, RemoteSkuStatus, SyncError, SyncState } from '@/types/shop';
+import type {
+  ListingStatus,
+  OutsideChange,
+  PendingMapping,
+  QcAlert,
+  RemoteSkuStatus,
+  SyncError,
+  SyncState,
+} from '@/types/shop';
 
 export interface MockListing {
   id: string;
@@ -29,6 +37,8 @@ export interface MockListing {
    */
   externalImageUrls?: string[] | null;
   hiddenBy: 'platform' | 'zero_stock' | null;
+  /** Sàn đổi listing ngoài app, chờ CEO quyết (§18.3, commerio-backend#360) */
+  outsideChange?: OutsideChange | null;
   /** Đồng bộ tồn lưu theo lần đẩy; đồng bộ giá tính khi trả về (giá hiện tại so với giá đã đẩy) */
   stockSync: SyncState;
   platformStock: number | null;
