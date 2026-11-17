@@ -1,7 +1,7 @@
 import { AxiosError, AxiosHeaders } from 'axios';
 import { describe, expect, it } from 'vitest';
 import { getErrorMessage, notImplementedMessage, type ProblemDetails } from './client';
-import { openOrdersMessage, problemMessage, shopMismatchMessage } from './problemMessages';
+import { isRouteMissing, openOrdersMessage, problemMessage, shopMismatchMessage } from './problemMessages';
 
 const loi = (data: ProblemDetails) =>
   new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
@@ -134,5 +134,30 @@ describe('đẩy listing (§18.6.8, §18.6.10)', () => {
     expect(problemMessage(loi({ code: 'shop_not_awaiting_stocktake' }))).toBe(
       'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ.',
     );
+  });
+});
+
+describe('404 vì chưa có route khác 404 bản ghi không có (FE#248)', () => {
+  const ROUTE = 'Chức năng này chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.';
+  const routeMissing = loi({ status: 404, title: 'Not Found', code: 'not_found', detail: 'Không có đường dẫn GET /api/v1/tasks' });
+  const recordMissing = loi({ status: 404, title: 'Not Found', code: 'not_found', detail: 'Không tìm thấy sản phẩm' });
+
+  it('route chưa có: báo chưa mở, không nói bản ghi bị xoá', () => {
+    expect(isRouteMissing(routeMissing)).toBe(true);
+    expect(problemMessage(routeMissing)).toBe(ROUTE);
+  });
+
+  it('route chưa có mà BE không gửi code vẫn nhận ra', () => {
+    expect(problemMessage(loi({ status: 404, title: 'Not Found', detail: 'Không có đường dẫn POST /api/v1/x' }))).toBe(ROUTE);
+  });
+
+  it('bản ghi không có: giữ câu not_found', () => {
+    expect(isRouteMissing(recordMissing)).toBe(false);
+    expect(problemMessage(recordMissing)).toBe('Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.');
+  });
+
+  it('không phải 404 thì không coi là route chưa có', () => {
+    expect(isRouteMissing(loi({ status: 409, code: 'conflict', detail: 'Không có đường dẫn GET /x' }))).toBe(false);
+    expect(isRouteMissing(new Error('mạng'))).toBe(false);
   });
 });
