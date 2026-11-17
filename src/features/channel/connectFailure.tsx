@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Building2, LockKeyhole, Timer, UserRoundX, X } from 'lucide-react';
 import { getProblem } from '@/api/client';
-import { companyMismatchMessage, isCompanyRef, isShopRef, problemMessage, type CompanyRef } from '@/api/problemMessages';
+import { PlatformDetail } from '@/components/common/PlatformDetail';
+import { companyMismatchMessage, isCompanyRef, isShopRef, problemSummary, type CompanyRef } from '@/api/problemMessages';
 import { platformLabel } from './shopSchemas';
 import { CompanyBox, ShopBox, type ResultScreenProps, type ShopRef } from './ConnectOutcome';
 
@@ -11,9 +12,9 @@ export type ConnectFailure =
   | { kind: 'no_state'; platform: string }
   | { kind: 'state_invalid' }
   | { kind: 'mismatch'; expected?: ShopRef; actual?: ShopRef }
-  | { kind: 'elsewhere' }
+  | { kind: 'elsewhere'; via?: 'oauth' | 'token' }
   | { kind: 'company_mismatch'; expected?: CompanyRef; actual?: CompanyRef }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; platformMessage?: string };
 
 /** Nơi người dùng bấm uỷ quyền ngoài Commerio (§18.6.3): chỉ để hiện chữ, không rẽ nhánh luồng */
 const AUTHORIZE_PORTAL: Record<string, string> = { tiktok: 'Partner Center' };
@@ -39,8 +40,18 @@ export function failureFromError(e: unknown): ConnectFailure {
         ...(isCompanyRef(p.expected) && isCompanyRef(p.actual) ? { expected: p.expected, actual: p.actual } : {}),
       };
     default:
-      return { kind: 'error', message: problemMessage(e) };
+      return { kind: 'error', ...problemSummary(e, 'connect') };
   }
+}
+
+/** Các bước khi gian hàng đang nối ở công ty khác; dán token thì không có bước đăng xuất trên sàn */
+export function elsewhereSteps(via: 'oauth' | 'token' = 'oauth'): string[] {
+  return [
+    'Nếu gian hàng đã chuyển sang công ty bạn: nhờ công ty cũ ngắt kết nối trong Commerio của họ, rồi thử lại.',
+    via === 'token'
+      ? 'Nếu bạn dán nhầm: lấy token của đúng gian hàng rồi dán lại.'
+      : 'Nếu bạn đăng nhập nhầm: đăng xuất trên sàn, đăng nhập đúng tài khoản rồi thêm lại.',
+  ];
 }
 
 const refLabel = (ref?: ShopRef) => (ref ? (ref.name ?? ref.externalShopId) : '');
@@ -109,8 +120,9 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
           'Một gian hàng trên sàn chỉ nối với một công ty trong Commerio, để đơn và tồn không bị hai bên cùng đổi. Commerio không cho biết đó là công ty nào.',
         children: (
           <ol className="w-full list-decimal ps-5 text-start text-sm leading-relaxed text-foreground-2">
-            <li>Nếu gian hàng đã chuyển sang công ty bạn: nhờ công ty cũ ngắt kết nối trong Commerio của họ, rồi thử lại.</li>
-            <li>Nếu bạn đăng nhập nhầm: đăng xuất trên sàn, đăng nhập đúng tài khoản rồi thêm lại.</li>
+            {elsewhereSteps(failure.via).map((step) => (
+              <li key={step}>{step}</li>
+            ))}
           </ol>
         ),
       };
@@ -140,6 +152,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
         icon: X,
         title: 'Chưa kết nối được gian hàng',
         description: failure.message,
+        children: <PlatformDetail text={failure.platformMessage} className="justify-items-center" />,
       };
   }
 }

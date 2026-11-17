@@ -111,8 +111,9 @@ export function PackageDetailPage() {
         return;
       }
       const fieldError = problem?.errors ? Object.values(problem.errors)[0] : undefined;
-      if (pending) setError(fieldError ?? problemMessage(e));
-      else toast.error(problemMessage(e));
+      const message = problemMessage(e, cmd.kind === 'ready' ? 'rts' : undefined);
+      if (pending) setError(fieldError ?? message);
+      else toast.error(message);
     }
   };
 

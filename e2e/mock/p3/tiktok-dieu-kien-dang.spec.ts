@@ -27,6 +27,11 @@ const dayMoi = async (page: Page, variantId: string) => {
 
 const trangThai = (page: Page, variantId: string) => dong(page, variantId).getByTestId('listing-status');
 const ghiChu = (page: Page, variantId: string) => dong(page, variantId).getByTestId('listing-note');
+const chiTietSan = async (page: Page, variantId: string, text: string) => {
+  const chiTiet = dong(page, variantId).getByTestId('platform-detail');
+  await chiTiet.getByRole('button', { name: 'Chi tiết từ sàn' }).click();
+  await expect(chiTiet).toContainText(text);
+};
 
 test.describe('P3 · TikTok kiểm điều kiện đăng trước khi tạo sản phẩm', () => {
   test('gian hàng chưa đủ điều kiện: Lỗi đẩy, câu tiếng Việt kèm câu của sàn, không có lối sửa sản phẩm', async ({ page }) => {
@@ -38,7 +43,8 @@ test.describe('P3 · TikTok kiểm điều kiện đăng trước khi tạo sả
     await expect(trangThai(page, 'prd-002-v1')).toHaveText('Lỗi đẩy', { timeout: 15_000 });
     await expect(ghiChu(page, 'prd-002-v1')).toContainText('Gian hàng chưa đủ điều kiện đăng sản phẩm');
     await expect(ghiChu(page, 'prd-002-v1')).toContainText('Seller Center');
-    await expect(ghiChu(page, 'prd-002-v1')).toContainText('Sàn báo: Shop has not completed onboarding');
+    // FE#250: câu gốc của sàn trong "Chi tiết từ sàn" thu gọn
+    await chiTietSan(page, 'prd-002-v1', 'Shop has not completed onboarding');
     await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Sửa sản phẩm', exact: true })).toHaveCount(0);
   });
 
@@ -49,8 +55,9 @@ test.describe('P3 · TikTok kiểm điều kiện đăng trước khi tạo sả
     await dayMoi(page, 'prd-002-v1');
 
     await expect(trangThai(page, 'prd-002-v1')).toHaveText('Lỗi đẩy', { timeout: 15_000 });
-    await expect(ghiChu(page, 'prd-002-v1')).toContainText('Sản phẩm chưa đạt luật đăng bán của sàn');
-    await expect(ghiChu(page, 'prd-002-v1')).toContainText('Sàn báo: 12052051');
+    // FE#250: câu sàn về độ dài tên được dịch, câu gốc trong "Chi tiết từ sàn"
+    await expect(ghiChu(page, 'prd-002-v1')).toContainText('Tên sản phẩm phải dài 25–255 ký tự trên TikTok');
+    await chiTietSan(page, 'prd-002-v1', '12052051');
     await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Sửa sản phẩm', exact: true })).toBeAttached();
 
     await phatSuKienSan(page, 'listing.check_failed', 'shp-002');

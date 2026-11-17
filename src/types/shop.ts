@@ -30,7 +30,7 @@ export interface ShopPlatform {
   reason?: string | null;
 }
 
-/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
+/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy ở trang nhà phát triển của sàn (shop thử) */
 export type ShopConnectMethod = 'oauth' | 'token';
 
 export interface ShopList { items: Shop[] }

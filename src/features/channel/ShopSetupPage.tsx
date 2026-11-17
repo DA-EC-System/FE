@@ -246,7 +246,7 @@ export function ShopSetupPage() {
       {error && <AlertMessage severity="error">{error}</AlertMessage>}
       {/* Gửi xong thì BE trả 409 cho lần đọc lại gợi ý (gian hàng đã active, do invalidate sau POST): không báo lỗi đó */}
       {preview.isError && !result && !finish.isSuccess && (
-        <AlertMessage severity="error">{problemMessage(preview.error)}</AlertMessage>
+        <AlertMessage severity="error">{problemMessage(preview.error, 'remote_skus')}</AlertMessage>
       )}
 
       {result ? (

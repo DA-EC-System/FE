@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useShopPlatforms } from '@/api/shops.api';
 import { getErrorMessage } from '@/api/client';
+import { tokenSourcePhrase } from '@/api/problemMessages';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import type { ShopCallbackResult, ShopConnectMethod, ShopPlatform } from '@/types/shop';
@@ -17,6 +18,8 @@ import { capabilitySummary } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { ShopTokenForm } from './ShopTokenForm';
 import { ConnectedScreen } from './ConnectedScreen';
+import { ResultScreen } from './ConnectOutcome';
+import { failureScreen, type ConnectFailure } from './connectFailure';
 
 const PLATFORM_HINTS: Record<string, string | undefined> = {
   tiktok: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.',
@@ -44,6 +47,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
   const [step, setStep] = useState<'choose' | 'token'>('choose');
   const [tokenBusy, setTokenBusy] = useState(false);
   const [result, setResult] = useState<ShopCallbackResult | null>(null);
+  const [failure, setFailure] = useState<ConnectFailure | null>(null);
 
   // Mặc định chọn sàn nối được đầu tiên
   const selected =
@@ -56,6 +60,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
     setMethod(null);
     setStep('choose');
     setResult(null);
+    setFailure(null);
   };
   const close = () => {
     reset();
@@ -98,12 +103,32 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
               onAddAnother={reset}
             />
           </>
+        ) : failure ? (
+          <>
+            <DialogHeader className="sr-only">
+              <DialogTitle>Kết quả kết nối</DialogTitle>
+              <DialogDescription>Chưa nối được gian hàng qua token</DialogDescription>
+            </DialogHeader>
+            <ResultScreen
+              {...failureScreen(failure, selected?.name)}
+              actions={
+                <>
+                  <Button variant="outline" onClick={close}>
+                    Đóng
+                  </Button>
+                  <Button onClick={() => setFailure(null)}>Dán token khác</Button>
+                </>
+              }
+            />
+          </>
         ) : (
           <>
             <DialogHeader>
               <DialogTitle>Thêm gian hàng</DialogTitle>
               <DialogDescription>
-                Chọn sàn, đăng nhập tài khoản người bán và đồng ý cấp quyền. Commerio không lưu mật khẩu sàn.
+                {step === 'token' && selected
+                  ? `Dán mã truy cập (access token) lấy ${tokenSourcePhrase(selected.platform)}. Commerio chỉ lưu token đã mã hoá.`
+                  : 'Chọn sàn, đăng nhập tài khoản người bán và đồng ý cấp quyền. Commerio không lưu mật khẩu sàn.'}
               </DialogDescription>
             </DialogHeader>
             {step === 'token' && selected ? (
@@ -113,6 +138,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
                 onBack={() => setStep('choose')}
                 onBusyChange={setTokenBusy}
                 onDone={setResult}
+                onFailure={setFailure}
               />
             ) : (
               <>
@@ -210,7 +236,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
                           <span className="text-xs text-muted-foreground">
                             {m === 'oauth'
                               ? 'Đăng nhập tài khoản người bán trên sàn rồi đồng ý cấp quyền.'
-                              : 'Dán access token lấy trên console của sàn, dùng cho shop thử.'}
+                              : `Dán mã truy cập lấy ${tokenSourcePhrase(selected.platform)}, dùng cho shop thử.`}
                           </span>
                         </span>
                       </Label>

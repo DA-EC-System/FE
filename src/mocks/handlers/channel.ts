@@ -1146,7 +1146,7 @@ export const shopHandlers = [
     return HttpResponse.json<ShopCallbackResult>({ shop, created, reconnect, shops }, { status: shops.some((s) => s.created) ? 201 : 200 });
   }),
 
-  // Shop thử không đi OAuth được: dán token lấy trên console của sàn. Mock: token "sai" bị sàn từ chối
+  // Shop thử không đi OAuth được: dán token lấy ở trang nhà phát triển của sàn. Mock: token "sai", "khong-shop", "cong-ty-khac" ra lỗi
   http.post(`${API}/channel/shops/:platform/token`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopConnect);
@@ -1159,10 +1159,23 @@ export const shopHandlers = [
     if (!accessToken || accessToken.length > 2000) {
       return problem(422, 'Dữ liệu không hợp lệ', {
         code: 'validation_failed',
-        errors: { accessToken: 'Nhập access token' },
+        errors: { accessToken: 'Nhập mã truy cập' },
       });
     }
-    if (accessToken === 'sai') return problem(409, 'Sàn từ chối yêu cầu', { code: 'marketplace_rejected' });
+    // Như BE (Documents/21 §18.4): token sai là `marketplace_unauthorized`; token không ra gian hàng là `no_shop`
+    if (accessToken === 'sai') {
+      return problem(409, 'Sàn từ chối token của gian hàng, cần kết nối lại', {
+        code: 'marketplace_unauthorized',
+        platformCode: 'IllegalAccessToken',
+        platformMessage: 'The specified access token is invalid or expired',
+      });
+    }
+    if (accessToken === 'khong-shop') {
+      return problem(409, 'Sàn từ chối yêu cầu', { code: 'marketplace_rejected', platformCode: 'no_shop' });
+    }
+    if (accessToken === 'cong-ty-khac') {
+      return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
+    }
     const seller = accessToken.slice(-6).toUpperCase();
     const response = attachGranted(guard.value, platform, { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` }, null);
     if (!response.ok) return response;
