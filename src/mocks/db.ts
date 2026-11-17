@@ -105,6 +105,8 @@ export type MockShop = Omit<Shop, DerivedShopFields> & {
   setupRun?: MockSetupRun | null;
   /** Sàn giả lập đang lỗi tạm: đẩy listing nằm ở "Đang đẩy" và thử lại */
   outage?: boolean;
+  /** TikTok giả lập, sửa nội dung (§18.3): sàn ngừng bán để duyệt (`review_stop`) hoặc từ chối bản sửa (`rejected`) */
+  contentUpdate?: 'review_stop' | 'rejected' | null;
   /** TikTok giả lập: bước kiểm trước khi tạo sản phẩm báo lỗi (commerio-backend#305) */
   precheckFail?: 'shop_not_eligible' | 'listing_check_failed' | null;
   returnWindowDays?: number | null;

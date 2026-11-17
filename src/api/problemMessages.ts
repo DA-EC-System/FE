@@ -172,6 +172,9 @@ const MESSAGES: Record<string, string> = {
   push_in_progress: 'Đang đẩy, chờ sàn trả kết quả.',
   sku_not_ready: 'SKU chưa đủ điều kiện bán (xem trạng thái sản phẩm).',
   platform_hold: 'Sàn đang khoá sản phẩm này.',
+  // §18.3, §18.5 (commerio-backend#293): sửa nội dung listing đang bán; câu theo ngữ cảnh ở updateContentMessage
+  listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên.',
+  shared_remote_product: 'Sản phẩm trên sàn có nhiều SKU, chưa sửa nội dung từng SKU được.',
 };
 
 /**
@@ -306,6 +309,28 @@ function retryLaterMessage(error: unknown): string {
   return seconds
     ? `Lần tải SKU sàn trước bị lỗi. Thử lại sau ${Math.ceil(seconds / 60)} phút.`
     : MESSAGES.remote_skus_retry_later;
+}
+
+/** Câu lỗi riêng của nút Sửa nội dung (§18.3 update-content); mã khác dùng problemMessage */
+const UPDATE_CONTENT_MESSAGES: Record<string, string> = {
+  invalid_transition: 'Listing không còn đang bán nên không sửa nội dung được. Tải lại để xem trạng thái mới.',
+  listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên. Ghép SKU sàn với biến thể trước.',
+  shared_remote_product: 'Sản phẩm trên sàn có nhiều SKU, Commerio chưa sửa nội dung từng SKU được. Sửa trên Seller Center.',
+  category_unmapped: 'Danh mục của sản phẩm chưa ghép với danh mục sàn. Ghép danh mục rồi sửa nội dung lại.',
+  marketplace_unavailable: 'Sàn đang lỗi, chưa đưa được nội dung mới lên. Thử lại sau ít phút.',
+  marketplace_unsupported: 'Sàn này chưa hỗ trợ sửa nội dung sản phẩm đang bán.',
+};
+
+/** Lỗi của `POST listings/:id/update-content`: sàn từ chối thì kèm câu sàn trả, listing giữ nguyên */
+export function updateContentMessage(error: unknown): string {
+  const problem = getProblem(error);
+  const code = problem?.code;
+  if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
+  if (code === 'marketplace_rejected') {
+    const said = problem?.platformMessage ?? problem?.detail;
+    return `Sàn không nhận bản sửa, listing giữ nguyên.${said ? ` Sàn báo: ${said}` : ''}`;
+  }
+  return (code && UPDATE_CONTENT_MESSAGES[code]) || problemMessage(error);
 }
 
 export function problemMessage(error: unknown): string {

@@ -426,6 +426,24 @@ export function useResolveOutsideChange() {
   });
 }
 
+/**
+ * Đưa tên, mô tả, thuộc tính mới của sản phẩm lên listing đang bán (§18.3, commerio-backend#293). BE gọi sàn ngay;
+ * sàn vẫn bán bản cũ thì listing giữ `live` kèm `pendingRevision` đang duyệt, sàn ngừng bán để duyệt thì `under_review`
+ */
+export function useUpdateListingContent() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ shopId, listingId, version }: { shopId: string; listingId: string; version: number }) => {
+      const { data } = await apiClient.post<ChannelListing>(
+        `/channel/shops/${shopId}/listings/${listingId}/update-content`,
+        { version },
+      );
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 export interface MappingDecisionInput {
   shopId: string;
   listingId: string;

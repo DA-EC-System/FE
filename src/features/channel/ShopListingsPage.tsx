@@ -10,6 +10,7 @@ import {
   CloudOff,
   ImageIcon,
   Link2,
+  PencilLine,
   PlugZap,
   Power,
   RefreshCw,
@@ -40,13 +41,20 @@ import {
   useRemoteSkus,
   useRemoteSkusRefresh,
   useResolveOutsideChange,
+  useUpdateListingContent,
   useShop,
   useShopListings,
   useSyncListings,
 } from '@/api/shops.api';
 import { apiClient, getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import { catalogKeys } from '@/api/catalog.api';
-import { codeMessage, problemCode, problemMessage, remoteRefreshErrorMessage } from '@/api/problemMessages';
+import {
+  codeMessage,
+  problemCode,
+  problemMessage,
+  remoteRefreshErrorMessage,
+  updateContentMessage,
+} from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { OpeningStocktakeBanner } from './OpeningStocktakeBanner';
@@ -60,12 +68,15 @@ import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import {
+  canUpdateContent,
   LISTED_STATUSES,
   LISTING_POLL_MAX_MS,
   listingPollDelay,
   listingStatusHint,
   outsideChangeHint,
   outsideChangeLabel,
+  pendingRevisionHint,
+  pendingRevisionLabel,
   pushErrorText,
   REPUSH_STATUSES,
   splitPushResults,
@@ -254,6 +265,7 @@ export function ShopListingsPage() {
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
   const outsideMut = useResolveOutsideChange();
+  const contentMut = useUpdateListingContent();
   const decideMut = useDecideMapping();
   const syncMut = useSyncListings();
   const listingReview = shop?.capabilities.listingReview ?? false;
@@ -264,6 +276,7 @@ export function ShopListingsPage() {
   const [tab, setTab] = useState<ListingTab>('all');
   const [delisting, setDelisting] = useState<ListingRow | null>(null);
   const [decidingOutside, setDecidingOutside] = useState<{ row: ListingRow; action: OutsideChangeAction } | null>(null);
+  const [updatingContent, setUpdatingContent] = useState<ListingRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -553,6 +566,29 @@ export function ShopListingsPage() {
     setDecidingOutside(null);
   };
 
+  /** Sửa nội dung (§18.3, commerio-backend#293): BE gọi sàn ngay, sàn từ chối thì listing giữ nguyên */
+  const handleUpdateContent = async () => {
+    const row = updatingContent;
+    const l = row?.listing;
+    if (!row || !l) return;
+    try {
+      const saved = await contentMut.mutateAsync({ shopId, listingId: l.id, version: l.version });
+      toast.success(
+        saved.status === 'under_review'
+          ? `Đã đưa nội dung mới của ${row.sku} lên sàn. Sàn tạm ngừng bán để duyệt lại.`
+          : `Đã đưa nội dung mới của ${row.sku} lên sàn. Sàn đang duyệt, listing vẫn bán bản cũ.`,
+      );
+    } catch (e) {
+      if (problemCode(e) === 'version_conflict') {
+        toast.warning(`Trạng thái của ${row.sku} trên sàn vừa đổi. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        void listingsQuery.refetch();
+      } else {
+        toast.error(updateContentMessage(e));
+      }
+    }
+    setUpdatingContent(null);
+  };
+
   /** Biến thể chưa có SKU sàn sẽ được tạo mới: hỏi trước (ngoại lệ 7a) */
   const requestPush = (targets: ListingRow[]) => {
     if (targets.some((r) => !r.listing)) setPushing(targets);
@@ -801,6 +837,20 @@ export function ShopListingsPage() {
                   testId="outside-change"
                 />
               )}
+              {l.pendingRevision && (
+                <SyncBadge
+                  id={`pending-revision-${r.variantId}`}
+                  variant={l.pendingRevision.status === 'failed' ? 'destructive' : 'secondary'}
+                  label={pendingRevisionLabel(l.pendingRevision)}
+                  hint={pendingRevisionHint(l.pendingRevision)}
+                  testId="pending-revision"
+                />
+              )}
+              {l.pendingRevision?.status === 'failed' && (
+                <span className="text-xs text-destructive" data-testid="revision-reason">
+                  {l.pendingRevision.rejectReason ? `Sàn báo: ${l.pendingRevision.rejectReason}` : 'Sàn không nêu lý do'}
+                </span>
+              )}
               {l.status === 'hidden' && !l.outsideChange && l.hiddenBy !== 'zero_stock' && (
                 <SyncBadge
                   id={`hidden-paused-${r.variantId}`}
@@ -938,6 +988,15 @@ export function ShopListingsPage() {
                   )}
                 </>
               )}
+              {canManage && canUpdateContent(shop?.platform, r.listing) && (
+                <RowAction
+                  label="Sửa nội dung"
+                  reason={contentMut.isPending ? 'Đang gửi...' : null}
+                  onClick={() => setUpdatingContent(r)}
+                >
+                  <PencilLine />
+                </RowAction>
+              )}
               {canManage && status && canDelist(status) && (
                 <RowAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
                   <CloudOff />
@@ -950,7 +1009,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, companyId, items, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -1308,6 +1367,20 @@ export function ShopListingsPage() {
         loading={outsideMut.isPending}
         onConfirm={handleOutside}
         onClose={() => setDecidingOutside(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(updatingContent)}
+        title="Sửa nội dung trên sàn?"
+        message={
+          <>
+            Đưa tên, mô tả, thuộc tính mới của <strong>{updatingContent?.sku}</strong> lên {shop?.shopName}; sàn sẽ duyệt lại,
+            listing vẫn bán trong lúc duyệt. Ảnh, giá và tồn không đổi.
+          </>
+        }
+        confirmLabel="Đưa lên sàn"
+        loading={contentMut.isPending}
+        onConfirm={handleUpdateContent}
+        onClose={() => setUpdatingContent(null)}
       />
       <ConfirmDialog
         open={Boolean(pushing)}

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { ChannelListing, ListingRow, ListingStatus, PushResult } from '@/types/shop';
 import {
+  canUpdateContent,
   hasPushing,
   LISTING_POLL_MAX_MS,
   LISTING_POLL_MS,
   listingPollDelay,
   listingStatusHint,
   outsideChangeLabel,
+  pendingRevisionHint,
+  pendingRevisionLabel,
   pushErrorText,
   splitPushResults,
 } from './listingPush';
@@ -22,6 +25,7 @@ const listing = (status: ListingStatus, over: Partial<ChannelListing> = {}): Cha
   pushAttempts: 0,
   hiddenBy: null,
   outsideChange: null,
+  pendingRevision: null,
   stockSync: 'synced',
   priceSync: 'synced',
   stockSyncError: null,
@@ -140,5 +144,30 @@ describe('pushErrorText (FE#266, commerio-backend#305)', () => {
 
   it('mã khác giữ nguyên câu BE trả', () => {
     expect(pushErrorText({ code: 'marketplace_rejected', message: 'Sàn từ chối sản phẩm', at })).toBe('Sàn từ chối sản phẩm');
+  });
+});
+
+describe('Sửa nội dung listing đang bán (FE#275, §18.3)', () => {
+  it('chỉ listing live của gian hàng TikTok', () => {
+    expect(canUpdateContent('tiktok', listing('live'))).toBe(true);
+    expect(canUpdateContent('lazada', listing('live'))).toBe(false);
+    expect(canUpdateContent('tiktok', listing('hidden'))).toBe(false);
+    expect(canUpdateContent('tiktok', listing('under_review'))).toBe(false);
+    expect(canUpdateContent('tiktok', null)).toBe(false);
+    expect(canUpdateContent(undefined, listing('live'))).toBe(false);
+  });
+
+  it('bản sửa đang duyệt hay bị từ chối vẫn gửi lại được', () => {
+    const at = '2026-11-16T09:30:00.000Z';
+    expect(canUpdateContent('tiktok', listing('live', { pendingRevision: { status: 'auditing', rejectReason: null, at } }))).toBe(true);
+    expect(canUpdateContent('tiktok', listing('live', { pendingRevision: { status: 'failed', rejectReason: 'x', at } }))).toBe(true);
+  });
+
+  it('nhãn và giải thích theo trạng thái bản sửa', () => {
+    const at = '2026-11-16T09:30:00.000Z';
+    expect(pendingRevisionLabel({ status: 'auditing', rejectReason: null, at })).toBe('Bản sửa đang duyệt');
+    expect(pendingRevisionLabel({ status: 'failed', rejectReason: 'x', at })).toBe('Bản sửa bị từ chối');
+    expect(pendingRevisionHint({ status: 'auditing', rejectReason: null, at })).toContain('vẫn bán bản cũ');
+    expect(pendingRevisionHint({ status: 'failed', rejectReason: 'x', at })).toContain('bấm Sửa nội dung để gửi lại');
   });
 });

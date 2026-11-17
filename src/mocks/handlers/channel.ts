@@ -228,6 +228,7 @@ export function toListing(l: MockListing): ChannelListing {
     pushAttempts: l.pushAttempts,
     hiddenBy: l.hiddenBy,
     outsideChange: l.outsideChange ?? null,
+    pendingRevision: l.pendingRevision ?? null,
     stockSync: l.stockSync,
     // Giá: tính so với giá đã đẩy; chưa đẩy lần nào hoặc giá đổi là đang chờ
     priceSync: l.status === 'push_failed' ? 'error' : price !== null && price === l.lastPushedPrice ? 'synced' : 'pending',
@@ -390,6 +391,7 @@ function unmanagedListing(u: channel.MockUnmanagedSku): ChannelListing {
     pushAttempts: 0,
     hiddenBy: null,
     outsideChange: null,
+    pendingRevision: null,
     stockSync: 'synced',
     priceSync: 'synced',
     stockSyncError: null,
@@ -857,6 +859,72 @@ registerMarketplaceEvent({
     return `${skusOf(shop!, pushed)}: giá trên sàn bị sửa ngoài app`;
   },
 });
+
+/** Sửa nội dung listing đang bán (21 §18.3, commerio-backend#293): sàn duyệt bản sửa, cách sàn nhận bản sửa */
+registerMarketplaceEvent({
+  type: 'listing.revision_approved',
+  label: 'Sàn duyệt bản sửa nội dung',
+  description: 'TikTok duyệt bản sửa đang chờ: sàn bán bản mới, nhãn Bản sửa đang duyệt mất.',
+  group: 'Sản phẩm trên sàn',
+  needsShop: true,
+  platforms: ['tiktok'],
+  param: SKU_PARAM,
+  run({ shop, params }) {
+    const { found } = pickListings(shop, params.sku, ['live', 'hidden', 'platform_hold'], 'đang bán');
+    const pending = found.filter((l) => l.pendingRevision?.status === 'auditing');
+    if (!pending.length) throw new Error('Không có bản sửa nội dung đang duyệt');
+    for (const l of pending) bump(l, { pendingRevision: null });
+    return `${skusOf(shop!, pending)}: sàn duyệt bản sửa`;
+  },
+});
+
+registerMarketplaceEvent({
+  type: 'listing.revision_failed',
+  label: 'Sàn từ chối bản sửa nội dung',
+  description: 'TikTok từ chối bản sửa đang chờ kèm lý do; listing vẫn bán bản cũ, sửa rồi gửi lại.',
+  group: 'Sản phẩm trên sàn',
+  needsShop: true,
+  platforms: ['tiktok'],
+  param: SKU_PARAM,
+  run({ shop, params }) {
+    const { found } = pickListings(shop, params.sku, ['live', 'hidden', 'platform_hold'], 'đang bán');
+    const pending = found.filter((l) => l.pendingRevision?.status === 'auditing');
+    if (!pending.length) throw new Error('Không có bản sửa nội dung đang duyệt');
+    for (const l of pending) {
+      bump(l, { pendingRevision: { status: 'failed', rejectReason: 'Tiêu đề chứa từ ngữ quảng cáo quá mức', at: l.pendingRevision!.at } });
+    }
+    return `${skusOf(shop!, pending)}: sàn từ chối bản sửa`;
+  },
+});
+
+for (const [type, mode, label, description] of [
+  [
+    'listing.content_review_stop',
+    'review_stop',
+    'Sàn ngừng bán để duyệt bản sửa (bật/tắt)',
+    'Bật: sửa nội dung thì sàn ngừng bán bản cũ để duyệt (PENDING), listing chuyển Chờ duyệt thay vì giữ Đang bán.',
+  ],
+  [
+    'listing.content_rejected',
+    'rejected',
+    'Sàn không nhận bản sửa nội dung (bật/tắt)',
+    'Bật: sửa nội dung thì sàn trả lỗi ngay (marketplace_rejected), listing giữ nguyên.',
+  ],
+] as const) {
+  registerMarketplaceEvent({
+    type,
+    label,
+    description,
+    group: 'Sản phẩm trên sàn',
+    needsShop: true,
+    platforms: ['tiktok'],
+    run({ shop }) {
+      if (!shop) throw new Error('Chọn gian hàng');
+      shop.contentUpdate = shop.contentUpdate === mode ? null : mode;
+      return shop.contentUpdate ? `${shop.shopName}: ${label.replace(' (bật/tắt)', '')}` : `${shop.shopName}: sàn nhận bản sửa bình thường`;
+    },
+  });
+}
 
 registerMarketplaceEvent({
   type: 'listing.hold',
@@ -1677,6 +1745,65 @@ export const shopHandlers = [
     return HttpResponse.json<ChannelListing>(saved);
   }),
 
+  /**
+   * Sửa nội dung listing đang bán (21 §18.3, §18.5, commerio-backend#293): đưa tên, mô tả, thuộc tính của catalog lên sàn.
+   * Thứ tự kiểm theo BE: version, máy trạng thái, listing không gắn sản phẩm, danh mục, sàn không hỗ trợ, rồi mới gọi sàn
+   */
+  http.post(`${API}/channel/shops/:id/listings/:listingId/update-content`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.listingManage);
+    if (!guard.ok) return guard.response;
+    const found = ownShop(params.id, guard.value.companyId);
+    if (!found.ok) return found.response;
+    const shop = found.value;
+    if (!usable(shop)) return shopNotConnected(shop);
+    const l = channel.listings.find((x) => x.shopId === shop.id && x.id === params.listingId);
+    if (!l) {
+      // Dòng "không quản tồn": không gắn biến thể nên không có nội dung để đưa lên
+      return channel.unmanagedSkus.some((u) => u.shopId === shop.id && u.id === params.listingId)
+        ? problem(409, 'Listing không gắn sản phẩm Commerio, không có nội dung để đưa lên', { code: 'listing_unmanaged' })
+        : problem(404, 'Không có listing này trên gian hàng', { code: 'not_found' });
+    }
+    const { version } = (await request.json()) as { version: number };
+    if (version !== l.version) return versionConflict(toListing(l), 'Listing vừa được người khác cập nhật');
+    const step = checkTransition(listingMachine, l.status, 'update_content', guard.value, { createdBy: null, id: l.id });
+    if (!step.ok) return step.response;
+    if (!l.externalProductId) {
+      return problem(409, 'Listing không gắn sản phẩm Commerio, không có nội dung để đưa lên', { code: 'listing_unmanaged' });
+    }
+    const target = sellableVariant(shop.companyId, l.variantId);
+    if (!target) return problem(404, 'Biến thể không còn bán', { code: 'not_found' });
+    if (!categoryMapped(shop.id, target.product.categoryId)) {
+      return problem(409, 'Danh mục chưa ghép với danh mục của sàn', { code: 'category_unmapped' });
+    }
+    if (shop.platform !== 'tiktok') {
+      return problem(422, 'Sàn này chưa hỗ trợ sửa nội dung sản phẩm đang bán', { code: 'marketplace_unsupported' });
+    }
+    if (shop.outage) return problem(503, 'Sàn đang lỗi tạm', { code: 'marketplace_unavailable' });
+    const shared = channel.listings.some(
+      (x) => x !== l && x.shopId === shop.id && x.externalProductId === l.externalProductId && x.status !== 'delisted',
+    );
+    if (shared) {
+      return problem(409, 'Sản phẩm trên sàn có nhiều SKU', {
+        code: 'shared_remote_product',
+        detail: 'Sản phẩm trên sàn có nhiều SKU; sửa nội dung từng SKU chưa hỗ trợ',
+      });
+    }
+    if (shop.contentUpdate === 'rejected') {
+      const said = '12019018: product description contains prohibited contact information';
+      return problem(409, 'Sàn từ chối', { code: 'marketplace_rejected', detail: said, platformMessage: said });
+    }
+    const before = { status: l.status, pendingRevision: l.pendingRevision ?? null };
+    // Sàn ngừng bán bản cũ để duyệt (PENDING): hệ thống chuyển tiếp request_review, không ghi bản sửa
+    if (shop.contentUpdate === 'review_stop') bump(l, { status: 'under_review', pendingRevision: null });
+    else bump(l, { pendingRevision: { status: 'auditing', rejectReason: null, at: db.now() } });
+    writeCompanyLog(guard.value, 'update', listingEntity(shop, skuOf(shop.companyId, l.variantId), l.id), before, {
+      status: l.status,
+      pendingRevision: l.pendingRevision ?? null,
+    });
+    return HttpResponse.json<ChannelListing>(toListing(l));
+  }),
+
   /** Gỡ khỏi sàn: giữ ghép để đẩy lại sau */
   http.post(`${API}/channel/shops/:id/listings/:variantId/delist`, async ({ params, request }) => {
     await delay(LATENCY);
@@ -1693,7 +1820,14 @@ export const shopHandlers = [
     const step = checkTransition(listingMachine, l.status, 'delist', guard.value, { createdBy: null, id: l.id });
     if (!step.ok) return step.response;
     const before = { status: l.status };
-    Object.assign(l, { status: step.value, hiddenBy: null, outsideChange: null, platformStock: 0, version: l.version + 1 });
+    Object.assign(l, {
+      status: step.value,
+      hiddenBy: null,
+      outsideChange: null,
+      pendingRevision: null,
+      platformStock: 0,
+      version: l.version + 1,
+    });
     writeCompanyLog(guard.value, 'update', listingEntity(shop, skuOf(shop.companyId, l.variantId), l.id), before, {
       status: l.status,
     });
