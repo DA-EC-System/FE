@@ -23,7 +23,7 @@ import { ATTRIBUTE_ERROR_PREFIX, attributeErrors, pickAttributeValues, searchCat
 
 export function toCategoryMap(m: MockCategoryMap): CategoryMap {
   const { companyId: _c, shopId: _s, ...rest } = m;
-  return { ...rest, attributes: { ...m.attributes } };
+  return { ...rest, attributes: { ...m.attributes }, sizeChartRule: m.sizeChartRule ?? null };
 }
 
 const findMarketCategory = (externalId: unknown) => channel.marketCategories.find((c) => c.externalId === externalId);
@@ -105,6 +105,7 @@ export const categoryMapHandlers = [
       platform: shop.platform,
       externalCategoryId: market.externalId,
       attributes: pickAttributeValues(market.attributes, values),
+      sizeChartRule: current?.sizeChartRule ?? null,
       version: (current?.version ?? 0) + 1,
       updatedAt: db.now(),
     };

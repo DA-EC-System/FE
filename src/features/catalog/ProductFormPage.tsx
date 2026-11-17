@@ -60,7 +60,9 @@ import { ProductImagesField, type ImageItem } from './ProductImagesField';
 import { VariantBuilder, emptyPlan, planCombos, planError, type VariantPlan } from './VariantBuilder';
 import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
-import { comboKey, productSchema, type ProductForm } from './shared';
+import { comboKey, productSchema, sizeChartPatch, type ProductForm } from './shared';
+import { SizeChartField } from './SizeChartField';
+import { HelpTip } from '@/components/common/HelpTip';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
@@ -119,6 +121,9 @@ export function ProductFormPage() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [imagesError, setImagesError] = useState<string | undefined>();
   const [uploading, setUploading] = useState(false);
+  const [sizeChart, setSizeChart] = useState<ImageItem | null>(null);
+  const [sizeChartError, setSizeChartError] = useState<string | undefined>();
+  const [chartUploading, setChartUploading] = useState(false);
   const [plan, setPlan] = useState<VariantPlan>(emptyPlan);
   const [variantsError, setVariantsError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -138,6 +143,7 @@ export function ProductFormPage() {
   const load = (p: ProductDetail) => {
     reset({ name: p.name, categoryId: p.category.id, description: p.description });
     setImages(toImages(p));
+    setSizeChart(p.sizeChart ? { fileId: p.sizeChart.fileId, url: p.sizeChart.url } : null);
     setVersion(p.version);
   };
   useEffect(() => {
@@ -161,6 +167,7 @@ export function ProductFormPage() {
       if (fieldErrors[f]) setFieldError(f, { message: fieldErrors[f] });
     });
     setImagesError(fieldErrors.images);
+    setSizeChartError(fieldErrors.sizeChart);
     setVariantsError(fieldErrors.variants ?? null);
     return true;
   };
@@ -168,6 +175,7 @@ export function ProductFormPage() {
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     setImagesError(undefined);
+    setSizeChartError(undefined);
     const imageFileIds = images.map((i) => i.fileId);
     try {
       if (isNew) {
@@ -177,7 +185,12 @@ export function ProductFormPage() {
         const variants = planCombos(plan, attributes)
           .filter((c) => !plan.excluded.includes(comboKey(c)))
           .map((attributeValueIds) => ({ attributeValueIds }));
-        const created = await createMut.mutateAsync({ ...values, imageFileIds, variants });
+        const created = await createMut.mutateAsync({
+          ...values,
+          imageFileIds,
+          ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
+          variants,
+        });
         toast.success(`Đã tạo ${created.name} với ${created.variants.length} biến thể`);
         navigate(ROUTES.company.catalogProduct(companyId, created.id), { replace: true });
       } else {
@@ -186,6 +199,7 @@ export function ProductFormPage() {
           name: values.name,
           description: values.description,
           imageFileIds,
+          ...sizeChartPatch(product?.sizeChart?.fileId ?? null, sizeChart?.fileId ?? null),
           version,
         });
         load(saved);
@@ -246,8 +260,8 @@ export function ProductFormPage() {
           subtitle={product ? `Cập nhật lần cuối ${formatDateTime(product.updatedAt)}` : undefined}
           action={
             readOnly ? null : (
-              <Button type="submit" disabled={busy || uploading}>
-                {busy ? 'Đang lưu...' : uploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
+              <Button type="submit" disabled={busy || uploading || chartUploading}>
+                {busy ? 'Đang lưu...' : uploading || chartUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
               </Button>
             )
           }
@@ -346,6 +360,30 @@ export function ProductFormPage() {
                 onBusyChange={setUploading}
                 disabled={readOnly}
                 error={imagesError}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-1">
+                Ảnh bảng kích cỡ
+                <HelpTip
+                  topic="Ảnh bảng kích cỡ"
+                  content="Sàn bắt buộc với quần áo, giày dép. Thiếu ảnh này thì sàn từ chối khi đẩy sản phẩm lên."
+                />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SizeChartField
+                value={sizeChart}
+                onChange={(next) => {
+                  setSizeChart(next);
+                  setSizeChartError(undefined);
+                }}
+                onBusyChange={setChartUploading}
+                disabled={readOnly}
+                error={sizeChartError}
               />
             </CardContent>
           </Card>

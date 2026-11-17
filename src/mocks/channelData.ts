@@ -264,6 +264,8 @@ export interface MockCategoryMap {
   platform: string;
   externalCategoryId: string;
   attributes: Record<string, string>;
+  /** Bỏ trống là chưa biết (null) */
+  sizeChartRule?: 'required' | 'optional' | 'unsupported' | null;
   version: number;
   updatedAt: string;
 }

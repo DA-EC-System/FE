@@ -72,6 +72,11 @@ export function CategoryMapSection({ shopId, editingCategoryId, onEditingChange 
             <div className="flex flex-col">
               <span>Mã {m.externalCategoryId}</span>
               {values.length > 0 && <span className="text-xs text-muted-foreground">{values.join(' · ')}</span>}
+              {m.sizeChartRule === 'required' && (
+                <span className="text-xs text-warning" data-testid="size-chart-required">
+                  Sàn bắt buộc ảnh bảng kích cỡ cho sản phẩm thuộc danh mục này
+                </span>
+              )}
             </div>
           );
         },

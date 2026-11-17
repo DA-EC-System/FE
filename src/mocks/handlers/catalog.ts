@@ -216,6 +216,7 @@ export function toProductDetail(p: MockProduct): ProductDetail {
       url: fileUrl(fileId),
       position,
     })),
+    sizeChart: p.sizeChartFileId ? { fileId: p.sizeChartFileId, url: fileUrl(p.sizeChartFileId) } : null,
     variants: p.variants.map((v) => toVariant(p, v)),
   };
 }
@@ -234,6 +235,7 @@ export function productSnapshot(p: MockProduct) {
     category: catalog.categories.find((c) => c.id === p.categoryId)?.name ?? '',
     description: p.description,
     images: p.imageFileIds.length,
+    sizeChart: Boolean(p.sizeChartFileId),
     variants: p.variants.filter((v) => v.businessStatus !== 'archived').map((v) => v.sku),
   };
 }
@@ -341,6 +343,14 @@ export function validateImages(companyId: string, ids: string[] | undefined, err
     const big = list.map((id) => catalog.files.find((x) => x.id === id)!).find((f) => f.sizeBytes > MAX_IMAGE_BYTES);
     if (big) errors.images = `Ảnh ${big.fileName} lớn hơn 1 MB`;
   }
+}
+
+/** Ảnh bảng kích cỡ (FE#261): một tệp, cùng điều kiện như ảnh sản phẩm, lỗi ở `errors.sizeChart` */
+export function validateSizeChart(companyId: string, id: string | null | undefined, errors: Record<string, string>) {
+  if (!id) return;
+  const f = catalog.files.find((x) => x.id === id);
+  if (!f || f.companyId !== companyId || !f.url) errors.sizeChart = 'Ảnh bảng kích cỡ chưa tải xong hoặc không thuộc công ty';
+  else if (f.sizeBytes > MAX_IMAGE_BYTES) errors.sizeChart = `Ảnh ${f.fileName} lớn hơn 1 MB`;
 }
 
 export function productNameTaken(companyId: string, name: string, exceptId?: string) {
@@ -572,6 +582,7 @@ export const catalogHandlers = [
     const category = catalog.categories.find((c) => c.id === body.categoryId && c.companyId === companyId);
     if (!category) errors.categoryId = 'Chọn danh mục';
     validateImages(companyId, body.imageFileIds, errors);
+    validateSizeChart(companyId, body.sizeChartFileId, errors);
 
     const combos = (body.variants ?? []).map((v) => v.attributeValueIds ?? []);
     const sets = combos.map((c) => comboAttributes(companyId, c));
@@ -597,6 +608,7 @@ export const catalogHandlers = [
       name: body.name.trim(),
       description: body.description ?? '',
       imageFileIds: body.imageFileIds ?? [],
+      sizeChartFileId: body.sizeChartFileId ?? null,
       variants: [],
       archivedAt: null,
       updatedAt: db.now(),
@@ -630,6 +642,7 @@ export const catalogHandlers = [
     const errors: Record<string, string> = {};
     validateProductText(body, errors);
     validateImages(guard.value.companyId, body.imageFileIds, errors);
+    validateSizeChart(guard.value.companyId, body.sizeChartFileId, errors);
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
     if (productNameTaken(guard.value.companyId, body.name, product.id)) {
       return nameTaken('Đã có sản phẩm cùng tên');
@@ -638,6 +651,8 @@ export const catalogHandlers = [
     product.name = body.name.trim();
     product.description = body.description ?? '';
     product.imageFileIds = body.imageFileIds ?? [];
+    // Bỏ trống thì giữ nguyên, null thì gỡ, id thì thay
+    if (body.sizeChartFileId !== undefined) product.sizeChartFileId = body.sizeChartFileId;
     product.version += 1;
     product.updatedAt = db.now();
     writeCompanyLog(guard.value, 'update', productEntity(product), before, productSnapshot(product));
