@@ -20,8 +20,9 @@ import { expect, test, toast } from '../../fixtures';
 //    SKU, gửi duyệt, duyệt. Worker kéo đơn còn mở: kiện về Đã giữ hàng, đơn Đang xử lý.
 // 4. Chạy `dong-goi-rts-van-don.spec.ts` với E2E_PACKING_EMAIL, E2E_PACKING_PASSWORD, E2E_PACKING_COMPANY_ID,
 //    E2E_PACKING_CODE: kiện tới Chờ lấy hàng, WireMock ở `ready_to_ship`. Rồi chạy spec này với cùng biến (thêm
-//    E2E_LAZADA_MOCK_ADMIN_URL nếu cổng admin WireMock khác http://127.0.0.1:8091) bằng một lệnh riêng: Playwright xếp
-//    file theo tên, gộp hai file vào một lệnh thì file này chạy trước và tự bỏ qua.
+//    E2E_LAZADA_MOCK_ADMIN_URL nếu cổng admin WireMock khác http://127.0.0.1:8091). Chạy chung một lệnh được:
+//    `pnpm exec playwright test --project=be e2e/be/p4/dong-goi-rts-van-don.spec.ts e2e/be/p4/kien-ban-giao-nhan-hoan.spec.ts`.
+//    Playwright xếp file theo tên, không theo thứ tự trên dòng lệnh: tiền tố `kien-` giữ file này đứng sau `dong-goi-…`.
 // Spec tự chuyển bước sàn (`PUT /__admin/scenarios/don/state`) rồi tự kéo đơn (`POST /channel/shops/:id/orders/pull`)
 // trước mỗi lần kiểm, nên chịu được việc nền kéo đơn 5 phút chạy xen giữa. Chạy xong kiện ở Đã hoàn về: chạy lại cần
 // chuẩn bị lại từ bước 2.
