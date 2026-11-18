@@ -487,6 +487,74 @@ test.describe('P3 · Gian hàng', () => {
       await expect.poll(() => new URL(page.url()).search).toBe('');
       await expect(page.locator('tbody tr[data-row-id]')).not.toHaveCount(2);
     });
+
+    test('xoá gian hàng đã ngắt: gõ đúng XOA, mất khỏi danh sách gian hàng và danh sách đơn (FE#297)', async ({ page }) => {
+      // Gian hàng đang kết nối, cần kết nối lại không có mục Xoá
+      for (const shopId of ['shp-001', 'shp-002']) {
+        await dong(page, shopId).getByRole('button', { name: /^Thao tác khác với / }).click();
+        await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
+        await page.keyboard.press('Escape');
+      }
+      // Đơn của LazMall đã huỷ để ngắt được, rồi ngắt
+      const code = (await phatSuKienSan(page, 'order.created', 'shp-003')).split(':')[0]!;
+      await phatSuKienSan(page, 'order.platform_cancelled', undefined, { code });
+      await diToi(page, '/c/cmp-001/sales/orders');
+      await page.getByPlaceholder('Tìm mã đơn, mã đơn sàn', { exact: true }).fill(code);
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
+      await diToi(page, '/c/cmp-001/channel/shops');
+      await xacNhanNgat(await moNgat(page, 'shp-003'));
+      await expect(trangThai(page, 'shp-003')).toHaveText('Đã ngắt');
+
+      await chonMenu(page, 'shp-003', 'Xoá gian hàng');
+      const dialog = page.getByRole('alertdialog');
+      await expect(dialog.getByRole('heading')).toHaveText('Xoá vĩnh viễn ABC Fashion LazMall?');
+      await thayChu(dialog, 'không hoàn tác được');
+      await thayChu(dialog, 'Tồn kho và phiếu kho đã ghi sổ được giữ nguyên');
+      const nut = dialog.getByRole('button', { name: 'Xoá vĩnh viễn', exact: true });
+      const o = dialog.getByLabel(/để xác nhận/);
+      await expect(o).toBeFocused();
+      await expect(nut).not.toBeFocused();
+      for (const typed of ['', 'xoa', 'XÓA', 'XO']) {
+        await o.fill(typed);
+        await expect(nut).toBeDisabled();
+      }
+      await o.fill('XOA');
+      await expect(nut).toBeEnabled();
+      await nut.click();
+      await toast(page, /^Đã xoá ABC Fashion LazMall: 1 đơn, \d+ kiện, \d+ listing$/);
+      await expect(dialog).toHaveCount(0);
+      await expect(dong(page, 'shp-003')).toHaveCount(0);
+      await page.getByRole('tab', { name: /^Cần xử lý/ }).click();
+      await expect(dong(page, 'shp-003')).toHaveCount(0);
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
+      await expect(dong(page, 'shp-008')).toBeAttached();
+
+      // Đơn của gian hàng đã xoá không còn ở Đơn bán
+      await diToi(page, '/c/cmp-001/sales/orders');
+      await page.getByPlaceholder('Tìm mã đơn, mã đơn sàn', { exact: true }).fill(code);
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(0);
+    });
+
+    test('xoá gian hàng bị 409: hộp không đóng, giữ chữ đã gõ, nêu lý do (FE#297)', async ({ page }) => {
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
+      await chonMenu(page, 'shp-008', 'Xoá gian hàng');
+      const dialog = page.getByRole('alertdialog');
+      const o = dialog.getByLabel(/để xác nhận/);
+      await o.fill('XOA');
+      await mockApi(page, 'delete', '/channel/shops/shp-008', 409, { status: 409, title: 'Gian hàng chưa ngắt kết nối', code: 'shop_not_disconnected' });
+      await dialog.getByRole('button', { name: 'Xoá vĩnh viễn', exact: true }).click();
+      await expect(dialog.locator('[data-testid=shop-delete-error]')).toHaveText('Gian hàng chưa ngắt kết nối. Đã nạp lại danh sách.');
+      await expect(o).toHaveValue('XOA');
+      await mockApi(page, 'delete', '/channel/shops/shp-008', 409, { status: 409, title: 'Dữ liệu vừa được người khác sửa', code: 'version_conflict' });
+      await dialog.getByRole('button', { name: 'Xoá vĩnh viễn', exact: true }).click();
+      await expect(dialog.locator('[data-testid=shop-delete-error]')).toContainText('vừa được người khác sửa');
+      await expect(o).toHaveValue('XOA');
+      // Huỷ thì đóng, gian hàng còn
+      await dialog.getByRole('button', { name: 'Huỷ', exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(dong(page, 'shp-008')).toBeAttached();
+    });
   });
 
   test.describe('ghép SKU và đẩy giá (UC-CH-02)', () => {
@@ -878,6 +946,19 @@ test.describe('P3 · Gian hàng', () => {
     await tour.getByRole('button', { name: 'Tiếp', exact: true }).click();
     await expect(tour.getByRole('heading', { name: 'Đẩy lên sàn', exact: true })).toBeVisible();
   });
+
+  for (const [vaiTro, email, password] of [
+    ['Admin', 'admin@commerio.vn', 'admin'],
+    ['Sale', 'sale@commerio.vn', 'sale'],
+  ] as const) {
+    test(`${vaiTro} không thấy mục Xoá gian hàng ở gian hàng đã ngắt (FE#297)`, async ({ page }) => {
+      await dangNhap(page, email, password);
+      await menu(page, 'Kênh bán');
+      await dong(page, 'shp-008').getByRole('button', { name: /^Thao tác khác với / }).click();
+      await expect(page.getByRole('menuitem', { name: 'Sản phẩm trên sàn và giá', exact: true })).toBeAttached();
+      await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
+    });
+  }
 
   test('Admin đổi ghép SKU sàn đã có đơn: gửi CEO duyệt, ghép cũ giữ nguyên', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');

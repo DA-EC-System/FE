@@ -37,6 +37,8 @@ import type {
   ShopCallbackInput,
   ShopCallbackResult,
   ShopConnectInput,
+  ShopDeleteInput,
+  ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpeningStocktakeRestart,
   ShopSetupInput,
@@ -183,6 +185,22 @@ export function useDisconnectShop() {
       return data;
     },
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * Xoá hẳn gian hàng đã ngắt cùng đơn, kiện, sổ tiền (commerio-backend#398). Xong thì làm mới mọi truy vấn của công ty:
+ * đơn, kiện, yêu cầu trả, sổ tiền, đối soát, báo cáo, tổng quan đều mất phần của gian hàng
+ */
+export function useDeleteShop() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ShopDeleteInput & { id: string }) => {
+      const { data } = await apiClient.delete<ShopDeleteResult>(`/channel/shops/${id}`, { data: input });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['company', companyId] }),
   });
 }
 

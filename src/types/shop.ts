@@ -463,6 +463,24 @@ export interface ShopDisconnectInput {
   zeroStock: boolean;
 }
 
+/** Xoá gian hàng đã ngắt (commerio-backend#398): phải gửi đúng chữ XOA */
+export interface ShopDeleteInput {
+  confirm: 'XOA';
+  version: number;
+}
+
+/** 200 của DELETE /channel/shops/:id: số dòng đã xoá theo nhóm (BE có thể trả thêm nhóm khác) */
+export interface ShopDeleteResult {
+  deleted: {
+    orders: number;
+    packages: number;
+    returns: number;
+    listings: number;
+    ledgerEntries: number;
+    [group: string]: number;
+  };
+}
+
 /** Một đơn chưa xong trả kèm lỗi 409 shop_has_open_orders (tối đa 20 đơn, cũ nhất trước; §18.7.8) */
 export interface ShopOpenOrder {
   id: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { authorizationDeadline, platformLabel, returnWindowNote } from './shopSchemas';
+import { authorizationDeadline, deleteConfirmed, platformLabel, returnWindowNote } from './shopSchemas';
 import { shopMachine } from '@/lib/machines/channel';
 
 describe('Hợp đồng sàn mở rộng', () => {
@@ -30,5 +30,12 @@ describe('returnWindowNote (FE#198)', () => {
   });
   it('người bán đặt số ngày thì không có câu', () => {
     expect(returnWindowNote({ ...caps, returnWindow: 'days' }, 'Lazada')).toBeNull();
+  });
+});
+
+describe('Chữ xác nhận xoá gian hàng (FE#297)', () => {
+  it('chỉ nhận đúng XOA chữ hoa, bỏ khoảng trắng hai đầu', () => {
+    for (const typed of ['', 'xoa', 'XÓA', 'XO', 'X O A', 'XOAA']) expect(deleteConfirmed(typed)).toBe(false);
+    for (const typed of ['XOA', '  XOA ']) expect(deleteConfirmed(typed)).toBe(true);
   });
 });
