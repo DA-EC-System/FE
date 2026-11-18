@@ -1,7 +1,7 @@
 // P3 · Gian hàng: kết nối OAuth, ghép SKU, đẩy sản phẩm và giá (UC-CH-01, UC-CH-02; FE#8)
 // Vòng đời gian hàng và listing theo sơ đồ C1, C2 (FE#58)
 import { type Page } from '@playwright/test';
-import { chon, chu, chua, dangNhap, dong, duongDan, expect, menu, mockApi, moiPhanTu, test, thayChu, toast } from '../../fixtures';
+import { chon, chu, chua, dangNhap, dong, duongDan, expect, menu, mockApi, moiPhanTu, phatSuKienSan, test, thayChu, toast } from '../../fixtures';
 
 /** Mở menu "..." của dòng gian hàng rồi chọn một mục */
 const chonMenu = async (page: Page, shopId: string, item: string | RegExp) => {
@@ -571,8 +571,8 @@ test.describe('P3 · Gian hàng', () => {
     test('Tải lại SKU sàn chạy nền: 202 rồi hỏi lại tới khi xong, lỗi 429 nêu số phút chờ, lượt lỗi báo số phút', async ({ page }) => {
       await moTab(page, 'unmatched');
       const khu = page.locator('[data-testid=remote-section]');
-      await expect(khu.locator('[data-testid=remote-synced]')).toContainText('Danh sách tải lúc');
-      const taiLai = khu.getByRole('button', { name: 'Tải lại', exact: true });
+      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
+      const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
 
       const yeuCau = page.waitForRequest(
         (r) => r.method() === 'POST' && /\/channel\/shops\/shp-001\/remote-skus\/refresh$/.test(r.url()),
@@ -612,6 +612,26 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'Sàn trả thiếu danh sách SKU, thử lại sau 5 phút.');
       // Lỗi tải lại không xoá danh sách đang có
       await expect(khu).toContainText('OLD-TEE-01');
+    });
+
+    test('Tải lại ở tab Tất cả: tên trên sàn ở dòng đã ghép và hộp Đổi ghép theo bản sao mới (FE#294)', async ({ page }) => {
+      const ten = dong(page, 'prd-001-v1').locator('[data-testid=remote-title]');
+      await expect(ten).toHaveText('Áo thun basic cổ tròn - Đen, M');
+      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
+      const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
+      // Nút Tải lại ở mọi tab
+      for (const t of ['unmatched', 'stale', 'all'] as const) {
+        await moTab(page, t);
+        await expect(taiLai).toBeVisible();
+      }
+
+      await phatSuKienSan(page, 'listing.renamed', 'shp-001', { sku: 'shp-001-sku-001', title: 'Áo khoác bomber nam' });
+      await taiLai.click();
+      await toast(page, 'Đã tải lại SKU trên sàn');
+      await expect(ten).toHaveText('Áo khoác bomber nam');
+
+      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
+      await thayChu(page.getByRole('dialog'), 'Áo khoác bomber nam');
     });
 
     test('CEO đặt SKU sàn đã có đơn là không quản tồn: áp luôn, không chờ duyệt', async ({ page }) => {
@@ -909,6 +929,16 @@ test.describe('P3 · Gian hàng', () => {
     await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
     await toast(page, 'Đã gửi CEO duyệt ghép SKU sàn OLD-TEE-01');
     await expect(remote.getByRole('button', { name: 'Ghép với biến thể', exact: true })).toBeDisabled();
+  });
+
+  test('gian hàng chưa kết nối (không ghép được): không có nút Tải lại, không hiện tên trên sàn (FE#294)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Kênh bán');
+    await moTrangGhep(page, 'shp-002');
+    await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-002-sku-001');
+    await expect(page.locator('[data-testid=remote-title]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tải lại', exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-testid=remote-synced]')).toHaveCount(0);
   });
 
   test('không mở được gian hàng của công ty khác', async ({ page }) => {

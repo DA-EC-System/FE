@@ -74,6 +74,8 @@ export interface MockRemoteSku {
   externalProductId: string;
   externalSkuId: string;
   title: string;
+  /** Tên trong bản sao `remote-skus` khi người bán vừa đổi tên trên sàn mà chưa Tải lại (FE#294) */
+  copiedTitle?: string;
   sellerSku: string;
   price: number;
   /** Số tồn đang hiện trên sàn (dùng ở bước kiểm kê đầu kỳ) */

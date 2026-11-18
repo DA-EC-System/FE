@@ -761,6 +761,30 @@ for (const [type, code, label, description] of [
 }
 
 registerMarketplaceEvent({
+  type: 'listing.renamed',
+  label: 'Người bán đổi tên trên sàn',
+  description:
+    'Đổi tên SKU trên Seller Center. Commerio chỉ thấy tên mới sau khi bấm Tải lại SKU sàn ở trang gian hàng (FE#294).',
+  group: 'Sản phẩm trên sàn',
+  needsShop: true,
+  param: { key: 'sku', label: 'SKU người bán hoặc mã SKU sàn', placeholder: 'Bắt buộc' },
+  // Không phát realtime: BE không biết tên đổi tới khi tải lại bản sao
+  realtime: null,
+  run({ shop, params }) {
+    if (!shop) throw new Error('Chọn gian hàng');
+    const key = params.sku?.trim().toLowerCase();
+    if (!key) throw new Error('Nhập SKU người bán hoặc mã SKU sàn');
+    const r = channel.remoteSkus[shop.id]?.find(
+      (x) => x.externalSkuId.toLowerCase() === key || x.sellerSku.toLowerCase() === key,
+    );
+    if (!r) throw new Error(`Không có SKU ${params.sku} trên sàn`);
+    r.copiedTitle ??= r.title;
+    r.title = params.title?.trim() || `${r.title} (đã đổi tên)`;
+    return `${r.sellerSku || r.externalSkuId}: tên trên sàn là "${r.title}"`;
+  },
+});
+
+registerMarketplaceEvent({
   type: 'listing.push_timeout',
   label: 'Hết thời gian thử lại',
   description: 'Thử lại 5 lần trong 30 phút vẫn lỗi: sản phẩm chuyển Lỗi đẩy.',
@@ -1033,6 +1057,8 @@ function currentRefresh(shopId: string): RemoteSkusRefresh | null {
     run.status = 'succeeded';
     run.finishedAt = new Date().toISOString();
     remoteSyncedAt.set(shopId, run.finishedAt);
+    // Bản sao lấy tên mới nhất trên sàn
+    for (const r of channel.remoteSkus[shopId] ?? []) delete r.copiedTitle;
   }
   return publicRefresh(run);
 }
@@ -1480,7 +1506,7 @@ export const shopHandlers = [
           return {
             externalProductId: r.externalProductId,
             externalSkuId: r.externalSkuId,
-            title: r.title,
+            title: r.copiedTitle ?? r.title,
             sellerSku: r.sellerSku,
             matchedVariantId: mapped?.variantId ?? null,
             mode: mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null,
