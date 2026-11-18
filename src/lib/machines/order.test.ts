@@ -9,6 +9,7 @@ import {
   packageMachine,
   platformUpdate,
   stageOf,
+  stagesFor,
   stockEffect,
   type OrderRecord,
   type PackageRecord,
@@ -273,6 +274,53 @@ describe('Đơn bán (sơ đồ D1)', () => {
     expect(stageOf({ ...base, packages: ['packed'], flags: ['cancelling'] })).toBe('cancelling');
     expect(stageOf({ ...base, status: 'unpaid', packages: ['reserved'] })).toBe('awaiting_confirmation');
     expect(stageOf({ ...base, status: 'unpaid', paymentMethod: 'prepaid', packages: ['reserved'] })).toBe('awaiting_payment');
+  });
+
+  it('bộ lọc giai đoạn theo tab và nguồn (FE#288)', () => {
+    const processing = stagesFor('processing', 'marketplace');
+    expect(processing).toEqual([
+      'unmapped',
+      'cancelling',
+      'backordered',
+      'reserved',
+      'packed',
+      'awaiting_pickup',
+      'in_transit',
+      'self_delivering',
+      'delivery_failed',
+      'returning',
+      'lost',
+      'awaiting_completion',
+    ]);
+    expect(stagesFor('processing', '')).toEqual(processing);
+    expect(stagesFor('unpaid', 'marketplace')).toEqual(['unmapped', 'awaiting_payment']);
+    expect(stagesFor('unpaid', 'manual')).toEqual(['unmapped', 'awaiting_payment', 'awaiting_confirmation']);
+    expect(stagesFor('unpaid', '')).toEqual(['unmapped', 'awaiting_payment', 'awaiting_confirmation']);
+    expect(stagesFor('completed', '')).toEqual([]);
+    expect(stagesFor('cancelled', 'marketplace')).toEqual([]);
+    const all = stagesFor('', '');
+    expect(all).toHaveLength(14);
+    expect(all).not.toContain('delivered');
+    expect(all).not.toContain('returned');
+    expect(all).not.toContain('completed');
+    expect(stagesFor('', 'marketplace')).not.toContain('awaiting_confirmation');
+  });
+
+  it('mọi giai đoạn stageOf trả ra đều có trong bộ lọc của tab đó (FE#288)', () => {
+    const kinds: PackageStatus[] = [
+      'backordered', 'reserved', 'packed', 'awaiting_pickup', 'in_transit', 'self_delivering',
+      'delivered', 'delivery_failed', 'returning', 'returned', 'lost', 'cancelled',
+    ];
+    const sets: PackageStatus[][] = [[]];
+    for (const a of kinds) for (const b of kinds) sets.push([a], [a, b]);
+    for (const status of ['unpaid', 'processing'] as const)
+      for (const source of ['marketplace', 'manual'] as const)
+        for (const paymentMethod of ['cod', 'prepaid'] as const)
+          for (const flags of [[], ['unmapped_sku'], ['cancelling']] as const)
+            for (const packages of sets) {
+              const stage = stageOf({ status, source, paymentMethod, flags: [...flags], packages });
+              expect(stagesFor(status, source)).toContain(stage);
+            }
   });
 
   it('sắp trễ hạn khi còn kiện chưa rời kho', () => {

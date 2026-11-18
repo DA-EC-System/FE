@@ -352,6 +352,43 @@ export function stageOf(o: StageInput): OrderStage {
   return slowest as OrderStage;
 }
 
+/** Giai đoạn đơn chưa thanh toán có thể có, theo nhánh `unpaid` của `stageOf` */
+const UNPAID_STAGES: readonly OrderStage[] = ['unmapped', 'awaiting_payment', 'awaiting_confirmation'];
+
+/**
+ * Giai đoạn đơn đang xử lý có thể có, theo `stageOf`. Không có `delivered`, `returned`: kiện đã dừng bị bỏ khi tìm kiện
+ * chậm nhất, mọi kiện đã dừng thì ra `awaiting_completion`.
+ */
+const PROCESSING_STAGES: readonly OrderStage[] = [
+  'unmapped',
+  'cancelling',
+  'backordered',
+  'reserved',
+  'packed',
+  'awaiting_pickup',
+  'in_transit',
+  'self_delivering',
+  'delivery_failed',
+  'returning',
+  'lost',
+  'awaiting_completion',
+];
+
+/**
+ * Giai đoạn chọn được ở bộ lọc danh sách đơn theo tab trạng thái và Nguồn (FE#288). Tab Đã hoàn tất, Đã huỷ chỉ có một
+ * giai đoạn nên trả rỗng (ẩn bộ lọc). Đơn sàn không có `awaiting_confirmation` (chỉ đơn ngoài sàn trả COD).
+ */
+export function stagesFor(status: OrderStatus | '', source: OrderSource | ''): OrderStage[] {
+  if (status === 'completed' || status === 'cancelled') return [];
+  const list =
+    status === 'unpaid'
+      ? UNPAID_STAGES
+      : status === 'processing'
+        ? PROCESSING_STAGES
+        : [...new Set([...UNPAID_STAGES, ...PROCESSING_STAGES])];
+  return list.filter((s) => !(s === 'awaiting_confirmation' && source === 'marketplace'));
+}
+
 /** Cờ suy ra lúc đọc: Sắp trễ hạn khi còn kiện chưa rời kho và sắp tới hạn bàn giao */
 export function isDueSoon(shipBy: string | null, packages: readonly PackageStatus[], now: number) {
   if (!shipBy) return false;

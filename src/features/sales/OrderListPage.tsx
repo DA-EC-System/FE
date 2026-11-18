@@ -1,5 +1,5 @@
 import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -32,6 +32,7 @@ import { OrderStage } from './OrderStage';
 import { LineThumb } from './LineThumb';
 import { CopyButton } from '@/components/common/CopyButton';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
+import { stagesFor } from '@/lib/machines/order';
 
 const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';
@@ -49,7 +50,10 @@ export function OrderListPage() {
   const status = STATUS_TABS.includes(statusParam as OrderStatus) ? (statusParam as OrderStatus) : '';
   const source = (f.params.get('source') ?? '') as OrderSource | '';
   const paymentMethod = (f.params.get('paymentMethod') ?? '') as PaymentMethod | '';
-  const stage = (f.params.get('stage') ?? '') as Stage | '';
+  // Giai đoạn chọn được theo tab và Nguồn (FE#288); giai đoạn trên URL không còn hợp thì bỏ, không lọc ra bảng rỗng
+  const stageOptions = stagesFor(status, source);
+  const stageParam = (f.params.get('stage') ?? '') as Stage | '';
+  const stage = stageParam && stageOptions.includes(stageParam) ? stageParam : '';
   const flag = (f.params.get('flag') ?? '') as OrderFlag | '';
   const from = f.params.get('from') ?? '';
   const to = f.params.get('to') ?? '';
@@ -73,6 +77,11 @@ export function OrderListPage() {
   const { startTour } = usePageGuide('orders', { ready: !query.isLoading });
   const countText = (n: number | undefined) => (n === undefined ? '' : n.toLocaleString('vi-VN'));
   const filtered = Boolean(f.q || source || shopId || paymentMethod || stage || flag || from || to);
+
+  useEffect(() => {
+    if (stageParam && !stage) f.update({ stage: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageParam, stage]);
 
   const columns = useMemo<ColumnDef<OrderSummary>[]>(
     () => [
@@ -239,12 +248,14 @@ export function OrderListPage() {
           />
           <DateFilter label="Từ ngày" value={from} max={to || undefined} onChange={f.setFilter('from')} />
           <DateFilter label="Đến ngày" value={to} min={from || undefined} onChange={f.setFilter('to')} />
-          <FilterSelect
-            label="Giai đoạn"
-            value={stage}
-            onChange={f.setFilter('stage')}
-            options={(Object.keys(ORDER_STAGE) as Stage[]).map((s) => ({ value: s, label: ORDER_STAGE[s].label }))}
-          />
+          {stageOptions.length > 0 && (
+            <FilterSelect
+              label="Giai đoạn"
+              value={stage}
+              onChange={f.setFilter('stage')}
+              options={stageOptions.map((s) => ({ value: s, label: ORDER_STAGE[s].label }))}
+            />
+          )}
           <FilterSelect
             label="Cờ"
             value={flag}
