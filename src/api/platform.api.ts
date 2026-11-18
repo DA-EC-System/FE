@@ -3,7 +3,8 @@
  * và nhật ký cấp nền tảng. Không có tạo, sửa, xoá công ty: công ty tự đăng ký (UC-PI-01).
  */
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import type { PageResult } from './types';
 import type { Company, CompanyStatus, LockCompanyInput } from '@/types/company';

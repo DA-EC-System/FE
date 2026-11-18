@@ -3,7 +3,8 @@
  * của công ty đang làm việc. BE lấy công ty từ token.
  */
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient, getProblem } from './client';
 import { authApi } from './auth.api';
 import { useAuthStore } from '@/stores/authStore';

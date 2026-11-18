@@ -3,7 +3,8 @@
  * Hợp đồng theo Documents/21 mục 12.6, 12.8, BE ở commerio-backend#30 (PR #69).
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';

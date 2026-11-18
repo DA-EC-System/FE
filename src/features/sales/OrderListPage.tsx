@@ -1,5 +1,5 @@
 import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -67,6 +67,8 @@ export function OrderListPage() {
   const canSync = can(PERMISSIONS.shopView) && can(PERMISSIONS.shopSync);
   const syncMut = useSyncShop();
   const [syncing, setSyncing] = useState(false);
+  // Khoá bấm đúp (FE#247): lần bấm thứ hai tới trước khi React vẽ nút khoá thì không chạy gì
+  const syncingRef = useRef(false);
   // Bảng toàn màn hình: phủ cả cửa sổ, Esc để thoát
   const [full, setFull] = useState(false);
 
@@ -208,9 +210,16 @@ export function OrderListPage() {
   // Đồng bộ đơn: kéo đơn ngay của gian hàng đang lọc, không lọc thì mọi gian hàng đang hoạt động
   const syncTargets = (shopsQuery.data?.items ?? []).filter((s) => s.status === 'active' && (!shopId || s.id === shopId));
   const syncOrders = async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
     setSyncing(true);
-    const results = await Promise.allSettled(syncTargets.map((s) => syncMut.mutateAsync(s.id)));
-    setSyncing(false);
+    let results: PromiseSettledResult<Awaited<ReturnType<typeof syncMut.mutateAsync>>>[];
+    try {
+      results = await Promise.allSettled(syncTargets.map((s) => syncMut.mutateAsync(s.id)));
+    } finally {
+      syncingRef.current = false;
+      setSyncing(false);
+    }
     let created = 0;
     let updated = 0;
     const failed: { name: string; error: unknown }[] = [];
