@@ -31,6 +31,19 @@ test.describe('P4 · Đồng bộ đơn và toàn màn hình', () => {
     await expect(page.getByRole('button', { name: /Đồng bộ đơn/ })).toHaveCount(0);
   });
 
+  test('màn rộng: bảng trải hết chiều ngang, không còn giới hạn 1280px', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1000 });
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Đơn hàng');
+    const the = page.locator('[data-guide="order-list"]');
+    await expect(page.getByRole('table')).toBeVisible();
+    const main = (await page.locator('main').boundingBox())!;
+    const box = (await the.boundingBox())!;
+    expect(box.width).toBeGreaterThan(1280);
+    // Chỉ trừ phần đệm hai bên của main (md:px-6 = 24px)
+    expect(Math.round(main.width - box.width)).toBe(48);
+  });
+
   test('bảng toàn màn hình phủ cửa sổ, Esc hoặc bấm lại để thoát', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Đơn hàng');
