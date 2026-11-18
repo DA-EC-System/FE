@@ -60,6 +60,18 @@ describe('packageButtons (sơ đồ D2)', () => {
     expect(packageButtons(p, kho)).toMatchObject({ actions: [], reportLost: true });
   });
 
+  it('Đảo bàn giao chỉ hiện với kiện kho quét mà sàn chưa xác nhận lấy (21 §19.2)', () => {
+    const shipping = { status: 'in_transit' as const, source: 'marketplace' as const };
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'scan', pickupConfirmedAt: null }), ceo).actions).toContain('undo_handover');
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'scan', pickupConfirmedAt: '2026-11-18T05:00:00Z' }), ceo).actions).not.toContain(
+      'undo_handover',
+    );
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'marketplace', pickupConfirmedAt: '2026-11-18T05:00:00Z' }), ceo).actions).not.toContain(
+      'undo_handover',
+    );
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'forced', pickupConfirmedAt: null }), ceo).actions).not.toContain('undo_handover');
+  });
+
   it('đơn sàn đang giao: không nút giao, có ghi chú', () => {
     const b = packageButtons(pkg({ status: 'in_transit', source: 'marketplace' }), sale);
     expect(b.actions).toEqual([]);

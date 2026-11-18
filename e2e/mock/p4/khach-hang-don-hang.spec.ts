@@ -1,6 +1,6 @@
-// P4 · Khách hàng, đơn hàng: danh sách, tạo đơn tay, xác nhận đơn (UC-SF-01, UC-SF-02, UC-SF-04; FE#9)
+// P4 · Đơn hàng: danh sách, xác nhận đơn (UC-SF-04; FE#9). Khách hàng, tạo đơn tay ngoài MVP, gỡ ở FE#249
 import { type Page } from '@playwright/test';
-import { chon, chu, chua, dangNhap, dong, duongDan, expect, menu, mockApi, test, thayChu, toast } from '../../fixtures';
+import { chon, chu, dangNhap, dong, expect, menu, mockApi, test, thayChu, toast } from '../../fixtures';
 
 const CHAN_QUYEN_BAN_HANG = 'Vai trò của bạn trong công ty này không có quyền mở trang này.';
 
@@ -10,45 +10,7 @@ const giaiThichDon = async (page: Page, text: string) => {
   await expect(page.getByRole('tooltip')).toContainText(text);
 };
 
-const timKhach = async (page: Page, text: string) => {
-  await page.getByLabel('Tìm khách', { exact: true }).fill(text);
-  await chua(page, text, '[role=option]').click();
-};
-
-/** Thêm biến thể đầu tiên có giá trong kết quả tìm */
-const themSanPham = async (page: Page, text: string) => {
-  await page.getByLabel('Thêm sản phẩm', { exact: true }).fill(text);
-  await page.locator('[role=option][aria-disabled=false]').first().click();
-};
-
-const dienGiaoHang = (page: Page) => page.getByLabel('Trả trước', { exact: true }).click();
-
-test.describe('P4 · Khách hàng và đơn hàng', () => {
-  test.describe('khách hàng (UC-SF-02)', () => {
-    test.beforeEach(async ({ page }) => {
-      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await menu(page, 'Khách hàng');
-      await expect(dong(page, 'cus-001')).toBeAttached();
-    });
-
-    test('danh sách chỉ có khách của công ty, tìm theo tên và mở hồ sơ', async ({ page }) => {
-      await expect(page.locator('tbody')).not.toContainText('Lý Văn Cường');
-      await page.getByPlaceholder(/Tìm/).fill('Châu');
-      await expect(dong(page, 'cus-001')).toHaveCount(0);
-      await expect(dong(page, 'cus-003')).toContainText('0938765432');
-      await dong(page, 'cus-003').click();
-      await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/sales/customers/cus-003');
-      await thayChu(page, 'Trần Minh Châu', 'h1');
-      await thayChu(page, 'Lịch sử đơn');
-      await thayChu(page, 'DH-1003', 'a');
-    });
-
-    test('khách của công ty khác báo không tìm thấy', async ({ page }) => {
-      await page.goto('/c/cmp-001/sales/customers/cus-101');
-      await thayChu(page, 'Không tìm thấy', 'h1');
-    });
-  });
-
+test.describe('P4 · Đơn hàng', () => {
   test.describe('danh sách đơn (UC-SF-04)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
@@ -134,109 +96,6 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
     });
   });
 
-  test.describe('tạo đơn tay (UC-SF-01)', () => {
-    test.beforeEach(async ({ page }) => {
-      await dangNhap(page, 'sale@commerio.vn', 'sale');
-      await menu(page, 'Đơn hàng');
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/sales/orders/new');
-    });
-
-    test('báo lỗi khi gửi form trống', async ({ page }) => {
-      await expect(page.locator('[data-testid=price-list-hint]')).toContainText('bảng giá chuẩn');
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await thayChu(page, 'Chọn khách hàng hoặc tạo khách mới');
-      await thayChu(page, 'Thêm ít nhất một sản phẩm');
-      await thayChu(page, 'Chọn cách thanh toán');
-      await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/sales/orders/new');
-    });
-
-    test('khách có sẵn: điền người nhận, chọn lại sản phẩm thì tăng số lượng, tạo đơn', async ({ page }) => {
-      await timKhach(page, 'Nguyễn Văn An');
-      await expect(page.locator('[data-testid=picked-customer]')).toContainText('0901234567');
-      await expect(page.getByLabel('Người nhận', { exact: true })).toHaveValue('Nguyễn Văn An');
-      await expect(page.getByLabel('Số điện thoại người nhận', { exact: true })).toHaveValue('0901234567');
-
-      await themSanPham(page, 'Áo thun');
-      await themSanPham(page, 'Áo thun');
-      await expect(page.locator('[data-testid=order-lines] tbody tr[data-row-id]')).toHaveCount(1);
-      await expect(page.getByLabel(/^Số lượng /)).toHaveValue('2');
-      await page.getByLabel('Phí giao (đ)', { exact: true }).fill('30000');
-      await expect(page.locator('[data-testid=total]')).toHaveText(/\d/);
-      await dienGiaoHang(page);
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await toast(page, /Đã tạo đơn DH-\d+/);
-      await expect.poll(() => duongDan(page)).toMatch(/\/c\/cmp-001\/sales\/orders\/ord-/);
-      await thayChu(page, /Đơn DH-/, 'h1');
-      await expect(page.locator('[data-testid=order-status]')).toContainText('Chưa thanh toán');
-      await expect(page.locator('[data-testid=order-status]')).toContainText('Chờ thanh toán');
-    });
-
-    test('sản phẩm chưa có giá không chọn được', async ({ page }) => {
-      await page.getByLabel('Thêm sản phẩm', { exact: true }).fill('Quần');
-      // Mục aria-disabled: Playwright coi là bị khoá nên bấm bằng force để kiểm bấm vào cũng không thêm được
-      await chua(page, 'Chưa có giá', '[role=option][aria-disabled=true]').click({ force: true });
-      await expect(page.locator('[data-testid=order-lines]')).toContainText('Tìm và thêm sản phẩm vào đơn.');
-    });
-
-    test('khách mới trùng số điện thoại thì gợi ý dùng khách đã có', async ({ page }) => {
-      await page.getByLabel('Khách mới', { exact: true }).click();
-      await page.getByLabel('Tên khách', { exact: true }).fill('An Nguyễn');
-      await page.getByLabel('Số điện thoại', { exact: true }).fill('0901234567');
-      await thayChu(page, 'Đã có khách Nguyễn Văn An với số này.');
-      await page.getByRole('button', { name: 'Dùng khách này', exact: true }).click();
-      await expect(page.locator('[data-testid=picked-customer]')).toContainText('Nguyễn Văn An');
-    });
-
-    test('khách mới: tạo đơn kèm khách', async ({ page }) => {
-      await page.getByLabel('Khách mới', { exact: true }).click();
-      await page.getByLabel('Tên khách', { exact: true }).fill('Võ Thị Em');
-      await page.getByLabel('Số điện thoại', { exact: true }).fill('0911222333');
-      await expect(page.getByLabel('Người nhận', { exact: true })).toHaveValue('Võ Thị Em');
-      await page.getByLabel('Địa chỉ giao', { exact: true }).fill('12 Lê Lợi, Q1, TP.HCM');
-      await themSanPham(page, 'Áo thun');
-      await page.getByLabel('Thu khi giao (COD)', { exact: true }).click();
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await toast(page, /Đã tạo đơn DH-/);
-      await thayChu(page, 'Võ Thị Em', 'a');
-    });
-
-    test('vượt tồn khả dụng thì cảnh báo và hỏi lại trước khi tạo', async ({ page }) => {
-      await timKhach(page, 'Trần Minh Châu');
-      await themSanPham(page, 'Áo thun');
-      await page.getByLabel(/^Số lượng /).fill('9999');
-      await thayChu(page, /Chỉ còn \d+ khả dụng/);
-      await dienGiaoHang(page);
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      const alert = page.getByRole('alertdialog');
-      await thayChu(alert, 'Đơn có sản phẩm không đủ hàng, vẫn tạo?');
-      await alert.getByRole('button', { name: 'Huỷ', exact: true }).click();
-      await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/sales/orders/new');
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await page.getByRole('button', { name: 'Vẫn tạo', exact: true }).click();
-      await toast(page, /Đã tạo đơn DH-/);
-    });
-
-    test('lỗi từ BE gắn vào ô và báo khách không còn', async ({ page }) => {
-      await timKhach(page, 'Trần Minh Châu');
-      await themSanPham(page, 'Áo thun');
-      await dienGiaoHang(page);
-      await mockApi(page, 'post', '/sales/orders', 422, {
-        status: 422,
-        title: 'Dữ liệu không hợp lệ',
-        errors: { 'lines.0.variantId': 'Biến thể đã ngừng bán', 'shippingAddress.address': 'Địa chỉ quá ngắn' },
-      });
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await thayChu(page, 'Biến thể đã ngừng bán');
-      await thayChu(page, 'Địa chỉ quá ngắn');
-
-      await mockApi(page, 'post', '/sales/orders', 404, { status: 404, title: 'Không tìm thấy', code: 'not_found' });
-      await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
-      await thayChu(page, 'Không tìm thấy khách hàng');
-      await expect(page.getByLabel('Tìm khách', { exact: true })).toBeAttached();
-    });
-  });
-
   test.describe('xác nhận đơn (UC-SF-04)', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'sale@commerio.vn', 'sale'));
 
@@ -277,7 +136,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
   });
 
   test.describe('phân quyền và cách ly (AC-R)', () => {
-    test('cskh chỉ xem đơn: không tạo, không xác nhận', async ({ page }) => {
+    test('cskh chỉ xem đơn: không xác nhận', async ({ page }) => {
       await dangNhap(page, 'cskh@commerio.vn', 'cskh');
       await menu(page, 'Đơn hàng');
       await expect(dong(page, 'ord-1003')).toBeAttached();
@@ -291,10 +150,7 @@ test.describe('P4 · Khách hàng và đơn hàng', () => {
       await dangNhap(page, 'kho@commerio.vn', 'kho');
       const muc = (text: string) => page.locator('[data-sidebar="menu-button"]', { hasText: chu(text) });
       await expect(muc('Đơn hàng')).toHaveCount(0);
-      await expect(muc('Khách hàng')).toHaveCount(0);
       await page.goto('/c/cmp-001/sales/orders');
-      await thayChu(page, CHAN_QUYEN_BAN_HANG);
-      await page.goto('/c/cmp-001/sales/customers');
       await thayChu(page, CHAN_QUYEN_BAN_HANG);
     });
 

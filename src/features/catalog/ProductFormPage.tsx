@@ -47,7 +47,7 @@ import {
   useUpdateProduct,
 } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
-import { problemCode, problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -251,7 +251,7 @@ export function ProductFormPage() {
   }
   if (!isNew && productQuery.isError) {
     // C4: không có hoặc của công ty khác đều là 404 (AC-15)
-    const notFound = getProblem(productQuery.error)?.status === 404;
+    const notFound = getProblem(productQuery.error)?.status === 404 && !isRouteMissing(productQuery.error);
     return (
       <div>
         {back}

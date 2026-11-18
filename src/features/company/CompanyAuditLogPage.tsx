@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { FileSearch } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -23,7 +24,9 @@ import { useCompanyAuditLog, useCompanyAuditLogs } from '@/api/companySettings.a
 import { useStaff } from '@/api/identity.api';
 import { getErrorMessage } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { docRefPath } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { AuditAction, CompanyAuditLog } from '@/types/companySettings';
 import {
@@ -72,23 +75,58 @@ const baseColumns: ColumnDef<CompanyAuditLog>[] = [
     meta: { className: 'w-32' },
     cell: ({ row }) => entityTypeLabel(row.original.entityType),
   },
-  { accessorKey: 'entityLabel', header: 'Tên', meta: { className: 'min-w-52' } },
 ];
+
+/** Bảng của chứng từ → kiểu tham chiếu của `docRefPath`: dòng tự duyệt mở thẳng chứng từ (FE#249, thay bảng ở báo cáo cũ) */
+const DOC_REFS: Record<string, string> = {
+  purchase_requests: 'purchase_request',
+  goods_receipts: 'goods_receipt',
+  supplier_returns: 'supplier_return',
+  stock_documents: 'stock_document',
+  packages: 'package',
+  orders: 'order',
+  return_requests: 'return_request',
+  shops: 'shop',
+};
+
+function entityColumn(companyId: string): ColumnDef<CompanyAuditLog> {
+  return {
+    id: 'entityLabel',
+    header: 'Tên',
+    meta: { className: 'min-w-52' },
+    cell: ({ row: { original: r } }) => {
+      const ref = DOC_REFS[r.entityType.split('.').pop() ?? ''];
+      // Dòng xoá: chứng từ không còn, không link
+      const path = ref && r.action !== 'delete' ? docRefPath(companyId, { type: ref, id: r.entityId }) : null;
+      return path ? (
+        <Link className="text-primary hover:underline" to={path} onClick={(e) => e.stopPropagation()}>
+          {r.entityLabel}
+        </Link>
+      ) : (
+        r.entityLabel
+      );
+    },
+  };
+}
 
 /** UC-PI-07: nhật ký thao tác của công ty, chỉ đọc. Admin và CEO xem được. */
 export function CompanyAuditLogPage() {
+  const companyId = useAuth().companyContext?.companyId ?? '';
+  // Link "Xem lần tự duyệt" ở trang chủ mở trang với ?selfApproved=true (FE#249)
+  const [searchParams] = useSearchParams();
   const [actorId, setActorId] = useState('');
   const [entityType, setEntityType] = useState('');
   const [action, setAction] = useState<AuditAction | ''>('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [selfOnly, setSelfOnly] = useState('');
+  const [selfOnly, setSelfOnly] = useState(searchParams.get('selfApproved') === 'true' ? 'true' : '');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const columns = useMemo<ColumnDef<CompanyAuditLog>[]>(
     () => [
       ...baseColumns,
+      entityColumn(companyId),
       {
         id: 'detail',
         header: () => <span className="sr-only">Chi tiết</span>,
@@ -108,7 +146,7 @@ export function CompanyAuditLogPage() {
         ),
       },
     ],
-    [],
+    [companyId],
   );
 
   // Lọc theo người: chọn trong danh sách nhân viên (Admin và CEO đều xem được nhân viên)

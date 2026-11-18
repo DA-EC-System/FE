@@ -4,7 +4,9 @@
  * mã chưa có ở đây thì dùng `detail` như cũ.
  */
 
+import axios from 'axios';
 import { getErrorMessage, getProblem, notImplementedMessage, retryAfterSeconds } from './client';
+import type { RemoteSkusRefreshError } from '@/types/shop';
 
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
@@ -20,6 +22,8 @@ const MESSAGES: Record<string, string> = {
   already_matched: 'Khoản tiền đã được khớp sao kê.',
   not_bank_matchable: 'Chỉ khớp khoản rút tiền, nhà cung cấp hoàn tiền hoặc bồi thường thực tế.',
   not_found: 'Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.',
+  // FE#248: BE chưa có route này (404 not_found, detail "Không có đường dẫn ..."), không phải bản ghi bị xoá
+  route_missing: 'Chức năng này chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.',
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   version_conflict: 'Dữ liệu vừa được người khác sửa. Chưa có gì thay đổi.',
   // docs/21 I3
@@ -81,6 +85,8 @@ const MESSAGES: Record<string, string> = {
   listing_check_failed:
     'Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.',
   already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
+  // FE#264, Documents/21 §18.3 (commerio-backend#360)
+  below_floor: 'Giá trên sàn thấp hơn giá thấp nhất. Đẩy lại giá Commerio hoặc gỡ khỏi sàn.',
   // FE#9, chờ commerio-backend#24 và #23
   invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
   not_allowed_for_source: 'Đơn sàn lấy trạng thái từ sàn, không cập nhật tay được.',
@@ -135,8 +141,9 @@ const MESSAGES: Record<string, string> = {
   return_exceeds_delivered: 'Số trả vượt số còn trả được của đơn.',
   return_not_awaiting: 'Yêu cầu trả không ở trạng thái Chờ hàng về.',
   parcel_resolved: 'Kiện hàng trả đã được xử lý.',
-  // §19.3, commerio-backend#105, #106
-  marketplace_rejected: 'Sàn không cho huỷ đơn này.',
+  // R9; câu theo việc đang làm ở MARKETPLACE_ACTION_MESSAGES (FE#250, Documents/21 §18.4)
+  marketplace_rejected: 'Sàn từ chối thao tác này.',
+  marketplace_unauthorized: 'Sàn từ chối quyền truy cập của gian hàng. Kết nối lại gian hàng rồi thử lại.',
   package_status_not_allowed: 'Sàn không cho thao tác ở trạng thái hiện tại của kiện, tải lại để xem trạng thái mới.',
   item_not_packable: 'Có món sàn không cho đóng gói (đã huỷ hoặc đang xin huỷ).',
   rts_package_not_found: 'Sàn không thấy kiện để báo sẵn sàng giao, đóng gói lại rồi thử lại.',
@@ -167,6 +174,47 @@ const MESSAGES: Record<string, string> = {
   sku_not_ready: 'SKU chưa đủ điều kiện bán (xem trạng thái sản phẩm).',
   platform_hold: 'Sàn đang khoá sản phẩm này.',
 };
+
+/**
+ * 409 `marketplace_rejected` sàn trả thiếu danh sách SKU. BE trước BE#361 trả lỗi này ngay trên POST Tải lại; BE#361
+ * chuyển vào `refresh.error` (xem remoteRefreshErrorMessage). Không có `Retry-After` thì lấy mốc khoá 10 phút của BE
+ */
+export const INCOMPLETE_LIST_CODES = ['incomplete_list', 'too_many_calls'];
+const REMOTE_SKUS_LOCK_MINUTES = 10;
+
+function incompleteListMessage(error: unknown): string {
+  const raw = axios.isAxiosError(error) ? Number(error.response?.headers?.['retry-after']) : NaN;
+  const minutes = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw / 60) : REMOTE_SKUS_LOCK_MINUTES;
+  return `Sàn trả thiếu danh sách SKU, thử lại sau ${minutes} phút.`;
+}
+
+/** Lỗi của lượt tải SKU sàn chạy nền (`refresh.error`, §18.3, BE#361) không có câu chung trong MESSAGES */
+const REFRESH_ERROR_MESSAGES: Record<string, string> = {
+  timed_out: 'Sàn trả danh sách SKU quá 10 phút nên lượt tải đã dừng.',
+  marketplace_unavailable: 'Sàn đang lỗi, chưa tải được danh sách SKU.',
+  marketplace_unauthorized: 'Sàn từ chối quyền truy cập của gian hàng. Kết nối lại gian hàng rồi tải lại.',
+  marketplace_rejected: 'Sàn chưa trả được danh sách SKU.',
+};
+
+/**
+ * Câu báo lượt tải SKU sàn hỏng (§18.3, BE#361). `secondsLeft`: số giây còn lại tới lúc được tải lại, đếm ngược từ
+ * `error.retryAfterSeconds`; còn thì câu nêu số phút làm tròn lên, hết thì mời bấm Tải lại
+ */
+export function remoteRefreshErrorMessage(error: RemoteSkusRefreshError, secondsLeft: number | null): string {
+  const minutes = secondsLeft && secondsLeft > 0 ? Math.ceil(secondsLeft / 60) : null;
+  if (error.code === 'marketplace_rejected' && error.platformCode && INCOMPLETE_LIST_CODES.includes(error.platformCode)) {
+    return minutes
+      ? `Sàn trả thiếu danh sách SKU, thử lại sau ${minutes} phút.`
+      : 'Sàn trả thiếu danh sách SKU. Bấm Tải lại để thử lại.';
+  }
+  if (error.platformCode && CALL_LIMIT_CODES.includes(error.platformCode)) return MESSAGES.call_limit;
+  // Bấm lại cũng không qua (vd gian hàng quá 10.000 sản phẩm): không mời tải lại
+  if (error.code === 'marketplace_rejected' && error.platformCode && REJECTED_PLATFORM_MESSAGES[error.platformCode]) {
+    return REJECTED_PLATFORM_MESSAGES[error.platformCode];
+  }
+  const base = REFRESH_ERROR_MESSAGES[error.code] ?? MESSAGES[error.code] ?? error.message;
+  return minutes ? `${base} Thử lại sau ${minutes} phút.` : `${base} Bấm Tải lại để thử lại.`;
+}
 
 /** 503 `marketplace_unavailable` vì hết hạn mức gọi sàn trong ngày (§18.6.8) */
 export const CALL_LIMIT_CODES = ['company_call_limit', 'daily_call_limit'];
@@ -241,6 +289,23 @@ export function problemCode(error: unknown): string | undefined {
   return getProblem(error)?.code;
 }
 
+/** Câu BE ghi khi không có route (`error-handler.ts` của BE: 404 not_found) */
+const ROUTE_MISSING_PREFIX = 'Không có đường dẫn ';
+
+/**
+ * 404 vì BE chưa có route (chức năng chưa mở), khác 404 bản ghi không có hay thuộc công ty khác (FE#248).
+ * BE trả cùng mã `not_found`, chỉ khác `detail`.
+ */
+export function isRouteMissing(error: unknown): boolean {
+  const problem = getProblem(error);
+  return (
+    problem?.status === 404 &&
+    (problem.code === undefined || problem.code === 'not_found') &&
+    typeof problem.detail === 'string' &&
+    problem.detail.startsWith(ROUTE_MISSING_PREFIX)
+  );
+}
+
 /** 429 `remote_skus_retry_later`: đổi `Retry-After` (giây) ra phút, làm tròn lên */
 function retryLaterMessage(error: unknown): string {
   const seconds = retryAfterSeconds(error);
@@ -249,13 +314,53 @@ function retryLaterMessage(error: unknown): string {
     : MESSAGES.remote_skus_retry_later;
 }
 
-export function problemMessage(error: unknown): string {
+/** Việc đang làm với sàn; chọn câu cho `marketplace_rejected`, `marketplace_unauthorized` (FE#250, Documents/21 §18.4) */
+export type MarketplaceAction = 'connect' | 'rts' | 'push' | 'remote_skus' | 'cancel';
+
+const CONNECT_REJECTED =
+  'Sàn không nhận lần uỷ quyền này. Liên kết uỷ quyền chỉ dùng được một lần trong vài phút; bấm Kết nối lại từ đầu.';
+
+const MARKETPLACE_ACTION_MESSAGES: Record<MarketplaceAction, Record<string, string>> = {
+  connect: { marketplace_rejected: CONNECT_REJECTED, marketplace_unauthorized: CONNECT_REJECTED },
+  rts: {
+    marketplace_rejected: 'Sàn chưa nhận báo sẵn sàng giao của kiện này. Tải lại kiện để xem trạng thái trên sàn rồi thử lại.',
+  },
+  push: { marketplace_rejected: 'Sàn từ chối đẩy sản phẩm.' },
+  remote_skus: { marketplace_rejected: 'Sàn chưa trả được danh sách SKU. Thử lại sau ít phút.' },
+  cancel: { marketplace_rejected: 'Sàn không cho huỷ đơn này.' },
+};
+
+/** `platformCode` của `marketplace_rejected` có câu riêng ở mọi ngữ cảnh */
+const REJECTED_PLATFORM_MESSAGES: Record<string, string> = {
+  no_shop: 'Tài khoản này không có gian hàng nào trên sàn. Đăng nhập (hoặc lấy token) bằng tài khoản người bán có gian hàng.',
+  too_many_products: 'Gian hàng quá 10.000 sản phẩm, sàn không cho đọc hết danh sách.',
+};
+
+function marketplaceMessage(code: string | undefined, platformCode: string | undefined, action?: MarketplaceAction) {
+  if (code === 'marketplace_rejected' && platformCode && REJECTED_PLATFORM_MESSAGES[platformCode]) {
+    return REJECTED_PLATFORM_MESSAGES[platformCode];
+  }
+  return code && action ? MARKETPLACE_ACTION_MESSAGES[action][code] : undefined;
+}
+
+export interface ProblemSummary {
+  message: string;
+  /** Câu gốc của sàn, hiện riêng trong "Chi tiết từ sàn" */
+  platformMessage?: string;
+}
+
+/** Câu báo lỗi và câu gốc của sàn tách riêng; `action` chọn câu cho lỗi sàn chung */
+export function problemSummary(error: unknown, action?: MarketplaceAction): ProblemSummary {
   const problem = getProblem(error);
-  if (problem?.code === 'remote_skus_retry_later') return retryLaterMessage(error);
-  const code = problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined);
-  if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
+  if (problem?.code === 'remote_skus_retry_later') return { message: retryLaterMessage(error) };
+  const code = isRouteMissing(error)
+    ? 'route_missing'
+    : (problem?.code ?? (problem?.status === 404 && problem.title ? 'not_found' : undefined));
+  if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return { message: MESSAGES.call_limit };
   const message =
-    code === 'shop_awaiting_allocation'
+    code === 'marketplace_rejected' && problem?.platformCode && INCOMPLETE_LIST_CODES.includes(problem.platformCode)
+      ? incompleteListMessage(error)
+      : code === 'shop_awaiting_allocation'
       ? awaitingAllocationMessage(problem?.waitingFor)
       : code === 'opening_stocktake_open' && problem?.number
         ? `Phiếu ${problem.number} vẫn đang mở. Sửa hoặc duyệt phiếu này.`
@@ -267,7 +372,33 @@ export function problemMessage(error: unknown): string {
             ? companyMismatchMessage(problem?.expected, problem?.actual)
             : code === 'not_implemented'
               ? notImplementedMessage(problem?.issue, problem?.owner)
-              : (code && MESSAGES[code]) || getErrorMessage(error);
-  // Câu gốc của sàn kèm theo để người dùng biết sàn báo gì
-  return problem?.platformMessage ? `${message} Sàn báo: ${problem.platformMessage}` : message;
+              : marketplaceMessage(code, problem?.platformCode, action) || (code && MESSAGES[code]) || getErrorMessage(error);
+  return problem?.platformMessage ? { message, platformMessage: problem.platformMessage } : { message };
+}
+
+/** Câu báo lỗi cho toast, dòng lỗi: câu gốc của sàn nối sau "Sàn báo:" */
+export function problemMessage(error: unknown, action?: MarketplaceAction): string {
+  const { message, platformMessage } = problemSummary(error, action);
+  return platformMessage ? `${message} Sàn báo: ${platformMessage}` : message;
+}
+
+/** Nơi lấy token dán tay theo sàn (`tich-hop-san/lazada.md` §3.1, `tich-hop-san/tiktok.md`) */
+const TOKEN_SOURCES: Record<string, string> = {
+  lazada: 'Lazada Open Platform → Testing Tools → API Explorer',
+  tiktok: 'TikTok Shop Partner Center → API Testing Tool',
+};
+
+/** "ở <nơi lấy token>" để ghép vào câu; sàn chưa ghi nơi lấy thì nói chung */
+export function tokenSourcePhrase(platform: string): string {
+  const source = TOKEN_SOURCES[platform];
+  return source ? `ở ${source}` : 'trên trang nhà phát triển của sàn';
+}
+
+/** Lỗi khi dán token (§18.4): sàn từ chối thì nói token sai và chỗ lấy token mới, trừ khi token không ra gian hàng */
+export function tokenErrorMessage(error: unknown, platform: string): ProblemSummary {
+  const problem = getProblem(error);
+  const summary = problemSummary(error, 'connect');
+  const isMarketplace = problem?.code === 'marketplace_rejected' || problem?.code === 'marketplace_unauthorized';
+  if (!isMarketplace || (problem?.platformCode && REJECTED_PLATFORM_MESSAGES[problem.platformCode])) return summary;
+  return { ...summary, message: `Sàn từ chối token này. Kiểm tra lại token hoặc lấy token mới ${tokenSourcePhrase(platform)}.` };
 }

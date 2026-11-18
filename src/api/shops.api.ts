@@ -5,9 +5,10 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
+import { salesKeys } from './sales.api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   CategoryAttribute,
@@ -16,6 +17,7 @@ import type {
   CategoryMapInput,
   CategoryMapList,
   ChannelListing,
+  OutsideChangeAction,
   MappingDecision,
   MarketplaceCategory,
   MarketplaceCategoryList,
@@ -26,6 +28,8 @@ import type {
   PushListingsInput,
   PushResult,
   RemoteSkuList,
+  RemoteSkusRefresh,
+  RemoteSkusRefreshResult,
   Shop,
   ShopList,
   ShopPlatformList,
@@ -39,6 +43,7 @@ import type {
   ShopSetupPreview,
   ShopSetupResult,
   ShopTokenInput,
+  ShopUpdateInput,
 } from '@/types/shop';
 
 export const shopKeys = {
@@ -48,6 +53,7 @@ export const shopKeys = {
   detail: (companyId: string, id: string) => [...shopKeys.all(companyId), 'detail', id] as const,
   listings: (companyId: string, id: string) => [...shopKeys.all(companyId), 'listings', id] as const,
   remoteSkus: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus', id] as const,
+  remoteSkusRefresh: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus-refresh', id] as const,
   setup: (companyId: string, id: string) => [...shopKeys.all(companyId), 'setup', id] as const,
   categoryMaps: (companyId: string, id: string) => [...shopKeys.all(companyId), 'category-maps', id] as const,
   marketCategories: (companyId: string, id: string, search: string) =>
@@ -151,6 +157,23 @@ export function useConnectShopByToken() {
   });
 }
 
+/** Sửa hạn trả hàng của gian hàng (§18.4, FE#273); trả Shop mới */
+export function useUpdateShop() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ShopUpdateInput & { id: string }) => {
+      const { data } = await apiClient.patch<Shop>(`/channel/shops/${id}`, input);
+      return data;
+    },
+    onSuccess: (shop) => {
+      qc.setQueryData(shopKeys.detail(companyId, shop.id), shop);
+      return invalidate();
+    },
+  });
+}
+
 /** Ngắt mềm; zeroStock: đặt tồn trên sàn về 0 trước khi ngắt */
 export function useDisconnectShop() {
   const invalidate = useInvalidateShops();
@@ -207,6 +230,8 @@ export function useFinishShopSetup() {
 
 export function useSyncShop() {
   const invalidate = useInvalidateShops();
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
   return useMutation({
     mutationFn: async (id: string) => {
       // Documents/21 §14: kéo đơn ngay, trả số đơn đã lấy chi tiết, số đơn mới, số đơn đổi
@@ -215,7 +240,11 @@ export function useSyncShop() {
       );
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void invalidate();
+      // Đơn mới, đơn đổi hiện ngay ở trang Đơn hàng
+      void qc.invalidateQueries({ queryKey: salesKeys.all(companyId) });
+    },
   });
 }
 
@@ -257,20 +286,115 @@ export function useRemoteSkus(id: string, enabled: boolean) {
   });
 }
 
+/** Khoảng hỏi lại lượt tải SKU sàn khi BE không gửi `Retry-After` (§18.3, BE#361) */
+export const REMOTE_REFRESH_POLL_MS = 3000;
+/** Chặn an toàn phía FE: lượt tải vẫn chạy sau 10 phút thì thôi hỏi (BE tự trả `failed` + `timed_out` ở mốc này) */
+export const REMOTE_REFRESH_LIMIT_MS = 10 * 60_000;
+
+function pollDelay(headers: unknown): number {
+  const raw = Number((headers as Record<string, unknown> | undefined)?.['retry-after']);
+  return Number.isFinite(raw) && raw > 0 ? raw * 1000 : REMOTE_REFRESH_POLL_MS;
+}
+
+/** Ghi lượt tải mới nhất vào bản sao `remote-skus`; chưa có bản sao (lần GET lỗi) thì tạo bản rỗng */
+function writeRefresh(queryClient: QueryClient, key: readonly unknown[], refresh: RemoteSkusRefresh | null) {
+  queryClient.setQueryData<RemoteSkuList>(key, (old) => (old ? { ...old, refresh } : { syncedAt: null, items: [], refresh }));
+}
+
 /**
- * Nút Tải lại (§18.6.5, BE#220): BE đọc trọn SKU từ sàn rồi trả như `GET remote-skus`. Lần đọc trọn trước còn trong 60 giây
- * thì BE trả bản sao, không gọi sàn
+ * Ghi kết quả POST Tải lại vào bản sao `remote-skus`. BE trước BE#361 trả cả danh sách: ghi thẳng, không hỏi lại.
+ * 202 (lượt chạy): ghi lượt, `useRemoteSkusRefresh` hỏi tiếp. 200 (thành công trong 60 giây): nạp lại danh sách
+ */
+export function applyRefreshResult(
+  queryClient: QueryClient,
+  key: readonly unknown[],
+  data: RemoteSkusRefreshResult | RemoteSkuList,
+) {
+  if ('items' in data) {
+    queryClient.setQueryData(key, data);
+    return;
+  }
+  writeRefresh(queryClient, key, data.refresh);
+  if (data.refresh?.status !== 'running') void queryClient.invalidateQueries({ queryKey: key });
+}
+
+/**
+ * Nút Tải lại (§18.3, §18.6.5, BE#361): BE chạy nền, POST chỉ trả lượt tải. 202 khi vừa bắt đầu hoặc đang có lượt chạy;
+ * 200 khi lần đọc trọn thành công trước còn trong 60 giây thì nạp lại `GET remote-skus`. Lượt chạy thì
+ * useRemoteSkusRefresh hỏi lại tới khi xong
  */
 export function useRefreshRemoteSkus() {
   const companyId = useCompanyId();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (shopId: string) => {
-      const { data } = await apiClient.post<RemoteSkuList>(`/channel/shops/${shopId}/remote-skus/refresh`);
+      const { data } = await apiClient.post<RemoteSkusRefreshResult | RemoteSkuList>(
+        `/channel/shops/${shopId}/remote-skus/refresh`,
+      );
       return data;
     },
-    onSuccess: (data, shopId) => queryClient.setQueryData(shopKeys.remoteSkus(companyId, shopId), data),
+    onSuccess: (data, shopId) => applyRefreshResult(queryClient, shopKeys.remoteSkus(companyId, shopId), data),
   });
+}
+
+/** Một lần hỏi lượt tải: `since` là lúc bắt đầu hỏi lượt này, `stuck` khi đã hỏi quá 10 phút mà vẫn chạy */
+export interface RemoteRefreshPoll {
+  refresh: RemoteSkusRefresh | null;
+  pollMs: number;
+  since: number;
+  stuck: boolean;
+}
+
+/**
+ * Cấu hình hỏi `GET remote-skus/refresh` cho lượt đang chạy `startedAt` (null thì không hỏi). Hỏi theo `Retry-After`
+ * (mặc định 3 giây); lượt xong (succeeded/failed) thì ghi vào bản sao, nạp lại danh sách rồi thôi hỏi; quá 10 phút vẫn chạy
+ * thì `stuck` và thôi hỏi. Tách khỏi hook để test bằng QueryObserver (bộ máy của useQuery)
+ */
+export function remoteSkusRefreshOptions(
+  queryClient: QueryClient,
+  companyId: string,
+  shopId: string,
+  startedAt: string | null,
+) {
+  const queryKey = [...shopKeys.remoteSkusRefresh(companyId, shopId), startedAt] as const;
+  return queryOptions({
+    queryKey,
+    enabled: Boolean(companyId && shopId && startedAt),
+    gcTime: 0,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.refresh?.status === 'running' && !data.stuck ? data.pollMs : false;
+    },
+    queryFn: async (): Promise<RemoteRefreshPoll> => {
+      const since = queryClient.getQueryData<RemoteRefreshPoll>(queryKey)?.since ?? Date.now();
+      const res = await apiClient.get<RemoteSkusRefreshResult>(`/channel/shops/${shopId}/remote-skus/refresh`);
+      const next = res.data.refresh;
+      if (next?.status !== 'running') {
+        const key = shopKeys.remoteSkus(companyId, shopId);
+        writeRefresh(queryClient, key, next);
+        await queryClient.invalidateQueries({ queryKey: key });
+      }
+      return {
+        refresh: next,
+        pollMs: pollDelay(res.headers),
+        since,
+        stuck: next?.status === 'running' && Date.now() - since >= REMOTE_REFRESH_LIMIT_MS,
+      };
+    },
+  });
+}
+
+/** Hỏi lại khi lượt tải gần nhất đang chạy, từ nút Tải lại hay từ lần mở trang (xem remoteSkusRefreshOptions) */
+export function useRemoteSkusRefresh(shopId: string, refresh: RemoteSkusRefresh | null | undefined) {
+  const companyId = useCompanyId();
+  const queryClient = useQueryClient();
+  const running = refresh?.status === 'running' ? refresh.startedAt : null;
+  const status = useQuery(remoteSkusRefreshOptions(queryClient, companyId, shopId, running));
+  return {
+    running: running !== null,
+    stuck: running !== null && Boolean(status.data?.stuck),
+    error: running ? status.error : null,
+  };
 }
 
 /**
@@ -295,6 +419,31 @@ export function useDelistListing() {
     mutationFn: async ({ shopId, variantId, version }: { shopId: string; variantId: string; version: number }) => {
       const { data } = await apiClient.post<ChannelListing>(
         `/channel/shops/${shopId}/listings/${variantId}/delist`,
+        { version },
+      );
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** CEO quyết thay đổi ngoài app của listing (§18.3, commerio-backend#360) */
+export function useResolveOutsideChange() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({
+      shopId,
+      listingId,
+      action,
+      version,
+    }: {
+      shopId: string;
+      listingId: string;
+      action: OutsideChangeAction;
+      version: number;
+    }) => {
+      const { data } = await apiClient.post<ChannelListing>(
+        `/channel/shops/${shopId}/listings/${listingId}/outside-change/${action}`,
         { version },
       );
       return data;

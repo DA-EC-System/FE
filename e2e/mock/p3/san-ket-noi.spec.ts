@@ -60,14 +60,24 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
     await quaToken();
     const form = page.locator('[data-testid=token-form]');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
-    await expect(chua(form, 'Nhập access token')).toBeVisible();
-    await form.getByLabel('Access token', { exact: true }).fill('sai');
+    await expect(chua(form, 'Nhập mã truy cập')).toBeVisible();
+    await form.getByLabel('Mã truy cập (access token)', { exact: true }).fill('sai');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
+    // FE#250: token sai (marketplace_unauthorized) nói lấy token mới ở đâu; câu gốc của sàn trong "Chi tiết từ sàn"
     await expect(chua(form, 'Sàn từ chối token này')).toBeVisible();
+    await form.getByRole('button', { name: 'Chi tiết từ sàn' }).click();
+    await expect(chua(form, 'The specified access token is invalid or expired')).toBeVisible();
+    // Gian hàng đang nối ở công ty khác: màn kết quả như uỷ quyền, không chỉ một dòng lỗi
+    await form.getByLabel('Mã truy cập (access token)', { exact: true }).fill('cong-ty-khac');
+    await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
+    const oCongTyKhac = section.locator('[data-outcome=elsewhere]');
+    await expect(oCongTyKhac).toContainText('Gian hàng này đang nối ở một công ty khác');
+    await expect(oCongTyKhac).toContainText('lấy token của đúng gian hàng');
+    await oCongTyKhac.getByRole('button', { name: 'Dán token khác', exact: true }).click();
     await form.getByRole('button', { name: 'Chọn sàn khác', exact: true }).click();
     await expect(form).toHaveCount(0);
     await quaToken();
-    await page.getByLabel('Access token', { exact: true }).fill('tok-abc123');
+    await page.getByLabel('Mã truy cập (access token)', { exact: true }).fill('tok-abc123');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
     const ketQua = section.locator('[data-outcome=connected]');
     await expect(ketQua).toContainText('Đã nối Shop thử ABC123');

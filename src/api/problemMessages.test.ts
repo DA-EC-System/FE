@@ -1,7 +1,14 @@
 import { AxiosError, AxiosHeaders } from 'axios';
 import { describe, expect, it } from 'vitest';
 import { getErrorMessage, notImplementedMessage, type ProblemDetails } from './client';
-import { openOrdersMessage, problemMessage, shopMismatchMessage } from './problemMessages';
+import {
+  isRouteMissing,
+  openOrdersMessage,
+  problemMessage,
+  problemSummary,
+  shopMismatchMessage,
+  tokenErrorMessage,
+} from './problemMessages';
 
 const loi = (data: ProblemDetails) =>
   new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
@@ -134,5 +141,104 @@ describe('đẩy listing (§18.6.8, §18.6.10)', () => {
     expect(problemMessage(loi({ code: 'shop_not_awaiting_stocktake' }))).toBe(
       'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ.',
     );
+  });
+});
+
+describe('404 vì chưa có route khác 404 bản ghi không có (FE#248)', () => {
+  const ROUTE = 'Chức năng này chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.';
+  const routeMissing = loi({ status: 404, title: 'Not Found', code: 'not_found', detail: 'Không có đường dẫn GET /api/v1/tasks' });
+  const recordMissing = loi({ status: 404, title: 'Not Found', code: 'not_found', detail: 'Không tìm thấy sản phẩm' });
+
+  it('route chưa có: báo chưa mở, không nói bản ghi bị xoá', () => {
+    expect(isRouteMissing(routeMissing)).toBe(true);
+    expect(problemMessage(routeMissing)).toBe(ROUTE);
+  });
+
+  it('route chưa có mà BE không gửi code vẫn nhận ra', () => {
+    expect(problemMessage(loi({ status: 404, title: 'Not Found', detail: 'Không có đường dẫn POST /api/v1/x' }))).toBe(ROUTE);
+  });
+
+  it('bản ghi không có: giữ câu not_found', () => {
+    expect(isRouteMissing(recordMissing)).toBe(false);
+    expect(problemMessage(recordMissing)).toBe('Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.');
+  });
+
+  it('không phải 404 thì không coi là route chưa có', () => {
+    expect(isRouteMissing(loi({ status: 409, code: 'conflict', detail: 'Không có đường dẫn GET /x' }))).toBe(false);
+    expect(isRouteMissing(new Error('mạng'))).toBe(false);
+  });
+});
+
+describe('lỗi sàn chung theo ngữ cảnh (FE#250, Documents/21 §18.4)', () => {
+  const rejected = (extra: ProblemDetails = {}) => loi({ status: 409, code: 'marketplace_rejected', detail: 'Sàn từ chối yêu cầu', ...extra });
+  const unauthorized = (extra: ProblemDetails = {}) =>
+    loi({ status: 409, code: 'marketplace_unauthorized', detail: 'Sàn từ chối token của gian hàng, cần kết nối lại', ...extra });
+  const CONNECT = 'Sàn không nhận lần uỷ quyền này. Liên kết uỷ quyền chỉ dùng được một lần trong vài phút; bấm Kết nối lại từ đầu.';
+
+  it('không truyền ngữ cảnh: câu chung, không còn câu huỷ đơn', () => {
+    expect(problemMessage(rejected())).toBe('Sàn từ chối thao tác này.');
+    expect(problemMessage(unauthorized())).toBe('Sàn từ chối quyền truy cập của gian hàng. Kết nối lại gian hàng rồi thử lại.');
+  });
+
+  it.each([
+    ['rts', 'Sàn chưa nhận báo sẵn sàng giao của kiện này. Tải lại kiện để xem trạng thái trên sàn rồi thử lại.'],
+    ['push', 'Sàn từ chối đẩy sản phẩm.'],
+    ['remote_skus', 'Sàn chưa trả được danh sách SKU. Thử lại sau ít phút.'],
+    ['cancel', 'Sàn không cho huỷ đơn này.'],
+    ['connect', CONNECT],
+  ] as const)('marketplace_rejected khi %s', (action, text) => {
+    expect(problemMessage(rejected(), action)).toBe(text);
+  });
+
+  it('callback Lazada mã đã dùng (marketplace_unauthorized InvalidCode) cũng là câu kết nối', () => {
+    expect(problemMessage(unauthorized({ platformCode: 'InvalidCode' }), 'connect')).toBe(CONNECT);
+  });
+
+  it('no_shop: tài khoản không có gian hàng', () => {
+    expect(problemMessage(rejected({ platformCode: 'no_shop' }), 'connect')).toBe(
+      'Tài khoản này không có gian hàng nào trên sàn. Đăng nhập (hoặc lấy token) bằng tài khoản người bán có gian hàng.',
+    );
+  });
+
+  it('too_many_products khi đọc SKU sàn', () => {
+    expect(problemMessage(rejected({ platformCode: 'too_many_products' }), 'remote_skus')).toBe(
+      'Gian hàng quá 10.000 sản phẩm, sàn không cho đọc hết danh sách.',
+    );
+  });
+
+  it('ngữ cảnh không đổi câu của mã khác', () => {
+    expect(problemMessage(loi({ status: 409, code: 'already_handed_over' }), 'cancel')).toBe('Đơn đã có kiện bàn giao, không huỷ được nữa.');
+  });
+
+  it('problemMessage nối câu gốc của sàn, problemSummary tách riêng', () => {
+    const e = rejected({ platformMessage: 'invalid auth code' });
+    expect(problemMessage(e, 'connect')).toBe(`${CONNECT} Sàn báo: invalid auth code`);
+    expect(problemSummary(e, 'connect')).toEqual({ message: CONNECT, platformMessage: 'invalid auth code' });
+    expect(problemSummary(rejected(), 'connect')).toEqual({ message: CONNECT });
+  });
+
+  describe('dán token', () => {
+    it.each([
+      ['lazada', 'ở Lazada Open Platform → Testing Tools → API Explorer'],
+      ['tiktok', 'ở TikTok Shop Partner Center → API Testing Tool'],
+      ['shopee', 'trên trang nhà phát triển của sàn'],
+    ])('%s: câu nêu nơi lấy token, cho cả hai mã', (platform, source) => {
+      const text = `Sàn từ chối token này. Kiểm tra lại token hoặc lấy token mới ${source}.`;
+      expect(tokenErrorMessage(unauthorized({ platformMessage: 'Invalid token' }), platform)).toEqual({
+        message: text,
+        platformMessage: 'Invalid token',
+      });
+      expect(tokenErrorMessage(rejected(), platform).message).toBe(text);
+    });
+
+    it('no_shop không nói token sai', () => {
+      expect(tokenErrorMessage(rejected({ platformCode: 'no_shop' }), 'lazada').message).toMatch(/^Tài khoản này không có gian hàng/);
+    });
+
+    it('mã khác giữ câu chung', () => {
+      expect(tokenErrorMessage(loi({ status: 422, code: 'marketplace_unsupported' }), 'lazada').message).toBe(
+        'Sàn này chưa hỗ trợ thao tác này.',
+      );
+    });
   });
 });

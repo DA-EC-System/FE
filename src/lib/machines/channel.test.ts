@@ -71,6 +71,13 @@ describe('Listing (sơ đồ C2)', () => {
     expect(listingMachine.available('live', owner).map((t) => t.action)).not.toContain('request_review');
   });
 
+  it('sàn đổi ngoài app: hệ thống ẩn, CEO quyết bằng quyền listing.manage (commerio-backend#360)', () => {
+    expect(listingMachine.check('live', 'outside_hold')).toEqual({ ok: true, to: 'hidden' });
+    expect(listingMachine.available('live', owner).map((t) => t.action)).not.toContain('outside_hold');
+    expect(listingMachine.check('hidden', 'outside_resolve', { actor: owner })).toEqual({ ok: true, to: 'live' });
+    expect(listingMachine.check('hidden', 'outside_resolve', { actor: viewer }).ok).toBe(false);
+  });
+
   it('sàn khoá được cả listing đang ẩn, gỡ khoá thì bán lại', () => {
     expect(listingMachine.check('hidden', 'hold', { actor: owner })).toEqual({ ok: true, to: 'platform_hold' });
     expect(listingMachine.check('platform_hold', 'release', { actor: owner })).toEqual({ ok: true, to: 'live' });

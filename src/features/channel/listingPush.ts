@@ -1,5 +1,6 @@
 import { codeMessage } from '@/api/problemMessages';
-import type { ChannelListing, ListingRow, ListingStatus, PushResult, SyncError } from '@/types/shop';
+import type { ChannelListing, ListingRow, ListingStatus, OutsideChange, PushResult, SyncError } from '@/types/shop';
+import { priceText } from '@/utils/price';
 
 /** Còn dòng đang đẩy thì đọc lại mỗi 5 giây, tối đa 30 phút (§18.6.4) */
 export const LISTING_POLL_MS = 5000;
@@ -46,23 +47,82 @@ export function listingStatusHint(l: ChannelListing, listingReview: boolean): st
     case 'platform_hold':
       return 'Sàn đang khoá sản phẩm. Sửa trên sàn rồi đẩy lại.';
     case 'hidden':
+      if (l.outsideChange) return outsideChangeHint(l.outsideChange);
       return l.hiddenBy === 'zero_stock'
-        ? 'SKU tạm ngừng bán. Sàn không ẩn riêng phân loại nên Commerio đẩy tồn 0.'
-        : 'SKU tạm ngừng bán nên đang ẩn trên sàn.';
+        ? 'SKU tạm ngừng bán. Sàn không ẩn riêng phân loại nên Commerio đẩy tồn 0. Bỏ tạm ngừng ở trang sản phẩm thì bán lại.'
+        : 'SKU tạm ngừng bán nên đang ẩn trên sàn. Bỏ tạm ngừng ở trang sản phẩm thì tự hiện lại.';
     case 'delisted':
       return 'Đã gỡ khỏi sàn. Ghép SKU vẫn giữ để đẩy lại.';
   }
 }
 
+/** Nhãn khi sàn đổi listing ngoài app (§18.6.6, commerio-backend#360) */
+export function outsideChangeLabel(oc: OutsideChange): string {
+  return oc.kind === 'disabled'
+    ? 'Sàn tắt ngoài app (chờ CEO quyết)'
+    : `Giá trên sàn bị sửa: ${priceText(oc.platformPrice)} (chờ CEO quyết)`;
+}
+
+/** Giải thích thay đổi ngoài app cho tooltip */
+export function outsideChangeHint(oc: OutsideChange): string {
+  return oc.kind === 'disabled'
+    ? 'SKU bị tắt trên sàn, ngoài Commerio. Kiểm tra trên Seller Center của sàn. Commerio thôi đẩy tồn cho tới khi CEO bật lại hoặc gỡ khỏi sàn.'
+    : 'Giá gốc trên sàn khác giá Commerio đẩy lần trước nên Commerio tạm ẩn SKU. CEO chọn đẩy lại giá Commerio hoặc nhận giá trên sàn. Giá khuyến mãi của sàn không tính.';
+}
+
 /** Mã lỗi đẩy BE ghi riêng, `message` là câu gốc của sàn (§18.6.4, commerio-backend#305) */
 const PRECHECK_CODES = new Set(['shop_not_eligible', 'listing_check_failed']);
 
+/** Mã lỗi đẩy mà `message` là câu của sàn, dịch được theo bảng dưới */
+const PLATFORM_MESSAGE_CODES = new Set(['marketplace_rejected', 'marketplace_unavailable', ...PRECHECK_CODES]);
+
 /**
- * Câu hiện cho lỗi đẩy của listing. Mã kiểm trước khi tạo sản phẩm của TikTok: câu tiếng Việt kèm câu gốc của sàn;
- * mã khác giữ `message` BE trả
+ * Câu sàn hay gặp khi đẩy (FE#250, TT-U03). `pushError` không có mã sàn nên khớp theo câu; nguồn câu thật: test và gọi
+ * thật của commerio-backend (#305, #347), staging 17/11/2026
  */
-export function pushErrorText(e: SyncError): string {
-  if (!PRECHECK_CODES.has(e.code)) return e.message;
-  const vi = codeMessage(e.code);
-  return e.message ? `${vi} Sàn báo: ${e.message}` : vi;
+const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) => string }[] = [
+  {
+    pattern: /12052051|product (name|title)`?[^.;]*(\b25\b[^;]*\b255\b|must be within 25\b)/i,
+    text: () => 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đẩy lại.',
+  },
+  {
+    pattern: /size_chart(_image)?`? is required/i,
+    text: () => 'Danh mục TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đẩy lại.',
+  },
+  {
+    pattern: /^12052104:/,
+    text: () => 'Danh mục sàn bắt buộc một thuộc tính còn thiếu. Bổ sung ở trang sản phẩm rồi đẩy lại.',
+  },
+  {
+    pattern: /Category attribute "([^"]+)" is mandatory/i,
+    text: (m) => `Danh mục Lazada bắt buộc thuộc tính "${m[1]}". Bổ sung ở trang sản phẩm rồi đẩy lại.`,
+  },
+];
+
+function translatePart(part: string): string | null {
+  for (const t of PUSH_ERROR_TRANSLATIONS) {
+    const m = part.match(t.pattern);
+    if (m) return t.text(m);
+  }
+  return null;
+}
+
+/**
+ * Câu hiện cho lỗi đẩy của listing và câu gốc của sàn (hiện trong "Chi tiết từ sàn"). Câu sàn hay gặp dịch theo bảng;
+ * `listing_check_failed` có nhiều lỗi nối bằng "; " thì dịch từng phần. Mã kiểm trước khi tạo sản phẩm của TikTok không
+ * dịch được thì dùng câu chung của mã; mã khác không khớp thì giữ `message` BE trả
+ */
+export function pushErrorText(e: SyncError): { text: string; platformMessage?: string } {
+  if (!PLATFORM_MESSAGE_CODES.has(e.code) || !e.message) {
+    return { text: e.message || codeMessage(e.code) };
+  }
+  const precheck = PRECHECK_CODES.has(e.code);
+  const parts = precheck ? e.message.split('; ') : [e.message];
+  const translated = parts.map(translatePart);
+  const texts = [...new Set(translated.filter((t): t is string => t !== null))];
+  if (translated.some((t) => t === null)) {
+    if (!precheck && texts.length === 0) return { text: e.message };
+    texts.push(codeMessage(e.code));
+  }
+  return { text: texts.join(' '), platformMessage: e.message };
 }

@@ -1,10 +1,7 @@
 /**
- * Report types — báo cáo kinh doanh, lãi theo gian hàng, chuỗi theo ngày (UC-RP-01, UC-RP-02).
+ * Report types — số liệu kinh doanh của trang chủ: tổng quan, chuỗi theo ngày (UC-RP-01).
  * Hợp đồng theo Documents/21 mục 12.7, 12.8, BE ở commerio-backend#29 (PR #60).
  */
-
-import type { StatusChange } from '@/lib/stateMachine';
-import type { OrderSource } from './sales';
 
 /** Tiền là số nguyên đồng. `cogs`, `profit` là `null` khi người xem thiếu `inventory.cost.view` */
 export interface ReportFigures {
@@ -29,17 +26,6 @@ interface ReportHead {
 
 export type ReportOverview = ReportHead & ReportFigures;
 
-export interface ShopFigures extends ReportFigures {
-  source: OrderSource;
-  /** `null` với hộp thư, đơn tạo tay; gian hàng đã xoá khỏi kênh thì `shopName`, `platform` là `null` */
-  shop: { id: string; shopName: string | null; platform: string | null } | null;
-}
-
-export interface ReportShops extends ReportHead {
-  items: ShopFigures[];
-  total: ReportFigures;
-}
-
 export interface DailyFigures extends ReportFigures {
   day: string;
 }
@@ -48,20 +34,4 @@ export interface ReportDaily extends ReportHead {
   items: DailyFigures[];
 }
 
-export type ReportKind = 'overview' | 'shops' | 'daily';
-
-/** Một lần tự duyệt (Documents/21 mục 14.1, commerio-backend#246): `entityType` là tên bảng như `statusHistory` */
-export interface SelfApproval extends StatusChange {
-  entityType: string;
-  entityId: string;
-  action: string;
-}
-
-export interface ReportSelfApprovals {
-  from: string;
-  to: string;
-  items: SelfApproval[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+export type ReportKind = 'overview' | 'daily';

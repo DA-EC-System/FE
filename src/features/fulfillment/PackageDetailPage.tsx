@@ -25,7 +25,7 @@ import {
   usePrintPackageDocuments,
 } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { DetailGrid, PageError, PageLoading } from '@/features/purchasing/parts';
 import { sourceLabel } from '@/features/sales/shared';
@@ -88,7 +88,7 @@ export function PackageDetailPage() {
 
   if (query.isLoading) return <PageLoading />;
   if (query.isError || !query.data) {
-    const notFound = getProblem(query.error)?.status === 404;
+    const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
     return <PageError message={notFound ? 'Không tìm thấy kiện' : problemMessage(query.error)} onBack={back} />;
   }
   const p = query.data;
@@ -111,8 +111,9 @@ export function PackageDetailPage() {
         return;
       }
       const fieldError = problem?.errors ? Object.values(problem.errors)[0] : undefined;
-      if (pending) setError(fieldError ?? problemMessage(e));
-      else toast.error(problemMessage(e));
+      const message = problemMessage(e, cmd.kind === 'ready' ? 'rts' : undefined);
+      if (pending) setError(fieldError ?? message);
+      else toast.error(message);
     }
   };
 

@@ -45,6 +45,9 @@ const weekday = (d: string) => {
  * Tổng quan công ty theo `v-tong-quan` của Test_UI v4 (FE#134): dải chỉ số, việc cần làm, doanh thu theo ngày,
  * vai trò và phân hệ. Số kinh doanh chỉ hiện khi có quyền báo cáo (D18); ai cũng thấy chỉ số việc cần làm.
  */
+/** Thẻ đếm việc khi chưa đọc được /tasks: không hiện 0 (FE#248) */
+const TASKS_UNREAD = 'Chưa tải được việc cần làm';
+
 export function CompanyHomePage() {
   const { companyContext } = useAuth();
   const can = useCan();
@@ -74,7 +77,10 @@ export function CompanyHomePage() {
   const spark = daily.data?.items.slice(-7).map((d) => d.revenue);
   const money = compactMoney(revenue);
   const profitMoney = profit === null ? null : compactMoney(profit);
-  const reportLink = ROUTES.company.reports(companyContext.companyId);
+  // Lần tự duyệt xem ở Nhật ký thao tác, lọc sẵn (Documents/25 mục 11; FE#249)
+  const selfApprovalLink = can(PERMISSIONS.auditView)
+    ? `${ROUTES.company.auditLogs(companyContext.companyId)}?selfApproved=true`
+    : null;
 
   return (
     <>
@@ -125,16 +131,18 @@ export function CompanyHomePage() {
               label="Việc quá hạn"
               help="Việc đã quá hạn xử lý trong các phân hệ bạn có quyền."
               loading={tasks.isLoading}
-              value={<span className={cn(overdue > 0 && 'text-destructive')}>{overdue}</span>}
-              detail={overdue > 0 ? 'Xử lý trước các việc khác' : 'Không có việc trễ hạn'}
+              value={tasks.isError ? '—' : <span className={cn(overdue > 0 && 'text-destructive')}>{overdue}</span>}
+              detail={
+                tasks.isError ? TASKS_UNREAD : overdue > 0 ? 'Xử lý trước các việc khác' : 'Không có việc trễ hạn'
+              }
             />
             <Kpi
               data-kpi="due-soon"
               label="Việc sắp tới hạn"
               help="Việc còn dưới 24 giờ tới hạn, như kiện phải giao cho sàn hay phiếu chờ duyệt."
               loading={tasks.isLoading}
-              value={dueSoon}
-              detail={`Trong ${items.length} việc cần làm`}
+              value={tasks.isError ? '—' : dueSoon}
+              detail={tasks.isError ? TASKS_UNREAD : `Trong ${items.length} việc cần làm`}
             />
           </KpiStrip>
         </div>
@@ -176,11 +184,6 @@ export function CompanyHomePage() {
                 ) : (
                   <RevenueChart items={daily.data?.items ?? []} />
                 )}
-                {reportLink && (
-                  <Link to={reportLink} className="mt-3 inline-block text-sm text-primary hover:underline">
-                    Xem báo cáo kinh doanh
-                  </Link>
-                )}
               </Panel>
             )}
           </div>
@@ -213,6 +216,17 @@ export function CompanyHomePage() {
                   )}
                 </dd>
               </div>
+              {selfApprovalLink && (
+                <div className="grid gap-2">
+                  <dt className="text-muted-foreground">Lần tự duyệt</dt>
+                  <dd className="grid gap-1">
+                    <span>CEO, hoặc công ty chỉ có một người, tự làm bước cần người duyệt khác.</span>
+                    <Link to={selfApprovalLink} className="text-primary hover:underline">
+                      Xem lần tự duyệt
+                    </Link>
+                  </dd>
+                </div>
+              )}
             </dl>
           </Panel>
         </div>

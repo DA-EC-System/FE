@@ -8,13 +8,18 @@ import { shopHandlers } from './channel';
 const server = setupServer(...shopHandlers);
 const snapListings = structuredClone(listings);
 const snapUnmanaged = structuredClone(unmanagedSkus);
-beforeAll(() => {
+beforeAll(async () => {
   vi.stubGlobal('location', new URL('http://localhost'));
   server.listen({ onUnhandledRequest: 'error' });
+  // Lần GET remote-skus đầu tự bắt đầu lượt tải chạy nền (BE#361), xong mới có danh sách: cho đồng hồ đi qua lượt đó
+  await call(CEO, 'GET', '/remote-skus');
+  const now = Date.now.bind(Date);
+  vi.spyOn(Date, 'now').mockImplementation(() => now() + 60_000);
 });
 afterAll(() => {
   server.close();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 beforeEach(() => {
   listings.splice(0, listings.length, ...structuredClone(snapListings));

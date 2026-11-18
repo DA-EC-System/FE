@@ -41,8 +41,11 @@ describe('filterCommands', () => {
     const r = labels('don');
     expect(r[0]).toBe('Đơn hàng');
     // "Kiện hàng" chỉ khớp tên nhóm "Đơn hàng" nên đứng sau mọi mục khớp tên
-    expect(r.indexOf('Kiện hàng')).toBe(r.length - 3);
-    expect(r.slice(-3)).toEqual(['Kiện hàng', 'Yêu cầu trả', 'Khách hàng']);
+    expect(r.indexOf('Kiện hàng')).toBe(r.length - 2);
+    expect(r.slice(-2)).toEqual(['Kiện hàng', 'Yêu cầu trả']);
+    // Khách hàng, Báo cáo kinh doanh ngoài MVP: không còn trong menu nên không còn trong Ctrl K (FE#249)
+    expect(labels('khach hang')).toEqual([]);
+    expect(labels('bao cao')).toEqual([]);
   });
 
   it('chữ rỗng giữ nguyên danh sách', () => {
@@ -67,10 +70,11 @@ describe('quickActions', () => {
         ['sales', 'purchasing', 'catalog', 'channel'],
       ),
     );
-    expect(all.map((a) => a.label)).toEqual(['Tạo đơn', 'Tạo đề nghị nhập', 'Thêm sản phẩm', 'Thêm gian hàng']);
+    // Không còn "Tạo đơn": đơn tạo tay ngoài MVP (FE#249)
+    expect(all.map((a) => a.label)).toEqual(['Tạo đề nghị nhập', 'Thêm sản phẩm', 'Thêm gian hàng']);
     expect(all.find((a) => a.id === 'shop-new')).toMatchObject({ to: `/c/${C}/channel/shops`, state: { addShop: true } });
 
-    const noPurchasing = quickActions(ctx(['sales.order.create', 'purchasing.request.manage'], ['sales']));
-    expect(noPurchasing.map((a) => a.label)).toEqual(['Tạo đơn']);
+    const noPurchasing = quickActions(ctx(['catalog.product.manage', 'purchasing.request.manage'], ['catalog']));
+    expect(noPurchasing.map((a) => a.label)).toEqual(['Thêm sản phẩm']);
   });
 });

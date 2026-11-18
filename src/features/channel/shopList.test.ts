@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Shop } from '@/types/shop';
-import { needsAction, shopPage, shopPlatformOptions } from './shopList';
+import { missingReturnWindow, needsAction, shopPage, shopPlatformOptions } from './shopList';
 
 const shops = Array.from({ length: 31 }, (_, i): Shop => ({
   id: `shop-${i}`, companyId: 'company', platform: i === 30 ? 'mock' : 'lazada',
   externalShopId: `SELLER-${i}`, shopName: `Gian hàng ${i}`, status: i === 30 ? 'disconnected' : 'active',
-  region: 'VN', capabilities: { listingReview: false, hideBy: 'deactivate', splitLevel: 'none', returnWindow: 'days' }, authExpiresAt: null, tokenExpiringSoon: false, accessExpiresAt: null, refreshExpiresAt: null, orderCutoffAt: null, returnWindowDays: null, openingStocktake: null, pendingJobs: 0,
+  region: 'VN', capabilities: { listingReview: false, hideBy: 'deactivate', splitLevel: 'none', returnWindow: 'days' }, authExpiresAt: null, tokenExpiringSoon: false, accessExpiresAt: null, refreshExpiresAt: null, orderCutoffAt: null, returnWindowDays: 7, openingStocktake: null, pendingJobs: 0,
   listingCount: 0, orders7d: 0, pendingOrderCount: 0, statusChangedAt: '2026-10-29T00:00:00Z', feeConfigVersion: null, setup: null,
   version: 1, createdAt: '2026-10-29T00:00:00Z', updatedAt: '2026-10-29T00:00:00Z',
 }));
@@ -39,5 +39,21 @@ describe('danh sách gian hàng không phân trang từ BE', () => {
     const list = [base, { ...base, id: 'x', status: 'connecting' as const }, shops[30]];
     expect(shopPage(list, { ...filters, segment: 'needs_action' }).items.map((s) => s.id)).toEqual(['x']);
     expect(shopPage(list, { ...filters, segment: 'disconnected' }).items).toEqual([shops[30]]);
+  });
+});
+
+describe('chưa nhập số ngày hạn trả (§18.7.2, FE#273)', () => {
+  const base = shops[0];
+  const tiktok = { ...base, capabilities: { ...base.capabilities, returnWindow: 'platform_status' as const }, returnWindowDays: null };
+  it('đang bán, sàn tính theo số ngày mà chưa có số ngày thì cần xử lý', () => {
+    expect(missingReturnWindow({ ...base, returnWindowDays: null })).toBe(true);
+    expect(needsAction({ ...base, returnWindowDays: null })).toBe(true);
+  });
+  it('có số ngày, sàn tự báo hạn, hay không còn bán thì không', () => {
+    expect(missingReturnWindow(base)).toBe(false);
+    expect(missingReturnWindow(tiktok)).toBe(false);
+    expect(needsAction(tiktok)).toBe(false);
+    expect(missingReturnWindow({ ...base, returnWindowDays: null, status: 'disconnected' })).toBe(false);
+    expect(missingReturnWindow({ ...base, returnWindowDays: null, status: 'connecting' })).toBe(false);
   });
 });

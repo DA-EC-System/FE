@@ -3,12 +3,14 @@ import { PERMISSIONS } from '@/utils/permissions';
 import {
   cancelPlan,
   completionBlocker,
+  handoverConfirmed,
   isDueSoon,
   orderMachine,
   outcomeOf,
   packageMachine,
   platformUpdate,
   stageOf,
+  stagesFor,
   stockEffect,
   type OrderRecord,
   type PackageRecord,
@@ -156,14 +158,24 @@ describe('Kiện (sơ đồ D2)', () => {
     }
   });
 
-  it('không đảo bàn giao khi sàn đã xác nhận lấy', () => {
+  it('không đảo bàn giao khi sàn đã xác nhận lấy (cùng mã lỗi BE, 21 §19.2)', () => {
     expect(
       packageMachine.check('in_transit', 'undo_handover', {
         actor: ceo,
-        record: { ...market, pickupConfirmed: true },
+        record: { ...market, handoverConfirmed: true },
         reason: 'Quét nhầm',
       }),
-    ).toEqual({ ok: false, code: 'pickup_confirmed' });
+    ).toEqual({ ok: false, code: 'handover_confirmed_by_platform' });
+  });
+
+  it('chỉ kiện kho quét mà sàn chưa xác nhận lấy mới đảo được; BE chưa trả trường thì không chặn', () => {
+    expect(handoverConfirmed({ handoverSource: 'scan', pickupConfirmedAt: null })).toBe(false);
+    expect(handoverConfirmed({ handoverSource: 'scan', pickupConfirmedAt: '2026-11-18T05:00:00Z' })).toBe(true);
+    for (const s of ['marketplace', 'forced', 'before_cutoff'] as const) {
+      expect(handoverConfirmed({ handoverSource: s, pickupConfirmedAt: null })).toBe(true);
+    }
+    expect(handoverConfirmed({ handoverSource: null, pickupConfirmedAt: null })).toBe(false);
+    expect(handoverConfirmed({})).toBe(false);
   });
 
   it('sàn đẩy cập nhật: có mũi tên thì áp, nhảy tới trên đường chính thì bù, còn lại cần xử lý', () => {
@@ -273,6 +285,53 @@ describe('Đơn bán (sơ đồ D1)', () => {
     expect(stageOf({ ...base, packages: ['packed'], flags: ['cancelling'] })).toBe('cancelling');
     expect(stageOf({ ...base, status: 'unpaid', packages: ['reserved'] })).toBe('awaiting_confirmation');
     expect(stageOf({ ...base, status: 'unpaid', paymentMethod: 'prepaid', packages: ['reserved'] })).toBe('awaiting_payment');
+  });
+
+  it('bộ lọc giai đoạn theo tab và nguồn (FE#288)', () => {
+    const processing = stagesFor('processing', 'marketplace');
+    expect(processing).toEqual([
+      'unmapped',
+      'cancelling',
+      'backordered',
+      'reserved',
+      'packed',
+      'awaiting_pickup',
+      'in_transit',
+      'self_delivering',
+      'delivery_failed',
+      'returning',
+      'lost',
+      'awaiting_completion',
+    ]);
+    expect(stagesFor('processing', '')).toEqual(processing);
+    expect(stagesFor('unpaid', 'marketplace')).toEqual(['unmapped', 'awaiting_payment']);
+    expect(stagesFor('unpaid', 'manual')).toEqual(['unmapped', 'awaiting_payment', 'awaiting_confirmation']);
+    expect(stagesFor('unpaid', '')).toEqual(['unmapped', 'awaiting_payment', 'awaiting_confirmation']);
+    expect(stagesFor('completed', '')).toEqual([]);
+    expect(stagesFor('cancelled', 'marketplace')).toEqual([]);
+    const all = stagesFor('', '');
+    expect(all).toHaveLength(14);
+    expect(all).not.toContain('delivered');
+    expect(all).not.toContain('returned');
+    expect(all).not.toContain('completed');
+    expect(stagesFor('', 'marketplace')).not.toContain('awaiting_confirmation');
+  });
+
+  it('mọi giai đoạn stageOf trả ra đều có trong bộ lọc của tab đó (FE#288)', () => {
+    const kinds: PackageStatus[] = [
+      'backordered', 'reserved', 'packed', 'awaiting_pickup', 'in_transit', 'self_delivering',
+      'delivered', 'delivery_failed', 'returning', 'returned', 'lost', 'cancelled',
+    ];
+    const sets: PackageStatus[][] = [[]];
+    for (const a of kinds) for (const b of kinds) sets.push([a], [a, b]);
+    for (const status of ['unpaid', 'processing'] as const)
+      for (const source of ['marketplace', 'manual'] as const)
+        for (const paymentMethod of ['cod', 'prepaid'] as const)
+          for (const flags of [[], ['unmapped_sku'], ['cancelling']] as const)
+            for (const packages of sets) {
+              const stage = stageOf({ status, source, paymentMethod, flags: [...flags], packages });
+              expect(stagesFor(status, source)).toContain(stage);
+            }
   });
 
   it('sắp trễ hạn khi còn kiện chưa rời kho', () => {

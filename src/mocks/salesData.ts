@@ -5,7 +5,7 @@
  * số Đang giữ, Thiếu hàng của tồn kho tính từ kiện.
  */
 
-import type { OpenPurpose, PackageStatus } from '@/types/fulfillment';
+import type { HandoverSource, OpenPurpose, PackageStatus } from '@/types/fulfillment';
 import type {
   LineCancelInitiator,
   LineCancelKind,
@@ -147,6 +147,9 @@ export interface MockPackage {
   lostReport: MockLostReport | null;
   handedOverAt: string | null;
   handedOverBy: string | null;
+  /** Như BE (21 §19.2): người bấm bàn giao là `scan`, sàn báo rời kho là `marketplace` kèm mốc xác nhận */
+  handoverSource: HandoverSource | null;
+  pickupConfirmedAt: string | null;
   deliveredAt: string | null;
   /** Người tự giao */
   deliveredBy: string | null;
@@ -992,6 +995,8 @@ function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageS
     lostReport: null,
     handedOverAt: null,
     handedOverBy: null,
+    handoverSource: null,
+    pickupConfirmedAt: null,
     deliveredAt: null,
     deliveredBy: null,
     createdAt: o.createdAt,
@@ -1013,6 +1018,7 @@ function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageS
     step('self_delivering', left, SALE);
     pkg.handedOverAt = left;
     pkg.handedOverBy = SALE;
+    pkg.handoverSource = 'scan';
     pkg.deliveredBy = SALE;
   } else {
     step('awaiting_pickup', plus(handover, -0.5), KHO);
@@ -1021,6 +1027,9 @@ function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageS
     step('in_transit', handover, KHO);
     pkg.handedOverAt = handover;
     pkg.handedOverBy = KHO;
+    pkg.handoverSource = 'scan';
+    // Đơn sàn đã đi xa hơn bàn giao trong dữ liệu mẫu: sàn đã xác nhận lấy, không đảo bàn giao được
+    if (o.source === 'marketplace') pkg.pickupConfirmedAt = handover;
   }
   const deliveredAt = at('delivered');
   if (target === 'delivered' && deliveredAt) {

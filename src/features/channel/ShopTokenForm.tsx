@@ -4,20 +4,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowLeft, KeyRound } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { FormTextField } from '@/components/common/FormTextField';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { useConnectShopByToken } from '@/api/shops.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { tokenErrorMessage, type ProblemSummary } from '@/api/problemMessages';
 import type { ShopCallbackResult } from '@/types/shop';
 import { ConnectSteps } from './ConnectOutcome';
+import type { ConnectFailure } from './connectFailure';
 
 /** Bước khi kiểm tra token với sàn; hiện trong lúc chờ BE */
 const TOKEN_STEPS = ['Gọi sàn kiểm tra token', 'Đọc mã gian hàng', 'Đối chiếu với gian hàng đã có'];
 
 const tokenSchema = z.object({
-  accessToken: z.string().trim().min(1, 'Nhập access token').max(2000, 'Token dài tối đa 2000 ký tự'),
+  accessToken: z.string().trim().min(1, 'Nhập mã truy cập').max(2000, 'Token dài tối đa 2000 ký tự'),
   refreshToken: z.string().trim().max(2000, 'Token dài tối đa 2000 ký tự'),
 });
 type TokenForm = z.infer<typeof tokenSchema>;
@@ -28,12 +30,14 @@ interface ShopTokenFormProps {
   onBack: () => void;
   onBusyChange: (busy: boolean) => void;
   onDone: (result: ShopCallbackResult) => void;
+  /** Lỗi có màn kết quả riêng (gian hàng đang nối ở công ty khác) */
+  onFailure: (failure: ConnectFailure) => void;
 }
 
-/** Cách 2: dán token lấy trên console của sàn (shop thử không đi OAuth được) */
-export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone }: ShopTokenFormProps) {
+/** Cách 2: dán token lấy ở trang nhà phát triển của sàn (shop thử không đi OAuth được) */
+export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone, onFailure }: ShopTokenFormProps) {
   const connect = useConnectShopByToken();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ProblemSummary | null>(null);
   const form = useForm<TokenForm>({
     resolver: zodResolver(tokenSchema),
     defaultValues: { accessToken: '', refreshToken: '' },
@@ -54,11 +58,12 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone }: 
       if (fields.accessToken) setFieldError('accessToken', { message: fields.accessToken });
       if (fields.refreshToken) setFieldError('refreshToken', { message: fields.refreshToken });
       if (fields.accessToken || fields.refreshToken) return;
-      setError(
-        problem?.code === 'marketplace_rejected'
-          ? 'Sàn từ chối token này. Kiểm tra lại token hoặc lấy token mới trên console của sàn.'
-          : problemMessage(e),
-      );
+      if (problem?.code === 'shop_connected_elsewhere') {
+        form.reset();
+        onFailure({ kind: 'elsewhere', via: 'token' });
+        return;
+      }
+      setError(tokenErrorMessage(e, platform));
     } finally {
       onBusyChange(false);
     }
@@ -68,12 +73,17 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone }: 
     <Form {...form}>
       <form onSubmit={onSubmit} noValidate className="grid gap-4" data-testid="token-form">
         <p className="font-medium">Dán token {name}</p>
-        {error && <AlertMessage severity="error">{error}</AlertMessage>}
+        {error && (
+          <AlertMessage severity="error">
+            <p>{error.message}</p>
+            <PlatformDetail text={error.platformMessage} />
+          </AlertMessage>
+        )}
         {connect.isPending && <ConnectSteps steps={TOKEN_STEPS} current={1} />}
         <FormTextField
           control={control}
           name="accessToken"
-          label="Access token"
+          label="Mã truy cập (access token)"
           password
           autoComplete="off"
           className="[&_input]:font-mono"
@@ -81,11 +91,11 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone }: 
         <FormTextField
           control={control}
           name="refreshToken"
-          label="Refresh token (không bắt buộc)"
+          label="Mã làm mới (refresh token, không bắt buộc)"
           password
           autoComplete="off"
           className="[&_input]:font-mono"
-          description="Có refresh token thì Commerio tự gia hạn; không có thì hết hạn phải kết nối lại."
+          description="Có mã làm mới thì Commerio tự gia hạn; không có thì hết hạn phải dán token mới."
         />
         <div className="flex justify-between gap-2">
           <Button type="button" variant="ghost" disabled={connect.isPending} onClick={onBack}>

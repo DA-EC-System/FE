@@ -46,7 +46,7 @@ const MODULE_HELP: Record<OptionalModuleKey, string> = {
   inbox: 'Tin nhắn khách gửi qua các kênh về một hộp thư, nhân viên trả lời ở một chỗ.',
   assistant:
     'Câu hỏi cùng dữ liệu liên quan của công ty được gửi tới OpenAI, nên khi bật CEO phải đồng ý gửi dữ liệu. Mật khẩu, khoá kết nối gian hàng và thông tin thanh toán không được gửi đi.',
-  report: 'Thêm mục Báo cáo kinh doanh: doanh thu, lợi nhuận, tồn kho theo khoảng thời gian chọn.',
+  report: 'Hiện doanh thu, lãi 7 ngày và biểu đồ doanh thu theo ngày trên trang Tổng quan.',
 };
 
 const MODULE_ICONS: Record<OptionalModuleKey, LucideIcon> = {

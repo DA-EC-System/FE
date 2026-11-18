@@ -30,7 +30,7 @@ export interface ShopPlatform {
   reason?: string | null;
 }
 
-/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy trên console của sàn (shop thử) */
+/** oauth: đăng nhập sàn rồi đồng ý cấp quyền; token: dán token lấy ở trang nhà phát triển của sàn (shop thử) */
 export type ShopConnectMethod = 'oauth' | 'token';
 
 export interface ShopList { items: Shop[] }
@@ -200,7 +200,23 @@ export type ListingAction =
   | 'hide'
   | 'unhide'
   | 'delist'
-  | 'request_review';
+  | 'request_review'
+  | 'outside_hold'
+  | 'outside_resolve';
+
+/**
+ * Sàn đổi listing ngoài app (21 §18.3, commerio-backend#360): sàn tắt SKU (`disabled`) hoặc giá gốc trên sàn khác giá
+ * app đẩy lần trước (`price_changed`). Listing giữ `hidden`, thôi đẩy tồn, chờ CEO quyết
+ */
+export interface OutsideChange {
+  kind: 'disabled' | 'price_changed';
+  /** Giá đang có trên sàn; null khi `disabled` */
+  platformPrice: number | null;
+  detectedAt: string;
+}
+
+/** CEO quyết thay đổi ngoài app: `restore` đẩy lại giá app và bật SKU, `accept-price` nhận giá sàn (chỉ `price_changed`) */
+export type OutsideChangeAction = 'restore' | 'accept-price';
 
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
@@ -238,6 +254,8 @@ export interface ChannelListing {
   pushAttempts: number;
   /** Ẩn bằng cách nào: sàn ẩn riêng SKU, hoặc đẩy tồn 0 khi sàn không ẩn riêng phân loại */
   hiddenBy: 'platform' | 'zero_stock' | null;
+  /** Sàn đổi listing ngoài app, chờ CEO quyết; null khi không có (§18.3) */
+  outsideChange: OutsideChange | null;
   stockSync: SyncState;
   priceSync: SyncState;
   stockSyncError: SyncError | null;
@@ -296,10 +314,38 @@ export interface RemoteSku {
   pendingMapping: PendingMapping | null;
 }
 
-/** `GET remote-skus` và `POST remote-skus/refresh` (§18.6.5). `syncedAt`: lần đọc trọn gần nhất */
+/** Lỗi của lượt tải SKU sàn (§18.3, BE#361); `retryAfterSeconds`: số giây còn lại tới lúc được tải lại */
+export interface RemoteSkusRefreshError {
+  code: string;
+  platformCode: string | null;
+  message: string;
+  retryAfterSeconds: number | null;
+}
+
+/**
+ * Lượt tải SKU sàn gần nhất của gian hàng (§18.3, BE#361). Mỗi gian hàng mỗi lúc chỉ chạy một lượt; `startedAt` là định
+ * danh lượt
+ */
+export interface RemoteSkusRefresh {
+  status: 'running' | 'succeeded' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  error: RemoteSkusRefreshError | null;
+}
+
+/**
+ * `GET remote-skus` (§18.6.5). `syncedAt`: lần đọc trọn gần nhất; lần mở đầu chưa có bản sao thì `syncedAt: null`,
+ * `items: []` và `refresh.status = 'running'`. `refresh` null khi chưa từng chạy; BE trước BE#361 không gửi trường này
+ */
 export interface RemoteSkuList {
   syncedAt: string | null;
   items: RemoteSku[];
+  refresh?: RemoteSkusRefresh | null;
+}
+
+/** `POST remote-skus/refresh` (202 đang chạy, 200 lượt thành công trong 60 giây) và `GET remote-skus/refresh` */
+export interface RemoteSkusRefreshResult {
+  refresh: RemoteSkusRefresh | null;
 }
 
 /** `POST /channel/shops/:id/listings/match` (§18.6.5): ghép theo SKU sàn */
@@ -402,6 +448,13 @@ export interface ShopSetupResult {
   matched: number;
   /** Số phiếu kiểm kê nháp vừa lập (khi chọn stocktake và có SKU lệch) */
   stocktakeNumber: string | null;
+}
+
+/** PATCH /channel/shops/:id (§18.4, BE#377): sửa hạn trả hàng khi capabilities.returnWindow = days */
+export interface ShopUpdateInput {
+  version: number;
+  /** Số nguyên 1–60 */
+  returnWindowDays: number;
 }
 
 export interface ShopDisconnectInput {

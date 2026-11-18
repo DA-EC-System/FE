@@ -57,7 +57,7 @@ export function CancelOrderDialog({ order, open, onClose, onConflict }: CancelOr
       const problem = getProblem(e);
       if (problem?.code && CONFLICT_CODES.includes(problem.code)) onConflict();
       else if (problem?.errors?.reason) form.setError('reason', { message: problem.errors.reason });
-      else setError(problemMessage(e));
+      else setError(problemMessage(e, 'cancel'));
     }
   };
 

@@ -4,7 +4,7 @@
  */
 import { defineMachine, type OwnedRecord } from '@/lib/stateMachine';
 import { PERMISSIONS } from '@/utils/permissions';
-import type { PackageAction, PackageStatus } from '@/types/fulfillment';
+import type { HandoverSource, PackageAction, PackageStatus } from '@/types/fulfillment';
 import type { OrderAction, OrderFlag, OrderOutcome, OrderSource, OrderStage, OrderStatus, PaymentMethod } from '@/types/sales';
 
 // ---------- Kiện ----------
@@ -40,11 +40,18 @@ export interface PackageRecord extends OwnedRecord {
   orderStatus: OrderStatus;
   /** Sàn đẩy cập nhật: bỏ qua chặn theo nguồn */
   byPlatform?: boolean;
-  /** Kiện vào `in_transit` do kho quét và sàn đã xác nhận lấy: không đảo bàn giao được */
-  pickupConfirmed?: boolean;
+  /** Kiện không do kho quét bàn giao, hoặc sàn đã xác nhận lấy: không đảo bàn giao được (`handoverConfirmed`) */
+  handoverConfirmed?: boolean;
   /** Trạng thái hiện tại do người chuyển tay (không phải sàn báo) */
   manualStatus?: boolean;
 }
+
+/**
+ * Chỉ kiện kho quét bàn giao mà sàn chưa xác nhận lấy mới đảo được (21 §19.2, commerio-backend#199). BE chưa trả hai
+ * trường thì không chặn ở FE: nút vẫn hiện, BE vẫn trả 409 `handover_confirmed_by_platform`.
+ */
+export const handoverConfirmed = (p: { handoverSource?: HandoverSource | null; pickupConfirmedAt?: string | null }) =>
+  p.handoverSource != null && (p.handoverSource !== 'scan' || p.pickupConfirmedAt != null);
 
 /** Sàn sửa trạng thái người chuyển tay: chỉ khi trạng thái hiện tại do người chuyển (25 §8.3) */
 const manualOnly = (r: PackageRecord) => (r.manualStatus ? null : 'status_from_platform');
@@ -87,7 +94,8 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
     label: 'Đảo bàn giao',
     permission: PERMISSIONS.handoverRevert,
     needsReason: true,
-    guard: (r) => (r.pickupConfirmed ? 'pickup_confirmed' : null),
+    // Cùng mã lỗi BE trả (21 §19.2); bộ sinh ca kiểm thử của Documents đọc mã từ chuỗi này
+    guard: (r) => (r.handoverConfirmed ? 'handover_confirmed_by_platform' : null),
   },
   { from: SEALED, to: 'reserved', action: 'open', label: 'Mở kiện', permission: process },
   { from: SEALED, to: 'cancelled', action: 'open_cancel', label: 'Mở kiện, huỷ', permission: process },
@@ -350,6 +358,43 @@ export function stageOf(o: StageInput): OrderStage {
     .filter((s) => !isStopped(s))
     .reduce((a, b) => ((PROGRESS[b] ?? 9) < (PROGRESS[a] ?? 9) ? b : a));
   return slowest as OrderStage;
+}
+
+/** Giai đoạn đơn chưa thanh toán có thể có, theo nhánh `unpaid` của `stageOf` */
+const UNPAID_STAGES: readonly OrderStage[] = ['unmapped', 'awaiting_payment', 'awaiting_confirmation'];
+
+/**
+ * Giai đoạn đơn đang xử lý có thể có, theo `stageOf`. Không có `delivered`, `returned`: kiện đã dừng bị bỏ khi tìm kiện
+ * chậm nhất, mọi kiện đã dừng thì ra `awaiting_completion`.
+ */
+const PROCESSING_STAGES: readonly OrderStage[] = [
+  'unmapped',
+  'cancelling',
+  'backordered',
+  'reserved',
+  'packed',
+  'awaiting_pickup',
+  'in_transit',
+  'self_delivering',
+  'delivery_failed',
+  'returning',
+  'lost',
+  'awaiting_completion',
+];
+
+/**
+ * Giai đoạn chọn được ở bộ lọc danh sách đơn theo tab trạng thái và Nguồn (FE#288). Tab Đã hoàn tất, Đã huỷ chỉ có một
+ * giai đoạn nên trả rỗng (ẩn bộ lọc). Đơn sàn không có `awaiting_confirmation` (chỉ đơn ngoài sàn trả COD).
+ */
+export function stagesFor(status: OrderStatus | '', source: OrderSource | ''): OrderStage[] {
+  if (status === 'completed' || status === 'cancelled') return [];
+  const list =
+    status === 'unpaid'
+      ? UNPAID_STAGES
+      : status === 'processing'
+        ? PROCESSING_STAGES
+        : [...new Set([...UNPAID_STAGES, ...PROCESSING_STAGES])];
+  return list.filter((s) => !(s === 'awaiting_confirmation' && source === 'marketplace'));
 }
 
 /** Cờ suy ra lúc đọc: Sắp trễ hạn khi còn kiện chưa rời kho và sắp tới hạn bàn giao */

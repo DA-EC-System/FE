@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useConfirmOrder, useOrder } from '@/api/sales.api';
 import { useCancelRequestDecision } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
 import { orderMachine } from '@/lib/machines/order';
@@ -91,7 +91,7 @@ export function OrderDetailPage() {
 
   if (query.isError) {
     // Không có hoặc của công ty khác đều là 404 (AC-R5)
-    const notFound = getProblem(query.error)?.status === 404;
+    const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
     return (
       <div>
         {back}
@@ -148,7 +148,7 @@ export function OrderDetailPage() {
       if (problem?.code && CONFLICT_CODES.includes(problem.code)) onConflict();
       else {
         setDialog(null);
-        setNotice(problemMessage(e));
+        setNotice(problemMessage(e, 'cancel'));
       }
     }
   };
@@ -282,20 +282,8 @@ export function OrderDetailPage() {
           <Card className="py-4" data-guide="order-info">
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Info label="Khách">
-                {order.customer ? (
-                  can(PERMISSIONS.customerView) ? (
-                    <Link
-                      to={ROUTES.company.customer(companyId, order.customer.id)}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {order.customer.name}
-                    </Link>
-                  ) : (
-                    order.customer.name
-                  )
-                ) : (
-                  '—'
-                )}
+                {/* Hồ sơ khách ngoài MVP (FE#249): tên khách là chữ, không link */}
+                {order.customer?.name ?? '—'}
                 {order.customer && <p className="text-muted-foreground">{order.customer.phone}</p>}
               </Info>
               <Info label="Giao tới">

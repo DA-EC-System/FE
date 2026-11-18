@@ -25,7 +25,7 @@ import {
   useReturnPlatformHistory,
 } from '@/api/returns.api';
 import { getProblem } from '@/api/client';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { DetailGrid, DocLink, Info, PageError, PageLoading } from '@/features/purchasing/parts';
 import { useAuth } from '@/hooks/useAuth';
@@ -102,7 +102,7 @@ export function ReturnDetailPage() {
 
   if (query.isLoading) return <PageLoading />;
   if (query.isError || !query.data) {
-    const notFound = getProblem(query.error)?.status === 404;
+    const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
     return <PageError message={notFound ? 'Không tìm thấy yêu cầu trả' : problemMessage(query.error)} onBack={back} />;
   }
   const r = query.data;

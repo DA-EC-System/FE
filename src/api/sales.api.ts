@@ -1,5 +1,5 @@
 /**
- * API bán hàng của công ty đang làm việc: khách hàng, đơn (UC-SF-01, 02, 04).
+ * API bán hàng của công ty đang làm việc: đơn (UC-SF-01, 02, 04). Khách hàng, tạo đơn tay ngoài MVP, gỡ ở FE#249.
  * Hợp đồng đề xuất ở FE#9, chờ commerio-backend#24.
  */
 
@@ -8,23 +8,7 @@ import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
-import type {
-  CreateOrderInput,
-  Customer,
-  CustomerSummary,
-  Order,
-  OrderSummary,
-  OrderVariantOption,
-} from '@/types/sales';
-
-export interface CustomerListParams {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  channel?: string;
-  from?: string;
-  to?: string;
-}
+import type { Order, OrderSummary } from '@/types/sales';
 
 export interface OrderListParams {
   page?: number;
@@ -44,12 +28,8 @@ export interface OrderListParams {
 
 export const salesKeys = {
   all: (companyId: string) => ['company', companyId, 'sales'] as const,
-  customers: (companyId: string, params: CustomerListParams) =>
-    [...salesKeys.all(companyId), 'customers', params] as const,
-  customer: (companyId: string, id: string) => [...salesKeys.all(companyId), 'customer', id] as const,
   orders: (companyId: string, params: OrderListParams) => [...salesKeys.all(companyId), 'orders', params] as const,
   order: (companyId: string, id: string) => [...salesKeys.all(companyId), 'order', id] as const,
-  variants: (companyId: string, search: string) => [...salesKeys.all(companyId), 'variants', search] as const,
 };
 
 function useCompanyId(): string {
@@ -61,30 +41,6 @@ function useInvalidateSales() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
   return () => qc.invalidateQueries({ queryKey: salesKeys.all(companyId) });
-}
-
-export function useCustomers(params: CustomerListParams, options: { enabled?: boolean } = {}) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: salesKeys.customers(companyId, params),
-    enabled: Boolean(companyId) && (options.enabled ?? true),
-    queryFn: async () => {
-      const { data } = await apiClient.get<PageResult<CustomerSummary>>('/sales/customers', { params });
-      return data;
-    },
-  });
-}
-
-export function useCustomer(id: string) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: salesKeys.customer(companyId, id),
-    enabled: Boolean(companyId && id),
-    queryFn: async () => {
-      const { data } = await apiClient.get<Customer>(`/sales/customers/${id}`);
-      return data;
-    },
-  });
 }
 
 export function useOrders(params: OrderListParams, options: { enabled?: boolean } = {}) {
@@ -136,31 +92,6 @@ export function useOrder(id: string) {
   });
 }
 
-export function useOrderVariants(search: string) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: salesKeys.variants(companyId, search),
-    enabled: Boolean(companyId),
-    queryFn: async () => {
-      const { data } = await apiClient.get<OrderVariantOption[]>('/sales/order-variants', {
-        params: { search: search || undefined, limit: 20 },
-      });
-      return data;
-    },
-  });
-}
-
-export function useCreateOrder() {
-  const invalidate = useInvalidateSales();
-  return useMutation({
-    mutationFn: async (input: CreateOrderInput) => {
-      const { data } = await apiClient.post<Order>('/sales/orders', input);
-      return data;
-    },
-    onSuccess: invalidate,
-  });
-}
-
 /** Số hoá đơn của đơn (≤ 50 ký tự); đơn sàn BE gửi lên sàn (§19.3) */
 export function useSetInvoiceNumber() {
   const invalidate = useInvalidateSales();
@@ -185,24 +116,3 @@ export function useConfirmOrder() {
   });
 }
 
-/** Đọc các trang không lọc để danh sách kênh không phụ thuộc trang đang xem. */
-export function useCustomerChannels() {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: [...salesKeys.all(companyId), 'customer-channels'],
-    enabled: Boolean(companyId),
-    queryFn: async ({ signal }) => {
-      const channels = new Set<string>();
-      let count = 0;
-      for (let page = 1; ; page++) {
-        const { data } = await apiClient.get<PageResult<CustomerSummary>>('/sales/customers', {
-          params: { page, pageSize: 100 }, signal,
-        });
-        data.items.forEach((customer) => customer.channels.forEach((code) => channels.add(code)));
-        count += data.items.length;
-        if (!data.items.length || count >= data.total) break;
-      }
-      return [...channels].sort();
-    },
-  });
-}

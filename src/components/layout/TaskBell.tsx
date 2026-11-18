@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { AlarmClock, Bell, CheckCheck, CircleAlert, Info } from 'lucide-react';
+import { AlarmClock, Bell, CheckCheck, CircleAlert, CloudOff, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useTasks } from '@/api/tasks.api';
+import { problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import { docRefPath, ROUTES } from '@/router/routes';
 import type { TaskItem, TaskSeverity } from '@/types/tasks';
@@ -40,7 +41,7 @@ export function TaskBell({ companyId }: { companyId: string }) {
           variant="ghost"
           size="icon"
           className="relative size-8 rounded-md text-foreground-2 hover:bg-fill"
-          aria-label={`Việc cần làm: ${items.length}`}
+          aria-label={tasks.isError ? 'Việc cần làm: chưa tải được' : `Việc cần làm: ${items.length}`}
           data-testid="task-bell"
           data-guide="task-bell"
         >
@@ -70,7 +71,14 @@ export function TaskBell({ companyId }: { companyId: string }) {
           <span className="text-sm font-semibold">Việc cần làm</span>
           {items.length > 0 && <span className="text-sm text-muted-foreground">{items.length}</span>}
         </div>
-        {items.length ? (
+        {tasks.isError ? (
+          // Không hiện "Không có việc nào tới hạn" khi chưa đọc được (FE#248)
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground" data-testid="task-bell-error">
+            <CloudOff aria-hidden className="mx-auto mb-2 size-7 text-faint" />
+            <p className="font-medium text-foreground">Chưa tải được việc cần làm</p>
+            <p className="mt-1">{problemMessage(tasks.error)}</p>
+          </div>
+        ) : items.length ? (
           <div className="min-h-0 flex-1 overflow-y-auto pb-1">
             {byGroup(items.slice(0, SHOWN)).map(([group, list]) => (
               <section key={group} aria-label={group}>

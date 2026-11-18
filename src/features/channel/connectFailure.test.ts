@@ -1,7 +1,7 @@
 import { AxiosError, AxiosHeaders } from 'axios';
 import { describe, expect, it } from 'vitest';
 import type { ProblemDetails } from '@/api/client';
-import { failureFromError, failureScreen } from './connectFailure';
+import { elsewhereSteps, failureFromError, failureScreen } from './connectFailure';
 import { capabilitySummary } from './shopSchemas';
 
 const loi = (data: ProblemDetails) =>
@@ -38,6 +38,22 @@ describe('Màn kết quả khi sàn trả về (§18.4)', () => {
   it('lỗi khác hiện câu báo của mã lỗi', () => {
     const f = failureFromError(loi({ status: 502, code: 'marketplace_unavailable', detail: 'Sàn không trả lời' }));
     expect(f.kind).toBe('error');
+  });
+  it('sàn từ chối mã uỷ quyền: câu kết nối, câu gốc của sàn tách riêng (FE#250)', () => {
+    const connect = 'Sàn không nhận lần uỷ quyền này. Liên kết uỷ quyền chỉ dùng được một lần trong vài phút; bấm Kết nối lại từ đầu.';
+    expect(failureFromError(loi({ code: 'marketplace_rejected', platformMessage: 'invalid auth code' }))).toEqual({
+      kind: 'error',
+      message: connect,
+      platformMessage: 'invalid auth code',
+    });
+    expect(failureFromError(loi({ code: 'marketplace_unauthorized', platformCode: 'InvalidCode' }))).toEqual({
+      kind: 'error',
+      message: connect,
+    });
+  });
+  it('gian hàng ở công ty khác: bước 2 theo cách nối (FE#250)', () => {
+    expect(elsewhereSteps()[1]).toBe('Nếu bạn đăng nhập nhầm: đăng xuất trên sàn, đăng nhập đúng tài khoản rồi thêm lại.');
+    expect(elsewhereSteps('token')[1]).toBe('Nếu bạn dán nhầm: lấy token của đúng gian hàng rồi dán lại.');
   });
   it('từ chối uỷ quyền: tên sàn lấy từ danh sách sàn, vắng thì dùng nhãn dự phòng', () => {
     expect(failureScreen({ kind: 'declined', platform: 'tiktok' }).title).toBe('Bạn đã từ chối uỷ quyền trên TikTok Shop');
