@@ -1,8 +1,7 @@
-# Staging trên k3s (repo backend, deploy/k8s) có hai bản FE cùng một commit:
-#   https://<tên miền>/       image commerio-fe, gọi backend thật      (Deployment fe)
-#   https://<tên miền>/mock/  image commerio-fe-mock, chạy MSW, dữ liệu giả (Deployment fe-mock)
-# PR vào main chỉ build hai image để kiểm; merge vào main → đẩy :sha-<7 ký tự> và :develop (giữ tên tag cũ để k3s không phải đổi) của cả hai
-# → đổi image của fe và fe-mock.
+# Staging trên k3s (repo backend, deploy/k8s): https://<tên miền>/ chạy image commerio-fe, gọi backend thật (Deployment fe).
+# Bản MSW ở /mock/ (fe-mock) đã bỏ khỏi staging ngày 19/11/2026; mock MSW vẫn dùng khi pnpm dev và E2E.
+# PR vào main chỉ build image để kiểm; merge vào main → đẩy :sha-<7 ký tự> và :develop (giữ tên tag cũ để k3s không phải đổi)
+# → đổi image của fe.
 # Đổi image qua SSH vào tài khoản ci-deploy trên VPS: khoá này chỉ chạy được lệnh deploy của FE
 # (forced command, xem deploy/k8s/README.md của repo backend), không có shell.
 # Biến repo: STAGING_SSH_HOST, STAGING_SSH_USER, STAGING_GOOGLE_CLIENT_ID (tuỳ chọn).
@@ -36,9 +35,6 @@ jobs:
           - image: ghcr.io/da-ec-system/commerio-fe
             mocks: 'false'
             base: /
-          - image: ghcr.io/da-ec-system/commerio-fe-mock
-            mocks: 'true'
-            base: /mock/
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -86,7 +82,7 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
-      # Lệnh gửi đi chỉ là tag; VPS kiểm dạng sha-<7 ký tự>, đổi image của fe và fe-mock rồi chờ rollout xong
+      # Lệnh gửi đi chỉ là tag; VPS kiểm dạng sha-<7 ký tự>, đổi image của fe rồi chờ rollout xong
       # (đỏ nếu pod mới không lên).
-      - name: Đổi image của fe và fe-mock
+      - name: Đổi image của fe
         run: ssh "$SSH_USER@$HOST" "sha-${GITHUB_SHA::7}"

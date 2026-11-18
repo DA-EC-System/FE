@@ -32,6 +32,7 @@ import { dueState, registerTaskSource } from '../engine/tasks';
 import {
   allCancelled,
   cancelPlan,
+  handoverConfirmed,
   holdsStock,
   isHandedOver,
   isSealed,
@@ -101,6 +102,7 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
       productName: line?.productName ?? '',
       attributesLabel: variantLabel(o.companyId, l.variantId).attributesLabel,
       quantity: l.quantity,
+      pendingDropQty: l.pendingDropQty ?? 0,
     };
   });
   return {
@@ -127,6 +129,8 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
     lines,
     totalQty: p.lines.reduce((sum, l) => sum + l.quantity, 0),
     handedOverAt: p.handedOverAt,
+    handoverSource: p.handoverSource,
+    pickupConfirmedAt: p.pickupConfirmedAt,
     deliveredAt: p.deliveredAt,
     deliveredBy: userRef(p.deliveredBy),
     lostReport: p.lostReport ? { by: userRef(p.lostReport.by)!, at: p.lostReport.at, claimCode: p.lostReport.claimCode } : null,
@@ -210,6 +214,8 @@ export function newPackage(o: MockOrder, lines: MockPackage['lines'], selfDelive
     lostReport: null,
     handedOverAt: null,
     handedOverBy: null,
+    handoverSource: null,
+    pickupConfirmedAt: null,
     deliveredAt: null,
     deliveredBy: null,
     createdAt: at,
@@ -220,7 +226,7 @@ export function newPackage(o: MockOrder, lines: MockPackage['lines'], selfDelive
   return p;
 }
 
-const releasePackage = (p: MockPackage) => release(levelsFor(p.companyId, p.lines), holdOf(p));
+export const releasePackage = (p: MockPackage) => release(levelsFor(p.companyId, p.lines), holdOf(p));
 
 /**
  * Tồn thực giảm: lấy lại phần giữ (kiện chưa đóng gói, đơn chưa thanh toán trước).
@@ -294,6 +300,9 @@ export function leaveStock(p: MockPackage, at: string, actor: CompanyActor | nul
   }
   p.handedOverAt = at;
   p.handedOverBy = actor?.account.id ?? null;
+  // Người bấm là kho quét; không người (sàn báo, bù nhảy bước) là sàn, đã xác nhận lấy ngay (21 §19.2)
+  p.handoverSource = actor ? 'scan' : 'marketplace';
+  p.pickupConfirmedAt = actor ? null : at;
   if (!finance.invoices.some((i) => i.orderId === o.id)) {
     finance.invoices.push({
       id: rid('inv'),
@@ -316,6 +325,8 @@ function backToStock(p: MockPackage, at: string, actor: CompanyActor) {
   for (const l of p.lines) stockLevelOf(o.companyId, l.variantId).reserved += l.quantity;
   p.handedOverAt = null;
   p.handedOverBy = null;
+  p.handoverSource = null;
+  p.pickupConfirmedAt = null;
   writeCompanyLog(actor, 'create', stockDocEntity(doc), null, stockDocSnapshot(doc));
 }
 
@@ -402,6 +413,7 @@ const recordOf = (p: MockPackage, o: MockOrder, extra: Partial<PackageRecord> = 
   orderStatus: o.status,
   // Trạng thái hiện tại do người chuyển tay: dòng nhật ký cuối là của người dùng
   manualStatus: p.history.at(-1)?.source === 'user',
+  handoverConfirmed: handoverConfirmed(p),
   ...extra,
 });
 
@@ -1100,6 +1112,12 @@ registerMarketplaceEvent({
     if (o.source !== 'marketplace') throw new Error('Chỉ kiện của đơn sàn');
     const at = db.now();
     const from = p.status;
+    // Kho đã quét, sàn báo kiện rời kho: chỉ ghi mốc sàn xác nhận lấy, từ đây không đảo bàn giao được (21 §19.2)
+    if (p.handoverSource === 'scan' && !p.pickupConfirmedAt && isHandedOver(from) && isHandedOver(next.to)) p.pickupConfirmedAt = at;
+    if (from === next.to && isHandedOver(from)) {
+      p.version += 1;
+      return `${p.code}: sàn xác nhận ${next.to}`;
+    }
     let kind = platformUpdate(from, next.to);
     const direct =
       kind === 'direct'

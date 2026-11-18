@@ -128,3 +128,8 @@ export const STOCKTAKE_STATUS_TEXT: Record<ShopOpeningStocktake['status'], strin
 
 /** Phiếu bị từ chối hoặc đã huỷ không đi tiếp được, phải lập phiếu mới (§18.6.11) */
 export const canRedoStocktake = (s: ShopOpeningStocktake['status']) => s === 'rejected' || s === 'cancelled';
+
+/** Chữ phải gõ để xoá gian hàng (FE#297): khớp chính xác, chữ hoa, chỉ bỏ khoảng trắng hai đầu */
+export const DELETE_CONFIRM_WORD = 'XOA';
+
+export const deleteConfirmed = (typed: string) => typed.trim() === DELETE_CONFIRM_WORD;

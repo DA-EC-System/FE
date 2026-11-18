@@ -1,7 +1,7 @@
 // P3 · Gian hàng: kết nối OAuth, ghép SKU, đẩy sản phẩm và giá (UC-CH-01, UC-CH-02; FE#8)
 // Vòng đời gian hàng và listing theo sơ đồ C1, C2 (FE#58)
 import { type Page } from '@playwright/test';
-import { chon, chu, chua, dangNhap, dong, duongDan, expect, menu, mockApi, moiPhanTu, test, thayChu, toast } from '../../fixtures';
+import { chon, chu, chua, dangNhap, dong, duongDan, expect, menu, mockApi, moiPhanTu, phatSuKienSan, test, thayChu, toast } from '../../fixtures';
 
 /** Mở menu "..." của dòng gian hàng rồi chọn một mục */
 const chonMenu = async (page: Page, shopId: string, item: string | RegExp) => {
@@ -487,6 +487,74 @@ test.describe('P3 · Gian hàng', () => {
       await expect.poll(() => new URL(page.url()).search).toBe('');
       await expect(page.locator('tbody tr[data-row-id]')).not.toHaveCount(2);
     });
+
+    test('xoá gian hàng đã ngắt: gõ đúng XOA, mất khỏi danh sách gian hàng và danh sách đơn (FE#297)', async ({ page }) => {
+      // Gian hàng đang kết nối, cần kết nối lại không có mục Xoá
+      for (const shopId of ['shp-001', 'shp-002']) {
+        await dong(page, shopId).getByRole('button', { name: /^Thao tác khác với / }).click();
+        await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
+        await page.keyboard.press('Escape');
+      }
+      // Đơn của LazMall đã huỷ để ngắt được, rồi ngắt
+      const code = (await phatSuKienSan(page, 'order.created', 'shp-003')).split(':')[0]!;
+      await phatSuKienSan(page, 'order.platform_cancelled', undefined, { code });
+      await diToi(page, '/c/cmp-001/sales/orders');
+      await page.getByPlaceholder('Tìm mã đơn, mã đơn sàn', { exact: true }).fill(code);
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
+      await diToi(page, '/c/cmp-001/channel/shops');
+      await xacNhanNgat(await moNgat(page, 'shp-003'));
+      await expect(trangThai(page, 'shp-003')).toHaveText('Đã ngắt');
+
+      await chonMenu(page, 'shp-003', 'Xoá gian hàng');
+      const dialog = page.getByRole('alertdialog');
+      await expect(dialog.getByRole('heading')).toHaveText('Xoá vĩnh viễn ABC Fashion LazMall?');
+      await thayChu(dialog, 'không hoàn tác được');
+      await thayChu(dialog, 'Tồn kho và phiếu kho đã ghi sổ được giữ nguyên');
+      const nut = dialog.getByRole('button', { name: 'Xoá vĩnh viễn', exact: true });
+      const o = dialog.getByLabel(/để xác nhận/);
+      await expect(o).toBeFocused();
+      await expect(nut).not.toBeFocused();
+      for (const typed of ['', 'xoa', 'XÓA', 'XO']) {
+        await o.fill(typed);
+        await expect(nut).toBeDisabled();
+      }
+      await o.fill('XOA');
+      await expect(nut).toBeEnabled();
+      await nut.click();
+      await toast(page, /^Đã xoá ABC Fashion LazMall: 1 đơn, \d+ kiện, \d+ listing$/);
+      await expect(dialog).toHaveCount(0);
+      await expect(dong(page, 'shp-003')).toHaveCount(0);
+      await page.getByRole('tab', { name: /^Cần xử lý/ }).click();
+      await expect(dong(page, 'shp-003')).toHaveCount(0);
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
+      await expect(dong(page, 'shp-008')).toBeAttached();
+
+      // Đơn của gian hàng đã xoá không còn ở Đơn bán
+      await diToi(page, '/c/cmp-001/sales/orders');
+      await page.getByPlaceholder('Tìm mã đơn, mã đơn sàn', { exact: true }).fill(code);
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(0);
+    });
+
+    test('xoá gian hàng bị 409: hộp không đóng, giữ chữ đã gõ, nêu lý do (FE#297)', async ({ page }) => {
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
+      await chonMenu(page, 'shp-008', 'Xoá gian hàng');
+      const dialog = page.getByRole('alertdialog');
+      const o = dialog.getByLabel(/để xác nhận/);
+      await o.fill('XOA');
+      await mockApi(page, 'delete', '/channel/shops/shp-008', 409, { status: 409, title: 'Gian hàng chưa ngắt kết nối', code: 'shop_not_disconnected' });
+      await dialog.getByRole('button', { name: 'Xoá vĩnh viễn', exact: true }).click();
+      await expect(dialog.locator('[data-testid=shop-delete-error]')).toHaveText('Gian hàng chưa ngắt kết nối. Đã nạp lại danh sách.');
+      await expect(o).toHaveValue('XOA');
+      await mockApi(page, 'delete', '/channel/shops/shp-008', 409, { status: 409, title: 'Dữ liệu vừa được người khác sửa', code: 'version_conflict' });
+      await dialog.getByRole('button', { name: 'Xoá vĩnh viễn', exact: true }).click();
+      await expect(dialog.locator('[data-testid=shop-delete-error]')).toContainText('vừa được người khác sửa');
+      await expect(o).toHaveValue('XOA');
+      // Huỷ thì đóng, gian hàng còn
+      await dialog.getByRole('button', { name: 'Huỷ', exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(dong(page, 'shp-008')).toBeAttached();
+    });
   });
 
   test.describe('ghép SKU và đẩy giá (UC-CH-02)', () => {
@@ -571,8 +639,8 @@ test.describe('P3 · Gian hàng', () => {
     test('Tải lại SKU sàn chạy nền: 202 rồi hỏi lại tới khi xong, lỗi 429 nêu số phút chờ, lượt lỗi báo số phút', async ({ page }) => {
       await moTab(page, 'unmatched');
       const khu = page.locator('[data-testid=remote-section]');
-      await expect(khu.locator('[data-testid=remote-synced]')).toContainText('Danh sách tải lúc');
-      const taiLai = khu.getByRole('button', { name: 'Tải lại', exact: true });
+      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
+      const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
 
       const yeuCau = page.waitForRequest(
         (r) => r.method() === 'POST' && /\/channel\/shops\/shp-001\/remote-skus\/refresh$/.test(r.url()),
@@ -612,6 +680,26 @@ test.describe('P3 · Gian hàng', () => {
       await toast(page, 'Sàn trả thiếu danh sách SKU, thử lại sau 5 phút.');
       // Lỗi tải lại không xoá danh sách đang có
       await expect(khu).toContainText('OLD-TEE-01');
+    });
+
+    test('Tải lại ở tab Tất cả: tên trên sàn ở dòng đã ghép và hộp Đổi ghép theo bản sao mới (FE#294)', async ({ page }) => {
+      const ten = dong(page, 'prd-001-v1').locator('[data-testid=remote-title]');
+      await expect(ten).toHaveText('Áo thun basic cổ tròn - Đen, M');
+      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
+      const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
+      // Nút Tải lại ở mọi tab
+      for (const t of ['unmatched', 'stale', 'all'] as const) {
+        await moTab(page, t);
+        await expect(taiLai).toBeVisible();
+      }
+
+      await phatSuKienSan(page, 'listing.renamed', 'shp-001', { sku: 'shp-001-sku-001', title: 'Áo khoác bomber nam' });
+      await taiLai.click();
+      await toast(page, 'Đã tải lại SKU trên sàn');
+      await expect(ten).toHaveText('Áo khoác bomber nam');
+
+      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
+      await thayChu(page.getByRole('dialog'), 'Áo khoác bomber nam');
     });
 
     test('CEO đặt SKU sàn đã có đơn là không quản tồn: áp luôn, không chờ duyệt', async ({ page }) => {
@@ -859,6 +947,19 @@ test.describe('P3 · Gian hàng', () => {
     await expect(tour.getByRole('heading', { name: 'Đẩy lên sàn', exact: true })).toBeVisible();
   });
 
+  for (const [vaiTro, email, password] of [
+    ['Admin', 'admin@commerio.vn', 'admin'],
+    ['Sale', 'sale@commerio.vn', 'sale'],
+  ] as const) {
+    test(`${vaiTro} không thấy mục Xoá gian hàng ở gian hàng đã ngắt (FE#297)`, async ({ page }) => {
+      await dangNhap(page, email, password);
+      await menu(page, 'Kênh bán');
+      await dong(page, 'shp-008').getByRole('button', { name: /^Thao tác khác với / }).click();
+      await expect(page.getByRole('menuitem', { name: 'Sản phẩm trên sàn và giá', exact: true })).toBeAttached();
+      await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
+    });
+  }
+
   test('Admin đổi ghép SKU sàn đã có đơn: gửi CEO duyệt, ghép cũ giữ nguyên', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
     await menu(page, 'Kênh bán');
@@ -909,6 +1010,16 @@ test.describe('P3 · Gian hàng', () => {
     await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
     await toast(page, 'Đã gửi CEO duyệt ghép SKU sàn OLD-TEE-01');
     await expect(remote.getByRole('button', { name: 'Ghép với biến thể', exact: true })).toBeDisabled();
+  });
+
+  test('gian hàng chưa kết nối (không ghép được): không có nút Tải lại, không hiện tên trên sàn (FE#294)', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Kênh bán');
+    await moTrangGhep(page, 'shp-002');
+    await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-002-sku-001');
+    await expect(page.locator('[data-testid=remote-title]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tải lại', exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-testid=remote-synced]')).toHaveCount(0);
   });
 
   test('không mở được gian hàng của công ty khác', async ({ page }) => {

@@ -37,6 +37,7 @@ import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
 import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { PendingDropBadge } from './PendingDropBadge';
 import { SplitPackageDialog } from './SplitPackageDialog';
 import { ScannedLines } from './ScannedLines';
 import { checkScanRows, scanErrorsOf, scanRowsFrom, type ScanRow } from './scanLines';
@@ -389,7 +390,12 @@ export function PackageDetailPage() {
                   <TableCell className="font-mono font-medium">{l.sku}</TableCell>
                   <TableCell className="whitespace-normal">{l.productName}</TableCell>
                   <TableCell>{l.attributesLabel || '—'}</TableCell>
-                  <TableCell className="text-right">{l.quantity}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <PendingDropBadge qty={l.pendingDropQty} />
+                      {l.quantity}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

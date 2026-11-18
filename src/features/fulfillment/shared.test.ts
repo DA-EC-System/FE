@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageSummary } from '@/types/fulfillment';
-import { handoverFailureLabel, isHotPackage, packageBackTo, packageButtons } from './shared';
+import { handoverFailureLabel, isHotPackage, packageBackTo, packageButtons, pendingDropTotal } from './shared';
 
 const P = PERMISSIONS;
 const kho = { accountId: 'kho', permissions: [P.fulfillmentProcess] };
@@ -60,6 +60,18 @@ describe('packageButtons (sơ đồ D2)', () => {
     expect(packageButtons(p, kho)).toMatchObject({ actions: [], reportLost: true });
   });
 
+  it('Đảo bàn giao chỉ hiện với kiện kho quét mà sàn chưa xác nhận lấy (21 §19.2)', () => {
+    const shipping = { status: 'in_transit' as const, source: 'marketplace' as const };
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'scan', pickupConfirmedAt: null }), ceo).actions).toContain('undo_handover');
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'scan', pickupConfirmedAt: '2026-11-18T05:00:00Z' }), ceo).actions).not.toContain(
+      'undo_handover',
+    );
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'marketplace', pickupConfirmedAt: '2026-11-18T05:00:00Z' }), ceo).actions).not.toContain(
+      'undo_handover',
+    );
+    expect(packageButtons(pkg({ ...shipping, handoverSource: 'forced', pickupConfirmedAt: null }), ceo).actions).not.toContain('undo_handover');
+  });
+
   it('đơn sàn đang giao: không nút giao, có ghi chú', () => {
     const b = packageButtons(pkg({ status: 'in_transit', source: 'marketplace' }), sale);
     expect(b.actions).toEqual([]);
@@ -104,5 +116,13 @@ describe('packageBackTo', () => {
     });
     expect(packageBackTo(null)).toBeNull();
     expect(packageBackTo({ backTo: { path: 1, label: 'x' } })).toBeNull();
+  });
+});
+
+describe('pendingDropTotal (21 §19.2)', () => {
+  it('cộng phần chờ bỏ của mọi dòng, 0 khi không dòng nào chờ bỏ', () => {
+    expect(pendingDropTotal([])).toBe(0);
+    expect(pendingDropTotal([{ pendingDropQty: 0 }, { pendingDropQty: 0 }])).toBe(0);
+    expect(pendingDropTotal([{ pendingDropQty: 2 }, { pendingDropQty: 0 }, { pendingDropQty: 1 }])).toBe(3);
   });
 });

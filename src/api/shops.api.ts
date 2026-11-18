@@ -5,8 +5,10 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { queryOptions, useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
+import { salesKeys } from './sales.api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   CategoryAttribute,
@@ -35,6 +37,8 @@ import type {
   ShopCallbackInput,
   ShopCallbackResult,
   ShopConnectInput,
+  ShopDeleteInput,
+  ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpeningStocktakeRestart,
   ShopSetupInput,
@@ -184,6 +188,22 @@ export function useDisconnectShop() {
   });
 }
 
+/**
+ * Xoá hẳn gian hàng đã ngắt cùng đơn, kiện, sổ tiền (commerio-backend#398). Xong thì làm mới mọi truy vấn của công ty:
+ * đơn, kiện, yêu cầu trả, sổ tiền, đối soát, báo cáo, tổng quan đều mất phần của gian hàng
+ */
+export function useDeleteShop() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: ShopDeleteInput & { id: string }) => {
+      const { data } = await apiClient.delete<ShopDeleteResult>(`/channel/shops/${id}`, { data: input });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['company', companyId] }),
+  });
+}
+
 /** Lập lại phiếu kiểm kê đầu kỳ khi phiếu cũ bị từ chối hoặc đã huỷ (§18.6.11) */
 export function useRestartOpeningStocktake() {
   const qc = useQueryClient();
@@ -228,6 +248,8 @@ export function useFinishShopSetup() {
 
 export function useSyncShop() {
   const invalidate = useInvalidateShops();
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
   return useMutation({
     mutationFn: async (id: string) => {
       // Documents/21 §14: kéo đơn ngay, trả số đơn đã lấy chi tiết, số đơn mới, số đơn đổi
@@ -236,7 +258,11 @@ export function useSyncShop() {
       );
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void invalidate();
+      // Đơn mới, đơn đổi hiện ngay ở trang Đơn hàng
+      void qc.invalidateQueries({ queryKey: salesKeys.all(companyId) });
+    },
   });
 }
 

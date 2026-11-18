@@ -150,6 +150,8 @@ const MESSAGES: Record<string, string> = {
   document_not_ready: 'Vận đơn chưa sẵn sàng. Thử lại sau ít phút nếu sàn đang tạo tệp.',
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
   shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
+  // commerio-backend#398: chỉ xoá được gian hàng đã ngắt
+  shop_not_disconnected: 'Gian hàng chưa ngắt kết nối. Ngắt kết nối trước rồi mới xoá được.',
   // §18.6.2
   // R13, §18.7.9: mọi 501 chức năng chờ issue khác; có `issue`, `owner` thì câu nêu issue, xem notImplementedMessage
   not_implemented: 'Chức năng này chưa làm xong',

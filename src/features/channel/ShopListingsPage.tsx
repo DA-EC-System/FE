@@ -296,6 +296,8 @@ export function ShopListingsPage() {
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const remoteSkus = useMemo(() => remoteQuery.data?.items ?? [], [remoteQuery.data]);
+  /** Tên trên sàn theo mã SKU sàn, lấy từ bản sao `remote-skus` */
+  const remoteTitles = useMemo(() => new Map(remoteSkus.map((r) => [r.externalSkuId, r.title])), [remoteSkus]);
   const unmatchedRemote = useMemo(() => remoteSkus.filter((r) => !r.matchedVariantId && !r.mode), [remoteSkus]);
   /** SKU sàn có ghép chờ CEO duyệt: `remote-skus` có cả dòng chỉ chờ "không quản tồn" mà `listings` không có */
   const pendingRemote = useMemo(() => remoteSkus.filter((r) => r.pendingMapping), [remoteSkus]);
@@ -744,10 +746,17 @@ export function ShopListingsPage() {
         cell: ({ row }) => {
           const l = row.original.listing;
           if (!l) return <Badge variant="outline">Chưa ghép</Badge>;
+          // Tên trong bản sao SKU sàn (FE#294): chưa tải hoặc SKU đã xoá trên sàn thì không hiện
+          const remoteTitle = canMatch && l.externalSkuId ? remoteTitles.get(l.externalSkuId) : undefined;
           return (
             <div className="grid" data-testid="remote-sku">
               <span className="font-mono text-xs">{l.sellerSku || '—'}</span>
               <span className="font-mono text-xs text-muted-foreground">{l.externalSkuId ?? 'Sàn chưa trả mã'}</span>
+              {remoteTitle && (
+                <span className="max-w-64 truncate text-xs text-muted-foreground" title={remoteTitle} data-testid="remote-title">
+                  {remoteTitle}
+                </span>
+              )}
             </div>
           );
         },
@@ -1013,7 +1022,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -1210,42 +1219,48 @@ export function ShopListingsPage() {
         </Tabs>
         <FilterBar>
           <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm theo tên, SKU hoặc SKU sàn..." />
-          <p className="text-sm text-muted-foreground md:ms-auto md:self-center" data-testid="match-summary">
-            Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
-          </p>
-        </FilterBar>
-        {tab === 'unmatched' || tab === 'pending' ? (
-          <div data-testid="remote-section">
-            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pb-3">
-              <p className="max-w-prose text-sm text-muted-foreground" data-testid="remote-synced">
-                {tab === 'pending'
-                  ? canDecide
-                    ? 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Duyệt thì ghép mới có hiệu lực; từ chối thì ghép cũ giữ nguyên.'
-                    : 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Trong lúc chờ, ghép cũ giữ nguyên.'
-                  : 'SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio.'}
-                {remoteQuery.data?.syncedAt && (
-                  <> Danh sách tải lúc {formatDateTime(remoteQuery.data.syncedAt)}; vừa thêm SKU trên sàn thì bấm Tải lại.</>
-                )}
-                {refreshPoll.running && <> Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.</>}
-              </p>
-              {canMatch && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:ms-auto md:self-center">
+            <p className="text-sm text-muted-foreground" data-testid="match-summary">
+              Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
+            </p>
+            {/* Bản sao SKU sàn dùng chung cho mọi tab (tên trên sàn, hộp Đổi ghép, tab Chưa ghép) nên Tải lại nằm ở đây (FE#294) */}
+            {canMatch && (
+              <>
+                <p className="text-sm text-muted-foreground" data-testid="remote-synced">
+                  {refreshPoll.running
+                    ? 'Đang tải SKU trên sàn, bảng tự cập nhật khi xong.'
+                    : remoteQuery.data?.syncedAt
+                      ? `SKU trên sàn tải lúc ${formatDateTime(remoteQuery.data.syncedAt)}`
+                      : null}
+                </p>
                 <Button size="sm" variant="outline" disabled={refreshing} onClick={refreshRemote}>
-                  <RefreshCw />
+                  <RefreshCw className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
                   {refreshing ? 'Đang tải danh sách SKU…' : 'Tải lại'}
                 </Button>
-              )}
-            </div>
-            {usable && canMatch && (refreshFailure || refreshPoll.stuck || refreshPoll.error) && (
-              <div className="px-4 pb-3" data-testid="remote-refresh-alert">
-                <AlertMessage severity={refreshPoll.stuck ? 'warning' : 'error'}>
-                  {refreshPoll.stuck
-                    ? 'Tải danh sách SKU lâu bất thường. Tải lại trang để xem kết quả.'
-                    : refreshPoll.error
-                      ? problemMessage(refreshPoll.error, 'remote_skus')
-                      : refreshFailure}
-                </AlertMessage>
-              </div>
+              </>
             )}
+          </div>
+        </FilterBar>
+        {usable && canMatch && (refreshFailure || refreshPoll.stuck || refreshPoll.error) && (
+          <div className="px-4 pb-3" data-testid="remote-refresh-alert">
+            <AlertMessage severity={refreshPoll.stuck ? 'warning' : 'error'}>
+              {refreshPoll.stuck
+                ? 'Tải danh sách SKU lâu bất thường. Tải lại trang để xem kết quả.'
+                : refreshPoll.error
+                  ? problemMessage(refreshPoll.error, 'remote_skus')
+                  : refreshFailure}
+            </AlertMessage>
+          </div>
+        )}
+        {tab === 'unmatched' || tab === 'pending' ? (
+          <div data-testid="remote-section">
+            <p className="max-w-prose px-4 pb-3 text-sm text-muted-foreground" data-testid="remote-hint">
+              {tab === 'pending'
+                ? canDecide
+                  ? 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Duyệt thì ghép mới có hiệu lực; từ chối thì ghép cũ giữ nguyên.'
+                  : 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Trong lúc chờ, ghép cũ giữ nguyên.'
+                : 'SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio. Vừa thêm SKU trên sàn thì bấm Tải lại.'}
+            </p>
             {!usable ? (
               <p className="px-4 pb-6 text-sm text-muted-foreground">
                 Không tải được SKU trên sàn khi gian hàng chưa kết nối.

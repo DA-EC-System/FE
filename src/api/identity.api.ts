@@ -3,7 +3,8 @@
  * Hợp đồng theo commerio-backend#8, #9; BE lấy công ty từ token (RLS theo company_id).
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { compactParams } from './compactParams';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';

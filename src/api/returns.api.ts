@@ -3,7 +3,8 @@
  * Hợp đồng ở Documents/21 mục 20.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import type { ScannedLine } from './fulfillment.api';
 import { useAuthStore } from '@/stores/authStore';

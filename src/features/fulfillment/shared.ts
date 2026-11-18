@@ -1,6 +1,6 @@
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import type { TransitionActor } from '@/lib/stateMachine';
-import { packageMachine, type PackageRecord } from '@/lib/machines/order';
+import { handoverConfirmed, packageMachine, type PackageRecord } from '@/lib/machines/order';
 /** Gói giao của sàn (Lazada `shipping_provider_type`); giá trị lạ thì hiện nguyên */
 const SHIPPING_PROVIDER_TYPE_LABELS: Record<string, string> = {
   standard: 'Tiêu chuẩn',
@@ -18,7 +18,7 @@ export function shippingProviderTypeLabel(v: string | null | undefined): string 
   return Object.prototype.hasOwnProperty.call(SHIPPING_PROVIDER_TYPE_LABELS, key) ? SHIPPING_PROVIDER_TYPE_LABELS[key]! : v;
 }
 
-import type { OpenPurpose, PackageAction, PackageFlag, PackageStatus, PackageSummary, PackageTab } from '@/types/fulfillment';
+import type { OpenPurpose, PackageAction, PackageFlag, PackageLine, PackageStatus, PackageSummary, PackageTab } from '@/types/fulfillment';
 
 export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {
   backordered: { label: 'Thiếu hàng', variant: 'destructive' },
@@ -57,6 +57,12 @@ export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
   resplit: 'Chia lại kiện',
 };
 
+/** Tổng số đơn vị chờ bỏ của kiện (sàn huỷ lẻ món sau khi đóng gói, 21 §19.2) */
+export const pendingDropTotal = (lines: readonly Pick<PackageLine, 'pendingDropQty'>[]): number =>
+  lines.reduce((sum, l) => sum + l.pendingDropQty, 0);
+
+export const PENDING_DROP_HINT = 'Sàn đã huỷ phần này, hàng còn trong hộp: bỏ ra khi mở kiện.';
+
 /** Hàng đợi kho theo bước làm việc; Cần đóng gói là tab mặc định */
 export const PACKAGE_TABS: { value: PackageTab; label: string }[] = [
   { value: 'reserved', label: 'Cần đóng gói' },
@@ -88,6 +94,8 @@ export const packageRecord = (p: PackageSummary): PackageRecord => ({
   orderStatus: p.order.status,
   // Người xác nhận thất lạc phải khác người báo
   createdBy: p.lostReport?.by.id ?? null,
+  // Ẩn Đảo bàn giao khi kiện không do kho quét hoặc sàn đã xác nhận lấy (21 §19.2)
+  handoverConfirmed: handoverConfirmed(p),
 });
 
 /** Nút của kiện theo bảng chuyển (sơ đồ D2), quyền và cờ */

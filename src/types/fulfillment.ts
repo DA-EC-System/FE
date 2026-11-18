@@ -58,6 +58,12 @@ export type PackageFlag =
   | 'cod_unconfirmed'
   | 'pickup_unconfirmed';
 
+/**
+ * Ai đưa kiện ra khỏi kho (21 §19.2): kho quét, sàn báo, bàn giao bắt buộc khi thiếu hàng, rời kho trước mốc kéo đơn.
+ * Chỉ kiện `scan` mà sàn chưa xác nhận lấy mới đảo bàn giao được.
+ */
+export type HandoverSource = 'scan' | 'marketplace' | 'forced' | 'before_cutoff';
+
 /** Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ */
 export type OpenPurpose = 'cancel' | 'edit' | 'resplit';
 
@@ -67,6 +73,12 @@ export interface FulfillmentLine {
   productName: string;
   attributesLabel: string;
   quantity: number;
+}
+
+/** Dòng hàng của kiện; `quantity` là số đang thật sự nằm trong hộp, gồm cả phần chờ bỏ */
+export interface PackageLine extends FulfillmentLine {
+  /** Số đơn vị sàn đã huỷ, còn trong hộp, kho bỏ ra khi mở kiện (21 §19.2); 0 khi không chờ bỏ */
+  pendingDropQty: number;
 }
 
 export interface LostReport {
@@ -105,9 +117,13 @@ export interface PackageSummary {
   promisedShippingAt?: string | null;
   /** Hạn bàn giao; kiện hạn sớm được chia hàng trước */
   shipBy: string | null;
-  lines: FulfillmentLine[];
+  lines: PackageLine[];
   totalQty: number;
   handedOverAt: string | null;
+  /** Null khi kiện chưa rời kho; tuỳ chọn tới khi BE trả (commerio-backend#199) */
+  handoverSource?: HandoverSource | null;
+  /** Lúc sàn xác nhận đã lấy kiện; null khi chưa xác nhận hoặc kiện chưa rời kho */
+  pickupConfirmedAt?: string | null;
   deliveredAt: string | null;
   /** Người tự giao: người xác nhận thất lạc phải khác người này */
   deliveredBy: UserRef | null;

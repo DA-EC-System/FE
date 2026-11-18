@@ -3,7 +3,8 @@
  * Hợp đồng đề xuất ở FE#9, chờ commerio-backend#24.
  */
 
-import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
