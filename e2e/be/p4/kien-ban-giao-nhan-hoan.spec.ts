@@ -44,6 +44,8 @@ interface Package {
   status: string;
   version: number;
   trackingCode: string | null;
+  handoverSource: string | null;
+  pickupConfirmedAt: string | null;
   lines: PackageLine[];
   statusHistory: StatusChange[];
 }
@@ -207,7 +209,7 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
     await toast(page, 'Đã bàn giao 1 kiện');
 
     pkg = await kien();
-    expect(pkg.status).toBe('in_transit');
+    expect(pkg).toMatchObject({ status: 'in_transit', handoverSource: 'scan', pickupConfirmedAt: null });
     expect(pkg.statusHistory.at(-1)).toMatchObject({ from: 'awaiting_pickup', to: 'in_transit', source: 'user' });
     const sau = await kiemTonThuc(tonDau, 1);
     for (const l of dongBienThe()) expect(sau.get(l.variantId)!.reserved, `đang giữ ${l.sku}`).toBe(tonDau.get(l.variantId)!.reserved - l.quantity);
@@ -215,6 +217,8 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
     await moKien();
     await expect(trangThaiKien()).toContainText('Đang giao');
     await expect(lichSuMoiNhat()).toContainText('Đang giao');
+    // Kho quét, sàn chưa xác nhận lấy: CEO thấy nút Đảo bàn giao
+    await expect(nutKien('Đảo bàn giao')).toBeVisible();
   });
 
   test('bàn giao trùng bằng version cũ: kiện nằm ở failed với already_handed_over, tồn không đổi', async () => {
@@ -276,18 +280,12 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
     expect(res.status(), await res.text()).toBe(409);
     expect(((await res.json()) as { type: string }).type).toBe('/problems/handover_confirmed_by_platform');
 
-    // FE chưa biết sàn đã xác nhận lấy (PackageSummary không có mốc này) nên có thể vẫn hiện nút: bấm thì báo lỗi của BE
+    // Sàn đã xác nhận lấy: API trả mốc, trang kiện không còn nút Đảo bàn giao (21 §19.2)
+    expect(pkg).toMatchObject({ handoverSource: 'scan', pickupConfirmedAt: expect.any(String) });
     await moKien();
     await expect(trangThaiKien()).toContainText('Đang giao');
-    if (await nutKien('Đảo bàn giao').count()) {
-      await nutKien('Đảo bàn giao').click();
-      const dialog = page.getByRole('dialog', { name: 'Đảo bàn giao' });
-      await dialog.getByTestId('reason-input').fill(LY_DO_DAO);
-      await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
-      await expect(dialog).toContainText('sàn đã xác nhận lấy hàng');
-      await dialog.locator('form').getByRole('button', { name: 'Đóng', exact: true }).click();
-      await expect(dialog).toHaveCount(0);
-    }
+    await expect(nutKien('Báo thất lạc')).toBeVisible();
+    await expect(nutKien('Đảo bàn giao')).toHaveCount(0);
     expect((await kien()).status).toBe('in_transit');
     await kiemTonThuc(tonDau, 1);
   });

@@ -3,6 +3,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import {
   cancelPlan,
   completionBlocker,
+  handoverConfirmed,
   isDueSoon,
   orderMachine,
   outcomeOf,
@@ -157,14 +158,24 @@ describe('Kiện (sơ đồ D2)', () => {
     }
   });
 
-  it('không đảo bàn giao khi sàn đã xác nhận lấy', () => {
+  it('không đảo bàn giao khi sàn đã xác nhận lấy (cùng mã lỗi BE, 21 §19.2)', () => {
     expect(
       packageMachine.check('in_transit', 'undo_handover', {
         actor: ceo,
-        record: { ...market, pickupConfirmed: true },
+        record: { ...market, handoverConfirmed: true },
         reason: 'Quét nhầm',
       }),
-    ).toEqual({ ok: false, code: 'pickup_confirmed' });
+    ).toEqual({ ok: false, code: 'handover_confirmed_by_platform' });
+  });
+
+  it('chỉ kiện kho quét mà sàn chưa xác nhận lấy mới đảo được; BE chưa trả trường thì không chặn', () => {
+    expect(handoverConfirmed({ handoverSource: 'scan', pickupConfirmedAt: null })).toBe(false);
+    expect(handoverConfirmed({ handoverSource: 'scan', pickupConfirmedAt: '2026-11-18T05:00:00Z' })).toBe(true);
+    for (const s of ['marketplace', 'forced', 'before_cutoff'] as const) {
+      expect(handoverConfirmed({ handoverSource: s, pickupConfirmedAt: null })).toBe(true);
+    }
+    expect(handoverConfirmed({ handoverSource: null, pickupConfirmedAt: null })).toBe(false);
+    expect(handoverConfirmed({})).toBe(false);
   });
 
   it('sàn đẩy cập nhật: có mũi tên thì áp, nhảy tới trên đường chính thì bù, còn lại cần xử lý', () => {

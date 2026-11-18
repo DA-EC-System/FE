@@ -1,6 +1,6 @@
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import type { TransitionActor } from '@/lib/stateMachine';
-import { packageMachine, type PackageRecord } from '@/lib/machines/order';
+import { handoverConfirmed, packageMachine, type PackageRecord } from '@/lib/machines/order';
 /** Gói giao của sàn (Lazada `shipping_provider_type`); giá trị lạ thì hiện nguyên */
 const SHIPPING_PROVIDER_TYPE_LABELS: Record<string, string> = {
   standard: 'Tiêu chuẩn',
@@ -88,6 +88,8 @@ export const packageRecord = (p: PackageSummary): PackageRecord => ({
   orderStatus: p.order.status,
   // Người xác nhận thất lạc phải khác người báo
   createdBy: p.lostReport?.by.id ?? null,
+  // Ẩn Đảo bàn giao khi kiện không do kho quét hoặc sàn đã xác nhận lấy (21 §19.2)
+  handoverConfirmed: handoverConfirmed(p),
 });
 
 /** Nút của kiện theo bảng chuyển (sơ đồ D2), quyền và cờ */
