@@ -33,6 +33,7 @@ import { RETURN_WINDOW_EDIT } from './ReturnWindowPanel';
 import { authorizationDeadline, platformLabel, STATUS_META } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { AddShopDialog } from './AddShopDialog';
+import { ShopDeleteDialog } from './ShopDeleteDialog';
 import { ShopDisconnectDialog } from './ShopDisconnectDialog';
 
 /** Lý do một thao tác trên dòng bị khoá, theo trạng thái gian hàng (Test_UI) */
@@ -99,6 +100,8 @@ export function ShopListPage() {
   const canDisconnect = can(PERMISSIONS.shopDisconnect);
   const canSync = can(PERMISSIONS.shopSync);
   const canFeeConfig = can(PERMISSIONS.financeConfigManage) || can(PERMISSIONS.financeConfigApprove);
+  // Xoá gian hàng đã ngắt (commerio-backend#398): quyền ngắt và vai trò CEO
+  const canDelete = canDisconnect && Boolean(companyContext?.roles.includes('CEO'));
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
@@ -107,6 +110,7 @@ export function ShopListPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   // Màn kết quả "Thêm gian hàng khác" quay về đây và mở luôn hộp thêm
   const [adding, setAdding] = useState(
     () => canConnect && Boolean((location.state as { addShop?: boolean } | null)?.addShop),
@@ -125,6 +129,8 @@ export function ShopListPage() {
   const shopOptions = shopPlatformOptions(allShops);
   const actionCount = allShops.filter(needsAction).length;
   const visibleShops = shopPage(allShops, { page, pageSize, search: debouncedSearch, platform, segment });
+  // Lấy từ danh sách mới nhất: nạp lại sau 409 thì hộp xoá gửi version mới
+  const deleting = deletingId ? (allShops.find((s) => s.id === deletingId) ?? null) : null;
   const syncMut = useSyncShop();
   const connector = useStartConnect();
 
@@ -282,7 +288,8 @@ export function ShopListPage() {
                       onSelect={() => navigate(ROUTES.company.financeConfigs(companyId))}
                     />
                   )}
-                  {((canDisconnect && s.status !== 'disconnected') || (canConnect && s.status === 'disconnected')) && (
+                  {((canDisconnect && s.status !== 'disconnected') ||
+                    ((canConnect || canDelete) && s.status === 'disconnected')) && (
                     <DropdownMenuSeparator />
                   )}
                   {canDisconnect && s.status !== 'disconnected' && (
@@ -295,6 +302,11 @@ export function ShopListPage() {
                       Kết nối lại
                     </DropdownMenuItem>
                   )}
+                  {canDelete && s.status === 'disconnected' && (
+                    <DropdownMenuItem variant="destructive" onSelect={() => setDeletingId(s.id)}>
+                      Xoá gian hàng
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -303,7 +315,7 @@ export function ShopListPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canConnect, canDisconnect, canSync, canFeeConfig, companyId, syncMut.isPending, syncMut.variables, connector.pending, platformsQuery.data],
+    [canConnect, canDisconnect, canDelete, canSync, canFeeConfig, companyId, syncMut.isPending, syncMut.variables, connector.pending, platformsQuery.data],
   );
 
   return (
@@ -401,6 +413,14 @@ export function ShopListPage() {
         onClose={() => setDisconnecting(null)}
         onConflict={() => void shopsQuery.refetch()}
       />
+
+      {canDelete && (
+        <ShopDeleteDialog
+          shop={deleting}
+          onClose={() => setDeletingId(null)}
+          onStale={() => void shopsQuery.refetch()}
+        />
+      )}
     </div>
   );
 }

@@ -21,6 +21,8 @@ import type {
   ShopAuthorizeUrl,
   ShopCallbackResult,
   ShopConnectionResult,
+  ShopDeleteInput,
+  ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpenOrder,
   ShopReconnectSummary,
@@ -37,6 +39,12 @@ import type { MockListing, MockRemoteSku, MockUnmanagedSku } from '../channelDat
 import * as pricing from '../pricingData';
 import * as inventory from '../inventoryData';
 import { orders as salesOrders } from '../salesData';
+import { packages as fulfillmentPackages } from '../fulfillmentData';
+import { requests as returnRequests } from '../returnsData';
+import { lines as ledgerLines } from '../ledgerData';
+import { settlementLines, statements as settlementStatements } from '../settlementData';
+import { reportRows } from '../reportData';
+import { releasePackage } from './fulfillment';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -162,6 +170,50 @@ export function firstShopOfCompany(shop: MockShop) {
   return !db.shops.some(
     (s) => s.id !== shop.id && s.companyId === shop.companyId && s.status !== 'connecting' && !openingStocktakeOf(s),
   );
+}
+
+/** Xoá phần tử khớp ngay trong mảng (mảng dữ liệu mock dùng chung nên không gán mảng mới); trả số đã xoá */
+function removeWhere<T>(items: T[], match: (item: T) => boolean): number {
+  let removed = 0;
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (match(items[i])) {
+      items.splice(i, 1);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+/**
+ * Dữ liệu thuộc gian hàng bị xoá theo BE#398: đơn, kiện (nhả giữ hàng trước), yêu cầu trả, listing, SKU sàn, sổ tiền,
+ * đối soát, số liệu báo cáo. Phiếu kho, bảng giá không đụng tới
+ */
+export function deleteShopData(shop: MockShop): ShopDeleteResult['deleted'] {
+  const orderIds = new Set(salesOrders.filter((o) => o.shopId === shop.id).map((o) => o.id));
+  for (const p of fulfillmentPackages) {
+    if (orderIds.has(p.orderId) && p.status === 'reserved') releasePackage(p);
+  }
+  const packages = removeWhere(fulfillmentPackages, (p) => orderIds.has(p.orderId));
+  const returns = removeWhere(returnRequests, (r) => orderIds.has(r.orderId));
+  const orders = removeWhere(salesOrders, (o) => o.shopId === shop.id);
+  const listings = removeWhere(channel.listings, (l) => l.shopId === shop.id);
+  removeWhere(channel.unmanagedSkus, (u) => u.shopId === shop.id);
+  delete channel.remoteSkus[shop.id];
+  const ledgerEntries = removeWhere(ledgerLines, (l) => l.shopId === shop.id || (l.orderId != null && orderIds.has(l.orderId)));
+  const statementIds = new Set(settlementStatements.filter((st) => st.shopId === shop.id).map((st) => st.id));
+  const settlementRows = removeWhere(settlementLines, (l) => statementIds.has(l.statementId));
+  const settlements = removeWhere(settlementStatements, (st) => statementIds.has(st.id));
+  const reportRowsDeleted = removeWhere(reportRows, (r) => r.shopId === shop.id);
+  return {
+    orders,
+    packages,
+    returns,
+    listings,
+    ledgerEntries,
+    settlementStatements: settlements,
+    settlementLines: settlementRows,
+    dailyChannelSummary: reportRowsDeleted,
+  };
 }
 
 export function findShop(id: unknown, companyId: string) {
@@ -1317,6 +1369,36 @@ export const shopHandlers = [
       zeroStock,
     });
     return HttpResponse.json<Shop>(toShop(db.shops[idx]));
+  }),
+
+  // commerio-backend#398: xoá hẳn gian hàng đã ngắt cùng dữ liệu của nó; chỉ CEO, phải gửi đúng chữ XOA
+  http.delete(`${API}/channel/shops/:id`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.shopDisconnect);
+    if (!guard.ok) return guard.response;
+    if (!guard.value.membership.roleIds.includes(CEO_ROLE_ID)) {
+      return problem(403, 'Không có quyền', { code: 'forbidden', detail: 'Chỉ CEO xoá được gian hàng' });
+    }
+    const idx = findShop(params.id, guard.value.companyId);
+    if (idx === -1) return problem(404, 'Không tìm thấy gian hàng');
+    const body = ((await request.json().catch(() => ({}))) ?? {}) as Partial<ShopDeleteInput>;
+    if (body.confirm !== 'XOA') {
+      return problem(422, 'Dữ liệu không hợp lệ', {
+        code: 'validation_failed',
+        errors: { confirm: 'Gõ đúng XOA để xác nhận xoá gian hàng' },
+      });
+    }
+    const current = db.shops[idx];
+    if (body.version !== current.version) {
+      return versionConflict(toShop(current), 'Gian hàng vừa được người khác sửa.');
+    }
+    if (current.status !== 'disconnected') {
+      return problem(409, 'Gian hàng chưa ngắt kết nối', { code: 'shop_not_disconnected', current: toShop(current) });
+    }
+    const deleted = deleteShopData(current);
+    db.shops.splice(idx, 1);
+    writeCompanyLog(guard.value, 'delete', shopEntity(current), { ...shopSnapshot(current), deleted }, null);
+    return HttpResponse.json<ShopDeleteResult>({ deleted });
   }),
 
   http.post(`${API}/channel/shops/:id/orders/pull`, async ({ params, request }) => {

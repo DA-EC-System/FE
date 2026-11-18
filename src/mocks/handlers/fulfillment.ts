@@ -226,7 +226,7 @@ export function newPackage(o: MockOrder, lines: MockPackage['lines'], selfDelive
   return p;
 }
 
-const releasePackage = (p: MockPackage) => release(levelsFor(p.companyId, p.lines), holdOf(p));
+export const releasePackage = (p: MockPackage) => release(levelsFor(p.companyId, p.lines), holdOf(p));
 
 /**
  * Tồn thực giảm: lấy lại phần giữ (kiện chưa đóng gói, đơn chưa thanh toán trước).
