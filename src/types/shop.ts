@@ -146,6 +146,11 @@ export interface ShopCallbackInput {
 export interface ShopTokenInput {
   accessToken: string;
   refreshToken?: string;
+  /**
+   * Gian hàng đang kết nối lại (commerio-backend#398): token của seller khác thì 409 `shop_mismatch`, không ghi gì.
+   * Không gửi khi Thêm gian hàng.
+   */
+  shopId?: string;
 }
 
 /**

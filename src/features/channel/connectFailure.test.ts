@@ -22,6 +22,18 @@ describe('Màn kết quả khi sàn trả về (§18.4)', () => {
     );
     expect(failureScreen(mismatch).title).toBe('Bạn vừa đăng nhập 2, không phải Shop A');
   });
+  it('dán nhầm token của seller khác khi kết nối lại: cùng màn so sánh, hướng dẫn dán lại token (commerio-backend#398)', () => {
+    const mismatch = failureFromError(
+      loi({ code: 'shop_mismatch', expected: { name: 'Shop A', externalShopId: '1' }, actual: { name: null, externalShopId: '2' } }),
+      'token',
+    );
+    expect(mismatch).toMatchObject({ kind: 'mismatch', via: 'token' });
+    const screen = failureScreen(mismatch);
+    expect(screen.title).toBe('Token vừa dán là của 2, không phải Shop A');
+    expect(screen.description).toContain('lấy token của đúng gian hàng');
+    expect(screen.description).not.toContain('Đăng xuất');
+    expect(failureFromError(loi({ code: 'shop_connected_elsewhere' }), 'token')).toEqual({ kind: 'elsewhere', via: 'token' });
+  });
   it('company_mismatch giữ tên hai công ty (§18.7.4)', () => {
     const f = failureFromError(
       loi({

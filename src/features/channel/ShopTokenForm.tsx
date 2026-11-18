@@ -13,7 +13,7 @@ import { getProblem } from '@/api/client';
 import { tokenErrorMessage, type ProblemSummary } from '@/api/problemMessages';
 import type { ShopCallbackResult } from '@/types/shop';
 import { ConnectSteps } from './ConnectOutcome';
-import type { ConnectFailure } from './connectFailure';
+import { failureFromError, type ConnectFailure } from './connectFailure';
 
 /** Bước khi kiểm tra token với sàn; hiện trong lúc chờ BE */
 const TOKEN_STEPS = ['Gọi sàn kiểm tra token', 'Đọc mã gian hàng', 'Đối chiếu với gian hàng đã có'];
@@ -27,15 +27,28 @@ type TokenForm = z.infer<typeof tokenSchema>;
 interface ShopTokenFormProps {
   platform: string;
   name: string;
+  /** Gian hàng đang kết nối lại (commerio-backend#398): BE chỉ nối lại gian hàng này, token của seller khác là `shop_mismatch` */
+  shopId?: string;
+  /** Chữ nút quay lại; mặc định "Chọn sàn khác" (hộp Thêm gian hàng) */
+  backLabel?: string;
   onBack: () => void;
   onBusyChange: (busy: boolean) => void;
   onDone: (result: ShopCallbackResult) => void;
-  /** Lỗi có màn kết quả riêng (gian hàng đang nối ở công ty khác) */
+  /** Lỗi có màn kết quả riêng (gian hàng đang nối ở công ty khác, token của seller khác khi kết nối lại) */
   onFailure: (failure: ConnectFailure) => void;
 }
 
 /** Cách 2: dán token lấy ở trang nhà phát triển của sàn (shop thử không đi OAuth được) */
-export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone, onFailure }: ShopTokenFormProps) {
+export function ShopTokenForm({
+  platform,
+  name,
+  shopId,
+  backLabel = 'Chọn sàn khác',
+  onBack,
+  onBusyChange,
+  onDone,
+  onFailure,
+}: ShopTokenFormProps) {
   const connect = useConnectShopByToken();
   const [error, setError] = useState<ProblemSummary | null>(null);
   const form = useForm<TokenForm>({
@@ -48,7 +61,12 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone, on
     setError(null);
     onBusyChange(true);
     try {
-      const result = await connect.mutateAsync({ platform, accessToken, refreshToken: refreshToken || undefined });
+      const result = await connect.mutateAsync({
+        platform,
+        accessToken,
+        refreshToken: refreshToken || undefined,
+        ...(shopId ? { shopId } : {}),
+      });
       // Không giữ token trong form sau khi đã gửi
       form.reset();
       onDone(result);
@@ -58,9 +76,9 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone, on
       if (fields.accessToken) setFieldError('accessToken', { message: fields.accessToken });
       if (fields.refreshToken) setFieldError('refreshToken', { message: fields.refreshToken });
       if (fields.accessToken || fields.refreshToken) return;
-      if (problem?.code === 'shop_connected_elsewhere') {
+      if (problem?.code === 'shop_connected_elsewhere' || problem?.code === 'shop_mismatch') {
         form.reset();
-        onFailure({ kind: 'elsewhere', via: 'token' });
+        onFailure(failureFromError(e, 'token'));
         return;
       }
       setError(tokenErrorMessage(e, platform));
@@ -100,7 +118,7 @@ export function ShopTokenForm({ platform, name, onBack, onBusyChange, onDone, on
         <div className="flex justify-between gap-2">
           <Button type="button" variant="ghost" disabled={connect.isPending} onClick={onBack}>
             <ArrowLeft />
-            Chọn sàn khác
+            {backLabel}
           </Button>
           <Button type="submit" disabled={connect.isPending}>
             <KeyRound />
