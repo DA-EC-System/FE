@@ -27,7 +27,7 @@ const nutSua = (page: Page, variantId: string) =>
 const suaNoiDung = async (page: Page, variantId: string) => {
   await nutSua(page, variantId).click();
   const hop = page.getByRole('alertdialog');
-  await expect(hop).toContainText('sàn sẽ duyệt lại, listing vẫn bán trong lúc duyệt');
+  await expect(hop).toContainText('sàn sẽ duyệt lại. Thường sàn vẫn bán bản cũ trong lúc duyệt; nếu sàn ngừng bán để duyệt, listing chuyển Chờ sàn duyệt. Ảnh, giá và tồn không đổi.');
   await hop.getByRole('button', { name: 'Đưa lên sàn', exact: true }).click();
 };
 

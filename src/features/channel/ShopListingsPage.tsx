@@ -587,7 +587,7 @@ export function ShopListingsPage() {
         toast.warning(`Trạng thái của ${row.sku} trên sàn vừa đổi. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
         void listingsQuery.refetch();
       } else {
-        toast.error(updateContentMessage(e));
+        toast.error(updateContentMessage(e, shop ? platformLabel(shop.platform, shop.platformName) : undefined));
       }
     }
     setUpdatingContent(null);
@@ -1393,8 +1393,9 @@ export function ShopListingsPage() {
         title="Sửa nội dung trên sàn?"
         message={
           <>
-            Đưa tên, mô tả, thuộc tính mới của <strong>{updatingContent?.sku}</strong> lên {shop?.shopName}; sàn sẽ duyệt lại,
-            listing vẫn bán trong lúc duyệt. Ảnh, giá và tồn không đổi.
+            Đưa tên, mô tả, thuộc tính mới của <strong>{updatingContent?.sku}</strong> lên {shop?.shopName}; sàn sẽ duyệt lại.
+            Thường sàn vẫn bán bản cũ trong lúc duyệt; nếu sàn ngừng bán để duyệt, listing chuyển Chờ sàn duyệt. Ảnh, giá
+            và tồn không đổi.
           </>
         }
         confirmLabel="Đưa lên sàn"

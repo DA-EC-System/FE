@@ -324,15 +324,24 @@ const UPDATE_CONTENT_MESSAGES: Record<string, string> = {
   invalid_transition: 'Listing không còn đang bán nên không sửa nội dung được. Tải lại để xem trạng thái mới.',
   listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên. Ghép SKU sàn với biến thể trước.',
   shared_remote_product: 'Sản phẩm trên sàn có nhiều SKU, Commerio chưa sửa nội dung từng SKU được. Sửa trên Seller Center.',
-  category_unmapped: 'Danh mục của sản phẩm chưa ghép với danh mục sàn. Ghép danh mục rồi sửa nội dung lại.',
   marketplace_unavailable: 'Sàn đang lỗi, chưa đưa được nội dung mới lên. Thử lại sau ít phút.',
   marketplace_unsupported: 'Sàn này chưa hỗ trợ sửa nội dung sản phẩm đang bán.',
 };
 
-/** Lỗi của `POST listings/:id/update-content`: sàn từ chối thì kèm câu sàn trả, listing giữ nguyên */
-export function updateContentMessage(error: unknown): string {
+/**
+ * Lỗi của `POST listings/:id/update-content`: sàn từ chối thì kèm câu sàn trả, listing giữ nguyên.
+ * `platform` là tên sàn cho câu `category_unmapped`, `spec_incomplete` (Documents/21 §18.3, §18.5, đổi 18/11/2026).
+ */
+export function updateContentMessage(error: unknown, platform = 'sàn'): string {
   const problem = getProblem(error);
   const code = problem?.code;
+  if (code === 'category_unmapped') {
+    return `Sản phẩm chưa có thông tin ${platform}. Điền thông tin sàn của sản phẩm rồi sửa nội dung lại.`;
+  }
+  if (code === 'spec_incomplete') {
+    const missing = problem?.message ?? problem?.detail;
+    return `Thông tin ${platform} của sản phẩm còn thiếu${missing ? `: ${missing}` : '.'}`;
+  }
   if (problem?.platformCode && CALL_LIMIT_CODES.includes(problem.platformCode)) return MESSAGES.call_limit;
   if (code === 'marketplace_rejected') {
     const said = problem?.platformMessage ?? problem?.detail;

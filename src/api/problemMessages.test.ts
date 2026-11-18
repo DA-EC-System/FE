@@ -175,11 +175,26 @@ describe('updateContentMessage: lỗi nút Sửa nội dung (FE#275, §18.3 upda
     ['invalid_transition', 'Listing không còn đang bán'],
     ['listing_unmanaged', 'Ghép SKU sàn với biến thể trước'],
     ['shared_remote_product', 'Sửa trên Seller Center'],
-    ['category_unmapped', 'Ghép danh mục rồi sửa nội dung lại'],
     ['marketplace_unavailable', 'chưa đưa được nội dung mới lên'],
     ['marketplace_unsupported', 'chưa hỗ trợ sửa nội dung'],
   ])('%s có câu theo ngữ cảnh sửa nội dung', (code, text) => {
     expect(updateContentMessage(loi({ status: 409, code, detail: 'English detail' }))).toContain(text);
+  });
+
+  it('category_unmapped: sản phẩm chưa có thông tin sàn, không nói ghép danh mục', () => {
+    const msg = updateContentMessage(loi({ status: 409, code: 'category_unmapped', detail: 'x' }), 'TikTok Shop');
+    expect(msg).toBe('Sản phẩm chưa có thông tin TikTok Shop. Điền thông tin sàn của sản phẩm rồi sửa nội dung lại.');
+    expect(msg).not.toContain('Ghép danh mục');
+  });
+
+  it('spec_incomplete: liệt kê nhãn BE trả trong message', () => {
+    expect(
+      updateContentMessage(
+        loi({ status: 409, code: 'spec_incomplete', detail: 'Spec incomplete', message: 'Thương hiệu, Chất liệu' }),
+        'TikTok Shop',
+      ),
+    ).toBe('Thông tin TikTok Shop của sản phẩm còn thiếu: Thương hiệu, Chất liệu');
+    expect(updateContentMessage(loi({ status: 409, code: 'spec_incomplete' }))).toBe('Thông tin sàn của sản phẩm còn thiếu.');
   });
 
   it('marketplace_rejected: kèm câu của sàn, nói listing giữ nguyên', () => {
