@@ -18,7 +18,7 @@ export function shippingProviderTypeLabel(v: string | null | undefined): string 
   return Object.prototype.hasOwnProperty.call(SHIPPING_PROVIDER_TYPE_LABELS, key) ? SHIPPING_PROVIDER_TYPE_LABELS[key]! : v;
 }
 
-import type { OpenPurpose, PackageAction, PackageFlag, PackageStatus, PackageSummary, PackageTab } from '@/types/fulfillment';
+import type { OpenPurpose, PackageAction, PackageFlag, PackageLine, PackageStatus, PackageSummary, PackageTab } from '@/types/fulfillment';
 
 export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {
   backordered: { label: 'Thiếu hàng', variant: 'destructive' },
@@ -56,6 +56,12 @@ export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
   edit: 'Sửa kiện',
   resplit: 'Chia lại kiện',
 };
+
+/** Tổng số đơn vị chờ bỏ của kiện (sàn huỷ lẻ món sau khi đóng gói, 21 §19.2) */
+export const pendingDropTotal = (lines: readonly Pick<PackageLine, 'pendingDropQty'>[]): number =>
+  lines.reduce((sum, l) => sum + l.pendingDropQty, 0);
+
+export const PENDING_DROP_HINT = 'Sàn đã huỷ phần này, hàng còn trong hộp: bỏ ra khi mở kiện.';
 
 /** Hàng đợi kho theo bước làm việc; Cần đóng gói là tab mặc định */
 export const PACKAGE_TABS: { value: PackageTab; label: string }[] = [

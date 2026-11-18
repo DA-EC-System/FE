@@ -456,7 +456,7 @@ export function OrderDetailPage() {
                           )}
                         </TableCell>
                         <TableCell className="whitespace-normal text-sm">
-                          {p.lines.map((l) => `${l.sku} × ${l.quantity}`).join(', ')}
+                          {p.lines.map((l) => `${l.sku} × ${l.quantity}${l.pendingDropQty > 0 ? ` (chờ bỏ ${l.pendingDropQty})` : ''}`).join(', ')}
                           <PackageShipping pkg={p} />
                         </TableCell>
                         <TableCell>

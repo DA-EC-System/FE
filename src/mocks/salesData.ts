@@ -134,7 +134,8 @@ export interface MockPackage {
   code: string;
   orderId: string;
   status: PackageStatus;
-  lines: { variantId: string; quantity: number }[];
+  /** `pendingDropQty`: phần sàn đã huỷ còn trong hộp, chờ kho bỏ ra khi mở kiện; thiếu là 0 */
+  lines: { variantId: string; quantity: number; pendingDropQty?: number }[];
   selfDelivery: boolean;
   needsOpen: boolean;
   openPurpose: OpenPurpose | null;
