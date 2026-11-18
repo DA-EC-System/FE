@@ -7,6 +7,7 @@
 
 import { queryOptions, useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
+import { salesKeys } from './sales.api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   CategoryAttribute,
@@ -228,6 +229,8 @@ export function useFinishShopSetup() {
 
 export function useSyncShop() {
   const invalidate = useInvalidateShops();
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
   return useMutation({
     mutationFn: async (id: string) => {
       // Documents/21 §14: kéo đơn ngay, trả số đơn đã lấy chi tiết, số đơn mới, số đơn đổi
@@ -236,7 +239,11 @@ export function useSyncShop() {
       );
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      void invalidate();
+      // Đơn mới, đơn đổi hiện ngay ở trang Đơn hàng
+      void qc.invalidateQueries({ queryKey: salesKeys.all(companyId) });
+    },
   });
 }
 

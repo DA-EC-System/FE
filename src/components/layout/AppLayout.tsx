@@ -31,7 +31,7 @@ const SIDEBAR_STYLE = { '--sidebar-width': '232px' } as CSSProperties;
 
 /**
  * Khung chung theo Test_UI (`.app`): sidebar trắng có nhóm thu gọn, header trắng có breadcrumb, nội dung đệm 24px
- * rộng tối đa 1280px. Trên mobile sidebar mở bằng Sheet. Mỗi không gian truyền menu riêng.
+ * trải hết chiều ngang (bỏ giới hạn 1280px của Test_UI để bảng nhiều cột đủ chỗ). Trên mobile sidebar mở bằng Sheet. Mỗi không gian truyền menu riêng.
  */
 export function AppLayout({ sections, brand }: AppLayoutProps) {
   const { companyContext } = useAuth();
@@ -75,7 +75,7 @@ export function AppLayout({ sections, brand }: AppLayoutProps) {
       <SidebarInset className="min-w-0 bg-background">
         <Header active={active} sections={visibleSections} />
         <main className="flex-1 px-4 pt-4 pb-16 md:px-6 md:pt-6">
-          <div className="w-full max-w-[1280px]">
+          <div className="w-full">
             <Outlet />
           </div>
         </main>
