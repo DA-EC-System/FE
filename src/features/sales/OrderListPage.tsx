@@ -1,16 +1,20 @@
 import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOrderTabCounts, useOrders } from '@/api/sales.api';
 import { usePageGuide } from '@/guides/usePageGuide';
-import { useShops } from '@/api/shops.api';
+import { useShops, useSyncShop } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -60,6 +64,11 @@ export function OrderListPage() {
   // Link "Xem đơn của gian hàng" từ hộp thoại ngắt gian hàng (§18.6.1) mở trang với ?shopId=
   const shopId = f.params.get('shopId') ?? '';
   const shopsQuery = useShops({ enabled: can(PERMISSIONS.shopView) });
+  const canSync = can(PERMISSIONS.shopView) && can(PERMISSIONS.shopSync);
+  const syncMut = useSyncShop();
+  const [syncing, setSyncing] = useState(false);
+  // Bảng toàn màn hình: phủ cả cửa sổ, Esc để thoát
+  const [full, setFull] = useState(false);
 
   const listFilters = {
     search: f.q || undefined,
@@ -196,6 +205,49 @@ export function OrderListPage() {
     return options;
   }, [shopsQuery.data, query.data, shopId]);
 
+  // Đồng bộ đơn: kéo đơn ngay của gian hàng đang lọc, không lọc thì mọi gian hàng đang hoạt động
+  const syncTargets = (shopsQuery.data?.items ?? []).filter((s) => s.status === 'active' && (!shopId || s.id === shopId));
+  const syncOrders = async () => {
+    setSyncing(true);
+    const results = await Promise.allSettled(syncTargets.map((s) => syncMut.mutateAsync(s.id)));
+    setSyncing(false);
+    let created = 0;
+    let updated = 0;
+    const failed: { name: string; error: unknown }[] = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        created += r.value.created;
+        updated += r.value.updated;
+      } else failed.push({ name: syncTargets[i].shopName, error: r.reason });
+    });
+    const ok = results.length - failed.length;
+    if (ok > 0) toast.success(`Đã đồng bộ ${ok} gian hàng: ${created} đơn mới, ${updated} đơn cập nhật`);
+    if (failed.length === 1) toast.error(`${failed[0].name}: ${problemMessage(failed[0].error)}`);
+    else if (failed.length > 1) toast.error(`Không đồng bộ được ${failed.map((x) => x.name).join(', ')}`);
+  };
+  const syncReason = syncing
+    ? 'Đang đồng bộ...'
+    : shopsQuery.isLoading
+      ? 'Đang tải gian hàng...'
+      : syncTargets.length === 0
+        ? 'Không có gian hàng đang hoạt động'
+        : undefined;
+
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Esc đang đóng ô chọn của bộ lọc thì không thoát toàn màn hình
+      if (e.key === 'Escape' && !document.querySelector('[role="listbox"]')) setFull(false);
+    };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [full]);
+
   return (
     <div>
       <PageHeader
@@ -203,6 +255,14 @@ export function OrderListPage() {
         subtitle="Đơn từ các gian hàng trên sàn."
         help="Số trên mỗi tab đếm theo bộ lọc đang chọn. Cột Trạng thái là giai đoạn suy từ các kiện; rê chuột vào nhãn để xem nghĩa."
         onTour={startTour}
+        action={
+          canSync ? (
+            <Button variant="outline" onClick={() => void syncOrders()} disabled={Boolean(syncReason)} title={syncReason}>
+              <RefreshCw className={cn(syncing && 'animate-spin')} />
+              {shopId ? 'Đồng bộ đơn gian hàng' : 'Đồng bộ đơn'}
+            </Button>
+          ) : undefined
+        }
       />
       <Tabs value={status || ALL} onValueChange={(v) => f.update({ status: v === ALL ? undefined : v, page: undefined })}>
         <div className="mb-2 overflow-x-auto">
@@ -225,7 +285,11 @@ export function OrderListPage() {
           {problemMessage(query.error)}
         </AlertMessage>
       )}
-      <Card className="gap-0 py-0" data-guide="order-list">
+      <Card
+        className={cn('gap-0 py-0', full && 'fixed inset-0 z-40 overflow-auto rounded-none border-0')}
+        data-guide="order-list"
+        data-fullscreen={full || undefined}
+      >
         <FilterBar guide="order-filters">
           <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, mã đơn sàn" />
           <FilterSelect
@@ -262,6 +326,17 @@ export function OrderListPage() {
             onChange={f.setFilter('flag')}
             options={FILTERABLE_ORDER_FLAGS.map((x) => ({ value: x, label: ORDER_FLAGS[x].label }))}
           />
+          <Button
+            variant="outline"
+            size="icon"
+            className="md:ms-auto"
+            aria-label={full ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+            title={full ? 'Thoát toàn màn hình (Esc)' : 'Toàn màn hình'}
+            aria-pressed={full}
+            onClick={() => setFull((v) => !v)}
+          >
+            {full ? <Minimize2 /> : <Maximize2 />}
+          </Button>
         </FilterBar>
         <DataTable
           columns={columns}
