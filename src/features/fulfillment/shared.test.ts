@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageSummary } from '@/types/fulfillment';
-import { handoverFailureLabel, isHotPackage, packageBackTo, packageButtons } from './shared';
+import { handoverFailureLabel, isHotPackage, packageBackTo, packageButtons, pendingDropTotal } from './shared';
 
 const P = PERMISSIONS;
 const kho = { accountId: 'kho', permissions: [P.fulfillmentProcess] };
@@ -116,5 +116,13 @@ describe('packageBackTo', () => {
     });
     expect(packageBackTo(null)).toBeNull();
     expect(packageBackTo({ backTo: { path: 1, label: 'x' } })).toBeNull();
+  });
+});
+
+describe('pendingDropTotal (21 §19.2)', () => {
+  it('cộng phần chờ bỏ của mọi dòng, 0 khi không dòng nào chờ bỏ', () => {
+    expect(pendingDropTotal([])).toBe(0);
+    expect(pendingDropTotal([{ pendingDropQty: 0 }, { pendingDropQty: 0 }])).toBe(0);
+    expect(pendingDropTotal([{ pendingDropQty: 2 }, { pendingDropQty: 0 }, { pendingDropQty: 1 }])).toBe(3);
   });
 });

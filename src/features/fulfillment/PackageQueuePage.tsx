@@ -30,7 +30,8 @@ import { formatDateTime } from '@/utils/format';
 import type { PackageSummary, PackageTab } from '@/types/fulfillment';
 import type { OrderSource } from '@/types/sales';
 import { SOURCE_LABELS, sourceLabel } from '@/features/sales/shared';
-import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, handoverFailureLabel, isHotPackage } from './shared';
+import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, handoverFailureLabel, isHotPackage, pendingDropTotal } from './shared';
+import { PendingDropBadge } from './PendingDropBadge';
 
 const PAGE_SIZES = [25, 50, 100];
 const MAX_HANDOVER = 50;
@@ -133,7 +134,17 @@ export function PackageQueuePage() {
       { id: 'order', header: 'Đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
       { id: 'source', header: 'Nguồn', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
       { id: 'customer', header: 'Khách', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
-      { id: 'totalQty', header: 'Số lượng', meta: { className: 'w-24 text-right' }, cell: ({ row }) => row.original.totalQty },
+      {
+        id: 'totalQty',
+        header: 'Số lượng',
+        meta: { className: 'w-28 text-right' },
+        cell: ({ row }) => (
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            <PendingDropBadge qty={pendingDropTotal(row.original.lines)} />
+            {row.original.totalQty}
+          </div>
+        ),
+      },
       {
         id: 'status',
         header: 'Trạng thái',

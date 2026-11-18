@@ -102,6 +102,7 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
       productName: line?.productName ?? '',
       attributesLabel: variantLabel(o.companyId, l.variantId).attributesLabel,
       quantity: l.quantity,
+      pendingDropQty: l.pendingDropQty ?? 0,
     };
   });
   return {

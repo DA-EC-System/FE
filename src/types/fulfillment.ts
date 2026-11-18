@@ -75,6 +75,12 @@ export interface FulfillmentLine {
   quantity: number;
 }
 
+/** Dòng hàng của kiện; `quantity` là số đang thật sự nằm trong hộp, gồm cả phần chờ bỏ */
+export interface PackageLine extends FulfillmentLine {
+  /** Số đơn vị sàn đã huỷ, còn trong hộp, kho bỏ ra khi mở kiện (21 §19.2); 0 khi không chờ bỏ */
+  pendingDropQty: number;
+}
+
 export interface LostReport {
   by: UserRef;
   at: string;
@@ -111,7 +117,7 @@ export interface PackageSummary {
   promisedShippingAt?: string | null;
   /** Hạn bàn giao; kiện hạn sớm được chia hàng trước */
   shipBy: string | null;
-  lines: FulfillmentLine[];
+  lines: PackageLine[];
   totalQty: number;
   handedOverAt: string | null;
   /** Null khi kiện chưa rời kho; tuỳ chọn tới khi BE trả (commerio-backend#199) */
