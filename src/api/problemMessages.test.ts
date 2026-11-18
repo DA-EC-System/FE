@@ -8,6 +8,7 @@ import {
   problemSummary,
   shopMismatchMessage,
   tokenErrorMessage,
+  updateContentMessage,
 } from './problemMessages';
 
 const loi = (data: ProblemDetails) =>
@@ -166,6 +167,50 @@ describe('404 vì chưa có route khác 404 bản ghi không có (FE#248)', () =
   it('không phải 404 thì không coi là route chưa có', () => {
     expect(isRouteMissing(loi({ status: 409, code: 'conflict', detail: 'Không có đường dẫn GET /x' }))).toBe(false);
     expect(isRouteMissing(new Error('mạng'))).toBe(false);
+  });
+});
+
+describe('updateContentMessage: lỗi nút Sửa nội dung (FE#275, §18.3 update-content)', () => {
+  it.each([
+    ['invalid_transition', 'Listing không còn đang bán'],
+    ['listing_unmanaged', 'Ghép SKU sàn với biến thể trước'],
+    ['shared_remote_product', 'Sửa trên Seller Center'],
+    ['marketplace_unavailable', 'chưa đưa được nội dung mới lên'],
+    ['marketplace_unsupported', 'chưa hỗ trợ sửa nội dung'],
+  ])('%s có câu theo ngữ cảnh sửa nội dung', (code, text) => {
+    expect(updateContentMessage(loi({ status: 409, code, detail: 'English detail' }))).toContain(text);
+  });
+
+  it('category_unmapped: sản phẩm chưa có thông tin sàn, không nói ghép danh mục', () => {
+    const msg = updateContentMessage(loi({ status: 409, code: 'category_unmapped', detail: 'x' }), 'TikTok Shop');
+    expect(msg).toBe('Sản phẩm chưa có thông tin TikTok Shop. Điền thông tin sàn của sản phẩm rồi sửa nội dung lại.');
+    expect(msg).not.toContain('Ghép danh mục');
+  });
+
+  it('spec_incomplete: liệt kê nhãn BE trả trong message', () => {
+    expect(
+      updateContentMessage(
+        loi({ status: 409, code: 'spec_incomplete', detail: 'Spec incomplete', message: 'Thương hiệu, Chất liệu' }),
+        'TikTok Shop',
+      ),
+    ).toBe('Thông tin TikTok Shop của sản phẩm còn thiếu: Thương hiệu, Chất liệu');
+    expect(updateContentMessage(loi({ status: 409, code: 'spec_incomplete' }))).toBe('Thông tin sàn của sản phẩm còn thiếu.');
+  });
+
+  it('marketplace_rejected: kèm câu của sàn, nói listing giữ nguyên', () => {
+    const said = '12019018: description contains contact information';
+    expect(updateContentMessage(loi({ status: 409, code: 'marketplace_rejected', detail: said, platformMessage: said }))).toBe(
+      `Sàn không nhận bản sửa, listing giữ nguyên. Sàn báo: ${said}`,
+    );
+    expect(updateContentMessage(loi({ status: 409, code: 'marketplace_rejected', detail: 'Bad title' }))).toBe(
+      'Sàn không nhận bản sửa, listing giữ nguyên. Sàn báo: Bad title',
+    );
+  });
+
+  it('mã khác dùng problemMessage', () => {
+    expect(updateContentMessage(loi({ status: 409, code: 'shop_not_active' }))).toBe(
+      problemMessage(loi({ status: 409, code: 'shop_not_active' })),
+    );
   });
 });
 
