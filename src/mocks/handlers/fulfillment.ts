@@ -463,6 +463,32 @@ const CANCEL_REASONS: CancelReason[] = [
   { id: '22', label: 'Không giao được tới địa chỉ khách' },
 ];
 
+/** Lý do từ chối khách xin huỷ của TikTok (reject_reason); Lazada không có danh sách, từ chối không cần lý do */
+const CANCEL_REJECT_REASONS: Record<string, CancelReason[]> = {
+  tiktok: [
+    { id: 'seller_reject_apply_product_has_been_packed', label: 'Hàng đã đóng gói xong' },
+    { id: 'seller_reject_apply_reached_agreement_with_buyer', label: 'Đã thoả thuận với khách, khách vẫn nhận hàng' },
+    { id: 'seller_reject_apply_product_has_been_shipped', label: 'Hàng đã giao cho đơn vị vận chuyển' },
+  ],
+};
+
+function rejectReasonsOf(o: MockOrder): CancelReason[] {
+  const platform = db.shops.find((s) => s.id === o.shopId)?.platform ?? '';
+  return CANCEL_REJECT_REASONS[platform] ?? [];
+}
+
+/** Bỏ dấu khách xin huỷ trên dòng khi người bán từ chối: dòng không còn bị huỷ */
+function clearBuyerCancel(o: MockOrder) {
+  for (const x of Object.values(o.platform?.lines ?? {})) {
+    if (x.cancelInitiator === 'buyer' && (!x.cancelKind || x.cancelKind === 'cancellation')) {
+      delete x.cancelInitiator;
+      delete x.cancelKind;
+      delete x.cancelReason;
+      delete x.cancelReasonDetail;
+    }
+  }
+}
+
 /** Sàn kiểm đơn trước khi huỷ (Lazada cancel/validate); trả câu gốc của sàn khi không cho */
 function platformCancelBlocked(o: MockOrder): string | null {
   if (o.status === 'cancelled' || o.status === 'completed') return 'Order status does not allow cancellation';
@@ -537,7 +563,24 @@ export const fulfillmentHandlers = [
     return HttpResponse.json<CancelOrderResult>({ order: toOrder(order), pendingOpen });
   }),
 
-  // Trả lời khách xin huỷ (Lazada InitReverseOrderCancelDecide)
+  // Lý do từ chối khách xin huỷ (TikTok reject_reason; Lazada trả rỗng)
+  http.get(`${API}/sales/orders/:id/cancel-reject-reasons`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.orderCancel);
+    if (!guard.ok) return guard.response;
+    const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
+    if (!found.ok) return found.response;
+    const order = found.value;
+    if (!order.flags.includes('cancel_requested')) {
+      return problem(409, 'Sàn không cho từ chối', {
+        code: 'marketplace_rejected',
+        platformMessage: 'No pending cancellation request for this order',
+      });
+    }
+    return HttpResponse.json<CancelReasonList>({ items: rejectReasonsOf(order) });
+  }),
+
+  // Trả lời khách xin huỷ (Lazada InitReverseOrderCancelDecide, TikTok approve/reject cancellation)
   http.post(`${API}/sales/orders/:id/cancel-request`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.orderCancel);
@@ -545,9 +588,13 @@ export const fulfillmentHandlers = [
     const found = findOwned(sales.orders, params.id, guard.value.companyId, 'đơn hàng');
     if (!found.ok) return found.response;
     const order = found.value;
-    const body = (await request.json()) as { version?: number; decision?: string };
+    const body = (await request.json()) as { version?: number; decision?: string; rejectReasonId?: string };
     if (body.decision !== 'accept' && body.decision !== 'reject') {
       return problem(422, 'Dữ liệu không hợp lệ', { errors: { decision: 'Chọn đồng ý hoặc từ chối' } });
+    }
+    const rejectReasons = rejectReasonsOf(order);
+    if (body.decision === 'reject' && rejectReasons.length && !rejectReasons.some((r) => r.id === body.rejectReasonId)) {
+      return problem(422, 'Dữ liệu không hợp lệ', { errors: { rejectReasonId: 'Chọn lý do từ chối' } });
     }
     if (body.version !== order.version) return versionConflict(toOrder(order), 'Đơn vừa được người khác cập nhật.');
     if (!order.flags.includes('cancel_requested')) {
@@ -560,6 +607,8 @@ export const fulfillmentHandlers = [
     if (body.decision === 'accept') {
       order.rawMarketplaceStatus = 'canceled';
       startCancel(order, 'Khách xin huỷ', at, guard.value.account.id);
+    } else {
+      clearBuyerCancel(order);
     }
     if (order.version === version) order.version += 1;
     writeCompanyLog(guard.value, 'update', orderEntity(order), before, orderSnapshot(order));

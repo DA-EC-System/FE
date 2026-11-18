@@ -149,6 +149,18 @@ export const lineHasIssue = (l: {
   reverseOrderId?: string | null;
 }) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
+/**
+ * Dòng khách đang xin huỷ, người bán chưa trả lời: sàn đã ghi người huỷ là khách nhưng đơn còn cờ
+ * `cancel_requested`, nên dòng chưa huỷ thật (không ghi Đã huỷ, không gạch tiền).
+ */
+export const lineCancelPending = (
+  order: { flags: readonly string[] },
+  line: { cancelInitiator?: string | null; cancelKind?: string | null },
+) =>
+  order.flags.includes('cancel_requested') &&
+  line.cancelInitiator === 'buyer' &&
+  (line.cancelKind == null || line.cancelKind === 'cancellation');
+
 /** Phường/xã hiện riêng khi chuỗi địa chỉ (sàn che một phần) chưa ghi rõ */
 export function wardNote(a: ShippingAddress): string | null {
   if (!a.ward) return null;

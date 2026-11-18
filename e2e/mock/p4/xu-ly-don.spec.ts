@@ -1,6 +1,6 @@
 // P4 · Xử lý đơn theo kiện (sơ đồ D1, D2; FE#59): huỷ đơn, hàng đợi kiện, quét đóng gói, bàn giao, cập nhật giao
 import { type Page } from '@playwright/test';
-import { chua, dangNhap, dong, expect, menu, mockApi, test, thayChu, toast } from '../../fixtures';
+import { chua, dangNhap, dong, expect, menu, mockApi, phatSuKienSan, test, thayChu, toast } from '../../fixtures';
 
 const CHAN_QUYEN = 'Vai trò của bạn trong công ty này không có quyền mở trang này.';
 
@@ -156,13 +156,82 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(page.locator('[data-testid=order-status]')).toContainText('huỷ');
     });
 
-    test('từ chối yêu cầu huỷ thì đơn tiếp tục xử lý', async ({ page }) => {
+    test('dòng khách đang xin huỷ ghi Khách xin huỷ, không ghi Đã huỷ, không gạch tiền (DH-B04)', async ({ page }) => {
+      await page.goto('/c/cmp-001/sales/orders/ord-1015');
+      const dongLoi = page.locator('[data-testid=line-issue]');
+      await expect(dongLoi).toContainText('Khách xin huỷ');
+      await expect(dongLoi).toContainText('Lý do: Đổi ý, không muốn mua nữa');
+      await expect(dongLoi).not.toContainText('Đã huỷ');
+      await expect(dongLoi).not.toContainText('do khách');
+      const dong1 = page.locator('[data-testid=order-lines] tbody tr').first();
+      await expect(dong1).toContainText('360.000');
+      await expect(dong1.locator('.line-through')).toHaveCount(0);
+    });
+
+    test('từ chối yêu cầu huỷ TikTok: phải chọn lý do của sàn, đơn tiếp tục xử lý (DH-B02)', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1015');
       await page.locator('[data-testid=cancel-request]').getByRole('button', { name: 'Từ chối', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await thayChu(dialog, 'Từ chối yêu cầu huỷ DH-1015');
+      await dialog.getByRole('button', { name: 'Từ chối huỷ', exact: true }).click();
+      await thayChu(dialog, 'Chọn lý do từ chối');
+      await dialog.getByLabel('Hàng đã đóng gói xong', { exact: true }).click();
+      await dialog.getByRole('button', { name: 'Từ chối huỷ', exact: true }).click();
       await toast(page, 'Đã từ chối yêu cầu huỷ');
+      await expect(dialog).toHaveCount(0);
       await expect(page.locator('[data-testid=cancel-request]')).toHaveCount(0);
       await expect(page.locator('[data-testid=order-status]')).toContainText('Đang xử lý');
       await expect(page.getByRole('button', { name: 'Huỷ đơn', exact: true })).toBeAttached();
+      await expect(page.locator('[data-testid=line-issue]')).toHaveCount(0);
+    });
+
+    test('từ chối yêu cầu huỷ Lazada: sàn không có lý do, chỉ xác nhận', async ({ page }) => {
+      // Không tải lại trang: dữ liệu mock nằm trong bộ nhớ trang
+      await page.goto('/c/cmp-001/sales/orders');
+      const timDon = page.getByPlaceholder('Tìm mã đơn, mã đơn sàn', { exact: true });
+      await expect(timDon).toBeVisible();
+      const code = (await phatSuKienSan(page, 'order.created', 'shp-003')).split(':')[0]!;
+      await phatSuKienSan(page, 'order.cancel_requested', undefined, { code });
+      await timDon.fill(code);
+      await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
+      await page.locator('tbody tr[data-row-id]').first().click();
+      await page.locator('[data-testid=cancel-request]').getByRole('button', { name: 'Từ chối', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await thayChu(dialog, 'Từ chối yêu cầu huỷ của khách? Đơn tiếp tục xử lý.');
+      await expect(dialog.getByRole('radio')).toHaveCount(0);
+      await dialog.getByRole('button', { name: 'Từ chối huỷ', exact: true }).click();
+      await toast(page, 'Đã từ chối yêu cầu huỷ');
+      await expect(page.locator('[data-testid=cancel-request]')).toHaveCount(0);
+    });
+
+    test('sàn không cho từ chối yêu cầu huỷ thì báo câu của sàn', async ({ page }) => {
+      await page.goto('/c/cmp-001/sales/orders/ord-1015');
+      await expect(page.locator('[data-testid=cancel-request]')).toBeAttached();
+      await mockApi(page, 'get', '/sales/orders/ord-1015/cancel-reject-reasons', 409, {
+        status: 409,
+        code: 'marketplace_rejected',
+        platformMessage: 'The cancellation request has expired',
+      });
+      await page.locator('[data-testid=cancel-request]').getByRole('button', { name: 'Từ chối', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.locator('[data-testid=cancel-rejected]')).toContainText('Sàn báo: The cancellation request has expired');
+      await expect(dialog.getByRole('radio')).toHaveCount(0);
+      await expect(dialog.getByRole('button', { name: 'Từ chối huỷ', exact: true })).toBeDisabled();
+    });
+
+    test('BE đòi lý do từ chối thì báo ngay trong hộp', async ({ page }) => {
+      await page.goto('/c/cmp-001/sales/orders/ord-1015');
+      await expect(page.locator('[data-testid=cancel-request]')).toBeAttached();
+      await mockApi(page, 'post', '/sales/orders/ord-1015/cancel-request', 422, {
+        status: 422,
+        errors: { rejectReasonId: 'Required' },
+      });
+      await page.locator('[data-testid=cancel-request]').getByRole('button', { name: 'Từ chối', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel('Hàng đã đóng gói xong', { exact: true }).click();
+      await dialog.getByRole('button', { name: 'Từ chối huỷ', exact: true }).click();
+      await thayChu(dialog, 'Chọn lý do từ chối');
+      await expect(page.locator('[data-testid=cancel-request]')).toBeAttached();
     });
 
     test('nhập số hoá đơn', async ({ page }) => {
