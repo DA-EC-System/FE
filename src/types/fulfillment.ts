@@ -67,8 +67,14 @@ export type HandoverSource = 'scan' | 'marketplace' | 'forced' | 'before_cutoff'
 /** Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ */
 export type OpenPurpose = 'cancel' | 'edit' | 'resplit';
 
+/**
+ * Dòng hàng để nhặt, đóng (21 §19.2): dòng đã ghép mang SKU, tên, thuộc tính của biến thể app; dòng chưa ghép hay
+ * "không quản tồn" mang của sàn.
+ */
 export interface FulfillmentLine {
   variantId: string | null;
+  /** Dòng "không quản tồn": không biến thể, không giữ, không trừ tồn; vẫn phải cho vào hộp */
+  untracked: boolean;
   sku: string;
   productName: string;
   attributesLabel: string;
@@ -77,6 +83,10 @@ export interface FulfillmentLine {
 
 /** Dòng hàng của kiện; `quantity` là số đang thật sự nằm trong hộp, gồm cả phần chờ bỏ */
 export interface PackageLine extends FulfillmentLine {
+  /** Id dòng kiện; `pack.untrackedLines[].lineId` trỏ tới đây */
+  id: string;
+  /** SKU người bán trên sàn; null với đơn tay */
+  externalSku: string | null;
   /** Số đơn vị sàn đã huỷ, còn trong hộp, kho bỏ ra khi mở kiện (21 §19.2); 0 khi không chờ bỏ */
   pendingDropQty: number;
 }

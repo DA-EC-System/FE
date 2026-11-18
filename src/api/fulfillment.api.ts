@@ -91,7 +91,13 @@ export function usePickList(ids: string[], enabled = true) {
 
 /** Thao tác một kiện; thân gửi kèm version, lỗi 409 trả `current` là kiện mới nhất */
 export type PackageCommand =
-  | { kind: 'pack'; lines: { variantId: string; quantity: number }[]; carrierCode?: string }
+  | {
+      kind: 'pack';
+      lines: { variantId: string; quantity: number }[];
+      /** Số đã cho vào hộp của từng dòng "không quản tồn" (21 §19.2) */
+      untrackedLines?: { lineId: string; quantity: number }[];
+      carrierCode?: string;
+    }
   | { kind: 'ready' }
   | { kind: 'undo-handover'; reason: string }
   | { kind: 'open' }
