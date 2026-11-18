@@ -67,6 +67,19 @@ test.describe('P1 · Bấm đúp chỉ ra một request', () => {
     await expect(page.locator('[data-sonner-toast][data-type=error]')).toHaveCount(0);
   });
 
+  test('Đồng bộ đơn: mỗi gian hàng một request, một toast', async ({ page }) => {
+    await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+    await menu(page, 'Đơn hàng');
+    const keo = demRequest(page, 'POST', /\/channel\/shops\/[^/]+\/orders\/pull$/);
+    const nut = page.getByRole('button', { name: 'Đồng bộ đơn', exact: true });
+    await expect(nut).toBeEnabled();
+    await bamDup(nut);
+    await expect(soToast(page, 'Đã đồng bộ 2 gian hàng')).toHaveCount(1);
+    await expect(nut).toBeEnabled();
+    expect(keo).toHaveLength(2);
+    expect(new Set(keo).size).toBe(2);
+  });
+
   test('Đăng ký: một request, sang trang đăng nhập, không báo email đã có', async ({ page }) => {
     await page.goto('/register');
     const values = {

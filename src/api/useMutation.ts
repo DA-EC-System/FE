@@ -6,6 +6,9 @@
  * API, không chạy onSuccess/onError, `mutateAsync` trả promise không bao giờ xong nên đoạn sau `await` không chạy lần nữa.
  * Biến khác nhau (bấm hai dòng khác nhau của một bảng) vẫn chạy song song. Mọi hook trong `src/api` dùng bản này thay cho
  * `useMutation` của react-query (ESLint chặn import thẳng).
+ *
+ * Vì lời gọi trùng trả promise không bao giờ xong, đừng bọc `mutateAsync` trong thứ hiện trạng thái chờ theo promise
+ * (như `toast.promise` của sonner): lần bấm thứ hai sẽ treo "đang tải" mãi. Dùng `await` rồi `toast.success`/`toast.error`.
  */
 import {
   // eslint-disable-next-line no-restricted-imports -- chỗ duy nhất được dùng bản gốc
@@ -18,6 +21,18 @@ import {
 import { useCallback, useRef } from 'react';
 
 let unkeyable = 0;
+/** Blob không có tên, ngày sửa: so theo chính đối tượng, hai Blob khác nhau không bao giờ trùng khoá */
+const blobIds = new WeakMap<Blob, number>();
+let nextBlobId = 0;
+const blobId = (blob: Blob) => {
+  let id = blobIds.get(blob);
+  if (id === undefined) {
+    nextBlobId += 1;
+    id = nextBlobId;
+    blobIds.set(blob, id);
+  }
+  return id;
+};
 
 /** Khoá so trùng của biến gửi đi; biến không đổi ra JSON được thì coi mỗi lần là một lời gọi riêng */
 export function variablesKey(variables: unknown): string {
@@ -26,7 +41,7 @@ export function variablesKey(variables: unknown): string {
       JSON.stringify(variables, (_key, value: unknown) => {
         if (typeof value === 'bigint') return `${value}n`;
         if (typeof File !== 'undefined' && value instanceof File) return `file:${value.name}:${value.size}:${value.lastModified}`;
-        if (typeof Blob !== 'undefined' && value instanceof Blob) return `blob:${value.type}:${value.size}`;
+        if (typeof Blob !== 'undefined' && value instanceof Blob) return `blob:${blobId(value)}`;
         return value;
       }) ?? ''
     );

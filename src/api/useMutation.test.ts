@@ -79,6 +79,13 @@ describe('variablesKey', () => {
     expect(variablesKey({ file: a })).not.toBe(variablesKey({ file: b }));
   });
 
+  it('Blob so theo chính đối tượng: hai Blob cùng kiểu, cùng cỡ vẫn khác khoá; cùng một Blob thì trùng', () => {
+    const a = new Blob(['aa'], { type: 'image/png' });
+    const b = new Blob(['bb'], { type: 'image/png' });
+    expect(variablesKey({ blob: a })).not.toBe(variablesKey({ blob: b }));
+    expect(variablesKey({ blob: a })).toBe(variablesKey({ blob: a }));
+  });
+
   it('biến vòng tròn không đổi ra JSON: mỗi lần một khoá riêng, không chặn nhầm', () => {
     const loop: Record<string, unknown> = {};
     loop.self = loop;

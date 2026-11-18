@@ -31,6 +31,15 @@ export default tseslint.config(
           ],
         },
       ],
+      // FE#247: lời gọi trùng bị bỏ trả promise không bao giờ xong, toast.promise sẽ treo "đang tải" mãi
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.object.name='toast'][callee.property.name='promise']",
+          message:
+            "Không dùng toast.promise: useMutation bỏ lời gọi trùng bằng promise không bao giờ xong, toast sẽ treo 'đang tải'. Dùng await rồi toast.success/toast.error (FE#247).",
+        },
+      ],
     },
   },
   {
