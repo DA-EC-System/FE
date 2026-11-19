@@ -10,10 +10,12 @@ import type {
   ProductSpec,
   ProductSpecInput,
   ProductSpecResult,
+  Shop,
   SpecMissing,
   SpecMissingReason,
   SpecValue,
 } from '@/types/shop';
+import { shopUsable } from '@/lib/machines/channel';
 
 /** Trục phân loại không ánh xạ sales attribute nào của sàn: gửi tên trục làm custom sales attribute */
 export const CUSTOM_AXIS = '__custom';
@@ -163,6 +165,72 @@ export function firstErrorStep(errors: Record<string, string>): PushStep {
 export function stepOfMissing(reason: SpecMissingReason): PushStep {
   if (reason === 'category_changed' || reason === 'category_removed') return 0;
   return reason === 'axis_unmapped' ? 2 : 1;
+}
+
+/** Nút đi kèm một mục còn thiếu ở bước 4: về một bước của trang, hoặc sang trang gian hàng */
+export type ReadinessAction = { kind: 'step'; step: PushStep } | { kind: 'shops' };
+
+export interface PushBlocker {
+  key: string;
+  label: string;
+  /** `null`: sửa ngay tại bước 4 (vd. tick gian hàng) */
+  action: ReadinessAction | null;
+}
+
+export interface ReadinessInput {
+  /** Tên sàn hiển thị */
+  label: string;
+  hasCategory: boolean;
+  /** Attribute của leaf: đã tải, đang tải, hay tải lỗi (vd. không có gian hàng đang kết nối để hỏi sàn) */
+  attributes: 'loaded' | 'loading' | 'failed';
+  /** Kết quả `specMissing`, kèm dòng "Chưa chọn category" khi chưa có leaf */
+  missing: SpecMissing[];
+  /** Chỉ lưu thông tin sàn: không cần gian hàng */
+  fillOnly: boolean;
+  shops: Pick<Shop, 'id' | 'status'>[];
+  selected: ReadonlySet<string>;
+  /** Gian hàng biết chắc không bán được category này */
+  blockedShops: ReadonlyMap<string, string>;
+}
+
+/**
+ * Bước 4 có đẩy được thật không. Sẵn sàng khi đã chọn category, attribute của leaf đã tải và đủ bắt buộc, trục phân
+ * loại đã ánh xạ, và (trừ chế độ chỉ lưu) có ít nhất một gian hàng đẩy được đang được chọn. Mỗi mục thiếu kèm nút
+ * về đúng bước; thứ tự theo bước để người dùng sửa từ trên xuống
+ */
+export function pushReadiness(input: ReadinessInput): { ready: boolean; blockers: PushBlocker[] } {
+  const fromMissing = (m: SpecMissing): PushBlocker => ({
+    key: `${m.reason}-${m.code}`,
+    label: m.label,
+    action: { kind: 'step', step: stepOfMissing(m.reason) },
+  });
+  const blockers: PushBlocker[] = input.missing.filter((m) => stepOfMissing(m.reason) === 0).map(fromMissing);
+  if (input.hasCategory && input.attributes !== 'loaded') {
+    blockers.push({
+      key: 'attributes',
+      label:
+        input.attributes === 'loading'
+          ? 'Đang tải attribute của category, chưa kiểm được ô bắt buộc'
+          : 'Chưa tải được attribute của category nên chưa kiểm được ô bắt buộc',
+      action: { kind: 'step', step: 1 },
+    });
+  }
+  blockers.push(...input.missing.filter((m) => stepOfMissing(m.reason) !== 0).map(fromMissing));
+  if (!input.fillOnly) {
+    const pushable = input.shops.filter((s) => shopUsable(s.status) && !input.blockedShops.has(s.id));
+    if (!input.shops.length) {
+      blockers.push({ key: 'no_shop', label: `Công ty chưa có gian hàng ${input.label} nào`, action: { kind: 'shops' } });
+    } else if (!pushable.length) {
+      blockers.push({
+        key: 'no_usable_shop',
+        label: `Không gian hàng ${input.label} nào đẩy được: chưa kết nối, mất uỷ quyền hoặc không được bán category này`,
+        action: { kind: 'shops' },
+      });
+    } else if (!pushable.some((s) => input.selected.has(s.id))) {
+      blockers.push({ key: 'no_selected_shop', label: 'Chưa chọn gian hàng để đẩy', action: null });
+    }
+  }
+  return { ready: blockers.length === 0, blockers };
 }
 
 /** Mở trang: chưa có spec hoặc category đổi/bị bỏ thì ở bước Category; đã có thì vào thẳng Attributes */

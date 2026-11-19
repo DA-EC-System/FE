@@ -28,6 +28,7 @@ import {
   permissionBlocked,
   PERMISSION_LABELS,
   productAxes,
+  pushReadiness,
   specInput,
   specMissing,
   stepOfError,
@@ -218,7 +219,19 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
     }
   };
 
-  const canSubmit = Boolean(draft.externalCategoryId) && (fillOnly || [...selected].some((id) => !blockedShops.has(id)));
+  const readiness = pushReadiness({
+    label,
+    hasCategory: Boolean(draft.externalCategoryId),
+    attributes: attrs ? 'loaded' : leaf.isLoading ? 'loading' : 'failed',
+    missing,
+    fillOnly,
+    shops,
+    selected,
+    blockedShops,
+  });
+  const shopBlocked = readiness.blockers.some((b) => b.action?.kind !== 'step');
+  // Chỉ lưu: lưu được cả khi còn thiếu (BE trả lại phần thiếu); đẩy: phải sẵn sàng thật
+  const canSubmit = fillOnly ? Boolean(draft.externalCategoryId) : readiness.ready;
   const backTo = fromParam ? ROUTES.company.shop(companyId, fromParam.id) : ROUTES.company.shops(companyId);
   const title = `${fillOnly ? 'Thông tin sàn' : 'Đẩy lên sàn'}: ${product.name}`;
   const activeVariants = product.variants.filter((v) => !v.archivedAt).length;
@@ -332,8 +345,9 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
                 product={product}
                 draft={draft}
                 sales={sales}
-                missing={missing}
+                blockers={readiness.blockers}
                 fillOnly={fillOnly}
+                shopsHref={ROUTES.company.shops(companyId)}
                 shops={shops}
                 selected={selected}
                 blockedShops={blockedShops}
@@ -404,8 +418,12 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
             {axes.length ? `${axes.map((a) => a.name).join(' × ')} · ${activeVariants} SKU` : `Không có, ${activeVariants} SKU`}
           </SummaryRow>
           {!fillOnly && (
-            <SummaryRow title="Gian hàng" ok={canSubmit} onEdit={draft.externalCategoryId ? () => goTo(3) : undefined}>
-              {selected.size ? shops.filter((s) => selected.has(s.id)).map((s) => s.shopName).join(', ') : 'Chưa chọn'}
+            <SummaryRow title="Gian hàng" ok={!shopBlocked} onEdit={draft.externalCategoryId ? () => goTo(3) : undefined}>
+              {!shops.length
+                ? `Chưa có gian hàng ${label}`
+                : selected.size
+                  ? shops.filter((s) => selected.has(s.id)).map((s) => s.shopName).join(', ')
+                  : 'Chưa chọn'}
             </SummaryRow>
           )}
         </Card>

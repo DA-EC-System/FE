@@ -21,6 +21,8 @@ import {
   fieldHint,
   cascadePath,
   cascadeLevels,
+  pushReadiness,
+  type ReadinessInput,
 } from './specDraft';
 
 const attr = (over: Partial<PlatformAttribute>): PlatformAttribute => ({
@@ -237,5 +239,71 @@ describe('cascadePath', () => {
     expect(cascadePath([])).toBe('');
     expect(cascadeLevels(cascadePath(['vn', 'vn-hcm']))).toEqual(['vn', 'vn-hcm']);
     expect(cascadeLevels('')).toEqual([]);
+  });
+});
+
+describe('pushReadiness (bước 4 chỉ ghi Sẵn sàng khi đẩy được thật)', () => {
+  const base: ReadinessInput = {
+    label: 'TikTok',
+    hasCategory: true,
+    attributes: 'loaded',
+    missing: [],
+    fillOnly: false,
+    shops: [{ id: 's1', status: 'active' }],
+    selected: new Set(['s1']),
+    blockedShops: new Map(),
+  };
+  const keys = (i: Partial<ReadinessInput>) => pushReadiness({ ...base, ...i }).blockers.map((b) => b.key);
+
+  it('đủ category, attribute, phân loại và có gian hàng đã chọn: sẵn sàng', () => {
+    expect(pushReadiness(base)).toEqual({ ready: true, blockers: [] });
+  });
+
+  it('không có gian hàng của sàn (lỗi staging 19/11/2026): chưa sẵn sàng, nói rõ và đưa sang trang gian hàng', () => {
+    const r = pushReadiness({ ...base, attributes: 'failed', shops: [], selected: new Set() });
+    expect(r.ready).toBe(false);
+    expect(r.blockers).toEqual([
+      { key: 'attributes', label: expect.stringContaining('Chưa tải được attribute'), action: { kind: 'step', step: 1 } },
+      { key: 'no_shop', label: 'Công ty chưa có gian hàng TikTok nào', action: { kind: 'shops' } },
+    ]);
+  });
+
+  it('attribute đang tải hoặc tải lỗi thì chưa sẵn sàng; chưa chọn category thì không kiểm attribute', () => {
+    expect(keys({ attributes: 'loading' })).toEqual(['attributes']);
+    expect(keys({ attributes: 'failed' })).toEqual(['attributes']);
+    const category = { code: 'category', label: 'Chưa chọn category TikTok', reason: 'category_changed' as const };
+    expect(pushReadiness({ ...base, hasCategory: false, attributes: 'failed', missing: [category] }).blockers).toEqual([
+      { key: 'category_changed-category', label: 'Chưa chọn category TikTok', action: { kind: 'step', step: 0 } },
+    ]);
+  });
+
+  it('mục còn thiếu đưa về đúng bước, category trước attribute', () => {
+    const r = pushReadiness({
+      ...base,
+      attributes: 'failed',
+      missing: [
+        { code: 'att-mau', label: 'Màu', reason: 'axis_unmapped' },
+        { code: 'category', label: 'Category trên sàn đã đổi', reason: 'category_changed' },
+        { code: 'material', label: 'Chất liệu', reason: 'required' },
+      ],
+    });
+    expect(r.blockers.map((b) => [b.key, b.action])).toEqual([
+      ['category_changed-category', { kind: 'step', step: 0 }],
+      ['attributes', { kind: 'step', step: 1 }],
+      ['axis_unmapped-att-mau', { kind: 'step', step: 2 }],
+      ['required-material', { kind: 'step', step: 1 }],
+    ]);
+  });
+
+  it('có gian hàng nhưng không cái nào đẩy được, hoặc chưa chọn cái đẩy được', () => {
+    expect(keys({ shops: [{ id: 's1', status: 'needs_reauth' }, { id: 's2', status: 'disconnected' }] })).toEqual(['no_usable_shop']);
+    expect(keys({ blockedShops: new Map([['s1', 'Sàn cấm bán']]) })).toEqual(['no_usable_shop']);
+    expect(keys({ selected: new Set() })).toEqual(['no_selected_shop']);
+    expect(pushReadiness({ ...base, selected: new Set() }).blockers[0].action).toBeNull();
+  });
+
+  it('chế độ chỉ lưu không cần gian hàng nhưng vẫn cần attribute đã tải', () => {
+    expect(pushReadiness({ ...base, fillOnly: true, shops: [], selected: new Set() }).ready).toBe(true);
+    expect(keys({ fillOnly: true, shops: [], attributes: 'failed' })).toEqual(['attributes']);
   });
 });
