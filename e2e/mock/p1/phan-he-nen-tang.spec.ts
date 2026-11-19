@@ -48,7 +48,8 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
     const rows = page.locator('tbody tr[data-row-id]');
     await expect(rows).not.toHaveCount(0);
     await chon(page, 'Thao tác', 'Sửa');
-    await moiPhanTu(rows, (t) => expect(t).toContain('Sửa'));
+    // Lọc theo action: dòng sửa có operation hiện chữ thao tác (Tạm khoá…), không phải Thêm/Xoá (FE#298)
+    await moiPhanTu(rows.getByTestId('audit-operation'), (t) => expect(t).not.toMatch(/^(Thêm|Xoá)$/));
     await rows.first().click();
     await expect(page.getByTestId('audit-diff').locator('tr[data-changed]')).not.toHaveCount(0);
   });
@@ -126,7 +127,7 @@ test.describe('P1 · Quản trị nền tảng', () => {
     await dongCo(page, 'Mỹ phẩm XYZ').getByRole('button', { name: 'Khoá', exact: true }).click();
     await page.locator('textarea[name=reason]').fill('Thử xung đột');
     await page.getByRole('dialog').getByRole('button', { name: 'Khoá công ty', exact: true }).click();
-    await expect(await toast(page, 'vừa được người khác cập nhật')).toContainText('đã khoá');
+    await expect(await toast(page, 'vừa được người khác đổi')).toContainText('đã khoá');
 
     await mockApi(page, 'post', '/platform/companies/:id/unlock', 404, { status: 404, title: 'Không tìm thấy', code: 'not_found' });
     await dongCo(page, 'Nông sản').getByRole('button', { name: 'Mở khoá', exact: true }).click();
