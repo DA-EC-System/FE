@@ -22,8 +22,8 @@ describe('Nhãn thao tác nhật ký (FE#298, BE#352)', () => {
     );
   });
 
-  it('không có operation thì Thêm/Sửa/Xoá; mã lạ hiện nguyên mã', () => {
-    expect(auditOperationLabel({ action: 'update', entityType: 'core.roles', operation: null })).toBe('Sửa');
+  it('không có operation thì Tạo mới/Cập nhật/Xoá; mã lạ hiện nguyên mã', () => {
+    expect(auditOperationLabel({ action: 'update', entityType: 'core.roles', operation: null })).toBe('Cập nhật');
     expect(auditOperationLabel({ action: 'update', entityType: 'x.y', operation: 'zzz' })).toBe('zzz');
   });
 
