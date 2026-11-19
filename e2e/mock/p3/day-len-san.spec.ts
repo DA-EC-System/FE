@@ -1,5 +1,13 @@
 // P3 · Trang 4 bước đẩy sản phẩm lên sàn, thông tin sàn của sản phẩm (commerio-backend#400, Documents/21 §18.5)
-import { chon, chua, dangNhap, dong, expect, test, toast } from '../../fixtures';
+import { type Page } from '@playwright/test';
+import { chon, chua, dangNhap, dong, expect, mockApi, test, toast } from '../../fixtures';
+
+/** Chuyển trang trong ứng dụng, không tải lại (giữ handler MSW vừa thêm) */
+const toi = (page: Page, path: string) =>
+  page.evaluate((p) => {
+    window.history.pushState({}, '', p);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
 
 test.describe('P3 · Đẩy lên sàn theo thông tin sàn của sản phẩm', () => {
   test.beforeEach(async ({ page }) => {
@@ -32,6 +40,18 @@ test.describe('P3 · Đẩy lên sàn theo thông tin sàn của sản phẩm', 
 
     await page.getByRole('button', { name: '4. Xem lại & đẩy' }).click();
     await expect(chua(page, 'Sẵn sàng.')).toBeVisible();
+
+    // BE vẫn có thể trả 422 cho chỗ FE không kiểm được: đưa về đúng bước, đúng ô
+    await mockApi(page, 'put', '/channel/products/:productId/specs/:platform', 422, {
+      status: 422,
+      title: 'Dữ liệu không hợp lệ',
+      errors: { 'axisMap.att-mau': 'Sales attribute không còn trong leaf' },
+    });
+    await page.getByRole('button', { name: 'Lưu và đẩy lên Lazada' }).click();
+    await toast(page, 'Còn ô chưa hợp lệ');
+    await expect(page.getByRole('button', { name: '3. Variants' })).toHaveAttribute('aria-current', 'step');
+
+    await page.getByRole('button', { name: '4. Xem lại & đẩy' }).click();
     await page.getByRole('button', { name: 'Lưu và đẩy lên Lazada' }).click();
     await toast(page, /Đã xếp \d+ SKU chờ đẩy lên Lazada/);
     const ketQua = page.getByRole('region', { name: 'Kết quả đẩy' });
@@ -39,7 +59,7 @@ test.describe('P3 · Đẩy lên sàn theo thông tin sàn của sản phẩm', 
     await expect(chua(ketQua, /Đã xếp \d+ SKU chờ đẩy/)).toBeVisible();
   });
 
-  test('chọn gợi ý, tìm leaf; 422 của BE đưa về đúng bước, đúng ô', async ({ page }) => {
+  test('chọn gợi ý, tìm leaf; còn thiếu thì bước 4 khoá nút đẩy và đưa về đúng ô', async ({ page }) => {
     // Thắt lưng chưa có thông tin Lazada: mở ở bước Category
     await page.goto('/c/cmp-001/channel/products/prd-003/push/lazada?shop=shp-003');
     // Lazada gợi ý tối đa 5, dòng đầu chọn sẵn
@@ -54,14 +74,52 @@ test.describe('P3 · Đẩy lên sàn theo thông tin sàn của sản phẩm', 
     await expect(chua(page, 'Còn thiếu 3 attribute bắt buộc')).toBeVisible();
 
     await page.getByRole('button', { name: '4. Xem lại & đẩy' }).click();
-    await page.getByRole('button', { name: 'Lưu và đẩy lên Lazada' }).click();
-    await toast(page, 'Còn ô chưa hợp lệ');
-    await expect(page.getByRole('button', { name: '2. Attributes' })).toHaveAttribute('aria-current', 'step');
-    await expect(page.getByRole('combobox', { name: /Chất liệu trang phục/ })).toBeFocused();
-    await expect(page.getByText('Sàn bắt buộc attribute này')).toHaveCount(3);
+    await expect(chua(page, 'Chưa đẩy được, còn thiếu:')).toBeVisible();
+    await expect(chua(page, 'Sẵn sàng.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Lưu và đẩy lên Lazada' })).toBeDisabled();
+    const conThieu = page.getByRole('list', { name: 'Còn thiếu' });
+    await expect(conThieu.getByRole('button', { name: 'Sửa ở bước Attributes' })).toHaveCount(3);
 
+    await conThieu.getByRole('button', { name: 'Sửa ở bước Attributes' }).first().click();
+    await expect(page.getByRole('button', { name: '2. Attributes' })).toHaveAttribute('aria-current', 'step');
     await chon(page, 'Loại dáng ôm Bắt buộc', 'Thường xuyên');
-    await expect(page.getByText('Sàn bắt buộc attribute này')).toHaveCount(2);
+    await expect(chua(page, 'Còn thiếu 2 attribute bắt buộc')).toBeVisible();
+  });
+
+  test('công ty không có gian hàng TikTok: bước 4 không ghi Sẵn sàng, khoá nút, chỉ sang trang gian hàng', async ({ page }) => {
+    // Như staging 19/11/2026: không gian hàng TikTok nên BE không lấy được attribute của leaf
+    await page.evaluate(() => {
+      type Bridge = {
+        worker: { use: (...h: unknown[]) => void };
+        http: { get: (path: string, resolver: () => Response) => unknown };
+        HttpResponse: { json: (body: unknown, init?: ResponseInit) => Response };
+      };
+      const { worker, http, HttpResponse } = (window as unknown as { __msw: Bridge }).__msw;
+      worker.use(
+        http.get('*/api/v1/channel/shops', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/v1/channel/platforms/tiktok/categories/:externalId', () =>
+          HttpResponse.json(
+            { status: 409, title: 'Gian hàng chưa kết nối', code: 'shop_not_connected', detail: 'Công ty chưa có gian hàng đang kết nối trên sàn này để lấy attribute.' },
+            { status: 409 },
+          ),
+        ),
+      );
+    });
+    await toi(page, '/c/cmp-001/channel/products/prd-002/push/tiktok');
+    await page.getByRole('button', { name: '4. Xem lại & đẩy' }).click();
+
+    await expect(chua(page, 'Sẵn sàng.')).toHaveCount(0);
+    const conThieu = page.getByRole('list', { name: 'Còn thiếu' });
+    await expect(chua(conThieu, 'Chưa tải được attribute của category')).toBeVisible();
+    await expect(chua(conThieu, 'Công ty chưa có gian hàng TikTok nào')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lưu và đẩy lên TikTok' })).toBeDisabled();
+    await expect(chua(page.locator('[aria-label="Tóm tắt"]'), 'Chưa có gian hàng TikTok')).toBeVisible();
+
+    await conThieu.getByRole('button', { name: 'Sửa ở bước Attributes' }).click();
+    await expect(page.getByRole('button', { name: '2. Attributes' })).toHaveAttribute('aria-current', 'step');
+    await page.getByRole('button', { name: '4. Xem lại & đẩy' }).click();
+    await conThieu.getByRole('link', { name: 'Kết nối gian hàng TikTok' }).click();
+    await expect(page).toHaveURL(/\/c\/cmp-001\/channel\/shops$/);
   });
 
   test('dòng đã ghép SKU thiếu thông tin sàn: Bổ sung thông tin sàn mở trang chỉ Lưu', async ({ page }) => {

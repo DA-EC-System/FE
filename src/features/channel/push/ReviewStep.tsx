@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -5,18 +6,21 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/utils/format';
 import type { ProductDetail } from '@/types/catalog';
-import type { PlatformAttribute, Shop, SpecMissing } from '@/types/shop';
+import type { PlatformAttribute, Shop } from '@/types/shop';
 import { STATUS_LABELS, isUsable } from '../shopSchemas';
-import { stepOfMissing, type PushStep, type SpecDraft } from '../specDraft';
+import type { PushBlocker, PushStep, SpecDraft } from '../specDraft';
 
 interface ReviewStepProps {
   label: string;
   product: ProductDetail;
   draft: SpecDraft;
   sales: PlatformAttribute[] | null;
-  missing: SpecMissing[];
+  /** Còn thiếu gì để đẩy được thật (`pushReadiness`); rỗng mới ghi Sẵn sàng */
+  blockers: PushBlocker[];
   /** Spec đọc từ sàn lúc ghép SKU: chỉ lưu, không đẩy */
   fillOnly: boolean;
+  /** Trang danh sách gian hàng, nơi kết nối gian hàng mới */
+  shopsHref: string;
   shops: Shop[];
   selected: ReadonlySet<string>;
   /** Gian hàng biết chắc không bán được category này (quyền TikTok), kèm lý do */
@@ -25,10 +29,10 @@ interface ReviewStepProps {
   onGoto: (step: PushStep) => void;
 }
 
-const STEP_NAMES = ['Category', 'Attributes', 'Variants'];
+const STEP_NAMES = ['Category', 'Attributes', 'Variants', 'Xem lại'];
 
 /** Bước 4: còn thiếu gì, đẩy lên gian hàng nào, ảnh và SKU sẽ gửi */
-export function ReviewStep({ label, product, draft, sales, missing, fillOnly, shops, selected, blockedShops, onToggleShop, onGoto }: ReviewStepProps) {
+export function ReviewStep({ label, product, draft, sales, blockers, fillOnly, shopsHref, shops, selected, blockedShops, onToggleShop, onGoto }: ReviewStepProps) {
   const variants = product.variants.filter((v) => !v.archivedAt);
   const images = [...product.images].sort((a, b) => a.position - b.position);
   const sent = (attributeId: string, valueId: string, value: string) => {
@@ -38,18 +42,28 @@ export function ReviewStep({ label, product, draft, sales, missing, fillOnly, sh
   };
   return (
     <div className="grid gap-5">
-      {missing.length ? (
+      {blockers.length ? (
         <AlertMessage severity="error">
           <b>{fillOnly ? 'Còn thiếu:' : 'Chưa đẩy được, còn thiếu:'}</b>
-          <ul className="mt-1 grid gap-1">
-            {missing.map((m) => (
-              <li key={`${m.reason}-${m.code}`} className="flex flex-wrap items-center gap-2">
-                {m.label}
-                <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => onGoto(stepOfMissing(m.reason))}>
-                  Sửa ở bước {STEP_NAMES[stepOfMissing(m.reason)]}
-                </Button>
-              </li>
-            ))}
+          <ul className="mt-1 grid gap-1" aria-label="Còn thiếu">
+            {blockers.map((b) => {
+              const step = b.action?.kind === 'step' ? b.action.step : null;
+              return (
+                <li key={b.key} className="flex flex-wrap items-center gap-2">
+                  {b.label}
+                  {step !== null && (
+                    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => onGoto(step)}>
+                      Sửa ở bước {STEP_NAMES[step]}
+                    </Button>
+                  )}
+                  {b.action?.kind === 'shops' && (
+                    <Button asChild variant="link" size="sm" className="h-auto p-0">
+                      <Link to={shopsHref}>{shops.length ? 'Xem trang gian hàng' : `Kết nối gian hàng ${label}`}</Link>
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </AlertMessage>
       ) : (
@@ -81,7 +95,12 @@ export function ReviewStep({ label, product, draft, sales, missing, fillOnly, sh
               );
             })
           ) : (
-            <p className="text-sm text-muted-foreground">Công ty chưa có gian hàng {label} nào.</p>
+            <p className="text-sm text-muted-foreground">
+              Công ty chưa có gian hàng {label} nào.{' '}
+              <Link to={shopsHref} className="text-primary-text underline">
+                Kết nối gian hàng
+              </Link>
+            </p>
           )}
         </section>
       )}
