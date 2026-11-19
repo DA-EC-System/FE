@@ -19,7 +19,7 @@ test.describe('P4 · Đồng bộ đơn và toàn màn hình', () => {
 
     keo.length = 0;
     await chon(page, 'Gian hàng', 'ABC Fashion LazMall');
-    await page.getByRole('button', { name: 'Đồng bộ đơn gian hàng', exact: true }).click();
+    await page.getByRole('button', { name: 'Đồng bộ đơn gian hàng này', exact: true }).click();
     await toast(page, /Đã đồng bộ 1 gian hàng/);
     expect(keo).toHaveLength(1);
   });
@@ -58,7 +58,7 @@ test.describe('P4 · Đồng bộ đơn và toàn màn hình', () => {
     expect(Math.round(box.width)).toBe(vp.width);
 
     // Mở rồi đóng ô chọn bằng Esc: vẫn ở toàn màn hình
-    await page.getByRole('combobox', { name: 'Nguồn', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Kênh bán', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(the).toHaveAttribute('data-fullscreen', 'true');

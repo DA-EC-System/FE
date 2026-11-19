@@ -2,7 +2,7 @@
 import { type Page } from '@playwright/test';
 import { chon, dangNhap, expect, menu, test } from '../../fixtures';
 
-const giaiDoan = (page: Page) => page.getByRole('combobox', { name: 'Giai đoạn', exact: true });
+const giaiDoan = (page: Page) => page.getByRole('combobox', { name: 'Trạng thái chi tiết', exact: true });
 
 async function cacMuc(page: Page) {
   await giaiDoan(page).click();
@@ -19,7 +19,7 @@ test.describe('P4 · Bộ lọc giai đoạn của danh sách đơn', () => {
 
   test('tab Đang xử lý, Nguồn = Sàn: đúng 12 giai đoạn; tab Đã hoàn tất ẩn bộ lọc', async ({ page }) => {
     await page.getByRole('tab', { name: /Đang xử lý/ }).click();
-    await chon(page, 'Nguồn', 'Sàn');
+    await chon(page, 'Kênh bán', 'Sàn');
     expect(await cacMuc(page)).toEqual([
       'Tất cả',
       'Chưa ghép SKU',
@@ -47,7 +47,7 @@ test.describe('P4 · Bộ lọc giai đoạn của danh sách đơn', () => {
 
   test('đổi tab mà giai đoạn đang lọc không còn hợp thì bỏ khỏi URL', async ({ page }) => {
     await page.getByRole('tab', { name: /Đang xử lý/ }).click();
-    await chon(page, 'Giai đoạn', 'Chờ đóng gói');
+    await chon(page, 'Trạng thái chi tiết', 'Chờ đóng gói');
     await expect.poll(() => new URL(page.url()).searchParams.get('stage')).toBe('reserved');
 
     const tai = page.waitForRequest((r) => /\/sales\/orders\?/.test(r.url()) && r.url().includes('status=unpaid'));
