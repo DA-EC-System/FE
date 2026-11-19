@@ -30,11 +30,12 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, packageButtons } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
-import type { CancelRequestDecision, Order, OrderStatus } from '@/types/sales';
+import type { Order, OrderStatus } from '@/types/sales';
 import {
   COMPLETION_BLOCKER_LABELS,
   ORDER_STATUS,
   wardNote,
+  lineCancelPending,
   lineHasIssue,
   paymentMethodLabel,
   sourceLabel,
@@ -43,6 +44,7 @@ import { OrderStage } from './OrderStage';
 import { Info } from './Info';
 import { CONFLICT_CODES, CancelOrderDialog } from './CancelOrderDialog';
 import { PlatformCancelDialog } from './PlatformCancelDialog';
+import { RejectCancelRequestDialog } from './RejectCancelRequestDialog';
 import { InvoiceNumberDialog } from './InvoiceNumberDialog';
 import { DeliveryDialog } from './DeliveryDialog';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
@@ -79,7 +81,7 @@ export function OrderDetailPage() {
   const confirmMut = useConfirmOrder();
   const decisionMut = useCancelRequestDecision();
   const [notice, setNotice] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<'cancel' | 'platform-cancel' | 'accept-cancel' | 'invoice' | null>(null);
+  const [dialog, setDialog] = useState<'cancel' | 'platform-cancel' | 'accept-cancel' | 'reject-cancel' | 'invoice' | null>(null);
   const [delivering, setDelivering] = useState<PackageSummary | null>(null);
 
   const back = (
@@ -137,11 +139,12 @@ export function OrderDetailPage() {
     setNotice('Đơn vừa được người khác cập nhật. Đã tải lại đơn mới nhất.');
   };
 
-  const decide = async (decision: CancelRequestDecision) => {
+  /** Đồng ý huỷ; từ chối đi qua hộp chọn lý do của sàn */
+  const acceptCancel = async () => {
     setNotice(null);
     try {
-      await decisionMut.mutateAsync({ id: order.id, version: order.version, decision });
-      toast.success(decision === 'accept' ? `Đã đồng ý huỷ đơn ${order.code}` : 'Đã từ chối yêu cầu huỷ');
+      await decisionMut.mutateAsync({ id: order.id, version: order.version, decision: 'accept' });
+      toast.success(`Đã đồng ý huỷ đơn ${order.code}`);
       setDialog(null);
     } catch (e) {
       const problem = getProblem(e);
@@ -248,7 +251,7 @@ export function OrderDetailPage() {
           <span>Khách xin huỷ đơn trên sàn. Trả lời trước khi đóng gói, sàn không cho đóng gói khi chưa trả lời.</span>
           {canDecide && (
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => decide('reject')} disabled={decisionMut.isPending}>
+              <Button size="sm" variant="outline" onClick={() => setDialog('reject-cancel')} disabled={decisionMut.isPending}>
                 Từ chối
               </Button>
               <Button size="sm" variant="destructive" onClick={() => setDialog('accept-cancel')} disabled={decisionMut.isPending}>
@@ -362,7 +365,7 @@ export function OrderDetailPage() {
                                 SKU sàn {l.externalShopSku}
                               </p>
                             )}
-                            <LineIssue line={l} />
+                            <LineIssue line={l} cancelPending={lineCancelPending(order, l)} />
                           </div>
                         </div>
                       </TableCell>
@@ -372,7 +375,11 @@ export function OrderDetailPage() {
                       {hasPaid && (
                         <TableCell className="text-right">
                           {l.paidPrice != null && (
-                            <span className={lineHasIssue(l) ? 'text-muted-foreground line-through' : undefined}>
+                            <span
+                              className={
+                                lineHasIssue(l) && !lineCancelPending(order, l) ? 'text-muted-foreground line-through' : undefined
+                              }
+                            >
                               {formatCurrency(l.paidPrice)}
                             </span>
                           )}
@@ -500,6 +507,12 @@ export function OrderDetailPage() {
         onClose={() => setDialog(null)}
         onConflict={onConflict}
       />
+      <RejectCancelRequestDialog
+        order={order}
+        open={dialog === 'reject-cancel'}
+        onClose={() => setDialog(null)}
+        onConflict={onConflict}
+      />
       <InvoiceNumberDialog
         order={order}
         open={dialog === 'invoice'}
@@ -513,7 +526,7 @@ export function OrderDetailPage() {
         confirmLabel="Đồng ý huỷ"
         destructive
         loading={decisionMut.isPending}
-        onConfirm={() => decide('accept')}
+        onConfirm={acceptCancel}
         onClose={() => setDialog(null)}
       />
       {delivering && (

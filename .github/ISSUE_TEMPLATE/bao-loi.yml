@@ -26,7 +26,7 @@ body:
       label: Bản FE
       options:
         - Bản gọi backend thật (staging hoặc máy)
-        - Bản mock MSW (/mock/ hoặc pnpm dev có mock)
+        - Bản mock MSW (pnpm dev có mock)
     validations:
       required: true
   - type: input

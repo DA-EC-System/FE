@@ -418,6 +418,28 @@ test.describe('P3 · Gian hàng', () => {
       await expect(trangThai(page, 'shp-008')).toHaveText('Đã kết nối');
     });
 
+    // Shop thử chỉ nối lại được bằng token: gửi shopId, dán nhầm token seller khác thì báo, không nối nhầm (commerio-backend#398)
+    test('kết nối lại bằng token gửi shopId; dán nhầm token của seller khác thì báo, dán đúng thì nối lại đúng dòng', async ({ page }) => {
+      await dong(page, 'shp-008').getByRole('button', { name: 'Thao tác khác với ABC Outlet TikTok', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Kết nối lại bằng token', exact: true }).click();
+      const hop = page.getByRole('dialog');
+      await expect(hop).toContainText('Kết nối lại ABC Outlet TikTok');
+      await hop.getByLabel('Mã truy cập (access token)', { exact: true }).fill('tt-token-khac99');
+      await hop.getByRole('button', { name: 'Kết nối', exact: true }).click();
+      const ketQua = hop.locator('[data-outcome=mismatch]');
+      await expect(ketQua).toContainText(/Token vừa dán là của .+, không phải ABC Outlet TikTok/);
+      await expect(ketQua.locator('[data-testid=mismatch-compare]')).toContainText('TKN-KHAC99');
+      await expect(trangThai(page, 'shp-008')).toHaveText('Đã ngắt');
+
+      await ketQua.getByRole('button', { name: 'Dán token khác', exact: true }).click();
+      await hop.getByLabel('Mã truy cập (access token)', { exact: true }).fill('ma:tiktok-abc-outlet');
+      await hop.getByRole('button', { name: 'Kết nối', exact: true }).click();
+      const noiLai = hop.locator('[data-outcome=reconnected]');
+      await expect(noiLai).toContainText('Đã kết nối lại ABC Outlet TikTok');
+      await noiLai.getByRole('button', { name: 'Để sau', exact: true }).click();
+      await expect(trangThai(page, 'shp-008')).toHaveText('Đã kết nối');
+    });
+
     test('callback có state lạ thì báo phiên không hợp lệ', async ({ page }) => {
       await expect(dong(page, 'shp-001')).toBeAttached();
       await diToi(page, '/channel/lazada/callback?code=abc&state=st-gia');

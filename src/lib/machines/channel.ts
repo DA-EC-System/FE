@@ -68,6 +68,9 @@ export const listingMachine = defineMachine<ListingMachineStatus, ListingAction>
     label: 'Gỡ khỏi sàn',
     permission: manage,
   },
+  // Sửa tên, mô tả, thuộc tính listing đang bán (21 §18.3, commerio-backend#293). Gọi lại khi bản sửa đang duyệt hoặc bị
+  // từ chối thì ghi đè bản sửa
+  { from: 'live', to: 'live', action: 'update_content', label: 'Sửa nội dung', permission: manage },
   // Sửa nội dung mà sàn đòi duyệt lại và ngừng bán bản cũ. Sàn vẫn bán bản cũ (TikTok) thì giữ `live`, ghi
   // `pendingRevision` (21 §18.3, commerio-backend#293). Đổi tồn hoặc giá không đổi trạng thái.
   { from: 'live', to: 'under_review', action: 'request_review', label: 'Sàn duyệt lại nội dung', system: true },

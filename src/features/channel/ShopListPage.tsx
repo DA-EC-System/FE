@@ -33,6 +33,7 @@ import { RETURN_WINDOW_EDIT } from './ReturnWindowPanel';
 import { authorizationDeadline, platformLabel, STATUS_META } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { AddShopDialog } from './AddShopDialog';
+import { ReconnectTokenDialog } from './ReconnectTokenDialog';
 import { ShopDeleteDialog } from './ShopDeleteDialog';
 import { ShopDisconnectDialog } from './ShopDisconnectDialog';
 
@@ -111,6 +112,7 @@ export function ShopListPage() {
   const [pageSize, setPageSize] = useState(25);
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [tokenReconnecting, setTokenReconnecting] = useState<Shop | null>(null);
   // Màn kết quả "Thêm gian hàng khác" quay về đây và mở luôn hộp thêm
   const [adding, setAdding] = useState(
     () => canConnect && Boolean((location.state as { addShop?: boolean } | null)?.addShop),
@@ -124,8 +126,8 @@ export function ShopListPage() {
 
   const shopsQuery = useShops();
   const allShops = shopsQuery.data?.items ?? [];
-  // Tên sàn cho cột Sàn: đã tải khi mở hộp thêm thì dùng, không gọi riêng
-  const platformsQuery = useShopPlatforms({ enabled: false });
+  // Tên sàn cho cột Sàn và cách nối của từng sàn (Kết nối lại bằng token, commerio-backend#398): tải khi có quyền kết nối
+  const platformsQuery = useShopPlatforms({ enabled: canConnect });
   const shopOptions = shopPlatformOptions(allShops);
   const actionCount = allShops.filter(needsAction).length;
   const visibleShops = shopPage(allShops, { page, pageSize, search: debouncedSearch, platform, segment });
@@ -149,7 +151,17 @@ export function ShopListPage() {
         ? ROUTES.company.shopSetup(companyId, s.id)
         : ROUTES.company.shop(companyId, s.id),
     );
-  const reconnect = (s: Shop) => connector.start({ platform: s.platform, shopId: s.id });
+  // Cách nối sàn cho phép (GET /channel/shops/platforms); null khi chưa tải
+  const methodsOf = (code: string) => platformsQuery.data?.items.find((p) => p.platform === code)?.methods ?? null;
+  // Dán token cho đúng gian hàng đang mất quyền hoặc đã ngắt (gửi shopId, commerio-backend#398)
+  const canTokenReconnect = (s: Shop) =>
+    canConnect && (s.status === 'needs_reauth' || s.status === 'disconnected') && Boolean(methodsOf(s.platform)?.includes('token'));
+  // Kết nối lại: uỷ quyền trên sàn kèm shopId; sàn chỉ cho dán token thì mở hộp dán token của gian hàng đó
+  const reconnect = (s: Shop) => {
+    const methods = methodsOf(s.platform);
+    if (methods && !methods.includes('oauth') && methods.includes('token')) setTokenReconnecting(s);
+    else void connector.start({ platform: s.platform, shopId: s.id });
+  };
   const needsReauth = allShops.filter((s) => s.status === 'needs_reauth');
 
   const sync = async (s: Shop) => {
@@ -289,9 +301,8 @@ export function ShopListPage() {
                     />
                   )}
                   {((canDisconnect && s.status !== 'disconnected') ||
-                    ((canConnect || canDelete) && s.status === 'disconnected')) && (
-                    <DropdownMenuSeparator />
-                  )}
+                    ((canConnect || canDelete) && s.status === 'disconnected') ||
+                    canTokenReconnect(s)) && <DropdownMenuSeparator />}
                   {canDisconnect && s.status !== 'disconnected' && (
                     <DropdownMenuItem variant="destructive" onSelect={() => setDisconnecting(s)}>
                       Ngắt kết nối
@@ -300,6 +311,11 @@ export function ShopListPage() {
                   {canConnect && s.status === 'disconnected' && (
                     <DropdownMenuItem disabled={connector.pending} onSelect={() => reconnect(s)}>
                       Kết nối lại
+                    </DropdownMenuItem>
+                  )}
+                  {canTokenReconnect(s) && (
+                    <DropdownMenuItem disabled={connector.pending} onSelect={() => setTokenReconnecting(s)}>
+                      Kết nối lại bằng token
                     </DropdownMenuItem>
                   )}
                   {canDelete && s.status === 'disconnected' && (
@@ -406,6 +422,14 @@ export function ShopListPage() {
       </Card>
 
       {canConnect && <AddShopDialog open={adding} companyId={companyId} onClose={() => setAdding(false)} />}
+      {canConnect && (
+        <ReconnectTokenDialog
+          shop={tokenReconnecting}
+          platformName={platformsQuery.data?.items.find((p) => p.platform === tokenReconnecting?.platform)?.name}
+          companyId={companyId}
+          onClose={() => setTokenReconnecting(null)}
+        />
+      )}
 
       <ShopDisconnectDialog
         shop={disconnecting}
