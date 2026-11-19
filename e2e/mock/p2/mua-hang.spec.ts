@@ -30,17 +30,17 @@ test.describe('P2 · Mua hàng', () => {
       await expect(page.getByTestId('request-status')).toContainText('Đã duyệt');
       await expect(page.getByRole('button', { name: 'Duyệt', exact: true })).toHaveCount(0);
 
-      // Đã đặt hàng cần ngày giao dự kiến (BE#243)
+      // Đã đặt nhà cung cấp cần ngày giao dự kiến (BE#243)
       await page.getByRole('button', { name: 'Đã đặt nhà cung cấp', exact: true }).click();
       const datNcc = page.getByRole('dialog');
-      await datNcc.getByRole('button', { name: 'Xác nhận đã đặt hàng', exact: true }).click();
-      await expect(datNcc.getByText('Nhập ngày NCC hẹn giao', { exact: true })).toBeVisible();
+      await datNcc.getByRole('button', { name: 'Đã đặt nhà cung cấp', exact: true }).click();
+      await expect(datNcc.getByText('Nhập ngày nhà cung cấp hẹn giao', { exact: true })).toBeVisible();
       await datNcc.getByLabel('Ngày giao dự kiến', { exact: true }).fill('2026-11-20');
-      await datNcc.getByLabel('Mã đơn của NCC (nếu có)', { exact: true }).fill('PO-778');
-      await datNcc.getByRole('button', { name: 'Xác nhận đã đặt hàng', exact: true }).click();
-      await page.getByRole('button', { name: 'Tạo phiếu nhập kho', exact: true }).click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Tạo phiếu', exact: true }).click();
-      await toast(page, 'Đã tạo phiếu nhập kho');
+      await datNcc.getByLabel('Mã đơn bên nhà cung cấp (nếu có)', { exact: true }).fill('PO-778');
+      await datNcc.getByRole('button', { name: 'Đã đặt nhà cung cấp', exact: true }).click();
+      await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Lập phiếu', exact: true }).click();
+      await toast(page, 'Đã lập phiếu nhận');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
       await page.getByLabel(/^Báo giao /).first().fill('1');
       await page.getByLabel(/^Đạt /).first().fill('0');
@@ -65,14 +65,14 @@ test.describe('P2 · Mua hàng', () => {
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
       const dong = page.getByTestId('request-lines').locator('tbody tr').first();
-      await dong.getByRole('button', { name: 'Không duyệt dòng', exact: true }).click();
+      await dong.getByRole('button', { name: 'Loại dòng', exact: true }).click();
       const hop = page.getByRole('dialog');
       await hop.getByRole('textbox').fill('Nhà cung cấp báo hết mẫu này');
-      await hop.getByRole('button', { name: 'Không duyệt dòng', exact: true }).click();
-      await expect(dong).toContainText('Không duyệt');
-      await expect(dong.getByTestId('excluded-reason')).toHaveText('Lý do không duyệt: Nhà cung cấp báo hết mẫu này');
-      // Duyệt lại dòng thì hết lý do
-      await dong.getByRole('button', { name: 'Duyệt lại dòng', exact: true }).click();
+      await hop.getByRole('button', { name: 'Loại dòng', exact: true }).click();
+      await expect(dong).toContainText('Đã loại');
+      await expect(dong.getByTestId('excluded-reason')).toHaveText('Lý do loại: Nhà cung cấp báo hết mẫu này');
+      // Lấy lại dòng thì hết lý do
+      await dong.getByRole('button', { name: 'Lấy lại dòng', exact: true }).click();
       await expect(dong.getByTestId('excluded-reason')).toHaveCount(0);
     });
 
@@ -120,7 +120,7 @@ test.describe('P2 · Mua hàng', () => {
         await them();
         const dongMoi = page.getByTestId(`new-product-${i}`);
         await dongMoi.getByLabel(/^Tên sản phẩm cha/).fill('Áo len');
-        await chon(dongMoi, `Category Áo len`, 'Áo');
+        await chon(dongMoi, `Danh mục Áo len`, 'Áo');
         await chon(dongMoi, `Trục phân loại 1 Áo len`, 'Màu sắc');
         await dongMoi.getByLabel(/^Màu sắc/).fill('Kem');
       }
@@ -155,7 +155,7 @@ test.describe('P2 · Mua hàng', () => {
       // Gửi duyệt thì chỉ xem: hiện phân loại và loại cha
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
-      await expect(bang).toContainText('Màu sắc: Kem · Cha mới · Category Áo');
+      await expect(bang).toContainText('Màu sắc: Kem · Cha mới · Danh mục Áo');
       await expect(bang).toContainText('Kích cỡ: XXL · Cha có sẵn');
 
       // CEO tự duyệt: sinh một sản phẩm "Áo len" hai SKU và thêm SKU vào Quần kaki
@@ -218,12 +218,12 @@ test.describe('P2 · Mua hàng', () => {
 
     test('lập phiếu nhận giao bù: chọn phiếu Giao thiếu của cùng đề nghị, phiếu mới hiện phiếu được bù (A2; BE#244)', async ({ page }) => {
       await moTab(page, 'Đề nghị nhập', 'DN-000002');
-      await page.getByRole('button', { name: 'Tạo phiếu nhập kho', exact: true }).click();
+      await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
       const hop = page.getByRole('dialog');
       await hop.getByLabel('Giao bù cho phiếu', { exact: true }).click();
       await page.getByRole('option', { name: 'NH-000001 (giao thiếu)', exact: true }).click();
-      await hop.getByRole('button', { name: 'Tạo phiếu', exact: true }).click();
-      await toast(page, 'Đã tạo phiếu nhập kho');
+      await hop.getByRole('button', { name: 'Lập phiếu', exact: true }).click();
+      await toast(page, 'Đã lập phiếu nhận');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
       await thayChu(page, 'Giao bù cho phiếu');
       await expect(page.getByRole('link', { name: 'NH-000001', exact: true })).toBeVisible();
