@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   allLinesCancelled,
   cancelledAmountOf,
+  completionBlockerText,
+  isOverdue,
+  orderCancelledBy,
   initiatorLabel,
   lineCancelEvents,
   lineCancelPending,
@@ -93,5 +96,42 @@ describe('huỷ món: tiền và lịch sử (BE#417)', () => {
     expect(lineCancelEvents(lines)).toMatchObject([{ key: 'a', at: null, remaining: 200000 }]);
     expect(allLinesCancelled(lines)).toBe(false);
     expect(cancelledAmountOf(lines)).toBe(100000);
+  });
+});
+
+describe('chi tiết đơn: lý do chưa hoàn tất, người huỷ, trễ hạn (FE#282, FE#252)', () => {
+  const fmt = (iso: string) => iso.slice(0, 10);
+
+  it('câu đủ ý cho từng mã, hạn trả theo BE, mã lạ không hiện thô', () => {
+    expect(completionBlockerText({ completionBlocker: null }, fmt)).toBeNull();
+    expect(completionBlockerText({ completionBlocker: 'return_window', returnWindowEndsAt: '2026-11-25T00:00:00Z' }, fmt)).toBe(
+      'Khách còn quyền trả hàng tới 2026-11-25.',
+    );
+    expect(completionBlockerText({ completionBlocker: 'return_window', returnWindowEndsAt: null }, fmt)).toBe(
+      'Sàn chưa báo hết quyền trả hàng của khách.',
+    );
+    expect(completionBlockerText({ completionBlocker: 'packages_open' }, fmt)).toMatch(/^Còn kiện chưa xong/);
+    expect(completionBlockerText({ completionBlocker: 'xyz_new' }, fmt)).toBe('Đơn còn việc chưa xong.');
+  });
+
+  it('người huỷ: dòng sàn trước, rồi lịch sử (người, sàn, hệ thống khi mọi kiện huỷ)', () => {
+    const h = (by: { name: string } | null, source: string, reason: string | null = null) => [
+      { to: 'processing', by: null, source: 'system' },
+      { to: 'cancelled', by, source, reason },
+    ];
+    expect(orderCancelledBy({ status: 'cancelled', cancelInitiators: ['buyer'], statusHistory: [] })).toBe('khách');
+    expect(orderCancelledBy({ status: 'cancelled', statusHistory: h({ name: 'Sale A' }, 'user') })).toBe('Sale A');
+    expect(orderCancelledBy({ status: 'cancelled', statusHistory: h(null, 'marketplace') })).toBe('Sàn');
+    expect(orderCancelledBy({ status: 'cancelled', statusHistory: h(null, 'system', 'Mọi kiện đã huỷ') })).toBe(
+      'Hệ thống (mọi kiện đã huỷ)',
+    );
+    expect(orderCancelledBy({ status: 'processing', statusHistory: h(null, 'system') })).toBeNull();
+  });
+
+  it('trễ hạn: có cờ Sắp trễ hạn và hạn gửi đã qua', () => {
+    const now = Date.parse('2026-11-19T00:00:00Z');
+    expect(isOverdue({ flags: ['due_soon'], shipBy: '2026-11-07T00:00:00Z' }, now)).toBe(true);
+    expect(isOverdue({ flags: ['due_soon'], shipBy: '2026-11-19T12:00:00Z' }, now)).toBe(false);
+    expect(isOverdue({ flags: [], shipBy: '2026-11-07T00:00:00Z' }, now)).toBe(false);
   });
 });

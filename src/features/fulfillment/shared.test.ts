@@ -48,9 +48,44 @@ describe('packageButtons (sơ đồ D2)', () => {
     expect(packageButtons(pkg({ status: 'packed', selfDelivery: true }), ceo).actions).toEqual(['open', 'self_deliver']);
   });
 
-  it('kiện chờ mở vì đơn huỷ chỉ có Mở kiện, huỷ', () => {
+  it('kiện chờ mở vì đơn huỷ chỉ có Mở kiện, huỷ; không bàn giao được (awaiting_open)', () => {
     const p = pkg({ status: 'awaiting_pickup', flags: ['needs_open'], openPurpose: 'cancel' });
-    expect(packageButtons(p, kho).actions).toEqual(['hand_over', 'open_cancel']);
+    expect(packageButtons(p, kho).actions).toEqual(['open_cancel']);
+    expect(packageButtons(p, kho).blocked).toMatch(/chờ mở/);
+  });
+
+  it('Chờ lấy hàng chờ mở vì sàn chia lại hay kiểm kê thiếu: Mở kiện, báo mất được (commerio-backend#238)', () => {
+    for (const openPurpose of ['resplit', 'stocktake'] as const) {
+      const p = pkg({ status: 'awaiting_pickup', source: 'marketplace', flags: ['needs_open'], openPurpose });
+      expect(packageButtons(p, kho)).toMatchObject({ actions: ['open'], reportLost: true });
+    }
+    // Không chờ mở: không mở, không báo mất
+    expect(packageButtons(pkg({ status: 'awaiting_pickup', source: 'marketplace' }), kho)).toMatchObject({
+      actions: ['hand_over'],
+      reportLost: false,
+    });
+  });
+
+  it('kiện thay chờ mở kiện cũ: ẩn Báo sẵn sàng, ghi mã kiện cũ', () => {
+    const p = pkg({ status: 'packed', replaces: { id: 'pkg-0', code: 'KH-000000', status: 'awaiting_pickup' } });
+    const b = packageButtons(p, kho);
+    expect(b.actions).toEqual(['open']);
+    expect(b.blocked).toContain('KH-000000');
+    const done = pkg({ status: 'packed', replaces: { id: 'pkg-0', code: 'KH-000000', status: 'cancelled' } });
+    expect(packageButtons(done, kho)).toMatchObject({ actions: ['mark_ready', 'open'], blocked: null });
+  });
+
+  it('dỡ kiện không thấy: người khác xác nhận lose_on_unload', () => {
+    const p = pkg({
+      status: 'awaiting_pickup',
+      source: 'marketplace',
+      flags: ['needs_open', 'lost_reported'],
+      openPurpose: 'resplit',
+      lostReport: { by: { id: 'kho', name: 'Kho' }, at: '', claimCode: 'Không thấy trên kệ' },
+    });
+    expect(packageButtons(p, { ...kho, accountId: 'kho2' }).actions).toContain('lose_on_unload');
+    expect(packageButtons(p, kho).actions).not.toContain('lose_on_unload');
+    expect(packageButtons(p, kho).lostNote).toMatch(/người khác/);
   });
 
   it('đang giao: sale cập nhật giao, CEO đảo bàn giao, kho báo thất lạc', () => {
@@ -82,6 +117,21 @@ describe('packageButtons (sơ đồ D2)', () => {
     const p = pkg({ status: 'in_transit', lostReport: { by: { id: 'kho', name: 'Kho' }, at: '', claimCode: 'KN-1' } });
     expect(packageButtons(p, kho)).toMatchObject({ actions: [], reportLost: false });
     expect(packageButtons(p, { ...kho, accountId: 'kho2' }).actions).toEqual(['lose']);
+    expect(packageButtons(p, { ...kho, canSelfApprove: true })).toMatchObject({
+      actions: ['lose'],
+      lostNote: 'Bạn là người báo. Xác nhận sẽ ghi là tự duyệt.',
+    });
+  });
+
+  it('người tự giao không xác nhận kiện mình giao bị mất (D13)', () => {
+    const p = pkg({
+      status: 'self_delivering',
+      selfDelivery: true,
+      deliveredBy: { id: 'kho2', name: 'Kho 2' },
+      lostReport: { by: { id: 'kho', name: 'Kho' }, at: '', claimCode: 'KN-1' },
+    });
+    expect(packageButtons(p, { ...kho, accountId: 'kho2' }).actions).not.toContain('lose');
+    expect(packageButtons(p, { ...kho, accountId: 'kho3' }).actions).toContain('lose');
   });
 });
 

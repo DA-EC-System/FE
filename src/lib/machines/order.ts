@@ -44,6 +44,8 @@ export interface PackageRecord extends OwnedRecord {
   handoverConfirmed?: boolean;
   /** Trạng thái hiện tại do người chuyển tay (không phải sàn báo) */
   manualStatus?: boolean;
+  /** Kiện có cờ Cần mở: kiện đã đóng chỉ báo mất (`lose_on_unload`) được khi đang chờ mở (commerio-backend#238 D10) */
+  needsOpen?: boolean;
 }
 
 /**
@@ -52,6 +54,9 @@ export interface PackageRecord extends OwnedRecord {
  */
 export const handoverConfirmed = (p: { handoverSource?: HandoverSource | null; pickupConfirmedAt?: string | null }) =>
   p.handoverSource != null && (p.handoverSource !== 'scan' || p.pickupConfirmedAt != null);
+
+/** Tập `from` của `lose`: kiện đã rời kho mà chưa dừng (kiện Chờ lấy hàng đi `lose_on_unload`, commerio-backend#238) */
+export const LOSE_FROM: readonly PackageStatus[] = ['in_transit', 'delivery_failed', 'returning', 'self_delivering'];
 
 /** Sàn sửa trạng thái người chuyển tay: chỉ khi trạng thái hiện tại do người chuyển (25 §8.3) */
 const manualOnly = (r: PackageRecord) => (r.manualStatus ? null : 'status_from_platform');
@@ -99,6 +104,8 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
   },
   { from: SEALED, to: 'reserved', action: 'open', label: 'Mở kiện', permission: process },
   { from: SEALED, to: 'cancelled', action: 'open_cancel', label: 'Mở kiện, huỷ', permission: process },
+  // Sàn chia lại kiện: kiện cũ đã đóng hết dòng vì kiện thay đã được lấy. Đứng sau `open_cancel` như BE
+  { from: SEALED, to: 'cancelled', action: 'replaced', label: 'Sàn chia lại kiện', system: true },
   { from: ['backordered', 'reserved'], to: 'cancelled', action: 'cancel', label: 'Huỷ kiện', system: true },
   {
     from: 'packed',
@@ -150,8 +157,9 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
     guard: carrierOnly,
   },
   { from: 'returning', to: 'returned', action: 'receive_return', label: 'Quét nhận hàng hoàn', permission: process },
+  // `lose` đứng trước `platform_lost`: mũi tên khớp đầu tiên của người dùng là `lose`
   {
-    from: ['awaiting_pickup', 'in_transit', 'delivery_failed', 'returning', 'self_delivering'],
+    from: LOSE_FROM,
     to: 'lost',
     action: 'lose',
     label: 'Xác nhận thất lạc',
@@ -163,9 +171,9 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
   { from: 'lost', to: 'returned', action: 'found', label: 'Tìm thấy', permission: process },
   // Bàn giao bắt buộc (25 §8.4 quy tắc 3): sàn báo đã lấy khi kiện chưa giữ đủ hàng; bật cờ Cần xử lý
   { from: 'backordered', to: 'in_transit', action: 'forced_handover', label: 'Sàn báo đã lấy', system: true },
-  // Dỡ kiện về kệ mà không tìm thấy kiện, sàn không báo đã lấy: ghi bàn giao rồi `lost`
+  // Dỡ kiện về kệ mà không tìm thấy kiện (25 §8.3): chỉ kiện đã đóng đang chờ mở; BE ghi bàn giao rồi `lost`
   {
-    from: 'packed',
+    from: SEALED,
     to: 'lost',
     action: 'lose_on_unload',
     label: 'Dỡ kiện không thấy',
@@ -173,7 +181,9 @@ export const packageMachine = defineMachine<PackageStatus, PackageAction, Packag
     needsSecondPerson: true,
     allowSelfApproval: true,
     needsReason: true,
+    guard: (r) => (r.needsOpen ? null : 'not_awaiting_open'),
   },
+  { from: LOSE_FROM, to: 'lost', action: 'platform_lost', label: 'Sàn báo thất lạc', system: true },
   // Sàn báo ngược trạng thái người chuyển tay: áp theo sàn, bật cờ Cần xử lý
   {
     from: ['lost', 'returning'],

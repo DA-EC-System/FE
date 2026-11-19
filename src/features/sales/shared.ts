@@ -91,6 +91,61 @@ export const COMPLETION_BLOCKER_LABELS: Record<string, string> = {
   all_packages_cancelled: 'Mọi kiện đã huỷ',
 };
 
+/**
+ * Câu đủ ý cho lý do đơn chưa hoàn tất (FE#282, Documents/25 mục 8.2). Hạn trả lấy `returnWindowEndsAt` của BE
+ * (Lazada theo `returnWindowDays` của gian hàng, TikTok null tới khi sàn báo xong), FE không tự tính. Mã lạ không hiện thô
+ */
+export function completionBlockerText(
+  order: { completionBlocker?: string | null; returnWindowEndsAt?: string | null },
+  fmt: (iso: string) => string,
+): string | null {
+  switch (order.completionBlocker) {
+    case null:
+    case undefined:
+    case '':
+      return null;
+    case 'packages_open':
+      return 'Còn kiện chưa xong: chưa giao tới khách, chưa hoàn về kho hoặc chưa huỷ.';
+    case 'return_window':
+      return order.returnWindowEndsAt
+        ? `Khách còn quyền trả hàng tới ${fmt(order.returnWindowEndsAt)}.`
+        : 'Sàn chưa báo hết quyền trả hàng của khách.';
+    case 'return_requested':
+      return 'Còn yêu cầu trả hàng chưa xong.';
+    case 'cod_unconfirmed':
+      return 'Kế toán chưa xác nhận đã thu tiền COD.';
+    case 'all_packages_cancelled':
+      return 'Mọi kiện đã huỷ, đơn sẽ chuyển sang Đã huỷ.';
+    default:
+      return 'Đơn còn việc chưa xong.';
+  }
+}
+
+/**
+ * Người huỷ đơn (FE#282): ưu tiên người huỷ dòng trên sàn; không có thì lấy dòng lịch sử chuyển sang Đã huỷ cuối cùng.
+ * Hệ thống tự huỷ khi mọi kiện đã huỷ (commerio-backend#236) ghi lý do "Mọi kiện đã huỷ"
+ */
+export function orderCancelledBy(order: {
+  status: OrderStatus;
+  cancelInitiators?: LineCancelInitiator[];
+  statusHistory: readonly { to: string; by: { name: string } | null; source: string; reason?: string | null }[];
+}): string | null {
+  if (order.cancelInitiators?.length) return order.cancelInitiators.map(initiatorLabel).join(', ');
+  if (order.status !== 'cancelled') return null;
+  const h = [...order.statusHistory].reverse().find((x) => x.to === 'cancelled');
+  if (!h) return null;
+  if (h.by) return h.by.name;
+  if (h.source === 'marketplace') return 'Sàn';
+  return h.reason === 'Mọi kiện đã huỷ' ? 'Hệ thống (mọi kiện đã huỷ)' : 'Hệ thống';
+}
+
+/**
+ * Đơn đã qua hạn bàn giao mà còn kiện chưa rời kho (FE#252): BE bật `due_soon` cả khi đã quá hạn,
+ * FE tách ra "Đã trễ hạn bàn giao" theo `shipBy`
+ */
+export const isOverdue = (o: { flags: readonly string[]; shipBy: string | null }, now: number = Date.now()): boolean =>
+  o.flags.includes('due_soon') && Boolean(o.shipBy) && new Date(o.shipBy!).getTime() < now;
+
 export const SOURCE_LABELS: Record<OrderSource, string> = {
   manual: 'Tạo tay',
   inbox: 'Hộp thư',

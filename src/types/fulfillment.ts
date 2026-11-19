@@ -42,8 +42,10 @@ export type PackageAction =
   | 'found'
   | 'forced_handover'
   | 'lose_on_unload'
+  | 'platform_lost'
   | 'platform_in_transit'
-  | 'platform_deliver';
+  | 'platform_deliver'
+  | 'replaced';
 
 /**
  * Cờ trên kiện: Chờ mở kiện (kiện đã đóng cần huỷ, sửa, chia lại; vẫn giữ hàng),
@@ -64,8 +66,11 @@ export type PackageFlag =
  */
 export type HandoverSource = 'scan' | 'marketplace' | 'forced' | 'before_cutoff';
 
-/** Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ */
-export type OpenPurpose = 'cancel' | 'edit' | 'resplit';
+/**
+ * Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ.
+ * `stocktake`: phiếu kiểm kê đếm thấp hơn hàng trong kiện đã đóng (commerio-backend#238)
+ */
+export type OpenPurpose = 'cancel' | 'edit' | 'resplit' | 'stocktake';
 
 /**
  * Dòng hàng để nhặt, đóng (21 §19.2): dòng đã ghép mang SKU, tên, thuộc tính của biến thể app; dòng chưa ghép hay
@@ -138,6 +143,11 @@ export interface PackageSummary {
   /** Người tự giao: người xác nhận thất lạc phải khác người này */
   deliveredBy: UserRef | null;
   lostReport: LostReport | null;
+  /**
+   * Kiện cũ mà kiện này thay khi sàn chia lại kiện (commerio-backend#238): kiện cũ còn `packed`/`awaiting_pickup` thì
+   * kiện này chờ kho mở kiện cũ. Tuỳ chọn tới khi mọi đường BE trả
+   */
+  replaces?: { id: string; code: string; status: PackageStatus } | null;
   createdAt: string;
   version: number;
 }
