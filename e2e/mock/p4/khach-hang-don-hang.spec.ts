@@ -32,7 +32,7 @@ test.describe('P4 · Đơn hàng', () => {
       await expect(dong(page, 'ord-1003')).toBeAttached();
       await expect(dong(page, 'ord-1006')).toHaveCount(0);
       await tatCa.click();
-      await chon(page, 'Trạng thái chi tiết', 'Đang giao');
+      await chon(page, 'Giai đoạn', 'Đang giao');
       await expect(dong(page, 'ord-1016')).toBeAttached();
       await expect(dong(page, 'ord-1003')).toHaveCount(0);
     });
