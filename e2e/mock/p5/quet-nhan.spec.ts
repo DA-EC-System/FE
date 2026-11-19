@@ -112,12 +112,12 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
 
       const lines = await moPhieuKiemMoiNhat(page);
       const thieu = lines.locator('tbody tr').first();
-      await expect(thieu.getByLabel(`Số quét ${sku}`, { exact: true })).toHaveValue('0');
+      await expect(thieu.getByLabel(`Đã quét ${sku}`, { exact: true })).toHaveValue('0');
       // Cột Thiếu: dự kiến 1, quét 0
       await expect(thieu.locator('td').nth(6)).toHaveText('1');
       const saiMau = lines.locator('tbody tr', { hasText: MON_LA });
-      await expect(saiMau).toContainText('Sai mẫu');
-      await expect(saiMau.getByLabel(`Số quét ${MON_LA}`, { exact: true })).toHaveValue('2');
+      await expect(saiMau).toContainText('Sai SKU');
+      await expect(saiMau.getByLabel(`Đã quét ${MON_LA}`, { exact: true })).toHaveValue('2');
       await expect(saiMau.locator('td').nth(1)).toHaveText('0');
 
       expect(await choXuLy(page, MON_LA)).toBe(truoc + 2);
@@ -165,7 +165,7 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
       await toast(page, 'Đã nhận hàng trả YCT-000002, phiếu kiểm hàng về đã lập');
 
       const lines = await moPhieuKiemMoiNhat(page);
-      await expect(lines.locator('tbody tr').first().getByLabel(`Số quét ${sku}`, { exact: true })).toHaveValue('0');
+      await expect(lines.locator('tbody tr').first().getByLabel(`Đã quét ${sku}`, { exact: true })).toHaveValue('0');
     });
 
     test('mã không khớp: kho thêm món bằng tìm SKU, kiện vào khu chờ xử lý', async ({ page }) => {

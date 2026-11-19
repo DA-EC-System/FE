@@ -62,10 +62,10 @@ const ton = async () => {
 
 test('B3a kiểm kê: đếm 10, gửi duyệt, CEO công ty một người tự duyệt có nhãn, tồn thực thành 10', async () => {
   await moLapPhieu('Kiểm kê');
-  await page.getByTestId('doc-lines').getByLabel(`Số đếm ${sku}`, { exact: true }).fill('10');
+  await page.getByTestId('doc-lines').getByLabel(`Thực tế ${sku}`, { exact: true }).fill('10');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và ghi sổ');
+  await thaoTac('Duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
   await expect(page.getByText('Tự duyệt', { exact: true }).first()).toBeVisible();
   expect(await ton()).toMatchObject({ onHand: 10, quarantine: 0, locked: 0 });
@@ -94,7 +94,7 @@ test('B3a chuyển chờ xử lý 3 cái: duyệt xong tồn thực 7, chờ x�
   await page.locator('#doc-note').fill('Lỗi đường may');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và ghi sổ');
+  await thaoTac('Duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 3 });
 

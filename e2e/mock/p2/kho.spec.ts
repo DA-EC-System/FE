@@ -15,7 +15,7 @@ const moPhieu = async (page: Page, number: string) => {
   await chua(page, number, 'tbody tr').click();
   await expect(page.getByTestId('doc-lines')).toBeAttached();
 };
-/** Ô nhập thứ i theo nhãn đầu (vd "Số quét") */
+/** Ô nhập thứ i theo nhãn đầu (vd "Đã quét") */
 const o2 = (scope: Locator, label: string, i: number) => scope.getByLabel(new RegExp(`^${label} `)).nth(i);
 /** Bấm nút thao tác rồi xác nhận trong hộp thoại */
 /**
@@ -172,12 +172,12 @@ test.describe('P2 · Kho', () => {
       await moPhieu(page, 'XH-000001');
       await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
       await expect(page.getByTestId('doc-lines')).toContainText('tạm khoá 2');
-      await thaoTac(page, 'Duyệt và ghi sổ');
+      await thaoTac(page, 'Duyệt');
       await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
-      await expect(page.getByRole('button', { name: /Duyệt và ghi sổ|Từ chối/ })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /^Duyệt$|Từ chối/ })).toHaveCount(0);
       await thayChu(page, 'Lịch sử');
 
-      await page.getByRole('button', { name: 'Danh sách', exact: true }).click();
+      await page.getByRole('button', { name: 'Quay lại', exact: true }).click();
       await page.getByRole('tab', { name: 'Tồn kho', exact: true }).click();
       await coSo(page, 'prd-001-v3', COT.tamKhoa, 0);
       await coSo(page, 'prd-001-v3', COT.tonThuc, tonTruoc - 2);
@@ -203,14 +203,14 @@ test.describe('P2 · Kho', () => {
       await chonBienThe(page, 'QU-0001-M');
       const lines = page.getByTestId('doc-lines');
       const book = so(await lines.locator('tbody tr td').nth(1).textContent());
-      await lines.getByLabel('Số đếm QU-0001-M', { exact: true }).fill(String(book - 1));
+      await lines.getByLabel('Thực tế QU-0001-M', { exact: true }).fill(String(book - 1));
       await expect(lines.locator('tbody tr td').nth(3)).toHaveText('−1');
       // Phiếu mới: tạo xong trang đọc phiếu, cùng lúc gửi duyệt; bản "nháp" tới sau không được đè trạng thái
       await getPhieuCham(page, 600);
       await thaoTac(page, 'Gửi duyệt');
       await toast(page, /KK-\d+: chờ duyệt/);
       await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
-      await expect(page.getByRole('button', { name: /Duyệt và ghi sổ|Từ chối|Lưu nháp/ })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /^Duyệt$|Từ chối|Lưu nháp/ })).toHaveCount(0);
       // Chờ qua lúc bản đọc chậm tới: vẫn phải là chờ duyệt, không quay về "Nháp"
       await page.waitForTimeout(1000);
       await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
@@ -237,15 +237,15 @@ test.describe('P2 · Kho', () => {
       await moPhieu(page, 'KHV-000001');
       await expect(page.locator('main')).toContainText('DH-1001');
       const lines = page.getByTestId('doc-lines');
-      await o2(lines, 'Số quét', 1).fill('3');
-      await o2(lines, 'Trả nhà cung cấp', 1).fill('3');
-      await o2(lines, 'Số quét', 0).fill('2');
+      await o2(lines, 'Đã quét', 1).fill('3');
+      await o2(lines, 'Trả hàng NCC', 1).fill('3');
+      await o2(lines, 'Đã quét', 0).fill('2');
       await o2(lines, 'Bán lại', 0).fill('1');
-      await page.getByRole('button', { name: 'Ghi sổ', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Ghi sổ', exact: true }).click();
+      await page.getByRole('button', { name: 'Hoàn thành kiểm hàng', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Hoàn thành kiểm hàng', exact: true }).click();
       await expect(lines).toContainText('phải bằng số quét');
       await o2(lines, 'Hỏng', 0).fill('1');
-      await thaoTac(page, 'Ghi sổ');
+      await thaoTac(page, 'Hoàn thành kiểm hàng');
       await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
     });
 
@@ -254,20 +254,20 @@ test.describe('P2 · Kho', () => {
     // Không sửa nội dung kiểm khi chuyển (FE#69); sửa ở PR riêng.
     test.fixme('kiểm hàng về thiếu: cờ khiếu nại, người quét không tự duyệt', async ({ page }) => {
       await moPhieu(page, 'KHV-000002');
-      await expect(page.getByRole('button', { name: 'Ghi sổ', exact: true })).toHaveAttribute('aria-disabled', 'true');
+      await expect(page.getByRole('button', { name: 'Hoàn thành kiểm hàng', exact: true })).toHaveAttribute('aria-disabled', 'true');
       await expect(page.getByTestId('lifecycle-blocked')).toContainText('cần người thứ hai duyệt');
       await expect(page.locator('main')).toContainText('Thiếu 1 so với dự kiến');
-      await page.getByRole('button', { name: 'Gửi duyệt phần thiếu', exact: true }).click();
+      await page.getByRole('button', { name: 'Gửi duyệt (thiếu hàng)', exact: true }).click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Gửi duyệt', exact: true }).click();
       await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
       await expect(page.getByTestId('doc-status')).toContainText('Khiếu nại');
-      await expect(page.getByRole('button', { name: /Duyệt và ghi sổ|Yêu cầu kiểm lại/ })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /^Duyệt$|Yêu cầu kiểm lại/ })).toHaveCount(0);
     });
 
     test('huỷ phiếu nháp; phiếu theo đơn chỉ xem', async ({ page }) => {
       await moPhieu(page, 'XK-000001');
-      await expect(page.getByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
-      await page.getByRole('button', { name: 'Danh sách', exact: true }).click();
+      await expect(page.getByRole('button', { name: /Hoàn thành kiểm hàng|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Quay lại', exact: true }).click();
 
       await chua(page, 'KK-000001', 'tbody tr').click();
       await page.getByRole('button', { name: 'Huỷ phiếu', exact: true }).click();
