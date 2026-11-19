@@ -48,7 +48,7 @@ const baseColumns: ColumnDef<CompanyAuditLog>[] = [
   },
   {
     id: 'actor',
-    header: 'Người làm',
+    header: 'Người thực hiện',
     meta: { className: 'min-w-52' },
     cell: ({ row: { original: r } }) => (
       <div className="leading-tight">
@@ -95,7 +95,7 @@ const DOC_REFS: Record<string, string> = {
 function entityColumn(companyId: string): ColumnDef<CompanyAuditLog> {
   return {
     id: 'entityLabel',
-    header: 'Tên',
+    header: 'Mã / Tên',
     meta: { className: 'min-w-52' },
     cell: ({ row: { original: r } }) => {
       const ref = DOC_REFS[r.entityType.split('.').pop() ?? ''];
@@ -177,8 +177,8 @@ export function CompanyAuditLogPage() {
     <div>
       <PageHeader
         title="Nhật ký thao tác"
-        subtitle="Mọi thao tác thêm, sửa, xoá trong công ty."
-        help="Nhật ký chỉ xem, không ai sửa hay xoá được. Bấm một dòng hoặc nút Chi tiết để xem giá trị trước và sau của từng trường. Lọc Tự duyệt để xem các lần người làm tự duyệt chứng từ của chính mình."
+        subtitle="Mọi thao tác tạo mới, cập nhật, xoá trong công ty."
+        help="Nhật ký chỉ xem, không ai sửa hay xoá được. Bấm một dòng hoặc nút Chi tiết để xem giá trị trước và sau của từng thông tin. Lọc Tự duyệt để xem các lần người thực hiện tự duyệt chứng từ của chính mình."
       />
 
       {query.isError && (
@@ -190,7 +190,7 @@ export function CompanyAuditLogPage() {
       <Card className="gap-0 py-0">
         <FilterBar>
           <FilterSelect loading={staffQuery.isLoading}
-            label="Người làm"
+            label="Người thực hiện"
             value={actorId}
             onChange={withReset(setActorId)}
             className="w-56"
@@ -294,7 +294,7 @@ function AuditLogDetailDialog({ id, onClose }: { id: string | null; onClose: () 
               <Table className="table-fixed" data-testid="audit-diff">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-1/4">Trường</TableHead>
+                    <TableHead className="w-1/4">Thông tin</TableHead>
                     <TableHead>Trước</TableHead>
                     <TableHead>Sau</TableHead>
                   </TableRow>
