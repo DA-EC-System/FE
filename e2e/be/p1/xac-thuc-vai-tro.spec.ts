@@ -214,9 +214,9 @@ test.describe('P1-BE · Vai trò (commerio-backend#8)', () => {
     const ten = `Chăm sóc ${RUN}`;
     await dangNhap(page, emailCeo(1));
     await menu(page, 'Vai trò');
-    await expect(page.locator('thead')).toContainText('Số nhân viên');
-    await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Mặc định') }).nth(2)).toBeAttached();
-    await dongCo(page, 'Sale').getByRole('button', { name: 'Xem quyền', exact: true }).click();
+    await expect(page.locator('thead')).toContainText('Số tài khoản');
+    await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Có sẵn') }).nth(2)).toBeAttached();
+    await dongCo(page, 'Sale').getByRole('button', { name: 'Xem tập quyền', exact: true }).click();
     const dialog = page.getByRole('dialog');
     const checkboxes = dialog.getByRole('checkbox');
     await expect(checkboxes.first()).toBeAttached();
