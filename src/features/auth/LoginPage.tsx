@@ -41,6 +41,8 @@ interface LoginLocationState {
   from?: Location;
   /** Vừa đăng ký công ty xong (UC-PI-01) */
   registeredEmail?: string;
+  /** Vừa nộp yêu cầu tham gia qua link mời, chờ Admin duyệt (US-CT-06) */
+  joinedEmail?: string;
 }
 
 /**
@@ -60,11 +62,11 @@ export function LoginPage() {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
 
-  const { from, registeredEmail } = (location.state as LoginLocationState | null) ?? {};
+  const { from, registeredEmail, joinedEmail } = (location.state as LoginLocationState | null) ?? {};
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: registeredEmail ?? '', password: '' },
+    defaultValues: { email: registeredEmail ?? joinedEmail ?? '', password: '' },
   });
 
   // Đăng nhập xong store đổi ngay → render lại và chuyển trang tại đây
@@ -91,6 +93,11 @@ export function LoginPage() {
           Đăng ký công ty thành công. Đăng nhập bằng {registeredEmail} để bắt đầu.
         </AlertMessage>
       )}
+      {joinedEmail && !error && (
+        <AlertMessage severity="info" className="mb-4">
+          Đã gửi yêu cầu tham gia. Khi Admin công ty duyệt, đăng nhập bằng {joinedEmail}.
+        </AlertMessage>
+      )}
       {error && (
         <AlertMessage severity="error" className="mb-4" onClose={() => setError(null)}>
           {error}
@@ -105,7 +112,7 @@ export function LoginPage() {
             label="Email"
             type="email"
             autoComplete="email"
-            autoFocus={!registeredEmail}
+            autoFocus={!registeredEmail && !joinedEmail}
           />
           <FormTextField
             control={form.control}
@@ -113,7 +120,7 @@ export function LoginPage() {
             label="Mật khẩu"
             password
             autoComplete="current-password"
-            autoFocus={Boolean(registeredEmail)}
+            autoFocus={Boolean(registeredEmail || joinedEmail)}
           />
           <Button
             type="submit"
