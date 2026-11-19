@@ -63,11 +63,11 @@ test.describe('D4.4 · Phiên bản phí và thuế', () => {
     await dong.getByRole('button').hover();
     await expect(page.getByRole('tooltip').first()).toContainText('Chỉ áp khi loại hình là doanh nghiệp');
   });
-  test('giá mới có cờ Dưới giá tối thiểu và duyệt theo version', async ({ page }) => {
+  test('giá chờ có cờ Dưới đáy và xác nhận theo version', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Giá chờ xác nhận');
-    const row = page.locator('tbody tr').filter({ hasText: 'Dưới giá tối thiểu' }).first(); await expect(row).toBeVisible();
-    const id = await row.getAttribute('data-row-id'); await row.getByRole('button', { name: 'Duyệt giá', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Vẫn duyệt dù dưới giá tối thiểu', exact: true }).click();
+    const row = page.locator('tbody tr').filter({ hasText: 'Dưới đáy' }).first(); await expect(row).toBeVisible();
+    const id = await row.getAttribute('data-row-id'); await row.getByRole('button', { name: 'Xác nhận giá', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Xác nhận giá dưới đáy', exact: true }).click();
     await expect(page.locator(`tr[data-row-id="${id}"]`)).toHaveCount(0);
   });
 });

@@ -61,16 +61,16 @@ test.describe('P1 · Route chưa mở trên máy chủ', () => {
     await expect(page.getByTestId('task-bell-error')).toContainText('Chức năng này chưa mở trên máy chủ');
   });
 
-  test('giá mới chờ duyệt chưa có: báo chưa mở, không hiện bảng trống', async ({ page }) => {
+  test('giá chờ xác nhận chưa có: báo chưa mở, không hiện bảng trống', async ({ page }) => {
     await routeChuaCo(page, ['/channel/listings/pending-prices']);
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await page.goto(`${duongDan(page).match(/^\/c\/[^/]+/)![0]}/channel/pending-prices`);
-    await expect(page.getByRole('heading', { level: 1, name: 'Giá mới chờ duyệt' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Giá chờ xác nhận' })).toBeVisible();
     await expect(page.getByTestId('route-missing')).toContainText(
-      'Tính năng duyệt giá mới chưa mở trên máy chủ',
+      'Tính năng giá chờ xác nhận chưa mở trên máy chủ',
     );
     await expect(page.locator('table')).toHaveCount(0);
-    await expect(page.getByText('Không có giá mới chờ duyệt')).toHaveCount(0);
+    await expect(page.getByText('Không có giá chờ xác nhận')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Thử lại' })).toHaveCount(0);
   });
 });
