@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { CircleHelp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumbStore } from '@/hooks/useBreadcrumb';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { isLivePath } from '@/hooks/useRealtime';
 import type { RealtimeStatus } from '@/api/realtime';
 import { CommandPalette } from './CommandPalette';
 import type { ActiveNav, NavSection } from './navigation';
@@ -41,6 +42,9 @@ function buildCrumbs(active: ActiveNav | null, detail: string | null): Crumb[] {
 export function Header({ active, sections }: { active: ActiveNav | null; sections: NavSection[] }) {
   const { companyContext } = useAuth();
   const realtime = useRealtimeStore((s) => s.status);
+  // Trang chưa nối SSE không hứa "cập nhật tức thời" (FE#318)
+  const location = useLocation();
+  const live = isLivePath(location.pathname, location.search);
   const detail = useBreadcrumbStore((s) => s.detail);
   const crumbs = buildCrumbs(active, detail);
   const guideKey = useGuideStore((s) => s.page?.key);
@@ -79,10 +83,22 @@ export function Header({ active, sections }: { active: ActiveNav | null; section
       </nav>
       <CommandPalette sections={sections} />
       <div className="flex shrink-0 items-center gap-1.5">
-        {realtime !== 'off' && (
+        {realtime !== 'off' && !live && (
+          <span
+            data-testid="realtime-status"
+            data-status="manual"
+            data-stream={realtime}
+            title="Trang này chưa tự cập nhật; tải lại để xem dữ liệu mới"
+            className="flex h-8 items-center pe-2 text-sm text-muted-foreground max-md:hidden"
+          >
+            Tải lại để xem mới
+          </span>
+        )}
+        {realtime !== 'off' && live && (
           <span
             data-testid="realtime-status"
             data-status={realtime}
+            data-stream={realtime}
             role="status"
             aria-label={REALTIME_LABEL[realtime]}
             title={REALTIME_LABEL[realtime]}

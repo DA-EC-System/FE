@@ -66,8 +66,16 @@ export interface CompanyAuditLog {
   /** "<schema>.<bảng>", vd "access.roles" */
   entityType: string;
   entityId: string;
-  /** Tên dễ đọc của đối tượng lúc ghi nhật ký (email, tên vai trò…) */
+  /**
+   * Tên đối tượng lúc ghi (BE#352): nhân viên "Họ tên (email)", số chứng từ, tên gian hàng… Dòng ghi trước #352 có thể
+   * là mã hay tên bảng.
+   */
   entityLabel: string;
+  /**
+   * Mã thao tác cụ thể (BE#352): `lock`, `unlock`, `change_roles`, `join`, `revoke`, `reject`, hay mã máy trạng thái
+   * ở dòng tự duyệt (vd `approve_send`). `null`: chỉ là thêm/sửa/xoá theo `action`.
+   */
+  operation: string | null;
   actor: ActorRef;
   /** Lần tự duyệt bước cần người duyệt khác (Documents/21 mục 14.1, #246): hiện nhãn "Tự duyệt" */
   selfApproved: boolean;
@@ -77,6 +85,30 @@ export interface CompanyAuditLog {
 export interface CompanyAuditLogDetail extends CompanyAuditLog {
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
+}
+
+/** Hồ sơ công ty đang chọn (FE#267, commerio-backend#292). Tên, mã số thuế chỉ đọc */
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  taxCode: string;
+  /** Địa chỉ đăng ký; null khi chưa khai */
+  address: string | null;
+  /** Tổ chức chịu trách nhiệm hàng hoá; null = theo tên công ty */
+  responsibleName: string | null;
+  /** null = theo địa chỉ công ty */
+  responsibleAddress: string | null;
+  /** Giá trị điền sẵn khi ghép danh mục và lúc đẩy lên sàn */
+  effectiveResponsible: { name: string; address: string | null };
+  version: number;
+}
+
+/** Ô không gửi thì giữ nguyên; null = theo tên, địa chỉ công ty */
+export interface UpdateCompanyProfileInput {
+  address?: string | null;
+  responsibleName?: string | null;
+  responsibleAddress?: string | null;
+  version: number;
 }
 
 export interface CompanyAuditParams {

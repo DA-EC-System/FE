@@ -1,5 +1,6 @@
 import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
+import { emitRealtime } from '../engine/realtime';
 import * as catalog from '../catalogData';
 import type { MockProduct, MockVariant } from '../catalogData';
 import * as inventory from '../inventoryData';
@@ -699,6 +700,7 @@ export const inventoryHandlers = [
       });
     }
     const before = rule ? { minQty: rule.minQty } : null;
+    const wasBelow = toStockLevel(product, variant, canCost).belowMin;
     if (body.minQty === null) {
       if (rule) inventory.reorderRules.splice(idx, 1);
     } else if (rule) {
@@ -724,8 +726,16 @@ export const inventoryHandlers = [
         after,
       );
     }
-    // Cần nhập lại thì BE phát sự kiện để báo Nhân viên kho, Admin (QT-16); mock không gửi thông báo
-    return HttpResponse.json<StockLevel>(toStockLevel(product, variant, canCost));
+    // Vừa chạm ngưỡng thì phát inventory.below_threshold một lần như BE (QT-16, FE#318)
+    const saved = toStockLevel(product, variant, canCost);
+    if (saved.belowMin && !wasBelow && saved.minQty !== null) {
+      emitRealtime(companyId, 'inventory.below_threshold', {
+        variantId: variant.id,
+        available: saved.available,
+        minQty: saved.minQty,
+      });
+    }
+    return HttpResponse.json<StockLevel>(saved);
   }),
 
   http.get(`${API}/inventory/documents`, async ({ request }) => {

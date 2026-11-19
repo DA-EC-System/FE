@@ -3,7 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useTasks } from '@/api/tasks.api';
 import { useAuth } from '@/hooks/useAuth';
-import { useRealtime } from '@/hooks/useRealtime';
+import { canAddToRequest, useRealtime } from '@/hooks/useRealtime';
+import { StockRequestHost } from '@/features/purchasing/StockRequestHost';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { AppSidebar } from './AppSidebar';
 import { AppTitle, CompanySwitcher } from './CompanySwitcher';
@@ -95,5 +96,11 @@ export function CompanyLayout() {
   useRealtime();
   // RequireCompany đảm bảo đã có companyContext trước khi render layout
   const companyId = companyContext?.companyId ?? '';
-  return <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} />;
+  return (
+    <>
+      <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} />
+      {/* Hộp thêm vào đề nghị nhập mở từ toast, chuông khi SKU chạm ngưỡng (FE#318) */}
+      {canAddToRequest(companyContext) && <StockRequestHost />}
+    </>
+  );
 }

@@ -36,7 +36,7 @@ const MENU: Record<string, string[]> = {
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả',
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
-    'Quản trị: Nhân viên | Vai trò | Phân hệ | Nhật ký thao tác | Việc nền lỗi',
+    'Quản trị: Nhân viên | Vai trò | Phân hệ | Hồ sơ công ty | Nhật ký thao tác | Việc nền lỗi',
     'Dữ liệu giả: Sàn giả lập',
   ],
   admin: [
@@ -45,7 +45,7 @@ const MENU: Record<string, string[]> = {
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Yêu cầu trả', // Admin có sales.return.view theo ma trận (FE#152)
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
-    'Quản trị: Nhân viên | Vai trò | Nhật ký thao tác | Việc nền lỗi',
+    'Quản trị: Nhân viên | Vai trò | Hồ sơ công ty | Nhật ký thao tác | Việc nền lỗi',
     'Dữ liệu giả: Sàn giả lập',
   ],
   sale: [

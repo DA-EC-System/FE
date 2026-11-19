@@ -31,6 +31,8 @@ import { formatDateTime } from '@/utils/format';
 import type { AuditAction, CompanyAuditLog } from '@/types/companySettings';
 import {
   AUDIT_ACTION_LABELS,
+  auditOperationLabel,
+  auditOperationVariant,
   AUDIT_ENTITY_LABELS,
   auditFieldLabel,
   auditValueText,
@@ -58,12 +60,13 @@ const baseColumns: ColumnDef<CompanyAuditLog>[] = [
   {
     id: 'action',
     header: 'Thao tác',
-    meta: { className: 'w-28' },
+    meta: { className: 'w-36' },
     cell: ({ row }) => {
-      const a = AUDIT_ACTION_LABELS[row.original.action];
       return (
         <span className="flex flex-wrap gap-1">
-          <Badge variant={a.variant}>{a.label}</Badge>
+          <Badge variant={auditOperationVariant(row.original)} data-testid="audit-operation">
+            {auditOperationLabel(row.original)}
+          </Badge>
           {row.original.selfApproved && <SelfApprovedTag />}
         </span>
       );
@@ -282,9 +285,7 @@ function AuditLogDetailDialog({ id, onClose }: { id: string | null; onClose: () 
         {log && (
           <div className="grid min-w-0 gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={AUDIT_ACTION_LABELS[log.action].variant}>
-                {AUDIT_ACTION_LABELS[log.action].label}
-              </Badge>
+              <Badge variant={auditOperationVariant(log)}>{auditOperationLabel(log)}</Badge>
               <span className="font-medium">
                 {entityTypeLabel(log.entityType)}: {log.entityLabel}
               </span>

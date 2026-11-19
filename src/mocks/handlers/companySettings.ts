@@ -50,6 +50,7 @@ export function toAuditLog(l: (typeof db.companyAuditLogs)[number]): CompanyAudi
     entityType: l.entityType,
     entityId: l.entityId,
     entityLabel: l.entityLabel,
+    operation: l.operation ?? (isSelfApprovedLog(l) && typeof l.after?.action === 'string' ? l.after.action : null),
     actor: actorRef(l.actorId) ?? { accountId: l.actorId, email: '', fullName: 'Tài khoản đã xoá' },
     selfApproved: isSelfApprovedLog(l),
     createdAt: l.createdAt,

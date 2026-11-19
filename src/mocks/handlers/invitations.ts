@@ -1,10 +1,19 @@
 import { http, HttpResponse, delay } from 'msw';
 import { db, passwords, type MockInvitation, type MockMembership } from '../db';
-import type { CreatedInvitation, Invitation, JoinVerifyResult } from '@/types/identity';
+import type { CreatedInvitation, Invitation, InvitationStatus, JoinVerifyResult } from '@/types/identity';
 import { PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH } from '@/utils/env';
 import { API, LATENCY, pageParams, paginate, problem, requireCompany } from './utils';
-import { checkRoleAssignment, companyRoles, staffEntity, staffSnapshot, toStaff, versionConflict, writeCompanyLog } from './identity';
+import {
+  checkRoleAssignment,
+  companyRoles,
+  invalidTransition,
+  staffEntity,
+  staffSnapshot,
+  toStaff,
+  versionConflict,
+  writeCompanyLog,
+} from './identity';
 
 /**
  * Mời nhân viên bằng link (US-CT-05..07, Documents/21 §3.1).
@@ -68,6 +77,16 @@ const isMember = (companyId: string, email: string) => {
 
 const alreadyMember = () =>
   problem(409, 'Đã là nhân viên', { code: 'already_member', detail: 'Bạn đã là nhân viên của công ty này' });
+
+/** Câu BE trả kèm `invalid_transition` theo trạng thái hiện tại (BE service/invitations.ts) */
+const STATUS_DETAIL: Record<InvitationStatus, string> = {
+  open: 'Người được mời chưa nộp yêu cầu',
+  claimed: 'Người được mời chưa nộp yêu cầu',
+  pending: 'Người được mời đã nộp yêu cầu: duyệt hoặc từ chối ở tab Chờ duyệt',
+  approved: 'Yêu cầu đã được duyệt',
+  rejected: 'Yêu cầu đã bị từ chối',
+  revoked: 'Link đã bị huỷ',
+};
 
 export const invitationHandlers = [
   // ---------- Admin: tạo link, xem, duyệt ----------
@@ -134,15 +153,14 @@ export const invitationHandlers = [
       const inv = db.invitations.find((i) => i.id === params.id && i.companyId === actor.companyId);
       if (!inv) return problem(404, 'Không tìm thấy', { code: 'not_found', detail: 'Không tìm thấy lời mời' });
       const { version } = (await request.json()) as { version: number };
-      if (version !== inv.version || inv.status !== 'pending') {
-        return versionConflict(toInvitation(inv), 'Lời mời vừa được người khác cập nhật');
-      }
+      if (inv.status !== 'pending') return invalidTransition(toInvitation(inv), STATUS_DETAIL[inv.status]);
+      if (version !== inv.version) return versionConflict(toInvitation(inv), 'Lời mời vừa được người khác cập nhật');
       const label = inv.email ?? inv.id;
       if (action === 'reject') {
         inv.status = 'rejected';
         inv.decidedAt = db.now();
         inv.version += 1;
-        writeCompanyLog(actor, 'update', { type: 'core.invitations', id: inv.id, label }, { status: 'pending' }, { status: 'rejected' });
+        writeCompanyLog(actor, 'update', { type: 'core.invitations', id: inv.id, label }, { status: 'pending' }, { status: 'rejected' }, 'reject');
         return HttpResponse.json({ invitation: toInvitation(inv) });
       }
 
@@ -185,7 +203,7 @@ export const invitationHandlers = [
       inv.decidedAt = db.now();
       inv.password = null;
       inv.version += 1;
-      writeCompanyLog(actor, 'create', staffEntity(membership), null, staffSnapshot(membership));
+      writeCompanyLog(actor, 'create', staffEntity(membership), null, staffSnapshot(membership), 'join');
       return HttpResponse.json({ invitation: toInvitation(inv), member: toStaff(membership) });
     }),
   ),
@@ -199,15 +217,16 @@ export const invitationHandlers = [
     const inv = db.invitations.find((i) => i.id === params.id && i.companyId === actor.companyId);
     if (!inv) return problem(404, 'Không tìm thấy', { code: 'not_found', detail: 'Không tìm thấy lời mời' });
     const { version } = (await request.json()) as { version: number };
-    if (version !== inv.version || (inv.status !== 'open' && inv.status !== 'claimed')) {
-      return versionConflict(toInvitation(inv), 'Lời mời vừa được người khác cập nhật');
+    if (inv.status !== 'open' && inv.status !== 'claimed') {
+      return invalidTransition(toInvitation(inv), STATUS_DETAIL[inv.status]);
     }
+    if (version !== inv.version) return versionConflict(toInvitation(inv), 'Lời mời vừa được người khác cập nhật');
     const before = inv.status;
     inv.status = 'revoked';
     inv.decidedAt = db.now();
     inv.otp = null;
     inv.version += 1;
-    writeCompanyLog(actor, 'update', { type: 'core.invitations', id: inv.id, label: inv.email ?? 'Link mời' }, { status: before }, { status: 'revoked' });
+    writeCompanyLog(actor, 'update', { type: 'core.invitations', id: inv.id, label: inv.email ?? 'Link mời' }, { status: before }, { status: 'revoked' }, 'revoke');
     return HttpResponse.json({ invitation: toInvitation(inv) });
   }),
 

@@ -4,9 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { connectRealtime, type RealtimeMessage } from '@/api/realtime';
 import { fulfillmentKeys } from '@/api/fulfillment.api';
+import { stockDetailQuery } from '@/api/inventory.api';
 import { useAuthStore } from '@/stores/authStore';
 import { useRealtimeStore } from '@/stores/realtimeStore';
-import { hasPermission, PERMISSIONS } from '@/utils/permissions';
+import { useStockAlertStore } from '@/stores/stockAlertStore';
+import type { CompanyContext } from '@/types/auth';
+import { hasPermission, isModuleEnabled, PERMISSIONS } from '@/utils/permissions';
+import { formatQty } from '@/features/inventory/shared';
 
 /**
  * Loại sự kiện (theo tiền tố) → nhóm query cần làm mới, khoá dạng ['company', id, nhóm].
@@ -29,6 +33,26 @@ const GROUPS: [prefix: string, groups: string[]][] = [
 
 /** Mọi nhóm ở trên: nối lại sau khi mất kết nối thì làm mới một lần (T14) */
 const ALL_GROUPS = [...new Set(GROUPS.flatMap(([, groups]) => groups))];
+
+/**
+ * Trang thật sự tự đổi theo sự kiện BE đang phát qua SSE (core/notification rules: đơn mới, đơn đổi trạng thái, thanh
+ * toán, tồn dưới ngưỡng, ghi sổ phiếu nhận, gửi đề nghị nhập): Tổng quan (việc cần làm), danh sách và chi tiết đơn,
+ * tab Tồn kho, tab Đề nghị nhập và chi tiết đề nghị. Trang tạo mới không có gì để tự đổi. Trang khác (kiện, phiếu kho,
+ * trả hàng…) chưa có sự kiện tới khi commerio-backend#216 xong (FE#318).
+ * `tab`: tab mặc định của trang (không có ?tab) mới là tab tự đổi.
+ */
+const LIVE_PATHS: { re: RegExp; tab?: string }[] = [
+  { re: /^\/c\/[^/]+\/?$/ },
+  { re: /^\/c\/[^/]+\/sales\/orders(\/(?!new\/?$)[^/]+)?\/?$/ },
+  { re: /^\/c\/[^/]+\/inventory\/?$/, tab: 'stock' },
+  { re: /^\/c\/[^/]+\/purchasing\/?$/, tab: 'requests' },
+  { re: /^\/c\/[^/]+\/purchasing\/requests\/(?!new\/?$)[^/]+\/?$/ },
+];
+
+export const isLivePath = (pathname: string, search = '') => {
+  const tab = new URLSearchParams(search).get('tab');
+  return LIVE_PATHS.some((p) => p.re.test(pathname) && (!p.tab || !tab || tab === p.tab));
+};
 
 export function groupsOf(type: string): string[] {
   return GROUPS.find(([prefix]) => type.startsWith(prefix))?.[1] ?? [];
@@ -67,6 +91,15 @@ export function packageNotice(message: RealtimeMessage, codeOf: (packageId: stri
   return null;
 }
 
+/** Câu báo SKU chạm ngưỡng (FE#318): "GD-0007 còn 30, đã chạm ngưỡng 30"; chưa biết mã SKU thì "Một SKU" */
+export function belowThresholdText(sku: string | undefined, available: number, minQty: number): string {
+  return `${sku ?? 'Một SKU'} còn ${formatQty(available)}, đã chạm ngưỡng ${formatQty(minQty)}`;
+}
+
+/** Thêm được vào đề nghị nhập: bật Mua hàng và có quyền lập đề nghị, như nút trên trang Tồn kho */
+export const canAddToRequest = (ctx: CompanyContext | null) =>
+  isModuleEnabled(ctx, 'purchasing') && hasPermission(ctx, PERMISSIONS.purchaseRequestManage);
+
 /**
  * Nghe kênh realtime của công ty đang làm việc; gắn một lần ở CompanyLayout.
  * Đổi công ty hoặc đăng xuất thì đóng stream cũ.
@@ -79,10 +112,37 @@ export function useRealtime() {
   const setStatus = useRealtimeStore((s) => s.setStatus);
 
   useEffect(() => {
+    // Đổi công ty, đăng xuất: bỏ thông báo tồn và đóng hộp của công ty cũ
+    useStockAlertStore.getState().reset(signedIn ? companyId || null : null);
     if (!companyId || !signedIn) return;
     const base = `/c/${companyId}`;
+    // Đổi công ty trong lúc đang lấy mã SKU thì bỏ thông báo của công ty cũ
+    let active = true;
+    /**
+     * Payload chỉ có `variantId`: lấy mã SKU qua chi tiết tồn (có sẵn trong cache thì dùng luôn). Báo một lần bằng toast
+     * và ghi vào chuông; nút mở hộp thêm vào đề nghị nhập, không có quyền thì mở trang Tồn kho.
+     */
+    const notifyBelowThreshold = async (message: RealtimeMessage) => {
+      const { variantId, available, minQty } = message.payload as { variantId: string; available: number; minQty: number };
+      const sku = await qc
+        .fetchQuery({ ...stockDetailQuery(companyId, variantId), staleTime: 30_000 })
+        .then((d) => d.level.sku)
+        .catch(() => undefined);
+      if (!active) return;
+      const text = belowThresholdText(sku, available, minQty);
+      const alerts = useStockAlertStore.getState();
+      alerts.push(companyId, { id: message.eventId, variantId, text, at: message.occurredAt });
+      const action = canAddToRequest(useAuthStore.getState().companyContext)
+        ? { label: 'Thêm vào đề nghị nhập', onClick: () => alerts.openRequest(variantId) }
+        : { label: 'Xem tồn', onClick: () => navigate(`${base}/inventory`) };
+      toast.warning(text, { action, duration: 10_000 });
+    };
     const onMessage = (message: RealtimeMessage) => {
       invalidate(qc, companyId, groupsOf(message.type));
+      if (message.type === 'inventory.below_threshold') {
+        void notifyBelowThreshold(message);
+        return;
+      }
       if (message.type === 'sales.order_created') {
         const { orderId, code } = message.payload as { orderId?: string; code?: string };
         toast.info(`Có đơn mới ${code ?? ''}`.trim(), {
@@ -104,10 +164,14 @@ export function useRealtime() {
             : null;
       toast.warning(notice.text, { action: to ? { label: 'Xem', onClick: () => navigate(to) } : undefined });
     };
-    return connectRealtime({
+    const disconnect = connectRealtime({
       onMessage,
       onStatus: setStatus,
       onReconnect: () => invalidate(qc, companyId, ALL_GROUPS),
     });
+    return () => {
+      active = false;
+      disconnect();
+    };
   }, [companyId, signedIn, qc, navigate, setStatus]);
 }

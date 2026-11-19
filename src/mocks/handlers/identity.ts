@@ -2,6 +2,7 @@ import { http, HttpResponse, delay } from 'msw';
 import { CEO_ROLE_ID, db, permissionCatalog, type MockMembership, type MockRole } from '../db';
 import type { AuditAction } from '@/types/companySettings';
 import type { Role, RoleInput, StaffMember } from '@/types/identity';
+import { FREELY_ASSIGNABLE_ROLE_IDS } from '@/features/identity/shared';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, CompanyActor, LATENCY, lag, enabledModulesOf, pageParams, paginate, problem, requireCompany, rolesOfMember } from './utils';
 
@@ -53,6 +54,15 @@ export function notHeld() {
   });
 }
 
+/** Sai trạng thái kiểm trước version (BE#353, Documents/21 mục 3.1) */
+export function invalidTransition<T>(current: T, detail: string) {
+  return problem(409, 'Thao tác không hợp lệ ở trạng thái hiện tại', {
+    code: 'invalid_transition',
+    detail,
+    current,
+  });
+}
+
 export function versionConflict<T>(current: T, detail: string) {
   return problem(409, 'Dữ liệu vừa được người khác sửa', {
     code: 'version_conflict',
@@ -68,6 +78,7 @@ export function writeCompanyLog(
   entity: { type: string; id: string; label: string },
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null,
+  operation: string | null = null,
 ) {
   db.companyAuditLogs.unshift({
     id: `cal-${Date.now().toString(36)}-${db.companyAuditLogs.length}`,
@@ -77,6 +88,7 @@ export function writeCompanyLog(
     entityType: entity.type,
     entityId: entity.id,
     entityLabel: entity.label,
+    operation,
     before,
     after,
     createdAt: db.now(),
@@ -85,11 +97,11 @@ export function writeCompanyLog(
 
 export const roleEntity = (r: MockRole) => ({ type: 'core.roles', id: r.id, label: r.name });
 export const roleSnapshot = (r: MockRole) => ({ name: r.name, permissions: [...r.permissions] });
-export const staffEntity = (m: MockMembership) => ({
-  type: 'core.memberships',
-  id: m.accountId,
-  label: toStaff(m).email,
-});
+/** Nhân viên trong nhật ký: "Họ tên (email)" (BE#352) */
+export const staffEntity = (m: MockMembership) => {
+  const s = toStaff(m);
+  return { type: 'core.memberships', id: m.accountId, label: `${s.fullName} (${s.email})` };
+};
 export function staffSnapshot(m: MockMembership) {
   const s = toStaff(m);
   return { email: s.email, fullName: s.fullName, roles: s.roles.map((r) => r.name), status: s.status };
@@ -97,7 +109,7 @@ export function staffSnapshot(m: MockMembership) {
 
 /**
  * Kiểm danh sách vai trò sẽ gán: thuộc công ty, không phải CEO, và mọi vai trò được thêm
- * hoặc gỡ đều chỉ gồm quyền người thao tác đang có.
+ * hoặc gỡ đều chỉ gồm quyền người thao tác đang có. Vai có sẵn Sale, Nhân viên kho không xét (BE#351).
  */
 export function checkRoleAssignment(
   actor: CompanyActor,
@@ -122,7 +134,7 @@ export function checkRoleAssignment(
   }
   for (const id of changed) {
     const role = available.find((r) => r.id === id);
-    if (role && lacking(actor, role.permissions).length) {
+    if (role && !FREELY_ASSIGNABLE_ROLE_IDS.includes(role.id) && lacking(actor, role.permissions).length) {
       return problem(403, 'Có quyền bạn không có', {
         code: 'permission_not_held',
         detail: `Vai trò "${role.name}" có quyền bạn không có nên bạn không gán hay gỡ được.`,
@@ -340,7 +352,7 @@ export const identityHandlers = [
     const before = { roles: staffSnapshot(m).roles };
     m.roleIds = [...new Set(body.roleIds)];
     m.version += 1;
-    writeCompanyLog(actor, 'update', staffEntity(m), before, { roles: staffSnapshot(m).roles });
+    writeCompanyLog(actor, 'update', staffEntity(m), before, { roles: staffSnapshot(m).roles }, 'change_roles');
     return HttpResponse.json(toStaff(m));
   }),
 
@@ -356,9 +368,10 @@ export const identityHandlers = [
       if (blocked) return blocked;
       const { version } = (await request.json()) as { version: number };
       const target = action === 'lock' ? 'locked' : 'active';
-      if (version !== m.version || m.status === target) {
-        return versionConflict(toStaff(m), 'Tài khoản vừa được người khác sửa.');
+      if (m.status === target) {
+        return invalidTransition(toStaff(m), target === 'locked' ? 'Nhân viên đang bị tạm khoá' : 'Nhân viên đang hoạt động');
       }
+      if (version !== m.version) return versionConflict(toStaff(m), 'Tài khoản vừa được người khác sửa.');
       m.status = target;
       m.version += 1;
       writeCompanyLog(
@@ -367,6 +380,7 @@ export const identityHandlers = [
         staffEntity(m),
         { status: action === 'lock' ? 'active' : 'locked' },
         { status: target },
+        action,
       );
       return HttpResponse.json(toStaff(m));
     }),

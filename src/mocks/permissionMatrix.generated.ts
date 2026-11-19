@@ -7,11 +7,12 @@ export interface MatrixPermission {
   label: string;
 }
 
-/** 54 quyền theo ma trận, gồm cả platform.* (chỉ vai trò có sẵn mang) */
+/** 55 quyền theo ma trận, gồm cả platform.* (chỉ vai trò có sẵn mang) */
 export const MATRIX_PERMISSIONS: readonly MatrixPermission[] = [
   { code: 'platform.module.manage', module: 'platform', label: 'Bật, tắt phân hệ' },
   { code: 'platform.audit.view', module: 'platform', label: 'Xem nhật ký thao tác' },
   { code: 'platform.job.manage', module: 'platform', label: 'Xem, chạy lại việc nền lỗi' },
+  { code: 'platform.company.manage', module: 'platform', label: 'Xem, sửa hồ sơ công ty' },
   { code: 'identity.account.view', module: 'identity', label: 'Xem tài khoản nhân viên' },
   { code: 'identity.account.manage', module: 'identity', label: 'Thêm nhân viên, gán vai trò, khoá tài khoản' },
   { code: 'identity.role.view', module: 'identity', label: 'Xem vai trò' },
@@ -71,6 +72,7 @@ export const MATRIX_ROLES = {
     'platform.module.manage',
     'platform.audit.view',
     'platform.job.manage',
+    'platform.company.manage',
     'identity.account.view',
     'identity.account.manage',
     'identity.role.view',
@@ -126,6 +128,7 @@ export const MATRIX_ROLES = {
   admin: [
     'platform.audit.view',
     'platform.job.manage',
+    'platform.company.manage',
     'identity.account.view',
     'identity.account.manage',
     'identity.role.view',

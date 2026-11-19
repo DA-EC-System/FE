@@ -16,6 +16,7 @@ export const PERMISSIONS = {
   auditView: 'platform.audit.view',
   /** Xem và chạy lại việc nền lỗi; CEO và Admin có, không cấp cho vai trò tuỳ biến (§14.5) */
   jobManage: 'platform.job.manage',
+  companyManage: 'platform.company.manage',
   shopView: 'channel.shop.view',
   shopConnect: 'channel.shop.connect',
   shopUpdate: 'channel.shop.update',

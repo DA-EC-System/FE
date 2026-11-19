@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RealtimeMessage } from '@/api/realtime';
-import { groupsOf, packageNotice } from './useRealtime';
+import { groupsOf, packageNotice, belowThresholdText, isLivePath } from './useRealtime';
 
 describe('groupsOf: sự kiện → nhóm query làm mới (Documents/21 §13.2)', () => {
   it('đơn, kiện, yêu cầu trả, gian hàng', () => {
@@ -60,5 +60,35 @@ describe('packageNotice: thông báo kiện giao thất bại, thất lạc (§1
 
   it('sự kiện khác không có thông báo kiện', () => {
     expect(packageNotice(msg('fulfillment.package_status_changed', { packageId: 'pkg-1', from: 'packed', to: 'awaiting_pickup' }), codeOf)).toBeNull();
+  });
+});
+
+describe('Tồn chạm ngưỡng, trang nối SSE (FE#318)', () => {
+  it('câu báo', () => {
+    expect(belowThresholdText('GD-0007', 30, 30)).toBe('GD-0007 còn 30, đã chạm ngưỡng 30');
+    expect(belowThresholdText(undefined, 1200, 1500)).toBe('Một SKU còn 1.200, đã chạm ngưỡng 1.500');
+  });
+
+  it('chỉ Tổng quan, đơn, tab Tồn kho, tab Đề nghị nhập là trang tự cập nhật', () => {
+    for (const p of ['/c/a', '/c/a/sales/orders', '/c/a/sales/orders/o1', '/c/a/inventory', '/c/a/purchasing', '/c/a/purchasing/requests/r1']) {
+      expect(isLivePath(p), p).toBe(true);
+    }
+    for (const p of [
+      '/c/a/fulfillment/packages',
+      '/c/a/inventory/documents/d1',
+      '/c/a/sales/returns',
+      '/c/a/purchasing/receipts/x',
+      '/c/a/sales/orders/new',
+      '/c/a/purchasing/requests/new',
+    ]) {
+      expect(isLivePath(p), p).toBe(false);
+    }
+  });
+
+  it('xét tab trong query', () => {
+    expect(isLivePath('/c/a/inventory', '?tab=stock')).toBe(true);
+    expect(isLivePath('/c/a/inventory', '?tab=documents')).toBe(false);
+    expect(isLivePath('/c/a/purchasing', '?tab=suppliers')).toBe(false);
+    expect(isLivePath('/c/a/sales/orders', '?status=new')).toBe(true);
   });
 });

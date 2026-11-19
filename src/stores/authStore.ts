@@ -78,7 +78,22 @@ function announce(accountId: string | null) {
   channel?.postMessage({ accountId });
 }
 
+/**
+ * Tab nhận thông điệp có phải tải lại từ đầu không. Tab đang khởi động (`loading`, chưa có tài khoản) bỏ qua tài khoản
+ * tab khác báo: nhiều tab mở cùng lúc thì tab xong trước báo tài khoản, tab sau chưa có tài khoản không phải là đổi tài
+ * khoản; tab sau tự lấy phiên bằng cookie (FE#317). Nhưng đăng xuất (`null`, chỉ phát khi thật sự có tài khoản đăng xuất)
+ * thì vẫn tải lại: tab có thể đã xin được access token trước khi cookie bị huỷ. Đã khởi động xong thì tải lại khi tài
+ * khoản khác đi, gồm đăng nhập ở tab khác (đang ở trang đăng nhập) và đăng xuất.
+ */
+export function shouldReloadOnAuthMessage(
+  accountId: string | null,
+  state: Pick<AuthStore, 'status' | 'account'>,
+): boolean {
+  const current = state.account?.id ?? null;
+  if (state.status === 'loading' && current === null) return accountId === null;
+  return accountId !== current;
+}
+
 channel?.addEventListener('message', (e: MessageEvent<{ accountId: string | null }>) => {
-  const current = useAuthStore.getState().account?.id ?? null;
-  if (e.data.accountId !== current) window.location.assign(appPath(''));
+  if (shouldReloadOnAuthMessage(e.data.accountId, useAuthStore.getState())) window.location.assign(appPath(''));
 });

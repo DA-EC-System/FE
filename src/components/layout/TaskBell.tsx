@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import { AlarmClock, Bell, CheckCheck, CircleAlert, CloudOff, Info } from 'lucide-react';
+import { AlarmClock, Bell, CheckCheck, CircleAlert, CloudOff, Info, PackageMinus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useTasks } from '@/api/tasks.api';
+import { useAuth } from '@/hooks/useAuth';
+import { canAddToRequest } from '@/hooks/useRealtime';
+import { selectNotices, useStockAlertStore, type StockNotice } from '@/stores/stockAlertStore';
 import { problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import { docRefPath, ROUTES } from '@/router/routes';
@@ -33,6 +36,9 @@ export function TaskBell({ companyId }: { companyId: string }) {
   const tasks = useTasks();
   const items = tasks.data ?? [];
   const overdue = items.some((t) => t.severity === 'overdue');
+  // SKU chạm ngưỡng nhận qua realtime trong phiên này (FE#318)
+  const notices = useStockAlertStore(selectNotices(companyId));
+  const count = items.length + notices.length;
 
   return (
     <Popover>
@@ -41,12 +47,12 @@ export function TaskBell({ companyId }: { companyId: string }) {
           variant="ghost"
           size="icon"
           className="relative size-8 rounded-md text-foreground-2 hover:bg-fill"
-          aria-label={tasks.isError ? 'Việc cần làm: chưa tải được' : `Việc cần làm: ${items.length}`}
+          aria-label={tasks.isError ? 'Việc cần làm: chưa tải được' : `Việc cần làm: ${count}`}
           data-testid="task-bell"
           data-guide="task-bell"
         >
           <Bell className="size-[18px]" />
-          {items.length > 0 && (
+          {count > 0 && (
             <span
               className={cn(
                 'absolute -end-1 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-xs leading-none ring-1 ring-card',
@@ -56,7 +62,7 @@ export function TaskBell({ companyId }: { companyId: string }) {
                   : 'border border-warning-border bg-warning-soft text-warning',
               )}
             >
-              {items.length > 99 ? '99+' : items.length}
+              {count > 99 ? '99+' : count}
             </span>
           )}
         </Button>
@@ -69,8 +75,9 @@ export function TaskBell({ companyId }: { companyId: string }) {
       >
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <span className="text-sm font-semibold">Việc cần làm</span>
-          {items.length > 0 && <span className="text-sm text-muted-foreground">{items.length}</span>}
+          {count > 0 && <span className="text-sm text-muted-foreground">{count}</span>}
         </div>
+        {notices.length > 0 && <StockNotices notices={notices} companyId={companyId} />}
         {tasks.isError ? (
           // Không hiện "Không có việc nào tới hạn" khi chưa đọc được (FE#248)
           <div className="px-4 py-10 text-center text-sm text-muted-foreground" data-testid="task-bell-error">
@@ -78,8 +85,8 @@ export function TaskBell({ companyId }: { companyId: string }) {
             <p className="font-medium text-foreground">Chưa tải được việc cần làm</p>
             <p className="mt-1">{problemMessage(tasks.error)}</p>
           </div>
-        ) : items.length ? (
-          <div className="min-h-0 flex-1 overflow-y-auto pb-1">
+        ) : items.length || notices.length ? (
+          <div className={cn('min-h-0 flex-1 overflow-y-auto', items.length > 0 && 'pb-1')}>
             {byGroup(items.slice(0, SHOWN)).map(([group, list]) => (
               <section key={group} aria-label={group}>
                 <h3 className="px-4 pt-2.5 pb-1 text-xs font-normal text-muted-foreground">{group}</h3>
@@ -104,6 +111,65 @@ export function TaskBell({ companyId }: { companyId: string }) {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Thông báo SKU chạm ngưỡng; nút mở hộp thêm vào đề nghị nhập, không có quyền thì dẫn tới Tồn kho */
+function StockNotices({ notices, companyId }: { notices: StockNotice[]; companyId: string }) {
+  const { companyContext } = useAuth();
+  const openRequest = useStockAlertStore((s) => s.openRequest);
+  const dismiss = useStockAlertStore((s) => s.dismiss);
+  const clear = useStockAlertStore((s) => s.clear);
+  const canRequest = canAddToRequest(companyContext);
+  return (
+    <section aria-label="Tồn chạm ngưỡng" className="border-b pb-1" data-testid="stock-notices">
+      <div className="flex items-center px-4 pt-2.5 pb-1">
+        <h3 className="text-xs font-normal text-muted-foreground">Tồn chạm ngưỡng</h3>
+        <button
+          type="button"
+          className="ms-auto text-xs text-primary-text hover:text-primary-hover"
+          onClick={clear}
+        >
+          Bỏ hết
+        </button>
+      </div>
+      <ul className="max-h-48 overflow-y-auto">
+        {notices.map((n) => (
+          <li key={n.id} className="grid grid-cols-[32px_minmax(0,1fr)_auto] gap-3 px-4 py-2.5" data-notice-id={n.id}>
+            <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-warning-soft text-warning">
+              <PackageMinus className="size-4" />
+            </span>
+            <div className="grid gap-1 text-sm">
+              <span className="font-medium">{n.text}</span>
+              <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                {formatDateTime(n.at)}
+                {canRequest ? (
+                  <button
+                    type="button"
+                    className="text-primary-text hover:text-primary-hover"
+                    onClick={() => openRequest(n.variantId)}
+                  >
+                    Thêm vào đề nghị nhập
+                  </button>
+                ) : (
+                  <Link to={ROUTES.company.inventory(companyId)} className="text-primary-text hover:text-primary-hover">
+                    Xem tồn
+                  </Link>
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-label="Bỏ thông báo"
+              className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-table-head hover:text-foreground"
+              onClick={() => dismiss(n.id)}
+            >
+              <X className="size-3.5" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

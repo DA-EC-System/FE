@@ -14,7 +14,7 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { formatDateTime } from '@/utils/format';
 import type { PageResult } from '@/api/types';
 import type { Invitation } from '@/types/identity';
-import { conflictCurrent } from './shared';
+import { conflictCurrent, invalidTransitionCurrent, invitationTransitionMessage } from './shared';
 
 interface PendingInvitationsProps {
   data: PageResult<Invitation> | undefined;
@@ -63,8 +63,11 @@ export function PendingInvitations({
       );
     } catch (e) {
       // Danh sách tự nạp lại (onSettled) nên dòng hiện trạng thái mới nhất
+      const moved = invalidTransitionCurrent<Invitation>(e);
       const latest = conflictCurrent<Invitation>(e);
-      if (problemCode(e) === 'version_conflict') {
+      if (moved) {
+        toast.warning(invitationTransitionMessage(moved, 'pending'));
+      } else if (problemCode(e) === 'version_conflict') {
         toast.warning(
           latest && latest.status !== 'pending'
             ? `Yêu cầu của ${who(latest)} vừa được người khác xử lý (${STATUS_LABELS[latest.status].toLowerCase()}). Chưa có gì thay đổi.`

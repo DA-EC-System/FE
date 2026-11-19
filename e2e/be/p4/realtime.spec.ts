@@ -60,7 +60,7 @@ test.describe('P4-BE · realtime kiện giữa hai tab (Lazada giả lập)', ()
   const moKien = async (page: Page) => {
     await page.goto(`/c/${companyId}/fulfillment/packages/${pkg.id}`);
     await expect(trangThai(page)).toBeVisible();
-    await expect(page.getByTestId('realtime-status')).toHaveAttribute('data-status', 'open');
+    await expect(page.getByTestId('realtime-status')).toHaveAttribute('data-stream', 'open');
   };
   /** Dấu trên window: còn nguyên nghĩa là tab chưa tải lại */
   const danhDau = (page: Page) => page.evaluate(() => ((window as unknown as { __fe287?: number }).__fe287 = 287));
