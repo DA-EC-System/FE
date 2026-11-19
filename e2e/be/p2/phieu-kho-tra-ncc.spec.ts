@@ -47,7 +47,7 @@ const chonBienThe = async () => {
   await page.locator('[role=option]').filter({ hasText: sku }).first().click();
 };
 
-const moLapPhieu = async (loai: 'Kiểm kho' | 'Xuất huỷ' | 'Chuyển hàng lỗi/chờ kiểm') => {
+const moLapPhieu = async (loai: 'Kiểm kê' | 'Xuất huỷ' | 'Chuyển chờ xử lý') => {
   await page.goto(`/c/${cty.companyId}/inventory`);
   await page.getByRole('tab', { name: 'Phiếu kho', exact: true }).click();
   await page.getByRole('button', { name: loai, exact: true }).click();
@@ -61,7 +61,7 @@ const ton = async () => {
 };
 
 test('B3a kiểm kê: đếm 10, gửi duyệt, CEO công ty một người tự duyệt có nhãn, tồn thực thành 10', async () => {
-  await moLapPhieu('Kiểm kho');
+  await moLapPhieu('Kiểm kê');
   await page.getByTestId('doc-lines').getByLabel(`Số đếm ${sku}`, { exact: true }).fill('10');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
@@ -89,7 +89,7 @@ test('B3a xuất huỷ: gửi duyệt thì tạm khoá, từ chối bắt buộc
 });
 
 test('B3a chuyển chờ xử lý 3 cái: duyệt xong tồn thực 7, chờ xử lý 3; phiếu có trong danh sách', async () => {
-  await moLapPhieu('Chuyển hàng lỗi/chờ kiểm');
+  await moLapPhieu('Chuyển chờ xử lý');
   await page.getByTestId('doc-lines').getByLabel(`Số lượng ${sku}`, { exact: true }).fill('3');
   await page.locator('#doc-note').fill('Lỗi đường may');
   await thaoTac('Gửi duyệt');
