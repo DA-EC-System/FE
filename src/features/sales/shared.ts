@@ -105,11 +105,11 @@ export function completionBlockerText(
     case '':
       return null;
     case 'packages_open':
-      return 'Còn kiện chưa xong: chưa giao tới khách, chưa hoàn về kho hoặc chưa huỷ.';
+      return 'Còn kiện chưa xong: chưa giao tới người mua, chưa hoàn về kho hoặc chưa huỷ.';
     case 'return_window':
       return order.returnWindowEndsAt
-        ? `Khách còn quyền trả hàng tới ${fmt(order.returnWindowEndsAt)}.`
-        : 'Sàn chưa báo hết quyền trả hàng của khách.';
+        ? `Người mua còn quyền trả hàng tới ${fmt(order.returnWindowEndsAt)}.`
+        : 'Sàn chưa báo hết quyền trả hàng của người mua.';
     case 'return_requested':
       return 'Còn yêu cầu trả hàng chưa xong.';
     case 'cod_unconfirmed':

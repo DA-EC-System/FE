@@ -127,10 +127,10 @@ describe('chi tiết đơn: lý do chưa hoàn tất, người huỷ, trễ hạ
   it('câu đủ ý cho từng mã, hạn trả theo BE, mã lạ không hiện thô', () => {
     expect(completionBlockerText({ completionBlocker: null }, fmt)).toBeNull();
     expect(completionBlockerText({ completionBlocker: 'return_window', returnWindowEndsAt: '2026-11-25T00:00:00Z' }, fmt)).toBe(
-      'Khách còn quyền trả hàng tới 2026-11-25.',
+      'Người mua còn quyền trả hàng tới 2026-11-25.',
     );
     expect(completionBlockerText({ completionBlocker: 'return_window', returnWindowEndsAt: null }, fmt)).toBe(
-      'Sàn chưa báo hết quyền trả hàng của khách.',
+      'Sàn chưa báo hết quyền trả hàng của người mua.',
     );
     expect(completionBlockerText({ completionBlocker: 'packages_open' }, fmt)).toMatch(/^Còn kiện chưa xong/);
     expect(completionBlockerText({ completionBlocker: 'xyz_new' }, fmt)).toBe('Đơn còn việc chưa xong.');
@@ -141,7 +141,7 @@ describe('chi tiết đơn: lý do chưa hoàn tất, người huỷ, trễ hạ
       { to: 'processing', by: null, source: 'system' },
       { to: 'cancelled', by, source, reason },
     ];
-    expect(orderCancelledBy({ status: 'cancelled', cancelInitiators: ['buyer'], statusHistory: [] })).toBe('khách');
+    expect(orderCancelledBy({ status: 'cancelled', cancelInitiators: ['buyer'], statusHistory: [] })).toBe('người mua');
     expect(orderCancelledBy({ status: 'cancelled', statusHistory: h({ name: 'Sale A' }, 'user') })).toBe('Sale A');
     expect(orderCancelledBy({ status: 'cancelled', statusHistory: h(null, 'marketplace') })).toBe('Sàn');
     expect(orderCancelledBy({ status: 'cancelled', statusHistory: h(null, 'system', 'Mọi kiện đã huỷ') })).toBe(
