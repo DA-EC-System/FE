@@ -111,7 +111,7 @@ test.describe('P3 · Đẩy lên sàn theo thông tin sàn của sản phẩm', 
     await expect(chua(page, 'Sẵn sàng.')).toHaveCount(0);
     const conThieu = page.getByRole('list', { name: 'Còn thiếu' });
     await expect(chua(conThieu, 'Chưa tải được attribute của category')).toBeVisible();
-    await expect(chua(conThieu, 'Công ty chưa có gian hàng TikTok Shop nào')).toBeVisible();
+    await expect(chua(conThieu, 'Công ty chưa có gian hàng TikTok nào')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lưu và đẩy lên TikTok' })).toBeDisabled();
     await expect(chua(page.locator('[aria-label="Tóm tắt"]'), 'Chưa có gian hàng TikTok')).toBeVisible();
 

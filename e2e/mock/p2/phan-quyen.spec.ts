@@ -32,7 +32,7 @@ test.describe('P2 · Phân quyền', () => {
     await page.goto('/c/cmp-001/inventory');
     await thayChu(page, KHONG_CO_QUYEN);
     await page.goto('/c/cmp-001/catalog/setup');
-    await expect(page.getByRole('button', { name: 'Thêm category', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thêm danh mục', exact: true })).toHaveCount(0);
   });
 
   test('Nhân viên kho: lập phiếu, không thấy giá vốn, không đặt ngưỡng, không vào Sổ tiền', async ({ page }) => {

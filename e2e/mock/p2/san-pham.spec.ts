@@ -134,7 +134,7 @@ test.describe('P2 · Sản phẩm', () => {
 
   test('danh mục: quy tắc SKU sai báo ngay, tên trùng báo tại ô', async ({ page }) => {
     await page.getByRole('button', { name: 'Danh mục & thuộc tính', exact: true }).click();
-    await page.getByRole('button', { name: 'Thêm category', exact: true }).click();
+    await page.getByRole('button', { name: 'Thêm danh mục', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await dialog.locator('input[name=skuPattern]').fill('AO-{VAL}');
     await expect(dialog.getByTestId('sku-preview')).toContainText('Quy tắc phải có đúng một {SEQ} để SKU không trùng');
@@ -142,10 +142,10 @@ test.describe('P2 · Sản phẩm', () => {
     await expect(dialog.getByTestId('sku-preview')).toContainText('TX-0001-DEN-XL');
     await dialog.locator('input[name=name]').fill('áo');
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-    await expect(loiTen(dialog)).toHaveText('Đã có category cùng tên');
+    await expect(loiTen(dialog)).toHaveText('Đã có danh mục cùng tên');
     await dialog.locator('input[name=name]').fill('Túi xách');
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-    await toast(page, 'Đã tạo category Túi xách');
+    await toast(page, 'Đã tạo danh mục Túi xách');
     await expect(chua(page, 'Túi xách', 'tbody tr')).toContainText('TX-{SEQ:4}-{VAL}');
   });
 });
