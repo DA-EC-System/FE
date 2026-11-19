@@ -66,7 +66,7 @@ test('B3a kiểm kê: đếm 10, gửi duyệt, CEO công ty một người tự
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
   await thaoTac('Duyệt và ghi sổ');
-  await expect(page.getByTestId('doc-status')).toContainText('Hoàn thành');
+  await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
   await expect(page.getByText('Tự duyệt', { exact: true }).first()).toBeVisible();
   expect(await ton()).toMatchObject({ onHand: 10, quarantine: 0, locked: 0 });
 });
@@ -95,7 +95,7 @@ test('B3a chuyển chờ xử lý 3 cái: duyệt xong tồn thực 7, chờ x�
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
   await thaoTac('Duyệt và ghi sổ');
-  await expect(page.getByTestId('doc-status')).toContainText('Hoàn thành');
+  await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 3 });
 
   await page.goto(`/c/${cty.companyId}/inventory`);

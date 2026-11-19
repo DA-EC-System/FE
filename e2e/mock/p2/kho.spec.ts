@@ -115,7 +115,7 @@ test.describe('P2 · Kho', () => {
       await dong(page, 'prd-002-v1').getByRole('button', { name: 'Lịch sử biến động', exact: true }).click();
       const dialog = page.getByRole('dialog');
       for (const t of ['Chờ xử lý', 'Tạm khoá']) await expect(dialog.getByTestId('stock-figures')).toContainText(t);
-      for (const t of ['CXL-000001', 'Khu hàng lỗi/chờ kiểm', 'Khu bán được']) await expect(dialog.getByTestId('stock-moves')).toContainText(t);
+      for (const t of ['CXL-000001', 'Hàng lỗi/chờ kiểm', 'Tồn kho']) await expect(dialog.getByTestId('stock-moves')).toContainText(t);
     });
 
     test('bấm mã SKU mở thẻ kho (FE#136)', async ({ page }) => {
@@ -191,7 +191,7 @@ test.describe('P2 · Kho', () => {
       await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
       await expect(page.getByTestId('doc-lines')).toContainText('tạm khoá 2');
       await thaoTac(page, 'Duyệt và ghi sổ');
-      await expect(page.getByTestId('doc-status')).toContainText('Hoàn thành');
+      await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
       await expect(page.getByRole('button', { name: /Duyệt và ghi sổ|Từ chối/ })).toHaveCount(0);
       await thayChu(page, 'Lịch sử');
 
@@ -261,10 +261,10 @@ test.describe('P2 · Kho', () => {
       await o2(lines, 'Bán lại', 0).fill('1');
       await page.getByRole('button', { name: 'Ghi sổ', exact: true }).click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Ghi sổ', exact: true }).click();
-      await expect(lines).toContainText('phải bằng số quét');
+      await expect(lines).toContainText('phải bằng số đã quét');
       await o2(lines, 'Hỏng', 0).fill('1');
       await thaoTac(page, 'Ghi sổ');
-      await expect(page.getByTestId('doc-status')).toContainText('Hoàn thành');
+      await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
     });
 
     // Ca cuối sai từ FE#72: nút bị luật chặn vẫn hiện, mờ kèm lý do (ActionButton, aria-disabled), nên không thể

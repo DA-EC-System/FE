@@ -33,11 +33,11 @@ test.describe('P2 · Mua hàng', () => {
       // Đã đặt nhà cung cấp cần ngày giao dự kiến (BE#243)
       await page.getByRole('button', { name: 'Đã đặt hàng', exact: true }).click();
       const datNcc = page.getByRole('dialog');
-      await datNcc.getByRole('button', { name: 'Đã đặt hàng', exact: true }).click();
+      await datNcc.getByRole('button', { name: 'Đã đặt nhà cung cấp', exact: true }).click();
       await expect(datNcc.getByText('Nhập ngày nhà cung cấp hẹn giao', { exact: true })).toBeVisible();
       await datNcc.getByLabel('Ngày giao dự kiến', { exact: true }).fill('2026-11-20');
       await datNcc.getByLabel('Mã đơn bên nhà cung cấp (nếu có)', { exact: true }).fill('PO-778');
-      await datNcc.getByRole('button', { name: 'Đã đặt hàng', exact: true }).click();
+      await datNcc.getByRole('button', { name: 'Đã đặt nhà cung cấp', exact: true }).click();
       await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Lập phiếu', exact: true }).click();
       await toast(page, 'Đã lập phiếu nhận');

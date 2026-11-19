@@ -123,7 +123,7 @@ export const STOCKTAKE_STATUS_TEXT: Record<ShopOpeningStocktake['status'], strin
   pending: 'đang chờ duyệt',
   rejected: 'bị từ chối',
   cancelled: 'đã huỷ',
-  posted: 'đã hoàn thành',
+  posted: 'đã ghi sổ',
 };
 
 /** Phiếu bị từ chối hoặc đã huỷ không đi tiếp được, phải lập phiếu mới (§18.6.11) */

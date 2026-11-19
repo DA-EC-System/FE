@@ -180,14 +180,14 @@ export const DOC_KIND_LABELS: Record<StockDocKind, string> = {
 export const DOC_STATUS: Record<StockDocStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'warning' },
   pending: { label: 'Chờ duyệt', variant: 'info' },
-  posted: { label: 'Hoàn thành', variant: 'success' },
+  posted: { label: 'Đã ghi sổ', variant: 'success' },
   rejected: { label: 'Bị từ chối', variant: 'destructive' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const AREA_LABELS: Record<StockArea, string> = {
-  stock: 'Khu bán được',
-  quarantine: 'Khu hàng lỗi/chờ kiểm',
+  stock: 'Tồn kho',
+  quarantine: 'Hàng lỗi/chờ kiểm',
 };
 
 export const DECISION_LABELS: Record<RejectDecision, string> = {
