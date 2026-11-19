@@ -59,7 +59,7 @@ test.describe('P3-BE · Ngắt gian hàng còn đơn chưa xong (§18.6.1)', () 
     const dong = page.locator(`tbody tr[data-row-id="${SHOP_ID}"]`);
     const trangThai = dong.locator('[data-testid=shop-status]');
     const truoc = (await trangThai.textContent())?.trim();
-    expect(truoc).not.toBe('Đã ngắt');
+    expect(truoc).not.toBe('Đã ngắt kết nối');
 
     const disconnect = page.waitForResponse(
       (r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(`/channel/shops/${SHOP_ID}/disconnect`),

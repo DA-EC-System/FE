@@ -24,7 +24,7 @@ export { DetailGrid } from '@/components/common/DetailGrid';
 const APPROVAL_ACTIONS = new Set(['approve', 'approve_send']);
 const APPROVAL_REASON: Record<string, string> = {
   forbidden: 'Bạn không có quyền này.',
-  second_person_required: 'Người duyệt phải khác người soạn.',
+  second_person_required: 'Người duyệt phải khác người lập phiếu.',
 };
 
 /** Lý do nút bị khoá; nút duyệt dùng câu ngắn của Test_UI, nút khác giữ câu chung theo mã lỗi */
@@ -69,17 +69,17 @@ export function receiptDiff(l: {
 }): string | null {
   const parts: string[] = [];
   if (l.announced > 0 && l.announced !== l.outstanding) {
-    parts.push(`Nhà cung cấp báo giao ${l.announced}, còn chờ ${l.outstanding}`);
+    parts.push(`NCC giao ${l.announced}, còn phải nhận ${l.outstanding}`);
   }
-  if (l.defectKept > 0) parts.push(`lỗi giữ ${l.defectKept}`);
-  if (l.returnedOnSpot > 0) parts.push(`trả tại chỗ ${l.returnedOnSpot}`);
+  if (l.defectKept > 0) parts.push(`lỗi giữ lại ${l.defectKept}`);
+  if (l.returnedOnSpot > 0) parts.push(`trả lại ngay ${l.returnedOnSpot}`);
   if (l.short > 0) parts.push(`thiếu ${l.short}`);
   if (!parts.length) return null;
   const text = parts.join(', ');
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }
 
-/** Nhãn "Chênh" cạnh SKU, rê chuột hoặc Tab tới thì hiện giải thích */
+/** Nhãn "Lệch" cạnh SKU, rê chuột hoặc Tab tới thì hiện giải thích */
 export function DiffTag({ sku, note }: { sku: string; note: string }) {
   return (
     <Tooltip>
@@ -91,7 +91,7 @@ export function DiffTag({ sku, note }: { sku: string; note: string }) {
           data-testid="receipt-diff"
           className="ms-2 inline-flex cursor-help items-center rounded bg-warning-soft px-1.5 py-px text-[11px] font-normal whitespace-nowrap text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Chênh
+          Lệch
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-64">{note}</TooltipContent>
@@ -111,13 +111,24 @@ export function DocLink({ companyId, docRef }: { companyId: string; docRef: DocR
 }
 
 /** Lỗi tải phiếu hoặc không có quyền: hiện thông báo kèm nút về danh sách */
-export function PageError({ message, severity = 'error', onBack }: { message: string; severity?: 'error' | 'warning'; onBack: () => void }) {
+export function PageError({
+  message,
+  severity = 'error',
+  onBack,
+  backLabel = 'Về danh sách',
+}: {
+  message: string;
+  severity?: 'error' | 'warning';
+  onBack: () => void;
+  /** Chữ nút quay lại, mặc định "Về danh sách" */
+  backLabel?: string;
+}) {
   return (
     <div className="grid justify-items-start gap-4">
       <AlertMessage severity={severity}>{message}</AlertMessage>
       <Button variant="outline" onClick={onBack}>
         <ArrowLeft />
-        Về danh sách
+        {backLabel}
       </Button>
     </div>
   );

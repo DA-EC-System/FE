@@ -22,7 +22,7 @@ test.describe('P3 · Hạn trả hàng của gian hàng', () => {
     // Kiểm ở FE: ngoài 1–60 không gửi
     await o.fill('61');
     await page.getByRole('button', { name: 'Lưu', exact: true }).click();
-    await expect(page.locator('#return-window-days-error')).toHaveText('Số ngày đổi trả là số nguyên từ 1 đến 60');
+    await expect(page.locator('#return-window-days-error')).toHaveText('Hạn trả hàng là số nguyên từ 1 đến 60 ngày');
 
     await o.fill('7');
     const gui = page.waitForRequest((r) => r.method() === 'PATCH' && /\/channel\/shops\/shp-003$/.test(r.url()));

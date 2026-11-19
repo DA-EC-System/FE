@@ -12,7 +12,7 @@ export const SOURCE_IMAGE_TYPES = [...IMAGE_TYPES, 'image/webp'];
 
 // Không tự đổi chữ hoa: "ao-{SEQ}" phải báo lỗi đúng câu của bảng 9.3 (AC-4)
 export const categorySchema = z.object({
-  name: z.string().trim().min(1, 'Nhập tên danh mục').max(60, 'Tên danh mục tối đa 60 ký tự'),
+  name: z.string().trim().min(1, 'Nhập tên category').max(60, 'Tên category tối đa 60 ký tự'),
   skuPattern: z
     .string()
     .trim()
@@ -70,7 +70,7 @@ export function effectiveCode(v: { value: string; code?: string }): string {
 
 export const productSchema = z.object({
   name: z.string().trim().min(1, 'Nhập tên sản phẩm').max(200, 'Tên sản phẩm tối đa 200 ký tự'),
-  categoryId: z.string().min(1, 'Chọn danh mục'),
+  categoryId: z.string().min(1, 'Chọn category'),
   description: z.string().max(5000, 'Mô tả tối đa 5000 ký tự'),
 });
 export type ProductForm = z.infer<typeof productSchema>;

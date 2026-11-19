@@ -36,12 +36,12 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await moTiktok(page);
 
-    await expect(trangThai(page, 'prd-001-v3')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-001-v3')).toHaveText('Đang hoạt động');
     await expect(banSua(page, 'prd-001-v3')).toHaveText('Bản sửa đang duyệt');
     await banSua(page, 'prd-001-v3').hover();
     await expect(page.getByTestId('pending-revision-hint')).toContainText('vẫn bán bản cũ');
 
-    await expect(trangThai(page, 'prd-001-v2')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-001-v2')).toHaveText('Đang hoạt động');
     await expect(banSua(page, 'prd-001-v2')).toHaveText('Bản sửa bị từ chối');
     await expect(dong(page, 'prd-001-v2').getByTestId('revision-reason')).toHaveText(
       'Sàn báo: Mô tả chứa thông tin liên hệ ngoài sàn',
@@ -60,7 +60,7 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
 
     await suaNoiDung(page, 'prd-001-v1');
     await toast(page, /Sàn đang duyệt, listing vẫn bán bản cũ/);
-    await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang hoạt động');
     await expect(banSua(page, 'prd-001-v1')).toHaveText('Bản sửa đang duyệt');
     // Vẫn gửi lại được khi bản sửa đang duyệt
     await expect(nutSua(page, 'prd-001-v1')).toBeEnabled();
@@ -83,7 +83,7 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
 
     await suaNoiDung(page, 'prd-001-v1');
     await toast(page, /Sàn không nhận bản sửa, listing giữ nguyên\. Sàn báo: 12019018/);
-    await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang hoạt động');
     await expect(banSua(page, 'prd-001-v1')).toHaveCount(0);
   });
 
@@ -103,7 +103,7 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await diToi(page, '/c/cmp-001/channel/shops/shp-003');
     await expect(page.locator('[data-testid=match-summary]')).toBeAttached();
-    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang hoạt động');
     await expect(nutSua(page, 'prd-002-v1')).toHaveCount(0);
   });
 });

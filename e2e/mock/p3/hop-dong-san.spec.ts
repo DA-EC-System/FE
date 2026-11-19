@@ -87,7 +87,7 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
     await expect(ketQua.getByRole('button', { name: 'Thiết lập Shop tài khoản chính 2', exact: true })).toBeAttached();
     await ketQua.getByRole('button', { name: 'Để sau', exact: true }).click();
     const row = chua(page, 'Shop tài khoản chính 2', 'tbody tr');
-    await thayChu(row, 'Đang thiết lập');
+    await thayChu(row, 'Chờ thiết lập');
     await expect(row.getByRole('button', { name: 'Thiết lập', exact: true })).toBeAttached();
   });
 

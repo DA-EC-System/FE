@@ -16,48 +16,48 @@ export { formatQty } from '@/features/inventory/shared';
 export const REQUEST_STATUS: Record<PurchaseRequestStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'warning' },
   pending_approval: { label: 'Chờ duyệt', variant: 'info' },
-  changes_requested: { label: 'Bị trả về', variant: 'warning' },
+  changes_requested: { label: 'Cần chỉnh sửa', variant: 'warning' },
   approved: { label: 'Đã duyệt', variant: 'info' },
-  rejected: { label: 'Từ chối', variant: 'destructive' },
-  ordered: { label: 'Đã đặt nhà cung cấp', variant: 'info' },
-  partially_received: { label: 'Nhận một phần', variant: 'info' },
-  received: { label: 'Nhận xong', variant: 'success' },
-  closed_short: { label: 'Đóng thiếu', variant: 'secondary' },
+  rejected: { label: 'Đã từ chối', variant: 'destructive' },
+  ordered: { label: 'Đã đặt hàng', variant: 'info' },
+  partially_received: { label: 'Đã nhận một phần', variant: 'info' },
+  received: { label: 'Đã nhận đủ', variant: 'success' },
+  closed_short: { label: 'Đã đóng (thiếu hàng)', variant: 'secondary' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const RECEIPT_STATUS: Record<GoodsReceiptStatus, StatusMeta> = {
-  counting: { label: 'Đang kiểm', variant: 'warning' },
-  matched: { label: 'Khớp', variant: 'success' },
-  short: { label: 'Giao thiếu', variant: 'destructive' },
-  resolved: { label: 'Đã xử lý', variant: 'secondary' },
+  counting: { label: 'Đang kiểm hàng', variant: 'warning' },
+  matched: { label: 'Đã nhập kho', variant: 'success' },
+  short: { label: 'Thiếu hàng, chờ xử lý', variant: 'destructive' },
+  resolved: { label: 'Đã xử lý thiếu', variant: 'secondary' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const RETURN_STATUS: Record<SupplierReturnStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'warning' },
   pending_approval: { label: 'Chờ duyệt', variant: 'info' },
-  sent: { label: 'Đã gửi', variant: 'info' },
-  refunded: { label: 'Nhà cung cấp hoàn tiền', variant: 'success' },
-  replaced: { label: 'Nhà cung cấp bù hàng', variant: 'success' },
-  returned_to_us: { label: 'Nhà cung cấp không nhận', variant: 'destructive' },
+  sent: { label: 'Đã gửi NCC', variant: 'info' },
+  refunded: { label: 'NCC đã hoàn tiền', variant: 'success' },
+  replaced: { label: 'NCC đã đổi hàng', variant: 'success' },
+  returned_to_us: { label: 'NCC từ chối nhận', variant: 'destructive' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const DELIVERY_LABELS: Record<DeliveryMode, string> = {
-  waiting: 'Người giao đứng chờ',
-  left: 'Người giao đã đi (kiểm trong 24 giờ)',
+  waiting: 'Kiểm cùng người giao',
+  left: 'Kiểm sau (trong 24 giờ)',
 };
 
 export const RESOLUTION_LABELS: Record<ShortResolutionKind, string> = {
-  follow_up: 'Nhà cung cấp giao bù',
-  close_short: 'Đóng thiếu đề nghị',
-  supplier_wrong: 'Nhà cung cấp báo đã giao đủ, mình nhận sai',
+  follow_up: 'NCC giao bù',
+  close_short: 'Chấp nhận thiếu, đóng đơn',
+  supplier_wrong: 'NCC giao đủ, kho đếm sai',
 };
 
 export const CANCEL_DECISION_LABELS: Record<SupplierReturnCancelDecision, string> = {
-  restock: 'Nhập lại tồn bán được',
-  write_off: 'Lập phiếu xuất huỷ',
+  restock: 'Đưa về kho bán (bán tiếp)',
+  write_off: 'Tạo phiếu xuất huỷ',
 };
 
 const MAX_COST = 1_000_000_000;
@@ -158,7 +158,7 @@ const requestLineSchema = z
       if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm cha' });
     } else {
       if (!l.parentName) ctx.addIssue({ code: 'custom', path: ['parentName'], message: 'Nhập tên sản phẩm cha' });
-      if (!l.categoryId) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Chọn danh mục' });
+      if (!l.categoryId) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Chọn category' });
     }
     const seen = new Set<string>();
     l.options.forEach((o, k) => {
@@ -239,7 +239,7 @@ export interface RequestFormInput {
 }
 export type RequestFormOutput = z.output<typeof requestFormSchema>;
 
-/** Dòng phiếu nhận trên form */
+/** Dòng phiếu nhập kho trên form */
 export interface ReceiptLineDraft {
   lineId: string;
   sku: string;
@@ -255,26 +255,26 @@ export interface ReceiptLineDraft {
 
 const count = (label: string) => qtyText(0, MAX_QTY, label);
 
-/** Kiểm đếm: đạt + lỗi giữ + trả tại chỗ không vượt báo giao; có thiếu, lỗi, trả thì phải ghi lý do */
+/** Kiểm đếm: SL đạt + lỗi giữ lại + trả lại ngay không vượt SL NCC giao; có thiếu, lỗi, trả thì phải ghi lý do */
 const receiptLineSchema = z
   .object({
     lineId: z.string(),
     outstanding: z.number(),
-    announced: count('Báo giao'),
-    accepted: count('Nhận đạt'),
-    defectKept: count('Lỗi giữ'),
-    returnedOnSpot: count('Trả tại chỗ'),
+    announced: count('SL NCC giao'),
+    accepted: count('SL đạt'),
+    defectKept: count('Lỗi, giữ lại'),
+    returnedOnSpot: count('Trả lại ngay'),
     reason: z.string().trim().max(300, 'Tối đa 300 ký tự'),
   })
   .superRefine((l, ctx) => {
     const handled = l.accepted + l.defectKept + l.returnedOnSpot;
     if (handled > l.announced) {
-      ctx.addIssue({ code: 'custom', path: ['accepted'], message: 'Đạt, lỗi giữ, trả tại chỗ cộng lại vượt số báo giao' });
+      ctx.addIssue({ code: 'custom', path: ['accepted'], message: 'SL đạt + lỗi + trả lại vượt SL NCC giao' });
     } else if (l.accepted + l.defectKept > l.outstanding) {
-      ctx.addIssue({ code: 'custom', path: ['accepted'], message: `Còn chờ ${l.outstanding}, nhận đạt và lỗi giữ vượt số này` });
+      ctx.addIssue({ code: 'custom', path: ['accepted'], message: `Còn phải nhận ${l.outstanding}, SL đạt và lỗi vượt số này` });
     }
     if ((handled < l.announced || l.defectKept || l.returnedOnSpot) && !l.reason) {
-      ctx.addIssue({ code: 'custom', path: ['reason'], message: 'Ghi lý do khi có thiếu, lỗi hoặc trả tại chỗ' });
+      ctx.addIssue({ code: 'custom', path: ['reason'], message: 'Ghi lý do khi có thiếu, lỗi hoặc trả lại' });
     }
   });
 
@@ -306,7 +306,7 @@ export const returnFormSchema = z.object({
   lines: z
     .array(z.object({ variantId: z.string(), quarantine: z.number(), quantity: qtyText(1, MAX_QTY) }).superRefine((l, ctx) => {
       if (l.quantity > l.quarantine) {
-        ctx.addIssue({ code: 'custom', path: ['quantity'], message: `Chỉ còn ${l.quarantine} chờ xử lý` });
+        ctx.addIssue({ code: 'custom', path: ['quantity'], message: `Chỉ còn ${l.quarantine} hàng lỗi/chờ kiểm` });
       }
     }))
     .min(1, 'Thêm ít nhất một dòng'),

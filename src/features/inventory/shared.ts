@@ -13,6 +13,13 @@ import type {
 
 export const MAX_QTY = 1_000_000;
 
+/** Chữ thường cho câu "Nhập …", giữ nguyên từ viết tắt in hoa (SL, NCC) */
+const lowerLabel = (label: string) =>
+  label
+    .split(' ')
+    .map((w) => (/^\p{Lu}{2,}$/u.test(w) ? w : w.toLowerCase()))
+    .join(' ');
+
 /** Ô số lượng nhập chữ: số nguyên trong [min, max], cho phép dấu phân cách nghìn */
 export const qtyText = (min: number, max: number, label = 'Số lượng') =>
   z.string().transform((raw, ctx): number => {
@@ -23,7 +30,7 @@ export const qtyText = (min: number, max: number, label = 'Số lượng') =>
       ctx.addIssue({ code: 'custom', message });
       return z.NEVER;
     };
-    if (!text) return fail(`Nhập ${label.toLowerCase()}`);
+    if (!text) return fail(`Nhập ${lowerLabel(label)}`);
     if (/^-\d+$/.test(text)) return fail(`${label} không được âm`);
     if (!/^\d+$/.test(text)) return fail(`${label} là số nguyên`);
     const value = Number(text);
@@ -32,10 +39,10 @@ export const qtyText = (min: number, max: number, label = 'Số lượng') =>
     return value;
   });
 
-/** UC-IN-02: ngưỡng tối thiểu; ô trống là bỏ ngưỡng */
+/** UC-IN-02: tồn tối thiểu; ô trống là bỏ ngưỡng */
 export const minQtySchema = z.string().transform((raw, ctx): number | null => {
   if (!raw.trim()) return null;
-  const parsed = qtyText(0, MAX_QTY, 'Ngưỡng').safeParse(raw);
+  const parsed = qtyText(0, MAX_QTY, 'Tồn tối thiểu').safeParse(raw);
   if (parsed.success) return parsed.data;
   ctx.addIssue({ code: 'custom', message: parsed.error.issues[0].message });
   return z.NEVER;
@@ -49,17 +56,17 @@ const isInspection = (type: StockDocType) => type === 'return_inspection';
 export const docLineSchema = (type: StockDocType) =>
   z
     .object({
-      variantId: z.string().min(1, 'Chọn biến thể'),
+      variantId: z.string().min(1, 'Chọn SKU'),
       quantity: type === 'write_off' || type === 'to_quarantine' ? qtyText(1, MAX_QTY) : blank,
-      counted: type === 'stocktake' ? qtyText(0, MAX_QTY, 'Số đếm') : blank,
-      scanned: isInspection(type) ? qtyText(0, MAX_QTY, 'Số quét') : blank,
+      counted: type === 'stocktake' ? qtyText(0, MAX_QTY, 'Thực tế') : blank,
+      scanned: isInspection(type) ? qtyText(0, MAX_QTY, 'Đã quét') : blank,
       resell: isInspection(type) ? qtyText(0, MAX_QTY, 'Bán lại') : blank,
       damaged: isInspection(type) ? qtyText(0, MAX_QTY, 'Hỏng') : blank,
-      toSupplier: isInspection(type) ? qtyText(0, MAX_QTY, 'Trả nhà cung cấp') : blank,
+      toSupplier: isInspection(type) ? qtyText(0, MAX_QTY, 'Trả hàng NCC') : blank,
     })
     .superRefine((l, ctx) => {
       if (isInspection(type) && (l.resell ?? 0) + (l.damaged ?? 0) + (l.toSupplier ?? 0) !== l.scanned) {
-        ctx.addIssue({ code: 'custom', path: ['resell'], message: 'Bán lại + hỏng + trả nhà cung cấp phải bằng số quét' });
+        ctx.addIssue({ code: 'custom', path: ['resell'], message: 'Bán lại + hỏng + trả hàng NCC phải bằng số đã quét' });
       }
     });
 
@@ -78,7 +85,7 @@ export const docFormSchema = (type: StockDocType) =>
         const seen = new Set<string>();
         lines.forEach((l, i) => {
           if (seen.has(l.variantId)) {
-            ctx.addIssue({ code: 'custom', path: [i, 'variantId'], message: 'Biến thể bị lặp' });
+            ctx.addIssue({ code: 'custom', path: [i, 'variantId'], message: 'SKU đã có trên phiếu' });
           }
           seen.add(l.variantId);
         });
@@ -138,54 +145,54 @@ export const draftNumber = (text: string): number | null => (/^\d+$/.test(text.t
 // ---------- Nhãn ----------
 
 export const DOC_TYPE_LABELS: Record<StockDocType, string> = {
-  stocktake: 'Kiểm kê',
+  stocktake: 'Kiểm kho',
   write_off: 'Xuất huỷ',
-  to_quarantine: 'Chuyển chờ xử lý',
-  return_inspection: 'Kiểm hàng về',
-  shipment: 'Xuất theo kiện',
-  shipment_reversal: 'Huỷ bàn giao',
+  to_quarantine: 'Chuyển hàng lỗi/chờ kiểm',
+  return_inspection: 'Kiểm hàng hoàn',
+  shipment: 'Xuất kho giao hàng',
+  shipment_reversal: 'Nhập lại do huỷ bàn giao',
 };
 
 /** Loại chứng từ trên thẻ kho */
 export const MOVE_DOC_LABELS: Record<StockMoveDocType, string> = {
   ...DOC_TYPE_LABELS,
-  goods_receipt: 'Phiếu nhận',
-  supplier_return: 'Trả nhà cung cấp',
+  goods_receipt: 'Phiếu nhập kho',
+  supplier_return: 'Trả hàng NCC',
 };
 
 export const DOC_TYPE_HELP: Record<StockDocType, string> = {
-  stocktake: 'Đếm theo khu vực; chênh lệch Δ = số đếm − tồn sổ. CEO duyệt mới ghi sổ.',
+  stocktake: 'Đếm hàng theo khu. Chênh lệch = thực tế − tồn hệ thống. Tồn kho chỉ đổi khi CEO duyệt.',
   write_off: 'Hàng hỏng, mất không bán được. Gửi duyệt thì hàng bị tạm khoá, CEO duyệt mới trừ tồn.',
-  to_quarantine: 'Hàng lỗi phát hiện trên kệ: chuyển từ tồn thực sang chờ xử lý, không bán được. CEO duyệt.',
+  to_quarantine: 'Hàng lỗi phát hiện trên kệ: chuyển sang khu hàng lỗi/chờ kiểm, không bán được nữa. Cần CEO duyệt.',
   return_inspection:
-    'Quét hàng quay về và chia bán lại, hỏng, trả nhà cung cấp. Không thiếu thì ghi sổ thẳng; có thiếu thì người thứ hai duyệt.',
-  shipment: 'Hệ thống ghi sổ khi bàn giao kiện cho đơn vị vận chuyển: trừ tồn thực một lần, theo từng dòng kiện.',
-  shipment_reversal: 'Hệ thống ghi sổ khi huỷ lượt bàn giao nhầm: cộng lại tồn thực và đang giữ cho kiện.',
+    'Quét hàng hoàn và chia: bán lại, hỏng, trả hàng NCC. Đủ hàng thì hoàn thành ngay; thiếu hàng thì cần người khác duyệt.',
+  shipment: 'Tự tạo khi bàn giao kiện cho ĐVVC: trừ tồn kho theo từng món trong kiện.',
+  shipment_reversal: 'Tự tạo khi huỷ bàn giao nhầm: cộng lại tồn kho và số tạm giữ cho kiện.',
 };
 
 export const DOC_KIND_LABELS: Record<StockDocKind, string> = {
-  manual: 'Lập tay',
-  purchase: 'Nhận hàng đơn mua',
-  order: 'Xuất theo đơn',
-  auto: 'Hệ thống sinh',
+  manual: 'Tạo thủ công',
+  purchase: 'Nhập hàng từ NCC',
+  order: 'Xuất kho theo đơn',
+  auto: 'Tự động',
 };
 
 export const DOC_STATUS: Record<StockDocStatus, StatusMeta> = {
   draft: { label: 'Nháp', variant: 'warning' },
   pending: { label: 'Chờ duyệt', variant: 'info' },
-  posted: { label: 'Đã ghi sổ', variant: 'success' },
-  rejected: { label: 'Từ chối', variant: 'destructive' },
+  posted: { label: 'Hoàn thành', variant: 'success' },
+  rejected: { label: 'Bị từ chối', variant: 'destructive' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const AREA_LABELS: Record<StockArea, string> = {
-  stock: 'Tồn thực',
-  quarantine: 'Chờ xử lý',
+  stock: 'Khu bán được',
+  quarantine: 'Khu hàng lỗi/chờ kiểm',
 };
 
 export const DECISION_LABELS: Record<RejectDecision, string> = {
-  restock: 'Nhập lại tồn',
-  supplier_return: 'Trả nhà cung cấp',
+  restock: 'Đưa về kho bán',
+  supplier_return: 'Trả hàng NCC',
 };
 
 export const STOCK_STATE: Record<StockState, StatusMeta> = {

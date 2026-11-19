@@ -4,12 +4,12 @@ import { blockedText, receiptDiff, withApprovalHint } from './parts';
 
 describe('blockedText (FE#137)', () => {
   it('nút duyệt dùng câu ngắn của Test_UI', () => {
-    expect(blockedText('approve', 'second_person_required')).toBe('Người duyệt phải khác người soạn.');
+    expect(blockedText('approve', 'second_person_required')).toBe('Người duyệt phải khác người lập phiếu.');
     expect(blockedText('approve_send', 'forbidden')).toBe('Bạn không có quyền này.');
   });
 
   it('nút khác giữ câu chung theo mã, không mã thì null', () => {
-    expect(blockedText('record_refund', 'second_person_required')).not.toBe('Người duyệt phải khác người soạn.');
+    expect(blockedText('record_refund', 'second_person_required')).not.toBe('Người duyệt phải khác người lập phiếu.');
     expect(blockedText('approve', null)).toBeNull();
   });
 });
@@ -42,8 +42,8 @@ describe('receiptDiff (FE#137)', () => {
 
   it('liệt kê từng chênh lệch thành một câu', () => {
     expect(receiptDiff({ ...base, announced: 4, accepted: 2, defectKept: 1, short: 1 })).toBe(
-      'Nhà cung cấp báo giao 4, còn chờ 5, lỗi giữ 1, thiếu 1.',
+      'NCC giao 4, còn phải nhận 5, lỗi giữ lại 1, thiếu 1.',
     );
-    expect(receiptDiff({ ...base, accepted: 4, returnedOnSpot: 1 })).toBe('Trả tại chỗ 1.');
+    expect(receiptDiff({ ...base, accepted: 4, returnedOnSpot: 1 })).toBe('Trả lại ngay 1.');
   });
 });

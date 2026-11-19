@@ -88,9 +88,9 @@ test.describe('P3-BE · Đẩy listing chạy nền (§18.6.4)', () => {
     expect(kq.status).toBe('pushing');
     expect(kq.listingId).toBeTruthy();
     const trangThai = dongNay.locator('[data-testid=listing-status]');
-    await expect(trangThai).toHaveText('Đang đẩy');
+    await expect(trangThai).toHaveText('Đang đăng');
     // Không tải lại trang: trang đọc lại mỗi 5 giây tới khi rời Đang đẩy
-    await expect(trangThai).not.toHaveText('Đang đẩy', { timeout: 90_000 });
+    await expect(trangThai).not.toHaveText('Đang đăng', { timeout: 90_000 });
     await expect(trangThai).toHaveText(/Đang bán|Chờ sàn duyệt|Lỗi đẩy|Sàn từ chối/);
   });
 });

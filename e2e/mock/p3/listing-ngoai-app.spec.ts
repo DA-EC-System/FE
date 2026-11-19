@@ -23,7 +23,7 @@ test.describe('P3 · Nhãn listing khi sàn đổi ngoài app', () => {
     await phatSuKienSan(page, 'listing.outside_disabled', 'shp-003');
     await moGianHang(page, 'shp-003');
 
-    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang ẩn');
+    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Tạm ẩn');
     const nhan = dong(page, 'prd-002-v1').getByTestId('outside-change');
     await expect(nhan).toHaveText('Sàn tắt ngoài app (chờ CEO quyết)');
     await nhan.hover();
@@ -34,7 +34,7 @@ test.describe('P3 · Nhãn listing khi sàn đổi ngoài app', () => {
     await nut(page, 'prd-002-v1', 'Bật lại, đẩy giá Commerio').click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Bật lại', exact: true }).click();
     await toast(page, 'Đã đẩy lại giá Commerio');
-    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang hoạt động');
     await expect(nhan).toHaveCount(0);
   });
 
@@ -54,7 +54,7 @@ test.describe('P3 · Nhãn listing khi sàn đổi ngoài app', () => {
     await expect(hop).toContainText('149');
     await hop.getByRole('button', { name: 'Nhận giá trên sàn', exact: true }).click();
     await toast(page, 'Đã nhận giá trên sàn');
-    await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang bán');
+    await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang hoạt động');
     await expect(nhan).toHaveCount(0);
   });
 
@@ -78,7 +78,7 @@ test.describe('P3 · Nhãn listing khi sàn đổi ngoài app', () => {
     await expect(bienThe.getByTestId('variant-status')).toContainText('Tạm ngừng');
 
     await moGianHang(page, 'shp-003');
-    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang ẩn');
+    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Tạm ẩn');
     const nhan = dong(page, 'prd-002-v1').getByTestId('hidden-paused');
     await expect(nhan).toHaveText('Vì SKU tạm ngừng');
     await nhan.hover();
