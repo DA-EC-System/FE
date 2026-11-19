@@ -20,7 +20,7 @@ import type { DeadJob } from '@/types/companySettings';
 import { DEAD_JOB_QUEUE_LABELS, queueLabel } from './deadJobLabels';
 
 /**
- * §14.5: việc nền đã thử hết lượt mà vẫn lỗi (lấy đơn, đồng bộ listing, làm mới token sàn...).
+ * §14.5: tác vụ tự động đã thử hết lượt mà vẫn lỗi (đồng bộ đơn, đồng bộ listing, gia hạn uỷ quyền gian hàng...).
  * Chỉ người có quyền platform.job.manage (CEO, Admin) vào được; chạy lại thì việc về hàng gốc với lượt thử mới.
  */
 export function DeadJobsPage() {
@@ -43,7 +43,7 @@ export function DeadJobsPage() {
     () => [
       {
         id: 'queue',
-        header: 'Loại việc',
+        header: 'Loại tác vụ',
         meta: { className: 'w-48' },
         cell: ({ row }) => <span data-testid="job-queue">{queueLabel(row.original.queue)}</span>,
       },
@@ -55,23 +55,23 @@ export function DeadJobsPage() {
           j.shopId ? (
             (shopNames.get(j.shopId) ?? <span className="font-mono text-xs">{j.shopId}</span>)
           ) : (
-            <span className="text-muted-foreground">Không theo gian hàng</span>
+            <span className="text-muted-foreground">Không gắn gian hàng</span>
           ),
       },
       {
         accessorKey: 'attempts',
-        header: 'Số lần đã thử',
+        header: 'Số lần thử',
         meta: { className: 'w-28 text-right tabular-nums' },
       },
       {
         id: 'lastError',
-        header: 'Lỗi cuối',
+        header: 'Lỗi gần nhất',
         meta: { className: 'min-w-64' },
         cell: ({ row }) => <span className="break-words whitespace-normal">{row.original.lastError}</span>,
       },
       {
         id: 'failedAt',
-        header: 'Lúc lỗi',
+        header: 'Thời gian lỗi',
         meta: { className: 'w-40 whitespace-nowrap' },
         cell: ({ row }) => formatDateTime(row.original.failedAt),
       },
@@ -94,7 +94,7 @@ export function DeadJobsPage() {
     const job = retrying;
     try {
       await retryMut.mutateAsync(job.id);
-      toast.success(`Đã đưa việc ${queueLabel(job.queue)} về hàng chạy lại`);
+      toast.success(`Đã đưa tác vụ ${queueLabel(job.queue)} vào hàng chờ chạy lại`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
@@ -104,8 +104,8 @@ export function DeadJobsPage() {
   return (
     <div>
       <PageHeader
-        title="Việc nền lỗi"
-        subtitle="Việc chạy nền đã thử 5 lần mà vẫn lỗi. Sửa nguyên nhân (vd kết nối lại gian hàng) rồi bấm Chạy lại. Việc lỗi được giữ 30 ngày."
+        title="Tác vụ lỗi"
+        subtitle="Tác vụ tự động (đồng bộ đơn, đồng bộ listing, gia hạn uỷ quyền gian hàng) đã thử 5 lần vẫn lỗi. Xử lý nguyên nhân (vd kết nối lại gian hàng) rồi bấm Chạy lại. Tác vụ lỗi được lưu 30 ngày."
       />
 
       {query.isError && (
@@ -117,7 +117,7 @@ export function DeadJobsPage() {
       <Card className="gap-0 py-0">
         <FilterBar>
           <FilterSelect
-            label="Loại việc"
+            label="Loại tác vụ"
             value={queue}
             onChange={(v) => {
               setQueue(v);
@@ -133,7 +133,7 @@ export function DeadJobsPage() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty="Không có việc lỗi"
+          empty="Không có tác vụ lỗi"
           pagination={{
             page,
             pageSize,
@@ -148,13 +148,13 @@ export function DeadJobsPage() {
 
       <ConfirmDialog
         open={Boolean(retrying)}
-        title="Chạy lại việc nền"
+        title="Chạy lại tác vụ"
         message={
           retrying && (
             <>
-              Đưa việc <b>{queueLabel(retrying.queue)}</b>
-              {retrying.shopId ? ` của gian hàng ${shopNames.get(retrying.shopId) ?? retrying.shopId}` : ''} về hàng
-              chạy với lượt thử mới. Nguyên nhân lỗi chưa được sửa thì việc có thể lỗi lại.
+              Chạy lại tác vụ <b>{queueLabel(retrying.queue)}</b>
+              {retrying.shopId ? ` của gian hàng ${shopNames.get(retrying.shopId) ?? retrying.shopId}` : ''}. Nếu chưa xử
+              lý nguyên nhân, tác vụ có thể lỗi lại.
             </>
           )
         }
