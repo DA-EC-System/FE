@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { StatusMeta } from '@/components/common/StatusBadge';
+import { NEW_PRODUCT_PARENT } from '@/utils/env';
 import { MAX_QTY, qtyText } from '@/features/inventory/shared';
 import type {
   DeliveryMode,
@@ -203,13 +204,33 @@ function checkNewProductGroups(lines: z.output<typeof requestLineSchema>[], ctx:
   }
 }
 
-export const requestFormSchema = z
-  .object({
-    supplierId: z.string().min(1, 'Chọn nhà cung cấp'),
-    note: z.string().trim().max(500, 'Tối đa 500 ký tự'),
-    lines: z.array(requestLineSchema).min(1, 'Thêm ít nhất một dòng').max(100, 'Tối đa 100 dòng'),
-  })
-  .superRefine((v, ctx) => checkNewProductGroups(v.lines, ctx));
+/** Tên ghép của dòng sản phẩm mới gửi BE: tên cha rồi các giá trị phân loại */
+export const newProductName = (l: Pick<RequestLineDraft, 'parentName' | 'options'>) =>
+  [l.parentName.trim(), ...filledOptions(l.options).map((o) => o.value)].join(' ').slice(0, 120);
+
+/** Chưa có cha (NEW_PRODUCT_PARENT tắt): mỗi dòng một sản phẩm riêng, chỉ chặn hai dòng trùng hẳn tên */
+function checkDuplicateNames(lines: z.output<typeof requestLineSchema>[], ctx: z.RefinementCtx) {
+  const seen = new Map<string, number>();
+  lines.forEach((l, i) => {
+    if (!l.isNew || !l.parentName) return;
+    const key = newProductName(l).replace(/\s+/g, ' ').toLowerCase();
+    const first = seen.get(key);
+    if (first !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['lines', i, 'options'], message: `Trùng tên sản phẩm với dòng ${first + 1}` });
+    } else seen.set(key, i);
+  });
+}
+
+export const requestFormSchemaFor = (parents: boolean) =>
+  z
+    .object({
+      supplierId: z.string().min(1, 'Chọn nhà cung cấp'),
+      note: z.string().trim().max(500, 'Tối đa 500 ký tự'),
+      lines: z.array(requestLineSchema).min(1, 'Thêm ít nhất một dòng').max(100, 'Tối đa 100 dòng'),
+    })
+    .superRefine((v, ctx) => (parents ? checkNewProductGroups(v.lines, ctx) : checkDuplicateNames(v.lines, ctx)));
+
+export const requestFormSchema = requestFormSchemaFor(NEW_PRODUCT_PARENT);
 
 export interface RequestFormInput {
   supplierId: string;

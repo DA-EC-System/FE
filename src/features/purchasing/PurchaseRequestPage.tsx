@@ -37,6 +37,7 @@ import { getErrorMessage, getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
+import { NEW_PRODUCT_PARENT } from '@/utils/env';
 import { NewProductFields, type NewProductErrors } from './NewProductFields';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -61,6 +62,7 @@ import {
   filledOptions,
   formatQty,
   optionsLabel,
+  newProductName,
   requestFormSchema,
   type RequestFormInput,
   type RequestFormOutput,
@@ -127,8 +129,8 @@ const toLineInputs = (values: RequestFormOutput): PurchaseRequestLineInput[] =>
         parentName: existing ? null : l.parentName,
         categoryId: l.categoryId,
         optionValues: Object.fromEntries(options.map((o) => [o.axis, o.value])),
-        // BE chưa có cha, trục (chờ commerio-backend#204) vẫn tạo sản phẩm theo tên này
-        name: [l.parentName, ...options.map((o) => o.value)].join(' ').slice(0, 120),
+        // BE `main` chưa nhận cha, trục (commerio-backend#243): mỗi dòng tạo một sản phẩm theo tên này
+        name: newProductName(l),
       },
       quantity: l.quantity,
       unitCost: l.unitCost,
@@ -738,7 +740,9 @@ export function PurchaseRequestPage() {
                                 {np && !line?.variantId
                                   ? [
                                       optionsLabel(np.optionValues ?? {}),
-                                      np.parentId ? 'Cha có sẵn' : `Cha mới · Danh mục ${np.categoryName}`,
+                                      np.parentId
+                                        ? 'Cha có sẵn'
+                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Danh mục ${np.categoryName}`,
                                     ]
                                       .filter(Boolean)
                                       .join(' · ')

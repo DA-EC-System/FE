@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { optionsLabel, parentKey, requestFormSchema, type RequestLineDraft } from './shared';
+import { newProductName, optionsLabel, parentKey, requestFormSchema, requestFormSchemaFor, type RequestLineDraft } from './shared';
 
 const line = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
   variantId: null,
@@ -76,6 +76,26 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
     const existing = { parentMode: 'existing' as const, parentId: 'prd-1', options: [{ axis: 'Kích cỡ', value: 'M' }] };
     expect(errorsOf([line(existing), line(existing)])['lines.1.options']).toMatch(/^Trùng phân loại/);
     expect(errorsOf([line({ isNew: false, variantId: 'v1', parentName: '' })])).toEqual({});
+  });
+
+  it('BE chưa nhận cha (cờ tắt): không xét gộp cha, chỉ chặn hai dòng trùng hẳn tên', () => {
+    const errorsNoParent = (lines: RequestLineDraft[]) => {
+      const r = requestFormSchemaFor(false).safeParse({ supplierId: 'sup-1', note: '', lines });
+      return r.success ? {} : Object.fromEntries(r.error.issues.map((i) => [i.path.join('.'), i.message]));
+    };
+    // Cùng tên "Áo polo", trục khác nhau: hai sản phẩm riêng, không báo thiếu trục hay quá 2 trục
+    expect(
+      errorsNoParent([
+        line({ options: [{ axis: 'Màu sắc', value: 'Đen' }, { axis: 'Kích cỡ', value: 'M' }] }),
+        line({ options: [{ axis: 'Chất liệu', value: 'Cotton' }] }),
+      ]),
+    ).toEqual({});
+    expect(
+      errorsNoParent([line({ options: [{ axis: 'Màu sắc', value: 'Đen' }] }), line({ parentName: 'áo  POLO', options: [{ axis: 'Màu sắc', value: 'đen' }] })]),
+    ).toMatchObject({ 'lines.1.options': 'Trùng tên sản phẩm với dòng 1' });
+    expect(newProductName(line({ parentName: ' Áo polo ', options: [{ axis: 'Màu sắc', value: 'Đen' }, { axis: '', value: '' }] }))).toBe(
+      'Áo polo Đen',
+    );
   });
 
   it('khoá nhóm và nhãn phân loại', () => {
