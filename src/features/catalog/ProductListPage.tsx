@@ -109,17 +109,17 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       },
       {
         id: 'category',
-        header: 'Danh mục',
+        header: 'Category',
         meta: { className: 'min-w-32' },
         cell: ({ row }) => row.original.category.name,
       },
       {
         accessorKey: 'variantCount',
-        header: 'Biến thể',
+        header: 'Số variant',
         meta: {
           className: 'w-24',
           numeric: true,
-          help: 'Số SKU chưa lưu trữ. Mỗi biến thể là một SKU, tồn và giá chuẩn nằm ở biến thể.',
+          help: 'Số SKU đang dùng (không tính SKU đã lưu trữ). Mỗi variant là một SKU; tồn kho và giá bán lẻ nằm ở từng SKU.',
         },
       },
       {
@@ -127,7 +127,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         header: 'Trạng thái',
         meta: {
           className: 'w-48',
-          help: 'Gộp từ các SKU: có SKU đang bán thì "Đang bán x/n", không thì nhãn của nhiều SKU nhất. Nhãn phụ Chờ hoàn thiện, Có lỗi đếm SKU chưa lưu trữ.',
+          help: 'Tóm tắt trạng thái các SKU của sản phẩm. "Đang bán 3/5" là 3 trên 5 SKU đang bán trên sàn. Nếu không SKU nào đang bán thì hiện trạng thái của phần lớn SKU. Nhãn phụ "Thiếu thông tin", "Listing lỗi" báo có SKU cần xử lý.',
         },
         cell: ({ row }) => <ParentStatus item={row.original} />,
       },
@@ -176,15 +176,15 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     <div>
       <PageHeader
         title="Sản phẩm"
-        subtitle="Mỗi sản phẩm có các biến thể, mỗi biến thể một SKU."
-        help="Mã SKU sinh theo quy tắc của danh mục, nên cần tạo danh mục và thuộc tính trước khi thêm sản phẩm."
+        subtitle="Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU."
+        help="Mã SKU tự sinh theo quy tắc của category, nên cần tạo category và thuộc tính phân loại trước khi thêm sản phẩm."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">
             {canSetup && (
               <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
                 <Settings2 />
-                Danh mục & thuộc tính
+                Category & thuộc tính
               </Button>
             )}
             {canManage && (
@@ -217,16 +217,16 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
             placeholder="Tìm theo tên hoặc SKU..."
           />
           <FilterSelect loading={categoriesQuery.isLoading}
-            label="Danh mục"
+            label="Category"
             value={categoryId}
             onChange={withReset(setCategoryId)}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
           />
-          {/* API không có "tất cả": sản phẩm chưa lưu trữ và đã lưu trữ xem riêng */}
+          {/* API không có "tất cả": sản phẩm đang hoạt động và đã lưu trữ xem riêng */}
           <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Trạng thái</Label>
+            <Label className="text-xs text-muted-foreground">Hiển thị</Label>
             <Select value={status} onValueChange={withReset((v: string) => setStatus(v as ProductStatus))}>
-              <SelectTrigger className="w-full md:min-w-40" aria-label="Trạng thái">
+              <SelectTrigger className="w-full md:min-w-40" aria-label="Hiển thị">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -241,7 +241,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
           {status === 'active' && (
             <FilterSelect
               guide="products-business"
-              label="Có SKU"
+              label="Trạng thái kinh doanh"
               value={businessStatus}
               onChange={withReset(setBusinessStatus)}
               options={(['selling', 'paused', 'discontinued'] as const).map((s) => ({

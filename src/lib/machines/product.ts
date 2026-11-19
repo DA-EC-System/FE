@@ -17,10 +17,10 @@ export interface VariantRecord extends OwnedRecord {
 }
 
 export const variantMachine = defineMachine<VariantBusinessStatus, VariantBusinessAction, VariantRecord>([
-  { from: ['selling', 'discontinued'], to: 'paused', action: 'pause', label: 'Tạm ngừng', permission: PERMISSIONS.productManage },
-  { from: 'paused', to: 'selling', action: 'unpause', label: 'Bỏ tạm ngừng', permission: PERMISSIONS.productManage },
+  { from: ['selling', 'discontinued'], to: 'paused', action: 'pause', label: 'Tạm ngừng bán', permission: PERMISSIONS.productManage },
+  { from: 'paused', to: 'selling', action: 'unpause', label: 'Mở bán lại', permission: PERMISSIONS.productManage },
   { from: ['selling', 'paused'], to: 'discontinued', action: 'discontinue', label: 'Ngừng nhập', permission: PERMISSIONS.productManage },
-  { from: 'discontinued', to: 'selling', action: 'reactivate', label: 'Nhập lại', permission: PERMISSIONS.productManage },
+  { from: 'discontinued', to: 'selling', action: 'reactivate', label: 'Nhập hàng lại', permission: PERMISSIONS.productManage },
   {
     from: 'discontinued',
     to: 'archived',
@@ -53,13 +53,13 @@ export function mainLabel(status: VariantBusinessStatus, presence: VariantPresen
 }
 
 export const MAIN_LABELS: Record<VariantMainLabel, string> = {
-  archived: 'Lưu trữ',
-  discontinued: 'Ngừng nhập',
-  paused: 'Tạm ngừng',
+  archived: 'Đã lưu trữ',
+  discontinued: 'Đã ngừng nhập',
+  paused: 'Đang tạm ngừng bán',
   live: 'Đang bán',
-  error: 'Có lỗi',
-  pending: 'Chờ sàn',
-  not_listed: 'Chưa đăng',
+  error: 'Listing lỗi',
+  pending: 'Chờ sàn duyệt',
+  not_listed: 'Chưa đăng bán',
 };
 
 /**

@@ -24,8 +24,8 @@ import { cn } from '@/lib/utils';
 import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow } from '@/types/catalog';
 
 const FIELD_LABELS: Record<BulkField, string> = {
-  standardPrice: 'Giá chuẩn',
-  minQty: 'Ngưỡng tồn',
+  standardPrice: 'Giá bán lẻ',
+  minQty: 'Tồn tối thiểu',
   weightG: 'Khối lượng (g)',
   lengthMm: 'Dài (mm)',
   widthMm: 'Rộng (mm)',
@@ -33,8 +33,8 @@ const FIELD_LABELS: Record<BulkField, string> = {
 };
 const FIELDS = Object.keys(FIELD_LABELS) as BulkField[];
 const FIELD_HELP: Partial<Record<BulkField, string>> = {
-  standardPrice: 'Giá bán chuẩn của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số của danh mục.',
-  minQty: 'Tồn khả dụng xuống tới số này thì gợi ý nhập lại. Gợi ý tính từ tốc độ bán, số ngày nhà cung cấp giao và tồn dự phòng.',
+  standardPrice: 'Giá bán lẻ của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số của category.',
+  minQty: 'Số có thể bán xuống tới số này thì gợi ý nhập hàng. Gợi ý tính từ tốc độ bán, số ngày nhà cung cấp giao và tồn dự phòng.',
   weightG: 'Dùng tính phí vận chuyển. Gợi ý lấy theo SKU cùng sản phẩm gần nhất.',
 };
 
@@ -294,8 +294,8 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     <div>
       <PageHeader
         title="Sửa hàng loạt"
-        subtitle="Sửa giá, ngưỡng tồn, khối lượng và kích thước của nhiều SKU rồi lưu một lần."
-        help="Ô có nhãn gợi ý chỉ được lưu khi bạn bấm nhận. Dòng lỗi giữ nguyên số đã gõ, các dòng khác vẫn lưu."
+        subtitle="Sửa giá bán lẻ, tồn tối thiểu, khối lượng và kích thước của nhiều SKU rồi lưu một lần."
+        help="Ô có nhãn gợi ý chỉ được lưu khi bạn bấm áp dụng. Dòng lỗi giữ nguyên số đã gõ, các dòng khác vẫn lưu."
         action={
           <Button variant="outline" onClick={onExit}>
             <ArrowLeft />
@@ -315,14 +315,14 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
           <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm theo tên hoặc SKU..." />
           <FilterSelect
             loading={categories.isLoading}
-            label="Danh mục"
+            label="Category"
             value={categoryId}
             onChange={withReset(setCategoryId)}
             options={(categories.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
           />
           <div className="flex h-9 items-center gap-2">
             <Switch id="bulk-incomplete" checked={incomplete} onCheckedChange={withReset(setIncomplete)} />
-            <Label htmlFor="bulk-incomplete">Chỉ SKU còn trống ô</Label>
+            <Label htmlFor="bulk-incomplete">Chỉ SKU thiếu thông tin</Label>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:ml-auto">
             {selected.size > 0 && <span className="text-sm text-muted-foreground">Đã chọn {selected.size} SKU</span>}
@@ -331,11 +331,11 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
               disabled={selectedSuggestions === 0}
               onClick={() => {
                 acceptSuggestions(selectedRows);
-                toast.success(`Đã nhận ${selectedSuggestions} gợi ý, bấm Lưu để ghi`);
+                toast.success(`Đã áp dụng ${selectedSuggestions} gợi ý, bấm Lưu để ghi`);
               }}
             >
               <Sparkles />
-              Nhận gợi ý cho SKU đã chọn{selectedSuggestions > 0 && ` (${selectedSuggestions})`}
+              Áp dụng gợi ý cho SKU đã chọn{selectedSuggestions > 0 && ` (${selectedSuggestions})`}
             </Button>
           </div>
         </FilterBar>
@@ -385,7 +385,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
       <ConfirmDialog
         open={blocker.state === 'blocked'}
         title="Rời trang khi chưa lưu?"
-        message="Các ô đã sửa và gợi ý đã nhận chưa được lưu sẽ bị bỏ."
+        message="Các ô đã sửa và gợi ý đã áp dụng chưa được lưu sẽ bị bỏ."
         confirmLabel="Rời trang"
         cancelLabel="Ở lại"
         destructive
@@ -416,7 +416,7 @@ function BulkCell({
   const label = `${FIELD_LABELS[field]} ${row.sku}`;
   if (readOnly) {
     return (
-      <span className="text-sm" title="Cần quyền đặt ngưỡng tồn">
+      <span className="text-sm" title="Cần quyền đặt tồn tối thiểu">
         {current === null ? '—' : showNumber(field, current)}
       </span>
     );
@@ -443,7 +443,7 @@ function BulkCell({
           type="button"
           className="inline-flex items-center gap-1 rounded border border-info-border bg-info-soft px-1.5 py-0.5 text-xs text-info-text hover:border-info"
           title={suggestion.basis}
-          aria-label={`Nhận gợi ý ${label}: ${showNumber(field, suggestion.value)}. ${suggestion.basis}`}
+          aria-label={`Áp dụng gợi ý ${label}: ${showNumber(field, suggestion.value)}. ${suggestion.basis}`}
           onClick={() => onChange(String(suggestion.value))}
         >
           <span className="font-medium">gợi ý</span>
@@ -451,7 +451,7 @@ function BulkCell({
           <Check className="size-3" />
         </button>
       )}
-      {(bad || error) && <span className="text-xs text-destructive-text">{bad ? 'Số nguyên dương' : error}</span>}
+      {(bad || error) && <span className="text-xs text-destructive-text">{bad ? 'Nhập số lớn hơn 0' : error}</span>}
     </div>
   );
 }
