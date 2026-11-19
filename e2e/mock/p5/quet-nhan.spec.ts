@@ -48,11 +48,11 @@ const hoanVe = async (page: Page) => {
   await diToi(page, '/c/cmp-001/sales/orders/ord-1016');
   await page.locator('[data-testid=order-packages] tbody tr').first().getByRole('button', { name: 'Cập nhật giao', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Chuyển hoàn hàng', { exact: true }).click();
+  await dialog.getByLabel('Hoàn về', { exact: true }).click();
   await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await diToi(page, KIEN);
-  await expect(trangThaiKien(page)).toContainText('Đang hoàn hàng');
+  await expect(trangThaiKien(page)).toContainText('Đang hoàn');
 };
 
 /** Kho (acc-003) báo thất lạc kiện qua API, để CEO là người thứ hai xác nhận */
@@ -132,7 +132,7 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Xác nhận thất lạc', exact: true }).click();
     await expect(trangThaiKien(page)).toContainText('Thất lạc');
 
-    await nutKien(page, 'Đã tìm thấy kiện').click();
+    await nutKien(page, 'Tìm thấy').click();
     const hop = hopQuet(page);
     await thayChu(hop, 'Nhận kiện tìm thấy KH-000017');
     // Không cần mã: chỉ có bảng số quét

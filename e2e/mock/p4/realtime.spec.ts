@@ -67,7 +67,7 @@ test.describe('P4 · Realtime kiện, yêu cầu trả (CEO)', () => {
     await page.evaluate(() => ((window as unknown as { __marker?: number }).__marker = 287));
     await phatSuKienSan(page, 'package.shipping_update', undefined, { target: `${code} in_transit` });
     await expect(dong(page, 'pkg-1015')).toHaveCount(0);
-    await page.getByRole('tab', { name: /Đang vận chuyển/ }).click();
+    await page.getByRole('tab', { name: /Đang giao/ }).click();
     await expect(dong(page, 'pkg-1015')).toBeVisible();
 
     await phatSuKienSan(page, 'package.shipping_update', undefined, { target: `${code} delivery_failed` });
@@ -88,12 +88,12 @@ test.describe('P4 · Realtime kiện, yêu cầu trả (CEO)', () => {
     await expect(chua(page, /^Một kiện thất lạc(Xem)?$/, '[data-sonner-toast]')).toBeAttached();
   });
 
-  test('yêu cầu trả: sàn đẩy yêu cầu mới thì danh sách đang mở tự hiện, số ở tab Chờ phản hồi tăng', async ({ page }) => {
+  test('yêu cầu trả: sàn đẩy yêu cầu mới thì danh sách đang mở tự hiện, số ở tab Chờ xử lý tăng', async ({ page }) => {
     await page.goto('/c/cmp-001/sales/returns');
-    await expect(page.getByRole('tab', { name: /Chờ phản hồi/ })).toContainText('1');
+    await expect(page.getByRole('tab', { name: /Chờ xử lý/ })).toContainText('1');
     await expect(chua(page, 'YCT-000003', 'tr')).toHaveCount(0);
     await phatSuKienSan(page, 'return.requested', undefined, { target: 'DH-1015' });
     await expect(chua(page, 'YCT-000003', 'tr')).toContainText('DH-1015');
-    await expect(page.getByRole('tab', { name: /Chờ phản hồi/ })).toContainText('2');
+    await expect(page.getByRole('tab', { name: /Chờ xử lý/ })).toContainText('2');
   });
 });

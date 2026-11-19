@@ -30,7 +30,7 @@ const yeuCauSan = async (page: Page) => {
   await toast(page, /YCT-000003 cho DH-1015/);
   await diToi(page, '/c/cmp-001/sales/returns');
   await chua(page, 'YCT-000003', 'tr').click();
-  await expect(trangThai(page)).toContainText('Chờ phản hồi');
+  await expect(trangThai(page)).toContainText('Chờ xử lý');
 };
 
 const quetNhan = async (page: Page, code: string) => {
@@ -46,26 +46,26 @@ test.describe('P4 · Yêu cầu trả', () => {
 
     test('danh sách mở tab Chờ xử lý, đơn mang cờ Có yêu cầu trả', async ({ page }) => {
       await menu(page, 'Yêu cầu trả');
-      await expect(page.getByRole('tab', { name: /Chờ phản hồi/ })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: /Chờ xử lý/ })).toHaveAttribute('aria-selected', 'true');
       await expect(dong(page, 'rr-001')).toContainText('YCT-000001');
       await expect(dong(page, 'rr-001')).toContainText('DH-1020');
       await expect(dong(page, 'rr-002')).toHaveCount(0);
-      await page.getByRole('tab', { name: /Chờ hàng hoàn về/ }).click();
+      await page.getByRole('tab', { name: /Chờ hàng về/ }).click();
       await expect(dong(page, 'rr-002')).toContainText('DH-1019');
       // Sale không có quyền kho nên không thấy nút quét
       await expect(page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true })).toHaveCount(0);
       await page.goto('/c/cmp-001/sales/orders/ord-1020');
       await expect(page.locator('[data-testid=order-returns]')).toContainText('YCT-000001');
-      await expect(page.locator('main')).toContainText('Yêu cầu trả hàng');
+      await expect(page.locator('main')).toContainText('Có yêu cầu trả');
     });
 
     test('chấp nhận trả hàng: chờ hàng về, không có nút nhận hàng khi thiếu quyền kho', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/returns/rr-001');
-      await expect(trangThai(page)).toContainText('Chờ phản hồi');
+      await expect(trangThai(page)).toContainText('Chờ xử lý');
       await nut(page, 'Chấp nhận trả hàng').click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Chấp nhận trả hàng', exact: true }).click();
       await toast(page, 'YCT-000001: Chấp nhận trả hàng');
-      await expect(trangThai(page)).toContainText('Chờ hàng hoàn về');
+      await expect(trangThai(page)).toContainText('Chờ hàng về');
       await expect(page.locator('[data-testid=return-actions]')).toContainText('Khách không gửi hàng');
       await expect(page.locator('[data-testid=return-actions]')).not.toContainText('Nhận hàng trả');
       // Yêu cầu lập tay không có lịch sử phía sàn
@@ -100,8 +100,8 @@ test.describe('P4 · Yêu cầu trả', () => {
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel('Lý do', { exact: true }).fill('Quá 14 ngày không gửi');
       await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
-      await expect(trangThai(page)).toContainText('Hoàn thành');
-      await expect(trangThai(page)).toContainText('Người mua không gửi');
+      await expect(trangThai(page)).toContainText('Đã đóng');
+      await expect(trangThai(page)).toContainText('Khách không gửi');
       await expect(tien(page)).toContainText('Chưa hoàn');
     });
 
@@ -123,8 +123,8 @@ test.describe('P4 · Yêu cầu trả', () => {
       await dialog.getByRole('button', { name: 'Lập yêu cầu', exact: true }).click();
       await toast(page, 'Đã lập yêu cầu trả YCT-000003');
       await expect(page.locator('[data-testid=order-returns]')).toContainText('YCT-000003');
-      await expect(page.locator('[data-testid=order-returns]')).toContainText('Chờ phản hồi');
-      await expect(page.locator('main')).toContainText('Yêu cầu trả hàng');
+      await expect(page.locator('[data-testid=order-returns]')).toContainText('Chờ xử lý');
+      await expect(page.locator('main')).toContainText('Có yêu cầu trả');
     });
 
     test('đơn sàn không lập tay được yêu cầu trả', async ({ page }) => {
@@ -140,7 +140,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await page.goto('/c/cmp-001/sales/returns');
       await quetNhan(page, 'YCT-000002');
       await toast(page, 'Đã nhận hàng trả YCT-000002');
-      await expect(trangThai(page)).toContainText('Đã nhận hàng hoàn');
+      await expect(trangThai(page)).toContainText('Đã nhận hàng');
       await expect(tien(page)).toContainText('Chờ kiểm hàng về');
       await chaCua(page, 'Phiếu kiểm hàng về').locator('a').click();
       const lines = page.getByTestId('doc-lines');
@@ -150,8 +150,8 @@ test.describe('P4 · Yêu cầu trả', () => {
       await page.getByRole('alertdialog').getByRole('button', { name: 'Ghi sổ', exact: true }).click();
       await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
       await diToi(page, '/c/cmp-001/sales/returns/rr-002');
-      await expect(trangThai(page)).toContainText('Hoàn thành');
-      await expect(trangThai(page)).toContainText('Đã kiểm hàng hoàn');
+      await expect(trangThai(page)).toContainText('Đã đóng');
+      await expect(trangThai(page)).toContainText('Đã kiểm hàng về');
       for (const t of ['Số bán lại được', '1', 'Giảm giá vốn']) await expect(tien(page)).toContainText(t);
     });
 
@@ -165,9 +165,9 @@ test.describe('P4 · Yêu cầu trả', () => {
       await page.goto('/c/cmp-001/sales/returns');
       await quetNhan(page, 'VD-LA-999');
       await toast(page, 'Mã VD-LA-999 không khớp yêu cầu nào');
-      await expect(page.getByRole('tab', { name: /Hàng hoàn chưa rõ đơn/ })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: /Không khớp/ })).toHaveAttribute('aria-selected', 'true');
       const kien = page.locator('[data-testid=unmatched-parcels] tr[data-row-id="VD-LA-999"]');
-      await thayChu(kien, 'Cần xử lý');
+      await thayChu(kien, 'Chờ xử lý');
       // Giải thích "kiện không khớp" (FE#139)
       await page.getByRole('button', { name: 'Giải thích: Kiện không khớp', exact: true }).hover();
       await expect(page.getByRole('tooltip')).toContainText('Mã quét không trùng mã yêu cầu');
@@ -180,7 +180,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await toast(page, 'Đã gắn kiện VD-LA-999 vào yêu cầu');
       await expect(kien.locator('a')).toHaveText('YCT-000002');
       await kien.locator('a').click();
-      await expect(trangThai(page)).toContainText('Đã nhận hàng hoàn');
+      await expect(trangThai(page)).toContainText('Đã nhận hàng');
     });
 
     test('kiện không khớp xử lý khác thì bắt buộc ghi cách xử lý', async ({ page }) => {
@@ -204,7 +204,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await phat(page, 'return.requested', 'DH-1015');
       await toast(page, /YCT-000003 cho DH-1015; .* nhảy sang Đã giao/);
       await diToi(page, '/c/cmp-001/sales/returns');
-      await expect(page.getByRole('tab', { name: /Chờ phản hồi/ })).toContainText('2');
+      await expect(page.getByRole('tab', { name: /Chờ xử lý/ })).toContainText('2');
       await expect(chua(page, 'YCT-000003', 'tr')).toContainText('DH-1015');
       await chua(page, 'YCT-000003', 'tr').click();
       await expect(page.locator('main')).toContainText('Sàn ·');
@@ -230,7 +230,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await toast(page, 'YCT-000003 → awaiting_return');
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
       await expect(page.locator('[data-testid=order-returns]')).toContainText('YCT-000003');
-      await expect(page.locator('[data-testid=order-returns]')).toContainText('Chờ hàng hoàn về');
+      await expect(page.locator('[data-testid=order-returns]')).toContainText('Chờ hàng về');
     });
 
     test('lý do sàn đòi bằng chứng thì bắt buộc ảnh', async ({ page }) => {
@@ -259,7 +259,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await yeuCauSan(page);
       await nut(page, 'Chấp nhận trả hàng').click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Chấp nhận trả hàng', exact: true }).click();
-      await expect(trangThai(page)).toContainText('Chờ hàng hoàn về');
+      await expect(trangThai(page)).toContainText('Chờ hàng về');
       await page.getByRole('tab', { name: 'Lịch sử phía sàn', exact: true }).click();
       const rows = page.locator('[data-testid=platform-history] tbody tr');
       await expect(rows).toHaveCount(2);
@@ -280,7 +280,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await menu(page, 'Yêu cầu trả');
       await expect(page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true })).toBeAttached();
       await dong(page, 'rr-001').click();
-      await expect(trangThai(page)).toContainText('Chờ phản hồi');
+      await expect(trangThai(page)).toContainText('Chờ xử lý');
       await expect(page.locator('[data-testid=return-actions]')).toHaveCount(0);
       await expect(tien(page)).not.toContainText('Giảm giá vốn');
     });

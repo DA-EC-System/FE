@@ -17,29 +17,29 @@ test.describe('P4 · Bộ lọc giai đoạn của danh sách đơn', () => {
     await menu(page, 'Đơn hàng');
   });
 
-  test('tab Đang xử lý, Nguồn = Sàn: đúng 12 giai đoạn; tab Hoàn thành ẩn bộ lọc', async ({ page }) => {
+  test('tab Đang xử lý, Nguồn = Sàn: đúng 12 giai đoạn; tab Đã hoàn tất ẩn bộ lọc', async ({ page }) => {
     await page.getByRole('tab', { name: /Đang xử lý/ }).click();
-    await chon(page, 'Nguồn', 'Sàn TMĐT');
+    await chon(page, 'Nguồn', 'Sàn');
     expect(await cacMuc(page)).toEqual([
       'Tất cả',
-      'Chưa liên kết SKU',
+      'Chưa ghép SKU',
       'Đang huỷ',
       'Thiếu hàng',
       'Chờ đóng gói',
       'Đã đóng gói',
       'Chờ lấy hàng',
-      'Đang vận chuyển',
-      'Shop tự giao',
+      'Đang giao',
+      'Đang tự giao',
       'Giao thất bại',
-      'Đang hoàn hàng',
+      'Đang hoàn',
       'Thất lạc',
-      'Chờ hoàn thành',
+      'Chờ hoàn tất',
     ]);
 
     await page.getByRole('tab', { name: /Chưa thanh toán/ }).click();
-    expect(await cacMuc(page)).toEqual(['Tất cả', 'Chưa liên kết SKU', 'Chưa thanh toán']);
+    expect(await cacMuc(page)).toEqual(['Tất cả', 'Chưa ghép SKU', 'Chờ thanh toán']);
 
-    await page.getByRole('tab', { name: /Hoàn thành/ }).click();
+    await page.getByRole('tab', { name: /Đã hoàn tất/ }).click();
     await expect(giaiDoan(page)).toHaveCount(0);
     await page.getByRole('tab', { name: /Đã huỷ/ }).click();
     await expect(giaiDoan(page)).toHaveCount(0);

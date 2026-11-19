@@ -101,7 +101,7 @@ test.describe('P4 · Xử lý đơn', () => {
 
     test('đơn đã có kiện bàn giao thì không huỷ được', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1016');
-      await expect(kienCuaDon(page)).toContainText('Đang vận chuyển');
+      await expect(kienCuaDon(page)).toContainText('Đang giao');
       await expect(page.getByRole('button', { name: 'Huỷ đơn', exact: true })).toHaveCount(0);
     });
 
@@ -250,7 +250,7 @@ test.describe('P4 · Xử lý đơn', () => {
 
     test('đóng gói kiện sàn chọn đơn vị vận chuyển rồi in vận đơn', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1012');
-      await chua(page, 'Chờ đóng gói', '[data-testid=order-packages] tbody tr').locator('a').click();
+      await chua(page, 'Đã giữ hàng', '[data-testid=order-packages] tbody tr').locator('a').click();
       await nutKien(page, 'Đóng gói').click();
       const carrier = page.locator('[data-testid=pack-carrier]');
       await thayChu(carrier, '(mặc định)');
@@ -286,10 +286,10 @@ test.describe('P4 · Xử lý đơn', () => {
       await dialog.getByRole('button', { name: 'Huỷ đơn', exact: true }).click();
       await toast(page, 'Đã huỷ đơn DH-1010, còn 1 kiện chờ mở');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Đang huỷ');
-      await expect(kienCuaDon(page)).toContainText('Cần mở lại kiện');
+      await expect(kienCuaDon(page)).toContainText('Chờ mở kiện');
       await kienCuaDon(page).locator('a').click();
-      await nutKien(page, 'Mở kiện để huỷ').click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Mở kiện để huỷ', exact: true }).click();
+      await nutKien(page, 'Mở kiện, huỷ').click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Mở kiện, huỷ', exact: true }).click();
       await expect(trangThaiKien(page)).toContainText('Đã huỷ');
       await chua(page, 'DH-1010', 'a').click();
       await expect(page.locator('[data-testid=order-status]')).toContainText('Đã huỷ');
@@ -304,8 +304,8 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(dong(page, 'pkg-1006')).toBeAttached();
     });
 
-    test('Chờ đóng gói chỉ có kiện của đơn đang xử lý; danh sách nhặt gộp kiện chọn', async ({ page }) => {
-      await expect(page.getByRole('tab', { name: /Chờ đóng gói/ })).toHaveAttribute('data-state', 'active');
+    test('Cần đóng gói chỉ có kiện của đơn đang xử lý; danh sách nhặt gộp kiện chọn', async ({ page }) => {
+      await expect(page.getByRole('tab', { name: /Cần đóng gói/ })).toHaveAttribute('data-state', 'active');
       await expect(dong(page, 'pkg-1003')).toHaveCount(0);
       await expect(dong(page, 'pkg-1004')).toHaveCount(0);
       await page.getByRole('checkbox', { name: 'Chọn KH-000010', exact: true }).click();
@@ -322,7 +322,7 @@ test.describe('P4 · Xử lý đơn', () => {
     test('quét đóng gói đủ món, báo sàn sẵn sàng rồi bàn giao', async ({ page }) => {
       await dong(page, 'pkg-1010').click();
       await thayChu(page, 'Kiện KH-000010', 'h1');
-      await expect(trangThaiKien(page)).toContainText('Chờ đóng gói');
+      await expect(trangThaiKien(page)).toContainText('Đã giữ hàng');
       await nutKien(page, 'Đóng gói').click();
       await thayChu(page, 'Đóng gói kiện KH-000010', 'h1');
       await expect(page.getByRole('button', { name: 'Đóng gói', exact: true })).toBeDisabled();
@@ -338,12 +338,12 @@ test.describe('P4 · Xử lý đơn', () => {
       await toast(page, 'Đã đóng gói kiện KH-000010');
       await expect(trangThaiKien(page)).toContainText('Đã đóng gói');
 
-      await nutKien(page, 'Sẵn sàng giao').click();
+      await nutKien(page, 'Báo sàn sẵn sàng').click();
       await expect(trangThaiKien(page)).toContainText('Chờ lấy hàng');
       await expect(sauCua(page, 'Mã vận đơn')).not.toContainText('—');
       await nutKien(page, 'Bàn giao').click();
       await toast(page, 'Đã bàn giao kiện KH-000010');
-      await expect(trangThaiKien(page)).toContainText('Đang vận chuyển');
+      await expect(trangThaiKien(page)).toContainText('Đang giao');
       await expect(page.locator('[data-testid=status-history]')).toContainText('Chờ lấy hàng');
     });
 
@@ -411,7 +411,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await alert.getByRole('button', { name: 'Bàn giao', exact: true }).click();
       await toast(page, 'Đã bàn giao 1 kiện');
       await expect(dong(page, 'pkg-1015')).toHaveCount(0);
-      await page.getByRole('tab', { name: /Đang vận chuyển/ }).click();
+      await page.getByRole('tab', { name: /Đang giao/ }).click();
       await expect(dong(page, 'pkg-1015')).toBeAttached();
     });
 
@@ -425,7 +425,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await page.getByRole('button', { name: 'Bàn giao (1)', exact: true }).click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Bàn giao', exact: true }).click();
       await thayChu(page, '1 kiện chưa bàn giao được');
-      await expect(dong(page, 'pkg-1015')).toContainText('Kiện vừa có người sửa, tải lại rồi thử lại');
+      await expect(dong(page, 'pkg-1015')).toContainText('Kiện vừa được cập nhật');
       await expect(page.getByRole('button', { name: 'Bàn giao (1)', exact: true })).toBeAttached();
     });
 
@@ -450,7 +450,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await toast(page, /KH-000015 chưa có vận đơn trên sàn/);
     });
 
-    test('kiện đơn sàn đã đóng gói mở lại về Chờ đóng gói', async ({ page }) => {
+    test('kiện đơn sàn đã đóng gói mở lại về Đã giữ hàng', async ({ page }) => {
       await page.getByRole('tab', { name: /Đã đóng gói/ }).click();
       await page.locator('tbody tr[data-row-id]').first().click();
       await expect(trangThaiKien(page)).toContainText('Đã đóng gói');
@@ -458,11 +458,11 @@ test.describe('P4 · Xử lý đơn', () => {
       const alert = page.getByRole('alertdialog');
       await thayChu(alert, 'Kiện về Đã giữ hàng');
       await alert.getByRole('button', { name: 'Mở kiện', exact: true }).click();
-      await expect(trangThaiKien(page)).toContainText('Chờ đóng gói');
+      await expect(trangThaiKien(page)).toContainText('Đã giữ hàng');
     });
 
     test('báo thất lạc chờ người thứ hai xác nhận', async ({ page }) => {
-      await page.getByRole('tab', { name: /Đang vận chuyển/ }).click();
+      await page.getByRole('tab', { name: /Đang giao/ }).click();
       await dong(page, 'pkg-1016').click();
       await nutKien(page, 'Báo thất lạc').click();
       const dialog = page.getByRole('dialog');
@@ -473,7 +473,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await toast(page, /Đã báo thất lạc KH-\d+, chờ người khác xác nhận/);
       await thayChu(page, 'mã khiếu nại KN-001. Cần người khác xác nhận.');
       await expect(page.locator('[data-testid=package-warnings]')).toContainText('KN-001');
-      await expect(trangThaiKien(page)).toContainText('Đã báo thất lạc');
+      await expect(trangThaiKien(page)).toContainText('Báo thất lạc');
       // Cờ có tooltip, lịch sử ở cột phải (FE#139)
       await page.locator('[data-flag=lost_reported]').hover();
       await expect(page.getByRole('tooltip')).toContainText('cần một người khác xác nhận');
@@ -528,28 +528,28 @@ test.describe('P4 · Xử lý đơn', () => {
       await kienCuaDon(page).getByRole('button', { name: 'Cập nhật giao', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByLabel('Giao lại', { exact: true })).toHaveCount(0);
-      await expect(dialog.getByLabel('Chuyển hoàn hàng', { exact: true })).toBeAttached();
-      await dialog.getByLabel('Xác nhận đã giao', { exact: true }).click();
+      await expect(dialog.getByLabel('Hoàn về', { exact: true })).toBeAttached();
+      await dialog.getByLabel('Đã giao', { exact: true }).click();
       await expect(dialog.getByLabel('Lý do', { exact: true })).toHaveCount(0);
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await toast(page, 'Đã cập nhật kiện KH-000017: Xác nhận đã giao');
+      await toast(page, 'Đã cập nhật kiện KH-000017: Đã giao');
       await expect(kienCuaDon(page)).toContainText('Đã giao');
       await expect(kienCuaDon(page).getByRole('button', { name: 'Cập nhật giao', exact: true })).toHaveCount(0);
-      await expect(page.locator('[data-testid=order-status]')).toContainText('Chờ hoàn thành');
+      await expect(page.locator('[data-testid=order-status]')).toContainText('Chờ hoàn tất');
       await expect(page.locator('[data-testid=completion-blocker]')).toContainText('Chưa hoàn tất:');
     });
 
     test('tự giao thất bại: bắt lý do, sau đó giao lại', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1017');
-      await expect(kienCuaDon(page)).toContainText('Shop tự giao');
+      await expect(kienCuaDon(page)).toContainText('Đang tự giao');
       await kienCuaDon(page).getByRole('button', { name: 'Cập nhật giao', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByLabel('Báo giao thất bại', { exact: true }).click();
+      await dialog.getByLabel('Giao thất bại', { exact: true }).click();
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
       await thayChu(dialog, 'Nhập lý do giao không thành công');
       await dialog.getByLabel('Lý do', { exact: true }).fill('Khách không nghe máy');
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await toast(page, 'Đã cập nhật kiện KH-000018: Báo giao thất bại');
+      await toast(page, 'Đã cập nhật kiện KH-000018: Giao thất bại');
       await expect(kienCuaDon(page)).toContainText('Giao thất bại');
       await expect(page.locator('[data-testid=order-status]')).toContainText('Giao thất bại');
 
@@ -557,7 +557,7 @@ test.describe('P4 · Xử lý đơn', () => {
       await dialog.getByLabel('Giao lại', { exact: true }).click();
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
       await toast(page, 'Đã cập nhật kiện KH-000018: Giao lại');
-      await expect(kienCuaDon(page)).toContainText('Shop tự giao');
+      await expect(kienCuaDon(page)).toContainText('Đang tự giao');
     });
 
     test('kiện đơn sàn không có nút cập nhật', async ({ page }) => {
