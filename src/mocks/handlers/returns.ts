@@ -42,7 +42,7 @@ import { MAX_REASON, deliverForReturn } from './fulfillment';
 import { registerMarketplaceEvent } from '../engine/marketplace';
 import { DAY, HOUR, dueState, registerTaskSource } from '../engine/tasks';
 
-// ---------- Yêu cầu trả hàng (sơ đồ D3, FE#60): nhận yêu cầu, xử lý, quét nhận, đóng khi kiểm hàng về ghi sổ ----------
+// ---------- Yêu cầu trả hàng (sơ đồ D3, FE#60): nhận yêu cầu, xử lý, quét nhận, đóng khi kiểm hàng hoàn ghi sổ ----------
 
 const P = PERMISSIONS;
 const MAX_LINES = 100;
@@ -147,7 +147,7 @@ const PLATFORM: Partial<Record<ReturnAction | 'request', [string, string | null,
   platform_refund: ['REFUND_SUCCESS', 'CS_APPROVE_REFUND', 'Sàn xử cho khách: hoàn tiền'],
   receive: ['RETURN_PENDING', 'SELLER_RECEIVE_ITEM', 'Kho đã nhận hàng, đã báo sàn (confirmDelivery)'],
   no_show: ['CANCEL_SUCCESS', 'BUYER_NOT_RETURN', 'Khách không gửi hàng'],
-  close: ['REFUND_SUCCESS', 'SELLER_CONFIRM_RECEIVE', 'Kiểm hàng về xong, sàn hoàn tiền khách'],
+  close: ['REFUND_SUCCESS', 'SELLER_CONFIRM_RECEIVE', 'Kiểm hàng hoàn xong, sàn hoàn tiền người mua'],
   buyer_cancel: ['CANCEL_SUCCESS', 'BUYER_CANCEL', 'Khách rút yêu cầu'],
 };
 
@@ -218,7 +218,7 @@ const RAW: Partial<Record<ReturnAction, string>> = {
   buyer_cancel: 'CANCELLED',
 };
 
-/** Nhận hàng: lập phiếu kiểm hàng về (sơ đồ B3), kho chia bán lại, hỏng, trả nhà cung cấp; ghi sổ thì đóng yêu cầu */
+/** Nhận hàng: lập phiếu kiểm hàng hoàn (sơ đồ B3), kho chia bán lại, hỏng, trả nhà cung cấp; ghi sổ thì đóng yêu cầu */
 function receive(r: MockReturnRequest, at: string, by: string, reason: string | null = null, scanned: ScannedLine[] | null = null) {
   const o = orderOfRequest(r);
   const doc = createReturnInspection(
@@ -245,7 +245,7 @@ registerInspectionPosted((doc, at) => {
   r.resellQty = doc.lines.reduce((s, l) => s + (l.resell ?? 0), 0);
   if (r.source === 'marketplace') r.rawMarketplaceStatus = RAW.close!;
   platformStep(r, 'close', at);
-  move(r, 'closed', at, null, { closeResult: 'inspected', reason: `Kiểm hàng về ${doc.number} đã ghi sổ` });
+  move(r, 'closed', at, null, { closeResult: 'inspected', reason: `Kiểm hàng hoàn ${doc.number} đã ghi sổ` });
 });
 
 // ---------- Số còn trả được ----------
@@ -341,7 +341,7 @@ function newRequest(
   return r;
 }
 
-/** Mã quét khớp yêu cầu: mã yêu cầu, mã vận đơn chiều về, hoặc mã đơn có đúng một yêu cầu chờ hàng về */
+/** Mã quét khớp yêu cầu: mã yêu cầu, mã vận đơn hoàn, hoặc mã đơn có đúng một yêu cầu chờ hàng hoàn về */
 function matchCode(companyId: string, code: string) {
   const own = returns.requests.filter((r) => r.companyId === companyId);
   const direct = own.find((r) => r.code === code || r.returnTrackingCode?.toUpperCase() === code);
@@ -506,7 +506,7 @@ export const returnHandlers = [
     return HttpResponse.json(toRequest(r, canCost(guard.value)), { status: 201 });
   }),
 
-  // Kho quét mã trên kiện hàng trả về: khớp thì nhận, không khớp thì vào khu chờ xử lý
+  // Kho quét mã trên kiện hàng hoàn: khớp thì nhận, chưa tìm được yêu cầu thì sang tab Hàng hoàn chưa rõ đơn
   http.post(`${API}/returns/receive`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, P.fulfillmentProcess);
@@ -524,9 +524,9 @@ export const returnHandlers = [
     if (r) {
       const next = checkTransition(returnMachine, r.status, 'receive', actor, { source: r.source });
       if (!next.ok) {
-        return problem(409, 'Yêu cầu không chờ hàng về', {
+        return problem(409, 'Yêu cầu không chờ hàng hoàn về', {
           code: 'return_not_awaiting',
-          errors: { code: `${r.code} không ở trạng thái Chờ hàng về` },
+          errors: { code: `${r.code} không ở trạng thái Chờ hàng hoàn về` },
         });
       }
       const before = returnSnapshot(r);
@@ -554,12 +554,12 @@ export const returnHandlers = [
     return HttpResponse.json<ReceiveResult>({ kind: 'unmatched', parcel: toParcel(parcel) });
   }),
 
-  // Gắn kiện lạ vào yêu cầu chờ hàng về: yêu cầu sang Đã nhận
+  // Khớp kiện lạ với yêu cầu chờ hàng hoàn về: yêu cầu sang Đã nhận
   http.post(`${API}/returns/unmatched/:id/attach`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, P.fulfillmentProcess);
     if (!guard.ok) return guard.response;
-    const found = findOwned(returns.unmatchedParcels, params.id, guard.value.companyId, 'kiện hàng trả');
+    const found = findOwned(returns.unmatchedParcels, params.id, guard.value.companyId, 'kiện hàng hoàn');
     if (!found.ok) return found.response;
     const x = found.value;
     const body = ((await request.json().catch(() => ({}))) ?? {}) as { version?: number; returnRequestId?: string };
@@ -570,14 +570,14 @@ export const returnHandlers = [
     const actor = guard.value;
     const next = checkTransition(returnMachine, target.status, 'receive', actor, { source: target.source });
     if (!next.ok) {
-      return problem(409, 'Yêu cầu không chờ hàng về', {
+      return problem(409, 'Yêu cầu không chờ hàng hoàn về', {
         code: 'return_not_awaiting',
-        errors: { returnRequestId: `${target.code} không ở trạng thái Chờ hàng về` },
+        errors: { returnRequestId: `${target.code} không ở trạng thái Chờ hàng hoàn về` },
       });
     }
     const at = db.now();
     const before = returnSnapshot(target);
-    receive(target, at, actor.account.id, `Gắn kiện không khớp ${x.code}`, x.lines);
+    receive(target, at, actor.account.id, `Khớp kiện hàng hoàn chưa rõ đơn ${x.code}`, x.lines);
     x.status = 'attached';
     x.returnRequestId = target.id;
     x.resolvedAt = at;
@@ -592,7 +592,7 @@ export const returnHandlers = [
     await delay(LATENCY);
     const guard = requireCompany(request, P.fulfillmentProcess);
     if (!guard.ok) return guard.response;
-    const found = findOwned(returns.unmatchedParcels, params.id, guard.value.companyId, 'kiện hàng trả');
+    const found = findOwned(returns.unmatchedParcels, params.id, guard.value.companyId, 'kiện hàng hoàn');
     if (!found.ok) return found.response;
     const x = found.value;
     const body = ((await request.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
@@ -767,7 +767,7 @@ registerTaskSource({
       .map((r) => ({
         id: `return.requested:${r.id}`,
         kind: 'return.requested',
-        group: 'Bán hàng',
+        group: 'Đơn hàng',
         title: `Xử lý yêu cầu trả ${r.code}`,
         detail: `Đơn ${orderOfRequest(r).code}: chấp nhận, từ chối hoặc hoàn tiền.`,
         ...dueState(r.createdAt, 2 * DAY, now),
@@ -785,8 +785,8 @@ registerTaskSource({
         id: `return.unmatched:${x.id}`,
         kind: 'return.unmatched',
         group: 'Giao vận',
-        title: `Kiện hàng trả không khớp ${x.code}`,
-        detail: 'Đang ở khu chờ xử lý: gắn vào yêu cầu trả hoặc ghi cách xử lý.',
+        title: `Hàng hoàn chưa rõ đơn ${x.code}`,
+        detail: 'Khớp kiện với yêu cầu trả hàng hoặc chọn Xử lý riêng và ghi cách xử lý.',
         ...dueState(x.receivedAt, 24 * HOUR, now),
         ref: { type: 'return_parcel' as const, id: x.id },
       })),

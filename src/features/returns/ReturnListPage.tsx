@@ -29,13 +29,13 @@ import { UnmatchedParcels } from './UnmatchedParcels';
 const PAGE_SIZES = [25, 50, 100];
 
 const SOURCE_OPTIONS: { value: ReturnSource; label: string }[] = [
-  { value: 'marketplace', label: 'Sàn đẩy về' },
-  { value: 'manual', label: 'Lập tay' },
+  { value: 'marketplace', label: 'Từ sàn' },
+  { value: 'manual', label: 'Tạo thủ công' },
 ];
 
 type Tab = (typeof RETURN_TABS)[number]['value'];
 
-/** Yêu cầu trả hàng (sơ đồ D3): Sale xử lý theo trạng thái, kho quét nhận hàng trả */
+/** Trả hàng/Hoàn tiền (sơ đồ D3): Sale xử lý yêu cầu theo trạng thái, kho quét nhận hàng hoàn */
 export function ReturnListPage() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -64,18 +64,18 @@ export function ReturnListPage() {
   const columns = useMemo<ColumnDef<ReturnRequestSummary>[]>(
     () => [
       { id: 'code', header: 'Mã yêu cầu', meta: { className: 'w-32' }, cell: ({ row }) => <span className="font-mono font-medium">{row.original.code}</span> },
-      { id: 'order', header: 'Đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
+      { id: 'order', header: 'Mã đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
       {
         id: 'source',
         header: 'Nguồn',
         meta: { className: 'w-40' },
-        cell: ({ row }) => (row.original.source === 'marketplace' ? (row.original.shopName ?? 'Sàn') : 'Lập tay'),
+        cell: ({ row }) => (row.original.source === 'marketplace' ? (row.original.shopName ?? 'Sàn') : 'Tạo thủ công'),
       },
-      { id: 'customer', header: 'Khách', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
-      { id: 'qty', header: 'Số trả', meta: { className: 'w-20 text-right' }, cell: ({ row }) => row.original.totalQty },
+      { id: 'customer', header: 'Người mua', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
+      { id: 'qty', header: 'SL trả', meta: { className: 'w-20 text-right' }, cell: ({ row }) => row.original.totalQty },
       {
         id: 'refund',
-        header: 'Tiền hoàn',
+        header: 'Số tiền hoàn',
         meta: { className: 'w-32 text-right' },
         cell: ({ row }) => <Money value={row.original.refundAmount} />,
       },
@@ -92,7 +92,7 @@ export function ReturnListPage() {
           </div>
         ),
       },
-      { id: 'createdAt', header: 'Tạo lúc', meta: { className: 'w-40' }, cell: ({ row }) => formatDateTime(row.original.createdAt) },
+      { id: 'createdAt', header: 'Ngày tạo', meta: { className: 'w-40' }, cell: ({ row }) => formatDateTime(row.original.createdAt) },
     ],
     [],
   );
@@ -106,15 +106,15 @@ export function ReturnListPage() {
   return (
     <div>
       <PageHeader
-        title="Yêu cầu trả hàng"
-        subtitle="Yêu cầu từ sàn và yêu cầu lập tay cho đơn tạo tay; kho quét nhận hàng trả về."
-        help="Sale chấp nhận, chỉ hoàn tiền hoặc từ chối yêu cầu. Hàng về thì kho quét nhận và ghi tình trạng trên phiếu kiểm hàng về. Kiện quét không khớp yêu cầu nào nằm ở tab Không khớp."
+        title="Trả hàng/Hoàn tiền"
+        subtitle="Yêu cầu trả hàng từ sàn và từ đơn tạo thủ công. Kho quét nhận hàng hoàn tại đây."
+        help="Sale chấp nhận trả hàng, chỉ hoàn tiền hoặc từ chối. Hàng hoàn về thì kho quét nhận và ghi tình trạng trên phiếu kiểm hàng hoàn. Kiện quét chưa tìm được yêu cầu nằm ở tab Hàng hoàn chưa rõ đơn."
         onTour={startTour}
         action={
           canReceive ? (
             <Button data-guide="return-receive" onClick={() => setReceiving(true)}>
               <ScanLine />
-              Quét nhận hàng trả
+              Quét nhận hàng hoàn
             </Button>
           ) : undefined
         }
@@ -149,7 +149,7 @@ export function ReturnListPage() {
         ) : (
           <>
             <FilterBar>
-              <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã yêu cầu, mã đơn, tên khách" />
+              <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã yêu cầu, mã đơn, tên người mua" />
               <FilterSelect label="Nguồn" value={source} onChange={f.setFilter('source')} options={SOURCE_OPTIONS} />
             </FilterBar>
             <DataTable
