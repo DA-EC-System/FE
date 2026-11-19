@@ -3,7 +3,7 @@ import { test, expect, dangNhap, menu, chon, mockApi } from '../../fixtures';
 import type { Page } from '@playwright/test';
 
 async function moTabKhop(page: Page) {
-  await menu(page, 'Đối soát công nợ sàn');
+  await menu(page, 'Đối soát sàn');
   await page.getByRole('tab', { name: 'Khớp sao kê', exact: true }).click();
   await expect(page.locator('tbody tr').first()).toBeVisible();
 }
@@ -15,7 +15,7 @@ test.describe('US-TI-09 · Khớp sao kê', () => {
     await dongRut(page).getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText('nhập mã giao dịch trên sao kê ngân hàng');
-    await dialog.getByLabel('Mã giao dịch ngân hàng', { exact: true }).fill('VCB-RUT-0211');
+    await dialog.getByLabel('Mã sao kê', { exact: true }).fill('VCB-RUT-0211');
     await dialog.getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(dongRut(page)).toContainText('Đã khớp');
@@ -28,7 +28,7 @@ test.describe('US-TI-09 · Khớp sao kê', () => {
     await mockApi(page, 'post', '/finance/ledger/withdraw-cmp-001/bank-match', 409, { status: 409, code: 'already_matched' });
     await dongRut(page).getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
-    await dialog.getByLabel('Mã giao dịch ngân hàng', { exact: true }).fill('VCB-RUT-0211');
+    await dialog.getByLabel('Mã sao kê', { exact: true }).fill('VCB-RUT-0211');
     await dialog.getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     await expect(dialog).toContainText('Khoản tiền đã được khớp sao kê.');
   });
@@ -38,7 +38,7 @@ test.describe('US-TI-09 · Khớp sao kê', () => {
     await mockApi(page, 'post', '/finance/ledger/withdraw-cmp-001/bank-match', 422, { status: 422, code: 'not_bank_matchable' });
     await dongRut(page).getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
-    await dialog.getByLabel('Mã giao dịch ngân hàng', { exact: true }).fill('VCB-X');
+    await dialog.getByLabel('Mã sao kê', { exact: true }).fill('VCB-X');
     await dialog.getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     await expect(dialog).toContainText('Chỉ khớp khoản rút tiền, nhà cung cấp hoàn tiền hoặc bồi thường thực tế.');
   });

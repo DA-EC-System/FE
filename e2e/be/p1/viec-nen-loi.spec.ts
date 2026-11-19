@@ -28,7 +28,7 @@ test.describe('P1 · Việc nền lỗi (BE thật)', () => {
     await expect(page.getByTestId('nav-user')).toBeVisible();
 
     const ds = page.waitForResponse((r) => r.url().includes('/api/v1/platform/jobs/dead') && r.request().method() === 'GET');
-    await menu(page, 'Tác vụ lỗi');
+    await menu(page, 'Việc nền lỗi');
     const res = await ds;
     expect(res.status()).toBe(200);
     const body = await res.json();

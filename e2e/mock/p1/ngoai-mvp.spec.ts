@@ -25,13 +25,10 @@ test.describe('P1 · Màn ngoài MVP', () => {
     await page.getByTestId('open-command-palette').click();
     const bang = page.getByRole('dialog', { name: 'Tìm và chạy lệnh' });
     const o = bang.getByRole('combobox', { name: 'Tìm trang, thao tác' });
-    for (const q of ['khach hang', 'bao cao kinh doanh']) {
+    for (const q of ['tao don', 'khach hang', 'bao cao kinh doanh']) {
       await o.fill(q);
       await expect(bang.locator('[cmdk-item]')).toHaveCount(0);
     }
-    // "tao don" còn khớp "Tạo đơn đặt hàng nhập"; chỉ cần không còn lệnh "Tạo đơn" bán hàng
-    await o.fill('tao don');
-    await expect(bang.locator('[cmdk-item]', { hasText: /^\s*Tạo đơn\s*$/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     await menu.filter({ hasText: 'Đơn hàng' }).first().click();
@@ -40,16 +37,16 @@ test.describe('P1 · Màn ngoài MVP', () => {
   });
 
   for (const [path, moTa] of [
-    ['/sales/orders/new', 'Đơn tạo tay và hồ sơ người mua không thuộc bản này. Đơn từ sàn xem ở Đơn hàng.'],
-    ['/sales/customers', 'Đơn tạo tay và hồ sơ người mua không thuộc bản này. Đơn từ sàn xem ở Đơn hàng.'],
-    ['/sales/customers/cus-001', 'Đơn tạo tay và hồ sơ người mua không thuộc bản này. Đơn từ sàn xem ở Đơn hàng.'],
-    ['/reports', 'Lợi nhuận theo đơn xem ở Sổ giao dịch, số liệu chính ở Tổng quan.'],
+    ['/sales/orders/new', 'Đơn tạo tay và hồ sơ khách không thuộc bản này. Đơn từ sàn xem ở Đơn hàng.'],
+    ['/sales/customers', 'Đơn tạo tay và hồ sơ khách không thuộc bản này. Đơn từ sàn xem ở Đơn hàng.'],
+    ['/sales/customers/cus-001', 'Đơn tạo tay và hồ sơ khách không thuộc bản này. Đơn từ sàn xem ở Đơn hàng.'],
+    ['/reports', 'Lãi theo đơn xem ở Sổ tiền, số liệu chính ở Tổng quan.'],
   ] as const) {
     test(`gõ thẳng ${path}: trang Ngoài phạm vi MVP trong khung app, không gọi API đã gỡ`, async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
       const daGoi = ghiApiDaGo(page);
       await page.goto(`/c/cmp-001${path}`);
-      await expect(page.getByRole('heading', { name: 'Chưa có trong phiên bản này', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Ngoài phạm vi MVP', exact: true })).toBeVisible();
       await expect(page.getByText('Commerio chỉ bán qua sàn', { exact: true })).toBeVisible();
       await expect(page.getByText(moTa, { exact: true })).toBeVisible();
       // Khung app còn: menu bên trái vẫn đi được

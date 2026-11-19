@@ -19,7 +19,7 @@ const laCallback = (url: string) => /\/channel\/shops\/tiktok\/callback$/.test(n
 test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
   test.beforeEach(async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await expect(page.locator('tbody tr[data-row-id]').first()).toBeAttached();
   });
 

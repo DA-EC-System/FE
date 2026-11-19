@@ -24,7 +24,7 @@ test.describe('P4 · Tài chính cũ đã gỡ', () => {
 
   test('CEO không còn mục tiền cũ, vẫn có Sổ tiền', async ({ page }) => {
     await menu(page, 'Tổng quan');
-    await expect(muc(page, 'Sổ giao dịch')).toBeAttached();
+    await expect(muc(page, 'Sổ tiền')).toBeAttached();
     for (const label of MUC_CU) await expect(muc(page, label)).toHaveCount(0);
   });
 

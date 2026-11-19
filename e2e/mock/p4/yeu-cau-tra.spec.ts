@@ -45,7 +45,7 @@ test.describe('P4 · Yêu cầu trả', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'sale@commerio.vn', 'sale'));
 
     test('danh sách mở tab Chờ xử lý, đơn mang cờ Có yêu cầu trả', async ({ page }) => {
-      await menu(page, 'Trả hàng/Hoàn tiền');
+      await menu(page, 'Yêu cầu trả');
       await expect(page.getByRole('tab', { name: /Chờ xử lý/ })).toHaveAttribute('aria-selected', 'true');
       await expect(dong(page, 'rr-001')).toContainText('YCT-000001');
       await expect(dong(page, 'rr-001')).toContainText('DH-1020');
@@ -277,7 +277,7 @@ test.describe('P4 · Yêu cầu trả', () => {
   test.describe('phân quyền', () => {
     test('kho xem được, quét được, không có nút xử lý yêu cầu', async ({ page }) => {
       await dangNhap(page, 'kho@commerio.vn', 'kho');
-      await menu(page, 'Trả hàng/Hoàn tiền');
+      await menu(page, 'Yêu cầu trả');
       await expect(page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true })).toBeAttached();
       await dong(page, 'rr-001').click();
       await expect(trangThai(page)).toContainText('Chờ xử lý');

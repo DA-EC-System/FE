@@ -64,7 +64,7 @@ test.describe('P3 · Gian hàng', () => {
   test.describe('kết nối gian hàng (UC-CH-01)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await menu(page, 'Gian hàng');
+      await menu(page, 'Kênh bán');
       await expect(dong(page, 'shp-001')).toBeAttached();
     });
 
@@ -374,7 +374,7 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
       await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
       await expect(page.getByRole('button', { name: 'Danh sách', exact: true })).toHaveCount(0);
-      await menu(page, 'Gian hàng');
+      await menu(page, 'Kênh bán');
       const row = chua(page, 'ABC Chưa xong', 'tbody tr');
       await expect(row.locator('[data-testid=shop-status]')).toHaveText('Đang thiết lập');
       await row.getByRole('button', { name: 'Thiết lập', exact: true }).click();
@@ -582,7 +582,7 @@ test.describe('P3 · Gian hàng', () => {
   test.describe('ghép SKU và đẩy giá (UC-CH-02)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await menu(page, 'Gian hàng');
+      await menu(page, 'Kênh bán');
       await moTrangGhep(page, 'shp-001');
     });
 
@@ -875,7 +875,7 @@ test.describe('P3 · Gian hàng', () => {
   test.describe('ghép vào biến thể đã gỡ (FE#310)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await menu(page, 'Gian hàng');
+      await menu(page, 'Kênh bán');
       await moTrangGhep(page, 'shp-001');
       await dong(page, 'prd-001-v1').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true }).click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true }).click();
@@ -926,7 +926,7 @@ test.describe('P3 · Gian hàng', () => {
   test.describe('trạng thái listing (sơ đồ C2)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await menu(page, 'Gian hàng');
+      await menu(page, 'Kênh bán');
       await moTrangGhep(page, 'shp-003');
     });
 
@@ -1039,7 +1039,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('TikTok: kết nối lại rồi đẩy sản phẩm mới, Đang đẩy rồi chờ sàn duyệt', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await page.locator('[data-testid=reauth-banner]').getByRole('button', { name: 'Kết nối lại', exact: true }).click();
     await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
     await page.locator('[data-outcome=reconnected]').getByRole('button', { name: 'Để sau', exact: true }).click();
@@ -1054,7 +1054,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('gian hàng đã ngắt chỉ xem được ghép cũ', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-008');
     await thayChu(page, 'chỉ xem được ghép SKU cũ');
     await expect(page.getByRole('button', { name: 'Kết nối lại', exact: true })).toBeAttached();
@@ -1074,7 +1074,7 @@ test.describe('P3 · Gian hàng', () => {
     await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
     await expect(bienThe.getByTestId('variant-status')).toContainText('Tạm ngừng');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-001');
     await expect(trangThaiListing(page, 'prd-001-v1')).toHaveText('Đang ẩn');
     const nhan = dong(page, 'prd-001-v1').locator('[data-testid=hidden-zero]');
@@ -1085,7 +1085,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('dấu "?" giải thích ghép SKU và mở hướng dẫn từng bước: lọc chưa ghép, ghép, đẩy', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-001');
     await page.getByRole('button', { name: /^Giải thích: Sản phẩm trên sàn và giá/ }).click();
     await thayChu(page.getByRole('dialog'), 'Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio');
@@ -1105,7 +1105,7 @@ test.describe('P3 · Gian hàng', () => {
   ] as const) {
     test(`${vaiTro} không thấy mục Xoá gian hàng ở gian hàng đã ngắt (FE#297)`, async ({ page }) => {
       await dangNhap(page, email, password);
-      await menu(page, 'Gian hàng');
+      await menu(page, 'Kênh bán');
       await dong(page, 'shp-008').getByRole('button', { name: /^Thao tác khác với / }).click();
       await expect(page.getByRole('menuitem', { name: 'Sản phẩm trên sàn và giá', exact: true })).toBeAttached();
       await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
@@ -1114,7 +1114,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('Admin đổi ghép SKU sàn đã có đơn: gửi CEO duyệt, ghép cũ giữ nguyên', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-001');
     await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
     const dialog = page.getByRole('dialog');
@@ -1129,7 +1129,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('Sale ghép SKU sàn nhưng không kết nối, không đẩy, không gỡ', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     const shop = dong(page, 'shp-001');
     await shop.getByRole('button', { name: /^Thao tác khác với / }).click();
@@ -1168,7 +1168,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('gian hàng chưa kết nối (không ghép được): không có nút Tải lại, không hiện tên trên sàn (FE#294)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-002');
     await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-002-sku-001');
     await expect(page.locator('[data-testid=remote-title]')).toHaveCount(0);
@@ -1178,7 +1178,7 @@ test.describe('P3 · Gian hàng', () => {
 
   test('không mở được gian hàng của công ty khác', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await expect(dong(page, 'shp-001')).toBeAttached();
     await diToi(page, '/c/cmp-001/channel/shops/shp-004');
     await page.getByRole('button', { name: 'Về danh sách gian hàng', exact: true }).click();

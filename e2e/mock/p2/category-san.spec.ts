@@ -4,7 +4,7 @@ import { chua, dangNhap, expect, menu, test, toast } from '../../fixtures';
 test.describe('P2 · Tab Lazada, TikTok của Danh mục & thuộc tính', () => {
   test.beforeEach(async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Category & thuộc tính');
+    await menu(page, 'Danh mục & thuộc tính');
   });
 
   test('Lazada: tìm không dấu, xem attribute và sản phẩm đang dùng, đồng bộ ngay hai lần', async ({ page }) => {

@@ -10,7 +10,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
       { platform: 'new-market', name: 'Sàn mới', connectable: true },
       { platform: 'shopee', name: 'Shopee', connectable: false, reason: 'Chưa duyệt ứng dụng trên Shopee Open Platform' },
     ] });
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
     const section = page.locator('[data-testid=connect-section]');
     await expect(section.locator('[data-platform]')).toHaveCount(3);
@@ -35,7 +35,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
       { platform: 'lazada', name: 'Lazada', connectable: true, methods: ['oauth', 'token'] },
       { platform: 'mock', name: 'Sàn giả lập (mock)', connectable: true, methods: ['token'] },
     ] });
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
     const section = page.locator('[data-testid=connect-section]');
     await expect(section.locator('[data-platform=lazada]')).toContainText('Đăng nhập Lazada');
@@ -49,7 +49,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
   });
 
   test('dán token: bắt buộc access token, sàn từ chối thì ở lại, đúng thì hiện kết quả rồi thiết lập', async ({ page }) => {
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
     const section = page.locator('[data-testid=connect-section]');
     const quaToken = async () => {
@@ -87,7 +87,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
 
   test('rỗng hiện hướng dẫn, đóng hộp thoại thì về bảng gian hàng', async ({ page }) => {
     await mockApi(page, 'get', '/channel/shops/platforms', 200, { items: [] });
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
     await expect(
       chua(page, 'Chưa có sàn nào được bật. Liên hệ quản trị nền tảng để kết nối sàn mới.'),
@@ -100,7 +100,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
 
   test('lỗi chỉ ảnh hưởng khu kết nối, thử lại nạp được bốn sàn mock', async ({ page }) => {
     await mockApi(page, 'get', '/channel/shops/platforms', 503, { status: 503, detail: 'Chưa tải được sàn' });
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await expect(dong(page, 'shp-001')).toBeAttached();
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
     const section = page.locator('[data-testid=connect-section]');
@@ -118,7 +118,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
     }));
     await mockApi(page, 'get', '/channel/shops', 200, { items });
     await mockApi(page, 'get', '/channel/shops/platforms', 200, { items: [{ platform: 'shopee', name: 'Shopee', connectable: true }] });
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(25);
     await page.getByRole('combobox', { name: 'Sàn', exact: true }).click();
     await expect(page.getByRole('option', { name: 'Shopee', exact: true })).toHaveCount(0);
@@ -135,7 +135,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
 test.describe('P3 · Sàn kết nối được: thiếu quyền kết nối', () => {
   test('Sale xem được bảng gian hàng nhưng không có nút Thêm gian hàng', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await menu(page, 'Gian hàng');
+    await menu(page, 'Kênh bán');
     await expect(dong(page, 'shp-001')).toBeAttached();
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Kết nối / })).toHaveCount(0);

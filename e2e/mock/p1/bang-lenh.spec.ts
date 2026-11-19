@@ -34,7 +34,7 @@ test.describe('P1 · Bảng lệnh', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await moBang(page);
     await o(page).fill('doi soat');
-    await expect(lenh(page).filter({ hasText: 'Đối soát công nợ sàn' }).locator('mark')).toHaveText('Đối soát');
+    await expect(lenh(page).filter({ hasText: 'Đối soát sàn' }).locator('mark')).toHaveText('Đối soát');
     await o(page).fill('don');
     await expect(lenh(page).first()).toHaveAttribute('data-selected', 'true');
     await page.keyboard.press('ArrowDown');
@@ -43,23 +43,23 @@ test.describe('P1 · Bảng lệnh', () => {
     await expect(bang(page)).toContainText('Không thấy trang hay thao tác nào khớp.');
   });
 
-  test('không hiện trang, thao tác thiếu quyền: Kho không thấy Sổ giao dịch, Kết nối gian hàng', async ({ page }) => {
+  test('không hiện trang, thao tác thiếu quyền: Kho không thấy Sổ tiền, Tạo đơn', async ({ page }) => {
     await dangNhap(page, 'kho@commerio.vn', 'kho');
     await moBang(page);
-    await o(page).fill('so giao dich');
+    await o(page).fill('so tien');
     await expect(lenh(page)).toHaveCount(0);
     await o(page).fill('tao don');
-    await expect(lenh(page).filter({ hasText: /^\s*Tạo đơn\s*$/ })).toHaveCount(0);
+    await expect(lenh(page)).toHaveCount(0);
     await o(page).fill('');
     await expect(lenh(page).filter({ hasText: /^Kho/ })).toHaveCount(1);
-    await expect(lenh(page).filter({ hasText: 'Kết nối gian hàng' })).toHaveCount(0);
+    await expect(lenh(page).filter({ hasText: 'Thêm gian hàng' })).toHaveCount(0);
   });
 
-  test('Kết nối gian hàng mở luôn hộp thêm, kể cả khi đang ở trang Gian hàng', async ({ page }) => {
+  test('Thêm gian hàng mở luôn hộp thêm, kể cả khi đang ở trang Kênh bán', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     for (let i = 0; i < 2; i++) {
       await moBang(page);
-      await o(page).fill('ket noi gian');
+      await o(page).fill('them gian');
       await page.keyboard.press('Enter');
       await expect(page.getByRole('dialog', { name: 'Thêm gian hàng' })).toBeVisible();
       await page.keyboard.press('Escape');

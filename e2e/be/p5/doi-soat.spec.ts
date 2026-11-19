@@ -28,7 +28,7 @@ test.afterAll(async () => {
 test.describe('P5-BE · Đối soát sàn', () => {
   test('ba tab tiền theo đơn, lần đối soát, khớp sao kê; công ty chưa có gian hàng thì trống, nút kéo quyết toán khoá', async () => {
     const { page } = s;
-    await menu(page, 'Đối soát công nợ sàn');
+    await menu(page, 'Đối soát sàn');
     await expect(page.getByRole('tab', { name: 'Tiền theo đơn', exact: true })).toHaveAttribute('aria-selected', 'true');
     await thayChu(page, 'Chưa có trạng thái tiền');
 
