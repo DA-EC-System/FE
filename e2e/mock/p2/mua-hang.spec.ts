@@ -42,13 +42,13 @@ test.describe('P2 · Mua hàng', () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Lập phiếu', exact: true }).click();
       await toast(page, 'Đã lập phiếu nhận');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
-      await page.getByLabel(/^Báo giao /).first().fill('1');
-      await page.getByLabel(/^Đạt /).first().fill('0');
+      await page.getByLabel(/^SL NCC giao /).first().fill('1');
+      await page.getByLabel(/^SL đạt /).first().fill('0');
       // Đạt ít hơn báo giao: dòng có vạch chênh và nhãn Chênh giải thích (FE#137)
       const dong = page.getByTestId('receipt-lines').locator('tbody tr').first();
       await expect(dong).toHaveClass(/\bchg\b/);
       await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /thiếu 1/);
-      await page.getByLabel(/^Đạt /).first().fill('1');
+      await page.getByLabel(/^SL đạt /).first().fill('1');
       // Giao một phần vẫn là chênh với số còn chờ, nhưng hết thiếu
       await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /: Nhà cung cấp báo giao 1, còn chờ \d+\.$/);
       // Dòng chưa giao lần này không bị đánh dấu
@@ -124,11 +124,11 @@ test.describe('P2 · Mua hàng', () => {
       await moTab(page, 'Phiếu nhận', 'NH-000002');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
       await thayChu(page, 'Người giao đã đi');
-      await page.getByLabel(/^Đạt /).first().fill('12');
+      await page.getByLabel(/^SL đạt /).first().fill('12');
       await page.getByRole('button', { name: 'Lưu', exact: true }).click();
       await thayChu(page, 'Đạt, lỗi giữ, trả tại chỗ cộng lại vượt số báo giao');
 
-      await page.getByLabel(/^Đạt /).first().fill('10');
+      await page.getByLabel(/^SL đạt /).first().fill('10');
       await thaoTac(page, 'Ghi sổ');
       await toast(page, 'NH-000002');
       await expect(page.getByTestId('receipt-status')).toContainText('Khớp');
