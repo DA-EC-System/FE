@@ -4,7 +4,7 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
   test('Admin chốt trong ngưỡng, bắt lý do và không chốt vượt ngưỡng', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin'); await menu(page, 'Đối soát sàn');
     const rows = page.locator('tbody tr'); await expect(rows.first()).toBeVisible();
-    await rows.filter({ hasText: 'Trong hạn mức' }).filter({ hasText: 'Lệch tiền' }).first().click();
+    await rows.filter({ hasText: 'Trong hạn mức' }).filter({ hasText: 'Chênh lệch' }).first().click();
     await page.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     const dialog = page.getByRole('alertdialog'); await dialog.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     await expect(dialog.getByText('Nhập lý do', { exact: true })).toBeVisible();
@@ -19,7 +19,7 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
   });
   test('CEO soạn cấu hình phí tự chốt lệch được, hiện nhãn Tự duyệt (BE#249)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
-    await page.locator('tbody tr').filter({ hasText: 'Trong hạn mức' }).filter({ hasText: 'Lệch tiền' }).first().click();
+    await page.locator('tbody tr').filter({ hasText: 'Trong hạn mức' }).filter({ hasText: 'Chênh lệch' }).first().click();
     await expect(page.getByText('Người soạn phí', { exact: true }).locator('..')).toContainText('Lê Hoàng Minh');
     await page.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
@@ -46,13 +46,13 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await page.getByRole('tab', { name: 'Khớp sao kê', exact: true }).click();
     await page.locator('tbody').getByRole('button', { name: 'Khớp sao kê', exact: true }).first().click();
     const dialog = page.getByRole('alertdialog'); await dialog.getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
-    await expect(dialog.getByText('Nhập mã sao kê', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Nhập mã giao dịch ngân hàng', { exact: true })).toBeVisible();
     await dialog.getByLabel('Mã sao kê', { exact: true }).fill('BANK-DEMO-001'); await dialog.getByRole('button', { name: 'Khớp sao kê', exact: true }).click();
     await expect(page.locator('tbody')).toContainText('BANK-DEMO-001');
   });
   test('409 không chốt lạc phiên bản và giữ lý do để người dùng xem', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
-    await page.locator('tbody tr').filter({ hasText: 'Lệch tiền' }).first().click();
+    await page.locator('tbody tr').filter({ hasText: 'Chênh lệch' }).first().click();
     const id = new URL(page.url()).pathname.split('/').pop();
     await mockApi(page, 'post', `/finance/payments/${id}/resolve`, 409, { status: 409, code: 'version_conflict' });
     await page.getByRole('button', { name: 'Chốt lệch', exact: true }).click(); const dialog = page.getByRole('alertdialog');
@@ -64,7 +64,7 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     const row = page.locator('tbody tr').filter({ has: page.locator('[data-flag=tax_mismatch]') });
     await expect(row).toHaveCount(1);
     await row.click();
-    await expect(page.locator('[data-flag=tax_mismatch]')).toHaveText('Lệch thuế');
+    await expect(page.locator('[data-flag=tax_mismatch]')).toHaveText('Chênh lệch thuế');
   });
   test('tổng dòng tiền không cộng giá vốn: chỉ tính số thực tế của sàn (§21.1, FE#140)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Đối soát sàn');
@@ -88,7 +88,7 @@ test.describe('D4.2–D4.3 · Đối soát', () => {
     await dialog.getByRole('button', { name: 'Chốt lệch', exact: true }).click();
     await expect(dong).toContainText('Đã chốt');
     await expect(dong).toHaveCount(0);
-    await expect(page.locator('tbody tr', { hasText: ma }).first()).toContainText('Đã chốt lệch');
+    await expect(page.locator('tbody tr', { hasText: ma }).first()).toContainText('Đã xử lý chênh lệch');
   });
   test('màn hẹp: dòng lệch có nhãn từng số, mã đơn không xuống dòng (FE#140)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

@@ -23,16 +23,16 @@ test.describe('P4 · Đơn hàng', () => {
       // Tab có số đơn theo bộ lọc (FE#138)
       await expect(tatCa).toHaveText(/^Tất cả\s*\d+$/);
       await expect(page.getByRole('tab', { name: /^Chưa thanh toán/ })).toHaveText(/^Chưa thanh toán\s*\d+$/);
-      await expect(dong(page, 'ord-1003')).toContainText('Chờ thanh toán');
-      await dong(page, 'ord-1003').getByText('Chờ thanh toán', { exact: true }).hover();
-      await expect(page.getByRole('tooltip')).toContainText('Đơn trả trước, chờ khách thanh toán.');
+      await expect(dong(page, 'ord-1003')).toContainText('Chưa thanh toán');
+      await dong(page, 'ord-1003').getByText('Chưa thanh toán', { exact: true }).hover();
+      await expect(page.getByRole('tooltip')).toContainText('Đơn trả trước, người mua chưa thanh toán.');
       await expect(dong(page, 'ord-1006')).toContainText('Chờ đóng gói');
       await expect(page.locator('tbody')).not.toContainText('DH-2001');
       await page.getByRole('tab', { name: /^Chưa thanh toán/ }).click();
       await expect(dong(page, 'ord-1003')).toBeAttached();
       await expect(dong(page, 'ord-1006')).toHaveCount(0);
       await tatCa.click();
-      await chon(page, 'Giai đoạn', 'Đang giao');
+      await chon(page, 'Giai đoạn', 'Đang vận chuyển');
       await expect(dong(page, 'ord-1016')).toBeAttached();
       await expect(dong(page, 'ord-1003')).toHaveCount(0);
     });

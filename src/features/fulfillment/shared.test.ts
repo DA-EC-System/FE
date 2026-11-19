@@ -110,7 +110,7 @@ describe('packageButtons (sơ đồ D2)', () => {
   it('đơn sàn đang giao: không nút giao, có ghi chú', () => {
     const b = packageButtons(pkg({ status: 'in_transit', source: 'marketplace' }), sale);
     expect(b.actions).toEqual([]);
-    expect(b.note).toBe('Trạng thái giao lấy từ sàn.');
+    expect(b.note).toBe('Trạng thái giao hàng cập nhật tự động từ sàn.');
   });
 
   it('báo thất lạc rồi: người báo không tự xác nhận, người khác thì được', () => {
@@ -137,7 +137,7 @@ describe('packageButtons (sơ đồ D2)', () => {
 
 describe('handoverFailureLabel', () => {
   it('nhãn theo mã, mã lạ có nhãn chung', () => {
-    expect(handoverFailureLabel('version_conflict')).toBe('Kiện vừa được cập nhật');
+    expect(handoverFailureLabel('version_conflict')).toBe('Kiện vừa có người sửa, tải lại rồi thử lại');
     expect(handoverFailureLabel('xyz')).toBe('Không bàn giao được');
   });
 });
@@ -184,7 +184,7 @@ describe('báo sàn, in vận đơn (commerio-backend#239, FE#338)', () => {
   it('KH-B07: đơn khách đang xin huỷ thì ẩn Báo sàn sẵn sàng và nói lý do', () => {
     const b = packageButtons(san({ flags: ['cancel_requested'] }), kho);
     expect(b.actions).not.toContain('mark_ready');
-    expect(b.blocked).toContain('Khách đang xin huỷ');
+    expect(b.blocked).toContain('Người mua đang xin huỷ');
     expect(packageButtons(san(), kho).actions).toContain('mark_ready');
   });
 
