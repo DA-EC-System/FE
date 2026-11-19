@@ -28,7 +28,7 @@ import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 import { MismatchPanel } from './MismatchPanel';
 
-const BANK_KINDS: Record<string, string> = { withdrawal: 'Rút tiền', supplier_refund: 'Nhà cung cấp hoàn tiền', lost_compensation: 'Bồi thường mất hàng' };
+const BANK_KINDS: Record<string, string> = { withdrawal: 'Rút tiền từ ví sàn', supplier_refund: 'NCC hoàn tiền', lost_compensation: 'Sàn bồi thường mất hàng' };
 
 /** Tổng của trang đang xem, cột chưa có số (null) không cộng */
 const sumOf = (items: OrderPayment[], pick: (p: OrderPayment) => number | null) =>
@@ -51,27 +51,27 @@ export function SettlementsPage() {
   const counts = payments.data?.counts;
   const items = payments.data?.items ?? [];
   const run = async () => {
-    if (!shopId) { toast.error('Chọn gian hàng để kéo quyết toán'); return; }
-    try { await start.mutateAsync({ shopId }); toast.success('Đã nhận yêu cầu kéo quyết toán'); } catch (e) { toast.error(problemMessage(e)); }
+    if (!shopId) { toast.error('Chọn gian hàng để lấy sao kê sàn'); return; }
+    try { await start.mutateAsync({ shopId }); toast.success('Đang lấy sao kê sàn, kết quả hiện trong bảng khi xong'); } catch (e) { toast.error(problemMessage(e)); }
   };
 
   return (
     <div>
       <PageHeader
-        title="Đối soát sàn"
-        subtitle="So tiền sàn quyết toán với số Commerio ước tính, theo từng đơn."
-        help="Trạng thái tiền của đơn độc lập với trạng thái đơn. Lệch quá ngưỡng thì cần chốt kèm lý do; lệch vượt hạn mức tự chốt thì CEO duyệt trước. Tiền rút về ngân hàng khớp với sao kê ở tab Khớp sao kê."
+        title="Đối soát công nợ sàn"
+        subtitle="Đối chiếu số tiền sàn thanh toán với số phải thu theo sổ, theo từng đơn."
+        help="Trạng thái thanh toán của đơn không phụ thuộc trạng thái giao hàng. Chênh lệch vượt ngưỡng cho phép thì phải xử lý kèm lý do; vượt hạn mức tự xử lý thì CEO duyệt trước. Tiền rút từ ví sàn về tài khoản ngân hàng được đối chiếu ở tab Đối chiếu ngân hàng."
         onTour={startTour}
       />
       <Tabs value={tab} onValueChange={(value) => f.update({ tab: value, page: undefined, status: undefined, kind: undefined, matched: undefined })}>
         <div className="mb-2 overflow-x-auto">
           <TabsList data-guide="settlement-tabs">
             <TabsTrigger value="payments">
-              Tiền theo đơn
+              Đối soát theo đơn
               {counts && counts.mismatch > 0 && <Badge variant="destructive" className="ms-1">{counts.mismatch}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="runs">Lần đối soát</TabsTrigger>
-            <TabsTrigger value="bank">Khớp sao kê</TabsTrigger>
+            <TabsTrigger value="runs">Sao kê sàn</TabsTrigger>
+            <TabsTrigger value="bank">Đối chiếu ngân hàng</TabsTrigger>
           </TabsList>
         </div>
       </Tabs>
@@ -83,17 +83,17 @@ export function SettlementsPage() {
       {tab === 'payments' && (
         <>
           <div data-guide="settlement-kpis">
-          <KpiStrip label="Trạng thái tiền theo đơn">
-            <Kpi label="Chờ quyết toán" help={PAYMENT_STATES.pending.hint} value={counts?.pending ?? 0} unit="đơn" loading={payments.isLoading} />
+          <KpiStrip label="Trạng thái thanh toán">
+            <Kpi label="Chờ sàn thanh toán" help={PAYMENT_STATES.pending.hint} value={counts?.pending ?? 0} unit="đơn" loading={payments.isLoading} />
             <Kpi
-              label="Lệch tiền"
+              label="Chênh lệch"
               help={PAYMENT_STATES.mismatch.hint}
               value={<span className={counts?.mismatch ? 'text-destructive' : undefined}>{counts?.mismatch ?? 0}</span>}
               unit="đơn"
               loading={payments.isLoading}
             />
-            <Kpi label="Đã khớp" help={PAYMENT_STATES.settled.hint} value={counts?.settled ?? 0} unit="đơn" loading={payments.isLoading} />
-            <Kpi label="Đã chốt lệch" help={PAYMENT_STATES.resolved.hint} value={counts?.resolved ?? 0} unit="đơn" loading={payments.isLoading} />
+            <Kpi label="Đã đối soát khớp" help={PAYMENT_STATES.settled.hint} value={counts?.settled ?? 0} unit="đơn" loading={payments.isLoading} />
+            <Kpi label="Đã xử lý chênh lệch" help={PAYMENT_STATES.resolved.hint} value={counts?.resolved ?? 0} unit="đơn" loading={payments.isLoading} />
           </KpiStrip>
           </div>
           <MismatchPanel companyId={companyId} shopId={shopId || undefined} />
@@ -102,48 +102,48 @@ export function SettlementsPage() {
       <Card className="mt-4 gap-0 py-0" data-guide={tab === 'bank' ? 'settlement-bank' : undefined}>
         <FilterBar>
           {tab !== 'bank' && <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} />}
-          {tab === 'payments' && <FilterSelect label="Trạng thái tiền" value={status} onChange={f.setFilter('status')} options={Object.entries(PAYMENT_STATES).map(([value, meta]) => ({ value, label: `${meta.label} (${counts?.[value as keyof typeof PAYMENT_STATES] ?? 0})` }))} />}
-          {tab === 'bank' && <FilterSelect label="Loại" value={kind} onChange={f.setFilter('kind')} options={Object.entries(BANK_KINDS).map(([value, label]) => ({ value, label }))} />}
-          {tab === 'bank' && <FilterSelect label="Khớp sao kê" value={matched} onChange={f.setFilter('matched')} options={[{ value: 'false', label: 'Chưa khớp' }, { value: 'true', label: 'Đã khớp' }]} />}
-          {tab === 'runs' && can(P.settlementResolve) && <Button data-guide="settlement-pull" disabled={start.isPending || !shopId} onClick={() => void run()}>Kéo quyết toán</Button>}
+          {tab === 'payments' && <FilterSelect label="Trạng thái thanh toán" value={status} onChange={f.setFilter('status')} options={Object.entries(PAYMENT_STATES).map(([value, meta]) => ({ value, label: `${meta.label} (${counts?.[value as keyof typeof PAYMENT_STATES] ?? 0})` }))} />}
+          {tab === 'bank' && <FilterSelect label="Loại khoản" value={kind} onChange={f.setFilter('kind')} options={Object.entries(BANK_KINDS).map(([value, label]) => ({ value, label }))} />}
+          {tab === 'bank' && <FilterSelect label="Tình trạng đối chiếu" value={matched} onChange={f.setFilter('matched')} options={[{ value: 'false', label: 'Chưa khớp' }, { value: 'true', label: 'Đã khớp' }]} />}
+          {tab === 'runs' && can(P.settlementResolve) && <Button data-guide="settlement-pull" disabled={start.isPending || !shopId} onClick={() => void run()}>Lấy sao kê sàn</Button>}
         </FilterBar>
         {tab === 'payments' && (
           <>
-            <DataTable data={items} loading={payments.isLoading} fetching={payments.isFetching} getRowId={(p) => p.orderId} pagination={pagination} empty="Chưa có trạng thái tiền" onRowClick={(p) => navigate(ROUTES.company.settlement(companyId, p.orderId))} columns={[
-              { header: 'Đơn', accessorKey: 'orderCode', cell: ({ row }) => <span className="font-mono whitespace-nowrap">{row.original.orderCode ?? row.original.orderId}</span> },
-              { header: 'Trạng thái tiền', cell: ({ row }) => <span className="flex flex-wrap gap-1"><StatusBadge status={row.original.status} statuses={PAYMENT_STATES} /><FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
-              { header: 'Ước tính', meta: { numeric: true, help: 'Số Commerio tính theo cấu hình phí và thuế lúc giao.' }, cell: ({ row }) => <Money value={row.original.estimatedTotal} /> },
-              { header: 'Quyết toán', meta: { numeric: true, help: 'Số sàn thực trả cho đơn, có sau khi kéo quyết toán.' }, cell: ({ row }) => row.original.settledTotal === null ? '—' : <Money value={row.original.settledTotal} /> },
-              { header: 'Chênh lệch', meta: { numeric: true, help: 'Quyết toán trừ ước tính. Âm là sàn trả ít hơn.' }, cell: ({ row }) => row.original.diff === null ? '—' : <Money value={row.original.diff} /> },
-              { header: 'Duyệt lệch', cell: ({ row }) => row.original.ceoApproval ? 'CEO đã duyệt' : row.original.needsCeoApproval ? 'Cần CEO duyệt' : 'Trong hạn mức' },
+            <DataTable data={items} loading={payments.isLoading} fetching={payments.isFetching} getRowId={(p) => p.orderId} pagination={pagination} empty="Chưa có trạng thái thanh toán" onRowClick={(p) => navigate(ROUTES.company.settlement(companyId, p.orderId))} columns={[
+              { header: 'Mã đơn', accessorKey: 'orderCode', cell: ({ row }) => <span className="font-mono whitespace-nowrap">{row.original.orderCode ?? row.original.orderId}</span> },
+              { header: 'Trạng thái thanh toán', cell: ({ row }) => <span className="flex flex-wrap gap-1"><StatusBadge status={row.original.status} statuses={PAYMENT_STATES} /><FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
+              { header: 'Phải thu', meta: { numeric: true, help: 'Số phải thu theo sổ: giá bán trừ phí sàn và thuế sàn khấu trừ, tính theo cấu hình phí, thuế có hiệu lực ngày giao.' }, cell: ({ row }) => <Money value={row.original.estimatedTotal} /> },
+              { header: 'Sàn thanh toán', meta: { numeric: true, help: 'Số sàn thực trả cho đơn theo sao kê sàn, có sau khi lấy sao kê.' }, cell: ({ row }) => row.original.settledTotal === null ? '—' : <Money value={row.original.settledTotal} /> },
+              { header: 'Chênh lệch', meta: { numeric: true, help: 'Sàn thanh toán trừ phải thu. Âm là sàn trả thiếu.' }, cell: ({ row }) => row.original.diff === null ? '—' : <Money value={row.original.diff} /> },
+              { header: 'Phê duyệt', cell: ({ row }) => row.original.ceoApproval ? 'CEO đã duyệt' : row.original.needsCeoApproval ? 'Chờ CEO duyệt' : 'Không cần duyệt' },
             ]} />
             {items.length > 0 && (
               <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 border-t px-4 py-2.5 text-sm" data-testid="payments-total">
                 <span className="me-auto text-muted-foreground">Tổng trang này</span>
-                <span>Ước tính <Money className="font-medium" value={sumOf(items, (p) => p.estimatedTotal)} /></span>
-                <span>Quyết toán <Money className="font-medium" value={sumOf(items, (p) => p.settledTotal)} /></span>
-                <span>Lệch <Money className="font-medium" value={sumOf(items, (p) => p.diff)} /></span>
+                <span>Phải thu <Money className="font-medium" value={sumOf(items, (p) => p.estimatedTotal)} /></span>
+                <span>Sàn thanh toán <Money className="font-medium" value={sumOf(items, (p) => p.settledTotal)} /></span>
+                <span>Chênh lệch <Money className="font-medium" value={sumOf(items, (p) => p.diff)} /></span>
               </div>
             )}
           </>
         )}
-        {tab === 'runs' && <DataTable data={runs.data?.items ?? []} loading={runs.isLoading} fetching={runs.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa chạy đối soát" columns={[
-          { header: 'Thời điểm', cell: ({ row }) => formatDateTime(row.original.createdAt) },
+        {tab === 'runs' && <DataTable data={runs.data?.items ?? []} loading={runs.isLoading} fetching={runs.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa lấy sao kê sàn lần nào" columns={[
+          { header: 'Thời điểm lấy', cell: ({ row }) => formatDateTime(row.original.createdAt) },
           { header: 'Gian hàng', cell: ({ row }) => shops.data?.items.find((s) => s.id === row.original.shopId)?.shopName ?? row.original.shopId },
-          { header: 'Khoảng kéo', cell: ({ row }) => `${formatDateTime(row.original.from)} – ${formatDateTime(row.original.to)}` },
-          { header: 'Trạng thái', cell: ({ row }) => row.original.status === 'running' ? <Badge variant="info">Đang kéo</Badge> : row.original.status === 'done' ? <Badge variant="success">Hoàn tất</Badge> : <Badge variant="destructive">Lỗi: {row.original.error ?? 'Không rõ'}</Badge> },
-          { header: 'Dòng / trùng', meta: { numeric: true, help: 'Số dòng quyết toán kéo về / số dòng trùng đã bỏ qua.' }, cell: ({ row }) => `${row.original.lineCount} / ${row.original.duplicates}` },
-          { header: 'Lệch ví', meta: { numeric: true, help: 'Số dư ví sàn trừ số dư Commerio tính được. Khác 0 là còn khoản chưa ghi.' }, cell: ({ row }) => row.original.walletDiff === null ? <span className="text-muted-foreground">Sàn chưa trả số dư</span> : <Money value={row.original.walletDiff} className={row.original.walletDiff ? 'text-destructive' : ''} /> },
+          { header: 'Kỳ sao kê', cell: ({ row }) => `${formatDateTime(row.original.from)} – ${formatDateTime(row.original.to)}` },
+          { header: 'Trạng thái', cell: ({ row }) => row.original.status === 'running' ? <Badge variant="info">Đang lấy</Badge> : row.original.status === 'done' ? <Badge variant="success">Hoàn tất</Badge> : <Badge variant="destructive">Lỗi: {row.original.error ?? 'Không rõ'}</Badge> },
+          { header: 'Số dòng / trùng bỏ qua', meta: { numeric: true, help: 'Số dòng sao kê lấy về / số dòng trùng đã bỏ qua.' }, cell: ({ row }) => `${row.original.lineCount} / ${row.original.duplicates}` },
+          { header: 'Chênh lệch số dư ví', meta: { numeric: true, help: 'Số dư ví người bán theo sao kê sàn trừ số dư theo sổ Commerio. Khác 0 là còn khoản chưa ghi sổ.' }, cell: ({ row }) => row.original.walletDiff === null ? <span className="text-muted-foreground">Sàn không gửi số dư</span> : <Money value={row.original.walletDiff} className={row.original.walletDiff ? 'text-destructive' : ''} /> },
         ]} />}
-        {tab === 'bank' && <DataTable data={bank.data?.items ?? []} loading={bank.isLoading} fetching={bank.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa có khoản cần khớp" columns={[
-          { header: 'Ngày', cell: ({ row }) => formatDate(row.original.occurredOn) },
-          { header: 'Loại', cell: ({ row }) => BANK_KINDS[row.original.kind] ?? row.original.kind },
+        {tab === 'bank' && <DataTable data={bank.data?.items ?? []} loading={bank.isLoading} fetching={bank.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa có khoản cần đối chiếu" columns={[
+          { header: 'Ngày phát sinh', cell: ({ row }) => formatDate(row.original.occurredOn) },
+          { header: 'Loại khoản', cell: ({ row }) => BANK_KINDS[row.original.kind] ?? row.original.kind },
           { header: 'Số tiền', meta: { numeric: true }, cell: ({ row }) => <Money value={row.original.amount} /> },
           { header: 'Mã giao dịch sàn', accessorKey: 'txnId', cell: ({ row }) => <span className="font-mono">{row.original.txnId ?? '—'}</span> },
-          { header: 'Sao kê', cell: ({ row }) => row.original.bankMatch ? <span className="grid gap-0.5"><span className="flex flex-wrap items-center gap-2"><Badge variant="success">Đã khớp</Badge><span className="font-mono">{row.original.bankMatch.bankRef}</span></span><span className="text-xs text-muted-foreground" data-testid="bank-matched-by">{row.original.bankMatch.by.name}, {formatDateTime(row.original.bankMatch.at)}</span></span> : can(P.settlementResolve) ? <Button size="sm" onClick={() => setMatch(row.original)}>Khớp sao kê</Button> : <Badge variant="warning">Chưa khớp</Badge> },
+          { header: 'Sao kê ngân hàng', cell: ({ row }) => row.original.bankMatch ? <span className="grid gap-0.5"><span className="flex flex-wrap items-center gap-2"><Badge variant="success">Đã khớp</Badge><span className="font-mono">{row.original.bankMatch.bankRef}</span></span><span className="text-xs text-muted-foreground" data-testid="bank-matched-by">{row.original.bankMatch.by.name}, {formatDateTime(row.original.bankMatch.at)}</span></span> : can(P.settlementResolve) ? <Button size="sm" onClick={() => setMatch(row.original)}>Đối chiếu</Button> : <Badge variant="warning">Chưa khớp</Badge> },
         ]} />}
       </Card>
-      {match && <LifecycleActionDialog path={`/finance/ledger/${match.id}/bank-match`} title="Khớp sao kê" field="bankRef" description={`${BANK_KINDS[match.kind] ?? match.kind} ${formatDate(match.occurredOn)}: nhập mã giao dịch trên sao kê ngân hàng. Khớp rồi không sửa được.`} onClose={() => setMatch(null)} />}
+      {match && <LifecycleActionDialog path={`/finance/ledger/${match.id}/bank-match`} title="Đối chiếu ngân hàng" field="bankRef" description={`${BANK_KINDS[match.kind] ?? match.kind} ${formatDate(match.occurredOn)}: nhập mã giao dịch trên sao kê ngân hàng. Đã đối chiếu thì không sửa được.`} onClose={() => setMatch(null)} />}
     </div>
   );
 }
