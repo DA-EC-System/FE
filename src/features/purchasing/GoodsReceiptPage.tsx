@@ -69,19 +69,14 @@ const toForm = (r: GoodsReceipt): ReceiptFormInput => ({
 /** Đường chính trên thanh tiến trình (PATHS.gr của Test_UI) */
 const RECEIPT_PATH: GoodsReceiptStatus[] = ['counting', 'matched'];
 
-const ACTION_CONFIRM: Partial<Record<GoodsReceiptAction, { title: string; message: string }>> = {
-  post: {
-    title: 'Ghi sổ',
-    message: 'Hàng đạt vào tồn thực, hàng lỗi giữ lại vào chờ xử lý (kèm phiếu trả nhà cung cấp nháp). Phiếu đã ghi sổ không sửa được.',
-  },
-  post_short: {
-    title: 'Ghi sổ, báo giao thiếu',
-    message: 'Ghi sổ như trên; đề nghị gắn cờ "Nhà cung cấp giao thiếu" đến khi Mua hàng ghi kết quả.',
-  },
+/** Thân hộp xác nhận; tiêu đề và nút lấy đúng nhãn của bước trong `goodsReceiptMachine` để khớp nút ở đầu trang */
+const ACTION_CONFIRM: Partial<Record<GoodsReceiptAction, string>> = {
+  post: 'Hàng đạt cộng vào tồn kho. Hàng lỗi giữ lại chuyển vào khu Hàng lỗi/chờ kiểm, kèm sẵn phiếu trả hàng NCC nháp. Sau khi nhập kho, phiếu không sửa được.',
+  post_short: 'Nhập kho như trên. Đơn đặt hàng nhập được đánh dấu "Nhà cung cấp giao thiếu" đến khi có cách xử lý phần thiếu.',
 };
 
 /**
- * Phiếu nhận (sơ đồ A2). Kho lập từ đề nghị đã đặt nhà cung cấp, nhập báo giao, đạt, lỗi giữ, trả tại chỗ; thiếu tự tính.
+ * Phiếu nhập kho (sơ đồ A2). Kho lập từ đề nghị đã đặt nhà cung cấp, nhập báo giao, đạt, lỗi giữ, trả tại chỗ; thiếu tự tính.
  * Người ghi sổ khác người lập đề nghị. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu, nhà cung cấp nhận sai.
  */
 export function GoodsReceiptPage() {
@@ -162,7 +157,7 @@ export function GoodsReceiptPage() {
       load(latest);
       setNotice({
         severity: 'warning',
-        msg: 'Phiếu vừa được người khác sửa hoặc ghi sổ. Form đã hiện bản mới nhất, chưa có gì thay đổi.',
+        msg: 'Phiếu vừa được người khác sửa hoặc nhập kho. Trang đã hiện bản mới nhất, thay đổi của bạn chưa được lưu.',
       });
       return;
     }
@@ -254,6 +249,7 @@ export function GoodsReceiptPage() {
   if (!receipt) return <PageLoading />;
 
   const confirmText = confirm ? ACTION_CONFIRM[confirm] : undefined;
+  const confirmLabel = options.find((o) => o.transition.action === confirm)?.transition.label ?? '';
   const countInput = (i: number, key: CountKey, label: string, sku: string) => {
     const err = errors.lines?.[i]?.[key];
     return (
@@ -273,9 +269,9 @@ export function GoodsReceiptPage() {
   return (
     <div>
       <PageHeader
-        title={`Phiếu nhận ${receipt.number}`}
-        subtitle="Đếm hàng theo từng dòng rồi ghi sổ một lần."
-        help="Thiếu = báo giao − đạt − lỗi giữ − trả tại chỗ. Dòng có số chênh được đánh dấu ở mép trái; rê chuột vào nhãn Chênh để xem chênh gì. Có thiếu thì Mua hàng ghi kết quả: giao bù, đóng thiếu hoặc nhà cung cấp nhận sai."
+        title={`Phiếu nhập kho ${receipt.number}`}
+        subtitle="Đếm hàng từng dòng rồi bấm Nhập kho."
+        help="Thiếu = SL NCC giao − SL đạt − lỗi, giữ lại − trả lại ngay. Dòng có số chênh được đánh dấu ở mép trái; rê chuột vào nhãn ở cạnh SKU để xem chi tiết. Có thiếu thì chọn cách xử lý hàng thiếu: NCC giao bù, đóng phần thiếu hoặc kho đếm sai."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2" data-guide="gr-actions">
@@ -312,7 +308,7 @@ export function GoodsReceiptPage() {
       )}
       {receipt.status === 'counting' && receipt.deliveryMode === 'left' && (
         <AlertMessage severity="warning" className="mb-4">
-          Người giao đã đi: kiểm và ghi sổ trong 24 giờ kể từ khi lập phiếu ({formatDateTime(receipt.createdAt)}).
+          Người giao đã đi: kiểm và nhập kho trong 24 giờ kể từ khi lập phiếu ({formatDateTime(receipt.createdAt)}).
         </AlertMessage>
       )}
 
@@ -345,7 +341,7 @@ export function GoodsReceiptPage() {
                 <StatusBadge status={receipt.status} statuses={RECEIPT_STATUS} />
               </div>
             </Info>
-            <Info label="Đề nghị nhập">
+            <Info label="Đơn đặt hàng nhập">
               <DocLink companyId={companyId} docRef={{ type: 'purchase_request', ...receipt.request }} />
               {' · '}
               {receipt.supplier.name}
@@ -353,14 +349,14 @@ export function GoodsReceiptPage() {
             <Info label="Người lập">
               {receipt.createdBy} · {formatDateTime(receipt.createdAt)}
             </Info>
-            <Info label="Ghi sổ">{receipt.postedAt ? `${receipt.postedBy} · ${formatDateTime(receipt.postedAt)}` : '—'}</Info>
+            <Info label="Người nhập kho">{receipt.postedAt ? `${receipt.postedBy} · ${formatDateTime(receipt.postedAt)}` : '—'}</Info>
             {receipt.followsUp && (
               <Info label="Giao bù cho phiếu">
                 <DocLink companyId={companyId} docRef={receipt.followsUp} />
               </Info>
             )}
             {receipt.followUps.length > 0 && (
-              <Info label="Phiếu sinh tiếp">
+              <Info label="Phiếu giao bù">
                 <div className="flex flex-wrap gap-x-3">
                   {receipt.followUps.map((f) => (
                     <DocLink key={f.id} companyId={companyId} docRef={f} />
@@ -369,7 +365,7 @@ export function GoodsReceiptPage() {
               </Info>
             )}
             {receipt.shortResolution && (
-              <Info label="Kết quả giao thiếu">
+              <Info label="Xử lý hàng thiếu">
                 {RESOLUTION_LABELS[receipt.shortResolution.kind]}
                 {receipt.shortResolution.followUp && (
                   <>
@@ -394,7 +390,7 @@ export function GoodsReceiptPage() {
               try {
                 const next = await resolveMut.mutateAsync({ id: receipt.id, ...input, version });
                 load(next);
-                toast.success(`${next.number}: đã ghi kết quả giao thiếu`);
+                toast.success(`${next.number}: đã lưu cách xử lý hàng thiếu`);
               } catch (e) {
                 const problem = getProblem(e);
                 const errs = problem?.errors ?? {};
@@ -409,7 +405,7 @@ export function GoodsReceiptPage() {
           <CardContent className="grid gap-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-1.5">
-                <Label>Cách giao</Label>
+                <Label>Cách kiểm hàng</Label>
                 {editable ? (
                   <RadioGroup
                     value={deliveryMode}
@@ -442,12 +438,12 @@ export function GoodsReceiptPage() {
               <Table data-testid="receipt-lines">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Biến thể</TableHead>
-                    <TableHead className="w-20 text-right">Còn chờ</TableHead>
-                    <TableHead className="w-24 text-right">Báo giao</TableHead>
-                    <TableHead className="w-24 text-right">Đạt</TableHead>
-                    <TableHead className="w-24 text-right">Lỗi giữ</TableHead>
-                    <TableHead className="w-24 text-right">Trả tại chỗ</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="w-20 text-right">Còn phải nhận</TableHead>
+                    <TableHead className="w-24 text-right">SL NCC giao</TableHead>
+                    <TableHead className="w-24 text-right">SL đạt</TableHead>
+                    <TableHead className="w-24 text-right">Lỗi, giữ lại</TableHead>
+                    <TableHead className="w-24 text-right">Trả lại ngay</TableHead>
                     <TableHead className="w-20 text-right">Thiếu</TableHead>
                     <TableHead className="min-w-48" data-guide="gr-reason">Lý do</TableHead>
                   </TableRow>
@@ -494,7 +490,7 @@ export function GoodsReceiptPage() {
                         {(['announced', 'accepted', 'defectKept', 'returnedOnSpot'] as CountKey[]).map((key) => (
                           <TableCell key={key} className="text-right">
                             {editable
-                              ? countInput(i, key, { announced: 'Báo giao', accepted: 'Đạt', defectKept: 'Lỗi giữ', returnedOnSpot: 'Trả tại chỗ' }[key], f.sku)
+                              ? countInput(i, key, { announced: 'SL NCC giao', accepted: 'SL đạt', defectKept: 'Lỗi, giữ lại', returnedOnSpot: 'Trả lại ngay' }[key], f.sku)
                               : formatQty(line?.[key] ?? 0)}
                           </TableCell>
                         ))}
@@ -564,21 +560,22 @@ export function GoodsReceiptPage() {
 
       <SecondPersonDialog
         open={Boolean(confirmText)}
-        title={`${confirmText?.title ?? ''} ${receipt.number}?`}
-        ownerLabel="Người lập đề nghị"
+        title={`${confirmLabel} ${receipt.number}?`}
+        // API chưa trả tên người lập đơn đặt hàng (chỉ có requestCreatedById); hiện số đơn với nhãn đúng thay vì gắn số vào nhãn "Người lập"
+        ownerLabel="Đơn đặt hàng nhập"
         createdByName={receipt.request.number}
         selfApproval={receipt.requestCreatedById === actor.accountId}
-        confirmLabel={confirmText?.title}
+        confirmLabel={confirmLabel}
         loading={busy}
         onConfirm={() => confirm && onConfirmAction(confirm)}
         onClose={() => setConfirm(null)}
       >
-        {confirmText?.message}
+        {confirmText}
       </SecondPersonDialog>
       <ReasonDialog
         open={cancelling}
         title={`Huỷ phiếu ${receipt.number}`}
-        message="Phiếu chưa ghi sổ nên tồn kho không đổi; đề nghị vẫn còn chờ như cũ."
+        message="Phiếu chưa nhập kho nên tồn không đổi; đơn đặt hàng nhập vẫn còn chờ nhận như cũ."
         confirmLabel="Huỷ phiếu"
         destructive
         loading={busy}
@@ -629,8 +626,8 @@ function ShortResolutionCard({
   const submit = () => {
     const f = followUp.trim();
     const n = note.trim();
-    const fe = kind === 'follow_up' && !f ? 'Nhập số phiếu nhận giao bù' : null;
-    const ne = kind !== 'follow_up' && !n ? (kind === 'close_short' ? 'Nhập lý do đóng thiếu' : 'Ghi nhà cung cấp nhận sai thế nào') : n.length > 500 ? 'Tối đa 500 ký tự' : null;
+    const fe = kind === 'follow_up' && !f ? 'Nhập số phiếu nhập kho giao bù' : null;
+    const ne = kind !== 'follow_up' && !n ? (kind === 'close_short' ? 'Nhập lý do đóng thiếu' : 'Ghi rõ kho đếm sai thế nào') : n.length > 500 ? 'Tối đa 500 ký tự' : null;
     setFollowUpError(fe);
     setNoteError(ne);
     if (fe || ne) return;
@@ -643,7 +640,7 @@ function ShortResolutionCard({
   return (
     <Card className="border-destructive/40 py-4" data-testid="short-resolution">
       <CardHeader>
-        <CardTitle className="text-base">Ghi kết quả giao thiếu ({formatQty(receipt.shortQty)})</CardTitle>
+        <CardTitle className="text-base">Xử lý hàng thiếu ({formatQty(receipt.shortQty)})</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
         <RadioGroup value={kind} onValueChange={(v) => setKind(v as ShortResolutionKind)} className="grid gap-1">
@@ -656,7 +653,7 @@ function ShortResolutionCard({
         </RadioGroup>
         {kind === 'follow_up' && (
           <div className="grid gap-1.5 md:max-w-xs">
-            <Label htmlFor="follow-up-number">Số phiếu nhận giao bù</Label>
+            <Label htmlFor="follow-up-number">Số phiếu nhập kho giao bù</Label>
             <Input
               id="follow-up-number"
               placeholder="NH-000123"
@@ -665,7 +662,7 @@ function ShortResolutionCard({
               onChange={(e) => setFollowUp(e.target.value)}
             />
             {followUpError && <p className="text-sm text-destructive">{followUpError}</p>}
-            <p className="text-xs text-muted-foreground">Lập phiếu nhận mới ở đề nghị khi hàng bù tới, rồi ghi số phiếu đó ở đây.</p>
+            <p className="text-xs text-muted-foreground">Khi hàng bù tới, lập phiếu nhập kho mới từ đơn đặt hàng nhập rồi ghi số phiếu đó ở đây.</p>
           </div>
         )}
         <div className="grid gap-1.5">
@@ -681,7 +678,7 @@ function ShortResolutionCard({
         </div>
         <div>
           <Button disabled={loading} onClick={submit}>
-            {loading ? 'Đang ghi...' : 'Ghi kết quả'}
+            {loading ? 'Đang lưu...' : 'Lưu cách xử lý'}
           </Button>
         </div>
       </CardContent>
