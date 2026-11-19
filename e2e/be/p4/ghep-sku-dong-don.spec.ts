@@ -107,17 +107,17 @@ test.describe('P4-BE · Ghép SKU từ dòng đơn (FE#283)', () => {
 
     await page.goto(`/c/${companyId}/sales/orders/${orderId}`);
     const dong = page.locator('[data-testid=line-unmapped]').first();
-    await expect(dong).toContainText('Chưa ghép SKU');
-    await dong.getByRole('button', { name: 'Ghép SKU', exact: true }).click();
+    await expect(dong).toContainText('Chưa liên kết SKU');
+    await dong.getByRole('button', { name: 'Liên kết SKU', exact: true }).click();
     const hop = page.getByRole('dialog');
     await expect(hop).toContainText(sellerSku);
     await hop.getByRole('radio', { name: /Không quản tồn/ }).check();
     const match = page.waitForResponse((r) => apiPost(r, '/listings/match'));
     await hop.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
     expect((await match).status()).toBe(202);
-    await toast(page, `Đã gửi CEO duyệt ghép SKU sàn ${sellerSku}`);
+    await toast(page, `Đã gửi CEO duyệt liên kết SKU sàn ${sellerSku}`);
     await expect(dong.getByTestId('pending-mapping')).toHaveText('Chờ CEO duyệt');
-    await expect(dong.getByRole('button', { name: 'Ghép SKU', exact: true })).toHaveCount(0);
+    await expect(dong.getByRole('button', { name: 'Liên kết SKU', exact: true })).toHaveCount(0);
   });
 
   test('CEO thấy dòng đang chờ; từ chối thì nút "Ghép SKU" hiện lại', async ({ page }) => {
@@ -139,6 +139,6 @@ test.describe('P4-BE · Ghép SKU từ dòng đơn (FE#283)', () => {
 
     await page.reload();
     await expect(dong.getByTestId('pending-mapping')).toHaveCount(0);
-    await expect(dong.getByRole('button', { name: 'Ghép SKU', exact: true })).toBeVisible();
+    await expect(dong.getByRole('button', { name: 'Liên kết SKU', exact: true })).toBeVisible();
   });
 });

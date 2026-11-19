@@ -61,7 +61,7 @@ test.describe('P4-BE · Chi tiết đơn theo kiện (FE#282, FE#252)', () => {
     test.skip(!don, 'Công ty thử chưa có đơn Đang xử lý còn việc chưa xong');
     await page.goto(`/c/${companyId}/sales/orders/${don!.id}`);
     const blocker = page.getByTestId('completion-blocker');
-    await expect(blocker).toContainText('Chưa hoàn tất:');
+    await expect(blocker).toContainText('Chưa hoàn thành:');
     await expect(blocker).not.toContainText(/[a-z]+_[a-z]+/);
   });
 });
