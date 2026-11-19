@@ -6,11 +6,13 @@ import type {
   OrderStatus,
   LineCancelInitiator,
   LineCancelKind,
+  OrderLine,
   OrderSummary,
   PaymentMethod,
   ShippingAddress,
 } from '@/types/sales';
 import type { Gateway, PaymentStatus } from '@/types/payment';
+import { formatCurrency } from '@/utils/format';
 
 export type { BadgeVariant } from '@/components/common/StatusBadge';
 import type { BadgeVariant, StatusMeta } from '@/components/common/StatusBadge';
@@ -187,3 +189,49 @@ export const GATEWAY_LABELS: Record<Gateway, string> = {
 /** Nguồn đơn: đơn sàn hiện tên gian hàng */
 export const sourceLabel = (o: Pick<OrderSummary, 'source' | 'shop'>) =>
   o.source === 'marketplace' && o.shop ? o.shop.shopName : SOURCE_LABELS[o.source];
+
+type CancelLine = Pick<OrderLine, 'id' | 'sku' | 'productName' | 'quantity' | 'unitPrice' | 'cancelledQty' | 'cancelledAt' | 'cancelReason' | 'cancelReasonDetail' | 'cancelInitiator'>;
+
+/** Tiền hàng đã huỷ của đơn (đơn giá × số món đã huỷ), chưa trừ giảm giá; 0 khi chưa huỷ món nào. */
+export const cancelledAmountOf = (lines: readonly CancelLine[]) =>
+  lines.reduce((sum, l) => sum + l.unitPrice * (l.cancelledQty ?? 0), 0);
+
+/** Mọi món của đơn đã huỷ (BE#417: đơn giữ tiền lúc đặt, không thu). */
+export const allLinesCancelled = (lines: readonly CancelLine[]) =>
+  lines.length > 0 && lines.every((l) => (l.cancelledQty ?? 0) >= l.quantity);
+
+export interface LineCancelEvent {
+  key: string;
+  /** Lúc app ghi huỷ món; null với món huỷ trước BE#417 (không có giờ) */
+  at: string | null;
+  title: string;
+  reason: string | null;
+  /** Tiền hàng còn lại sau lần huỷ này (đơn giá × món chưa huỷ, chưa trừ giảm giá, chưa cộng phí ship) */
+  remaining: number;
+}
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * Dòng lịch sử "huỷ món" (BE#417), cũ trước mới sau: ai huỷ món nào, bao nhiêu tiền, lý do, tiền hàng còn lại. Để người
+ * xem biết vì sao tiền lúc đặt khác tiền còn thu. Món huỷ trước BE#417 không có giờ: xếp trước, `at` null.
+ */
+export function lineCancelEvents(lines: readonly CancelLine[]): LineCancelEvent[] {
+  const cancelled = lines
+    .filter((l) => (l.cancelledQty ?? 0) > 0)
+    .sort((a, b) => (a.cancelledAt ?? '').localeCompare(b.cancelledAt ?? ''));
+  let remaining = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+  return cancelled.map((l) => {
+    const qty = l.cancelledQty ?? 0;
+    remaining -= l.unitPrice * qty;
+    const who = l.cancelInitiator ? capitalize(initiatorLabel(l.cancelInitiator)) : 'Sàn';
+    const reason = l.cancelReason && l.cancelReasonDetail ? `${l.cancelReason} (${l.cancelReasonDetail})` : l.cancelReason || l.cancelReasonDetail || null;
+    return {
+      key: l.id,
+      at: l.cancelledAt ?? null,
+      title: `${who} huỷ ${qty < l.quantity ? `${qty}/${l.quantity} ` : ''}món ${l.productName || l.sku} (${formatCurrency(l.unitPrice * qty)})`,
+      reason,
+      remaining,
+    };
+  });
+}

@@ -145,6 +145,10 @@ export interface OrderLine {
   productName: string;
   attributesLabel: string;
   quantity: number;
+  /** Số món sàn đã huỷ của dòng (0..quantity); dòng huỷ hết không tính vào tạm tính, tổng của đơn (BE trả từ 19/11/2026) */
+  cancelledQty?: number;
+  /** Lúc app ghi huỷ món theo sàn báo (BE#417); null khi chưa huỷ, hay huỷ trước BE#417. FE xen vào lịch sử đơn */
+  cancelledAt?: string | null;
   /** Giá chuẩn lúc tạo đơn, ghi cứng vào dòng (QT-12) */
   unitPrice: number;
   lineTotal: number;
@@ -192,7 +196,10 @@ export interface Order extends OrderSummary {
   note: string;
   /** Ghi chú khách để lại trên sàn */
   buyerNote?: string | null;
+  /** Lý do huỷ cả đơn; huỷ một phần món thì null (lý do ở từng dòng) */
   cancelReason: string | null;
+  /** Những người đã huỷ món của đơn, không trùng, thứ tự buyer, seller, platform; suy ra từ `cancelInitiator` của dòng đã huỷ (21 §19.1, DH-B06, BE#417). Chưa món nào huỷ: `[]` */
+  cancelInitiators?: LineCancelInitiator[];
   /** Số hoá đơn gửi lên sàn (Lazada SetInvoiceNumber), §19.3 */
   invoiceNumber: string | null;
   lines: OrderLine[];

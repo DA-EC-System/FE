@@ -52,7 +52,8 @@ export function isHotPackage(p: Pick<PackageSummary, 'status' | 'shipBy'>, now: 
 }
 
 export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
-  cancel: 'Đơn đã huỷ, trả hàng về kệ',
+  // Kiện chờ mở để huỷ có thể chỉ vì một món bị huỷ, đơn vẫn chạy tiếp (test đêm 18/11/2026, KH-B09)
+  cancel: 'Hàng trong kiện đã huỷ, trả hàng về kệ',
   edit: 'Sửa kiện',
   resplit: 'Chia lại kiện',
 };

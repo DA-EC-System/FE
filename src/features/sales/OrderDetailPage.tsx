@@ -33,6 +33,10 @@ import type { PackageSummary } from '@/types/fulfillment';
 import type { Order, OrderStatus } from '@/types/sales';
 import {
   COMPLETION_BLOCKER_LABELS,
+  allLinesCancelled,
+  cancelledAmountOf,
+  initiatorLabel,
+  lineCancelEvents,
   ORDER_STATUS,
   wardNote,
   lineCancelPending,
@@ -115,6 +119,10 @@ export function OrderDetailPage() {
 
   const isMarketplace = order.source === 'marketplace';
   const hasPaid = order.lines.some((l) => l.paidPrice != null);
+  // Tiền khi có món đã huỷ (BE#417): huỷ hết món giữ giá trị lúc đặt, không thu; huỷ một phần thì chỉ thu món còn lại.
+  const cancelledAmount = cancelledAmountOf(order.lines);
+  const wholeCancelled = order.status === 'cancelled' || allLinesCancelled(order.lines);
+  const partlyCancelled = !wholeCancelled && cancelledAmount > 0;
   const available = orderMachine.available(order.status, actor, orderRecord(order)).map((t) => t.action);
   const canConfirm = available.includes('confirm');
   const cancelRequested = order.flags.includes('cancel_requested');
@@ -280,7 +288,28 @@ export function OrderDetailPage() {
       </Card>
 
       <DetailGrid
-        history={<StatusTimeline history={order.statusHistory} statuses={ORDER_STATUS} />}
+        history={
+          <StatusTimeline
+            history={order.statusHistory}
+            statuses={ORDER_STATUS}
+            events={lineCancelEvents(order.lines).map((e) => ({
+              key: e.key,
+              at: e.at,
+              content: (
+                <div className="grid gap-1" data-testid="line-cancel-event">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{e.title}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {e.at ? formatDateTime(e.at) : 'trước 19/11/2026'}
+                    </span>
+                  </div>
+                  {e.reason && <p>Lý do: {e.reason}</p>}
+                  <p className="text-muted-foreground">Tiền hàng còn lại: {formatCurrency(e.remaining)}</p>
+                </div>
+              ),
+            }))}
+          />
+        }
       >
           <Card className="py-4" data-guide="order-info">
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -312,6 +341,11 @@ export function OrderDetailPage() {
                 )}
               </Info>
               {order.note && <Info label="Ghi chú">{order.note}</Info>}
+              {!!order.cancelInitiators?.length && (
+                <Info label="Người huỷ">
+                  <span data-testid="cancel-initiators">{order.cancelInitiators.map(initiatorLabel).join(', ')}</span>
+                </Info>
+              )}
               {order.cancelReason && <Info label="Lý do huỷ">{order.cancelReason}</Info>}
               <Info label="Số hoá đơn">
                 <span className="inline-flex items-center gap-1" data-testid="invoice-number">
@@ -372,7 +406,14 @@ export function OrderDetailPage() {
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(l.unitPrice)}</TableCell>
                       <TableCell className="text-right">{l.quantity}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(l.lineTotal)}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={(l.cancelledQty ?? 0) >= l.quantity ? 'text-muted-foreground line-through' : undefined}>
+                          {formatCurrency(l.lineTotal)}
+                        </span>
+                        {(l.cancelledQty ?? 0) > 0 && (l.cancelledQty ?? 0) < l.quantity && (
+                          <p className="text-xs text-muted-foreground">đã huỷ {l.cancelledQty}/{l.quantity}</p>
+                        )}
+                      </TableCell>
                       {hasPaid && (
                         <TableCell className="text-right">
                           {l.paidPrice != null && (
@@ -395,6 +436,18 @@ export function OrderDetailPage() {
               </Table>
             </div>
             <div className="ms-auto grid w-full max-w-xs gap-2 p-4 text-sm">
+              {partlyCancelled && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tiền hàng lúc đặt</span>
+                    <span>{formatCurrency(order.subtotal + cancelledAmount)}</span>
+                  </div>
+                  <div className="flex justify-between" data-testid="cancelled-amount">
+                    <span className="text-muted-foreground">Đã huỷ món</span>
+                    <span>−{formatCurrency(cancelledAmount)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tạm tính</span>
                 <span>{formatCurrency(order.subtotal)}</span>
@@ -424,10 +477,15 @@ export function OrderDetailPage() {
                 <span>{formatCurrency(order.shippingFee)}</span>
               </div>
               <Separator />
-              <div className="flex justify-between text-base font-semibold">
-                <span>Tổng</span>
-                <span>{formatCurrency(order.total)}</span>
+              <div className="flex justify-between text-base font-semibold" data-testid="order-total">
+                <span>{wholeCancelled ? 'Giá trị lúc đặt' : partlyCancelled ? 'Còn thu' : 'Tổng'}</span>
+                <span className={wholeCancelled ? 'text-muted-foreground line-through' : undefined}>{formatCurrency(order.total)}</span>
               </div>
+              {wholeCancelled && (
+                <p className="text-end text-muted-foreground" data-testid="cancelled-no-charge">
+                  Đơn đã huỷ, không thu tiền
+                </p>
+              )}
             </div>
           </Card>
 

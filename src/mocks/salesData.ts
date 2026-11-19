@@ -97,6 +97,9 @@ export interface MockOrder {
 }
 
 export interface MockPlatformLine {
+  /** Số món sàn đã huỷ và lúc ghi huỷ (BE#417) */
+  cancelledQty?: number;
+  cancelledAt?: string;
   externalSkuId?: string;
   externalShopSku?: string;
   externalProductId?: string;
