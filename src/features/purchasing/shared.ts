@@ -93,39 +93,123 @@ export const supplierSchema = z.object({
 });
 export type SupplierForm = z.input<typeof supplierSchema>;
 
-/** Dòng đề nghị trên form: biến thể có sẵn hoặc sản phẩm mới (tên + danh mục) */
+/** Một trục phân loại của dòng sản phẩm mới: tên trục (thuộc tính) và giá trị */
+export interface NewProductOption {
+  axis: string;
+  value: string;
+}
+
+/** Sản phẩm cha tối đa 2 trục phân loại (Documents/21, 422 `too_many_axes`) */
+export const MAX_AXES = 2;
+
+/**
+ * Dòng đề nghị trên form: biến thể có sẵn hoặc sản phẩm mới. Sản phẩm mới thuộc một cha có sẵn (`parentId`, trục theo
+ * cha đó) hoặc một cha mới (`parentName` + danh mục, trục tự chọn); các dòng cùng tên cha mới gộp một cha (BE#243).
+ */
 export interface RequestLineDraft {
   variantId: string | null;
   sku: string;
   productName: string;
   attributesLabel: string;
   isNew: boolean;
-  newName: string;
+  parentMode: 'existing' | 'new';
+  /** Cha có sẵn; rỗng khi chưa chọn hoặc cha mới */
+  parentId: string;
+  /** Tên cha mới, hoặc tên của cha có sẵn đã chọn (để hiển thị và ghép tên) */
+  parentName: string;
   categoryId: string;
+  options: NewProductOption[];
   quantity: string;
   unitCost: string;
 }
+
+/** Khoá gộp dòng cùng cha: cha có sẵn theo id, cha mới theo tên không phân biệt hoa thường, khoảng trắng */
+export const parentKey = (l: Pick<RequestLineDraft, 'parentMode' | 'parentId' | 'parentName'>) =>
+  l.parentMode === 'existing' ? `id:${l.parentId}` : `new:${l.parentName.trim().replace(/\s+/g, ' ').toLowerCase()}`;
+
+/** Các trục đã điền giá trị của một dòng */
+export const filledOptions = (options: NewProductOption[]) =>
+  options.map((o) => ({ axis: o.axis.trim(), value: o.value.trim() })).filter((o) => o.axis && o.value);
+
+/** "Màu sắc: Đỏ · Kích cỡ: M" */
+export const optionsLabel = (values: Record<string, string> | NewProductOption[] | undefined) => {
+  const list = Array.isArray(values) ? filledOptions(values) : Object.entries(values ?? {}).map(([axis, value]) => ({ axis, value }));
+  return list.map((o) => `${o.axis}: ${o.value}`).join(' · ');
+};
+
+const optionSchema = z.object({ axis: z.string(), value: z.string().trim().max(60, 'Tối đa 60 ký tự') });
 
 const requestLineSchema = z
   .object({
     variantId: z.string().nullable(),
     isNew: z.boolean(),
-    newName: z.string().trim().max(120, 'Tối đa 120 ký tự'),
+    parentMode: z.enum(['existing', 'new']),
+    parentId: z.string(),
+    parentName: z.string().trim().max(120, 'Tối đa 120 ký tự'),
     categoryId: z.string(),
+    options: z.array(optionSchema).max(MAX_AXES),
     quantity: qtyText(1, MAX_QTY),
     unitCost: moneyText('Giá nhập'),
   })
   .superRefine((l, ctx) => {
     if (!l.isNew) return;
-    if (!l.newName) ctx.addIssue({ code: 'custom', path: ['newName'], message: 'Nhập tên sản phẩm mới' });
-    if (!l.categoryId) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Chọn danh mục' });
+    if (l.parentMode === 'existing') {
+      if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm cha' });
+    } else {
+      if (!l.parentName) ctx.addIssue({ code: 'custom', path: ['parentName'], message: 'Nhập tên sản phẩm cha' });
+      if (!l.categoryId) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Chọn danh mục' });
+    }
+    const seen = new Set<string>();
+    l.options.forEach((o, k) => {
+      const axis = o.axis.trim();
+      if (axis && !o.value) ctx.addIssue({ code: 'custom', path: ['options', k, 'value'], message: `Nhập ${axis.toLowerCase()}` });
+      if (!axis && o.value) ctx.addIssue({ code: 'custom', path: ['options', k, 'axis'], message: 'Chọn trục phân loại' });
+      if (axis && seen.has(axis)) ctx.addIssue({ code: 'custom', path: ['options', k, 'axis'], message: 'Trục bị lặp' });
+      seen.add(axis);
+    });
   });
 
-export const requestFormSchema = z.object({
-  supplierId: z.string().min(1, 'Chọn nhà cung cấp'),
-  note: z.string().trim().max(500, 'Tối đa 500 ký tự'),
-  lines: z.array(requestLineSchema).min(1, 'Thêm ít nhất một dòng').max(100, 'Tối đa 100 dòng'),
-});
+/**
+ * Luật giữa các dòng sản phẩm mới cùng cha (Documents/21): cha mới tối đa 2 trục lấy từ các dòng, dòng nào cũng có
+ * giá trị cho mọi trục của cha; cùng cha không trùng tổ hợp giá trị. Lỗi gắn ở `lines.<i>.options`.
+ */
+function checkNewProductGroups(lines: z.output<typeof requestLineSchema>[], ctx: z.RefinementCtx) {
+  const groups = new Map<string, number[]>();
+  lines.forEach((l, i) => {
+    if (!l.isNew || (l.parentMode === 'existing' ? !l.parentId : !l.parentName)) return;
+    const key = parentKey(l);
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  });
+  const issue = (i: number, message: string) => ctx.addIssue({ code: 'custom', path: ['lines', i, 'options'], message });
+  for (const [key, idx] of groups) {
+    const axes = [...new Set(idx.flatMap((i) => filledOptions(lines[i]!.options).map((o) => o.axis)))];
+    if (key.startsWith('new:') && axes.length > MAX_AXES) {
+      idx.forEach((i) => issue(i, `Các dòng cùng sản phẩm cha có ${axes.length} trục phân loại; tối đa ${MAX_AXES}`));
+      continue;
+    }
+    const combos = new Map<string, number>();
+    for (const i of idx) {
+      const values = Object.fromEntries(filledOptions(lines[i]!.options).map((o) => [o.axis, o.value.toLowerCase()]));
+      const missing = axes.filter((a) => !values[a]);
+      if (key.startsWith('new:') && missing.length) {
+        issue(i, `Thiếu ${missing.join(', ').toLowerCase()}: các dòng cùng sản phẩm cha dùng chung trục phân loại`);
+        continue;
+      }
+      const combo = axes.map((a) => values[a]).join('|');
+      const first = combos.get(combo);
+      if (first !== undefined) issue(i, `Trùng phân loại với dòng ${first + 1} cùng sản phẩm cha`);
+      else combos.set(combo, i);
+    }
+  }
+}
+
+export const requestFormSchema = z
+  .object({
+    supplierId: z.string().min(1, 'Chọn nhà cung cấp'),
+    note: z.string().trim().max(500, 'Tối đa 500 ký tự'),
+    lines: z.array(requestLineSchema).min(1, 'Thêm ít nhất một dòng').max(100, 'Tối đa 100 dòng'),
+  })
+  .superRefine((v, ctx) => checkNewProductGroups(v.lines, ctx));
 
 export interface RequestFormInput {
   supplierId: string;

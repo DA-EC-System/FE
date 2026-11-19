@@ -46,7 +46,8 @@ import type { PageResult } from '@/api/types';
 import { PERMISSIONS } from '@/utils/permissions';
 import { API, LATENCY, checkTransition, pageParams, paginate, problem, requireCompany, type CompanyActor } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
-import { findOwned, nextVariant, rid } from './catalog';
+import { findOwned, rid } from './catalog';
+import { checkReplacementLines, createNewProducts, validateNewProducts } from './purchasingNewProduct';
 import { purchasable } from '@/lib/machines/product';
 import { MAX_QTY, accountName, createQuarantineWriteOff, findVariant, isQty, rebalance, stockLevelOf, variantLabel } from './inventory';
 
@@ -197,7 +198,7 @@ function lineView(companyId: string, l: MockPurchaseRequestLine, showCost: boole
     id: l.id,
     variantId: l.variantId,
     sku: label?.sku ?? null,
-    productName: label?.productName || l.newProduct?.name || '',
+    productName: label?.productName || l.newProduct?.parentName || l.newProduct?.name || '',
     attributesLabel: label?.attributesLabel ?? '',
     newProduct: l.newProduct
       ? { ...l.newProduct, categoryName: catalog.categories.find((c) => c.id === l.newProduct!.categoryId)?.name ?? '' }
@@ -262,17 +263,17 @@ function buildRequestLines(companyId: string, body: PurchaseRequestInput, old: M
   if (!Array.isArray(body.lines)) return { errors: { lines: 'Thêm ít nhất một dòng' }, lines: [] };
   if (body.lines.length > 100) errors.lines = 'Tối đa 100 dòng';
   const seen = new Set<string>();
+  const newProducts = validateNewProducts(
+    companyId,
+    body.lines.flatMap((l, index) => (l.newProduct ? [{ index, input: l.newProduct }] : [])),
+    errors,
+  );
   const lines: MockPurchaseRequestLine[] = body.lines.map((l, i) => {
     const path = `lines.${i}`;
     let variantId: string | null = null;
     let newProduct: MockPurchaseRequestLine['newProduct'] = null;
     if (l.newProduct) {
-      const name = String(l.newProduct.name ?? '').trim();
-      if (!name) errors[`${path}.newProduct.name`] = 'Nhập tên sản phẩm mới';
-      else if (name.length > 120) errors[`${path}.newProduct.name`] = 'Tối đa 120 ký tự';
-      const cat = catalog.categories.find((c) => c.id === l.newProduct!.categoryId && c.companyId === companyId);
-      if (!cat) errors[`${path}.newProduct.categoryId`] = 'Chọn danh mục';
-      newProduct = { name, categoryId: String(l.newProduct.categoryId ?? '') };
+      newProduct = newProducts.get(i) ?? null;
     } else {
       const found = findVariant(String(l.variantId ?? ''));
       if (!found || found.product.companyId !== companyId) errors[`${path}.variantId`] = 'Chọn sản phẩm';
@@ -306,28 +307,6 @@ function checkSupplier(companyId: string, supplierId: unknown, errors: Errors) {
   if (!s) errors.supplierId = 'Chọn nhà cung cấp';
   else if (!s.active) errors.supplierId = 'Nhà cung cấp đã ngừng giao dịch';
   return s ?? null;
-}
-
-/** Duyệt: chốt giá, dòng sản phẩm mới sinh sản phẩm + SKU theo quy tắc danh mục */
-function createNewProducts(req: MockPurchaseRequest, at: string) {
-  for (const l of req.lines) {
-    if (l.excluded || !l.newProduct || l.variantId) continue;
-    const category = catalog.categories.find((c) => c.id === l.newProduct!.categoryId)!;
-    const variant = nextVariant(category, []);
-    catalog.products.push({
-      id: rid('prd'),
-      companyId: req.companyId,
-      categoryId: category.id,
-      name: l.newProduct.name,
-      description: `Tạo từ đề nghị nhập ${req.number}`,
-      imageFileIds: [],
-      variants: [variant],
-      archivedAt: null,
-      updatedAt: at,
-      version: 1,
-    });
-    l.variantId = variant.id;
-  }
 }
 
 /** Phiếu giao thiếu tự sang Đã xử lý khi đề nghị nhận đủ hoặc bị đóng thiếu */
@@ -756,6 +735,7 @@ export const purchasingHandlers = [
     if (body.sourceReturnId && (!source || source.status !== 'replaced' || source.replacementRequest)) {
       errors.sourceReturnId = 'Phiếu trả nhà cung cấp không ở trạng thái bù hàng, hoặc đã có đề nghị bù';
     }
+    if (source) checkReplacementLines(source, lines, errors);
     if (hasErrors(errors)) return invalid(errors);
     const at = db.now();
     const req: MockPurchaseRequest = {
@@ -862,6 +842,8 @@ export const purchasingHandlers = [
     }
     const { errors, lines } = buildRequestLines(companyId, body, req.lines);
     checkSupplier(companyId, body.supplierId, errors);
+    const source = req.sourceReturnId ? data.returns.find((t) => t.id === req.sourceReturnId) : null;
+    if (source) checkReplacementLines(source, lines, errors);
     if (hasErrors(errors)) return invalid(errors);
     const before = requestSnapshot(req);
     req.supplierId = body.supplierId;

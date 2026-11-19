@@ -1,6 +1,6 @@
 // P2 · Mua hàng (sơ đồ A1 đề nghị nhập, A2 phiếu nhận, B4 trả nhà cung cấp; FE#17)
 import { type Page } from '@playwright/test';
-import { chua, dangNhap, expect, menu, test, thayChu, toast } from '../../fixtures';
+import { chon, chua, dangNhap, expect, menu, test, thayChu, toast } from '../../fixtures';
 
 const moTab = async (page: Page, tab: string, number: string) => {
   await menu(page, 'Mua hàng');
@@ -96,6 +96,75 @@ test.describe('P2 · Mua hàng', () => {
       await expect(khoa.first()).toContainText('80.000');
       await expect(khoa.first()).toContainText('Theo giá dòng gốc TN-000001');
       await expect(page.getByTestId('request-lines').getByRole('textbox', { name: /^Giá nhập/ })).toHaveCount(0);
+
+      // Chỉ SKU đã trả, số không quá số đã trả (#365)
+      await expect(page.getByRole('button', { name: 'Sản phẩm mới', exact: true })).toHaveCount(0);
+      await expect(page.getByTestId('request-lines')).toContainText('Đã trả 1');
+      await page.getByRole('textbox', { name: /^Số lượng/ }).first().fill('3');
+      await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
+      await expect(page.getByText('Không quá số đã trả 1', { exact: true })).toBeVisible();
+      await page.getByRole('textbox', { name: /^Số lượng/ }).first().fill('1');
+      await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
+      await expect(page.getByTestId('request-status')).toContainText('Nháp');
+    });
+
+    test('dòng sản phẩm mới: cha mới gộp các dòng cùng tên, cha có sẵn theo trục của cha; duyệt sinh SKU (US-NH-01; BE#243)', async ({ page }) => {
+      await page.goto('/c/cmp-001/purchasing/requests/new');
+      await page.locator('#req-supplier').click();
+      await page.getByRole('option', { name: 'Xưởng may Thành Công', exact: true }).click();
+      const bang = page.getByTestId('request-lines');
+      const them = () => page.getByRole('button', { name: 'Sản phẩm mới', exact: true }).click();
+
+      // Hai dòng cha mới cùng tên "Áo len", trục Màu sắc; dòng thứ hai trùng giá trị
+      for (let i = 0; i < 2; i++) {
+        await them();
+        const dongMoi = page.getByTestId(`new-product-${i}`);
+        await dongMoi.getByLabel(/^Tên sản phẩm cha/).fill('Áo len');
+        await chon(dongMoi, `Danh mục Áo len`, 'Áo');
+        await chon(dongMoi, `Trục phân loại 1 Áo len`, 'Màu sắc');
+        await dongMoi.getByLabel(/^Màu sắc/).fill('Kem');
+      }
+      await bang.getByRole('textbox', { name: /^Số lượng/ }).nth(0).fill('10');
+      await bang.getByRole('textbox', { name: /^Số lượng/ }).nth(1).fill('5');
+      await bang.getByRole('textbox', { name: /^Giá nhập/ }).nth(0).fill('120000');
+      await bang.getByRole('textbox', { name: /^Giá nhập/ }).nth(1).fill('120000');
+      await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
+      await expect(page.getByTestId('new-product-1')).toContainText('Trùng phân loại với dòng 1 cùng sản phẩm cha');
+      await page.getByTestId('new-product-1').getByLabel(/^Màu sắc/).fill('Xám');
+
+      // Cha có sẵn: trục lấy từ sản phẩm, trùng phân loại đã có thì BE báo tại ô
+      await them();
+      const coSan = page.getByTestId('new-product-2');
+      await coSan.getByText('Cha có sẵn', { exact: true }).click();
+      await coSan.getByRole('combobox', { name: /^Sản phẩm cha/ }).fill('kaki');
+      await page.getByRole('option', { name: /Quần kaki ống suông/ }).click();
+      await expect(coSan.getByLabel(/^Kích cỡ/)).toBeVisible();
+      await coSan.getByLabel(/^Kích cỡ/).fill('XL');
+      await bang.getByRole('textbox', { name: /^Số lượng/ }).nth(2).fill('4');
+      await bang.getByRole('textbox', { name: /^Giá nhập/ }).nth(2).fill('150000');
+      await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
+      await expect(coSan).toContainText('Phân loại này đã có trong sản phẩm cha');
+      await coSan.getByLabel(/^Kích cỡ/).fill('XXL');
+      await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
+      await expect(page).toHaveURL(/\/purchasing\/requests\/(?!new)[^/]+$/);
+      // Nháp đã lưu nạp lại từ phản hồi của server: ô nhập giữ cha, trục, giá trị
+      await expect(page.getByTestId('new-product-0').getByLabel(/^Tên sản phẩm cha/)).toHaveValue('Áo len');
+      await expect(page.getByTestId('new-product-1').getByLabel(/^Màu sắc/)).toHaveValue('Xám');
+      await expect(page.getByTestId('new-product-2').getByLabel(/^Kích cỡ/)).toHaveValue('XXL');
+
+      // Gửi duyệt thì chỉ xem: hiện phân loại và loại cha
+      await thaoTac(page, 'Gửi duyệt');
+      await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
+      await expect(bang).toContainText('Màu sắc: Kem · Cha mới · Danh mục Áo');
+      await expect(bang).toContainText('Kích cỡ: XXL · Cha có sẵn');
+
+      // CEO tự duyệt: sinh một sản phẩm "Áo len" hai SKU và thêm SKU vào Quần kaki
+      await thaoTac(page, 'Duyệt');
+      await expect(page.getByTestId('request-status')).toContainText('Đã duyệt');
+      await expect(bang).toContainText('AO-');
+      await expect(bang).toContainText('QU-');
+      await expect(bang).toContainText('Áo len · Xám');
+      await expect(bang).toContainText('Quần kaki ống suông · XXL');
     });
 
     test('tồn dưới ngưỡng: thêm vào đề nghị nhập nháp (B2 → A1)', async ({ page }) => {

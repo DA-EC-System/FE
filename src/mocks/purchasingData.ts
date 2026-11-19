@@ -244,7 +244,7 @@ export const requests: MockPurchaseRequest[] = [
     note: 'Thắt lưng sắp hết; thử thêm ví da nam.',
     lines: [
       line('prl-005', 'prd-003-v1', 30, 205000),
-      line('prl-006', null, 10, 150000, { newProduct: { name: 'Ví da nam', categoryId: 'cat-pk' } }),
+      line('prl-006', null, 10, 150000, { newProduct: { parentId: null, parentName: 'Ví da nam', categoryId: 'cat-pk', optionValues: { 'Màu sắc': 'Nâu' }, name: 'Ví da nam Nâu' } }),
     ],
     createdBy: CEO.id,
     createdAt: '2026-10-24T02:00:00.000Z',
