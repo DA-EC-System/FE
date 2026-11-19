@@ -48,5 +48,13 @@ export const ruleOf = (categoryId: string) => categoryRules[categoryId] ?? DEFAU
 /** Giới hạn BE kiểm khi lưu, FE không chặn trước để thấy lỗi theo dòng */
 export const SPEC_LIMITS = { weightG: 50000, sizeMm: 2000, maxRows: 200 } as const;
 
+/** Câu lỗi vượt trần như BE (`catalog/domain/measure.ts`, commerio-backend#434) */
+export const SPEC_TOO_BIG: Record<string, string> = {
+  weightG: 'Cân nặng tối đa 50 kg',
+  lengthMm: 'Chiều dài tối đa 2.000 mm',
+  widthMm: 'Chiều rộng tối đa 2.000 mm',
+  heightMm: 'Chiều cao tối đa 2.000 mm',
+};
+
 /** Số ngày bán dùng tính tốc độ bán */
 export const VELOCITY_DAYS = 30;

@@ -4,7 +4,7 @@ import * as inventory from '../inventoryData';
 import * as purchasing from '../purchasingData';
 import * as pricing from '../pricingData';
 import * as sales from '../salesData';
-import { SPEC_LIMITS, VELOCITY_DAYS, ruleOf, specOf } from '../catalogBulkData';
+import { SPEC_LIMITS, SPEC_TOO_BIG, VELOCITY_DAYS, ruleOf, specOf } from '../catalogBulkData';
 import type { MockProduct, MockVariant } from '../catalogData';
 import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow, BulkSuggestion } from '@/types/catalog';
 import type { PageResult } from '@/api/types';
@@ -203,9 +203,9 @@ export const catalogBulkHandlers = [
         const v = row[f];
         if (v === undefined || v === null) continue;
         if (!isPositiveInt(v)) errors[f] = 'Phải là số nguyên dương';
-        else if (f === 'weightG' && v > SPEC_LIMITS.weightG) errors[f] = 'Quá 50 kg, kiểm tra lại đơn vị gram';
+        else if (f === 'weightG' && v > SPEC_LIMITS.weightG) errors[f] = SPEC_TOO_BIG[f];
         else if (f !== 'weightG' && f !== 'standardPrice' && f !== 'minQty' && v > SPEC_LIMITS.sizeMm) {
-          errors[f] = 'Quá 2 m, kiểm tra lại đơn vị mm';
+          errors[f] = SPEC_TOO_BIG[f];
         }
       }
       if (row.minQty !== undefined && !permissions.includes(PERMISSIONS.reorderManage)) {

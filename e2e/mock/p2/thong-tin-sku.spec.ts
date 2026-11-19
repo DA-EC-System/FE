@@ -29,11 +29,11 @@ test.describe('P2 · Thông tin SKU', () => {
       await expect(v4.getByTestId('variant-readiness')).toContainText('Thiếu cân nặng, kích thước gói');
 
       await moSuaSku(page, 'prd-001-v4');
-      await expect(o(page, 'Giá chuẩn (đ)')).toHaveValue('150000');
-      await expect(o(page, 'Giá muốn bán – số muốn thực nhận (đ)')).toHaveValue('150000');
-      await o(page, 'Giá chuẩn (đ)').fill('159.000');
-      await o(page, 'Giá muốn bán – số muốn thực nhận (đ)').fill('140.000');
-      await o(page, 'Cân nặng (g)').fill('210');
+      await expect(o(page, 'Giá bán lẻ (đ)')).toHaveValue('150000');
+      await expect(o(page, 'Thực nhận mong muốn (đ)')).toHaveValue('150000');
+      await o(page, 'Giá bán lẻ (đ)').fill('159.000');
+      await o(page, 'Thực nhận mong muốn (đ)').fill('140.000');
+      await o(page, 'Cân nặng sau đóng gói').fill('210');
       await o(page, 'Dài').fill('300');
       await o(page, 'Rộng').fill('250');
       await o(page, 'Cao').fill('20');
@@ -49,22 +49,39 @@ test.describe('P2 · Thông tin SKU', () => {
 
     test('số sai báo tại ô, kích thước phải đủ ba cạnh', async ({ page }) => {
       const hop = await moSuaSku(page, 'prd-001-v4');
-      await o(page, 'Cân nặng (g)').fill('90000');
+      await o(page, 'Cân nặng sau đóng gói').fill('90000');
       await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await expect(hop).toContainText('Quá 50 kg');
-      await o(page, 'Cân nặng (g)').fill('210');
+      await expect(hop).toContainText('Cân nặng tối đa 50 kg');
+      await o(page, 'Cân nặng sau đóng gói').fill('210');
       await o(page, 'Dài').fill('300');
       await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
       await expect(hop).toContainText('Nhập đủ ba cạnh');
-      await o(page, 'Giá muốn bán – số muốn thực nhận (đ)').fill('-5');
+      await o(page, 'Thực nhận mong muốn (đ)').fill('-5');
       await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
       await expect(hop).toContainText('Giá không được âm');
       await expect(hop).toBeVisible();
     });
 
+    test('gõ số lẻ ở cân nặng, kích thước báo tại ô, không gửi PATCH (commerio-backend#434)', async ({ page }) => {
+      const hop = await moSuaSku(page, 'prd-001-v4');
+      let patched = false;
+      page.on('request', (r) => {
+        if (r.method() === 'PATCH' && r.url().includes('/variants/')) patched = true;
+      });
+      await o(page, 'Cân nặng sau đóng gói').fill('0,25');
+      await o(page, 'Dài').fill('30.5');
+      await o(page, 'Rộng').fill('200');
+      await o(page, 'Cao').fill('20');
+      await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
+      await expect(hop).toContainText('Nhập số gam nguyên, vd 250');
+      await expect(hop).toContainText('Nhập số mm nguyên, vd 300');
+      await expect(hop).toBeVisible();
+      expect(patched).toBe(false);
+    });
+
     test('SKU bị người khác sửa trước thì báo, chưa lưu gì', async ({ page }) => {
       const hop = await moSuaSku(page, 'prd-001-v4');
-      await o(page, 'Cân nặng (g)').fill('210');
+      await o(page, 'Cân nặng sau đóng gói').fill('210');
       await mockApi(page, 'patch', '/catalog/products/:id/variants/:variantId', 409, {
         status: 409,
         title: 'Xung đột phiên bản',
