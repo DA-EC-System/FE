@@ -34,6 +34,6 @@ test.describe('P1 · Việc nền lỗi (BE thật)', () => {
     const body = await res.json();
     expect(body).toMatchObject({ items: [], total: 0 });
     expect(duongDan(page)).toMatch(/\/admin\/dead-jobs$/);
-    await expect(page.locator('tbody')).toContainText('Không có tác vụ lỗi');
+    await expect(page.locator('tbody')).toContainText('Không có việc lỗi');
   });
 });
