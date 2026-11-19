@@ -79,6 +79,7 @@ export const ROUTES = {
     staff: (companyId: string) => `/c/${companyId}/admin/staff`,
     roles: (companyId: string) => `/c/${companyId}/admin/roles`,
     modules: (companyId: string) => `/c/${companyId}/admin/modules`,
+    companyProfile: (companyId: string) => `/c/${companyId}/admin/company`,
     auditLogs: (companyId: string) => `/c/${companyId}/admin/audit-logs`,
     deadJobs: (companyId: string) => `/c/${companyId}/admin/dead-jobs`,
     /** Sàn giả lập, chỉ có khi chạy mock (FE#55) */

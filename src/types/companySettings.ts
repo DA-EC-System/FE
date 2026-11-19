@@ -87,6 +87,30 @@ export interface CompanyAuditLogDetail extends CompanyAuditLog {
   after: Record<string, unknown> | null;
 }
 
+/** Hồ sơ công ty đang chọn (FE#267, commerio-backend#292). Tên, mã số thuế chỉ đọc */
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  taxCode: string;
+  /** Địa chỉ đăng ký; null khi chưa khai */
+  address: string | null;
+  /** Tổ chức chịu trách nhiệm hàng hoá; null = theo tên công ty */
+  responsibleName: string | null;
+  /** null = theo địa chỉ công ty */
+  responsibleAddress: string | null;
+  /** Giá trị điền sẵn khi ghép danh mục và lúc đẩy lên sàn */
+  effectiveResponsible: { name: string; address: string | null };
+  version: number;
+}
+
+/** Ô không gửi thì giữ nguyên; null = theo tên, địa chỉ công ty */
+export interface UpdateCompanyProfileInput {
+  address?: string | null;
+  responsibleName?: string | null;
+  responsibleAddress?: string | null;
+  version: number;
+}
+
 export interface CompanyAuditParams {
   page?: number;
   pageSize?: number;

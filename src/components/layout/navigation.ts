@@ -1,4 +1,5 @@
 import {
+  Building,
   Building2,
   ClipboardList,
   History,
@@ -202,6 +203,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: Puzzle,
           module: 'platform',
           permission: PERMISSIONS.moduleManage,
+        },
+        {
+          to: ROUTES.company.companyProfile(companyId),
+          label: 'Hồ sơ công ty',
+          icon: Building,
+          module: 'platform',
+          permission: PERMISSIONS.companyManage,
         },
         {
           to: ROUTES.company.auditLogs(companyId),

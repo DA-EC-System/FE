@@ -25,6 +25,7 @@ import {
 } from '../platformCategoryData';
 import { API, LATENCY, problem, requireCompany } from './utils';
 import { productCode } from './catalog';
+import { companyProfileOf } from './companyProfile';
 
 const SEARCH_LIMIT = 50;
 export const SYNC_MS = 4000;
@@ -54,8 +55,9 @@ export function searchPlatformCategories(rows: MockPlatformCategory[], search: s
 /** `defaultValue` của attribute `tier = 'company'` từ hồ sơ công ty (commerio-backend#292); attribute khác null */
 export function companyDefault(a: Pick<PlatformAttribute, 'code' | 'tier'>, companyName: string | null, companyId: string) {
   if (a.tier !== 'company') return null;
-  if (COMPANY_NAME_ATTRIBUTES.has(a.code)) return companyName;
-  if (COMPANY_ADDRESS_ATTRIBUTES.has(a.code)) return COMPANY_ADDRESSES[companyId] ?? null;
+  const profile = companyProfileOf(companyId);
+  if (COMPANY_NAME_ATTRIBUTES.has(a.code)) return profile?.effectiveResponsible.name ?? companyName;
+  if (COMPANY_ADDRESS_ATTRIBUTES.has(a.code)) return profile ? profile.effectiveResponsible.address : (COMPANY_ADDRESSES[companyId] ?? null);
   return null;
 }
 

@@ -19,7 +19,7 @@ describe('mock quyền theo ma trận', () => {
   });
 
   it('danh mục cấp được = ma trận trừ platform.*', () => {
-    expect(BUILTIN_ONLY_PERMISSIONS).toEqual(['platform.module.manage', 'platform.audit.view', 'platform.job.manage']);
+    expect(BUILTIN_ONLY_PERMISSIONS).toEqual(['platform.module.manage', 'platform.audit.view', 'platform.job.manage', 'platform.company.manage']);
     expect(permissionCatalog.map((p) => p.code)).toEqual(codes.filter((c) => !c.startsWith('platform.')));
   });
 

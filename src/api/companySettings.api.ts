@@ -7,6 +7,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useMutation } from './useMutation';
 import { apiClient, getProblem } from './client';
 import { authApi } from './auth.api';
+import { shopKeys } from './shops.api';
 import { useAuthStore } from '@/stores/authStore';
 import type { PageResult } from './types';
 import type {
@@ -14,14 +15,17 @@ import type {
   CompanyAuditLogDetail,
   CompanyAuditParams,
   CompanyModule,
+  CompanyProfile,
   DeadJob,
   DeadJobParams,
   SetModuleInput,
   SetModuleResult,
+  UpdateCompanyProfileInput,
 } from '@/types/companySettings';
 
 export const companySettingsKeys = {
   modules: (companyId: string) => ['company', companyId, 'modules'] as const,
+  profile: (companyId: string) => ['company', companyId, 'profile'] as const,
   audit: (companyId: string) => ['company', companyId, 'audit'] as const,
   auditList: (companyId: string, params: CompanyAuditParams) =>
     [...companySettingsKeys.audit(companyId), 'list', params] as const,
@@ -34,6 +38,39 @@ export const companySettingsKeys = {
 
 function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
+}
+
+// ---------- Hồ sơ công ty (FE#267, commerio-backend#292) ----------
+
+export function useCompanyProfile() {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: companySettingsKeys.profile(companyId),
+    enabled: Boolean(companyId),
+    queryFn: async () => (await apiClient.get<CompanyProfile>('/platform/company')).data,
+  });
+}
+
+export function useUpdateCompanyProfile() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async (body: UpdateCompanyProfileInput) =>
+      (await apiClient.put<CompanyProfile>('/platform/company', body)).data,
+    onSuccess: (data) => {
+      qc.setQueryData(companySettingsKeys.profile(companyId), data);
+      // Thuộc tính sàn tier 'company' điền sẵn từ hồ sơ: lấy lại khi mở ghép danh mục
+      void qc.invalidateQueries({ queryKey: shopKeys.all(companyId) });
+      void qc.invalidateQueries({ queryKey: companySettingsKeys.audit(companyId) });
+    },
+    // Lệch version: BE trả bản mới trong `current`, thay vào cache để form hiện bản đó
+    onError: (e) => {
+      const problem = getProblem(e) as { code?: string; current?: CompanyProfile } | undefined;
+      if (problem?.code === 'version_conflict' && problem.current) {
+        qc.setQueryData(companySettingsKeys.profile(companyId), problem.current);
+      }
+    },
+  });
 }
 
 // ---------- Phân hệ (UC-PI-02) ----------
