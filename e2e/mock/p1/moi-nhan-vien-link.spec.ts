@@ -32,7 +32,7 @@ async function xacMinh(page: Page, email: string, fullName: string) {
   await page.locator('input[name=email]').fill(email);
   await page.locator('input[name=fullName]').fill(fullName);
   await page.getByRole('button', { name: 'Gửi mã xác minh', exact: true }).click();
-  await expect(page.getByText(`Mã xác minh đã gửi tới ${email}`)).toBeVisible();
+  await expect(page.getByText(`Mã 6 số gửi tới ${email}`)).toBeVisible();
   await page.locator('input[name=code]').fill(MOCK_OTP);
   await page.getByRole('button', { name: 'Xác minh', exact: true }).click();
 }
@@ -58,7 +58,7 @@ test.describe('P1 · Mời nhân viên bằng link', () => {
     await page.locator('input[name=password]').fill('MatKhau@123');
     await page.locator('input[name=confirmPassword]').fill('MatKhau@123');
     await page.getByRole('button', { name: 'Gửi yêu cầu tham gia', exact: true }).click();
-    await expect(page.getByTestId('join-done')).toContainText('đang chờ Admin công ty duyệt');
+    await expect(page.getByTestId('join-done')).toContainText('đang chờ duyệt');
 
     // Chưa duyệt thì chưa đăng nhập được
     const dangNhapApi = () =>
@@ -237,7 +237,7 @@ test.describe('P1 · Mời nhân viên bằng link', () => {
     await page.locator('input[name=email]').fill('dang.ky@gmail.com');
     await page.locator('input[name=fullName]').fill('Đang Đăng Ký');
     await page.getByRole('button', { name: 'Gửi mã xác minh', exact: true }).click();
-    await expect(page.getByText('Mã xác minh đã gửi tới dang.ky@gmail.com')).toBeVisible();
+    await expect(page.getByText('Mã 6 số gửi tới dang.ky@gmail.com')).toBeVisible();
 
     await toi(page, '/c/cmp-001/admin/staff?tab=links');
     const row = page.locator(`tbody tr[data-row-id="${id}"]`);

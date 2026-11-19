@@ -31,7 +31,7 @@ test.describe('P1 · Đăng ký công ty', () => {
   test('form đủ ô, 5 phân hệ tuỳ chọn (AC-1)', async ({ page }) => {
     for (const f of Object.keys(HOP_LE)) await expect(page.locator(`input[name=${f}]`)).toHaveCount(1);
     await expect(page.locator('form label [role=checkbox]')).toHaveCount(5);
-    await thayChu(page, 'Các tính năng cơ bản');
+    await thayChu(page, 'Mười phân hệ lõi');
   });
 
   test('kiểm dữ liệu tại ô, không gửi lên BE (AC-2)', async ({ page }) => {
