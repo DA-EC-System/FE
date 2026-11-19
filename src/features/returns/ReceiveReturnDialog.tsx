@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -44,6 +44,7 @@ export function ReceiveReturnDialog({
   const { reset, setError } = form;
   const [rows, setRows] = useState<ScanRow[]>([]);
   const [scanErrors, setScanErrors] = useState<Record<string, string> | null>(null);
+  const scanRef = useRef<HTMLInputElement>(null);
   const awaiting = useReturns({ status: 'awaiting_return', page: 1, pageSize: 100 }, { enabled: open });
   const code = form.watch('code');
   const match = useMemo(() => matchRequest(awaiting.data?.items ?? [], code), [awaiting.data, code]);
@@ -60,18 +61,21 @@ export function ReceiveReturnDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset]);
 
-  // Đổi yêu cầu khớp thì bảng lấy lại dòng của yêu cầu đó, mặc định quét đủ
+  // Đổi yêu cầu khớp thì bảng lấy lại dòng của yêu cầu đó, số quét bắt đầu từ 0: kho quét từng món (#363)
   useEffect(() => {
-    setRows(matchedLines ? scanRowsFrom(matchedLines) : []);
+    setRows(matchedLines ? scanRowsFrom(matchedLines, { fromZero: true }) : []);
     setScanErrors(null);
   }, [matchedLines]);
 
   const submit = async (v: ReceiveForm) => {
+    // Khớp yêu cầu mà chưa tải xong các món: chưa có gì để gửi, gửi lúc này BE sẽ báo thiếu `lines`
+    if (match && !matchedLines) return setScanErrors({ lines: 'Đang tải các món của yêu cầu, chờ một chút rồi quét' });
     const checked = checkScanRows(rows);
     if (Object.keys(checked.errors).length) return setScanErrors(checked.errors);
     setScanErrors(null);
     try {
-      // Không khớp yêu cầu nào trên máy và kho không thêm món: để BE tự khớp (vd mã vận đơn chiều về), coi như quét đủ
+      // Không khớp yêu cầu nào trên máy và kho không thêm món: để BE tự khớp (vd mã vận đơn chiều về); khớp yêu cầu thì BE
+      // bắt quét từng món (422 `errors.lines`, hiện dưới bảng)
       const lines = matchedLines || rows.length ? checked.lines : undefined;
       const r = await receive.mutateAsync({ code: v.code, note: v.note || undefined, lines });
       if (r.kind === 'matched') toast.success(`Đã nhận hàng trả ${r.request.code}, phiếu kiểm hàng về đã lập`);
@@ -96,7 +100,15 @@ export function ReceiveReturnDialog({
           <DialogDescription>Nhập số thật đã quét từng món. Hàng chờ xử lý tăng đúng số quét.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
+          <form
+            onSubmit={form.handleSubmit(submit)}
+            noValidate
+            className="grid gap-4"
+            // Súng quét gửi Enter sau mỗi mã: Enter trong ô nhập không nộp form, chỉ nút Nhận hàng nộp (#363)
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.target instanceof HTMLInputElement) e.preventDefault();
+            }}
+          >
             {formError && <AlertMessage severity="error">{formError}</AlertMessage>}
             <FormField
               control={form.control}
@@ -105,7 +117,17 @@ export function ReceiveReturnDialog({
                 <FormItem>
                   <FormLabel>Mã yêu cầu, mã vận đơn chiều về hoặc mã đơn</FormLabel>
                   <FormControl>
-                    <Input autoFocus maxLength={100} data-testid="receive-code" {...field} />
+                    <Input
+                      autoFocus
+                      maxLength={100}
+                      data-testid="receive-code"
+                      {...field}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        scanRef.current?.focus();
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -113,12 +135,20 @@ export function ReceiveReturnDialog({
             />
             <p className="text-sm text-muted-foreground" data-testid="receive-match">
               {match
-                ? `Khớp yêu cầu ${match.code} (đơn ${match.order.code}). Sửa số quét nếu thiếu hoặc thừa.`
+                ? `Khớp yêu cầu ${match.code} (đơn ${match.order.code}). Quét từng món (mỗi lần cộng 1) hoặc sửa số quét.`
                 : code.trim()
                   ? 'Chưa thấy yêu cầu chờ hàng về khớp mã này. Thêm các món trong kiện bằng tìm SKU.'
                   : 'Quét mã để hiện các món của yêu cầu.'}
             </p>
-            <ScannedLines id="receive-lines" rows={rows} onChange={setRows} errors={scanErrors} disabled={receive.isPending} />
+            <ScannedLines
+              id="receive-lines"
+              rows={rows}
+              onChange={setRows}
+              errors={scanErrors}
+              disabled={receive.isPending}
+              scanSku
+              scanRef={scanRef}
+            />
             <FormField
               control={form.control}
               name="note"

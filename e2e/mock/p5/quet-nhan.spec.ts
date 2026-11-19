@@ -156,7 +156,17 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
       await thayChu(dialog.getByTestId('receive-match'), 'Khớp yêu cầu YCT-000002 (đơn DH-1019)');
       const dongDau = dialog.getByTestId('receive-lines').locator('tbody tr').first();
       const sku = (await dongDau.getAttribute('data-row-id')) ?? '';
+      // #363: bảng bắt đầu từ 0, Enter ở ô mã (súng quét) chỉ chuyển sang ô quét SKU, không nộp
+      await expect(dongDau.getByLabel(`Số quét ${sku}`, { exact: true })).toHaveValue('0');
+      await dialog.getByTestId('receive-code').press('Enter');
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByTestId('receive-lines-scan')).toBeFocused();
+      await dialog.getByTestId('receive-lines-scan').fill(sku.toLowerCase());
+      await dialog.getByTestId('receive-lines-scan').press('Enter');
       await expect(dongDau.getByLabel(`Số quét ${sku}`, { exact: true })).toHaveValue('1');
+      await dialog.getByTestId('receive-lines-scan').fill('KHONG-CO-SKU');
+      await dialog.getByTestId('receive-lines-scan').press('Enter');
+      await thayChu(dialog.getByTestId('receive-lines'), 'SKU KHONG-CO-SKU không có trong danh sách');
       await dongDau.getByLabel(`Số quét ${sku}`, { exact: true }).fill('1.5');
       await dialog.getByRole('button', { name: 'Nhận hàng', exact: true }).click();
       await thayChu(dongDau, 'Số lượng là số nguyên không âm');

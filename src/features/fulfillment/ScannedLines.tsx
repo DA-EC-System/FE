@@ -1,10 +1,11 @@
+import { type RefObject, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
 import type { StockLevel } from '@/types/inventory';
-import type { ScanRow } from './scanLines';
+import { addScan, type ScanRow } from './scanLines';
 
 interface ScannedLinesProps {
   rows: ScanRow[];
@@ -13,10 +14,26 @@ interface ScannedLinesProps {
   disabled?: boolean;
   /** Cần khác nhau khi một trang có nhiều bảng */
   id?: string;
+  /** Hiện ô quét SKU: mỗi lần quét (súng quét gửi Enter) cộng 1 vào dòng có SKU đó (#363) */
+  scanSku?: boolean;
+  /** Để form ngoài đưa con trỏ vào ô quét SKU */
+  scanRef?: RefObject<HTMLInputElement | null>;
 }
 
 /** Bảng số kho quét thật lúc nhận: sửa số từng món, thêm món ngoài danh sách bằng tìm SKU (FE#212) */
-export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-lines' }: ScannedLinesProps) {
+export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-lines', scanSku, scanRef }: ScannedLinesProps) {
+  const [scan, setScan] = useState('');
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const onScan = () => {
+    const next = addScan(rows, scan);
+    if (next) {
+      onChange(next);
+      setScanMessage(null);
+    } else if (scan.trim()) {
+      setScanMessage(`SKU ${scan.trim()} không có trong danh sách. Thêm bằng ô tìm bên dưới nếu đúng là món trong kiện`);
+    }
+    setScan('');
+  };
   const setQty = (i: number, quantity: string) => onChange(rows.map((r, j) => (j === i ? { ...r, quantity } : r)));
   const add = (level: StockLevel) => {
     if (rows.some((r) => r.variantId === level.variantId)) return;
@@ -35,6 +52,25 @@ export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-line
 
   return (
     <div className="grid gap-3" data-testid={id}>
+      {scanSku && (
+        <div className="grid gap-1">
+          <Input
+            ref={scanRef}
+            value={scan}
+            placeholder="Quét SKU từng món, mỗi lần cộng 1"
+            aria-label="Quét SKU"
+            data-testid={`${id}-scan`}
+            disabled={disabled}
+            onChange={(e) => setScan(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              onScan();
+            }}
+          />
+          {scanMessage && <p className="text-xs text-destructive">{scanMessage}</p>}
+        </div>
+      )}
       {rows.length > 0 && (
         <div className="max-h-72 overflow-y-auto rounded-md border">
           <Table>

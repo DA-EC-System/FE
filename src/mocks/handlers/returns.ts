@@ -529,6 +529,10 @@ export const returnHandlers = [
           errors: { code: `${r.code} không ở trạng thái Chờ hàng về` },
         });
       }
+      // Như BE (#363): yêu cầu khớp phải có số quét từng món; `[]` là chưa nhận món nào
+      if (body.lines === undefined) {
+        return problem(422, 'Dữ liệu không hợp lệ', { errors: { lines: 'Quét từng món thực nhận rồi mới nhận hàng' } });
+      }
       const before = returnSnapshot(r);
       receive(r, at, actor.account.id, note || null, scan.lines);
       writeCompanyLog(actor, 'update', returnEntity(r), before, returnSnapshot(r));
