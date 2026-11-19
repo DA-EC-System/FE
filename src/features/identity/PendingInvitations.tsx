@@ -14,7 +14,14 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { formatDateTime } from '@/utils/format';
 import type { PageResult } from '@/api/types';
 import type { Invitation } from '@/types/identity';
-import { conflictCurrent, invalidTransitionCurrent, invitationTransitionMessage } from './shared';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  approveLockReason,
+  conflictCurrent,
+  invalidTransitionCurrent,
+  invitationTransitionMessage,
+  isCeoContext,
+} from './shared';
 
 interface PendingInvitationsProps {
   data: PageResult<Invitation> | undefined;
@@ -51,6 +58,7 @@ export function PendingInvitations({
   onPageChange,
 }: PendingInvitationsProps) {
   const decide = useDecideInvitation();
+  const callerIsCeo = isCeoContext(useAuth().companyContext);
   const [rejecting, setRejecting] = useState<Invitation | null>(null);
 
   const run = async (inv: Invitation, decision: 'approve' | 'reject') => {
@@ -155,9 +163,7 @@ export function PendingInvitations({
                   <div className="flex gap-1">
                     <RowAction
                       label="Duyệt"
-                      reason={
-                        inv.outdated ? 'Có vai trò của link đã bị xoá: từ chối rồi tạo link mới' : busy ? 'Đang xử lý' : null
-                      }
+                      reason={approveLockReason(inv, callerIsCeo) ?? (busy ? 'Đang xử lý' : null)}
                       onClick={() => run(inv, 'approve')}
                     >
                       <Check />
@@ -178,7 +184,7 @@ export function PendingInvitations({
         : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, decide.isPending, decide.variables?.id],
+    [canManage, callerIsCeo, decide.isPending, decide.variables?.id],
   );
 
   return (

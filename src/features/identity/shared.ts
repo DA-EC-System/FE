@@ -28,6 +28,14 @@ export const isFreelyAssignable = (role: Pick<Role, 'id' | 'builtIn'>) =>
   role.builtIn && FREELY_ASSIGNABLE_ROLE_IDS.includes(role.id);
 
 /**
+ * Vai Admin có sẵn: Admin và CEO ngang quyền, nhưng chỉ CEO mời (tạo link, duyệt), gán, gỡ vai Admin và đổi vai, khoá
+ * người đang có vai Admin (docs/21 I5, BE 403 `ceo_only`, chốt 19/11/2026).
+ */
+export const ADMIN_ROLE_ID = '00000000-0000-4000-8000-000000000002';
+export const isCeoContext = (context: CompanyContext | null) => Boolean(context?.roles.includes(CEO_ROLE_NAME));
+const hasAdminRole = (roles: readonly { id: string }[]) => roles.some((r) => r.id === ADMIN_ROLE_ID);
+
+/**
  * Vì sao người đang đăng nhập không gán hay gỡ được vai trò này; null nếu được. FE chỉ khoá, BE vẫn kiểm lại.
  * `permissionLabels`: mã quyền → tên quyền (danh mục `GET /identity/permissions`), thiếu thì hiện mã.
  */
@@ -37,6 +45,9 @@ export function roleLockReason(
   permissionLabels?: ReadonlyMap<string, string>,
 ): string | null {
   if (role.builtIn && role.name === CEO_ROLE_NAME) return 'Vai trò CEO không gán hay gỡ được';
+  if (role.builtIn && role.id === ADMIN_ROLE_ID && !isCeoContext(context)) {
+    return 'Chỉ CEO được mời, gán hoặc gỡ vai Admin';
+  }
   if (isFreelyAssignable(role)) return null;
   const missing = missingPermissions(context, role.permissions);
   if (!missing.length) return null;
@@ -53,10 +64,18 @@ export function conflictCurrent<T>(error: unknown, key: 'current' | 'member' = '
 /** Quyền cấp nền tảng chỉ CEO, Admin có sẵn; không cấp cho vai trò tuỳ biến (docs/21 M3) */
 export const isAssignablePermission = (code: string) => !code.startsWith('platform.');
 
-/** CEO và chính mình: không đổi vai trò, không khoá (UC-PI-05) */
-export function protectedReason(member: StaffMember, accountId: string | undefined): string | null {
+/** CEO và chính mình: không đổi vai trò, không khoá (UC-PI-05); người có vai Admin: chỉ CEO (docs/21 I5) */
+export function protectedReason(member: StaffMember, accountId: string | undefined, callerIsCeo = false): string | null {
   if (member.isCeo) return 'Không thao tác được trên tài khoản CEO';
   if (member.accountId === accountId) return 'Không thao tác được trên tài khoản của chính bạn';
+  if (!callerIsCeo && hasAdminRole(member.roles)) return 'Chỉ CEO đổi vai trò, khoá hay mở khoá người có vai Admin';
+  return null;
+}
+
+/** Vì sao không duyệt được yêu cầu này; null nếu được. Yêu cầu có vai Admin: chỉ CEO duyệt (docs/21 I5) */
+export function approveLockReason(inv: Pick<Invitation, 'outdated' | 'roles'>, callerIsCeo: boolean): string | null {
+  if (inv.outdated) return 'Có vai trò của link đã bị xoá: từ chối rồi tạo link mới';
+  if (!callerIsCeo && hasAdminRole(inv.roles)) return 'Yêu cầu có vai Admin: chỉ CEO duyệt được';
   return null;
 }
 
