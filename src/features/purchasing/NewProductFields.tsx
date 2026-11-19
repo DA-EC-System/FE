@@ -138,8 +138,8 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
               disabled={disabled || categoriesQuery.isLoading}
               onValueChange={(v) => onChange({ categoryId: v })}
             >
-              <SelectTrigger className="h-8 w-full" aria-label={`Danh mục ${name}`} aria-invalid={Boolean(errors?.categoryId)}>
-                <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Danh mục'} />
+              <SelectTrigger className="h-8 w-full" aria-label={`Category ${name}`} aria-invalid={Boolean(errors?.categoryId)}>
+                <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Category'} />
               </SelectTrigger>
               <SelectContent>
                 {(categoriesQuery.data ?? []).map((c) => (
