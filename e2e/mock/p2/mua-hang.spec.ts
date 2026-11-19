@@ -169,18 +169,18 @@ test.describe('P2 · Mua hàng', () => {
 
     test('tồn dưới ngưỡng: thêm vào đề nghị nhập nháp (B2 → A1)', async ({ page }) => {
       await menu(page, 'Kho');
-      await page.getByRole('tab', { name: /Nên nhập lại/ }).click();
+      await page.getByRole('tab', { name: /Cần nhập thêm/ }).click();
       await page
         .locator('tbody tr[data-row-id]')
         .first()
-        .getByRole('button', { name: 'Thêm vào đề nghị nhập', exact: true })
+        .getByRole('button', { name: 'Thêm vào đơn đặt hàng nhập', exact: true })
         .click();
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel('Số lượng', { exact: true }).fill('0');
-      await dialog.getByRole('button', { name: 'Thêm vào đề nghị', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Thêm vào đơn', exact: true }).click();
       await thayChu(dialog, 'Số lượng là số nguyên từ 1');
       await dialog.getByLabel('Số lượng', { exact: true }).fill('5');
-      await dialog.getByRole('button', { name: 'Thêm vào đề nghị', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Thêm vào đơn', exact: true }).click();
       await toast(page, 'Đã thêm vào DN-000004');
     });
 

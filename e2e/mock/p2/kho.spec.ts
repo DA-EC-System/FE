@@ -64,7 +64,7 @@ test.describe('P2 · Kho', () => {
 
     test('bảy con số: tồn thực, đang giữ, tạm khoá, khả dụng; giá vốn', async ({ page }) => {
       const thead = page.locator('thead');
-      for (const h of ['Tồn thực', 'Đang giữ', 'Tạm khoá', 'Khả dụng', 'Giá vốn BQ', 'Giá trị tồn']) await thayChu(thead, h, 'th');
+      for (const h of ['Tồn kho', 'Tạm giữ', 'Khoá chờ duyệt', 'Có thể bán', 'Giá vốn', 'Giá trị tồn']) await thayChu(thead, h, 'th');
       // Khả dụng = tồn thực − đang giữ − tạm khoá
       for (const id of ['prd-001-v1', 'prd-001-v3']) {
         await expect(dong(page, id)).toBeAttached();
@@ -77,7 +77,7 @@ test.describe('P2 · Kho', () => {
 
     test('gợi ý đầu cột (FE#131): rê chuột, Tab, Esc; gợi ý dài bấm mở', async ({ page }) => {
       const tooltip = page.getByRole('tooltip');
-      const khaDung = page.getByRole('button', { name: 'Giải thích: Khả dụng', exact: true });
+      const khaDung = page.getByRole('button', { name: 'Giải thích: Có thể bán', exact: true });
       await khaDung.hover();
       await expect(tooltip).toContainText('Bán được ngay');
       // Rời nút qua nhiều bước như chuột thật (Radix chờ chuột ra khỏi vùng chuyển sang tooltip mới đóng)
@@ -88,10 +88,10 @@ test.describe('P2 · Kho', () => {
       await page.keyboard.press('Escape');
       await expect(tooltip).toHaveCount(0);
 
-      const bienThe = page.getByRole('button', { name: 'Giải thích: Biến thể', exact: true });
+      const bienThe = page.getByRole('button', { name: 'Giải thích: SKU', exact: true });
       await expect(bienThe).toHaveAttribute('data-help-mode', 'popover');
       await bienThe.click();
-      await expect(page.getByRole('dialog')).toContainText('Đang về: số còn chờ của đề nghị nhập');
+      await expect(page.getByRole('dialog')).toContainText('Đang về: số còn chờ của đơn đặt hàng nhập');
       await page.keyboard.press('Escape');
       await expect(page.getByRole('dialog')).toHaveCount(0);
       await expect(bienThe).toBeFocused();
@@ -101,8 +101,8 @@ test.describe('P2 · Kho', () => {
       const nhom = page.getByRole('tablist', { name: 'Nhóm tồn' });
       // Tab có số đếm (FE#136)
       await expect(nhom.getByRole('tab', { name: /^Tất cả\s*\d+$/ })).toHaveAttribute('aria-selected', 'true');
-      const nenNhap = nhom.getByRole('tab', { name: /Nên nhập lại/ });
-      await expect(nenNhap).toHaveText(/Nên nhập lại\s*1$/);
+      const nenNhap = nhom.getByRole('tab', { name: /Cần nhập thêm/ });
+      await expect(nenNhap).toHaveText(/Cần nhập thêm\s*1$/);
       await nenNhap.click();
       await expect(nenNhap).toHaveAttribute('aria-selected', 'true');
       const rows = page.locator('tbody tr[data-row-id]');
@@ -110,11 +110,11 @@ test.describe('P2 · Kho', () => {
       for (const tr of await rows.all()) await expect(tr.getByTestId('below-min')).toHaveCount(1);
       await nhom.getByRole('tab', { name: /^Tất cả/ }).click();
 
-      await nhom.getByRole('tab', { name: /Có hàng chờ xử lý/ }).click();
-      await expect(dong(page, 'prd-002-v1').getByTestId('stock-chips')).toContainText('Chờ xử lý 2');
-      await dong(page, 'prd-002-v1').getByRole('button', { name: 'Lịch sử biến động', exact: true }).click();
+      await nhom.getByRole('tab', { name: /Có hàng lỗi\/chờ kiểm/ }).click();
+      await expect(dong(page, 'prd-002-v1').getByTestId('stock-chips')).toContainText('Hàng lỗi/chờ kiểm 2');
+      await dong(page, 'prd-002-v1').getByRole('button', { name: 'Xem thẻ kho', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      for (const t of ['Chờ xử lý', 'Tạm khoá']) await expect(dialog.getByTestId('stock-figures')).toContainText(t);
+      for (const t of ['Hàng lỗi/chờ kiểm', 'Khoá chờ duyệt']) await expect(dialog.getByTestId('stock-figures')).toContainText(t);
       for (const t of ['CXL-000001', 'Chờ xử lý', 'Tồn thực']) await expect(dialog.getByTestId('stock-moves')).toContainText(t);
     });
 
@@ -126,7 +126,7 @@ test.describe('P2 · Kho', () => {
       await sku.click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('heading', { name: ma, exact: true })).toBeVisible();
-      await expect(dialog.getByTestId('stock-figures')).toContainText('Khả dụng');
+      await expect(dialog.getByTestId('stock-figures')).toContainText('Có thể bán');
     });
 
     test('nhãn Đang về, Thiếu, Lệch tồn; Thiếu mở kiện thiếu hàng, Lệch tồn mở gian hàng (US-TK-01…05; FE#285)', async ({ page }) => {
@@ -134,7 +134,7 @@ test.describe('P2 · Kho', () => {
       await expect(page.getByTestId('stock-chips').getByText('Lệch tồn sàn')).toHaveCount(0);
 
       const thieu = page.getByTestId('chip-shortage').first();
-      await expect(thieu).toHaveText(/^Thiếu \d/);
+      await expect(thieu).toHaveText(/^Thiếu cho đơn \d/);
       await thieu.click();
       await expect(page).toHaveURL(/\/fulfillment\/packages\?tab=backordered$/);
       await expect(page.getByRole('tab', { name: /Thiếu hàng/ })).toHaveAttribute('aria-selected', 'true');
@@ -149,7 +149,7 @@ test.describe('P2 · Kho', () => {
 
     test('đặt ngưỡng: kiểm số, lưu, bỏ ngưỡng', async ({ page }) => {
       const dialog = page.getByRole('dialog');
-      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt ngưỡng', exact: true }).click();
+      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt tồn tối thiểu', exact: true }).click();
       for (const t of ['-1', '1.5', 'abc']) {
         await dialog.locator('#min-qty').fill(t);
         await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
@@ -157,22 +157,22 @@ test.describe('P2 · Kho', () => {
       }
       await dialog.locator('#min-qty').fill('60');
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await toast(page, 'Đã đặt ngưỡng 60');
+      await toast(page, 'Đã đặt tồn tối thiểu 60');
       await expect(dong(page, 'prd-003-v1').getByTestId('min-qty')).toHaveText('60');
       // Dòng vừa đổi nháy xanh rồi tắt (FE#136)
       await expect(dong(page, 'prd-003-v1')).toHaveClass(/\bflash\b/);
       await expect(dong(page, 'prd-003-v1')).not.toHaveClass(/\bflash\b/);
       await expect(dong(page, 'prd-003-v1').getByTestId('below-min')).toBeAttached();
 
-      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt ngưỡng', exact: true }).click();
+      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt tồn tối thiểu', exact: true }).click();
       await dialog.locator('#min-qty').fill('');
       await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-      await toast(page, 'Đã bỏ ngưỡng tồn');
+      await toast(page, 'Đã bỏ tồn tối thiểu');
       await expect(dong(page, 'prd-003-v1').getByTestId('below-min')).toHaveCount(0);
     });
 
     test('ngưỡng bị người khác sửa trước thì hiện ngưỡng mới nhất', async ({ page }) => {
-      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt ngưỡng', exact: true }).click();
+      await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt tồn tối thiểu', exact: true }).click();
       await page.locator('#min-qty').fill('8');
       await mockApi(page, 'put', '/inventory/stock/:variantId/reorder-rule', 409, {
         status: 409,
@@ -182,7 +182,7 @@ test.describe('P2 · Kho', () => {
       });
       await page.getByRole('dialog').getByRole('button', { name: 'Lưu', exact: true }).click();
       await expect(page.locator('#min-qty')).toHaveValue('25');
-      await expect(page.getByRole('dialog')).toContainText('Ngưỡng vừa được người khác sửa');
+      await expect(page.getByRole('dialog')).toContainText('Tồn tối thiểu vừa được người khác sửa');
     });
 
     test('duyệt xuất huỷ: tạm khoá thành trừ tồn', async ({ page }) => {
@@ -217,7 +217,7 @@ test.describe('P2 · Kho', () => {
 
     test('kiểm kê: Δ theo số đếm, gửi duyệt thì kho không tự duyệt được', async ({ page }) => {
       await page.getByRole('tab', { name: 'Phiếu kho', exact: true }).click();
-      await page.getByRole('button', { name: 'Kiểm kê', exact: true }).click();
+      await page.getByRole('button', { name: 'Kiểm kho', exact: true }).click();
       await chonBienThe(page, 'QU-0001-M');
       const lines = page.getByTestId('doc-lines');
       const book = so(await lines.locator('tbody tr td').nth(1).textContent());

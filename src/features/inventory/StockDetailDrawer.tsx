@@ -58,30 +58,30 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
           {level && (
             <>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4" data-testid="stock-figures">
-                <Figure label="Tồn thực" value={formatQty(level.onHand)} tone={level.negative ? 'error' : undefined} />
-                <Figure label="Đang giữ cho kiện" value={formatQty(level.reserved)} />
-                <Figure label="Tạm khoá" value={formatQty(level.locked)} />
+                <Figure label="Tồn kho" value={formatQty(level.onHand)} tone={level.negative ? 'error' : undefined} />
+                <Figure label="Tạm giữ" value={formatQty(level.reserved)} />
+                <Figure label="Khoá chờ duyệt" value={formatQty(level.locked)} />
                 <Figure
-                  label="Khả dụng"
+                  label="Có thể bán"
                   value={formatQty(level.available)}
                   tone={level.state === 'in_stock' ? undefined : 'error'}
                 />
-                <Figure label="Đang về" value={formatQty(level.incoming)} />
-                <Figure label="Chờ xử lý" value={formatQty(level.quarantine)} />
-                <Figure label="Đang thiếu" value={formatQty(level.shortage)} tone={level.shortage ? 'error' : undefined} />
+                <Figure label="Hàng đang về" value={formatQty(level.incoming)} />
+                <Figure label="Hàng lỗi/chờ kiểm" value={formatQty(level.quarantine)} />
+                <Figure label="Thiếu cho đơn" value={formatQty(level.shortage)} tone={level.shortage ? 'error' : undefined} />
               </div>
               <p className="text-xs text-muted-foreground">
-                Tồn thực = khả dụng + đang giữ + tạm khoá. Chờ xử lý không bán được và không thuộc tồn thực.
+                Tồn kho = có thể bán + tạm giữ + khoá chờ duyệt. Hàng lỗi/chờ kiểm không bán được và không tính vào tồn kho.
               </p>
               <StockChips level={level} />
               <div className="flex flex-wrap gap-2">
                 <Badge variant={level.belowMin ? 'destructive' : 'secondary'}>
                   {level.minQty === null
-                    ? 'Chưa đặt ngưỡng'
-                    : `Ngưỡng ${formatQty(level.minQty)}${level.belowMin ? ' · nên nhập lại' : ''}`}
+                    ? 'Chưa đặt tồn tối thiểu'
+                    : `Tồn tối thiểu ${formatQty(level.minQty)}${level.belowMin ? ' · cần nhập thêm' : ''}`}
                 </Badge>
                 {canCost && level.avgCost !== null && (
-                  <Badge variant="outline">Giá vốn BQ {formatCurrency(level.avgCost)}</Badge>
+                  <Badge variant="outline">Giá vốn {formatCurrency(level.avgCost)}</Badge>
                 )}
                 {canCost && level.stockValue !== null && (
                   <Badge variant="outline">Giá trị tồn {formatCurrency(level.stockValue)}</Badge>
@@ -91,7 +91,7 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
               <Separator />
               <h3 className="font-semibold">Thẻ kho</h3>
               {!moves.length ? (
-                <p className="text-sm text-muted-foreground">Chưa có biến động nào.</p>
+                <p className="text-sm text-muted-foreground">Chưa có phát sinh nhập xuất.</p>
               ) : (
                 <Table data-testid="stock-moves">
                   <TableHeader>
@@ -99,7 +99,7 @@ export function StockDetailDrawer({ variantId, canCost, onClose }: StockDetailDr
                       <TableHead>Thời gian</TableHead>
                       <TableHead>Chứng từ</TableHead>
                       <TableHead>Khu vực</TableHead>
-                      <TableHead className="text-right">Biến động</TableHead>
+                      <TableHead className="text-right">Nhập/xuất</TableHead>
                       <TableHead className="text-right">Tồn sau</TableHead>
                       {canCost && <TableHead className="text-right">Đơn giá vốn</TableHead>}
                     </TableRow>

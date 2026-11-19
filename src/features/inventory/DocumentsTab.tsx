@@ -21,9 +21,9 @@ import type { ManualStockDocType, StockDocStatus, StockDocSummary, StockDocType 
 import { AREA_LABELS, DOC_KIND_LABELS, DOC_STATUS, DOC_TYPE_LABELS, formatQty } from './shared';
 
 const NEW_DOCS: { type: ManualStockDocType; label: string; icon: typeof ClipboardList }[] = [
-  { type: 'stocktake', label: 'Kiểm kê', icon: ClipboardList },
+  { type: 'stocktake', label: 'Kiểm kho', icon: ClipboardList },
   { type: 'write_off', label: 'Xuất huỷ', icon: PackageX },
-  { type: 'to_quarantine', label: 'Chuyển chờ xử lý', icon: ShieldAlert },
+  { type: 'to_quarantine', label: 'Chuyển hàng lỗi/chờ kiểm', icon: ShieldAlert },
 ];
 
 /** Phiếu kho (sơ đồ B3): nhập, xuất theo đơn chỉ xem; kiểm kê, xuất huỷ, chuyển chờ xử lý lập nháp rồi gửi duyệt */
@@ -118,7 +118,7 @@ export function DocumentsTab() {
       },
       {
         id: 'createdAt',
-        header: 'Lập / ghi sổ',
+        header: 'Ngày tạo / hoàn thành',
         meta: { className: 'w-44' },
         cell: ({ row }) => (
           <div className="min-w-0">

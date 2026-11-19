@@ -40,7 +40,7 @@ export function StockTab() {
   const can = useCan();
   const canReorder = can(PERMISSIONS.reorderManage);
   const canCost = can(PERMISSIONS.costView);
-  // Thêm vào đề nghị nhập chỉ khi bật Mua hàng và có quyền lập đề nghị
+  // Thêm vào đơn đặt hàng nhập chỉ khi bật Nhập hàng và có quyền lập đơn
   const purchasingOn = useModuleEnabled('purchasing');
   const canRequest = purchasingOn && can(PERMISSIONS.purchaseRequestManage);
   const navigate = useNavigate();
@@ -79,8 +79,8 @@ export function StockTab() {
   const filtered = Boolean(debouncedSearch || categoryId || view !== 'all');
   const views: { value: StockView; label: string; count?: number }[] = [
     { value: 'all', label: 'Tất cả', count: summary?.variantCount },
-    { value: 'belowMin', label: 'Nên nhập lại', count: summary?.belowMinCount },
-    { value: 'quarantine', label: 'Có hàng chờ xử lý', count: summary?.quarantineCount },
+    { value: 'belowMin', label: 'Cần nhập thêm', count: summary?.belowMinCount },
+    { value: 'quarantine', label: 'Có hàng lỗi/chờ kiểm', count: summary?.quarantineCount },
   ];
 
   const withReset =
@@ -94,10 +94,10 @@ export function StockTab() {
     () => [
       {
         id: 'variant',
-        header: 'Biến thể',
+        header: 'SKU',
         meta: {
           className: 'min-w-60',
-          help: 'Nhãn dưới tên biến thể. Đang về: số còn chờ của đề nghị nhập. Chờ xử lý: hàng lỗi, hoàn, trả chưa kiểm, chưa bán được. Thiếu: số các kiện cần mà khả dụng chưa đủ.',
+          help: 'Nhãn dưới mã SKU. Đang về: số còn chờ của đơn đặt hàng nhập. Hàng lỗi/chờ kiểm: hàng lỗi, hoàn, trả chưa kiểm, chưa bán được. Thiếu cho đơn: số đơn đang cần mà có thể bán chưa đủ.',
         },
         cell: ({ row }) => {
           const r = row.original;
@@ -117,37 +117,37 @@ export function StockTab() {
       },
       {
         id: 'category',
-        header: 'Danh mục',
+        header: 'Category',
         meta: { className: 'w-32' },
         cell: ({ row }) => row.original.category.name,
       },
       {
         id: 'onHand',
-        header: 'Tồn thực',
-        meta: { className: 'w-24 text-right', help: 'Số hàng đang nằm trong kho, kể cả phần đang giữ và tạm khoá.' },
+        header: 'Tồn kho',
+        meta: { className: 'w-24 text-right', help: 'Số hàng đang nằm trong kho, kể cả phần tạm giữ và khoá chờ duyệt.' },
         cell: ({ row }) => (
           <span className={cn(row.original.negative && 'font-semibold text-destructive')}>{formatQty(row.original.onHand)}</span>
         ),
       },
       {
         id: 'reserved',
-        header: 'Đang giữ',
-        meta: { className: 'w-24 text-right', help: 'Đã giữ cho kiện chưa bàn giao, không bán cho đơn khác.' },
+        header: 'Tạm giữ',
+        meta: { className: 'w-24 text-right', help: 'Đã giữ cho đơn chưa bàn giao ĐVVC, không bán cho đơn khác.' },
         cell: ({ row }) => formatQty(row.original.reserved),
       },
       {
         id: 'locked',
-        header: 'Tạm khoá',
+        header: 'Khoá chờ duyệt',
         meta: { className: 'w-24 text-right', help: 'Bị khoá bởi phiếu giảm tồn đang chờ duyệt.' },
         cell: ({ row }) => (row.original.locked ? formatQty(row.original.locked) : '—'),
       },
       {
         id: 'available',
-        header: 'Khả dụng',
+        header: 'Có thể bán',
         meta: {
           className: 'w-28 text-right',
           guide: 'inventory-available',
-          help: 'Bán được ngay: tồn thực trừ đang giữ và tạm khoá. Số này được đẩy lên các sàn.',
+          help: 'Bán được ngay: tồn kho trừ tạm giữ và khoá chờ duyệt. Số này được đẩy lên các sàn.',
         },
         cell: ({ row }) => {
           const r = row.original;
@@ -158,12 +158,12 @@ export function StockTab() {
                   <TooltipTrigger asChild>
                     <TriangleAlert
                       className="size-4 text-destructive"
-                      aria-label="Nên nhập lại"
+                      aria-label="Cần nhập thêm"
                       data-testid="below-min"
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    Khả dụng + đang về − đang thiếu ≤ ngưỡng {formatQty(r.minQty ?? 0)}: nên nhập lại
+                    Có thể bán + hàng đang về − thiếu cho đơn ≤ tồn tối thiểu {formatQty(r.minQty ?? 0)}: cần nhập thêm
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -174,7 +174,7 @@ export function StockTab() {
       },
       {
         id: 'minQty',
-        header: 'Ngưỡng',
+        header: 'Tồn tối thiểu',
         meta: { className: 'w-28 text-right' },
         cell: ({ row }) => {
           const r = row.original;
@@ -184,7 +184,7 @@ export function StockTab() {
                 {r.minQty === null ? '—' : formatQty(r.minQty)}
               </span>
               {canReorder && (
-                <RowAction label="Đặt ngưỡng" onClick={() => setEditing(r)}>
+                <RowAction label="Đặt tồn tối thiểu" onClick={() => setEditing(r)}>
                   <Pencil />
                 </RowAction>
               )}
@@ -197,7 +197,7 @@ export function StockTab() {
         ? ([
             {
               id: 'avgCost',
-              header: 'Giá vốn BQ',
+              header: 'Giá vốn',
               meta: { className: 'w-32 text-right whitespace-nowrap' },
               cell: ({ row }) => (row.original.avgCost === null ? '—' : formatCurrency(row.original.avgCost)),
             },
@@ -216,11 +216,11 @@ export function StockTab() {
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
             {canRequest && row.original.belowMin && (
-              <RowAction label="Thêm vào đề nghị nhập" onClick={() => setRequesting(row.original)}>
+              <RowAction label="Thêm vào đơn đặt hàng nhập" onClick={() => setRequesting(row.original)}>
                 <ClipboardPlus />
               </RowAction>
             )}
-            <RowAction label="Lịch sử biến động" onClick={() => setViewing(row.original.variantId)}>
+            <RowAction label="Xem thẻ kho" onClick={() => setViewing(row.original.variantId)}>
               <History />
             </RowAction>
           </div>
@@ -234,7 +234,7 @@ export function StockTab() {
     <div>
       {summary?.negativeCount ? (
         <AlertMessage severity="warning" className="mb-4">
-          {formatQty(summary.negativeCount)} biến thể đang tồn âm: số ghi sổ nhỏ hơn 0, cần kiểm kê lại.
+          {formatQty(summary.negativeCount)} SKU đang tồn âm: số tồn nhỏ hơn 0, cần kiểm kho lại.
         </AlertMessage>
       ) : null}
 
@@ -275,7 +275,7 @@ export function StockTab() {
             placeholder="Tìm theo tên sản phẩm hoặc SKU"
           />
           <FilterSelect loading={categoriesQuery.isLoading}
-            label="Danh mục"
+            label="Category"
             value={categoryId}
             onChange={withReset(setCategoryId)}
             options={categories.map((c) => ({ value: c.id, label: c.name }))}
@@ -292,7 +292,7 @@ export function StockTab() {
           getRowId={(r) => r.variantId}
           loading={stockQuery.isLoading}
           fetching={stockQuery.isFetching}
-          empty={filtered ? 'Không tìm thấy biến thể phù hợp' : 'Chưa có biến thể đang bán'}
+          empty={filtered ? 'Không tìm thấy SKU phù hợp' : 'Chưa có SKU đang bán'}
           rowClassName={(r) => (r.variantId === flashId ? 'flash' : undefined)}
           pagination={{
             page,

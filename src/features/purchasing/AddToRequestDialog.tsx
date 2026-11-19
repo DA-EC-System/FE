@@ -68,7 +68,7 @@ export function AddToRequestDialog({
     const n = Number(qty.trim());
     const next = {
       quantity: !qty.trim() ? 'Nhập số lượng' : !Number.isInteger(n) || n < 1 ? 'Số lượng là số nguyên từ 1' : undefined,
-      supplierId: chosen === NEW_DRAFT && !supplierId ? 'Chọn nhà cung cấp cho đề nghị mới' : undefined,
+      supplierId: chosen === NEW_DRAFT && !supplierId ? 'Chọn NCC cho đơn mới' : undefined,
     };
     setErrs(next);
     setError(null);
@@ -93,18 +93,18 @@ export function AddToRequestDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !mut.isPending && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Thêm vào đề nghị nhập</DialogTitle>
+          <DialogTitle>Thêm vào đơn đặt hàng nhập</DialogTitle>
           <DialogDescription>
-            {level?.sku} · khả dụng {formatQty(level?.available ?? 0)}, ngưỡng {level?.minQty === null ? '—' : formatQty(level?.minQty ?? 0)}
-            {level?.incoming ? `, đang về ${formatQty(level.incoming)}` : ''}
+            {level?.sku} · có thể bán {formatQty(level?.available ?? 0)}, tồn tối thiểu {level?.minQty === null ? '—' : formatQty(level?.minQty ?? 0)}
+            {level?.incoming ? `, hàng đang về ${formatQty(level.incoming)}` : ''}
           </DialogDescription>
         </DialogHeader>
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
         <div className="grid gap-1.5">
-          <Label htmlFor="add-target">Đề nghị</Label>
+          <Label htmlFor="add-target">Đặt hàng nhập</Label>
           <Select value={chosen} onValueChange={setTarget} disabled={loadingDrafts}>
             <SelectTrigger id="add-target" className="w-full" aria-invalid={Boolean(errs.target)}>
-              {loadingDrafts ? <span className="text-muted-foreground">Đang tải đề nghị nháp…</span> : <SelectValue />}
+              {loadingDrafts ? <span className="text-muted-foreground">Đang tải đơn nháp…</span> : <SelectValue />}
             </SelectTrigger>
             <SelectContent>
               {drafts.map((d) => (
@@ -112,7 +112,7 @@ export function AddToRequestDialog({
                   {d.number} · {d.supplier.name} ({d.lineCount} dòng)
                 </SelectItem>
               ))}
-              <SelectItem value={NEW_DRAFT}>Lập đề nghị nháp mới</SelectItem>
+              <SelectItem value={NEW_DRAFT}>Tạo đơn đặt hàng nhập nháp mới</SelectItem>
             </SelectContent>
           </Select>
           {errs.target && <p className="text-sm text-destructive">{errs.target}</p>}
@@ -159,7 +159,7 @@ export function AddToRequestDialog({
             Huỷ
           </Button>
           <Button disabled={mut.isPending || loadingDrafts} onClick={submit}>
-            {mut.isPending ? 'Đang thêm...' : 'Thêm vào đề nghị'}
+            {mut.isPending ? 'Đang thêm...' : 'Thêm vào đơn'}
           </Button>
         </DialogFooter>
       </DialogContent>
