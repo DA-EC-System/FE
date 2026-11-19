@@ -31,14 +31,14 @@ interface RoleFormDialogProps {
   open: boolean;
   /** null: tạo mới */
   role: Role | null;
-  /** Vai trò có sẵn hoặc có quyền mình không có: chỉ xem tập quyền */
+  /** Vai trò mặc định hoặc có quyền mình không có: chỉ xem quyền */
   readOnly: boolean;
   readOnlyReason?: string | null;
   onClose: () => void;
   onDone: (message: string) => void;
 }
 
-/** UC-PI-06: tạo, sửa hoặc xem tập quyền của một vai trò */
+/** UC-PI-06: tạo, sửa hoặc xem quyền của một vai trò */
 export function RoleFormDialog({
   open,
   role,
@@ -121,8 +121,8 @@ export function RoleFormDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             {readOnly
-              ? `${role?.permissions.length ?? 0} quyền, ${role?.memberCount ?? 0} tài khoản.${readOnlyReason ? ` ${readOnlyReason}` : ''}`
-              : 'Chỉ chọn được những quyền bạn đang có. Quyền nền tảng (bật phân hệ, xem nhật ký) không gán cho vai trò tuỳ biến.'}
+              ? `${role?.permissions.length ?? 0} quyền, ${role?.memberCount ?? 0} nhân viên.${readOnlyReason ? ` ${readOnlyReason}` : ''}`
+              : 'Chỉ chọn được những quyền bạn đang có. Quyền quản trị hệ thống (bật/tắt tính năng, nhật ký thao tác, tác vụ lỗi, hồ sơ công ty) chỉ CEO, Admin có, không gán cho vai trò tự tạo.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -178,10 +178,8 @@ export function RoleFormDialog({
                                     )
                                   }
                                 />
-                                <span className="grid">
-                                  {d.label}
-                                  <small className="font-mono text-xs text-muted-foreground">{d.code}</small>
-                                </span>
+                                {/* Mã quyền chỉ hiện khi rê chuột, để danh sách dễ đọc */}
+                                <span title={d.code}>{d.label}</span>
                               </label>
                               </BlockedReason>
                             );

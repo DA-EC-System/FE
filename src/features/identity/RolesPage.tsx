@@ -50,7 +50,7 @@ function IconAction({
   );
 }
 
-/** UC-PI-06: vai trò có sẵn và vai trò tuỳ biến của công ty */
+/** UC-PI-06: vai trò mặc định và vai trò tự tạo của công ty */
 export function RolesPage() {
   const { companyContext } = useAuth();
   const can = useCan();
@@ -62,13 +62,13 @@ export function RolesPage() {
   const [form, setForm] = useState<{ role: Role | null } | null>(null);
   const [deleting, setDeleting] = useState<Role | null>(null);
 
-  /** Vì sao chỉ xem được tập quyền; null nếu sửa và xoá được */
+  /** Vì sao chỉ xem được quyền; null nếu sửa và xoá được */
   const readOnlyReason = useCallback(
     (role: Role) => {
-      if (role.builtIn) return 'Vai trò có sẵn, không sửa hay xoá được.';
+      if (role.builtIn) return 'Vai trò mặc định, không sửa hay xoá được.';
       if (!canManage) return 'Bạn không có quyền quản lý vai trò.';
       if (missingPermissions(companyContext, role.permissions).length) {
-        return 'Vai trò có quyền bạn không có nên bạn chỉ xem được tập quyền.';
+        return 'Vai trò này có quyền mà bạn không có, nên bạn chỉ xem được.';
       }
       return null;
     },
@@ -83,7 +83,7 @@ export function RolesPage() {
     } catch (e) {
       const code = problemCode(e);
       if (code === 'role_in_use') {
-        toast.warning(`Không xoá được vai trò ${deleting.name}: còn tài khoản đang mang vai trò này.`);
+        toast.warning(`Không xoá được vai trò ${deleting.name}: còn nhân viên đang được gán vai trò này.`);
       } else if (code === 'version_conflict') {
         toast.warning(`Vai trò ${deleting.name} vừa được người khác sửa. Chưa có gì thay đổi.`);
       } else {
@@ -102,7 +102,7 @@ export function RolesPage() {
         cell: ({ row: { original: r } }) => (
           <div className="flex items-center gap-2">
             <span className="font-medium">{r.name}</span>
-            {r.builtIn && <Badge variant="outline">Có sẵn</Badge>}
+            {r.builtIn && <Badge variant="outline">Mặc định</Badge>}
           </div>
         ),
       },
@@ -112,7 +112,7 @@ export function RolesPage() {
         meta: { className: 'w-28' },
         cell: ({ row }) => row.original.permissions.length,
       },
-      { accessorKey: 'memberCount', header: 'Số tài khoản', meta: { className: 'w-32' } },
+      { accessorKey: 'memberCount', header: 'Số nhân viên', meta: { className: 'w-32' } },
       {
         id: 'updatedAt',
         header: 'Cập nhật',
@@ -126,7 +126,7 @@ export function RolesPage() {
         cell: ({ row: { original: r } }) =>
           readOnlyReason(r) ? (
             <div className="flex gap-1" data-guide="roles-actions">
-              <IconAction label="Xem tập quyền" onClick={() => setForm({ role: r })}>
+              <IconAction label="Xem quyền" onClick={() => setForm({ role: r })}>
                 <Eye />
               </IconAction>
             </div>
@@ -151,8 +151,8 @@ export function RolesPage() {
     <div>
       <PageHeader
         title="Vai trò"
-        subtitle="Vai trò có sẵn và vai trò tuỳ biến; mỗi vai trò là một tập quyền."
-        help="Vai trò có sẵn (CEO, Admin, Sale...) không sửa hay xoá được. Vai trò tuỳ biến chỉ gồm những quyền bạn đang có; vai trò còn tài khoản mang thì không xoá được."
+        subtitle="Vai trò mặc định và vai trò tự tạo; mỗi vai trò gồm các quyền được chọn."
+        help="Vai trò mặc định (CEO, Admin, Sale...) không sửa hay xoá được. Vai trò tự tạo chỉ gồm những quyền bạn đang có; vai trò còn nhân viên đang được gán thì không xoá được."
         onTour={startTour}
         action={
           canManage ? (
@@ -199,7 +199,7 @@ export function RolesPage() {
           <>
             Bạn sắp xoá vai trò <strong>{deleting?.name}</strong>
             {deleting?.memberCount
-              ? `. Vai trò còn ${deleting.memberCount} tài khoản đang mang nên hệ thống sẽ không cho xoá.`
+              ? `. Vai trò còn ${deleting.memberCount} nhân viên đang được gán nên hệ thống sẽ không cho xoá.`
               : '. Hành động này không thể hoàn tác.'}
           </>
         }

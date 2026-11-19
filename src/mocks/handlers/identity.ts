@@ -301,7 +301,7 @@ export const identityHandlers = [
     if (inUse) {
       return problem(409, 'Vai trò đang được dùng', {
         code: 'role_in_use',
-        detail: `Còn ${inUse} tài khoản đang mang vai trò "${role.name}". Gỡ vai trò khỏi các tài khoản này trước khi xoá.`,
+        detail: `Còn ${inUse} nhân viên đang được gán vai trò "${role.name}". Gỡ vai trò khỏi các nhân viên này trước khi xoá.`,
       });
     }
     db.roles.splice(db.roles.indexOf(role), 1);
