@@ -85,9 +85,9 @@ export function CompanyListPage() {
     const current = (getProblem(error) as { current?: Company } | undefined)?.current;
     if (problemCode(error) === 'version_conflict' && current) {
       toast.warning(
-        `${current.name} vừa được người khác đổi, hiện ${STATUS_LABELS[
+        `${current.name} vừa được người khác cập nhật, hiện ${STATUS_LABELS[
           current.status
-        ].toLowerCase()}${current.status === 'locked' && current.lockReason ? ` (lý do: ${current.lockReason})` : ''}. Chưa có gì thay đổi.`,
+        ].toLowerCase()}${current.status === 'locked' && current.lockReason ? ` (lý do: ${current.lockReason})` : ''}. Thao tác của bạn chưa được thực hiện.`,
       );
       return;
     }
@@ -159,7 +159,7 @@ export function CompanyListPage() {
       },
       {
         id: 'optionalModules',
-        header: 'Phân hệ tuỳ chọn',
+        header: 'Tính năng tuỳ chọn',
         meta: { className: 'min-w-52' },
         cell: ({ row: { original: c } }) =>
           c.optionalModules.length === 0 ? (
@@ -194,7 +194,7 @@ export function CompanyListPage() {
       },
       {
         id: 'actions',
-        header: () => <span className="sr-only">Hành động</span>,
+        header: () => <span className="sr-only">Thao tác</span>,
         meta: { className: 'w-32' },
         cell: ({ row: { original: c } }) => (
           <div className="flex" data-guide="platform-lock">
@@ -229,7 +229,7 @@ export function CompanyListPage() {
       <PageHeader
         title="Công ty"
         subtitle="Công ty tự đăng ký dùng Commerio."
-        help="Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái, khoá hoặc mở khoá công ty; không xem đơn, sản phẩm hay doanh thu của công ty. Khoá phải ghi lý do, lý do lưu vào Nhật ký nền tảng."
+        help="Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái, khoá hoặc mở khoá công ty; không xem đơn, sản phẩm hay doanh thu của công ty. Khoá phải ghi lý do, lý do lưu vào Nhật ký thao tác nền tảng."
         onTour={startTour}
       />
 

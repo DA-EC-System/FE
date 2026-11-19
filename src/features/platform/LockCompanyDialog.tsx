@@ -38,7 +38,7 @@ interface LockCompanyDialogProps {
   onClose: () => void;
 }
 
-/** UC-PI-08: khoá bắt buộc có lý do, lý do được ghi vào nhật ký nền tảng. */
+/** UC-PI-08: khoá bắt buộc có lý do, lý do được ghi vào nhật ký thao tác nền tảng. */
 export function LockCompanyDialog({
   company,
   loading,
@@ -73,8 +73,8 @@ export function LockCompanyDialog({
               Sau khi khoá:
               <ul className="mt-1 list-disc ps-5">
                 <li>Nhân viên của công ty không đăng nhập được.</li>
-                <li>Dữ liệu từ sàn và cổng thanh toán gửi về vẫn được lưu.</li>
-                <li>Ngừng đẩy dữ liệu lên sàn và các tác vụ định kỳ của công ty.</li>
+                <li>Đơn hàng và thông báo từ sàn, cổng thanh toán gửi về vẫn được nhận và lưu.</li>
+                <li>Ngừng đồng bộ tồn kho, giá, listing lên sàn và tạm dừng các việc chạy tự động của công ty.</li>
               </ul>
             </AlertMessage>
             <FormField
@@ -86,7 +86,7 @@ export function LockCompanyDialog({
                   <FormControl>
                     <Textarea rows={3} autoFocus {...field} />
                   </FormControl>
-                  <FormDescription>Lý do được ghi vào nhật ký nền tảng.</FormDescription>
+                  <FormDescription>Lý do được ghi vào nhật ký thao tác nền tảng.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

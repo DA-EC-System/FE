@@ -4,7 +4,7 @@ export const AUDIT_ACTION_LABELS: Record<
   PlatformAuditAction,
   { label: string; variant: 'success' | 'destructive' | 'info' }
 > = {
-  'company.registered': { label: 'Đăng ký', variant: 'info' },
-  'company.locked': { label: 'Khoá', variant: 'destructive' },
-  'company.unlocked': { label: 'Mở khoá', variant: 'success' },
+  'company.registered': { label: 'Đăng ký mới', variant: 'info' },
+  'company.locked': { label: 'Khoá công ty', variant: 'destructive' },
+  'company.unlocked': { label: 'Mở khoá công ty', variant: 'success' },
 };
