@@ -1085,7 +1085,7 @@ export function ShopListingsPage() {
   return (
     <div>
       <PageHeader
-        title={shop ? `Listing · ${shop.shopName}` : 'Listing'}
+        title={shop ? `Listing & giá · ${shop.shopName}` : 'Listing & giá'}
         subtitle={
           shop
             ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
