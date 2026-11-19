@@ -155,7 +155,9 @@ export function PurchaseRequestPage() {
   const req = reqQuery.data;
   useBreadcrumb(isNew ? 'Lập đề nghị' : req?.number);
   const { startTour } = usePageGuide('purchase-request', { ready: isNew || Boolean(req) });
-  const returnQuery = useSupplierReturn(fromReturnId ?? undefined);
+  // Phiếu trả NCC mà đề nghị bù hàng: lập mới thì từ `?from=`, đã lưu thì phiếu đã gắn (#365: khoá giá theo dòng gốc).
+  const replacementOf = fromReturnId ?? req?.sourceReturn?.id ?? null;
+  const returnQuery = useSupplierReturn(replacementOf ?? undefined);
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
   const categoriesQuery = useCategories();
   const editable = canManage && (isNew || (req ? EDITABLE.has(req.status) : false));
@@ -204,7 +206,7 @@ export function PurchaseRequestPage() {
   // Bù hàng: điền nhà cung cấp và dòng từ phiếu trả nhà cung cấp (giá nhập theo giá vốn của phiếu nếu được xem)
   const source = returnQuery.data;
   useEffect(() => {
-    if (!source || loaded.current === `from:${source.id}`) return;
+    if (!fromReturnId || !source || loaded.current === `from:${source.id}`) return;
     loaded.current = `from:${source.id}`;
     reset(
       {
@@ -223,7 +225,7 @@ export function PurchaseRequestPage() {
       },
       { keepDefaultValues: true },
     );
-  }, [source, reset]);
+  }, [fromReturnId, source, reset]);
 
   const load = (latest: PurchaseRequest) => {
     loaded.current = latest.id;
@@ -395,6 +397,12 @@ export function PurchaseRequestPage() {
   const lifecycleBlocked = options.flatMap(({ transition: t, blocked }) =>
     blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
   );
+
+  /** Giá dòng gốc của phiếu trả cho SKU (#365): đề nghị bù hàng không sửa được giá; null là không khoá. */
+  const lockedCost = (variantId: string | null | undefined): number | null => {
+    if (!source || !variantId) return null;
+    return source.lines.find((l) => l.variantId === variantId)?.unitCost ?? null;
+  };
 
   const textInput = (i: number, key: 'quantity' | 'unitCost' | 'newName', label: string, name: string) => {
     const err = errors.lines?.[i]?.[key];
@@ -699,7 +707,13 @@ export function PurchaseRequestPage() {
                         </TableCell>
                         {showCost && (
                           <TableCell className="text-right">
-                            {editable
+                            {editable && source && lockedCost(live.variantId) !== null ? (
+                              <div className="grid gap-1" data-testid="locked-cost">
+                                <span aria-label={`Giá nhập ${name}`}>{formatCurrency(lockedCost(live.variantId)!)}</span>
+                                <span className="text-xs text-muted-foreground">Theo giá dòng gốc {source.number}</span>
+                                {lineErrors?.unitCost && <p className="text-xs text-destructive">{lineErrors.unitCost.message}</p>}
+                              </div>
+                            ) : editable
                               ? textInput(i, 'unitCost', 'Giá nhập', name)
                               : line?.unitCost === null || line?.unitCost === undefined
                                 ? '—'
