@@ -82,8 +82,8 @@ function suggestionsOf(
       out.standardPrice = {
         value,
         basis: canSeeCost
-          ? `Giá nhập ${vnd(purchase.unitCost)} × ${String(rule.markup).replace('.', ',')} (danh mục ${categoryName}), làm tròn ${vnd(rule.roundTo)}`
-          : `Giá nhập gần nhất × hệ số danh mục ${categoryName}`,
+          ? `Giá nhập ${vnd(purchase.unitCost)} × ${String(rule.markup).replace('.', ',')} (category ${categoryName}), làm tròn ${vnd(rule.roundTo)}`
+          : `Giá nhập gần nhất × hệ số category ${categoryName}`,
       };
     } else {
       const sibling = siblings.find((x) => currentOf(p.companyId, x.id).standardPrice !== null);
@@ -209,7 +209,7 @@ export const catalogBulkHandlers = [
         }
       }
       if (row.minQty !== undefined && !permissions.includes(PERMISSIONS.reorderManage)) {
-        errors.minQty = 'Không có quyền đặt ngưỡng tồn';
+        errors.minQty = 'Không có quyền đặt tồn tối thiểu';
       }
       if (Object.keys(errors).length) {
         fail('validation_failed', 'Có ô chưa hợp lệ', errors);
@@ -228,7 +228,7 @@ export const catalogBulkHandlers = [
       }
       const rule = ruleFor(companyId, row.variantId);
       if (row.minQty !== undefined && (rule?.version ?? null) !== (row.reorderVersion ?? null)) {
-        fail('version_conflict', 'Ngưỡng tồn vừa được người khác sửa, tải lại để xem số mới');
+        fail('version_conflict', 'Tồn tối thiểu vừa được người khác sửa, tải lại để xem số mới');
         continue;
       }
 

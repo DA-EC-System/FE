@@ -73,9 +73,9 @@ test.describe('P3 · Nhãn listing khi sàn đổi ngoài app', () => {
     await diToi(page, '/c/cmp-001/catalog/products/prd-002');
     const bienThe = page.locator('[data-testid=variants] tr[data-row-id=prd-002-v1]');
     await bienThe.getByRole('button', { name: /^Đổi trạng thái/ }).click();
-    await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
-    await expect(bienThe.getByTestId('variant-status')).toContainText('Tạm ngừng');
+    await page.getByRole('menuitem', { name: 'Tạm ngừng bán', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm ngừng bán', exact: true }).click();
+    await expect(bienThe.getByTestId('variant-status')).toContainText('Đang tạm ngừng bán');
 
     await moGianHang(page, 'shp-003');
     await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang ẩn');

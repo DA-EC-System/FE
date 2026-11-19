@@ -36,24 +36,24 @@ export const MAIN_LABEL_META: Record<VariantMainLabel, StatusMeta> = {
 
 export const BUSINESS_STATUS_LABELS: Record<VariantBusinessStatus, string> = {
   selling: 'Đang kinh doanh',
-  paused: 'Tạm ngừng',
-  discontinued: 'Ngừng nhập',
-  archived: 'Lưu trữ',
+  paused: MAIN_LABELS.paused,
+  discontinued: MAIN_LABELS.discontinued,
+  archived: MAIN_LABELS.archived,
 };
 
 /** Hậu quả của từng thao tác, hiện trong hộp xác nhận */
 const ACTION_EFFECT: Record<VariantBusinessAction, string> = {
-  pause: 'Sản phẩm trên các sàn bị ẩn cho đến khi bỏ tạm ngừng. Hàng vẫn nhập và giữ tồn như cũ.',
+  pause: 'Sản phẩm trên các sàn bị ẩn cho đến khi mở bán lại. Hàng vẫn nhập và giữ tồn như cũ.',
   unpause: 'Sản phẩm đang ẩn trên sàn được hiện lại.',
   discontinue:
-    'Không nhập thêm: SKU rời gợi ý nhập lại và không thêm được vào đề nghị nhập. Hàng còn tồn vẫn bán tiếp; sản phẩm trên sàn đang ẩn vì tạm ngừng sẽ hiện lại.',
+    'Không nhập thêm hàng: SKU không còn trong gợi ý nhập hàng và không thêm được vào đơn đặt hàng nhập. Hàng còn tồn vẫn bán tiếp; listing đang ẩn vì tạm ngừng bán sẽ hiện lại.',
   reactivate: 'SKU nhập và bán lại như bình thường.',
   archive:
-    'SKU ẩn khỏi danh sách và bị gỡ khỏi các sàn. Chỉ lưu trữ được khi tồn, hàng đang về, hàng chờ xử lý đều bằng 0 và không còn chứng từ mở.',
-  restore: 'SKU quay về Ngừng nhập với SKU cũ.',
+    'SKU ẩn khỏi danh sách và bị gỡ khỏi các sàn. Chỉ lưu trữ được khi tồn kho, hàng đang về và hàng lỗi/chờ kiểm đều bằng 0, và không còn phiếu nào chưa hoàn tất.',
+  restore: 'SKU hiện lại trong danh sách ở trạng thái Đã ngừng nhập, giữ nguyên mã SKU cũ.',
 };
 
-/** Nhãn cha suy từ con ("Đang bán 4/6") kèm nhãn phụ Chờ hoàn thiện, Có lỗi */
+/** Nhãn cha suy từ con ("Đang bán 4/6") kèm nhãn phụ Thiếu thông tin, Listing lỗi */
 export function ParentStatus({ item }: { item: ProductListItem }) {
   const { label, text } = parentLabel(item.labelCounts);
   return (
@@ -63,13 +63,13 @@ export function ParentStatus({ item }: { item: ProductListItem }) {
       </Badge>
       {label !== 'archived' && item.incompleteCount > 0 && (
         <Badge variant="warning" data-flag="incomplete">
-          Chờ hoàn thiện
+          Thiếu thông tin
         </Badge>
       )}
-      {/* Nhãn chính đã là Có lỗi thì không lặp nhãn phụ */}
+      {/* Nhãn chính đã là Listing lỗi thì không lặp nhãn phụ */}
       {label !== 'archived' && label !== 'error' && item.errorCount > 0 && (
         <Badge variant="destructive" data-flag="error">
-          Có lỗi
+          {MAIN_LABELS.error}
         </Badge>
       )}
     </span>
@@ -164,7 +164,7 @@ function resultToast(target: BusinessTarget, result: BusinessStatusResult) {
   const lines = blocked.map((s) => `${s.sku}: ${s.reasons.join('; ')}`);
   if (!result.applied.length) {
     toast.warning(`Chưa ${label.toLowerCase()} được ${target.name}`, {
-      description: lines.join('\n') || 'Không SKU nào làm được thao tác này.',
+      description: lines.join('\n') || 'Không SKU nào đủ điều kiện cho thao tác này.',
     });
     return;
   }
@@ -209,7 +209,7 @@ export function useBusinessAction() {
       message={
         target && (
           <>
-            {!target.variantIds && <>Áp cho mọi SKU làm được thao tác này. </>}
+            {!target.variantIds && <>Áp dụng cho mọi SKU đủ điều kiện của sản phẩm này. </>}
             {ACTION_EFFECT[target.action]}
           </>
         )

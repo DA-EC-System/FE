@@ -55,8 +55,8 @@ describe('Nhãn (sơ đồ B1)', () => {
   it('nhãn cha suy từ con, không tính SKU đã lưu trữ', () => {
     expect(parentLabel(counts({ live: 4, paused: 1, discontinued: 1, archived: 2 }))).toEqual({ label: 'live', text: 'Đang bán 4/6' });
     expect(parentLabel(counts({ live: 2 }))).toEqual({ label: 'live', text: 'Đang bán' });
-    expect(parentLabel(counts({ not_listed: 1, discontinued: 2 }))).toEqual({ label: 'discontinued', text: 'Ngừng nhập 2/3' });
-    expect(parentLabel(counts({ archived: 3 }))).toEqual({ label: 'archived', text: 'Lưu trữ' });
+    expect(parentLabel(counts({ not_listed: 1, discontinued: 2 }))).toEqual({ label: 'discontinued', text: 'Đã ngừng nhập 2/3' });
+    expect(parentLabel(counts({ archived: 3 }))).toEqual({ label: 'archived', text: 'Đã lưu trữ' });
   });
 
   it('FE#260: SKU có lỗi tính vào đang bán của cha; không SKU nào live thì nhãn nhiều nhất', () => {

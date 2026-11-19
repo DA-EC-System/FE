@@ -13,18 +13,18 @@ test.describe('P2 · Nhãn sản phẩm (FE#260)', () => {
     await expect(page.locator('tbody tr[data-row-id]')).not.toHaveCount(0);
   });
 
-  test('danh sách hiện mã sản phẩm và nhãn phụ Có lỗi', async ({ page }) => {
+  test('danh sách hiện mã sản phẩm và nhãn phụ Listing lỗi', async ({ page }) => {
     const aoThun = dongSanPham(page, 'Áo thun basic cổ tròn');
     await expect(aoThun.getByTestId('product-code')).toHaveText(/^AO-\d{4}$/);
     // prd-001-v3 bị Lazada từ chối: SKU có lỗi, cha vẫn Đang bán
     await expect(aoThun.locator('[data-testid=product-status] [data-status=live]')).toHaveText(/^Đang bán \d+\/\d+$/);
-    await expect(aoThun.locator('[data-flag=error]')).toHaveText('Có lỗi');
+    await expect(aoThun.locator('[data-flag=error]')).toHaveText('Listing lỗi');
   });
 
-  test('trang sản phẩm: mã ở đầu trang, SKU chỉ có listing lỗi mang nhãn Có lỗi, có cột Giá muốn bán', async ({ page }) => {
+  test('trang sản phẩm: mã ở đầu trang, SKU chỉ có listing lỗi mang nhãn Listing lỗi, có cột Giá muốn bán', async ({ page }) => {
     await chua(page, 'Áo thun basic cổ tròn', 'tbody tr').click();
     await expect(page.getByTestId('product-code')).toHaveText(/^AO-\d{4}$/);
-    await expect(dong(page, 'prd-001-v3').locator('[data-status=error]')).toHaveText('Có lỗi');
+    await expect(dong(page, 'prd-001-v3').locator('[data-status=error]')).toHaveText('Listing lỗi');
     await expect(dong(page, 'prd-001-v1').locator('[data-status=live]')).toBeVisible();
     await expect(dong(page, 'prd-001-v4').getByTestId('variant-target-price')).toContainText('150.000');
     // Có SKU Sẵn sàng thì không xoá hẳn được, chỉ lưu trữ
