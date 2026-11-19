@@ -45,13 +45,13 @@ export function ReturnsTab() {
     () => [
       {
         id: 'number',
-        header: 'Số phiếu',
+        header: 'Mã phiếu',
         meta: { className: 'w-36' },
         cell: ({ row }) => (
           <div>
             <p className="font-medium">{row.original.number}</p>
             <p className="text-xs text-muted-foreground">
-              {row.original.source ? `Từ ${row.original.source.number}` : 'Lập tay'}
+              {row.original.source ? `Từ ${row.original.source.number}` : 'Tạo thủ công'}
             </p>
           </div>
         ),
@@ -76,11 +76,14 @@ export function ReturnsTab() {
       },
       {
         id: 'createdAt',
-        header: 'Lập / gửi',
+        header: 'Ngày gửi trả',
         meta: { className: 'w-44' },
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="whitespace-nowrap">{formatDateTime(row.original.sentAt ?? row.original.createdAt)}</p>
+            <p className="whitespace-nowrap">
+              {formatDateTime(row.original.sentAt ?? row.original.createdAt)}
+              {!row.original.sentAt && <span className="ms-1 text-xs text-muted-foreground">tạo</span>}
+            </p>
             <p className="truncate text-xs text-muted-foreground">{row.original.createdBy}</p>
           </div>
         ),
@@ -98,7 +101,7 @@ export function ReturnsTab() {
       )}
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số phiếu, chứng từ gốc, ghi chú" />
+          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm mã phiếu, phiếu gốc, ghi chú" />
           <FilterSelect
             label="Trạng thái"
             value={status}
@@ -111,7 +114,7 @@ export function ReturnsTab() {
           {canManage && (
             <Button className="md:ms-auto" onClick={() => navigate(ROUTES.company.supplierReturnNew(companyId))}>
               <Plus />
-              Lập phiếu trả
+              Tạo phiếu trả hàng
             </Button>
           )}
         </FilterBar>
@@ -121,7 +124,7 @@ export function ReturnsTab() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu trả nhà cung cấp nào'}
+          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu trả hàng NCC nào'}
           onRowClick={(r) => navigate(ROUTES.company.supplierReturn(companyId, r.id))}
           pagination={{
             page,
