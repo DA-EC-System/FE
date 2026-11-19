@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useForm, type FieldValues, type Path, type UseFormSetError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { z } from 'zod';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FormTextField } from '@/components/common/FormTextField';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
+import { authApi } from '@/api/auth.api';
 import { joinApi } from '@/api/identity.api';
 import { getErrorMessage, getProblem, retryAfterSeconds } from '@/api/client';
 import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { ROUTES } from '@/router/routes';
+import { useAuthStore } from '@/stores/authStore';
 import { formatDateTime } from '@/utils/format';
 import type { JoinCheck, JoinVerifyResult } from '@/types/identity';
 import { AuthShell } from './AuthShell';
@@ -88,6 +91,28 @@ export function JoinPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const cooldown = useCooldown();
+  const sessionStatus = useAuthStore((s) => s.status);
+  const signedInEmail = useAuthStore((s) => s.account?.email ?? null);
+  const clearSession = useAuthStore((s) => s.clear);
+  const qc = useQueryClient();
+  const [signedOutEmail, setSignedOutEmail] = useState<string | null>(null);
+
+  // Trình duyệt đang đăng nhập tài khoản khác (vd Admin mở thử link mình tạo): đăng xuất hẳn (BE huỷ cookie refresh)
+  // trước khi tham gia, để "Về trang đăng nhập" không tự vào lại tài khoản cũ.
+  useEffect(() => {
+    if (sessionStatus !== 'ready' || !signedInEmail) return;
+    const email = signedInEmail;
+    void authApi
+      .logout()
+      .catch(() => {
+        // Phiên ở BE đã hết thì vẫn xoá phiên ở FE
+      })
+      .finally(() => {
+        clearSession();
+        qc.clear();
+        setSignedOutEmail(email);
+      });
+  }, [sessionStatus, signedInEmail, clearSession, qc]);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,6 +261,12 @@ export function JoinPage() {
             </Button>
           )}
         </div>
+      )}
+
+      {signedOutEmail && step.kind !== 'done' && (
+        <AlertMessage severity="info" className="mb-4" onClose={() => setSignedOutEmail(null)}>
+          Đã đăng xuất tài khoản <strong>{signedOutEmail}</strong> trên trình duyệt này để tham gia công ty.
+        </AlertMessage>
       )}
 
       {error && step.kind !== 'fatal' && (
