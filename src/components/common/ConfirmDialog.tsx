@@ -31,7 +31,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Xác nhận',
-  cancelLabel = 'Huỷ',
+  cancelLabel = 'Quay lại',
   destructive = false,
   loading = false,
   onConfirm,

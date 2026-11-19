@@ -9,7 +9,7 @@ interface PlaceholderPageProps {
 export function PlaceholderPage({
   title,
   phase = 'Sắp ra mắt',
-  description = 'Module này đang được phát triển trong giai đoạn tiếp theo.',
+  description = 'Tính năng này đang được phát triển.',
 }: PlaceholderPageProps) {
   return (
     <div className="flex justify-center py-16">

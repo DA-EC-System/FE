@@ -43,7 +43,7 @@ const weekday = (d: string) => {
 
 /**
  * Tổng quan công ty theo `v-tong-quan` của Test_UI v4 (FE#134): dải chỉ số, việc cần làm, doanh thu theo ngày,
- * vai trò và phân hệ. Số kinh doanh chỉ hiện khi có quyền báo cáo (D18); ai cũng thấy chỉ số việc cần làm.
+ * vai trò và tính năng. Số kinh doanh chỉ hiện khi có quyền báo cáo (D18); ai cũng thấy chỉ số việc cần làm.
  */
 /** Thẻ đếm việc khi chưa đọc được /tasks: không hiện 0 (FE#248) */
 const TASKS_UNREAD = 'Chưa tải được việc cần làm';
@@ -77,7 +77,7 @@ export function CompanyHomePage() {
   const spark = daily.data?.items.slice(-7).map((d) => d.revenue);
   const money = compactMoney(revenue);
   const profitMoney = profit === null ? null : compactMoney(profit);
-  // Lần tự duyệt xem ở Nhật ký thao tác, lọc sẵn (Documents/25 mục 11; FE#249)
+  // Chứng từ tự duyệt xem ở Nhật ký thao tác, lọc sẵn (Documents/25 mục 11; FE#249)
   const selfApprovalLink = can(PERMISSIONS.auditView)
     ? `${ROUTES.company.auditLogs(companyContext.companyId)}?selfApproved=true`
     : null;
@@ -87,7 +87,7 @@ export function CompanyHomePage() {
       <PageHeader
         title="Tổng quan"
         subtitle={`${companyContext.companyName} · ${weekday(today)}`}
-        help="Số liệu chính, việc cần làm của bạn trong mọi phân hệ, vai trò và phân hệ công ty đang bật."
+        help="Doanh thu, lợi nhuận và việc cần làm của bạn; vai trò và tính năng công ty đang bật."
         onTour={startTour}
       />
       <div className="grid gap-4">
@@ -119,17 +119,17 @@ export function CompanyHomePage() {
             {canReport && profitMoney && (
               <Kpi
                 data-kpi="profit"
-                label="Lãi 7 ngày"
+                label="Lợi nhuận 7 ngày"
                 help="Doanh thu trừ phí sàn, phí cổng, phí vận chuyển và giá vốn. Phí sàn của ngày chưa đối soát đang tính 0."
                 value={<span className={cn(profit! < 0 && 'text-destructive')}>{profitMoney.value}</span>}
                 unit={profitMoney.unit}
-                detail={`Biên lãi ${margin(profit, revenue)}`}
+                detail={`Biên lợi nhuận ${margin(profit, revenue)}`}
               />
             )}
             <Kpi
               data-kpi="overdue"
               label="Việc quá hạn"
-              help="Việc đã quá hạn xử lý trong các phân hệ bạn có quyền."
+              help="Việc đã quá hạn xử lý trong các tính năng bạn có quyền."
               loading={tasks.isLoading}
               value={tasks.isError ? '—' : <span className={cn(overdue > 0 && 'text-destructive')}>{overdue}</span>}
               detail={
@@ -139,7 +139,7 @@ export function CompanyHomePage() {
             <Kpi
               data-kpi="due-soon"
               label="Việc sắp tới hạn"
-              help="Việc còn dưới 24 giờ tới hạn, như kiện phải giao cho sàn hay phiếu chờ duyệt."
+              help="Việc còn dưới 24 giờ tới hạn, như kiện hàng phải bàn giao ĐVVC hay phiếu chờ duyệt."
               loading={tasks.isLoading}
               value={tasks.isError ? '—' : dueSoon}
               detail={tasks.isError ? TASKS_UNREAD : `Trong ${items.length} việc cần làm`}
@@ -201,10 +201,10 @@ export function CompanyHomePage() {
                 </dd>
               </div>
               <div className="grid gap-2" data-guide="home-modules">
-                <dt className="text-muted-foreground">Phân hệ tuỳ chọn đang bật</dt>
+                <dt className="text-muted-foreground">Tính năng tuỳ chọn đang bật</dt>
                 <dd>
                   {optional.length === 0 ? (
-                    'Chưa bật phân hệ tuỳ chọn nào.'
+                    'Chưa bật tính năng tuỳ chọn nào.'
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {optional.map((m) => (
@@ -218,11 +218,11 @@ export function CompanyHomePage() {
               </div>
               {selfApprovalLink && (
                 <div className="grid gap-2">
-                  <dt className="text-muted-foreground">Lần tự duyệt</dt>
+                  <dt className="text-muted-foreground">Chứng từ tự duyệt</dt>
                   <dd className="grid gap-1">
-                    <span>CEO, hoặc công ty chỉ có một người, tự làm bước cần người duyệt khác.</span>
+                    <span>Chứng từ do chính người lập duyệt (CEO hoặc công ty một người).</span>
                     <Link to={selfApprovalLink} className="text-primary hover:underline">
-                      Xem lần tự duyệt
+                      Xem chứng từ tự duyệt
                     </Link>
                   </dd>
                 </div>
