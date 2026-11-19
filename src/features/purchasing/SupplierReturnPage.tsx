@@ -237,7 +237,7 @@ export function SupplierReturnPage() {
     try {
       const next = await actionMut.mutateAsync({ id: target.id, action, version: target.version, ...extra });
       load(next);
-      toast.success(`${next.number}: ${RETURN_STATUS[next.status].label.toLowerCase()}`);
+      toast.success(`${next.number}: ${RETURN_STATUS[next.status].label}`);
       return true;
     } catch (e) {
       if (inDialog) setDialogError(problemMessage(e));
