@@ -86,6 +86,18 @@ test.describe('P2 · Mua hàng', () => {
       }
     });
 
+    test('đề nghị bù hàng khoá giá nhập theo dòng gốc của phiếu trả (B4; BE#365)', async ({ page }) => {
+      await moTab(page, 'Trả nhà cung cấp', 'TN-000001');
+      await thaoTac(page, 'Nhà cung cấp bù hàng');
+      await expect(page.getByTestId('return-status')).toContainText('bù hàng');
+      await page.getByRole('button', { name: 'Lập đề nghị bù hàng', exact: true }).click();
+      const khoa = page.getByTestId('locked-cost');
+      await expect(khoa).toHaveCount(2);
+      await expect(khoa.first()).toContainText('80.000');
+      await expect(khoa.first()).toContainText('Theo giá dòng gốc TN-000001');
+      await expect(page.getByTestId('request-lines').getByRole('textbox', { name: /^Giá nhập/ })).toHaveCount(0);
+    });
+
     test('tồn dưới ngưỡng: thêm vào đề nghị nhập nháp (B2 → A1)', async ({ page }) => {
       await menu(page, 'Kho');
       await page.getByRole('tab', { name: /Nên nhập lại/ }).click();
