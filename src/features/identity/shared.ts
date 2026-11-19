@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getProblem } from '@/api/client';
 import { missingPermissions } from '@/utils/permissions';
 import type { CompanyContext, MembershipStatus } from '@/types/auth';
-import type { Role, StaffMember } from '@/types/identity';
+import type { Invitation, Role, StaffMember } from '@/types/identity';
 
 /** US-CT-05: link mời chỉ mang vai trò; email, họ tên do người được mời tự nhập */
 export const inviteSchema = z.object({
@@ -19,19 +19,32 @@ export type RoleForm = z.infer<typeof roleSchema>;
 /** Vai trò CEO chỉ có một người giữ, không gán qua màn nhân viên */
 export const CEO_ROLE_NAME = 'CEO';
 
+/** Vai có sẵn Sale, Nhân viên kho: ai có `identity.account.manage` cũng gán, gỡ được (docs/21 I5, BE#351) */
+export const FREELY_ASSIGNABLE_ROLE_IDS: readonly string[] = [
+  '00000000-0000-4000-8000-000000000003',
+  '00000000-0000-4000-8000-000000000004',
+];
+export const isFreelyAssignable = (role: Pick<Role, 'id' | 'builtIn'>) =>
+  role.builtIn && FREELY_ASSIGNABLE_ROLE_IDS.includes(role.id);
+
 /**
- * Vì sao người đang đăng nhập không gán, gỡ, sửa hay xoá được vai trò này;
- * null nếu được. FE chỉ ẩn/khoá, BE vẫn kiểm lại.
+ * Vì sao người đang đăng nhập không gán hay gỡ được vai trò này; null nếu được. FE chỉ khoá, BE vẫn kiểm lại.
+ * `permissionLabels`: mã quyền → tên quyền (danh mục `GET /identity/permissions`), thiếu thì hiện mã.
  */
-export function roleLockReason(role: Role, context: CompanyContext | null): string | null {
+export function roleLockReason(
+  role: Role,
+  context: CompanyContext | null,
+  permissionLabels?: ReadonlyMap<string, string>,
+): string | null {
   if (role.builtIn && role.name === CEO_ROLE_NAME) return 'Vai trò CEO không gán hay gỡ được';
-  if (missingPermissions(context, role.permissions).length) {
-    return 'Vai trò có quyền bạn không có';
-  }
-  return null;
+  if (isFreelyAssignable(role)) return null;
+  const missing = missingPermissions(context, role.permissions);
+  if (!missing.length) return null;
+  const names = missing.map((code) => permissionLabels?.get(code) ?? code).join(', ');
+  return `Vai trò này có quyền bạn chưa có (${names}). Nhờ CEO tạo link hoặc gán vai này.`;
 }
 
-/** Bản hiện tại BE gửi kèm lỗi 409 version_conflict / already_member */
+/** Bản hiện tại BE gửi kèm lỗi 409 version_conflict / invalid_transition / already_member */
 export function conflictCurrent<T>(error: unknown, key: 'current' | 'member' = 'current'): T | null {
   const problem = getProblem(error) as (Record<string, unknown> & { code?: string }) | undefined;
   return (problem?.[key] as T | undefined) ?? null;
@@ -48,6 +61,45 @@ export function protectedReason(member: StaffMember, accountId: string | undefin
 }
 
 export const STAFF_STATUS_LABELS: Record<MembershipStatus, string> = {
-  active: 'Hoạt động',
+  active: 'Đang hoạt động',
   locked: 'Tạm khoá',
 };
+
+/** Lỗi 409 `invalid_transition` (BE#353): trả bản hiện tại để báo theo trạng thái; lỗi khác trả null */
+export function invalidTransitionCurrent<T>(error: unknown): T | null {
+  return getProblem(error)?.code === 'invalid_transition' ? conflictCurrent<T>(error) : null;
+}
+
+type InvitationLike = Pick<Invitation, 'status' | 'fullName' | 'email'>;
+const invitee = (inv: InvitationLike) => inv.fullName ?? inv.email ?? 'người được mời';
+
+/**
+ * Câu báo khi lời mời không còn ở trạng thái cho phép (BE#353). `from`: tab Chờ duyệt (duyệt, từ chối)
+ * hay tab Link đã tạo (huỷ).
+ */
+export function invitationTransitionMessage(current: InvitationLike, from: 'pending' | 'links'): string {
+  switch (current.status) {
+    case 'open':
+    case 'claimed':
+      return from === 'pending'
+        ? 'Người được mời chưa nộp yêu cầu, chưa duyệt được.'
+        : 'Link chưa có người nộp yêu cầu.';
+    case 'pending':
+      return from === 'links'
+        ? 'Người được mời đã nộp yêu cầu. Duyệt hoặc từ chối ở tab Chờ duyệt.'
+        : 'Yêu cầu đang chờ duyệt.';
+    case 'approved':
+      return `Yêu cầu của ${invitee(current)} đã được duyệt.`;
+    case 'rejected':
+      return `Yêu cầu của ${invitee(current)} đã bị từ chối.`;
+    case 'revoked':
+      return 'Link này đã bị huỷ.';
+  }
+}
+
+/** Câu báo khi khoá người đang khoá, mở khoá người đang hoạt động (BE#353) */
+export function staffTransitionMessage(current: Pick<StaffMember, 'status' | 'fullName'>): string {
+  return current.status === 'locked'
+    ? `${current.fullName} đang bị tạm khoá rồi.`
+    : `${current.fullName} đang hoạt động rồi.`;
+}

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { usePermissionCatalog } from '@/api/identity.api';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -13,16 +15,19 @@ interface RoleChecklistProps {
 
 /**
  * Chọn vai trò cho nhân viên. Không có CEO (docs/21 I5). Vai trò có quyền người đang
- * đăng nhập không có hiện mờ và không đổi được (giữ nguyên nếu nhân viên đang mang).
+ * đăng nhập không có hiện mờ, ghi tên quyền thiếu và không đổi được (giữ nguyên nếu nhân viên đang mang).
+ * Vai có sẵn Sale, Nhân viên kho luôn chọn được (BE#351).
  */
 export function RoleChecklist({ roles, value, onChange, error }: RoleChecklistProps) {
   const { companyContext } = useAuth();
   const visible = roles.filter((r) => !(r.builtIn && r.name === CEO_ROLE_NAME));
+  const catalog = usePermissionCatalog();
+  const labels = useMemo(() => new Map((catalog.data ?? []).map((d) => [d.code, d.label])), [catalog.data]);
 
   return (
     <div className="grid gap-1" role="group" aria-label="Vai trò" data-testid="role-checklist">
       {visible.map((role) => {
-        const lock = roleLockReason(role, companyContext);
+        const lock = roleLockReason(role, companyContext, labels);
         const id = `role-${role.id}`;
         return (
           <label
@@ -47,7 +52,7 @@ export function RoleChecklist({ roles, value, onChange, error }: RoleChecklistPr
                 {role.name}
                 {role.builtIn && <span className="font-normal text-muted-foreground"> · có sẵn</span>}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground" data-testid={`role-note-${role.id}`}>
                 {lock ?? `${role.permissions.length} quyền`}
               </span>
             </span>

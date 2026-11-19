@@ -12,7 +12,7 @@ import { useInvitations, useRevokeInvitation } from '@/api/identity.api';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { formatDateTime } from '@/utils/format';
 import type { Invitation, InvitationStatus } from '@/types/identity';
-import { conflictCurrent } from './shared';
+import { conflictCurrent, invalidTransitionCurrent, invitationTransitionMessage } from './shared';
 
 /** Link đã tạo mà chưa ai nộp yêu cầu (Documents/21 §3.1) */
 const UNSUBMITTED: InvitationStatus[] = ['open', 'claimed'];
@@ -54,8 +54,11 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
       toast.success('Đã huỷ link mời. Người cầm link không dùng được nữa.');
     } catch (e) {
       // Danh sách tự nạp lại (onSettled) nên dòng hiện trạng thái mới nhất
+      const moved = invalidTransitionCurrent<Invitation>(e);
       const latest = conflictCurrent<Invitation>(e);
-      if (problemCode(e) === 'version_conflict') {
+      if (moved) {
+        toast.warning(invitationTransitionMessage(moved, 'links'));
+      } else if (problemCode(e) === 'version_conflict') {
         toast.warning(
           latest
             ? `Link này vừa đổi trạng thái: ${LATEST_LABELS[latest.status]}. Chưa huỷ.`

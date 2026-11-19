@@ -28,7 +28,13 @@ import { InviteStaffDialog } from './InviteStaffDialog';
 import { EditStaffRolesDialog } from './EditStaffRolesDialog';
 import { PendingInvitations } from './PendingInvitations';
 import { CreatedLinks } from './CreatedLinks';
-import { conflictCurrent, protectedReason, STAFF_STATUS_LABELS } from './shared';
+import {
+  conflictCurrent,
+  invalidTransitionCurrent,
+  protectedReason,
+  STAFF_STATUS_LABELS,
+  staffTransitionMessage,
+} from './shared';
 
 /**
  * UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn; tab Chờ duyệt cho yêu cầu tham gia qua link (US-CT-07),
@@ -70,8 +76,12 @@ export function StaffListPage() {
       await lockMut.mutateAsync({ accountId: locking.accountId, locked, version: locking.version });
       toast.success(locked ? `Đã tạm khoá ${locking.fullName}` : `Đã mở khoá ${locking.fullName}`);
     } catch (e) {
+      // Danh sách tự nạp lại (onSettled) nên dòng hiện trạng thái mới nhất
+      const moved = invalidTransitionCurrent<StaffMember>(e);
       const latest = conflictCurrent<StaffMember>(e);
-      if (problemCode(e) === 'version_conflict' && latest) {
+      if (moved) {
+        toast.warning(staffTransitionMessage(moved));
+      } else if (problemCode(e) === 'version_conflict' && latest) {
         toast.warning(
           `${latest.fullName} vừa được người khác sửa, hiện ${STAFF_STATUS_LABELS[
             latest.status

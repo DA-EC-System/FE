@@ -285,6 +285,9 @@ export interface MockRole {
 }
 
 export const CEO_ROLE_ID = 'role-ceo';
+/** Id vai có sẵn Sale, Nhân viên kho trùng BE (core/access catalog): FE nhận ra vai gán tự do theo id (BE#351) */
+export const SALE_ROLE_ID = '00000000-0000-4000-8000-000000000003';
+export const KHO_ROLE_ID = '00000000-0000-4000-8000-000000000004';
 
 const roles: MockRole[] = [
   // Bốn vai trò có sẵn theo ma trận quyền (BUILTIN_ROLES ở BE), không sửa tay quyền ở đây
@@ -292,8 +295,8 @@ const roles: MockRole[] = [
     [
       [CEO_ROLE_ID, 'CEO', MATRIX_ROLES.ceo],
       ['role-admin', 'Admin', MATRIX_ROLES.admin],
-      ['role-sale', 'Sale', MATRIX_ROLES.sale],
-      ['role-kho', 'Kho', MATRIX_ROLES.kho],
+      [SALE_ROLE_ID, 'Sale', MATRIX_ROLES.sale],
+      [KHO_ROLE_ID, 'Kho', MATRIX_ROLES.kho],
     ] as const
   ).map<MockRole>(([id, name, permissions]) => ({
     id,
@@ -479,15 +482,15 @@ const memberships: MockMembership[] = [
   // CEO của ABC, đồng thời là Admin ở Minh Phát (không bật Channel) — demo chuyển công ty
   member('acc-001', 'cmp-001', [CEO_ROLE_ID]),
   member('acc-001', 'cmp-003', ['role-admin']),
-  member('acc-002', 'cmp-001', ['role-sale']),
+  member('acc-002', 'cmp-001', [SALE_ROLE_ID]),
   // Nhân viên kho: một công ty bị khoá cả công ty, một công ty bị khoá tài khoản
   member('acc-003', 'cmp-001', ['role-kho-cmp-001']),
   member('acc-003', 'cmp-004', ['role-kho-cmp-004']),
   member('acc-003', 'cmp-002', ['role-kho-cmp-002'], 'locked'),
-  member('acc-004', 'cmp-001', ['role-sale']),
+  member('acc-004', 'cmp-001', [SALE_ROLE_ID]),
   // Admin của ABC: không gán được vai trò Nhân viên kho (có quyền kho Admin không có)
   member('acc-005', 'cmp-001', ['role-admin']),
-  member('acc-006', 'cmp-001', ['role-sale', 'role-cskh-cmp-001'], 'locked'),
+  member('acc-006', 'cmp-001', [SALE_ROLE_ID, 'role-cskh-cmp-001'], 'locked'),
   // Vai trò tuỳ biến chỉ xem đơn: không tạo đơn, không tạo mã thanh toán (FE#9 AC-R3)
   member('acc-007', 'cmp-001', ['role-cskh-cmp-001']),
   // FE#12: Kế toán ghi tiền, Kiểm soát chỉ xem chứng từ và giao dịch cổng
@@ -544,6 +547,8 @@ export interface MockCompanyAuditLog {
   entityType: string;
   entityId: string;
   entityLabel: string;
+  /** Mã thao tác cụ thể (BE#352); dòng tự duyệt không ghi thì lấy `after.action` */
+  operation?: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   createdAt: string;
@@ -569,7 +574,8 @@ const companyAuditLogs: MockCompanyAuditLog[] = [
     action: 'update',
     entityType: 'core.memberships',
     entityId: 'acc-006',
-    entityLabel: 'nghi@commerio.vn',
+    entityLabel: 'Hồ Đã Nghỉ (nghi@commerio.vn)',
+    operation: 'lock',
     before: { status: 'active' },
     after: { status: 'locked' },
     createdAt: '2026-09-28T08:40:00.000Z',
@@ -765,7 +771,7 @@ const invitations: MockInvitation[] = [
     status: 'pending',
     email: 'ungvien@gmail.com',
     fullName: 'Đỗ Thị Ứng Viên',
-    roleIds: ['role-sale'],
+    roleIds: [SALE_ROLE_ID],
     createdBy: 'acc-001',
     createdAt: inHours(-30),
     expiresAt: inHours(42),
@@ -784,7 +790,7 @@ const invitations: MockInvitation[] = [
     status: 'pending',
     email: 'hethan@gmail.com',
     fullName: 'Vũ Văn Hết Hạn',
-    roleIds: ['role-kho'],
+    roleIds: [KHO_ROLE_ID],
     createdBy: 'acc-001',
     createdAt: inHours(-100),
     expiresAt: inHours(-28),
@@ -803,7 +809,7 @@ const invitations: MockInvitation[] = [
     status: 'open',
     email: null,
     fullName: null,
-    roleIds: ['role-sale'],
+    roleIds: [SALE_ROLE_ID],
     createdBy: 'acc-001',
     createdAt: inHours(-2),
     expiresAt: inHours(70),
