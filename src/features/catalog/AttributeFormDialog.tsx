@@ -40,8 +40,8 @@ const toForm = (a: Attribute | null): AttributeForm => ({
 });
 
 /**
- * UC-CP-01: thuộc tính và danh sách giá trị kèm mã dùng trong SKU (V21, AC-16).
- * Giá trị đã có biến thể dùng thì không xoá được.
+ * UC-CP-01: thuộc tính phân loại và danh sách giá trị kèm mã dùng trong SKU (V21, AC-16).
+ * Giá trị đã có variant dùng thì không xoá được.
  */
 export function AttributeFormDialog({ open, attribute, onClose, onDone }: AttributeFormDialogProps) {
   const createMut = useCreateAttribute();
@@ -82,10 +82,10 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
     try {
       if (current) {
         await updateMut.mutateAsync({ id: current.id, version: current.version, ...values });
-        onDone(`Đã cập nhật thuộc tính ${values.name}`);
+        onDone(`Đã cập nhật thuộc tính phân loại ${values.name}`);
       } else {
         await createMut.mutateAsync(values);
-        onDone(`Đã tạo thuộc tính ${values.name}`);
+        onDone(`Đã tạo thuộc tính phân loại ${values.name}`);
       }
     } catch (e) {
       const problem = getProblem(e);
@@ -93,12 +93,12 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
       if (problem?.code === 'version_conflict' && latest) {
         reset(toForm(latest));
         setCurrent(latest);
-        setError('Thuộc tính vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
+        setError('Thuộc tính phân loại vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
         return;
       }
       const fields = problem?.errors ?? {};
       if (problem?.code === 'name_taken') {
-        setFieldError('name', { message: fields.name ?? 'Đã có thuộc tính cùng tên' });
+        setFieldError('name', { message: fields.name ?? 'Đã có thuộc tính phân loại cùng tên' });
         return;
       }
       // values.<i>.code, values.<i>.value gắn đúng ô (V21)
@@ -120,7 +120,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{attribute ? 'Sửa thuộc tính' : 'Thêm thuộc tính'}</DialogTitle>
+          <DialogTitle>{attribute ? 'Sửa thuộc tính phân loại' : 'Thêm thuộc tính phân loại'}</DialogTitle>
           <DialogDescription>
             Mã của giá trị dùng trong {'{VAL}'} của SKU; bỏ trống thì tự sinh từ giá trị.
           </DialogDescription>
@@ -140,7 +140,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
             <div className="grid gap-2">
               <div className="grid grid-cols-[1fr_7rem_2rem] gap-2 text-sm font-medium">
                 <span>Giá trị</span>
-                <span>Mã</span>
+                <span>Mã trong SKU</span>
               </div>
               <div className="grid max-h-[45vh] gap-2 overflow-y-auto">
                 {fields.map((f, i) => {
@@ -182,7 +182,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
                                 value={field.value ?? ''}
                                 onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                 maxLength={6}
-                                aria-label={`Mã giá trị ${i + 1}`}
+                                aria-label={`Mã trong SKU của giá trị ${i + 1}`}
                                 className="font-mono"
                               />
                             </FormControl>
@@ -196,7 +196,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
                           destructive
                           reason={
                             locked
-                              ? 'Đã có biến thể dùng, không xoá được'
+                              ? 'Đã có variant dùng, không xoá được'
                               : fields.length === 1
                                 ? 'Cần ít nhất một giá trị'
                                 : null
@@ -220,7 +220,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
               {inUse.size > 0 && (
                 <p className="text-xs text-muted-foreground">
                   Đổi chữ hoặc mã của giá trị đang dùng không đổi SKU đã sinh; mã mới chỉ áp dụng cho
-                  biến thể tạo sau.
+                  variant tạo sau.
                 </p>
               )}
             </div>
