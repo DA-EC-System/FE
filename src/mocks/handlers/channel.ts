@@ -458,6 +458,15 @@ function unmanagedListing(u: channel.MockUnmanagedSku): ChannelListing {
   };
 }
 
+/**
+ * Listing của biến thể trên gian hàng: listing chưa gỡ nếu có, không thì listing đã gỡ mới nhất. Gỡ là trạng thái cuối,
+ * ghép lại tạo listing mới nên một biến thể có thể có nhiều listing đã gỡ (FE#310)
+ */
+const listingOfVariant = (shopId: string, variantId: string) => {
+  const all = channel.listings.filter((x) => x.shopId === shopId && x.variantId === variantId);
+  return all.find((x) => x.status !== 'delisted') ?? all.at(-1);
+};
+
 /** Listing (có biến thể) và dòng "không quản tồn" của một SKU sàn */
 const listingOfSku = (shopId: string, externalSkuId: string) => ({
   mapped: channel.listings.find((l) => l.shopId === shopId && l.externalSkuId === externalSkuId),
@@ -1635,7 +1644,7 @@ export const shopHandlers = [
     const shop = found.value;
     settleDuePushes(shop);
     const rows: ListingRow[] = sellableVariants(shop.companyId).map(({ product, variant }) => {
-      const l = channel.listings.find((x) => x.shopId === shop.id && x.variantId === variant.id);
+      const l = listingOfVariant(shop.id, variant.id);
       return {
         variantId: variant.id,
         productId: product.id,
@@ -1984,7 +1993,7 @@ export const shopHandlers = [
     if (!found.ok) return found.response;
     const shop = found.value;
     if (!usable(shop)) return shopNotConnected(shop);
-    const l = channel.listings.find((x) => x.shopId === shop.id && x.variantId === params.variantId);
+    const l = listingOfVariant(shop.id, String(params.variantId));
     if (!l) return problem(404, 'Biến thể chưa ghép SKU sàn');
     const { version } = (await request.json()) as { version: number };
     if (version !== l.version) return versionConflict(toListing(l), 'Sản phẩm trên sàn vừa được người khác sửa.');
@@ -2074,7 +2083,7 @@ export const shopHandlers = [
     const results: PushResult[] = variantIds.map((variantId) => {
       const target = sellableVariant(shop.companyId, variantId);
       if (!target) return blocked(variantId, 'not_found', undefined, 'Biến thể không còn bán');
-      const l = channel.listings.find((x) => x.shopId === shop.id && x.variantId === variantId);
+      const l = listingOfVariant(shop.id, variantId);
       if (l?.status === 'pushing') return blocked(variantId, 'push_in_progress', l);
       // Đã trên sàn: giá, tồn cập nhật bằng Đồng bộ (§18.5)
       if (l && (l.status === 'under_review' || l.status === 'live' || l.status === 'hidden')) {
