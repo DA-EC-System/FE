@@ -94,12 +94,22 @@ describe('Listing (sơ đồ C2)', () => {
     expect(listingMachine.available('not_listed', owner).map((t) => t.action)).toEqual(['push']);
   });
 
-  it('người dùng chỉ thấy thao tác đẩy và gỡ, còn lại do sàn', () => {
-    expect(listingMachine.available('live', owner).map((t) => t.action)).toEqual(['delist']);
+  it('người dùng chỉ thấy thao tác đẩy, gỡ, sửa nội dung, còn lại do sàn', () => {
+    expect(listingMachine.available('live', owner).map((t) => t.action).sort()).toEqual(['delist', 'update_content']);
     expect(listingMachine.available('rejected', owner).map((t) => t.action).sort()).toEqual(['delist', 'push']);
   });
 
 
+
+  it('sửa nội dung: chỉ listing đang bán, giữ live, cần quyền quản lý listing (§18.3)', () => {
+    expect(listingMachine.check('live', 'update_content', { actor: owner })).toEqual({ ok: true, to: 'live' });
+    expect(listingMachine.check('live', 'update_content', { actor: viewer })).toEqual({ ok: false, code: 'forbidden' });
+    for (const status of ['hidden', 'under_review', 'platform_hold', 'rejected', 'push_failed', 'delisted'] as const) {
+      expect(listingMachine.check(status, 'update_content', { actor: owner })).toEqual({ ok: false, code: 'invalid_transition' });
+    }
+    // Sàn ngừng bán bản cũ để duyệt (PENDING): hệ thống chuyển tiếp, người dùng không bấm
+    expect(listingMachine.check('live', 'request_review', { actor: owner })).toEqual({ ok: true, to: 'under_review' });
+  });
 
   it('hiện diện của SKU suy từ các listing, bỏ listing đã gỡ', () => {
     expect(presenceFrom([])).toBe('not_listed');

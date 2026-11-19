@@ -8,6 +8,7 @@ import type {
   ListingStatus,
   OutsideChange,
   PendingMapping,
+  PendingRevision,
   QcAlert,
   RemoteSkuStatus,
   SyncError,
@@ -39,6 +40,8 @@ export interface MockListing {
   hiddenBy: 'platform' | 'zero_stock' | null;
   /** Sàn đổi listing ngoài app, chờ CEO quyết (§18.3, commerio-backend#360) */
   outsideChange?: OutsideChange | null;
+  /** Bản sửa nội dung chờ sàn duyệt (§18.3, commerio-backend#293) */
+  pendingRevision?: PendingRevision | null;
   /** Đồng bộ tồn lưu theo lần đẩy; đồng bộ giá tính khi trả về (giá hiện tại so với giá đã đẩy) */
   stockSync: SyncState;
   platformStock: number | null;
@@ -119,7 +122,12 @@ export const remoteSkus: Record<string, MockRemoteSku[]> = {
     remote('shp-001', 5, 'prd-002-v1', 'Quần kaki ống suông - M', 320000),
     remote('shp-001', 6, null, 'Áo thun oversize (hàng cũ)', 99000, 'OLD-TEE-01'),
   ],
-  'shp-002': [remote('shp-002', 1, 'prd-001-v1', 'Áo thun cổ tròn Đen M', 155000)],
+  // TikTok: mỗi SKU một sản phẩm (p1, p2, p3) để sửa nội dung được (§18.3)
+  'shp-002': [
+    remote('shp-002', 1, 'prd-001-v1', 'Áo thun cổ tròn Đen M', 155000),
+    remote('shp-002', 5, 'prd-001-v2', 'Áo thun cổ tròn Đen L', 150000),
+    remote('shp-002', 9, 'prd-001-v3', 'Áo thun cổ tròn Trắng M', 150000),
+  ],
   // Lazada: một listing chờ duyệt, một bị từ chối, một lệch tồn sàn
   'shp-003': [
     remote('shp-003', 1, 'prd-002-v1', 'Quần kaki ống suông size M', 320000),
@@ -167,6 +175,13 @@ export const listings: MockListing[] = [
   listing('shp-001', 'cmp-001', 'prd-001-v2', 'shp-001-sku-002', 150000),
   // TikTok cần kết nối lại: tồn chờ đẩy trong hàng chờ
   listing('shp-002', 'cmp-001', 'prd-001-v1', 'shp-002-sku-001', 150000, { stockSync: 'pending' }),
+  // Sửa nội dung (§18.3, commerio-backend#293): một bản sửa bị sàn từ chối, một bản đang duyệt; listing vẫn bán bản cũ
+  listing('shp-002', 'cmp-001', 'prd-001-v2', 'shp-002-sku-005', 150000, {
+    pendingRevision: { status: 'failed', rejectReason: 'Mô tả chứa thông tin liên hệ ngoài sàn', at: '2026-11-15T02:00:00.000Z' },
+  }),
+  listing('shp-002', 'cmp-001', 'prd-001-v3', 'shp-002-sku-009', 150000, {
+    pendingRevision: { status: 'auditing', rejectReason: null, at: '2026-11-16T09:30:00.000Z' },
+  }),
   // Ghép listing có sẵn: bán ngay, chưa đẩy giá lần nào
   listing('shp-003', 'cmp-001', 'prd-002-v1', 'shp-003-sku-001', null, {
     qcAlert: { reason: 'Mô tả thiếu thông tin chất liệu', at: '2026-10-14T07:30:00.000Z' },
@@ -284,6 +299,17 @@ export interface MockCategoryMap {
 
 /** LazMall của ABC đã ghép Áo và Quần; Phụ kiện, Vớ, Sơ mi chưa ghép nên đẩy sẽ báo `category_unmapped` */
 export const categoryMaps: MockCategoryMap[] = [
+  // TikTok của ABC đã ghép Áo (sửa nội dung cần ghép danh mục, §18.3); Quần chưa ghép
+  {
+    companyId: 'cmp-001',
+    shopId: 'shp-002',
+    categoryId: 'cat-ao',
+    platform: 'tiktok',
+    externalCategoryId: '601226',
+    attributes: { brand: 'ABC Fashion', material: 'Cotton' },
+    version: 1,
+    updatedAt: '2026-10-28T03:00:00.000Z',
+  },
   {
     companyId: 'cmp-001',
     shopId: 'shp-003',

@@ -37,6 +37,8 @@ export const fulfillmentKeys = {
   pickList: (companyId: string, ids: string[]) => [...fulfillmentKeys.all(companyId), 'pick-list', ids] as const,
   carriers: (companyId: string, id: string) => [...fulfillmentKeys.all(companyId), 'carriers', id] as const,
   cancelReasons: (companyId: string, orderId: string) => [...fulfillmentKeys.all(companyId), 'cancel-reasons', orderId] as const,
+  cancelRejectReasons: (companyId: string, orderId: string) =>
+    [...fulfillmentKeys.all(companyId), 'cancel-reject-reasons', orderId] as const,
 };
 
 function useCompanyId(): string {
@@ -205,6 +207,24 @@ export function useCancelReasons(orderId: string, enabled: boolean) {
   });
 }
 
+/**
+ * Lý do từ chối khách xin huỷ: TikTok trả danh sách, Lazada trả rỗng (không cần lý do).
+ * Sàn không cho từ chối thì 409 `marketplace_rejected` kèm câu của sàn.
+ */
+export function useCancelRejectReasons(orderId: string, enabled: boolean) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: fulfillmentKeys.cancelRejectReasons(companyId, orderId),
+    enabled: Boolean(companyId && orderId) && enabled,
+    gcTime: 0,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<CancelReasonList>(`/sales/orders/${orderId}/cancel-reject-reasons`);
+      return data;
+    },
+  });
+}
+
 /** Huỷ đơn sàn với lý do của sàn; kiện xử lý như huỷ đơn tay (`pendingOpen`) */
 export function usePlatformCancel() {
   const invalidate = useInvalidateCompany();
@@ -217,12 +237,24 @@ export function usePlatformCancel() {
   });
 }
 
-/** Trả lời khách xin huỷ: đồng ý thì huỷ như người bán huỷ, từ chối thì bỏ cờ */
+/** Trả lời khách xin huỷ: đồng ý thì huỷ như người bán huỷ, từ chối (kèm lý do của sàn nếu có) thì bỏ cờ */
 export function useCancelRequestDecision() {
   const invalidate = useInvalidateCompany();
   return useMutation({
-    mutationFn: async ({ id, version, decision }: { id: string; version: number; decision: CancelRequestDecision }) => {
-      const { data } = await apiClient.post<Order>(`/sales/orders/${id}/cancel-request`, { version, decision });
+    mutationFn: async ({
+      id,
+      version,
+      decision,
+      rejectReasonId,
+    }: {
+      id: string;
+      version: number;
+      decision: CancelRequestDecision;
+      /** Lý do từ chối của sàn; chỉ gửi khi có (TikTok bắt buộc, Lazada không có) */
+      rejectReasonId?: string;
+    }) => {
+      const body = rejectReasonId ? { version, decision, rejectReasonId } : { version, decision };
+      const { data } = await apiClient.post<Order>(`/sales/orders/${id}/cancel-request`, body);
       return data;
     },
     onSettled: invalidate,

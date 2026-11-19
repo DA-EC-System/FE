@@ -146,6 +146,11 @@ export interface ShopCallbackInput {
 export interface ShopTokenInput {
   accessToken: string;
   refreshToken?: string;
+  /**
+   * Gian hàng đang kết nối lại (commerio-backend#398): token của seller khác thì 409 `shop_mismatch`, không ghi gì.
+   * Không gửi khi Thêm gian hàng.
+   */
+  shopId?: string;
 }
 
 /**
@@ -202,7 +207,8 @@ export type ListingAction =
   | 'delist'
   | 'request_review'
   | 'outside_hold'
-  | 'outside_resolve';
+  | 'outside_resolve'
+  | 'update_content';
 
 /**
  * Sàn đổi listing ngoài app (21 §18.3, commerio-backend#360): sàn tắt SKU (`disabled`) hoặc giá gốc trên sàn khác giá
@@ -217,6 +223,16 @@ export interface OutsideChange {
 
 /** CEO quyết thay đổi ngoài app: `restore` đẩy lại giá app và bật SKU, `accept-price` nhận giá sàn (chỉ `price_changed`) */
 export type OutsideChangeAction = 'restore' | 'accept-price';
+
+/**
+ * Bản sửa nội dung chờ sàn duyệt (21 §18.3, commerio-backend#293): sửa tên, mô tả, thuộc tính mà sàn vẫn bán bản cũ
+ * (TikTok). `failed` kèm lý do sàn trả. Giữ khi listing sang `hidden`, `platform_hold`; gỡ khỏi sàn thì xoá
+ */
+export interface PendingRevision {
+  status: 'auditing' | 'failed';
+  rejectReason: string | null;
+  at: string;
+}
 
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
@@ -256,6 +272,8 @@ export interface ChannelListing {
   hiddenBy: 'platform' | 'zero_stock' | null;
   /** Sàn đổi listing ngoài app, chờ CEO quyết; null khi không có (§18.3) */
   outsideChange: OutsideChange | null;
+  /** Bản sửa nội dung đang chờ sàn duyệt hoặc bị từ chối; null khi không có (§18.3) */
+  pendingRevision: PendingRevision | null;
   stockSync: SyncState;
   priceSync: SyncState;
   stockSyncError: SyncError | null;

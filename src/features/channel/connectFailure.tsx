@@ -11,7 +11,7 @@ export type ConnectFailure =
   | { kind: 'declined'; platform: string }
   | { kind: 'no_state'; platform: string }
   | { kind: 'state_invalid' }
-  | { kind: 'mismatch'; expected?: ShopRef; actual?: ShopRef }
+  | { kind: 'mismatch'; expected?: ShopRef; actual?: ShopRef; via?: 'oauth' | 'token' }
   | { kind: 'elsewhere'; via?: 'oauth' | 'token' }
   | { kind: 'company_mismatch'; expected?: CompanyRef; actual?: CompanyRef }
   | { kind: 'error'; message: string; platformMessage?: string };
@@ -19,9 +19,13 @@ export type ConnectFailure =
 /** Nơi người dùng bấm uỷ quyền ngoài Commerio (§18.6.3): chỉ để hiện chữ, không rẽ nhánh luồng */
 const AUTHORIZE_PORTAL: Record<string, string> = { tiktok: 'Partner Center' };
 
-/** Lỗi của callback thành tình huống để chọn màn kết quả (§18.4) */
-export function failureFromError(e: unknown): ConnectFailure {
+/**
+ * Lỗi của callback hay dán token thành tình huống để chọn màn kết quả (§18.4). `via = 'token'` khi lỗi đến từ dán token:
+ * màn nhầm gian hàng, gian hàng ở công ty khác hướng dẫn dán lại token thay cho đăng xuất trên sàn.
+ */
+export function failureFromError(e: unknown, via?: 'oauth' | 'token'): ConnectFailure {
   const p = getProblem(e);
+  const viaField = via ? { via } : {};
   switch (p?.code) {
     case 'oauth_state_invalid':
     case 'invalid_state':
@@ -31,9 +35,10 @@ export function failureFromError(e: unknown): ConnectFailure {
         kind: 'mismatch',
         expected: isShopRef(p.expected) ? p.expected : undefined,
         actual: isShopRef(p.actual) ? p.actual : undefined,
+        ...viaField,
       };
     case 'shop_connected_elsewhere':
-      return { kind: 'elsewhere' };
+      return { kind: 'elsewhere', ...viaField };
     case 'company_mismatch':
       return {
         kind: 'company_mismatch',
@@ -90,26 +95,33 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
         description:
           'Phiên kết nối đã hết hạn hoặc không hợp lệ. Liên kết uỷ quyền chỉ dùng được một lần, trong thời gian ngắn; bắt đầu lại để lấy liên kết mới.',
       };
-    case 'mismatch':
+    case 'mismatch': {
+      const token = failure.via === 'token';
       return {
         outcome: 'mismatch',
         tone: 'warn',
         icon: UserRoundX,
         title:
           failure.expected && failure.actual
-            ? `Bạn vừa đăng nhập ${refLabel(failure.actual)}, không phải ${refLabel(failure.expected)}`
-            : 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại',
-        description:
-          'Commerio không đổi gì: cả hai gian hàng giữ nguyên trạng thái, token vừa nhận đã bỏ. Đăng xuất trên sàn, đăng nhập đúng tài khoản rồi kết nối lại.',
+            ? token
+              ? `Token vừa dán là của ${refLabel(failure.actual)}, không phải ${refLabel(failure.expected)}`
+              : `Bạn vừa đăng nhập ${refLabel(failure.actual)}, không phải ${refLabel(failure.expected)}`
+            : token
+              ? 'Token vừa dán không phải của gian hàng đang kết nối lại'
+              : 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại',
+        description: token
+          ? 'Commerio không đổi gì: cả hai gian hàng giữ nguyên trạng thái, token vừa dán đã bỏ. Hãy lấy token của đúng gian hàng rồi dán lại.'
+          : 'Commerio không đổi gì: cả hai gian hàng giữ nguyên trạng thái, token vừa nhận đã bỏ. Đăng xuất trên sàn, đăng nhập đúng tài khoản rồi kết nối lại.',
         children:
           failure.expected && failure.actual ? (
             <div className="flex w-full flex-wrap items-stretch justify-center gap-3 text-start" data-testid="mismatch-compare">
               <ShopBox label="Cần nối" shop={failure.expected} />
               <ArrowLeftRight className="size-5 self-center text-muted-foreground" aria-hidden />
-              <ShopBox label="Sàn trả về" shop={failure.actual} miss />
+              <ShopBox label={token ? 'Token là của' : 'Sàn trả về'} shop={failure.actual} miss />
             </div>
           ) : undefined,
       };
+    }
     case 'elsewhere':
       return {
         outcome: 'elsewhere',

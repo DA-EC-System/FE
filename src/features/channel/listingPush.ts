@@ -1,5 +1,14 @@
 import { codeMessage } from '@/api/problemMessages';
-import type { ChannelListing, ListingRow, ListingStatus, OutsideChange, PushResult, SyncError } from '@/types/shop';
+import type {
+  ChannelListing,
+  ListingRow,
+  ListingStatus,
+  OutsideChange,
+  PendingRevision,
+  PushResult,
+  SyncError,
+} from '@/types/shop';
+import { formatDateTime } from '@/utils/format';
 import { priceText } from '@/utils/price';
 
 /** Còn dòng đang đẩy thì đọc lại mỗi 5 giây, tối đa 30 phút (§18.6.4) */
@@ -68,6 +77,28 @@ export function outsideChangeHint(oc: OutsideChange): string {
   return oc.kind === 'disabled'
     ? 'SKU bị tắt trên sàn, ngoài Commerio. Kiểm tra trên Seller Center của sàn. Commerio thôi đẩy tồn cho tới khi CEO bật lại hoặc gỡ khỏi sàn.'
     : 'Giá gốc trên sàn khác giá Commerio đẩy lần trước nên Commerio tạm ẩn SKU. CEO chọn đẩy lại giá Commerio hoặc nhận giá trên sàn. Giá khuyến mãi của sàn không tính.';
+}
+
+/**
+ * Sàn sửa được nội dung listing đang bán (§18.3, commerio-backend#293). BE mới làm TikTok, sàn khác trả 422
+ * `marketplace_unsupported`; capabilities chưa có cờ riêng nên FE theo mã sàn
+ */
+const CONTENT_UPDATE_PLATFORMS = ['tiktok'];
+
+/** Nút Sửa nội dung: listing đang bán của sàn có hỗ trợ; bản sửa đang duyệt hay bị từ chối vẫn gửi lại được */
+export function canUpdateContent(platform: string | undefined, listing: ChannelListing | null): boolean {
+  return Boolean(listing && platform && CONTENT_UPDATE_PLATFORMS.includes(platform) && listing.status === 'live');
+}
+
+export function pendingRevisionLabel(r: PendingRevision): string {
+  return r.status === 'auditing' ? 'Bản sửa đang duyệt' : 'Bản sửa bị từ chối';
+}
+
+/** Giải thích bản sửa nội dung cho tooltip */
+export function pendingRevisionHint(r: PendingRevision): string {
+  return r.status === 'auditing'
+    ? `Gửi lúc ${formatDateTime(r.at)}. Sàn đang duyệt tên, mô tả, thuộc tính mới; listing vẫn bán bản cũ trong lúc duyệt.`
+    : 'Listing vẫn bán bản cũ. Sửa sản phẩm theo lý do sàn nêu rồi bấm Sửa nội dung để gửi lại.';
 }
 
 /** Mã lỗi đẩy BE ghi riêng, `message` là câu gốc của sàn (§18.6.4, commerio-backend#305) */

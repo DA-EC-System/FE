@@ -913,6 +913,12 @@ const PLATFORM_EXTRAS: Record<string, MockPlatformExtras> = {
     shippingProviderType: 'standard',
     promisedShippingAt: '2026-10-18T10:00:00.000Z',
   },
+  // TikTok: khách đang xin huỷ, sàn đã ghi người huỷ là khách trên dòng dù người bán chưa trả lời
+  'ord-1015': {
+    lines: {
+      'orl-20': { paidPrice: 360000, cancelInitiator: 'buyer', cancelKind: 'cancellation', cancelReason: 'Đổi ý, không muốn mua nữa' },
+    },
+  },
   // Giao thất bại, đang hoàn về: không ai huỷ, dòng có lý do, chi tiết, mã đơn ngược
   'ord-1002': {
     paymentMethod: 'COD',

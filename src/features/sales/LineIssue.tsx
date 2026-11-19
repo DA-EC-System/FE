@@ -2,12 +2,17 @@ import { Badge } from '@/components/ui/badge';
 import type { OrderLine } from '@/types/sales';
 import { CANCEL_KIND_LABELS, initiatorLabel, lineHasIssue } from './shared';
 
-/** Dòng bị huỷ hoặc trả trên sàn: huỷ hay trả, do ai, lý do, mã đơn ngược */
-export function LineIssue({ line }: { line: OrderLine }) {
+/**
+ * Dòng bị huỷ hoặc trả trên sàn: huỷ hay trả, do ai, lý do, mã đơn ngược.
+ * `cancelPending`: khách đang xin huỷ, chưa trả lời (xem `lineCancelPending`), chỉ ghi Khách xin huỷ kèm lý do.
+ */
+export function LineIssue({ line, cancelPending = false }: { line: OrderLine; cancelPending?: boolean }) {
   if (!lineHasIssue(line)) return null;
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1 text-xs" data-testid="line-issue">
-      {line.cancelKind === 'return' || line.cancelKind === 'refund' || (!line.cancelKind && line.returnStatus) ? (
+      {cancelPending ? (
+        <Badge variant="warning">Khách xin huỷ</Badge>
+      ) : line.cancelKind === 'return' || line.cancelKind === 'refund' || (!line.cancelKind && line.returnStatus) ? (
         <Badge variant="warning">
           {CANCEL_KIND_LABELS[line.cancelKind ?? 'return']}
           {line.returnStatus && `: ${line.returnStatus}`}
@@ -20,7 +25,7 @@ export function LineIssue({ line }: { line: OrderLine }) {
       ) : (
         <Badge variant="destructive">Đã huỷ</Badge>
       )}
-      {line.cancelInitiator && <span className="text-muted-foreground">do {initiatorLabel(line.cancelInitiator)}</span>}
+      {line.cancelInitiator && !cancelPending && <span className="text-muted-foreground">do {initiatorLabel(line.cancelInitiator)}</span>}
       {(line.cancelReason || line.cancelReasonDetail) && (
         <span className="text-muted-foreground">
           · Lý do: {line.cancelReason && line.cancelReasonDetail
