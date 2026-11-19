@@ -98,9 +98,10 @@ export function JoinPage() {
   const [signedOutEmail, setSignedOutEmail] = useState<string | null>(null);
 
   // Trình duyệt đang đăng nhập tài khoản khác (vd Admin mở thử link mình tạo): đăng xuất hẳn (BE huỷ cookie refresh)
-  // trước khi tham gia, để "Về trang đăng nhập" không tự vào lại tài khoản cũ.
+  // trước khi tham gia, để "Về trang đăng nhập" không tự vào lại tài khoản cũ. Chỉ sau khi BE xác nhận link mời còn
+  // dùng được (`invite`), để link rác hay hết hạn không đá được người đang đăng nhập ra.
   useEffect(() => {
-    if (sessionStatus !== 'ready' || !signedInEmail) return;
+    if (sessionStatus !== 'ready' || !signedInEmail || !invite) return;
     const email = signedInEmail;
     void authApi
       .logout()
@@ -112,7 +113,7 @@ export function JoinPage() {
         qc.clear();
         setSignedOutEmail(email);
       });
-  }, [sessionStatus, signedInEmail, clearSession, qc]);
+  }, [sessionStatus, signedInEmail, invite, clearSession, qc]);
 
   useEffect(() => {
     let cancelled = false;
