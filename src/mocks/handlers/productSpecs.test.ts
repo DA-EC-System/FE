@@ -82,7 +82,7 @@ describe('GET category-suggestions', () => {
 
 describe('GET spec', () => {
   it('chưa có spec: spec null, missing rỗng; có spec ghép thiếu attribute: missing có nhãn', async () => {
-    expect(await (await call('/channel/products/prd-002/specs/lazada')).json()).toEqual({ spec: null, missing: [] });
+    expect(await (await call('/channel/products/prd-003/specs/lazada')).json()).toEqual({ spec: null, missing: [] });
     const body = await (await call('/channel/products/prd-001/specs/lazada')).json();
     expect(body.spec).toMatchObject({ source: 'match', externalCategoryId: '7930', categoryPath: expect.stringContaining('Áo phông') });
     expect(body.missing).toEqual([expect.objectContaining({ code: 'clothing_material', reason: 'required' })]);

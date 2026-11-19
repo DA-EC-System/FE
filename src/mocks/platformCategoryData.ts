@@ -131,7 +131,8 @@ const SPEC_AT = '2026-11-18T04:00:00.000Z';
 
 /**
  * Áo thun basic: Lazada đọc từ sàn lúc ghép SKU (shp-003) mà sàn không trả "Chất liệu" → còn thiếu, dòng hiện
- * "Bổ sung thông tin"; TikTok cũng ghép, đủ thông tin. Áo polo: Lazada đã lưu ở trang đẩy, đủ.
+ * "Bổ sung thông tin"; TikTok cũng ghép, đủ thông tin. Áo polo: Lazada đã lưu ở trang đẩy, đủ. Quần kaki: đủ cả hai sàn.
+ * Thắt lưng (đã ghép SKU ở LazMall) chưa có thông tin sàn: dòng hiện "Bổ sung thông tin", đẩy báo `category_unmapped`.
  */
 export const productSpecs: MockProductSpec[] = [
   {
@@ -173,6 +174,35 @@ export const productSpecs: MockProductSpec[] = [
     axisMap: { 'att-mau': '__custom', 'att-size': '__custom' },
     valueMap: {},
     source: 'match',
+    version: 1,
+    updatedAt: SPEC_AT,
+  },
+  // Quần kaki: đã lưu cả hai sàn ở trang đẩy; leaf chưa có attribute trong bảng nên chỉ cần ánh xạ trục
+  {
+    companyId: 'cmp-001',
+    productId: 'prd-002',
+    platform: 'lazada',
+    externalCategoryId: '7542',
+    categoryPath: '',
+    categoryStatus: 'ok',
+    attributes: {},
+    axisMap: { 'att-size': '__custom' },
+    valueMap: {},
+    source: 'push',
+    version: 1,
+    updatedAt: SPEC_AT,
+  },
+  {
+    companyId: 'cmp-001',
+    productId: 'prd-002',
+    platform: 'tiktok',
+    externalCategoryId: '601218',
+    categoryPath: '',
+    categoryStatus: 'ok',
+    attributes: {},
+    axisMap: { 'att-size': '__custom' },
+    valueMap: {},
+    source: 'push',
     version: 1,
     updatedAt: SPEC_AT,
   },
