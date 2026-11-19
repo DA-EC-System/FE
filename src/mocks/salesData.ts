@@ -1025,7 +1025,11 @@ function seedPackage(o: SeedOrder, lines: MockPackage['lines'], target: PackageS
 
   const handover = FAILED_HANDOVER[o.id] ?? at('issued') ?? plus(confirmAt, 20);
   step('packed', plus(handover, -1), KHO);
-  if (o.source === 'marketplace') pkg.carrier = SEED_CARRIER[o.shopId ?? ''] ?? null;
+  if (o.source === 'marketplace') {
+    pkg.carrier = SEED_CARRIER[o.shopId ?? ''] ?? null;
+    // Sàn cấp vận đơn ngay khi đóng gói như Lazada (smoke commerio-backend#239): in được trước khi báo sàn
+    pkg.trackingCode = `VD${o.code.slice(3)}${packageSeq}`;
+  }
   if (target === 'packed') return finish(pkg);
   if (selfDelivery) {
     const left = at('in_transit') ?? handover;

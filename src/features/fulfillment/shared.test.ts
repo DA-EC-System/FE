@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageSummary } from '@/types/fulfillment';
-import { handoverFailureLabel, isHotPackage, packageBackTo, packageButtons, pendingDropTotal } from './shared';
+import { canPrintLabel, handoverFailureLabel, isHotPackage, packageBackTo, packageButtons, pendingDropTotal } from './shared';
 
 const P = PERMISSIONS;
 const kho = { accountId: 'kho', permissions: [P.fulfillmentProcess] };
@@ -174,5 +174,32 @@ describe('pendingDropTotal (21 §19.2)', () => {
     expect(pendingDropTotal([])).toBe(0);
     expect(pendingDropTotal([{ pendingDropQty: 0 }, { pendingDropQty: 0 }])).toBe(0);
     expect(pendingDropTotal([{ pendingDropQty: 2 }, { pendingDropQty: 0 }, { pendingDropQty: 1 }])).toBe(3);
+  });
+});
+
+describe('báo sàn, in vận đơn (commerio-backend#239, FE#338)', () => {
+  const san = (patch: Partial<PackageSummary> = {}) =>
+    pkg({ source: 'marketplace', status: 'packed', platformPackageCode: 'FP1', ...patch });
+
+  it('KH-B07: đơn khách đang xin huỷ thì ẩn Báo sàn sẵn sàng và nói lý do', () => {
+    const b = packageButtons(san({ flags: ['cancel_requested'] }), kho);
+    expect(b.actions).not.toContain('mark_ready');
+    expect(b.blocked).toContain('Khách đang xin huỷ');
+    expect(packageButtons(san(), kho).actions).toContain('mark_ready');
+  });
+
+  it('TRA-B06: kiện đơn sàn chưa có mã kiện sàn thì ẩn Báo sàn sẵn sàng, chỉ cách Kéo đơn ngay', () => {
+    const b = packageButtons(san({ platformPackageCode: null }), kho);
+    expect(b.actions).not.toContain('mark_ready');
+    expect(b.blocked).toContain('Kéo đơn ngay');
+    expect(packageButtons(pkg({ status: 'packed' }), kho).actions).toContain('mark_ready');
+  });
+
+  it('KH-B03: in được khi sàn đã cấp mã kiện và mã vận đơn, trước khi bàn giao', () => {
+    expect(canPrintLabel(san({ trackingCode: 'JNT1' }))).toBe(true);
+    expect(canPrintLabel(san({ status: 'awaiting_pickup', trackingCode: 'TT1' }))).toBe(true);
+    expect(canPrintLabel(san({ trackingCode: null }))).toBe(false);
+    expect(canPrintLabel(san({ platformPackageCode: null, trackingCode: 'JNT1' }))).toBe(false);
+    expect(canPrintLabel(san({ status: 'in_transit', trackingCode: 'JNT1' }))).toBe(false);
   });
 });

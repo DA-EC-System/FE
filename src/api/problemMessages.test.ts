@@ -303,3 +303,23 @@ describe('Mã lỗi trang đẩy lên sàn (commerio-backend#400, Documents/21 �
     expect(problemMessage(loi({ status: 422, code: 'category_unmapped' }))).not.toContain('Ghép danh mục');
   });
 });
+
+describe('báo sàn, in vận đơn (commerio-backend#239, FE#338)', () => {
+  it('KH-B07: cancel_requested có câu riêng, không khuyên tải lại kiện', () => {
+    const m = problemMessage(loi({ code: 'cancel_requested', detail: 'x' }), 'rts');
+    expect(m).toContain('Khách đang xin huỷ');
+    expect(m).not.toContain('Tải lại kiện');
+  });
+
+  it('TRA-B06: rts_package_not_found khi app chưa có mã kiện sàn (không platformCode) chỉ cách Kéo đơn ngay', () => {
+    expect(problemMessage(loi({ code: 'rts_package_not_found' }), 'rts')).toContain('Kéo đơn ngay');
+    expect(problemMessage(loi({ code: 'rts_package_not_found', platformCode: '30012' }), 'rts')).toContain('đóng gói lại');
+  });
+
+  it('KH-B03: document_not_ready hiện detail liệt kê mã kiện; document_not_supported nói đơn SOF', () => {
+    expect(problemMessage(loi({ code: 'document_not_ready', detail: 'Kiện KH-000001 chưa có vận đơn trên sàn' }))).toBe(
+      'Kiện KH-000001 chưa có vận đơn trên sàn',
+    );
+    expect(problemMessage(loi({ code: 'document_not_supported', platformCode: '50008' }))).toContain('tự giao (SOF)');
+  });
+});
