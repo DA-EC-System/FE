@@ -143,8 +143,8 @@ function ReturnWindowEditor({ shop }: { shop: Shop }) {
       <AlertMessage severity="warning" className="mb-4">
         <div data-testid="return-window-missing">
           <p>
-            <span className="font-medium">Chưa nhập số ngày hạn trả.</span> Gian hàng nối trước khi thiết lập hỏi hạn trả
-            hàng, nên Commerio chưa biết đơn nào còn trong hạn đổi trả.
+            <span className="font-medium">Chưa nhập hạn trả hàng.</span> Gian hàng này kết nối trước khi Commerio hỏi hạn
+            trả hàng, nên chưa biết đơn nào còn trong hạn trả.
             {!canEdit && ' Người có quyền kết nối gian hàng nhập được số ngày.'}
           </p>
           {canEdit && !editing && (

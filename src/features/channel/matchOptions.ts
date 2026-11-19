@@ -70,11 +70,11 @@ export function variantMatchOptions(
   const current = items.find((r) => r.variantId === currentVariantId);
   const ranked = rankByScore(candidates, (r) => matchScore({ title, sellerSku }, { name: name(r), sku: r.sku }));
   const variants: MatchOption[] = [
-    ...(current ? [{ id: current.variantId, title: `${name(current)} (đang ghép)`, subtitle: current.sku, suggested: false }] : []),
+    ...(current ? [{ id: current.variantId, title: `${name(current)} (đang liên kết)`, subtitle: current.sku, suggested: false }] : []),
     ...ranked.map(({ item: r, suggested }) => ({
       id: r.variantId,
       title: name(r),
-      subtitle: isDelisted(r) ? `${r.sku} · Đã gỡ` : r.sku,
+      subtitle: isDelisted(r) ? `${r.sku} · Đã gỡ khỏi sàn` : r.sku,
       suggested,
     })),
   ];
@@ -82,10 +82,10 @@ export function variantMatchOptions(
     ...variants,
     {
       id: UNMANAGED,
-      title: 'Không quản tồn',
+      title: 'Không quản lý tồn',
       subtitle: isCeo
-        ? 'Đơn của SKU sàn này không trừ tồn biến thể nào. Áp ngay (ghi là tự duyệt)'
-        : 'Đơn của SKU sàn này không trừ tồn biến thể nào. Cần CEO duyệt',
+        ? 'Đơn của SKU sàn này không trừ tồn SKU kho nào. Áp ngay (ghi là tự duyệt)'
+        : 'Đơn của SKU sàn này không trừ tồn SKU kho nào. Cần CEO duyệt',
       suggested: false,
     },
   ];

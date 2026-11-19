@@ -17,7 +17,7 @@ describe('variantMatchOptions (FE#310)', () => {
   it('có biến thể chưa có listing và biến thể đã gỡ (kèm "Đã gỡ"), không có biến thể đang có listing khác delisted', () => {
     const opts = variantMatchOptions(items, { sellerSku: null, isCeo: false });
     expect(opts.map((o) => o.id)).toEqual(['v-none', 'v-delisted', UNMANAGED]);
-    expect(opts.find((o) => o.id === 'v-delisted')!.subtitle).toBe('V-DELISTED · Đã gỡ');
+    expect(opts.find((o) => o.id === 'v-delisted')!.subtitle).toBe('V-DELISTED · Đã gỡ khỏi sàn');
     expect(opts.find((o) => o.id === 'v-none')!.subtitle).toBe('V-NONE');
   });
 
@@ -26,10 +26,10 @@ describe('variantMatchOptions (FE#310)', () => {
     expect(opts.map((o) => o.id)).toEqual(['v-none', UNMANAGED]);
   });
 
-  it('đổi ghép: biến thể đang ghép đứng đầu kèm "(đang ghép)", rồi biến thể trùng SKU người bán (gợi ý)', () => {
+  it('đổi ghép: biến thể đang ghép đứng đầu kèm "(đang liên kết)", rồi biến thể trùng SKU người bán (gợi ý)', () => {
     const opts = variantMatchOptions(items, { sellerSku: 'V-DELISTED', currentVariantId: 'v-live', isCeo: false });
     expect(opts.map((o) => o.id)).toEqual(['v-live', 'v-delisted', 'v-none', UNMANAGED]);
-    expect(opts[0].title).toContain('(đang ghép)');
+    expect(opts[0].title).toContain('(đang liên kết)');
     expect(opts[0].suggested).toBe(false);
     expect(opts.find((o) => o.id === 'v-delisted')!.suggested).toBe(true);
     expect(opts.find((o) => o.id === 'v-none')!.suggested).toBe(false);

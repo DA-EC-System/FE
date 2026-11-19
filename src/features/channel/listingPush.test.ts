@@ -123,7 +123,7 @@ describe('giải thích trạng thái listing', () => {
     });
     expect(listingStatusHint(l, false)).toContain('Seller Center');
     expect(listingStatusHint(l, false)).toContain('CEO');
-    expect(outsideChangeLabel(l.outsideChange!)).toBe('Sàn tắt ngoài app (chờ CEO quyết)');
+    expect(outsideChangeLabel(l.outsideChange!)).toBe('Bị tắt trên Seller Center · chờ CEO');
   });
 
   it('giá trên sàn bị sửa thì nêu giá sàn, kể cả khi listing đang ẩn bằng tồn 0', () => {
@@ -131,9 +131,9 @@ describe('giải thích trạng thái listing', () => {
       hiddenBy: 'zero_stock',
       outsideChange: { kind: 'price_changed', platformPrice: 149000, detectedAt: '2026-11-17T00:00:00.000Z' },
     });
-    expect(listingStatusHint(l, false)).toContain('nhận giá trên sàn');
+    expect(listingStatusHint(l, false)).toContain('dùng giá trên sàn');
     expect(listingStatusHint(l, false)).not.toContain('tồn 0');
-    expect(outsideChangeLabel(l.outsideChange!)).toMatch(/^Giá trên sàn bị sửa: 149\.000.*\(chờ CEO quyết\)$/);
+    expect(outsideChangeLabel(l.outsideChange!)).toMatch(/^Giá bị sửa trên Seller Center: 149\.000.* · chờ CEO$/);
   });
 });
 
@@ -163,7 +163,7 @@ describe('lỗi cân nặng kiện hàng (FE#326)', () => {
   it('câu tiếng Việt nêu khoảng sàn cho phép, câu gốc ở Chi tiết từ sàn', () => {
     const message = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
     const t = pushErrorText({ code: 'marketplace_rejected', message, at: '2026-11-18T00:00:00.000Z' });
-    expect(t.text).toBe('Cân nặng kiện hàng phải từ 0,001 đến 300 kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.');
+    expect(t.text).toBe('Cân nặng kiện hàng phải từ 0,001 đến 300 kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đăng lại.');
     expect(t.platformMessage).toBe(message);
     expect(isWeightError({ message })).toBe(true);
     expect(isWeightError({ message: 'other' })).toBe(false);
@@ -183,8 +183,8 @@ describe('lỗi cân nặng kiện hàng (FE#326)', () => {
 
 describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
   const at = '2026-11-17T00:00:00.000Z';
-  const TITLE = 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đẩy lại.';
-  const SIZE = 'Danh mục TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đẩy lại.';
+  const TITLE = 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.';
+  const SIZE = 'Category TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.';
 
   it.each([
     ['listing_check_failed', '12052051: The product name must be between 25 and 255 characters, inclusive.', TITLE],
@@ -193,12 +193,12 @@ describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
     [
       'listing_check_failed',
       '12052104: attribute Material is required',
-      'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
+      'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
     ],
     [
       'marketplace_rejected',
       'E0501: Category attribute "brand" is mandatory',
-      'Category Lazada bắt buộc attribute "brand". Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
+      'Category Lazada bắt buộc attribute "brand". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
     ],
   ])('%s: %s', (code, message, text) => {
     expect(pushErrorText({ code, message, at })).toEqual({ text, platformMessage: message });
@@ -243,10 +243,10 @@ describe('Sửa nội dung listing đang bán (FE#275, §18.3)', () => {
 
   it('nhãn và giải thích theo trạng thái bản sửa', () => {
     const at = '2026-11-16T09:30:00.000Z';
-    expect(pendingRevisionLabel({ status: 'auditing', rejectReason: null, at })).toBe('Bản sửa đang duyệt');
-    expect(pendingRevisionLabel({ status: 'failed', rejectReason: 'x', at })).toBe('Bản sửa bị từ chối');
+    expect(pendingRevisionLabel({ status: 'auditing', rejectReason: null, at })).toBe('Chỉnh sửa chờ duyệt');
+    expect(pendingRevisionLabel({ status: 'failed', rejectReason: 'x', at })).toBe('Chỉnh sửa bị từ chối');
     expect(pendingRevisionHint({ status: 'auditing', rejectReason: null, at })).toContain('vẫn bán bản cũ');
-    expect(pendingRevisionHint({ status: 'failed', rejectReason: 'x', at })).toContain('bấm Sửa nội dung để gửi lại');
+    expect(pendingRevisionHint({ status: 'failed', rejectReason: 'x', at })).toContain('bấm Cập nhật thông tin lên sàn để gửi lại');
   });
 });
 

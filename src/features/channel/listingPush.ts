@@ -75,33 +75,33 @@ export function listingStatusHint(l: ChannelListing, listingReview: boolean): st
     case 'live':
       return 'Đang bán trên sàn. Giá và tồn cập nhật bằng Đồng bộ.';
     case 'push_failed':
-      return 'Sàn không nhận bản đẩy. Sửa theo lỗi bên dưới rồi đẩy lại.';
+      return 'Sàn không nhận bản đăng. Sửa theo lỗi bên dưới rồi đăng lại.';
     case 'rejected':
-      return 'Sàn từ chối sản phẩm. Sửa theo lý do bên dưới rồi đẩy lại.';
+      return 'Sàn từ chối sản phẩm. Sửa theo lý do bên dưới rồi đăng lại.';
     case 'platform_hold':
-      return 'Sàn đang khoá sản phẩm. Sửa trên sàn rồi đẩy lại.';
+      return 'Sàn đang khoá sản phẩm. Sửa trên sàn rồi đăng lại.';
     case 'hidden':
       if (l.outsideChange) return outsideChangeHint(l.outsideChange);
       return l.hiddenBy === 'zero_stock'
-        ? 'SKU tạm ngừng bán. Sàn không ẩn riêng phân loại nên Commerio đẩy tồn 0. Bỏ tạm ngừng ở trang sản phẩm thì bán lại.'
+        ? 'SKU tạm ngừng bán. Sàn không ẩn riêng phân loại nên Commerio đặt tồn 0. Bỏ tạm ngừng ở trang sản phẩm thì bán lại.'
         : 'SKU tạm ngừng bán nên đang ẩn trên sàn. Bỏ tạm ngừng ở trang sản phẩm thì tự hiện lại.';
     case 'delisted':
-      return 'Đã gỡ khỏi sàn. Ghép SKU vẫn giữ để đẩy lại.';
+      return 'Đã gỡ khỏi sàn. Liên kết SKU vẫn giữ để đăng lại.';
   }
 }
 
 /** Nhãn khi sàn đổi listing ngoài app (§18.6.6, commerio-backend#360) */
 export function outsideChangeLabel(oc: OutsideChange): string {
   return oc.kind === 'disabled'
-    ? 'Sàn tắt ngoài app (chờ CEO quyết)'
-    : `Giá trên sàn bị sửa: ${priceText(oc.platformPrice)} (chờ CEO quyết)`;
+    ? 'Bị tắt trên Seller Center · chờ CEO'
+    : `Giá bị sửa trên Seller Center: ${priceText(oc.platformPrice)} · chờ CEO`;
 }
 
 /** Giải thích thay đổi ngoài app cho tooltip */
 export function outsideChangeHint(oc: OutsideChange): string {
   return oc.kind === 'disabled'
-    ? 'SKU bị tắt trên sàn, ngoài Commerio. Kiểm tra trên Seller Center của sàn. Commerio thôi đẩy tồn cho tới khi CEO bật lại hoặc gỡ khỏi sàn.'
-    : 'Giá gốc trên sàn khác giá Commerio đẩy lần trước nên Commerio tạm ẩn SKU. CEO chọn đẩy lại giá Commerio hoặc nhận giá trên sàn. Giá khuyến mãi của sàn không tính.';
+    ? 'SKU bị tắt trên sàn, ngoài Commerio. Kiểm tra trên Seller Center của sàn. Commerio thôi đồng bộ tồn cho tới khi CEO bật lại hoặc gỡ khỏi sàn.'
+    : 'Giá gốc trên sàn khác giá Commerio đồng bộ lần trước nên Commerio tạm ẩn SKU. CEO chọn dùng giá Commerio hoặc dùng giá trên sàn. Giá khuyến mãi của sàn không tính.';
 }
 
 /**
@@ -116,14 +116,14 @@ export function canUpdateContent(platform: string | undefined, listing: ChannelL
 }
 
 export function pendingRevisionLabel(r: PendingRevision): string {
-  return r.status === 'auditing' ? 'Bản sửa đang duyệt' : 'Bản sửa bị từ chối';
+  return r.status === 'auditing' ? 'Chỉnh sửa chờ duyệt' : 'Chỉnh sửa bị từ chối';
 }
 
 /** Giải thích bản sửa nội dung cho tooltip */
 export function pendingRevisionHint(r: PendingRevision): string {
   return r.status === 'auditing'
     ? `Gửi lúc ${formatDateTime(r.at)}. Sàn đang duyệt tên, mô tả, thuộc tính mới; listing vẫn bán bản cũ trong lúc duyệt.`
-    : 'Listing vẫn bán bản cũ. Sửa sản phẩm theo lý do sàn nêu rồi bấm Sửa nội dung để gửi lại.';
+    : 'Listing vẫn bán bản cũ. Sửa sản phẩm theo lý do sàn nêu rồi bấm Cập nhật thông tin lên sàn để gửi lại.';
 }
 
 /** Mã lỗi đẩy BE ghi riêng, `message` là câu gốc của sàn (§18.6.4, commerio-backend#305) */
@@ -139,15 +139,15 @@ const PLATFORM_MESSAGE_CODES = new Set(['marketplace_rejected', 'marketplace_una
 const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) => string }[] = [
   {
     pattern: /12052051|product (name|title)`?[^.;]*(\b25\b[^;]*\b255\b|must be within 25\b)/i,
-    text: () => 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đẩy lại.',
+    text: () => 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.',
   },
   {
     pattern: /size_chart(_image)?`? is required/i,
-    text: () => 'Danh mục TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đẩy lại.',
+    text: () => 'Category TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.',
   },
   {
     pattern: /^12052104:/,
-    text: () => 'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
+    text: () => 'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
   },
   {
     // Lazada, staging 18/11/2026: "BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0"
@@ -156,12 +156,12 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
       /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i,
     text: (m) =>
       m[1] && m[2]
-        ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.`
-        : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.',
+        ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đăng lại.`
+        : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa cân nặng ở Thông tin SKU rồi bấm Đăng lại.',
   },
   {
     pattern: /Category attribute "([^"]+)" is mandatory/i,
-    text: (m) => `Category Lazada bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.`,
+    text: (m) => `Category Lazada bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.`,
   },
 ];
 
