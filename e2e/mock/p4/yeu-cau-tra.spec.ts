@@ -37,6 +37,10 @@ const quetNhan = async (page: Page, code: string) => {
   await page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByTestId('receive-code').fill(code);
+  // Khớp yêu cầu thì chờ bảng các món tải xong (#363: chưa tải thì chưa nộp được)
+  const khop = dialog.getByTestId('receive-match');
+  await expect(khop).not.toHaveText(/^Quét mã/);
+  if ((await khop.textContent())?.startsWith('Khớp')) await expect(dialog.getByTestId('receive-lines').locator('tbody tr').first()).toBeVisible();
   await dialog.getByRole('button', { name: 'Nhận hàng', exact: true }).click();
 };
 

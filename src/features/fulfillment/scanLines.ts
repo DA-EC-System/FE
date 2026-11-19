@@ -10,9 +10,13 @@ export interface ScanRow {
 
 import type { ScannedLine } from '@/api/fulfillment.api';
 
-/** Dòng của kiện hoặc yêu cầu trả, gộp theo biến thể; mặc định quét đủ */
+/**
+ * Dòng của kiện hoặc yêu cầu trả, gộp theo biến thể. Mặc định số quét bằng dự kiến; `fromZero` thì bắt đầu từ 0 để kho
+ * quét từng món (nhận hàng trả, commerio-backend#363).
+ */
 export function scanRowsFrom(
   lines: { variantId: string | null; sku: string; productName: string; attributesLabel: string; quantity: number }[],
+  opts: { fromZero?: boolean } = {},
 ): ScanRow[] {
   const rows: ScanRow[] = [];
   for (const l of lines) {
@@ -20,9 +24,9 @@ export function scanRowsFrom(
     const row = rows.find((r) => r.variantId === l.variantId);
     if (row) {
       row.expected = (row.expected ?? 0) + l.quantity;
-      row.quantity = String(row.expected);
+      row.quantity = opts.fromZero ? '0' : String(row.expected);
     } else {
-      rows.push({ variantId: l.variantId, sku: l.sku, productName: l.productName, attributesLabel: l.attributesLabel, expected: l.quantity, quantity: String(l.quantity) });
+      rows.push({ variantId: l.variantId, sku: l.sku, productName: l.productName, attributesLabel: l.attributesLabel, expected: l.quantity, quantity: opts.fromZero ? '0' : String(l.quantity) });
     }
   }
   return rows;
@@ -46,4 +50,16 @@ export function checkScanRows(rows: ScanRow[]): { errors: Record<string, string>
 export function scanErrorsOf(errors: Record<string, string> | undefined): Record<string, string> | null {
   const picked = Object.fromEntries(Object.entries(errors ?? {}).filter(([k]) => k === 'lines' || k.startsWith('lines.')));
   return Object.keys(picked).length ? picked : null;
+}
+
+/** Quét một SKU: dòng có SKU đó cộng 1 (ô đang sai thì tính từ 0). Không có dòng nào thì trả `null`. */
+export function addScan(rows: ScanRow[], rawSku: string): ScanRow[] | null {
+  const sku = rawSku.trim().toUpperCase();
+  const i = rows.findIndex((r) => r.sku.toUpperCase() === sku);
+  if (!sku || i < 0) return null;
+  return rows.map((r, j) => {
+    if (j !== i) return r;
+    const now = /^\d+$/.test(r.quantity.trim()) ? Number(r.quantity.trim()) : 0;
+    return { ...r, quantity: String(now + 1) };
+  });
 }
