@@ -68,19 +68,19 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     await expect(goiY.filter({ hasText: 'Mũ lưỡi trai' }).getByTestId('remote-status')).toHaveText('Đang tắt trên sàn');
     await expect(goiY.filter({ hasText: 'Áo khoác gió' }).getByTestId('remote-status')).toHaveText('Chờ sàn duyệt');
     await expect(goiY.getByTestId('remote-status')).toHaveCount(2);
-    await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
-    await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+    await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+    await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
 
     // Bước 3: TikTok tự khoá đổi trả khi đơn hoàn tất nên không có ô số ngày
     await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
-    await expect(page.getByRole('spinbutton', { name: /Hạn trả hàng \(ngày\)/ })).toHaveCount(0);
+    await expect(page.getByRole('spinbutton', { name: /Số ngày đổi trả/ })).toHaveCount(0);
     await expect(page.locator('[data-testid=return-window-note]')).toHaveText(
       'TikTok Shop tự khoá đổi trả khi đơn hoàn tất, nên không cần đặt số ngày đổi trả.',
     );
     const luu = page.waitForRequest((r) => r.method() === 'POST' && /\/channel\/shops\/[^/]+\/setup$/.test(new URL(r.url()).pathname));
     await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
     expect((await luu).postDataJSON()).not.toHaveProperty('returnWindowDays');
-    await toast(page, /ABC TikTok Mới đã thiết lập xong/);
+    await toast(page, /ABC TikTok Mới đã sẵn sàng bán/);
   });
 
   test('từ chối uỷ quyền (code=null&error=auth_denied) thì báo rõ, không gọi BE, thử lại mở lại TikTok', async ({ page }) => {
