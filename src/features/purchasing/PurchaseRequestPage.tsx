@@ -33,11 +33,12 @@ import {
   useSupplierReturn,
   useSuppliers,
 } from '@/api/purchasing.api';
-import { useCategories } from '@/api/catalog.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
+import { NEW_PRODUCT_PARENT } from '@/utils/env';
+import { NewProductFields, type NewProductErrors } from './NewProductFields';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
 import { purchaseRequestMachine, type PurchaseRequestRecord } from '@/lib/machines/purchasing';
@@ -57,7 +58,11 @@ import {
   DELIVERY_LABELS,
   RECEIPT_STATUS,
   REQUEST_STATUS,
+  MAX_AXES,
+  filledOptions,
   formatQty,
+  optionsLabel,
+  newProductName,
   requestFormSchema,
   type RequestFormInput,
   type RequestFormOutput,
@@ -77,12 +82,23 @@ const emptyLine = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
   productName: '',
   attributesLabel: '',
   isNew: false,
-  newName: '',
+  parentMode: 'existing',
+  parentId: '',
+  parentName: '',
   categoryId: '',
+  options: [],
   quantity: '',
   unitCost: '',
   ...patch,
 });
+
+/** Dòng sản phẩm mới đã lưu → ô nhập; BE cũ chỉ có `name` thì coi là cha mới không trục */
+const newProductDraft = (np: NonNullable<PurchaseRequest['lines'][number]['newProduct']>): Partial<RequestLineDraft> => {
+  const options = Object.entries(np.optionValues ?? {}).map(([axis, value]) => ({ axis, value }));
+  if (np.parentId) return { parentMode: 'existing', parentId: np.parentId, parentName: np.parentName ?? np.name, categoryId: np.categoryId, options };
+  while (options.length < MAX_AXES) options.push({ axis: '', value: '' });
+  return { parentMode: 'new', parentId: '', parentName: np.parentName ?? np.name, categoryId: np.categoryId, options };
+};
 
 const toForm = (req: PurchaseRequest): RequestFormInput => ({
   supplierId: req.supplier.id,
@@ -94,8 +110,7 @@ const toForm = (req: PurchaseRequest): RequestFormInput => ({
       productName: l.productName,
       attributesLabel: l.attributesLabel,
       isNew: l.variantId === null,
-      newName: l.newProduct?.name ?? '',
-      categoryId: l.newProduct?.categoryId ?? '',
+      ...(l.variantId === null && l.newProduct ? newProductDraft(l.newProduct) : {}),
       quantity: String(l.quantity),
       unitCost: l.unitCost === null ? '' : String(l.unitCost),
     }),
@@ -103,12 +118,36 @@ const toForm = (req: PurchaseRequest): RequestFormInput => ({
 });
 
 const toLineInputs = (values: RequestFormOutput): PurchaseRequestLineInput[] =>
-  values.lines.map((l) => ({
-    variantId: l.isNew ? null : l.variantId,
-    newProduct: l.isNew ? { name: l.newName, categoryId: l.categoryId } : null,
-    quantity: l.quantity,
-    unitCost: l.unitCost,
-  }));
+  values.lines.map((l) => {
+    if (!l.isNew) return { variantId: l.variantId, newProduct: null, quantity: l.quantity, unitCost: l.unitCost };
+    const options = filledOptions(l.options);
+    const existing = l.parentMode === 'existing';
+    return {
+      variantId: null,
+      newProduct: {
+        parentId: existing ? l.parentId : null,
+        parentName: existing ? null : l.parentName,
+        categoryId: l.categoryId,
+        optionValues: Object.fromEntries(options.map((o) => [o.axis, o.value])),
+        // BE `main` chưa nhận cha, trục (commerio-backend#243): mỗi dòng tạo một sản phẩm theo tên này
+        name: newProductName(l),
+      },
+      quantity: l.quantity,
+      unitCost: l.unitCost,
+    };
+  });
+
+/** Lỗi theo dòng của BE → ô trên form (`lines.<i>.<trường>`) */
+const LINE_ERROR_FIELDS: Record<string, string> = {
+  variantId: 'variantId',
+  quantity: 'quantity',
+  unitCost: 'unitCost',
+  'newProduct.name': 'parentName',
+  'newProduct.parentName': 'parentName',
+  'newProduct.parentId': 'parentId',
+  'newProduct.categoryId': 'categoryId',
+  'newProduct.optionValues': 'options',
+};
 
 /** Đường chính trên thanh tiến trình (PATHS.pr của Test_UI) */
 const REQUEST_PATH = ['draft', 'pending_approval', 'approved', 'ordered', 'received'] as const satisfies readonly PurchaseRequestStatus[];
@@ -155,9 +194,10 @@ export function PurchaseRequestPage() {
   const req = reqQuery.data;
   useBreadcrumb(isNew ? 'Lập đề nghị' : req?.number);
   const { startTour } = usePageGuide('purchase-request', { ready: isNew || Boolean(req) });
-  const returnQuery = useSupplierReturn(fromReturnId ?? undefined);
+  // Phiếu trả NCC mà đề nghị bù hàng: lập mới thì từ `?from=`, đã lưu thì phiếu đã gắn (#365: khoá giá theo dòng gốc).
+  const replacementOf = fromReturnId ?? req?.sourceReturn?.id ?? null;
+  const returnQuery = useSupplierReturn(replacementOf ?? undefined);
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
-  const categoriesQuery = useCategories();
   const editable = canManage && (isNew || (req ? EDITABLE.has(req.status) : false));
 
   const saveMut = useSavePurchaseRequest();
@@ -173,7 +213,7 @@ export function PurchaseRequestPage() {
     reset,
     setError,
     setValue,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitted },
   } = useForm<RequestFormInput, unknown, RequestFormOutput>({
     // Dòng trên form giữ thêm SKU, tên để hiển thị; schema chỉ kiểm ô nhập nên phải ép kiểu
     resolver: zodResolver(requestFormSchema) as unknown as Resolver<RequestFormInput, unknown, RequestFormOutput>,
@@ -204,7 +244,7 @@ export function PurchaseRequestPage() {
   // Bù hàng: điền nhà cung cấp và dòng từ phiếu trả nhà cung cấp (giá nhập theo giá vốn của phiếu nếu được xem)
   const source = returnQuery.data;
   useEffect(() => {
-    if (!source || loaded.current === `from:${source.id}`) return;
+    if (!fromReturnId || !source || loaded.current === `from:${source.id}`) return;
     loaded.current = `from:${source.id}`;
     reset(
       {
@@ -223,7 +263,18 @@ export function PurchaseRequestPage() {
       },
       { keepDefaultValues: true },
     );
-  }, [source, reset]);
+  }, [fromReturnId, source, reset]);
+
+  /** Giá dòng gốc của phiếu trả cho SKU (#365): đề nghị bù hàng không sửa được giá; null là không khoá. */
+  const lockedCost = (variantId: string | null | undefined): number | null => {
+    if (!source || !variantId) return null;
+    return source.lines.find((l) => l.variantId === variantId)?.unitCost ?? null;
+  };
+  /** Số đã trả của SKU trên phiếu trả (#365): đề nghị bù không đặt quá số này; null khi không phải đề nghị bù */
+  const returnedQty = (variantId: string | null | undefined): number | null => {
+    if (!source || !variantId) return null;
+    return source.lines.find((l) => l.variantId === variantId)?.quantity ?? null;
+  };
 
   const load = (latest: PurchaseRequest) => {
     loaded.current = latest.id;
@@ -269,9 +320,9 @@ export function PurchaseRequestPage() {
     const fieldErrors = problem?.errors ?? {};
     let placed = 0;
     for (const [path, message] of Object.entries(fieldErrors)) {
-      const m = /^lines\.(\d+)\.(variantId|quantity|unitCost|newProduct\.name|newProduct\.categoryId)$/.exec(path);
-      if (m) {
-        const key = m[2] === 'newProduct.name' ? 'newName' : m[2] === 'newProduct.categoryId' ? 'categoryId' : m[2];
+      const m = /^lines\.(\d+)\.(.+)$/.exec(path);
+      const key = m ? LINE_ERROR_FIELDS[m[2]!] : undefined;
+      if (m && key) {
         setError(`lines.${Number(m[1])}.${key as 'quantity'}`, { message });
         placed++;
       } else if (path === 'supplierId' || path === 'note') {
@@ -287,6 +338,18 @@ export function PurchaseRequestPage() {
 
   const save = async (values: RequestFormOutput): Promise<PurchaseRequest | null> => {
     setNotice(null);
+    // Đề nghị bù hàng (#365): số mỗi dòng không quá số đã trả của SKU đó trên phiếu trả; BE cũng chặn (422)
+    if (source) {
+      let over = 0;
+      values.lines.forEach((l, i) => {
+        const returned = returnedQty(l.variantId);
+        if (returned !== null && l.quantity > returned) {
+          setError(`lines.${i}.quantity`, { message: `Không quá số đã trả ${formatQty(returned)}` });
+          over++;
+        }
+      });
+      if (over) return null;
+    }
     try {
       if (isNew) {
         const created = await saveMut.mutateAsync({
@@ -396,20 +459,28 @@ export function PurchaseRequestPage() {
     blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
   );
 
-  const textInput = (i: number, key: 'quantity' | 'unitCost' | 'newName', label: string, name: string) => {
+  const textInput = (i: number, key: 'quantity' | 'unitCost', label: string, name: string, hint?: string) => {
     const err = errors.lines?.[i]?.[key];
     return (
       <div className="grid gap-1">
         <Input
           {...register(`lines.${i}.${key}`)}
           aria-label={`${label} ${name}`}
-          inputMode={key === 'newName' ? undefined : 'numeric'}
+          inputMode="numeric"
           aria-invalid={Boolean(err)}
-          className={cn('h-8', key !== 'newName' && 'text-right')}
+          className="h-8 text-right"
         />
+        {hint && !err && <p className="text-xs text-muted-foreground">{hint}</p>}
         {err && <p className="text-start text-xs text-destructive">{err.message}</p>}
       </div>
     );
+  };
+
+  const patchLine = (i: number, patch: Partial<RequestLineDraft>) => {
+    for (const [k, v] of Object.entries(patch)) {
+      // Trường của dòng có kiểu khác nhau (chuỗi, mảng trục): ép kiểu một lần ở đây
+      setValue(`lines.${i}.${k}` as `lines.${number}.parentName`, v as never, { shouldDirty: true, shouldValidate: isSubmitted });
+    }
   };
 
   return (
@@ -571,7 +642,12 @@ export function PurchaseRequestPage() {
               </div>
             </div>
 
-            {editable && (
+            {editable && source && (
+              <AlertMessage severity="info">
+                Đề nghị bù hàng cho phiếu trả {source.number}: chỉ SKU đã trả, số không quá số đã trả, giá theo dòng gốc.
+              </AlertMessage>
+            )}
+            {editable && !source && (
               <div className="flex flex-wrap items-end gap-2">
                 <div className="min-w-64 flex-1">
                   <VariantPicker
@@ -589,7 +665,7 @@ export function PurchaseRequestPage() {
                     }
                   />
                 </div>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true }))}>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true, parentMode: 'new', options: Array.from({ length: MAX_AXES }, () => ({ axis: '', value: '' })) }))}>
                   <Plus />
                   Sản phẩm mới
                 </Button>
@@ -626,7 +702,9 @@ export function PurchaseRequestPage() {
                     const line = req?.lines[i];
                     const live = lines[i] ?? f;
                     const lineErrors = errors.lines?.[i];
-                    const name = f.sku || live.newName || `dòng ${i + 1}`;
+                    const name = f.sku || live.parentName || `dòng ${i + 1}`;
+                    const np = line?.newProduct;
+                    const returned = returnedQty(live.variantId);
                     return (
                       <TableRow
                         key={f.key}
@@ -635,41 +713,19 @@ export function PurchaseRequestPage() {
                       >
                         <TableCell>
                           {live.isNew && editable ? (
-                            <div className="grid gap-2 md:grid-cols-2">
-                              {textInput(i, 'newName', 'Tên sản phẩm mới', name)}
-                              <div className="grid gap-1">
-                                <Select
-                                  value={live.categoryId}
-                                  disabled={categoriesQuery.isLoading}
-                                  onValueChange={(v) =>
-                                    setValue(`lines.${i}.categoryId`, v, { shouldDirty: true, shouldValidate: true })
-                                  }
-                                >
-                                  <SelectTrigger
-                                    className="h-8 w-full"
-                                    aria-label={`Danh mục ${name}`}
-                                    aria-invalid={Boolean(lineErrors?.categoryId)}
-                                  >
-                                    <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Danh mục'} />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {(categoriesQuery.data ?? []).map((c) => (
-                                      <SelectItem key={c.id} value={c.id}>
-                                        {c.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {lineErrors?.categoryId && (
-                                  <p className="text-xs text-destructive">{lineErrors.categoryId.message}</p>
-                                )}
-                              </div>
-                            </div>
+                            <NewProductFields
+                              line={live}
+                              name={name}
+                              index={i}
+                              errors={lineErrors as NewProductErrors | undefined}
+                              disabled={busy}
+                              onChange={(patch) => patchLine(i, patch)}
+                            />
                           ) : (
                             <>
                               <p className="font-medium">
-                                {f.sku || line?.newProduct?.name || live.newName}
-                                {(live.isNew || line?.newProduct) && (
+                                {f.sku || np?.parentName || np?.name || live.parentName}
+                                {(live.isNew || np) && (
                                   <Badge variant="info" className="ms-2">
                                     Sản phẩm mới
                                   </Badge>
@@ -681,8 +737,15 @@ export function PurchaseRequestPage() {
                                 )}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {line?.newProduct && !line.variantId
-                                  ? `Danh mục ${line.newProduct.categoryName}`
+                                {np && !line?.variantId
+                                  ? [
+                                      optionsLabel(np.optionValues ?? {}),
+                                      np.parentId
+                                        ? 'Cha có sẵn'
+                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Danh mục ${np.categoryName}`,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ')
                                   : `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
                               </p>
                               {line?.excluded && line.excludedReason && (
@@ -695,11 +758,19 @@ export function PurchaseRequestPage() {
                           {lineErrors?.variantId && <p className="text-xs text-destructive">{lineErrors.variantId.message}</p>}
                         </TableCell>
                         <TableCell className="text-right">
-                          {editable ? textInput(i, 'quantity', 'Số lượng', name) : formatQty(line?.quantity ?? 0)}
+                          {editable
+                            ? textInput(i, 'quantity', 'Số lượng', name, returned !== null ? `Đã trả ${formatQty(returned)}` : undefined)
+                            : formatQty(line?.quantity ?? 0)}
                         </TableCell>
                         {showCost && (
                           <TableCell className="text-right">
-                            {editable
+                            {editable && source && lockedCost(live.variantId) !== null ? (
+                              <div className="grid gap-1" data-testid="locked-cost">
+                                <span aria-label={`Giá nhập ${name}`}>{formatCurrency(lockedCost(live.variantId)!)}</span>
+                                <span className="text-xs text-muted-foreground">Theo giá dòng gốc {source.number}</span>
+                                {lineErrors?.unitCost && <p className="text-xs text-destructive">{lineErrors.unitCost.message}</p>}
+                              </div>
+                            ) : editable
                               ? textInput(i, 'unitCost', 'Giá nhập', name)
                               : line?.unitCost === null || line?.unitCost === undefined
                                 ? '—'

@@ -129,6 +129,24 @@ test.describe('P2 · Kho', () => {
       await expect(dialog.getByTestId('stock-figures')).toContainText('Khả dụng');
     });
 
+    test('nhãn Đang về, Thiếu, Lệch tồn; Thiếu mở kiện thiếu hàng, Lệch tồn mở gian hàng (US-TK-01…05; FE#285)', async ({ page }) => {
+      await expect(page.getByTestId('chip-incoming').first()).toHaveText(/^Đang về \d/);
+      await expect(page.getByTestId('stock-chips').getByText('Lệch tồn sàn')).toHaveCount(0);
+
+      const thieu = page.getByTestId('chip-shortage').first();
+      await expect(thieu).toHaveText(/^Thiếu \d/);
+      await thieu.click();
+      await expect(page).toHaveURL(/\/fulfillment\/packages\?tab=backordered$/);
+      await expect(page.getByRole('tab', { name: /Thiếu hàng/ })).toHaveAttribute('aria-selected', 'true');
+
+      await menu(page, 'Kho');
+      const lech = page.getByTestId('chip-drift').first();
+      await expect(lech).toHaveText('Lệch tồn');
+      await expect(lech).toHaveAttribute('title', /Mở gian hàng, tìm .+ để xem listing lệch/);
+      await lech.click();
+      await expect(page).toHaveURL(/\/channel\/shops$/);
+    });
+
     test('đặt ngưỡng: kiểm số, lưu, bỏ ngưỡng', async ({ page }) => {
       const dialog = page.getByRole('dialog');
       await dong(page, 'prd-003-v1').getByRole('button', { name: 'Đặt ngưỡng', exact: true }).click();
