@@ -1418,7 +1418,7 @@ export const shopHandlers = [
     if (typeof body.version !== 'number') errors.version = 'Thiếu version';
     const days = body.returnWindowDays;
     if (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 60) {
-      errors.returnWindowDays = 'Số ngày đổi trả là số nguyên từ 1 đến 60';
+      errors.returnWindowDays = 'Hạn trả hàng là số nguyên từ 1 đến 60 ngày';
     }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors });
     const idx = findShop(params.id, guard.value.companyId);
@@ -1584,7 +1584,7 @@ export const shopHandlers = [
     }
     const days = body.returnWindowDays;
     if (shop.capabilities.returnWindow === 'days' && (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 60)) {
-      errors.returnWindowDays = 'Số ngày đổi trả là số nguyên từ 1 đến 60';
+      errors.returnWindowDays = 'Hạn trả hàng là số nguyên từ 1 đến 60 ngày';
     }
     const { suggestions } = setupSuggestions(shop);
     const legacy = (body as { externalSkuIds?: unknown }).externalSkuIds;

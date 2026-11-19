@@ -8,9 +8,9 @@ const moTab = async (page: Page, tab: string, number: string) => {
   await chua(page, number, 'tbody tr').click();
 };
 /** Bấm nút thao tác rồi xác nhận trong hộp thoại */
-const thaoTac = async (page: Page, label: string) => {
+const thaoTac = async (page: Page, label: string, confirm = label) => {
   await page.getByRole('button', { name: label, exact: true }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: confirm, exact: true }).click();
 };
 
 test.describe('P2 · Mua hàng', () => {
@@ -50,13 +50,13 @@ test.describe('P2 · Mua hàng', () => {
       await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /thiếu 1/);
       await page.getByLabel(/^Đạt /).first().fill('1');
       // Giao một phần vẫn là chênh với số còn chờ, nhưng hết thiếu
-      await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /: Nhà cung cấp báo giao 1, còn chờ \d+\.$/);
+      await expect(dong.getByTestId('receipt-diff')).toHaveAttribute('aria-label', /: NCC giao 1, còn phải nhận \d+\.$/);
       // Dòng chưa giao lần này không bị đánh dấu
       const dong2 = page.getByTestId('receipt-lines').locator('tbody tr').nth(1);
       await expect(dong2).not.toHaveClass(/\bchg\b/);
       await expect(dong2.getByTestId('receipt-diff')).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Nhập kho', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
-      await thaoTac(page, 'Nhập kho');
+      await thaoTac(page, 'Nhập kho', 'Ghi sổ');
       await expect(page.getByTestId('receipt-status')).toContainText('Đã nhập kho');
     });
 
@@ -210,7 +210,7 @@ test.describe('P2 · Mua hàng', () => {
       await thayChu(page, 'SL đạt + lỗi + trả lại vượt SL NCC giao');
 
       await page.getByLabel(/^Đạt /).first().fill('10');
-      await thaoTac(page, 'Nhập kho');
+      await thaoTac(page, 'Nhập kho', 'Ghi sổ');
       await toast(page, 'NH-000002');
       await expect(page.getByTestId('receipt-status')).toContainText('Đã nhập kho');
       await expect(page.getByRole('button', { name: 'Nhập kho', exact: true })).toHaveCount(0);
@@ -274,7 +274,7 @@ test.describe('P2 · Mua hàng', () => {
       await moTab(page, 'Trả nhà cung cấp', 'TN-000002');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-      await thaoTac(page, 'Duyệt và gửi NCC');
+      await thaoTac(page, 'Duyệt và gửi NCC', 'Duyệt và gửi');
       await expect(page.getByTestId('return-status')).toContainText('Đã gửi NCC');
     });
   });

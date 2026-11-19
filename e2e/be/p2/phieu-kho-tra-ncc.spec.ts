@@ -36,9 +36,9 @@ test.afterAll(async () => {
 });
 
 /** Bấm nút thao tác rồi xác nhận trong hộp thoại */
-const thaoTac = async (label: string) => {
+const thaoTac = async (label: string, confirm = label) => {
   await page.getByRole('button', { name: label, exact: true }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: confirm, exact: true }).click();
 };
 
 const chonBienThe = async () => {
@@ -112,7 +112,7 @@ test('B4 phiếu trả nhà cung cấp: lập tay 2 cái từ chờ xử lý, g�
   await page.getByTestId('return-lines').getByLabel(`Số trả ${sku}`, { exact: true }).fill('2');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và gửi NCC');
+  await thaoTac('Duyệt và gửi NCC', 'Duyệt và gửi');
   await expect(page.getByTestId('return-status')).toContainText('Đã gửi NCC');
   // Gửi đi thì hàng rời chờ xử lý
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 1 });
