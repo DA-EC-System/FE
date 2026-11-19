@@ -41,7 +41,7 @@ test.describe('P2 · Sản phẩm', () => {
     await page.getByRole('button', { name: 'Tạo sản phẩm', exact: true }).click();
     await expect(loiTen(page)).not.toBeEmpty();
 
-    await chon(page, 'Category', 'Áo');
+    await chon(page, 'Danh mục', 'Áo');
     const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await thuocTinh.getByRole('button', { name: 'Kích cỡ', exact: true }).click();
@@ -61,14 +61,14 @@ test.describe('P2 · Sản phẩm', () => {
 
     await page.locator('input[name=name]').fill('Áo sơ mi Oxford');
     await page.getByRole('button', { name: 'Tạo sản phẩm', exact: true }).click();
-    await toast(page, 'Đã tạo Áo sơ mi Oxford với 3 variant');
+    await toast(page, 'Đã tạo Áo sơ mi Oxford với 3 biến thể');
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/prd-/);
     await expect(page.locator('[data-testid=variants] tbody tr td:first-child')).toHaveText(
       ['AO-0013-DEN-S', 'AO-0014-TRANG-S', 'AO-0015-TRANG-M'],
       { useInnerText: true },
     );
     // Đã tạo thì không đổi được danh mục (SKU đã cấp theo danh mục)
-    await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toBeDisabled();
+    await expect(page.getByRole('combobox', { name: 'Danh mục', exact: true })).toBeDisabled();
   });
 
   test('sửa sản phẩm bị người khác sửa trước thì nạp bản mới nhất', async ({ page }) => {
@@ -97,7 +97,7 @@ test.describe('P2 · Sản phẩm', () => {
     await chua(page, 'Áo khoác gió', 'tbody tr').click();
     await thayChu(page, 'chỉ xem được', '[role=status]');
     await expect(page.getByRole('button', { name: 'Lưu', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Thêm variant', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thêm biến thể', exact: true })).toHaveCount(0);
   });
 
   test('SKU còn tồn và chứng từ mở thì Lưu trữ bị khoá, báo lý do (B1)', async ({ page }) => {

@@ -21,19 +21,19 @@ test.describe('P2 · Thông tin SKU', () => {
     });
 
     test('hiện giá chuẩn, phần còn thiếu theo §5.2; nhập đủ thì Sẵn sàng', async ({ page }) => {
-      await expect(dong(page, 'prd-001-v1').getByTestId('variant-readiness')).toHaveText('Đủ thông tin');
+      await expect(dong(page, 'prd-001-v1').getByTestId('variant-readiness')).toHaveText('Sẵn sàng');
       await expect(dong(page, 'prd-001-v1').getByTestId('variant-spec')).toHaveText('180 g · 300×250×20 mm');
       const v4 = dong(page, 'prd-001-v4');
       await expect(v4.getByTestId('variant-price')).toContainText('150.000');
-      await expect(v4.getByTestId('variant-readiness')).toContainText('Thiếu thông tin');
-      await expect(v4.getByTestId('variant-readiness')).toContainText('Thiếu cân nặng, kích thước đóng gói');
+      await expect(v4.getByTestId('variant-readiness')).toContainText('Chờ hoàn thiện');
+      await expect(v4.getByTestId('variant-readiness')).toContainText('Thiếu cân nặng, kích thước gói');
 
       await moSuaSku(page, 'prd-001-v4');
-      await expect(o(page, 'Giá bán lẻ (đ)')).toHaveValue('150000');
-      await expect(o(page, 'Thực nhận mong muốn (đ)')).toHaveValue('150000');
-      await o(page, 'Giá bán lẻ (đ)').fill('159.000');
-      await o(page, 'Thực nhận mong muốn (đ)').fill('140.000');
-      await o(page, 'Cân nặng sau đóng gói (g)').fill('210');
+      await expect(o(page, 'Giá chuẩn (đ)')).toHaveValue('150000');
+      await expect(o(page, 'Giá muốn bán – số muốn thực nhận (đ)')).toHaveValue('150000');
+      await o(page, 'Giá chuẩn (đ)').fill('159.000');
+      await o(page, 'Giá muốn bán – số muốn thực nhận (đ)').fill('140.000');
+      await o(page, 'Cân nặng (g)').fill('210');
       await o(page, 'Dài').fill('300');
       await o(page, 'Rộng').fill('250');
       await o(page, 'Cao').fill('20');
@@ -44,19 +44,19 @@ test.describe('P2 · Thông tin SKU', () => {
       await expect(v4.getByTestId('variant-price')).toContainText('159.000');
       await expect(v4.getByTestId('variant-target-price')).toContainText('140.000');
       await expect(v4.getByTestId('variant-spec')).toHaveText('210 g · 300×250×20 mm');
-      await expect(v4.getByTestId('variant-readiness')).toHaveText('Đủ thông tin');
+      await expect(v4.getByTestId('variant-readiness')).toHaveText('Sẵn sàng');
     });
 
     test('số sai báo tại ô, kích thước phải đủ ba cạnh', async ({ page }) => {
       const hop = await moSuaSku(page, 'prd-001-v4');
-      await o(page, 'Cân nặng sau đóng gói (g)').fill('90000');
+      await o(page, 'Cân nặng (g)').fill('90000');
       await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
       await expect(hop).toContainText('Quá 50 kg');
-      await o(page, 'Cân nặng sau đóng gói (g)').fill('210');
+      await o(page, 'Cân nặng (g)').fill('210');
       await o(page, 'Dài').fill('300');
       await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
       await expect(hop).toContainText('Nhập đủ ba cạnh');
-      await o(page, 'Thực nhận mong muốn (đ)').fill('-5');
+      await o(page, 'Giá muốn bán – số muốn thực nhận (đ)').fill('-5');
       await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
       await expect(hop).toContainText('Giá không được âm');
       await expect(hop).toBeVisible();
@@ -64,7 +64,7 @@ test.describe('P2 · Thông tin SKU', () => {
 
     test('SKU bị người khác sửa trước thì báo, chưa lưu gì', async ({ page }) => {
       const hop = await moSuaSku(page, 'prd-001-v4');
-      await o(page, 'Cân nặng sau đóng gói (g)').fill('210');
+      await o(page, 'Cân nặng (g)').fill('210');
       await mockApi(page, 'patch', '/catalog/products/:id/variants/:variantId', 409, {
         status: 409,
         title: 'Xung đột phiên bản',

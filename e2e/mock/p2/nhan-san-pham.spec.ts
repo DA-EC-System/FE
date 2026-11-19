@@ -35,8 +35,8 @@ test.describe('P2 · Nhãn sản phẩm (FE#260)', () => {
     await chua(page, 'Áo thun basic cổ tròn', 'tbody tr').click();
     await dong(page, 'prd-001-v1').getByRole('button', { name: /^Sửa thông tin / }).click();
     const hop = page.getByRole('dialog');
-    await expect(o(page, 'Cân nặng sau đóng gói (g)')).toHaveValue('180');
-    await o(page, 'Cân nặng sau đóng gói (g)').fill('');
+    await expect(o(page, 'Cân nặng (g)')).toHaveValue('180');
+    await o(page, 'Cân nặng (g)').fill('');
     await hop.getByRole('button', { name: 'Lưu', exact: true }).click();
     await expect(hop.getByRole('status')).toContainText('SKU đang có trên sàn');
     await expect(hop).toBeVisible();
@@ -47,7 +47,7 @@ test.describe('P2 · Nhãn sản phẩm (FE#260)', () => {
   test('sản phẩm mới tạo, mọi SKU Chờ hoàn thiện thì xoá hẳn được', async ({ page }) => {
     await page.getByRole('button', { name: 'Thêm sản phẩm', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/new$/);
-    await chon(page, 'Category', 'Áo');
+    await chon(page, 'Danh mục', 'Áo');
     const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await page.getByRole('group', { name: 'Màu sắc', exact: true }).getByRole('button', { name: 'Đen', exact: true }).click();
