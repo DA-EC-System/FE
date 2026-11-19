@@ -36,9 +36,9 @@ test.afterAll(async () => {
 });
 
 /** Bấm nút thao tác rồi xác nhận trong hộp thoại */
-const thaoTac = async (label: string, confirm = label) => {
+const thaoTac = async (label: string) => {
   await page.getByRole('button', { name: label, exact: true }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: confirm, exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
 };
 
 const chonBienThe = async () => {
@@ -84,7 +84,7 @@ test('B3a xuất huỷ: gửi duyệt thì tạm khoá, từ chối bắt buộc
   const hop = page.getByRole('dialog');
   await hop.getByRole('textbox').fill('Hàng còn bán được');
   await hop.getByRole('button', { name: 'Từ chối', exact: true }).click();
-  await expect(page.getByTestId('doc-status')).toContainText('Bị từ chối');
+  await expect(page.getByTestId('doc-status')).toContainText('Từ chối');
   expect(await ton()).toMatchObject({ onHand: 10, locked: 0, available: 10 });
 });
 
@@ -112,18 +112,18 @@ test('B4 phiếu trả nhà cung cấp: lập tay 2 cái từ chờ xử lý, g�
   await page.getByTestId('return-lines').getByLabel(`Số trả ${sku}`, { exact: true }).fill('2');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và gửi NCC', 'Duyệt và gửi');
-  await expect(page.getByTestId('return-status')).toContainText('Đã gửi NCC');
+  await thaoTac('Duyệt và gửi');
+  await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
   // Gửi đi thì hàng rời chờ xử lý
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 1 });
 
-  await page.getByRole('button', { name: 'Ghi NCC hoàn tiền', exact: true }).click();
+  await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
   const hop = page.getByRole('dialog');
   await hop.getByLabel(/Số tiền nhà cung cấp hoàn/).fill('120000');
   await hop.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
-  await expect(page.getByTestId('return-status')).toContainText('NCC đã hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
   await expect(page.locator('main')).toContainText('120.000');
 
   await page.reload();
-  await expect(page.getByTestId('return-status')).toContainText('NCC đã hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
 });

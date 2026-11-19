@@ -28,7 +28,7 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     const the = section.locator('[data-platform=tiktok]');
     await expect(the).not.toHaveAttribute('aria-disabled', 'true');
     await expect(the).toContainText('Tách đơn theo SKU');
-    await expect(the).toContainText('Hạn trả hàng do sàn báo');
+    await expect(the).toContainText('Hạn đổi trả do sàn báo');
     await expect(section.getByRole('radio')).toHaveCount(2);
     await expect(section.getByRole('radio', { name: /^Dán token/ })).toBeAttached();
   });
@@ -65,7 +65,7 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     await expect(goiY.locator('[data-testid=remote-image][data-has-image=true] img')).toHaveCount(2);
     await expect(goiY.locator('[data-testid=remote-image][data-has-image=false]')).toHaveCount(2);
     await expect(goiY.locator('[data-testid=remote-image][data-has-image=false] img')).toHaveCount(0);
-    await expect(goiY.filter({ hasText: 'Mũ lưỡi trai' }).getByTestId('remote-status')).toHaveText('Tạm ẩn');
+    await expect(goiY.filter({ hasText: 'Mũ lưỡi trai' }).getByTestId('remote-status')).toHaveText('Đang tắt trên sàn');
     await expect(goiY.filter({ hasText: 'Áo khoác gió' }).getByTestId('remote-status')).toHaveText('Chờ sàn duyệt');
     await expect(goiY.getByTestId('remote-status')).toHaveCount(2);
     await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
@@ -75,7 +75,7 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
     await expect(page.getByRole('spinbutton', { name: /Số ngày đổi trả/ })).toHaveCount(0);
     await expect(page.locator('[data-testid=return-window-note]')).toHaveText(
-      'TikTok Shop tự đóng yêu cầu trả hàng khi đơn hoàn thành, nên không cần đặt hạn trả hàng.',
+      'TikTok Shop tự khoá đổi trả khi đơn hoàn tất, nên không cần đặt số ngày đổi trả.',
     );
     const luu = page.waitForRequest((r) => r.method() === 'POST' && /\/channel\/shops\/[^/]+\/setup$/.test(new URL(r.url()).pathname));
     await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();

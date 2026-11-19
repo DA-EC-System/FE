@@ -40,7 +40,7 @@ test.describe('P3 · TikTok kiểm điều kiện đăng trước khi tạo sả
     await phatSuKienSan(page, 'shop.not_eligible', 'shp-002');
     await dayMoi(page, 'prd-002-v1');
 
-    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đăng lỗi', { timeout: 15_000 });
+    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Lỗi đẩy', { timeout: 15_000 });
     await expect(ghiChu(page, 'prd-002-v1')).toContainText('Gian hàng chưa đủ điều kiện đăng sản phẩm');
     await expect(ghiChu(page, 'prd-002-v1')).toContainText('Seller Center');
     // FE#250: câu gốc của sàn trong "Chi tiết từ sàn" thu gọn
@@ -54,7 +54,7 @@ test.describe('P3 · TikTok kiểm điều kiện đăng trước khi tạo sả
     await phatSuKienSan(page, 'listing.check_failed', 'shp-002');
     await dayMoi(page, 'prd-002-v1');
 
-    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đăng lỗi', { timeout: 15_000 });
+    await expect(trangThai(page, 'prd-002-v1')).toHaveText('Lỗi đẩy', { timeout: 15_000 });
     // FE#250: câu sàn về độ dài tên được dịch, câu gốc trong "Chi tiết từ sàn"
     await expect(ghiChu(page, 'prd-002-v1')).toContainText('Tên sản phẩm phải dài 25–255 ký tự trên TikTok');
     await chiTietSan(page, 'prd-002-v1', '12052051');

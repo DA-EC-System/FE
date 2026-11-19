@@ -115,7 +115,7 @@ test.describe('P2 · Kho', () => {
       await dong(page, 'prd-002-v1').getByRole('button', { name: 'Lịch sử biến động', exact: true }).click();
       const dialog = page.getByRole('dialog');
       for (const t of ['Chờ xử lý', 'Tạm khoá']) await expect(dialog.getByTestId('stock-figures')).toContainText(t);
-      for (const t of ['CXL-000001', 'Hàng lỗi/chờ kiểm', 'Tồn kho']) await expect(dialog.getByTestId('stock-moves')).toContainText(t);
+      for (const t of ['CXL-000001', 'Chờ xử lý', 'Tồn thực']) await expect(dialog.getByTestId('stock-moves')).toContainText(t);
     });
 
     test('bấm mã SKU mở thẻ kho (FE#136)', async ({ page }) => {
@@ -261,7 +261,7 @@ test.describe('P2 · Kho', () => {
       await o2(lines, 'Bán lại', 0).fill('1');
       await page.getByRole('button', { name: 'Ghi sổ', exact: true }).click();
       await page.getByRole('alertdialog').getByRole('button', { name: 'Ghi sổ', exact: true }).click();
-      await expect(lines).toContainText('phải bằng số đã quét');
+      await expect(lines).toContainText('phải bằng số quét');
       await o2(lines, 'Hỏng', 0).fill('1');
       await thaoTac(page, 'Ghi sổ');
       await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
