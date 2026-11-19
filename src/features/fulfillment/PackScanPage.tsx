@@ -50,7 +50,7 @@ export function PackScanPage() {
   if (query.isError || !query.data) return <PageError message={problemMessage(query.error)} onBack={toDetail} />;
   const p = query.data;
   if (!packageButtons(p, actor).actions.includes('pack')) {
-    return <PageError severity="warning" message={`Kiện ${p.code} không ở bước đóng gói`} onBack={toDetail} />;
+    return <PageError severity="warning" message={`Kiện hàng ${p.code} không còn ở trạng thái chờ đóng gói`} onBack={toDetail} />;
   }
 
   // Đếm theo biến thể (dòng đã ghép) và theo id dòng ("không quản tồn"); dòng chưa ghép SKU không quét (packScan.ts)
@@ -66,9 +66,9 @@ export function PackScanPage() {
     inputRef.current?.focus();
     if (!code) return;
     const match = matchScan(p.lines, scanned, code);
-    if (match.kind === 'not_found') return setMessage({ severity: 'error', text: `${code} không có trong kiện` });
-    if (match.kind === 'unmapped') return setMessage({ severity: 'warning', text: `${match.line.sku} chưa ghép SKU, không cần quét` });
-    if (match.kind === 'full') return setMessage({ severity: 'warning', text: `${match.line.sku} đã đủ ${match.quantity}` });
+    if (match.kind === 'not_found') return setMessage({ severity: 'error', text: `Mã ${code} không thuộc kiện hàng này` });
+    if (match.kind === 'unmapped') return setMessage({ severity: 'warning', text: `${match.line.sku} chưa liên kết SKU, không cần quét` });
+    if (match.kind === 'full') return setMessage({ severity: 'warning', text: `${match.line.sku} đã quét đủ ${match.quantity}, không cần quét thêm` });
     setMessage(null);
     setScanned({ ...scanned, [match.key]: (scanned[match.key] ?? 0) + 1 });
   };
@@ -91,11 +91,15 @@ export function PackScanPage() {
           ...(carrierCode ? { carrierCode } : {}),
         },
       });
-      toast.success(`Đã đóng gói kiện ${p.code}`);
+      toast.success(`Đã đóng gói kiện hàng ${p.code}`);
       toDetail();
     } catch (e) {
       const problem = getProblem(e);
-      if (problem?.code === 'version_conflict') setScanned({});
+      if (problem?.code === 'version_conflict') {
+        // Trang xoá số đã quét nên câu lỗi chung ("Chưa có gì thay đổi") không đúng ở đây
+        setScanned({});
+        return setMessage({ severity: 'error', text: 'Kiện hàng vừa được người khác cập nhật. Số đã quét đã bị xoá, hãy quét lại từ đầu.' });
+      }
       setMessage({ severity: 'error', text: problemMessage(e) });
     }
   };
@@ -103,14 +107,14 @@ export function PackScanPage() {
   return (
     <div className="grid gap-4">
       <PageHeader
-        title={`Đóng gói kiện ${p.code}`}
+        title={`Đóng gói kiện hàng ${p.code}`}
         subtitle={`Đơn ${p.order.code} · ${p.totalQty} món`}
-        help="Quét từng món hoặc gõ SKU (SKU trong app hoặc SKU sàn) rồi Enter. Mã không có trong kiện hay quét thừa sẽ báo ngay. Dòng Không quản tồn quét SKU sàn hoặc bấm Đã cho vào hộp. Đủ số lượng mọi dòng thì nút Đóng gói sáng."
+        help="Quét từng sản phẩm hoặc gõ SKU (SKU kho hoặc SKU sàn) rồi Enter. Mã không có trong kiện hay quét thừa sẽ báo ngay. Dòng Không quản lý tồn quét SKU sàn hoặc bấm Đã cho vào hộp. Đủ số lượng mọi dòng thì bấm được nút Đóng gói."
         onTour={startTour}
         action={
           <Button variant="outline" onClick={toDetail}>
             <ArrowLeft />
-            Về kiện
+            Về kiện hàng
           </Button>
         }
       />
@@ -137,11 +141,11 @@ export function PackScanPage() {
               />
             </div>
             <Button type="submit" variant="outline" size="lg" className="h-14">
-              Thêm
+              Ghi nhận
             </Button>
             <Button type="button" variant="ghost" size="lg" className="h-14" onClick={() => setScanned({})}>
               <RotateCcw />
-              Quét lại
+              Quét lại từ đầu
             </Button>
           </form>
           {message && (
@@ -153,7 +157,7 @@ export function PackScanPage() {
       </Card>
       <Card className="py-4" data-guide="pack-lines">
         <CardHeader className="grid gap-2">
-          <CardTitle className="text-base">Hàng cần đóng</CardTitle>
+          <CardTitle className="text-base">Sản phẩm trong kiện</CardTitle>
           <div className="grid gap-1" data-testid="pack-progress">
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>
@@ -179,7 +183,7 @@ export function PackScanPage() {
               <TableRow>
                 <TableHead className="w-36">SKU</TableHead>
                 <TableHead>Sản phẩm</TableHead>
-                <TableHead>Thuộc tính</TableHead>
+                <TableHead>Phân loại</TableHead>
                 <TableHead className="w-48 text-right">Đã quét</TableHead>
               </TableRow>
             </TableHeader>
@@ -199,14 +203,14 @@ export function PackScanPage() {
                       {l.productName}
                       {l.untracked && (
                         <Badge variant="secondary" className="ms-2">
-                          Không quản tồn
+                          Không quản lý tồn
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell>{l.attributesLabel || '—'}</TableCell>
                     <TableCell className="text-right">
                       {n === null ? (
-                        'Chưa ghép SKU'
+                        'Chưa liên kết SKU'
                       ) : (
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           {l.untracked && key && n < l.quantity && (
