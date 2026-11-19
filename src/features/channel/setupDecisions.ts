@@ -61,7 +61,7 @@ export function setupRunning(shop: Shop | undefined): boolean {
 
 /** Bước 1 khi BE bỏ ghép theo tên vì gian hàng quá nhiều SKU (nameMatchSkipped, §18.7.5) */
 export const NAME_MATCH_SKIPPED_NOTE =
-  'Gian hàng nhiều SKU, Commerio chỉ gợi ý theo SKU; hãy chọn biến thể cho các dòng còn lại';
+  'Gian hàng có quá nhiều SKU nên Commerio chỉ gợi ý khi khớp SKU, không gợi ý theo tên. Hãy chọn SKU kho cho các dòng còn lại.';
 
 /**
  * Câu cạnh bước open_orders khi môi trường đặt trần OPEN_ORDER_PULL_MAX và có đơn còn mở cũ không kéo về
@@ -70,5 +70,5 @@ export const NAME_MATCH_SKIPPED_NOTE =
 export function openOrdersSkippedNote(setup: ShopSetupProgress | null | undefined): string | null {
   const skipped = setup?.openOrdersSkipped;
   if (!skipped || skipped <= 0) return null;
-  return `Bỏ qua ${skipped} đơn còn mở cũ hơn; hàng của các đơn này chưa được giữ`;
+  return `Bỏ qua ${skipped} đơn đang xử lý cũ hơn; hàng của các đơn này chưa được tạm giữ`;
 }

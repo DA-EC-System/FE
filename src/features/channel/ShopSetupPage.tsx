@@ -62,37 +62,37 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 type SetupStep = 'match' | 'opening' | 'cutoff' | 'run';
 const PATH: readonly SetupStep[] = ['match', 'opening', 'cutoff', 'run'];
 const STEP_META: Record<SetupStep, StatusMeta> = {
-  match: { label: 'Ghép sản phẩm đang bán trên sàn', variant: 'outline' },
-  opening: { label: 'Tồn đầu kỳ', variant: 'outline' },
-  cutoff: { label: 'Mốc kéo đơn', variant: 'outline' },
-  run: { label: 'Bắt đầu chạy', variant: 'outline' },
+  match: { label: 'Liên kết SKU sàn', variant: 'outline' },
+  opening: { label: 'Đồng bộ tồn lần đầu', variant: 'outline' },
+  cutoff: { label: 'Đồng bộ đơn từ', variant: 'outline' },
+  run: { label: 'Đồng bộ lần đầu', variant: 'outline' },
 };
-/** Ba bước người dùng điền; bước "Bắt đầu chạy" sáng khi đang gửi và sau khi gửi xong */
+/** Ba bước người dùng điền; bước "Đồng bộ lần đầu" sáng khi đang gửi và sau khi gửi xong */
 const FORM_STEPS = 3;
 
 const STEP_HELP: Record<SetupStep, string> = {
   match:
-    'Commerio đọc mọi SKU người bán trên sàn và gợi ý biến thể: trùng SKU, hoặc tên gần giống. Nhận gợi ý, chọn biến thể khác, hoặc bỏ qua. Sản phẩm ghép xong là đang bán; SKU bỏ qua vẫn bán trên sàn, chỉ không trừ tồn ở Commerio, ghép sau ở trang Sản phẩm trên sàn và giá.',
+    'Commerio đọc mọi SKU sàn và gợi ý SKU kho khớp SKU hoặc gần giống tên. Dùng gợi ý, chọn SKU kho khác, hoặc bỏ qua. SKU đã liên kết sẽ được Commerio trừ tồn và đồng bộ tồn; SKU bỏ qua vẫn bán trên sàn nhưng không trừ tồn, liên kết sau ở trang Listing & giá.',
   opening:
-    'Số tồn trên sàn lúc nối có thể khác khả dụng ở Commerio. Chọn đẩy số Commerio lên sàn, hoặc kiểm kê lại trước rồi mới đẩy.',
+    'Tồn trên sàn lúc kết nối có thể khác số có thể bán ở Commerio. Chọn đồng bộ tồn Commerio lên sàn, hoặc kiểm kho trước rồi mới đồng bộ.',
   cutoff:
-    'Mốc kéo đơn là thời điểm Commerio bắt đầu lấy đơn của gian hàng. Đơn đặt trước mốc đã xử lý trên sàn nên không kéo về, tránh giữ tồn sai. Commerio tự đặt mốc này khi bạn hoàn tất; chọn kiểm kê đầu kỳ thì mốc dời tới lúc phiếu kiểm kê ghi sổ.',
-  run: 'Commerio chạy nền các việc còn lại: kéo đơn đang mở và đẩy tồn lên sàn. Trang tự cập nhật; đóng trang thì việc vẫn chạy.',
+    'Đồng bộ đơn từ là thời điểm Commerio bắt đầu lấy đơn của gian hàng. Đơn đặt trước thời điểm này đã xử lý trên sàn nên không đồng bộ về, tránh tạm giữ tồn sai. Commerio tự đặt thời điểm này khi bạn hoàn tất; chọn kiểm kho trước khi đồng bộ thì thời điểm dời tới lúc phiếu kiểm kho hoàn thành.',
+  run: 'Commerio chạy nền các tác vụ còn lại: đồng bộ đơn đang xử lý và đồng bộ tồn lên sàn. Trang tự cập nhật; đóng trang thì tác vụ vẫn chạy.',
 };
 
 const SETUP_STEP_LABEL: Record<ShopSetupStepKey, string> = {
-  match: 'Ghép sản phẩm',
-  opening_stock: 'Kiểm kê đầu kỳ',
-  open_orders: 'Kéo đơn đang mở',
-  allocate: 'Chia hàng sau kiểm kê',
-  push_stock: 'Đẩy tồn lên sàn',
+  match: 'Liên kết SKU',
+  opening_stock: 'Kiểm kho lần đầu',
+  open_orders: 'Đồng bộ đơn đang xử lý',
+  allocate: 'Tạm giữ hàng cho đơn sau kiểm kho',
+  push_stock: 'Đồng bộ tồn lên sàn',
 };
 const SETUP_STATUS: Record<ShopSetupStepStatus, StatusMeta> = {
-  pending: { label: 'Chờ làm', variant: 'outline' },
+  pending: { label: 'Chờ chạy', variant: 'outline' },
   running: { label: 'Đang chạy', variant: 'info' },
-  done: { label: 'Xong', variant: 'success' },
-  failed: { label: 'Lỗi', variant: 'destructive' },
-  blocked: { label: 'Đang chờ', variant: 'warning' },
+  done: { label: 'Hoàn thành', variant: 'success' },
+  failed: { label: 'Thất bại', variant: 'destructive' },
+  blocked: { label: 'Chờ bước trước', variant: 'warning' },
 };
 
 const setupSchema = z.object({
@@ -105,13 +105,13 @@ type SetupForm = z.infer<typeof setupSchema>;
 const OPENING: { value: OpeningStockMode; label: string; hint: string }[] = [
   {
     value: 'push',
-    label: 'Lấy số Commerio đẩy lên sàn',
-    hint: 'Tồn trên sàn bằng khả dụng trong kho ngay khi xong thiết lập. Hợp khi kho vừa kiểm kê.',
+    label: 'Đồng bộ tồn Commerio lên sàn',
+    hint: 'Tồn trên sàn bằng số có thể bán trong kho ngay khi xong thiết lập. Hợp khi kho vừa kiểm kho.',
   },
   {
     value: 'stocktake',
-    label: 'Kiểm kê lại trước',
-    hint: 'Lập phiếu kiểm kê nháp cho các SKU lệch; chỉ đẩy tồn sau khi phiếu ghi sổ, trong lúc chờ sàn giữ số đang có.',
+    label: 'Kiểm kho trước khi đồng bộ',
+    hint: 'Tạo phiếu kiểm kho nháp cho các SKU lệch; chỉ đồng bộ tồn sau khi phiếu hoàn thành, trong lúc chờ sàn giữ số đang có.',
   },
 ];
 
@@ -120,7 +120,7 @@ export function ShopSetupPage() {
   const { shopId = '' } = useParams();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
-  // Gửi xong thì ở lại bước "Bắt đầu chạy" để xem tiến độ, không chuyển trang
+  // Gửi xong thì ở lại bước "Đồng bộ lần đầu" để xem tiến độ, không chuyển trang
   const [result, setResult] = useState<ShopSetupResult | null>(null);
   const pollFrom = useRef(0);
   const shop = useShop(shopId, (data) =>
@@ -193,22 +193,18 @@ export function ShopSetupPage() {
       });
       pollFrom.current = Date.now();
       setResult(done);
-      toast.success(
-        [
-          `${done.shop.shopName} đã sẵn sàng bán`,
-          done.matched ? `ghép ${done.matched} sản phẩm trên sàn` : null,
-          done.stocktakeNumber ? `lập phiếu kiểm kê ${done.stocktakeNumber}` : null,
-        ]
-          .filter(Boolean)
-          .join(', '),
-      );
+      const details = [
+        done.matched ? `liên kết ${done.matched} SKU sàn` : null,
+        done.stocktakeNumber ? `tạo phiếu kiểm kho ${done.stocktakeNumber}` : null,
+      ].filter(Boolean);
+      toast.success(`${done.shop.shopName} đã thiết lập xong${details.length ? `: ${details.join(', ')}` : ''}`);
     } catch (e) {
       const fieldErrors = getProblem(e)?.errors;
       const byRow = decisionErrors(suggestions, fieldErrors);
       if (Object.keys(byRow).length) {
         setStep(0);
         setRowErrors(byRow);
-        setError('Có SKU ghép chưa hợp lệ, xem từng dòng bên dưới.');
+        setError('Có SKU liên kết chưa hợp lệ, xem lỗi ở từng dòng bên dưới.');
         return;
       }
       if (fieldErrors?.returnWindowDays) {
@@ -229,8 +225,8 @@ export function ShopSetupPage() {
     <div className="mx-auto grid max-w-3xl gap-4">
       <PageHeader
         title={`Thiết lập ${shop.data.shopName}`}
-        subtitle={`${platformLabel(shop.data.platform, shop.data.platformName)} · làm một lần sau khi nối, xong mới kéo đơn và đẩy tồn`}
-        help="Gian hàng chưa bán được cho đến khi xong ba bước. Bỏ dở thì quay lại bằng nút Thiết lập ở danh sách gian hàng."
+        subtitle={`${platformLabel(shop.data.platform, shop.data.platformName)} · làm một lần sau khi kết nối; xong mới đồng bộ đơn và tồn`}
+        help="Commerio chưa đồng bộ đơn và tồn của gian hàng cho đến khi xong ba bước. Bỏ dở thì quay lại bằng nút Thiết lập ở danh sách gian hàng."
       />
       <Card>
         <CardContent>
@@ -251,17 +247,17 @@ export function ShopSetupPage() {
             <Card>
               {step === 0 && (
                 <>
-                  <StepHeader title="Ghép sản phẩm đang bán trên sàn" help={STEP_HELP.match}>
+                  <StepHeader title="Liên kết SKU sàn" help={STEP_HELP.match}>
                     {preview.data && (
                       <span className="ms-auto text-sm font-normal text-muted-foreground">
-                        Đã ghép <b className="font-mono text-foreground">{chosen.length}</b> / {suggestions.length}
+                        Đã liên kết <b className="font-mono text-foreground">{chosen.length}</b> / {suggestions.length}
                       </span>
                     )}
                   </StepHeader>
                   <CardContent className="grid gap-2" data-testid="setup-suggestions" aria-busy={preview.isLoading}>
                     {preview.isLoading && (
                       <>
-                        <span className="sr-only">Đang đọc SKU trên sàn...</span>
+                        <span className="sr-only">Đang đọc SKU sàn...</span>
                         {[0, 1, 2].map((k) => (
                           <Skeleton key={k} className="h-14 w-full" />
                         ))}
@@ -293,8 +289,8 @@ export function ShopSetupPage() {
                     ))}
                     {Boolean(preview.data?.unmatchedRemote) && (
                       <p className="text-sm text-muted-foreground">
-                        {preview.data!.unmatchedRemote} SKU trên sàn không tìm được biến thể nào; chọn tay ở dòng đó hoặc ghép sau ở
-                        trang Sản phẩm trên sàn và giá.
+                        {preview.data!.unmatchedRemote} SKU sàn chưa có gợi ý. Chọn SKU kho ở từng dòng, hoặc liên kết sau ở trang
+                        Listing & giá.
                       </p>
                     )}
                   </CardContent>
@@ -303,12 +299,12 @@ export function ShopSetupPage() {
 
               {step === 1 && (
                 <>
-                  <StepHeader title="Tồn đầu kỳ cho các SKU đã ghép" help={STEP_HELP.opening} />
+                  <StepHeader title="Đồng bộ tồn lần đầu" help={STEP_HELP.opening} />
                   <CardContent className="grid gap-4">
                     <p className="text-sm text-muted-foreground">
                       {drifted.length
-                        ? `${drifted.length} SKU có số trên sàn khác khả dụng ở Commerio.`
-                        : 'Số trên sàn khớp khả dụng ở Commerio.'}
+                        ? `${drifted.length} SKU có tồn trên sàn khác số có thể bán ở Commerio.`
+                        : 'Tồn trên sàn khớp số có thể bán ở Commerio.'}
                     </p>
                     {drifted.length > 0 && (
                       <div className="overflow-x-auto rounded-md border">
@@ -316,9 +312,9 @@ export function ShopSetupPage() {
                           <thead className="bg-table-head text-muted-foreground">
                             <tr>
                               <th className="px-3 py-2 text-start font-normal">SKU</th>
-                              <th className="px-3 py-2 text-end font-normal">Trên sàn</th>
-                              <th className="px-3 py-2 text-end font-normal">Khả dụng Commerio</th>
-                              <th className="px-3 py-2 text-end font-normal">Sau khi đẩy</th>
+                              <th className="px-3 py-2 text-end font-normal">Tồn trên sàn</th>
+                              <th className="px-3 py-2 text-end font-normal">Có thể bán ở Commerio</th>
+                              <th className="px-3 py-2 text-end font-normal">Sau đồng bộ</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -341,7 +337,7 @@ export function ShopSetupPage() {
                     )}
                     {firstShop && (
                       <AlertMessage severity="info">
-                        Đây là gian hàng đầu tiên của công ty nên phải kiểm kê đầu kỳ: kho đếm lại rồi mới đẩy tồn lên sàn.
+                        Đây là gian hàng đầu tiên của công ty nên phải kiểm kho trước khi đồng bộ: kho đếm lại rồi mới đồng bộ tồn lên sàn.
                       </AlertMessage>
                     )}
                     <FormField
@@ -352,7 +348,7 @@ export function ShopSetupPage() {
                           <RadioGroup
                             value={openingStock}
                             onValueChange={(v) => setValue('openingStock', v as OpeningStockMode, { shouldValidate: true })}
-                            aria-label="Cách xử lý tồn đầu kỳ"
+                            aria-label="Cách đồng bộ tồn lần đầu"
                             className="grid gap-3 sm:grid-cols-2"
                           >
                             {OPENING.map((o) => {
@@ -383,7 +379,7 @@ export function ShopSetupPage() {
                     {openingStock === 'stocktake' && (
                       <p className="flex items-start gap-2 text-sm text-muted-foreground">
                         <ClipboardList className="mt-0.5 size-4 shrink-0" aria-hidden />
-                        Sẽ lập phiếu kiểm kê nháp cho các SKU lệch, giao cho kho. Trong lúc chờ ghi sổ, Commerio chưa đẩy tồn.
+                        Sẽ tạo phiếu kiểm kho nháp cho các SKU lệch, giao cho kho. Trong lúc chờ phiếu hoàn thành, Commerio chưa đồng bộ tồn.
                       </p>
                     )}
                   </CardContent>
@@ -392,23 +388,23 @@ export function ShopSetupPage() {
 
               {step === 2 && (
                 <>
-                  <StepHeader title="Kéo đơn từ lúc nào" help={STEP_HELP.cutoff} />
+                  <StepHeader title="Đồng bộ đơn từ thời điểm nào" help={STEP_HELP.cutoff} />
                   <CardContent className="grid gap-4">
                     <div className="grid gap-1 rounded-lg bg-muted px-4 py-3" data-testid="proposed-cutoff">
-                      <span className="text-xs text-muted-foreground">Mốc kéo đơn Commerio sẽ đặt</span>
+                      <span className="text-xs text-muted-foreground">Đồng bộ đơn từ</span>
                       {preview.isLoading ? (
                         <Skeleton className="h-5 w-40" />
                       ) : (
                         <b className="font-mono">
-                          {preview.data ? formatDateTime(preview.data.proposedCutoffAt) : 'Chưa đọc được'}
+                          {preview.data ? formatDateTime(preview.data.proposedCutoffAt) : 'Chưa lấy được'}
                         </b>
                       )}
                     </div>
                     <p className="flex items-start gap-2 text-sm text-muted-foreground">
                       <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
                       {openingStock === 'stocktake'
-                        ? 'Chọn kiểm kê đầu kỳ thì mốc kéo đơn dời tới lúc phiếu kiểm kê ghi sổ.'
-                        : 'Đơn đặt trước mốc này không kéo về Commerio. Đơn kéo về sau mốc sẽ giữ hàng theo tồn hiện có.'}
+                        ? 'Chọn kiểm kho trước khi đồng bộ thì thời điểm đồng bộ đơn dời tới lúc phiếu kiểm kho hoàn thành.'
+                        : 'Đơn đặt trước thời điểm này không đồng bộ về Commerio. Đơn đồng bộ sau thời điểm này sẽ tạm giữ hàng theo tồn hiện có.'}
                     </p>
                     {needDays && (
                       <FormField
@@ -416,8 +412,8 @@ export function ShopSetupPage() {
                         name="returnWindowDays"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel hint="Sàn không báo hạn trả hàng nên Commerio tính hạn bằng ngày giao cộng số ngày này. Hết hạn trả thì đơn mới được hoàn tất.">
-                              Số ngày đổi trả
+                            <FormLabel hint="Sàn không báo hạn trả hàng, nên Commerio lấy ngày giao thành công cộng số ngày này. Qua hạn trả hàng, đơn mới chuyển Hoàn thành.">
+                              Hạn trả hàng (ngày)
                             </FormLabel>
                             <FormControl>
                               <Input type="number" inputMode="numeric" min={1} max={60} step={1} className="w-32" {...field} />
@@ -446,11 +442,11 @@ export function ShopSetupPage() {
                 >
                   Quay lại
                 </Button>
-                {/* `key` khác nhau để React không dùng lại nút: nút "Tiếp" đổi thành submit ngay trong lúc bấm
+                {/* `key` khác nhau để React không dùng lại nút: nút "Tiếp tục" đổi thành submit ngay trong lúc bấm
                     thì trình duyệt gửi form luôn, bỏ qua bước cuối */}
                 {step < FORM_STEPS - 1 ? (
                   <Button key="next" type="button" disabled={preview.isLoading} onClick={next}>
-                    Tiếp
+                    Tiếp tục
                   </Button>
                 ) : (
                   <Button key="submit" type="submit" disabled={finish.isPending || preview.isLoading}>
@@ -504,11 +500,11 @@ function SuggestionRow({
             <MatchBadge suggestion={s} />
             {choice ? (
               <span>
-                Ghép <b className="font-mono text-foreground">{choice.sku}</b>
-                {choice.picked && ' (bạn chọn)'} · khả dụng {choice.available}
+                Liên kết với <b className="font-mono text-foreground">{choice.sku}</b>
+                {choice.picked && ' (chọn tay)'} · Có thể bán {choice.available}
               </span>
             ) : (
-              <span>Bỏ qua: vẫn bán trên sàn, không trừ tồn ở Commerio</span>
+              <span>Chưa liên kết: vẫn bán trên sàn, Commerio không trừ tồn</span>
             )}
           </span>
         </span>
@@ -518,13 +514,13 @@ function SuggestionRow({
               type="button"
               size="sm"
               variant="outline"
-              aria-label={`Nhận gợi ý cho ${s.title}`}
+              aria-label={`Dùng gợi ý cho ${s.title}`}
               onClick={() => {
                 setPicking(false);
                 onChoose({ variantId: s.variantId!, sku: s.sku ?? '', available: s.available ?? 0, picked: false });
               }}
             >
-              Nhận gợi ý
+              Dùng gợi ý
             </Button>
           )}
           <Button
@@ -533,10 +529,10 @@ function SuggestionRow({
             variant="outline"
             aria-expanded={picking}
             aria-controls={pickerId}
-            aria-label={`Chọn biến thể khác cho ${s.title}`}
+            aria-label={`${hasSuggestion ? 'Chọn SKU kho khác' : 'Chọn SKU kho'} cho ${s.title}`}
             onClick={() => setPicking((v) => !v)}
           >
-            {hasSuggestion ? 'Chọn khác' : 'Chọn biến thể'}
+            {hasSuggestion ? 'Chọn SKU kho khác' : 'Chọn SKU kho'}
           </Button>
           {choice && (
             <Button
@@ -557,8 +553,8 @@ function SuggestionRow({
       {picking && (
         <VariantPicker
           id={pickerId}
-          label="Ghép với biến thể"
-          takenLabel="Đã ghép ở dòng khác"
+          label="Liên kết với SKU kho"
+          takenLabel="Đã liên kết ở dòng khác"
           taken={taken}
           onPick={(level) => {
             setPicking(false);
@@ -587,17 +583,17 @@ function RemoteStatusBadge({ suggestion: s }: { suggestion: SetupSuggestion }) {
 }
 
 function MatchBadge({ suggestion: s }: { suggestion: SetupSuggestion }) {
-  if (s.match === 'sku') return <Badge variant="success">Trùng SKU</Badge>;
+  if (s.match === 'sku') return <Badge variant="success">Khớp SKU</Badge>;
   if (s.match === 'name')
     return (
       <Badge variant="info" data-testid="match-score">
-        Tên giống {Math.round((s.score ?? 0) * 100)}%
+        Khớp tên {Math.round((s.score ?? 0) * 100)}%
       </Badge>
     );
-  return <Badge variant="outline">Không tìm được</Badge>;
+  return <Badge variant="outline">Chưa có gợi ý</Badge>;
 }
 
-/** Bước "Bắt đầu chạy": tiến độ việc nền đọc từ Shop.setup (§18.7.7) */
+/** Bước "Đồng bộ lần đầu": tiến độ việc nền đọc từ Shop.setup (§18.7.7) */
 function SetupProgress({ shop, companyId, timedOut }: { shop: Shop; companyId: string; timedOut: boolean }) {
   const steps = shop.setup?.steps ?? [];
   const running = setupRunning(shop);
@@ -605,9 +601,9 @@ function SetupProgress({ shop, companyId, timedOut }: { shop: Shop; companyId: s
   const listings = ROUTES.company.shop(companyId, shop.id);
   return (
     <Card>
-      <StepHeader title="Bắt đầu chạy" help={STEP_HELP.run}>
+      <StepHeader title="Đồng bộ lần đầu" help={STEP_HELP.run}>
         <span className="ms-auto text-sm font-normal text-muted-foreground" aria-live="polite">
-          {running ? 'Đang chạy...' : steps.length ? 'Đã dừng cập nhật' : 'Xong'}
+          {running ? 'Đang chạy...' : steps.length ? 'Ngừng tự cập nhật' : 'Hoàn thành'}
         </span>
       </StepHeader>
       <CardContent className="grid gap-3">
@@ -619,25 +615,30 @@ function SetupProgress({ shop, companyId, timedOut }: { shop: Shop; companyId: s
         </ol>
         {timedOut && running && (
           <AlertMessage severity="warning">
-            Việc nền chạy lâu hơn 30 phút nên trang ngừng tự cập nhật. Tải lại trang để xem tiến độ mới.
+            Tác vụ nền chạy lâu hơn 30 phút nên trang ngừng tự cập nhật. Tải lại trang để xem tiến độ mới.
           </AlertMessage>
         )}
         {unmatched > 0 && (
           <p className="text-sm text-muted-foreground" data-testid="setup-unmatched">
-            Còn <b className="text-foreground">{unmatched}</b> SKU trên sàn chưa ghép.{' '}
+            Còn <b className="text-foreground">{unmatched}</b> SKU sàn chưa liên kết.{' '}
             <Link to={listings} className="text-primary underline-offset-4 hover:underline">
-              Ghép ở Sản phẩm trên sàn và giá
+              Liên kết ở trang Listing & giá
             </Link>
           </p>
         )}
       </CardContent>
       <CardFooter className="justify-end border-t pt-4">
         <Button asChild>
-          <Link to={listings}>Mở gian hàng</Link>
+          <Link to={listings}>Xem listing của gian hàng</Link>
         </Button>
       </CardFooter>
     </Card>
   );
+}
+
+/** Viết thường chữ đầu, giữ nguyên chữ viết tắt như SKU */
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Shop; companyId: string }) {
@@ -653,9 +654,9 @@ function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Sho
             : CircleDashed;
   const blockedBy =
     step.blockedBy && step.blockedBy in SETUP_STEP_LABEL
-      ? `Chờ bước ${SETUP_STEP_LABEL[step.blockedBy as ShopSetupStepKey].toLowerCase()} xong`
+      ? `Chờ bước ${lowerFirst(SETUP_STEP_LABEL[step.blockedBy as ShopSetupStepKey])} xong`
       : step.blockedBy
-        ? `Chờ xử lý: ${step.blockedBy}`
+        ? `Đang chờ: ${step.blockedBy}`
         : null;
   const doc = step.key === 'opening_stock' && step.status !== 'done' ? shop.openingStocktake : null;
   const skippedNote = step.key === 'open_orders' ? openOrdersSkippedNote(shop.setup) : null;
@@ -684,13 +685,13 @@ function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Sho
           <span className="text-xs text-warning" data-testid="setup-stocktake-redo">
             Phiếu {doc.number} {STOCKTAKE_STATUS_TEXT[doc.status]}.{' '}
             <Link to={ROUTES.company.shop(companyId, shop.id)} className="text-primary underline-offset-4 hover:underline">
-              Lập lại phiếu ở trang gian hàng
+              Tạo lại phiếu ở trang gian hàng
             </Link>
           </span>
         ) : (
           doc && (
             <Link to={ROUTES.company.inventoryDoc(companyId, doc.documentId)} className="text-xs text-primary underline-offset-4 hover:underline">
-              Mở phiếu kiểm kê {doc.number}
+              Mở phiếu kiểm kho {doc.number}
               {doc.status !== 'draft' && ` (${STOCKTAKE_STATUS_TEXT[doc.status]})`}
             </Link>
           )
