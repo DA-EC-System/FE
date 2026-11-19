@@ -18,6 +18,7 @@ import {
   withAxis,
   withCategory,
   type ProductAxis,
+  fieldHint,
 } from './specDraft';
 
 const attr = (over: Partial<PlatformAttribute>): PlatformAttribute => ({
@@ -215,5 +216,16 @@ describe('Hiển thị', () => {
     expect(permissionBlocked(null)).toBe(false);
     expect(permissionBlocked('invite_only')).toBe(true);
     expect(permissionBlocked('prohibited')).toBe(true);
+  });
+});
+
+describe('fieldHint', () => {
+  const opts = (n: number) => Array.from({ length: n }, (_, k) => ({ id: `o${k}`, label: `L${k}` }));
+  it('mô tả cách nhập theo input, số lựa chọn, allowCustom, giá trị hồ sơ công ty', () => {
+    expect(fieldHint(attr({ input: 'select', options: opts(5), allowCustom: false }))).toBe('Chọn 1 trong 5 giá trị của sàn');
+    expect(fieldHint(attr({ input: 'select', options: opts(3), allowCustom: true }))).toBe('Chọn trong 3 gợi ý hoặc gõ giá trị riêng');
+    expect(fieldHint(attr({ input: 'multiselect', options: [], allowCustom: true }))).toBe('Gõ giá trị rồi chọn để thêm');
+    expect(fieldHint(attr({ input: 'text', options: [], defaultValue: 'Công ty ABC' }))).toBe('Để trống thì dùng giá trị từ hồ sơ công ty');
+    expect(fieldHint(attr({ input: 'image', options: [] }))).toBe('');
   });
 });

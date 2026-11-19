@@ -303,3 +303,16 @@ export const PERMISSION_LABELS: Record<CategoryPermission, string> = {
   non_main_category: 'Ngoài ngành hàng chính của gian hàng',
   prohibited: 'Sàn cấm bán',
 };
+
+/** Gợi ý cách nhập dưới ô */
+export function fieldHint(a: PlatformAttribute): string {
+  const n = a.options.length;
+  if (a.input === 'image') return '';
+  if (a.input === 'cascade') return 'Chọn từng cấp, cấp sau hiện khi đã chọn cấp trước';
+  if (a.input === 'multiselect') return n ? `Chọn được nhiều trong ${n} giá trị${a.allowCustom ? ', hoặc gõ giá trị riêng' : ''}` : 'Gõ giá trị rồi chọn để thêm';
+  if (n && !a.allowCustom) return `Chọn 1 trong ${n} giá trị của sàn`;
+  if (n) return `Chọn trong ${n} gợi ý hoặc gõ giá trị riêng`;
+  if (a.input === 'number') return 'Nhập số';
+  if (a.input === 'date') return 'Chọn ngày';
+  return a.defaultValue ? 'Để trống thì dùng giá trị từ hồ sơ công ty' : 'Nhập tự do';
+}

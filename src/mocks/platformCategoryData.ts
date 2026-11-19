@@ -196,7 +196,7 @@ export const categoryPermissions: MockCategoryPermission[] = [
 /** Từ khoá giả lập API gợi ý của sàn theo danh mục Commerio (bản thật gửi tên + ảnh sản phẩm lên sàn) */
 export const SUGGESTION_KEYWORDS: Record<string, string> = {
   'cat-ao': 'ao phong',
-  'cat-quan': 'quan kaki',
+  'cat-quan': 'quan dai',
   'cat-pk': 'that lung',
   'cat-somi': 'so mi',
 };

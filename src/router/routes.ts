@@ -29,6 +29,9 @@ export const ROUTES = {
     shops: (companyId: string) => `/c/${companyId}/channel/shops`,
     shop: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}`,
     shopSetup: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}/setup`,
+    /** Trang 4 bước đẩy sản phẩm lên sàn, bổ sung thông tin sàn (commerio-backend#400); shop: gian hàng mở trang */
+    productPush: (companyId: string, productId: string, platform: string, shopId?: string) =>
+      `/c/${companyId}/channel/products/${productId}/push/${platform}${shopId ? `?shop=${encodeURIComponent(shopId)}` : ''}`,
     shopOAuthCallback: (companyId: string, platform: string) => `/c/${companyId}/channel/shops/oauth-callback/${platform}`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
