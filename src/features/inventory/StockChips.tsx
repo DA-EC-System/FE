@@ -17,8 +17,8 @@ type Chip = {
 };
 
 /**
- * Nhãn suy ra của một dòng tồn (sơ đồ B2): Tồn âm, Sắp hết, Hết hàng, Thiếu N, Đang về N, Chờ xử lý N, Lệch tồn.
- * Thiếu dẫn tới các kiện thiếu hàng; Lệch tồn dẫn tới danh sách gian hàng (dòng tồn không gắn gian hàng nào).
+ * Nhãn suy ra của một dòng tồn (sơ đồ B2): Tồn âm, Sắp hết, Hết hàng, Thiếu cho đơn N, Đang về N, Hàng lỗi/chờ kiểm N, Lệch tồn.
+ * Thiếu cho đơn dẫn tới các kiện thiếu hàng; Lệch tồn dẫn tới danh sách gian hàng (dòng tồn không gắn gian hàng nào).
  */
 export function StockChips({ level }: { level: StockLevel }) {
   const can = useCan();
@@ -32,7 +32,7 @@ export function StockChips({ level }: { level: StockLevel }) {
   if (level.state !== 'in_stock') chips.push(STOCK_STATE[level.state] as Chip);
   if (level.shortage) {
     chips.push({
-      label: `Thiếu ${formatQty(level.shortage)}`,
+      label: `Thiếu cho đơn ${formatQty(level.shortage)}`,
       variant: 'destructive',
       to:
         fulfillmentOn && can(PERMISSIONS.fulfillmentProcess)
@@ -45,13 +45,13 @@ export function StockChips({ level }: { level: StockLevel }) {
   if (level.incoming) {
     chips.push({ label: `Đang về ${formatQty(level.incoming)}`, variant: 'info', testId: 'chip-incoming' });
   }
-  if (level.quarantine) chips.push({ label: `Chờ xử lý ${formatQty(level.quarantine)}`, variant: 'secondary' });
+  if (level.quarantine) chips.push({ label: `Hàng lỗi/chờ kiểm ${formatQty(level.quarantine)}`, variant: 'secondary' });
   if (level.drift) {
     chips.push({
       label: 'Lệch tồn',
       variant: 'warning',
       to: channelOn && can(PERMISSIONS.shopView) ? ROUTES.company.shops(companyId) : undefined,
-      hint: `Số trên sàn khác khả dụng sau lần đẩy gần nhất. Mở gian hàng, tìm ${level.sku} để xem listing lệch.`,
+      hint: `Số trên sàn khác số có thể bán sau lần đẩy gần nhất. Mở gian hàng, tìm ${level.sku} để xem listing lệch.`,
       testId: 'chip-drift',
     });
   }

@@ -45,7 +45,7 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
     // Kiểm ở FE trước, số sai không gửi request (AC-K5)
     const parsed = minQtySchema.safeParse(value);
     if (!parsed.success) {
-      setFieldError(parsed.error.issues[0]?.message ?? 'Ngưỡng sai định dạng');
+      setFieldError(parsed.error.issues[0]?.message ?? 'Tồn tối thiểu sai định dạng');
       return;
     }
     setNotice(null);
@@ -53,9 +53,9 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
       const saved = await setMut.mutateAsync({ variantId: level.variantId, minQty: parsed.data, version });
       onDone(
         saved.minQty === null
-          ? `Đã bỏ ngưỡng tồn của ${saved.sku}`
-          : `Đã đặt ngưỡng ${formatQty(saved.minQty)} cho ${saved.sku}` +
-              (saved.belowMin ? '; khả dụng đang dưới ngưỡng' : ''),
+          ? `Đã bỏ tồn tối thiểu của ${saved.sku}`
+          : `Đã đặt tồn tối thiểu ${formatQty(saved.minQty)} cho ${saved.sku}` +
+              (saved.belowMin ? '; số có thể bán đang thấp hơn' : ''),
       );
     } catch (e) {
       const problem = getProblem(e);
@@ -65,7 +65,7 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
         setVersion(latest.reorderVersion);
         setNotice({
           severity: 'warning',
-          msg: 'Ngưỡng vừa được người khác sửa. Ô đã hiện số mới nhất, chưa có gì thay đổi.',
+          msg: 'Tồn tối thiểu vừa được người khác sửa. Ô đã hiện số mới nhất, chưa có gì thay đổi.',
         });
         return;
       }
@@ -80,7 +80,7 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
     <Dialog open={Boolean(level)} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Ngưỡng tồn tối thiểu</DialogTitle>
+          <DialogTitle>Tồn tối thiểu</DialogTitle>
           {level && (
             <DialogDescription>
               <span className="font-medium text-foreground">{level.sku}</span> · {level.productName}
@@ -92,10 +92,10 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
         {level && (
           <div className="grid gap-4">
             <p className="text-sm">
-              Khả dụng hiện tại: <strong>{formatQty(level.available)}</strong>
+              Có thể bán hiện tại: <strong>{formatQty(level.available)}</strong>
             </p>
             <div className="grid gap-1.5">
-              <Label htmlFor="min-qty">Ngưỡng tối thiểu</Label>
+              <Label htmlFor="min-qty">Tồn tối thiểu</Label>
               <Input
                 id="min-qty"
                 value={value}
@@ -110,7 +110,7 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
               />
               <p className={fieldError ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
                 {fieldError ??
-                  'Khả dụng cộng đang về, trừ phần còn thiếu, chạm ngưỡng thì người xem được tồn kho (Nhân viên kho, Admin…) được báo một lần trên app và ở chuông. Để trống là bỏ ngưỡng.'}
+                  'Có thể bán cộng hàng đang về, trừ phần thiếu cho đơn, chạm tồn tối thiểu thì người xem được tồn kho (Nhân viên kho, Admin…) được báo một lần trên app và ở chuông. Để trống là bỏ cảnh báo.'}
               </p>
             </div>
           </div>

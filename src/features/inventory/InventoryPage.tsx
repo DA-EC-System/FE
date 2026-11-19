@@ -22,8 +22,8 @@ export function InventoryPage() {
     <div>
       <PageHeader
         title="Kho hàng"
-        subtitle="Khả dụng là số bán được và được đẩy lên các sàn."
-        help="Mỗi biến thể có bảy con số tồn. Tồn thực, đang giữ, tạm khoá, khả dụng nằm ở cột; đang về, chờ xử lý, thiếu là nhãn dưới mã SKU. Rê chuột vào dấu ? ở đầu cột để xem từng số."
+        subtitle="Có thể bán là số đẩy lên các sàn."
+        help="Mỗi SKU có bảy con số tồn. Tồn kho, tạm giữ, khoá chờ duyệt, có thể bán nằm ở cột; hàng đang về, hàng lỗi/chờ kiểm, thiếu cho đơn là nhãn dưới mã SKU. Rê chuột vào dấu ? ở đầu cột để xem từng số."
         onTour={startTour}
       />
       <Tabs
