@@ -58,7 +58,7 @@ test.describe('P1 · Mời nhân viên: vai có sẵn và sai trạng thái', ()
       current: { id: 'inv-001', status: 'open', fullName: null, email: null },
     });
     await row.getByRole('button', { name: 'Duyệt', exact: true }).click();
-    await toast(page, 'Người được mời chưa gửi yêu cầu, chưa duyệt được.');
+    await toast(page, 'Người được mời chưa nộp yêu cầu, chưa duyệt được.');
     await mockApi(page, 'post', '/identity/invitations/:id/approve', 409, {
       status: 409, title: 'Conflict', code: 'invalid_transition',
       current: { id: 'inv-001', status: 'rejected', fullName: 'Đỗ Thị Ứng Viên', email: 'ungvien@gmail.com' },
