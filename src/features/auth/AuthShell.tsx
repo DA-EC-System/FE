@@ -31,7 +31,7 @@ export function AuthShell({ title, subtitle, wide, children }: AuthShellProps) {
         {children}
       </main>
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        Hệ thống quản lý đa kênh cho doanh nghiệp · © 2026 Commerio
+        Phần mềm quản lý bán hàng đa kênh · © 2026 Commerio
       </p>
     </div>
   );

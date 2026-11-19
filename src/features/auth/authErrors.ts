@@ -6,11 +6,11 @@ import { getErrorMessage, getProblem } from '@/api/client';
  */
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'Email hoặc mật khẩu không đúng.',
-  company_locked: 'Công ty đang bị khoá. Nhân viên chưa vào làm việc được cho tới khi công ty được mở khoá.',
+  company_locked: 'Công ty đang bị khoá nên chưa đăng nhập được. Liên hệ CEO công ty hoặc bộ phận hỗ trợ Commerio.',
   account_locked:
     'Tài khoản của bạn đang bị khoá trong công ty này. Liên hệ CEO hoặc Admin của công ty để được mở khoá.',
   google_account_not_found:
-    'Email Google này chưa có tài khoản Commerio. Hệ thống không tự tạo tài khoản; hãy nhờ CEO hoặc Admin công ty mời bạn.',
+    'Email Google này chưa có tài khoản Commerio. Nhờ CEO hoặc Admin công ty gửi link mời cho bạn.',
   google_token_invalid: 'Không xác thực được với Google. Thử đăng nhập lại.',
 };
 

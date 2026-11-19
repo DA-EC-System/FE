@@ -170,7 +170,7 @@ function MockGoogleButton({ onError }: GoogleLoginButtonProps) {
 
   if (!USE_MOCKS) {
     return (
-      <BlockedReason reason="Chưa cấu hình VITE_GOOGLE_CLIENT_ID">
+      <BlockedReason reason="Đăng nhập bằng Google chưa được bật">
         <span className="block" tabIndex={0}>
           {button}
         </span>

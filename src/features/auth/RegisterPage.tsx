@@ -25,8 +25,8 @@ import { ROUTES } from '@/router/routes';
 import { MODULE_LABELS, OPTIONAL_MODULES, type OptionalModuleKey } from '@/utils/modules';
 
 const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
-  purchasing: 'Nhà cung cấp, đơn mua hàng, nhập kho theo đơn mua.',
-  channel: 'Kết nối Shopee, Lazada, TikTok Shop; đồng bộ sản phẩm, tồn kho, đơn hàng.',
+  purchasing: 'Nhà cung cấp, đơn đặt hàng nhập, nhập kho theo đơn đặt hàng.',
+  channel: 'Kết nối gian hàng Lazada, TikTok Shop; đồng bộ listing, tồn kho, đơn hàng.',
   inbox: 'Gom tin nhắn từ sàn và mạng xã hội về một hộp thư chung.',
   assistant: 'Hỏi đáp về dữ liệu bán hàng và tài liệu nội bộ bằng AI.',
   report: 'Bảng tổng quan doanh số, đối soát tiền sàn.',
@@ -166,10 +166,10 @@ export function RegisterPage() {
               };
               return (
                 <FormItem className="gap-1">
-                  <h2 className="font-bold">Phân hệ tuỳ chọn</h2>
+                  <h2 className="font-bold">Tính năng tuỳ chọn</h2>
                   <p className="mb-2 text-sm text-muted-foreground">
-                    Mười phân hệ lõi (sản phẩm, kho, đơn hàng, tài chính...) luôn bật. Có thể bật
-                    thêm sau.
+                    Các tính năng cơ bản (sản phẩm, kho, đơn hàng, tài chính...) luôn bật. Có thể bật
+                    thêm sau trong Cài đặt.
                   </p>
                   <div className="grid gap-1">
                     {OPTIONAL_MODULES.map((key) => (

@@ -93,7 +93,7 @@ export function JoinPage() {
     let cancelled = false;
     setError(null);
     if (!token) {
-      setStep({ kind: 'fatal', message: 'Link mời thiếu mã. Mở lại đúng link người mời gửi, hoặc nhờ họ tạo link mới.' });
+      setStep({ kind: 'fatal', message: 'Link mời không đầy đủ. Mở lại đúng link người mời gửi, hoặc nhờ họ tạo link mới.' });
       return;
     }
     setStep({ kind: 'checking' });
@@ -217,7 +217,7 @@ export function JoinPage() {
 
   const company = invite?.companyName;
   const title =
-    step.kind === 'done' ? 'Đã gửi yêu cầu' : company ? `Tham gia ${company}` : 'Tham gia công ty';
+    step.kind === 'done' ? 'Đã gửi yêu cầu tham gia' : company ? `Tham gia ${company}` : 'Tham gia công ty';
   const subtitle =
     invite && step.kind !== 'fatal' && step.kind !== 'done'
       ? `Bạn được mời làm nhân viên. Link hết hạn lúc ${formatDateTime(invite.expiresAt)}.`
@@ -286,9 +286,9 @@ export function JoinPage() {
       {step.kind === 'done' && (
         <div className="grid gap-4" data-testid="join-done">
           <AlertMessage severity="success">
-            Yêu cầu tham gia {company} đang chờ duyệt. Khi được duyệt, bạn đăng nhập bằng{' '}
+            Yêu cầu tham gia {company} đang chờ Admin công ty duyệt. Khi được duyệt, bạn đăng nhập bằng{' '}
             <strong>{step.email}</strong> và{' '}
-            {step.next === 'sign_in' ? 'mật khẩu hiện có của tài khoản này' : 'mật khẩu vừa đặt'}.
+            {step.next === 'sign_in' ? 'mật khẩu hiện tại của tài khoản này' : 'mật khẩu vừa đặt'}.
           </AlertMessage>
           <Button asChild size="lg" variant="outline">
             <Link to={ROUTES.login} state={{ registeredEmail: step.email }}>
@@ -352,7 +352,7 @@ function CodeStep({
         <FormTextField
           control={form.control}
           name="code"
-          label={`Mã 6 số gửi tới ${email}`}
+          label={`Mã xác minh đã gửi tới ${email}`}
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}
@@ -399,13 +399,13 @@ function PasswordStep({
         {signIn ? (
           <>
             <AlertMessage severity="info">
-              <strong>{email}</strong> đã có tài khoản Commerio. Nhập mật khẩu hiện có để gửi yêu cầu; mật khẩu không
+              <strong>{email}</strong> đã có tài khoản Commerio. Nhập mật khẩu hiện tại để gửi yêu cầu; mật khẩu không
               đổi.
             </AlertMessage>
             <FormTextField
               control={form.control}
               name="password"
-              label="Mật khẩu hiện có"
+              label="Mật khẩu hiện tại"
               password
               autoComplete="current-password"
               autoFocus
