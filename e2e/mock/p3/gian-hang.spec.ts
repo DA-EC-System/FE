@@ -219,7 +219,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Đã kết nối');
       await expect(page.locator('[data-testid=listing-status]')).toHaveCount(3);
       await coPhanTu(page, '[data-testid=listing-status]', 'Đang bán');
-      await coPhanTu(page, '[data-testid=stock-sync]', 'Tồn chờ đẩy');
+      await coPhanTu(page, '[data-testid=sync-line]', 'Chờ đẩy');
       // Phiếu kiểm kê đầu kỳ chưa ghi sổ: banner dẫn tới phiếu
       const banner = page.locator('[data-testid=opening-stocktake-banner]');
       await expect(banner).toContainText('Gian hàng đang chờ kiểm kê đầu kỳ');
@@ -589,7 +589,7 @@ test.describe('P3 · Gian hàng', () => {
     test('hiện giá đẩy theo nguồn và trạng thái đẩy từng biến thể', async ({ page }) => {
       await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã ghép 2 /');
       for (const t of ['165.000', 'Giá gian hàng', 'Đã đẩy']) await expect(dong(page, 'prd-001-v1')).toContainText(t);
-      for (const t of ['Giá đã đổi, chưa đẩy', '150.000']) await expect(dong(page, 'prd-001-v2')).toContainText(t);
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toHaveText(/^Chờ đẩy giá mới, trên sàn 150\.000/);
       for (const t of ['Theo giá chuẩn', 'Chưa ghép']) await expect(dong(page, 'prd-001-v3')).toContainText(t);
       await expect(dong(page, 'prd-002-v3')).toContainText('Chưa có giá');
       await expect(page.locator('[data-testid=listing-tab-stale]')).toContainText('1');
@@ -762,10 +762,10 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('Đồng bộ đẩy giá đã đổi; hết lượt gọi sàn thì báo theo §18.6.8', async ({ page }) => {
-      await expect(dong(page, 'prd-001-v2')).toContainText('Giá đã đổi, chưa đẩy');
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toContainText('Chờ đẩy giá mới');
       await page.getByRole('button', { name: 'Đồng bộ', exact: true }).click();
       await toast(page, /Đã xếp lượt đồng bộ với sàn/);
-      await expect(dong(page, 'prd-001-v2')).not.toContainText('Giá đã đổi');
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).not.toContainText('Chờ đẩy giá');
 
       await mockApi(page, 'post', '/channel/shops/:id/listings/sync', 503, {
         code: 'marketplace_unavailable',
@@ -863,13 +863,19 @@ test.describe('P3 · Gian hàng', () => {
 
     test('hiện trạng thái listing, lý do từ chối và lệch tồn sàn', async ({ page }) => {
       await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đang bán');
-      await expect(dong(page, 'prd-002-v1')).toContainText('Chưa đẩy');
+      // FE#312: một nhãn trạng thái, dòng đồng bộ chữ nhỏ thay cho nhãn "Chưa đẩy", "Tồn chờ đẩy"
+      await expect(dong(page, 'prd-002-v1').locator('[data-testid=listing-status]')).toHaveCount(1);
+      await expect(dong(page, 'prd-002-v1').locator('[data-testid=sync-line]')).toHaveText('Chờ đẩy giá, tồn lần đầu');
+      await expect(dong(page, 'prd-002-v1')).not.toContainText('Chưa đẩy');
+      await expect(dong(page, 'prd-002-v1')).not.toContainText('Tồn chờ đẩy');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Chờ sàn duyệt');
       await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toContainText('Ảnh chính có chữ và logo');
       await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true })).toBeAttached();
       // Nhãn đồng bộ §18.6.6; câu của sàn hiện nguyên văn trong tooltip
-      await expect(dong(page, 'prd-003-v1').locator('[data-testid=stock-sync]')).toHaveText('Lệch tồn (sàn 12)');
+      await expect(dong(page, 'prd-003-v1').locator('[data-testid=stock-sync]')).toHaveText('Lệch tồn: sàn 12');
+      // Lệch tồn và đẩy tồn lỗi đã có nhãn: dòng đồng bộ không nhắc tồn
+      await expect(dong(page, 'prd-003-v1').locator('[data-testid=sync-line]')).not.toContainText('tồn');
       const loi = dong(page, 'prd-003-v1').locator('[data-testid=sync-error]');
       await expect(loi).toHaveText(['Cập nhật tồn lên sàn lỗi', 'Đẩy giá lỗi']);
       const goiY = page.getByTestId('sync-error-hint');
@@ -954,7 +960,7 @@ test.describe('P3 · Gian hàng', () => {
       await diToi(page, '/c/cmp-001/channel/shops/shp-003');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang bán');
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Cần kết nối lại');
-      await coPhanTu(page, '[data-testid=stock-sync]', 'Tồn chờ đẩy');
+      await coPhanTu(page, '[data-testid=sync-line]', 'Chờ đẩy');
     });
   });
 

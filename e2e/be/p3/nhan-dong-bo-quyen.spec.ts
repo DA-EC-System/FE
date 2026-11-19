@@ -100,8 +100,12 @@ test.describe('P3-BE · Nhãn đồng bộ và quyền nút ghép SKU (§18.6.5,
         ...(l.priceSyncError ? ['Đẩy giá lỗi'] : []),
       ];
       await expect(dong.locator('[data-testid=sync-error]')).toHaveText(loi);
-      if (trenSan && l.lastPushedAt && l.priceSync === 'pending')
-        await expect(dong.locator('[data-testid=price-sync]')).toHaveText('Giá đã đổi, chưa đẩy');
+      // FE#312: một nhãn trạng thái listing; dòng đồng bộ chữ nhỏ khi listing trên sàn
+      await expect(dong.locator('[data-testid=listing-status]')).toHaveCount(1);
+      await expect(dong.locator('[data-testid=sync-line]')).toHaveCount(trenSan ? 1 : 0);
+      if (trenSan && !l.lastPushedAt) await expect(dong.locator('[data-testid=sync-line]')).toHaveText('Chờ đẩy giá, tồn lần đầu');
+      else if (trenSan && l.priceSync === 'pending')
+        await expect(dong.locator('[data-testid=sync-line]')).toHaveText(/^Chờ đẩy giá/);
       await expect(dong.locator('[data-testid=hidden-zero]')).toHaveCount(
         l.status === 'hidden' && l.hiddenBy === 'zero_stock' ? 1 : 0,
       );
