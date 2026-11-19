@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { CompanyContext } from '@/types/auth';
 import type { Role } from '@/types/identity';
-import { invitationTransitionMessage, roleLockReason, staffTransitionMessage } from './shared';
+import type { StaffMember } from '@/types/identity';
+import {
+  ADMIN_ROLE_ID,
+  approveLockReason,
+  invitationTransitionMessage,
+  protectedReason,
+  roleLockReason,
+  staffTransitionMessage,
+} from './shared';
 
 const admin: CompanyContext = {
   companyId: 'c1',
@@ -38,9 +46,12 @@ describe('roleLockReason (FE#300, BE#351)', () => {
     expect(roleLockReason(role({ permissions: COST }), admin, labels)).toBe(
       'Vai trò này có quyền bạn chưa có (Xem giá vốn). Nhờ CEO tạo link hoặc gán vai này.',
     );
-    expect(roleLockReason(role({ id: 'role-admin', name: 'Admin', builtIn: true, permissions: COST }), admin)).toMatch(
-      /\(inventory\.cost\.view\)/,
-    );
+  });
+
+  it('vai Admin có sẵn: chỉ CEO gán (docs/21 I5, 19/11/2026)', () => {
+    const adminRole = role({ id: ADMIN_ROLE_ID, name: 'Admin', builtIn: true, permissions: ['inventory.stock.view'] });
+    expect(roleLockReason(adminRole, admin)).toBe('Chỉ CEO được mời, gán hoặc gỡ vai Admin');
+    expect(roleLockReason(adminRole, { ...admin, roles: ['CEO'] })).toBeNull();
   });
 
   it('đủ quyền thì không khoá', () => {
@@ -75,5 +86,21 @@ describe('Câu báo invalid_transition (FE#300, BE#353)', () => {
   it('khoá, mở khoá nhân viên', () => {
     expect(staffTransitionMessage({ status: 'locked', fullName: 'Lan' })).toBe('Lan đang bị tạm khoá rồi.');
     expect(staffTransitionMessage({ status: 'active', fullName: 'Lan' })).toBe('Lan đang hoạt động rồi.');
+  });
+});
+
+describe('chỉ CEO thao tác trên người vai Admin (docs/21 I5, 19/11/2026)', () => {
+  const member = (roles: { id: string; name: string }[]): StaffMember =>
+    ({ accountId: 'm', fullName: 'M', email: 'm@x', roles, isCeo: false, status: 'active' }) as StaffMember;
+  const adminRef = { id: ADMIN_ROLE_ID, name: 'Admin' };
+  it('Admin không đổi vai, không khoá người vai Admin; CEO được', () => {
+    expect(protectedReason(member([adminRef]), 'me', false)).toMatch(/Chỉ CEO/);
+    expect(protectedReason(member([adminRef]), 'me', true)).toBeNull();
+    expect(protectedReason(member([{ id: 's', name: 'Sale' }]), 'me', false)).toBeNull();
+  });
+  it('yêu cầu có vai Admin: chỉ CEO duyệt', () => {
+    expect(approveLockReason({ outdated: false, roles: [adminRef] }, false)).toMatch(/chỉ CEO duyệt/);
+    expect(approveLockReason({ outdated: false, roles: [adminRef] }, true)).toBeNull();
+    expect(approveLockReason({ outdated: true, roles: [] }, true)).toMatch(/đã bị xoá/);
   });
 });

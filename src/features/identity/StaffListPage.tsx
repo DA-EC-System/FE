@@ -31,6 +31,7 @@ import { CreatedLinks } from './CreatedLinks';
 import {
   conflictCurrent,
   invalidTransitionCurrent,
+  isCeoContext,
   protectedReason,
   STAFF_STATUS_LABELS,
   staffTransitionMessage,
@@ -42,6 +43,7 @@ import {
  */
 export function StaffListPage() {
   const { account, companyContext } = useAuth();
+  const callerIsCeo = isCeoContext(companyContext);
   const can = useCan();
   const canManage = can(PERMISSIONS.staffManage);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -155,7 +157,7 @@ export function StaffListPage() {
               header: () => <span className="sr-only">Hành động</span>,
               meta: { className: 'w-24' },
               cell: ({ row: { original: m } }) => {
-                const reason = protectedReason(m, account?.id);
+                const reason = protectedReason(m, account?.id, callerIsCeo);
                 const locked = m.status === 'locked';
                 return (
                   <div className="flex gap-1">
@@ -181,7 +183,7 @@ export function StaffListPage() {
           ]
         : []),
     ],
-    [account?.id, canManage],
+    [account?.id, canManage, callerIsCeo],
   );
 
   const filtered = Boolean(debouncedSearch || status || roleId);
