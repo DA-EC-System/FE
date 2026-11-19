@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, PackageCheck, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, PackageCheck, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import { useTransitionActor } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import { packageButtons } from './shared';
+import { expectedScans, matchScan, packPayload, scanKey, scanProgress, scannedOfLine } from './packScan';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { usePageGuide } from '@/guides/usePageGuide';
 
@@ -51,31 +53,31 @@ export function PackScanPage() {
     return <PageError severity="warning" message={`Kiện ${p.code} không ở bước đóng gói`} onBack={toDetail} />;
   }
 
-  const expected = new Map<string, number>();
-  for (const line of p.lines) {
-    if (line.variantId) expected.set(line.variantId, (expected.get(line.variantId) ?? 0) + line.quantity);
-  }
-  const totalToScan = [...expected.values()].reduce((sum, quantity) => sum + quantity, 0);
-  const scannedQty = [...expected.keys()].reduce((sum, id) => sum + (scanned[id] ?? 0), 0);
-  const complete = [...expected].every(([id, quantity]) => (scanned[id] ?? 0) === quantity);
-  const percent = totalToScan ? Math.round((scannedQty / totalToScan) * 100) : 100;
+  // Đếm theo biến thể (dòng đã ghép) và theo id dòng ("không quản tồn"); dòng chưa ghép SKU không quét (packScan.ts)
+  const expected = expectedScans(p.lines);
+  const { total: totalToScan, scanned: scannedQty, complete, percent } = scanProgress(p.lines, scanned);
   const carrierItems = p.source === 'marketplace' ? (carriers.data?.items ?? []) : [];
   const carrierCode = carrier ?? carrierItems.find((c) => c.isDefault)?.code ?? null;
   const needsCarrier = p.source === 'marketplace' && (carriers.isPending || carriers.isError || (carrierItems.length > 0 && !carrierCode));
 
   const scan = () => {
-    const sku = input.trim().toUpperCase();
+    const code = input.trim().toUpperCase();
     setInput('');
     inputRef.current?.focus();
-    if (!sku) return;
-    const line = p.lines.find((l) => l.sku.toUpperCase() === sku);
-    if (!line) return setMessage({ severity: 'error', text: `${sku} không có trong kiện` });
-    if (!line.variantId) return setMessage({ severity: 'warning', text: `${line.sku} chưa ghép biến thể, không cần quét` });
-    const n = scanned[line.variantId] ?? 0;
-    const quantity = expected.get(line.variantId)!;
-    if (n >= quantity) return setMessage({ severity: 'warning', text: `${line.sku} đã đủ ${quantity}` });
+    if (!code) return;
+    const match = matchScan(p.lines, scanned, code);
+    if (match.kind === 'not_found') return setMessage({ severity: 'error', text: `${code} không có trong kiện` });
+    if (match.kind === 'unmapped') return setMessage({ severity: 'warning', text: `${match.line.sku} chưa ghép SKU, không cần quét` });
+    if (match.kind === 'full') return setMessage({ severity: 'warning', text: `${match.line.sku} đã đủ ${match.quantity}` });
     setMessage(null);
-    setScanned({ ...scanned, [line.variantId]: n + 1 });
+    setScanned({ ...scanned, [match.key]: (scanned[match.key] ?? 0) + 1 });
+  };
+
+  /** Dòng "không quản tồn" thường không có mã vạch: kho bấm khi đã cho đủ vào hộp */
+  const putInBox = (key: string) => {
+    setMessage(null);
+    setScanned({ ...scanned, [key]: expected.get(key) ?? 0 });
+    inputRef.current?.focus();
   };
 
   const pack = async () => {
@@ -85,7 +87,7 @@ export function PackScanPage() {
         version: p.version,
         command: {
           kind: 'pack',
-          lines: [...expected.keys()].map((variantId) => ({ variantId, quantity: scanned[variantId] ?? 0 })),
+          ...packPayload(p.lines, scanned),
           ...(carrierCode ? { carrierCode } : {}),
         },
       });
@@ -103,7 +105,7 @@ export function PackScanPage() {
       <PageHeader
         title={`Đóng gói kiện ${p.code}`}
         subtitle={`Đơn ${p.order.code} · ${p.totalQty} món`}
-        help="Quét từng món hoặc gõ SKU rồi Enter. Mã không có trong kiện hay quét thừa sẽ báo ngay. Đủ số lượng mọi dòng thì nút Đóng gói sáng."
+        help="Quét từng món hoặc gõ SKU (SKU trong app hoặc SKU sàn) rồi Enter. Mã không có trong kiện hay quét thừa sẽ báo ngay. Dòng Không quản tồn quét SKU sàn hoặc bấm Đã cho vào hộp. Đủ số lượng mọi dòng thì nút Đóng gói sáng."
         onTour={startTour}
         action={
           <Button variant="outline" onClick={toDetail}>
@@ -178,21 +180,44 @@ export function PackScanPage() {
                 <TableHead className="w-36">SKU</TableHead>
                 <TableHead>Sản phẩm</TableHead>
                 <TableHead>Thuộc tính</TableHead>
-                <TableHead className="w-28 text-right">Đã quét</TableHead>
+                <TableHead className="w-48 text-right">Đã quét</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {p.lines.map((l, index) => {
-                const previous = l.variantId ? p.lines.slice(0, index).filter((line) => line.variantId === l.variantId)
-                  .reduce((sum, line) => sum + line.quantity, 0) : 0;
-                const n = l.variantId ? Math.min(l.quantity, Math.max(0, (scanned[l.variantId] ?? 0) - previous)) : 0;
+                const n = scannedOfLine(p.lines, scanned, index);
+                const key = scanKey(l);
                 return (
-                  <TableRow key={`${l.variantId ?? l.sku}-${index}`} data-row-id={l.sku} className={cn(n === l.quantity && 'bg-success/10')}>
-                    <TableCell className="font-mono font-medium">{l.sku}</TableCell>
-                    <TableCell className="whitespace-normal">{l.productName}</TableCell>
+                  <TableRow key={l.id} data-row-id={l.sku} className={cn(n === l.quantity && 'bg-success/10')}>
+                    <TableCell>
+                      <p className="font-mono font-medium">{l.sku}</p>
+                      {l.variantId && l.externalSku && l.externalSku !== l.sku && (
+                        <p className="font-mono text-xs text-muted-foreground">SKU sàn {l.externalSku}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      {l.productName}
+                      {l.untracked && (
+                        <Badge variant="secondary" className="ms-2">
+                          Không quản tồn
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{l.attributesLabel || '—'}</TableCell>
                     <TableCell className="text-right">
-                      {l.variantId ? `${n}/${l.quantity}` : 'Chưa ghép SKU'}
+                      {n === null ? (
+                        'Chưa ghép SKU'
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {l.untracked && key && n < l.quantity && (
+                            <Button type="button" size="sm" variant="outline" onClick={() => putInBox(key)}>
+                              <Check />
+                              Đã cho vào hộp
+                            </Button>
+                          )}
+                          {`${n}/${l.quantity}`}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
