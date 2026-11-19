@@ -109,20 +109,18 @@ test('B4 phiếu trả nhà cung cấp: lập tay 2 cái từ chờ xử lý, g�
   await page.getByRole('option', { name: NCC, exact: true }).click();
   await page.locator('#ret-note').fill('Trả hàng lỗi đường may');
   await chonBienThe();
-  await page.getByTestId('return-lines').getByLabel(`SL trả ${sku}`, { exact: true }).fill('2');
+  await page.getByTestId('return-lines').getByLabel(`Số trả ${sku}`, { exact: true }).fill('2');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-  // Nút trên trang (bảng chuyển) và nút xác nhận trong hộp thoại mang nhãn khác nhau
-  await page.getByRole('button', { name: /^Duyệt và gửi( NCC)?$/ }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt và gửi NCC', exact: true }).click();
+  await thaoTac('Duyệt và gửi');
   await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
   // Gửi đi thì hàng rời chờ xử lý
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 1 });
 
   await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
   const hop = page.getByRole('dialog');
-  await hop.getByLabel(/Số tiền NCC hoàn/).fill('120000');
-  await hop.getByRole('button', { name: 'Xác nhận hoàn tiền', exact: true }).click();
+  await hop.getByLabel(/Số tiền nhà cung cấp hoàn/).fill('120000');
+  await hop.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
   await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
   await expect(page.locator('main')).toContainText('120.000');
 
