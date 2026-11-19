@@ -27,7 +27,7 @@ export function VariantPicker({
   disabled,
   onPick,
   id = 'variant-picker',
-  label = 'Thêm biến thể',
+  label = 'Thêm variant',
   takenLabel = 'Đã có trên phiếu',
 }: VariantPickerProps) {
   const [input, setInput] = useState('');
@@ -110,7 +110,7 @@ export function VariantPicker({
             )}
             {!query.isFetching && !options.length && (
               <li className="px-2 py-3 text-sm text-muted-foreground">
-                {search ? 'Không tìm thấy biến thể' : 'Gõ tên sản phẩm hoặc SKU'}
+                {search ? 'Không tìm thấy variant' : 'Gõ tên sản phẩm hoặc SKU'}
               </li>
             )}
             {options.map((o, i) => {
@@ -139,7 +139,7 @@ export function VariantPicker({
                     </p>
                   </div>
                   <span className="text-xs whitespace-nowrap text-muted-foreground">
-                    {isTaken ? takenLabel : `Khả dụng ${formatQty(o.available)}`}
+                    {isTaken ? takenLabel : `Có thể bán ${formatQty(o.available)}`}
                   </span>
                 </li>
               );

@@ -24,9 +24,9 @@ describe('returnWindowNote (FE#198)', () => {
   const caps = { listingReview: true, hideBy: 'deactivate', splitLevel: 'sku' } as const;
   it('sàn tự báo hạn trả thì có câu thay cho ô số ngày, tên sàn lấy từ tham số', () => {
     expect(returnWindowNote({ ...caps, returnWindow: 'platform_status' }, 'TikTok Shop')).toBe(
-      'TikTok Shop tự khoá đổi trả khi đơn hoàn tất, nên không cần đặt số ngày đổi trả.',
+      'TikTok Shop tự đóng yêu cầu trả hàng khi đơn hoàn thành, nên không cần đặt hạn trả hàng.',
     );
-    expect(returnWindowNote({ ...caps, returnWindow: 'platform_status' }, 'Sàn mới')).toMatch(/^Sàn mới tự khoá/);
+    expect(returnWindowNote({ ...caps, returnWindow: 'platform_status' }, 'Sàn mới')).toMatch(/^Sàn mới tự đóng/);
   });
   it('người bán đặt số ngày thì không có câu', () => {
     expect(returnWindowNote({ ...caps, returnWindow: 'days' }, 'Lazada')).toBeNull();
