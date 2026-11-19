@@ -153,6 +153,9 @@ const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
  * Hộp ghép đang mở. BE ghép theo SKU sàn (§18.6.5): biến thể chưa ghép thì chọn SKU sàn; từ SKU sàn (chưa ghép, hoặc
  * Đổi ghép ở dòng biến thể) thì chọn biến thể khác hoặc "không quản tồn"
  */
+/** Lượt tải SKU sàn lỗi mà BE không kèm lỗi cụ thể */
+const REFRESH_FAILED_GENERIC = 'Chưa tải lại được danh sách SKU trên sàn. Bấm Tải lại để thử lại.';
+
 type Matching =
   | { from: 'variant'; row: ListingRow }
   | { from: 'remote'; externalSkuId: string; title: string; sellerSku: string | null; current: ListingRow | null };
@@ -178,6 +181,7 @@ export function ShopListingsPage() {
   const canDecideOutside = canManage && isCeo;
   /** Ghi đè giá chỉ lưu ở Commerio, không gọi sàn: cần `listing.manage`, gian hàng ngắt vẫn sửa được (FE#274) */
   const canSetPrice = can(PERMISSIONS.listingManage);
+  const canSync = can(PERMISSIONS.shopSync);
   /** Duyệt ghép chờ cần quyền đẩy listing và vai trò CEO (§18.6.5); FE dựa `canSelfApprove` của BE */
   const canDecide = can(PERMISSIONS.listingManage) && Boolean(companyContext?.canSelfApprove) && usable;
   const canReconnect =
@@ -209,7 +213,7 @@ export function ShopListingsPage() {
   /** Hỏi lại lỗi (mạng, BE) khi lượt đang chạy: báo, giữ danh sách đang có */
   const refreshPollError = refreshRunning && remoteQuery.isRefetchError ? remoteQuery.error : null;
   /** Người dùng bấm Tải lại và BE xếp lượt nền: lượt xong thì báo bằng toast */
-  const userRefresh = useRef(false);
+  const userRefresh = useRef<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const retrySeconds = remoteRefresh?.status === 'failed' ? remoteRefresh.retryAfterSeconds : null;
   // Đếm ngược số phút được tải lại theo `error.retryAfterSeconds`, tính từ lúc nhận phản hồi
@@ -221,16 +225,25 @@ export function ShopListingsPage() {
   const secondsLeft =
     retrySeconds === null ? null : Math.max(0, retrySeconds - Math.max(0, now - remoteQuery.dataUpdatedAt) / 1000);
   const refreshFailure =
-    remoteRefresh?.status === 'failed' && remoteRefresh.error
-      ? remoteRefreshErrorMessage(remoteRefresh.error, secondsLeft)
+    remoteRefresh?.status === 'failed'
+      ? remoteRefresh.error
+        ? remoteRefreshErrorMessage(remoteRefresh.error, secondsLeft)
+        : REFRESH_FAILED_GENERIC
       : null;
   useEffect(() => {
-    if (!userRefresh.current || !remoteRefresh || remoteRefresh.status === 'running') return;
-    userRefresh.current = false;
-    if (remoteRefresh.status === 'failed' && remoteRefresh.error) {
-      toast.error(remoteRefreshErrorMessage(remoteRefresh.error, remoteRefresh.retryAfterSeconds));
+    // Chỉ báo cho đúng gian hàng đã bấm Tải lại; chuyển gian hàng giữa chừng thì bỏ lượt báo
+    if (userRefresh.current === null || !remoteRefresh || remoteRefresh.status === 'running') return;
+    const mine = userRefresh.current === shopId;
+    userRefresh.current = null;
+    if (!mine) return;
+    if (remoteRefresh.status === 'failed') {
+      toast.error(
+        remoteRefresh.error
+          ? remoteRefreshErrorMessage(remoteRefresh.error, remoteRefresh.retryAfterSeconds)
+          : REFRESH_FAILED_GENERIC,
+      );
     } else toast.success('Đã tải lại SKU trên sàn');
-  }, [remoteRefresh]);
+  }, [remoteRefresh, shopId]);
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
   const priceMut = useOverrideListingPrice();
@@ -543,10 +556,14 @@ export function ShopListingsPage() {
     refreshMut.mutate(shopId, {
       onSuccess: (data) => {
         if (data.refresh?.status === 'running') {
-          userRefresh.current = true;
+          userRefresh.current = shopId;
           toast.info('Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.');
-        } else if (data.refresh?.status === 'failed' && data.refresh.error) {
-          toast.error(remoteRefreshErrorMessage(data.refresh.error, data.refresh.retryAfterSeconds));
+        } else if (data.refresh?.status === 'failed') {
+          toast.error(
+            data.refresh.error
+              ? remoteRefreshErrorMessage(data.refresh.error, data.refresh.retryAfterSeconds)
+              : REFRESH_FAILED_GENERIC,
+          );
         } else toast.success('Đã tải lại SKU trên sàn');
       },
       onError: (e) =>
@@ -576,16 +593,25 @@ export function ShopListingsPage() {
     } catch (e) {
       const problem = getProblem(e);
       if (problem?.code === 'below_floor') {
-        setPriceFieldError(
-          problem.detail ? `Giá dưới giá thấp nhất. ${problem.detail}.` : 'Giá dưới giá thấp nhất của SKU ở gian hàng này.',
-        );
+        const detail = problem.detail?.trim().replace(/\.+$/, '');
+        setPriceFieldError(detail ? `Giá dưới giá thấp nhất. ${detail}.` : 'Giá dưới giá thấp nhất của SKU ở gian hàng này.');
       } else if (problem?.code === 'validation_failed' && problem.errors?.price) {
         setPriceFieldError(problem.errors.price);
       } else if (problem?.code === 'version_conflict') {
+        // Nạp lại để lấy version mới; ô giá giữ chữ người dùng đã gõ (hộp chỉ đặt lại ô khi đổi biến thể)
         const fresh = await listingsQuery.refetch();
-        const row = fresh.data?.find((x) => x.variantId === pricing.variantId);
-        if (row?.listing) setPricing(row);
-        setPriceError('Listing vừa được cập nhật. Đã nạp lại giá mới, xem lại rồi lưu.');
+        const row = fresh.isError ? undefined : fresh.data?.find((x) => x.variantId === pricing.variantId);
+        if (fresh.isError) {
+          setPriceError('Listing vừa được cập nhật nhưng chưa nạp lại được. Đóng hộp rồi mở lại để lưu.');
+        } else if (!row?.listing || isDelisted(row)) {
+          setPricing(null);
+          toast.error(`${l.sellerSku || pricing.sku} vừa bị gỡ khỏi sàn nên không sửa giá được nữa.`);
+        } else {
+          setPricing(row);
+          setPriceError(
+            `Listing vừa được cập nhật, giá đang bán là ${row.price === null ? 'chưa có' : priceText(row.price)}. Xem lại rồi lưu.`,
+          );
+        }
       } else {
         setPriceError(problemMessage(e));
       }
@@ -802,7 +828,12 @@ export function ShopListingsPage() {
                 </>
               )}
               {r.belowFloor && <Badge variant="destructive">Dưới giá thấp nhất</Badge>}
-              {r.pendingPrice !== null && (
+              {r.pendingPrice !== null && !canSetPrice && (
+                <span className="text-xs text-muted-foreground" data-testid="pending-price">
+                  Giá mới chờ xác nhận: {priceText(r.pendingPrice)}
+                </span>
+              )}
+              {r.pendingPrice !== null && canSetPrice && (
                 <Link
                   to={ROUTES.company.pendingPrices(companyId, shopId)}
                   className="text-xs text-primary underline-offset-2 hover:underline"
@@ -816,7 +847,7 @@ export function ShopListingsPage() {
                   variant="link"
                   size="sm"
                   className="h-auto p-0 text-xs"
-                  aria-label={`Ghi đè giá ${r.listing?.sellerSku || r.sku}`}
+                  aria-label={`Sửa giá ${r.listing?.sellerSku || r.sku}`}
                   onClick={() => openPrice(r)}
                 >
                   <PencilLine className="size-3" />
@@ -880,7 +911,7 @@ export function ShopListingsPage() {
             status === 'pushing'
               ? 'Đang đẩy, chờ sàn trả kết quả'
               : status && LISTED_STATUSES.includes(status)
-                ? can(PERMISSIONS.shopSync)
+                ? canSync
                   ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
                   : 'Giá và tồn tự cập nhật mỗi 15 phút; CEO hoặc Admin bấm Đồng bộ để cập nhật ngay.'
                 : null;
@@ -955,7 +986,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview, canSetPrice, canSync, shopId]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [

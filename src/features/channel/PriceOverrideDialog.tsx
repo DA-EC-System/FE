@@ -34,11 +34,14 @@ export function PriceOverrideDialog({ row, saving, fieldError, error, onSave, on
   const [text, setText] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
 
+  // Đặt lại ô khi mở cho biến thể khác; 409 nạp dòng mới cùng biến thể thì giữ chữ đã gõ
+  const variantId = row?.variantId;
   useEffect(() => {
     if (!row) return;
     setText(row.price === null ? '' : String(row.price));
     setInputError(null);
-  }, [row]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantId]);
 
   const submit = () => {
     const parsed = parsePriceInput(text);
@@ -69,7 +72,11 @@ export function PriceOverrideDialog({ row, saving, fieldError, error, onSave, on
           <p className="text-sm text-muted-foreground" data-testid="price-current">
             Đang bán {row.price === null ? 'chưa có giá' : priceText(row.price)}
             {row.priceSource ? ` (${PRICE_SOURCE_LABEL[row.priceSource]})` : ''}
-            {overridden && fallback !== null ? `. Bỏ ghi đè thì về ${priceText(fallback)} theo gian hàng.` : '.'}
+            {overridden
+              ? fallback !== null
+                ? `. Bỏ ghi đè thì về ${priceText(fallback)} theo gian hàng.`
+                : '. Bỏ ghi đè thì về giá chuẩn của SKU.'
+              : '.'}
           </p>
         )}
         <div className="grid gap-1.5">

@@ -7,7 +7,7 @@ export const UNMANAGED = '__unmanaged__';
 /** Biến thể có listing đã gỡ: gỡ là trạng thái cuối, ghép SKU sàn khác thì BE tạo listing mới (commerio-backend `variantSlot`) */
 export const isDelisted = (r: ListingRow) => r.listing?.status === 'delisted';
 
-/** Chữ thường, bỏ dấu, tách theo ký tự không phải chữ/số */
+/** Chữ thường, bỏ dấu, tách theo ký tự không phải chữ/số. Giữ từ một ký tự vì size (S, M, L) phân biệt biến thể */
 function words(text: string): string[] {
   return text
     .normalize('NFD')
@@ -15,8 +15,13 @@ function words(text: string): string[] {
     .replace(/đ/gi, 'd')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((w) => w.length > 1);
+    .filter(Boolean);
 }
+
+/** Điểm khi SKU người bán trùng hẳn SKU biến thể */
+export const EXACT_SKU_SCORE = 1000;
+/** Số từ trùng tối thiểu để gắn "Gợi ý" khi không trùng SKU */
+const MIN_WORDS_SUGGEST = 2;
 
 /**
  * Độ giống giữa SKU sàn và một biến thể (FE#326): SKU người bán trùng SKU biến thể là cao nhất, sau đó là số từ trong tên
@@ -26,16 +31,24 @@ export function matchScore(
   remote: { title: string; sellerSku: string | null },
   variant: { name: string; sku: string },
 ): number {
-  if (remote.sellerSku && remote.sellerSku.trim().toLowerCase() === variant.sku.trim().toLowerCase()) return 1000;
+  if (remote.sellerSku && remote.sellerSku.trim().toLowerCase() === variant.sku.trim().toLowerCase()) return EXACT_SKU_SCORE;
   const target = new Set([...words(variant.name), ...words(variant.sku)]);
   return [...new Set([...words(remote.title), ...words(remote.sellerSku ?? '')])].filter((w) => target.has(w)).length;
 }
 
-/** Xếp theo điểm giảm dần, giữ thứ tự cũ khi bằng điểm; mục điểm cao nhất (lớn hơn 0) là gợi ý */
+/**
+ * Xếp theo điểm giảm dần, giữ thứ tự cũ khi bằng điểm. Xếp hạng tách khỏi gợi ý: hộp ghép chọn sẵn mục "Gợi ý" nên chỉ gắn
+ * khi chắc, tức trùng hẳn SKU người bán, hoặc một mục duy nhất có điểm cao nhất và trùng ít nhất `MIN_WORDS_SUGGEST` từ.
+ * Hoà điểm thì không gợi ý, để người dùng tự chọn (tránh chọn sẵn nhầm size)
+ */
 export function rankByScore<T>(list: T[], score: (x: T) => number): { item: T; suggested: boolean }[] {
   const scored = list.map((item, i) => ({ item, s: score(item), i })).sort((a, b) => b.s - a.s || a.i - b.i);
   const best = scored[0]?.s ?? 0;
-  return scored.map(({ item, s }) => ({ item, suggested: best > 0 && s === best }));
+  const unique = scored.filter((x) => x.s === best).length === 1;
+  return scored.map(({ item, s }) => ({
+    item,
+    suggested: s === best && (best >= EXACT_SKU_SCORE || (unique && best >= MIN_WORDS_SUGGEST)),
+  }));
 }
 
 /**

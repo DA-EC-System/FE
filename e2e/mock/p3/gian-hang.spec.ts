@@ -822,17 +822,21 @@ test.describe('P3 · Gian hàng', () => {
       const row = dong(page, 'prd-001-v1');
       const gia = row.locator('[data-testid=price-cell]');
       await expect(gia).toContainText('Thực nhận');
-      await row.getByRole('button', { name: /^Ghi đè giá / }).click();
+      await row.getByRole('button', { name: /^Sửa giá / }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.locator('[data-testid=price-current]')).toContainText('165.000');
 
       await dialog.getByLabel('Giá bán (đồng)').fill('abc');
       await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
       await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Giá là số nguyên đồng');
+      // Số thập phân không bị bỏ dấu chấm thành số lớn gấp trăm lần
+      await dialog.getByLabel('Giá bán (đồng)').fill('150000.00');
+      await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Giá là số nguyên đồng');
 
       await dialog.getByLabel('Giá bán (đồng)').fill('1000');
       await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
-      await expect(dialog.locator('[data-testid=price-error]')).toContainText('Giá dưới giá thấp nhất');
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText(/^Giá dưới giá thấp nhất\. Giá thấp nhất là [\d.]+ đồng\.$/);
 
       await dialog.getByLabel('Giá bán (đồng)').fill('170.000');
       await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
@@ -841,7 +845,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(gia).toContainText('170.000');
       await expect(gia.locator('[data-testid=price-source]')).toHaveText('Ghi đè');
 
-      await row.getByRole('button', { name: /^Ghi đè giá / }).click();
+      await row.getByRole('button', { name: /^Sửa giá / }).click();
       await dialog.getByRole('button', { name: 'Bỏ ghi đè', exact: true }).click();
       await toast(page, /^Đã bỏ ghi đè giá/);
       await expect(gia).toContainText('165.000');

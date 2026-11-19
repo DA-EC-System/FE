@@ -151,7 +151,9 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
   },
   {
     // Lazada, staging 18/11/2026: "BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0"
-    pattern: /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^\d]*?(\d+(?:\.\d+)?)[^\d]+(\d+(?:\.\d+)?))?/i,
+    // Số lấy theo cụm "khoảng A và B" / "between A and B", không bắt số lạ đứng sau mã (vd SellerSku ABC-12)
+    pattern:
+      /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i,
     text: (m) =>
       m[1] && m[2]
         ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.`
@@ -184,12 +186,12 @@ function translatePart(part: string): string | null {
  * dịch được thì dùng câu chung của mã; mã khác không khớp thì giữ `message` BE trả
  */
 export function pushErrorText(e: SyncError): { text: string; platformMessage?: string } {
-  // Cân nặng ngoài khoảng sàn cho phép: câu tiếng Việt dù BE gắn mã nào, mã sàn để ở "Chi tiết từ sàn" (FE#326)
-  if (isWeightError(e)) return { text: translatePart(e.message) ?? codeMessage(e.code), platformMessage: e.message };
-  if (!PLATFORM_MESSAGE_CODES.has(e.code) || !e.message) {
+  // Lỗi cân nặng dịch dù BE gắn mã nào (FE#326); có thể đi cùng lỗi khác nên tách "; " và dịch từng phần như mã kiểm trước
+  const weight = isWeightError(e);
+  if (!weight && (!PLATFORM_MESSAGE_CODES.has(e.code) || !e.message)) {
     return { text: e.message || codeMessage(e.code) };
   }
-  const precheck = PRECHECK_CODES.has(e.code);
+  const precheck = weight || PRECHECK_CODES.has(e.code);
   const parts = precheck ? e.message.split('; ') : [e.message];
   const translated = parts.map(translatePart);
   const texts = [...new Set(translated.filter((t): t is string => t !== null))];

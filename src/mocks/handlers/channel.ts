@@ -1841,7 +1841,7 @@ export const shopHandlers = [
     if (body.version !== l.version) return versionConflict(toListing(l), 'Sản phẩm trên sàn vừa được người khác sửa.');
     const floor = priceFloor(shop, l.variantId);
     if (body.price !== null && floor !== null && body.price < floor) {
-      return problem(422, 'Giá dưới giá thấp nhất', { code: 'below_floor', detail: `Giá thấp nhất là ${floor}` });
+      return problem(422, 'Giá dưới giá thấp nhất', { code: 'below_floor', detail: `Giá thấp nhất là ${floor.toLocaleString('vi-VN')} đồng` });
     }
     l.priceOverride = body.price;
     l.version += 1;

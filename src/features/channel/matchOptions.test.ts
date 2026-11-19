@@ -47,6 +47,22 @@ describe('variantMatchOptions (FE#310)', () => {
     expect(opts[0].subtitle).toContain('Đã gỡ');
   });
 
+  it('hoà điểm (khác size) thì không gắn Gợi ý; size một ký tự vẫn phân biệt biến thể', () => {
+    const ds = [
+      { ...row('v-m', null), productName: 'Áo thun', attributesLabel: 'Trắng, M' },
+      { ...row('v-l', null), productName: 'Áo thun', attributesLabel: 'Trắng, L' },
+    ] as ListingRow[];
+    const tie = variantMatchOptions(ds, { title: 'Áo thun Trắng', sellerSku: null, isCeo: false });
+    expect(tie.filter((o) => o.suggested)).toHaveLength(0);
+    const sized = variantMatchOptions(ds, { title: 'Áo thun Trắng L', sellerSku: null, isCeo: false });
+    expect(sized[0].id).toBe('v-l');
+    expect(sized[0].suggested).toBe(true);
+    // Chỉ trùng một từ: xếp lên trước nhưng không chọn sẵn
+    const weak = variantMatchOptions(ds, { title: 'Mũ L', sellerSku: null, isCeo: false });
+    expect(weak[0].id).toBe('v-l');
+    expect(weak[0].suggested).toBe(false);
+  });
+
   it('matchScore: trùng SKU người bán cao nhất, không giống là 0', () => {
     expect(matchScore({ title: 'x', sellerSku: 'tee-01' }, { name: 'y', sku: 'TEE-01' })).toBe(1000);
     expect(matchScore({ title: 'Mũ len', sellerSku: null }, { name: 'Áo thun', sku: 'TEE' })).toBe(0);
