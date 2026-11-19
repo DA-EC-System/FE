@@ -295,7 +295,7 @@ export function validateCategory(body: CategoryInput, companyId: string, exceptI
   if (patternError) errors.skuPattern = patternError;
   if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
   if (catalog.categories.some((c) => c.companyId === companyId && c.id !== exceptId && sameText(c.name, name))) {
-    return nameTaken('Đã có danh mục cùng tên');
+    return nameTaken('Đã có category cùng tên');
   }
   return null;
 }
@@ -320,7 +320,7 @@ export function validateAttribute(body: AttributeInput, companyId: string, excep
   });
   if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
   if (catalog.attributes.some((a) => a.companyId === companyId && a.id !== exceptId && sameText(a.name, name))) {
-    return nameTaken('Đã có thuộc tính cùng tên');
+    return nameTaken('Đã có thuộc tính phân loại cùng tên');
   }
   return null;
 }

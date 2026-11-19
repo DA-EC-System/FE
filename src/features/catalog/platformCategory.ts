@@ -1,9 +1,9 @@
 import type { PlatformAttribute, PlatformAttributeInput, SizeChartRule } from '@/types/shop';
 
-/** Sàn có tab ở trang Danh mục & thuộc tính (commerio-backend#400) */
+/** Sàn có tab ở trang Category & thuộc tính (commerio-backend#400) */
 export const PLATFORM_TABS = [
   { platform: 'lazada', label: 'Lazada' },
-  { platform: 'tiktok', label: 'TikTok' },
+  { platform: 'tiktok', label: 'TikTok Shop' },
 ] as const;
 
 export type PlatformTab = (typeof PLATFORM_TABS)[number]['platform'];
@@ -22,10 +22,10 @@ export function hasCondition(a: Pick<PlatformAttribute, 'requiredWhen'>): boolea
 export type AttributeGroupKey = 'sales' | 'required' | 'conditional' | 'key' | 'product' | 'company' | 'optional';
 
 export const ATTRIBUTE_GROUPS: { key: AttributeGroupKey; title: string; hint?: string }[] = [
-  { key: 'sales', title: 'Sales attribute (trục phân loại)', hint: 'Ánh xạ với thuộc tính phân loại của sản phẩm ở bước Variants khi đẩy' },
+  { key: 'sales', title: 'Thuộc tính phân loại (sales attribute)', hint: 'Khớp với thuộc tính phân loại của sản phẩm ở bước Variant khi đăng bán' },
   { key: 'required', title: 'Bắt buộc' },
   { key: 'conditional', title: 'Bắt buộc theo điều kiện', hint: 'Bắt buộc khi attribute khác có giá trị nhất định' },
-  { key: 'key', title: 'Key attribute', hint: 'Không bắt buộc nhưng sàn dùng để lọc, xếp hạng' },
+  { key: 'key', title: 'Attribute quan trọng', hint: 'Không bắt buộc nhưng sàn dùng để lọc, xếp hạng' },
   { key: 'product', title: 'Thông tin sản phẩm', hint: 'Lấy từ trang sản phẩm Commerio, dùng chung mọi sàn' },
   { key: 'company', title: 'Thông tin công ty', hint: 'Lấy từ hồ sơ công ty, không cần nhập lại' },
   { key: 'optional', title: 'Không bắt buộc' },

@@ -34,7 +34,7 @@ type Deleting = { kind: 'category'; item: Category } | { kind: 'attribute'; item
 type TabKey = 'categories' | 'attributes';
 
 /**
- * UC-CP-01: danh mục kèm quy tắc SKU, thuộc tính và giá trị.
+ * UC-CP-01: category kèm quy tắc SKU, thuộc tính và giá trị.
  * Tab Lazada, TikTok: cây category và attribute của sàn, chỉ đọc (commerio-backend#400).
  */
 export function CatalogSetupPage() {
@@ -92,13 +92,13 @@ export function CatalogSetupPage() {
 
   const categoryColumns = useMemo<ColumnDef<Category>[]>(
     () => [
-      { accessorKey: 'name', header: 'Danh mục', meta: { className: 'min-w-40 font-medium' } },
+      { accessorKey: 'name', header: 'Category', meta: { className: 'min-w-40 font-medium' } },
       {
         accessorKey: 'skuPattern',
         header: 'Quy tắc SKU',
         meta: { className: 'min-w-44 font-mono' },
       },
-      { accessorKey: 'skuNextSeq', header: 'Số kế tiếp', meta: { className: 'w-28 text-right' } },
+      { accessorKey: 'skuNextSeq', header: 'Số thứ tự tiếp theo', meta: { className: 'w-28 text-right' } },
       { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
       {
         id: 'updatedAt',
@@ -136,10 +136,10 @@ export function CatalogSetupPage() {
 
   const attributeColumns = useMemo<ColumnDef<Attribute>[]>(
     () => [
-      { accessorKey: 'name', header: 'Thuộc tính', meta: { className: 'w-44 font-medium' } },
+      { accessorKey: 'name', header: 'Thuộc tính phân loại', meta: { className: 'w-44 font-medium' } },
       {
         id: 'values',
-        header: 'Giá trị (mã)',
+        header: 'Giá trị (mã trong SKU)',
         meta: { className: 'min-w-64' },
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
@@ -147,7 +147,7 @@ export function CatalogSetupPage() {
               <Badge
                 key={v.id}
                 variant={v.inUse ? 'secondary' : 'outline'}
-                title={v.inUse ? 'Đã có biến thể dùng' : undefined}
+                title={v.inUse ? 'Đã có variant dùng' : undefined}
               >
                 {v.value}
                 <span className="font-mono text-muted-foreground">{v.code}</span>
@@ -195,9 +195,9 @@ export function CatalogSetupPage() {
   return (
     <div>
       <PageHeader
-        title="Danh mục & thuộc tính"
-        subtitle="Tạo danh mục trước, rồi tới thuộc tính."
-        help="Danh mục quyết định quy tắc sinh mã SKU của sản phẩm trong đó. Thuộc tính (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp biến thể."
+        title="Category & thuộc tính"
+        subtitle="Tạo category trước, rồi tới thuộc tính phân loại."
+        help="Category quyết định quy tắc sinh mã SKU của sản phẩm trong đó. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
         onTour={startTour}
         action={
           canManage && source === 'commerio' ? (
@@ -208,7 +208,7 @@ export function CatalogSetupPage() {
               }
             >
               <Plus />
-              {tab === 'categories' ? 'Thêm danh mục' : 'Thêm thuộc tính'}
+              {tab === 'categories' ? 'Thêm category' : 'Thêm thuộc tính phân loại'}
             </Button>
           ) : null
         }
@@ -217,7 +217,7 @@ export function CatalogSetupPage() {
       <Tabs value={source} onValueChange={setSource}>
         {showPlatforms && (
           <TabsList className="mb-3">
-            <TabsTrigger value="commerio">Commerio</TabsTrigger>
+            <TabsTrigger value="commerio">Của công ty</TabsTrigger>
             {PLATFORM_TABS.map((t) => (
               <TabsTrigger key={t.platform} value={t.platform}>
                 {t.label}
@@ -235,10 +235,10 @@ export function CatalogSetupPage() {
           <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
             <TabsList>
               <TabsTrigger value="categories" data-guide="catalog-categories">
-                Danh mục
+                Category
               </TabsTrigger>
               <TabsTrigger value="attributes" data-guide="catalog-attributes">
-                Thuộc tính
+                Thuộc tính phân loại
               </TabsTrigger>
             </TabsList>
             <TabsContent value="categories">
@@ -248,7 +248,7 @@ export function CatalogSetupPage() {
                   data={categoriesQuery.data ?? []}
                   getRowId={(r) => r.id}
                   loading={categoriesQuery.isLoading} fetching={categoriesQuery.isFetching}
-                  empty="Chưa có danh mục"
+                  empty="Chưa có category"
                 />
               </Card>
             </TabsContent>
@@ -259,7 +259,7 @@ export function CatalogSetupPage() {
                   data={attributesQuery.data ?? []}
                   getRowId={(r) => r.id}
                   loading={attributesQuery.isLoading} fetching={attributesQuery.isFetching}
-                  empty="Chưa có thuộc tính"
+                  empty="Chưa có thuộc tính phân loại"
                 />
               </Card>
             </TabsContent>
@@ -288,7 +288,7 @@ export function CatalogSetupPage() {
 
       <ConfirmDialog
         open={Boolean(deleting)}
-        title={deleting?.kind === 'category' ? 'Xoá danh mục?' : 'Xoá thuộc tính?'}
+        title={deleting?.kind === 'category' ? 'Xoá category?' : 'Xoá thuộc tính phân loại?'}
         message={
           <>
             Bạn sắp xoá <strong>{deleting?.item.name}</strong>. Hành động này không thể hoàn tác.

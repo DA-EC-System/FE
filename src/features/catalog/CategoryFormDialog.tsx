@@ -29,7 +29,7 @@ interface CategoryFormDialogProps {
   onDone: (message: string) => void;
 }
 
-/** UC-CP-01: danh mục và quy tắc SKU của danh mục (D14, D25) */
+/** UC-CP-01: category và quy tắc SKU của category (D14, D25) */
 export function CategoryFormDialog({ open, category, onClose, onDone }: CategoryFormDialogProps) {
   const createMut = useCreateCategory();
   const updateMut = useUpdateCategory();
@@ -65,10 +65,10 @@ export function CategoryFormDialog({ open, category, onClose, onDone }: Category
     try {
       if (category) {
         await updateMut.mutateAsync({ id: category.id, version, ...values });
-        onDone(`Đã cập nhật danh mục ${values.name}`);
+        onDone(`Đã cập nhật category ${values.name}`);
       } else {
         await createMut.mutateAsync(values);
-        onDone(`Đã tạo danh mục ${values.name}`);
+        onDone(`Đã tạo category ${values.name}`);
       }
     } catch (e) {
       const problem = getProblem(e);
@@ -77,12 +77,12 @@ export function CategoryFormDialog({ open, category, onClose, onDone }: Category
         reset({ name: latest.name, skuPattern: latest.skuPattern });
         setVersion(latest.version);
         setSeq(latest.skuNextSeq);
-        setError('Danh mục vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
+        setError('Category vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
         return;
       }
       const fields = problem?.errors ?? {};
       if (problem?.code === 'name_taken') {
-        setFieldError('name', { message: fields.name ?? 'Đã có danh mục cùng tên' });
+        setFieldError('name', { message: fields.name ?? 'Đã có category cùng tên' });
         return;
       }
       if (fields.name) setFieldError('name', { message: fields.name });
@@ -97,33 +97,33 @@ export function CategoryFormDialog({ open, category, onClose, onDone }: Category
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{category ? 'Sửa danh mục' : 'Thêm danh mục'}</DialogTitle>
-          <DialogDescription>SKU của biến thể sinh theo quy tắc của danh mục.</DialogDescription>
+          <DialogTitle>{category ? 'Sửa category' : 'Thêm category'}</DialogTitle>
+          <DialogDescription>SKU của variant sinh theo quy tắc của category.</DialogDescription>
         </DialogHeader>
 
         {error && <AlertMessage severity="warning">{error}</AlertMessage>}
 
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="grid gap-4">
-            <FormTextField control={control} name="name" label="Tên danh mục" autoFocus />
+            <FormTextField control={control} name="name" label="Tên category" autoFocus />
             <FormTextField
               control={control}
               name="skuPattern"
               label="Quy tắc SKU"
               placeholder="AO-{SEQ:4}-{VAL}"
               className="[&_input]:font-mono"
-              description="{SEQ:n}: số thứ tự đệm đủ n chữ số; {VAL}: mã giá trị thuộc tính của biến thể. Chỉ dùng chữ hoa."
+              description="{SEQ:n}: số thứ tự, thêm số 0 phía trước cho đủ n chữ số; {VAL}: mã giá trị phân loại của variant (vd DEN-XL). Chỉ dùng chữ hoa."
             />
             <div className="rounded-md bg-muted p-3" data-testid="sku-preview">
               <p className="text-xs text-muted-foreground">
-                SKU mẫu (biến thể có mã DEN / XL và biến thể không có thuộc tính)
+                SKU mẫu (variant có mã DEN / XL và variant không có thuộc tính phân loại)
               </p>
               <p className="font-mono text-sm">{preview ? preview.join('   ·   ') : '—'}</p>
               {patternError && <p className="mt-1 text-sm text-destructive">{patternError}</p>}
             </div>
             {category && category.productCount > 0 && (
               <AlertMessage severity="info">
-                Đổi quy tắc chỉ áp dụng cho biến thể tạo sau này. SKU đã sinh của{' '}
+                Đổi quy tắc chỉ áp dụng cho variant tạo sau này. SKU đã sinh của{' '}
                 {category.productCount} sản phẩm giữ nguyên.
               </AlertMessage>
             )}

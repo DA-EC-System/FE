@@ -23,7 +23,7 @@ import type { PlatformAttribute } from '@/types/shop';
 import { SIZE_CHART_LABELS, groupAttributes, hasCondition, inputSummary, parentPath, platformLabel } from './platformCategory';
 import { SearchResults, TreeLevel } from './PlatformCategoryTree';
 
-/** Tab Lazada, TikTok của trang Danh mục & thuộc tính: cây category và attribute của sàn, chỉ đọc (Documents/21 §18.5) */
+/** Tab Lazada, TikTok của trang Category & thuộc tính: cây category và attribute của sàn, chỉ đọc (Documents/21 §18.5) */
 export function PlatformCategoryTab({ platform }: { platform: string }) {
   const can = useCan();
   const label = platformLabel(platform);
@@ -49,8 +49,8 @@ export function PlatformCategoryTab({ platform }: { platform: string }) {
   const runSync = async () => {
     try {
       const { queued } = await sync.mutateAsync(platform);
-      if (queued) toast.success(`Đã xếp lượt đồng bộ cây category ${label}. Việc chạy nền, mở lại tab sau ít phút để thấy bản mới.`);
-      else toast.info(`Đã có lượt đồng bộ ${label} đang chờ chạy, không xếp thêm.`);
+      if (queued) toast.success(`Đã bắt đầu đồng bộ category ${label}. Mở lại tab sau ít phút để thấy bản mới.`);
+      else toast.info(`Đang có một lần đồng bộ ${label} chưa xong, chờ ít phút rồi mở lại tab.`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
@@ -135,7 +135,7 @@ export function PlatformCategoryTab({ platform }: { platform: string }) {
             {selected ? (
               <LeafDetail platform={platform} externalId={selected} />
             ) : (
-              <EmptyState title="Chọn một leaf category bên trái" description="Leaf có dấu chấm; mở category cha để xem các leaf bên dưới." />
+              <EmptyState title="Chọn một category cấp cuối bên trái" description="Category cấp cuối có dấu chấm; mở category cha để xem." />
             )}
           </div>
         </div>
@@ -147,17 +147,17 @@ export function PlatformCategoryTab({ platform }: { platform: string }) {
 function detailError(error: unknown, label: string): string {
   switch (problemCode(error)) {
     case 'shop_not_connected':
-      return `Chưa lấy được attribute: công ty chưa có gian hàng ${label} đang kết nối. Kết nối gian hàng rồi mở lại category này.`;
+      return `Chưa lấy được attribute: công ty chưa kết nối gian hàng ${label}. Kết nối gian hàng rồi mở lại category này.`;
     case 'marketplace_unavailable':
       return `${label} đang lỗi nên chưa lấy được attribute của category này. Thử lại sau ít phút.`;
     case 'category_not_leaf':
-      return 'Đây là category cha. Sàn chỉ nhận sản phẩm ở leaf category.';
+      return 'Đây là category cha. Sàn chỉ nhận sản phẩm ở category cấp cuối.';
     default:
       return problemMessage(error);
   }
 }
 
-const SOURCE_LABELS = { push: 'chọn lúc đẩy', match: 'lấy từ sàn khi ghép SKU' } as const;
+const SOURCE_LABELS = { push: 'chọn lúc đăng bán', match: 'lấy từ sàn khi liên kết SKU' } as const;
 
 function LeafDetail({ platform, externalId }: { platform: string; externalId: string }) {
   const companyId = useAuth().companyContext?.companyId ?? '';
@@ -195,14 +195,14 @@ function LeafDetail({ platform, externalId }: { platform: string; externalId: st
           <span>
             ID <span className="font-mono">{category.externalId}</span>
           </span>
-          {category.status === 'removed' && <Badge variant="destructive">Sàn đã bỏ category này</Badge>}
+          {category.status === 'removed' && <Badge variant="destructive">Sàn đã ngừng dùng</Badge>}
           {category.sizeChartRule && (
             <Badge variant={category.sizeChartRule === 'required' ? 'warning' : 'neutral'}>{SIZE_CHART_LABELS[category.sizeChartRule]}</Badge>
           )}
           {fetchedAt && <span>Attribute lấy từ sàn lúc {formatDateTime(fetchedAt)}</span>}
           {stale && (
             <Badge variant="warning" title={`${label} lỗi khi lấy lại attribute, đang hiện bản đã lưu`}>
-              Bản cũ
+              Dữ liệu cũ
             </Badge>
           )}
         </div>
@@ -256,7 +256,7 @@ function AttributeRow({ attribute: a }: { attribute: PlatformAttribute }) {
           <span className="font-medium">{a.label}</span>
           {a.required && <Badge variant="warning">Bắt buộc</Badge>}
           {!a.required && hasCondition(a) && <Badge variant="info">Bắt buộc theo điều kiện</Badge>}
-          {a.isKey && <Badge variant="purple">Key</Badge>}
+          {a.isKey && <Badge variant="purple">Quan trọng</Badge>}
         </div>
         <div className="text-xs text-muted-foreground">
           <span className="font-mono">{a.code}</span> · {inputSummary(a)}

@@ -10,7 +10,7 @@ import type { PlatformCategory } from '@/types/shop';
 import { parentPath } from './platformCategory';
 
 /*
- * Cây category của sàn theo cấp (parentId) và danh sách kết quả tìm, dùng chung cho tab sàn ở Danh mục & thuộc tính
+ * Cây category của sàn theo cấp (parentId) và danh sách kết quả tìm, dùng chung cho tab sàn ở Category & thuộc tính
  * và bước Category của trang đẩy lên sàn (commerio-backend#400, Documents/21 §18.5)
  */
 
@@ -87,7 +87,7 @@ export function TreeLevel({ platform, parentId, depth, open, selected, onToggle,
 export function RemovedBadge({ category }: { category: PlatformCategory }) {
   return category.status === 'removed' ? (
     <Badge variant="destructive" className="ml-auto">
-      Sàn đã bỏ
+      Sàn đã ngừng dùng
     </Badge>
   ) : null;
 }
@@ -111,7 +111,7 @@ export function SearchResults({ loading, error, items, selected, onSelect }: Sea
     );
   }
   if (error) return <AlertMessage severity="error" className="mx-1.5">{problemMessage(error)}</AlertMessage>;
-  if (!items.length) return <EmptyState compact title="Không thấy leaf category nào" description="Thử từ khác, hoặc xoá ô tìm để duyệt cây." />;
+  if (!items.length) return <EmptyState compact title="Không thấy category cấp cuối nào" description="Thử từ khác, hoặc xoá ô tìm để duyệt cây." />;
   return (
     <div role="group">
       {items.map((c) => (
