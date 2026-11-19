@@ -84,13 +84,13 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
       <DialogContent className="sm:max-w-xl" data-testid="disconnect-blocked">
         <DialogHeader>
           <DialogTitle>
-            {blocked.count ? `Chưa ngắt được: còn ${blocked.count} đơn chưa xong` : 'Chưa ngắt được: còn đơn chưa xong'}
+            {blocked.count ? `Chưa ngắt được: còn ${blocked.count} đơn chưa hoàn tất` : 'Chưa ngắt được: còn đơn chưa hoàn tất'}
           </DialogTitle>
           <DialogDescription>{blocked.message}</DialogDescription>
         </DialogHeader>
         {shown > 0 && (
           <div className="max-h-72 overflow-auto rounded-lg border">
-            <Table aria-label="Đơn chưa xong">
+            <Table aria-label="Đơn chưa hoàn tất">
               <TableHeader>
                 <TableRow>
                   <TableHead>Mã đơn</TableHead>
@@ -113,14 +113,14 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
           </div>
         )}
         {blocked.count != null && blocked.count > shown && shown > 0 && (
-          <p className="text-sm text-muted-foreground">Hiện {shown} đơn cũ nhất, mở đơn bán để xem đủ.</p>
+          <p className="text-sm text-muted-foreground">Hiện {shown} đơn cũ nhất, mở Đơn hàng để xem đủ.</p>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Đóng
           </Button>
           <Button asChild>
-            <Link to={ordersLink}>Mở đơn bán</Link>
+            <Link to={ordersLink}>Xem đơn hàng</Link>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -134,12 +134,12 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
         <DialogDescription asChild>
           <div>
             <p>
-              {platformLabel(shop.platform, shop.platformName)}, mã <span className="font-mono">{shop.externalShopId}</span>.
-              Commerio ngừng nhận đơn và ngừng đẩy giá, tồn lên gian hàng này; sản phẩm trên sàn được gỡ xuống.
+              {platformLabel(shop.platform, shop.platformName)}, ID gian hàng <span className="font-mono">{shop.externalShopId}</span>.
+              Commerio ngừng nhận đơn và ngừng đồng bộ giá, tồn lên sàn; listing trên sàn được gỡ (ngừng bán).
             </p>
             <ul className="mt-2 list-disc ps-5 text-foreground-2">
-              <li>Đơn, đối soát và ghép SKU cũ vẫn giữ.</li>
-              <li>Kết nối lại đúng gian hàng thì sản phẩm được đưa lên sàn lại.</li>
+              <li>Đơn, đối soát và liên kết SKU cũ vẫn giữ.</li>
+              <li>Kết nối lại đúng gian hàng thì listing được bán lại.</li>
             </ul>
           </div>
         </DialogDescription>
@@ -154,7 +154,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
         <Label htmlFor="zero-stock" className="grid gap-0.5 font-normal text-foreground">
           Đặt tồn trên sàn về 0
           <span className="text-xs text-muted-foreground">
-            {usable ? 'Tránh khách đặt hàng trong lúc gỡ sản phẩm trên sàn.' : 'Không làm được: sàn đã thu hồi quyền.'}
+            {usable ? 'Tránh khách đặt hàng trong lúc gỡ listing trên sàn.' : 'Không làm được: sàn đã thu hồi quyền.'}
           </span>
         </Label>
       </div>

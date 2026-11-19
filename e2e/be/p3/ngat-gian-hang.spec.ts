@@ -94,7 +94,7 @@ test.describe('P3-BE · Ngắt gian hàng còn đơn chưa xong (§18.6.1)', () 
 
     const blocked = page.locator('[data-testid=disconnect-blocked]');
     await thayChu(blocked, `Còn ${body.openOrders} đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.`);
-    const link = blocked.getByRole('link', { name: 'Mở đơn bán', exact: true });
+    const link = blocked.getByRole('link', { name: 'Xem đơn hàng', exact: true });
     await expect(link).toHaveAttribute('href', `/c/${companyId}/sales/orders?shopId=${SHOP_ID}`);
     await blocked.getByRole('button', { name: 'Đóng', exact: true }).first().click();
     await expect(trangThai).toHaveText(truoc ?? '');

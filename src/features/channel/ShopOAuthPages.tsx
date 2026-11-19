@@ -54,7 +54,7 @@ export function ShopOAuthRedirect() {
 }
 
 /** Bước của luồng uỷ quyền khi sàn đã trả người dùng về Commerio */
-const CALLBACK_STEPS = ['Nhận mã uỷ quyền từ sàn', 'Đổi mã lấy token, mã hoá rồi lưu', 'Đọc thông tin gian hàng'];
+const CALLBACK_STEPS = ['Nhận mã uỷ quyền từ sàn', 'Lưu quyền truy cập (đã mã hoá)', 'Đọc thông tin gian hàng'];
 
 /** UC-CH-01 bước 6–8: sàn đã cấp code, BE đổi lấy token và lưu gian hàng (Documents/21 §18.4) */
 export function ShopOAuthCallbackPage() {
@@ -121,7 +121,7 @@ export function ShopOAuthCallbackPage() {
     return (
       <Card className="mx-auto mt-2 w-full max-w-md gap-3 px-6 py-6" aria-busy="true">
         <div className="grid gap-1">
-          <h1 className="text-lg font-semibold">Đang nối gian hàng {platformName}</h1>
+          <h1 className="text-lg font-semibold">Đang kết nối gian hàng {platformName}</h1>
           <p className="text-sm text-muted-foreground">Giữ trang này mở, việc này mất vài giây.</p>
         </div>
         <ConnectSteps steps={CALLBACK_STEPS} current={1} />
@@ -223,7 +223,7 @@ export function MockOAuthPage() {
 
   const approve = () => {
     const next = {
-      externalShopId: externalShopId.trim() ? undefined : 'Nhập mã gian hàng',
+      externalShopId: externalShopId.trim() ? undefined : 'Nhập ID gian hàng',
       shopName: shopName.trim() ? undefined : 'Nhập tên gian hàng',
     };
     setErrors(next);
@@ -247,7 +247,7 @@ export function MockOAuthPage() {
         <CardContent className="grid gap-4">
           {!target && <AlertMessage severity="error">Địa chỉ quay về không hợp lệ.</AlertMessage>}
           <div className="grid gap-2">
-            <Label htmlFor="mock-shop-id">Mã gian hàng trên sàn</Label>
+            <Label htmlFor="mock-shop-id">ID gian hàng trên sàn</Label>
             <Input
               id="mock-shop-id"
               value={externalShopId}

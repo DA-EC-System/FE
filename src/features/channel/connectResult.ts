@@ -27,13 +27,13 @@ export function firstConnection(result: ShopCallbackResult): ShopConnectionResul
 type RemoteCounts = Pick<ShopConnectionResult, 'remoteProductCount' | 'remoteSkuCount'>;
 
 /**
- * Hàng trên sàn lúc nối, một cụm cho mọi sàn (§18.7.4): "305 sản phẩm · 812 phân loại";
- * chưa có số phân loại thì "305 sản phẩm"; chưa có số sản phẩm thì null
+ * Hàng trên sàn lúc nối, một cụm cho mọi sàn (§18.7.4): "305 sản phẩm · 812 SKU";
+ * chưa có số SKU thì "305 sản phẩm"; chưa có số sản phẩm thì null
  */
 export function remoteCountsText({ remoteProductCount, remoteSkuCount }: RemoteCounts): string | null {
   if (remoteProductCount == null) return null;
   const products = `${remoteProductCount} sản phẩm`;
-  return remoteSkuCount != null ? `${products} · ${remoteSkuCount} phân loại` : products;
+  return remoteSkuCount != null ? `${products} · ${remoteSkuCount} SKU` : products;
 }
 
 /** Cụm ở màn nhiều gian hàng: chưa có số sản phẩm thì bỏ cả cụm */
@@ -42,7 +42,7 @@ export function remoteCountsSuffix(item: RemoteCounts): string {
   return text ? ` · ${text}` : '';
 }
 
-/** Ô "Hàng trên sàn" ở màn một gian hàng: chưa có số sản phẩm thì "—" */
+/** Ô "Sản phẩm trên sàn" ở màn một gian hàng: chưa có số sản phẩm thì "—" */
 export function remoteCountsValue(item: RemoteCounts): string {
   return remoteCountsText(item) ?? '—';
 }
@@ -63,8 +63,8 @@ export function connectedOutcome(result: ShopCallbackResult): ConnectedOutcome {
 export function reconnectSummary(reconnect: ShopReconnectSummary | null): string[] {
   if (!reconnect) return [];
   return [
-    reconnect.jobsRun ? `chạy ${reconnect.jobsRun} việc đang chờ` : null,
+    reconnect.jobsRun ? `gửi ${reconnect.jobsRun} cập nhật đang chờ` : null,
     reconnect.relisted ? `đưa lại ${reconnect.relisted} sản phẩm lên sàn` : null,
-    reconnect.pulledFrom ? `kéo đơn từ ${formatDateTime(reconnect.pulledFrom)}` : null,
+    reconnect.pulledFrom ? `đồng bộ đơn từ ${formatDateTime(reconnect.pulledFrom)}` : null,
   ].filter((x): x is string => Boolean(x));
 }

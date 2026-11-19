@@ -16,7 +16,7 @@ import { ConnectSteps } from './ConnectOutcome';
 import { failureFromError, type ConnectFailure } from './connectFailure';
 
 /** Bước khi kiểm tra token với sàn; hiện trong lúc chờ BE */
-const TOKEN_STEPS = ['Gọi sàn kiểm tra token', 'Đọc mã gian hàng', 'Đối chiếu với gian hàng đã có'];
+const TOKEN_STEPS = ['Gọi sàn kiểm tra token', 'Đọc ID gian hàng', 'Đối chiếu với gian hàng đã có'];
 
 const tokenSchema = z.object({
   accessToken: z.string().trim().min(1, 'Nhập mã truy cập').max(2000, 'Token dài tối đa 2000 ký tự'),

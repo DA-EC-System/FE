@@ -41,9 +41,9 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
   if (outcome === 'multiple') {
     const { shops } = result;
     const BADGE = {
-      connected: { label: 'Mới', variant: 'success' },
-      reconnected: { label: 'Nối lại', variant: 'secondary' },
-      already_connected: { label: 'Đã có', variant: 'secondary' },
+      connected: { label: 'Mới kết nối', variant: 'success' },
+      reconnected: { label: 'Kết nối lại', variant: 'secondary' },
+      already_connected: { label: 'Đã có sẵn', variant: 'secondary' },
     } as const;
     return (
       <ResultScreen
@@ -51,7 +51,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         tone="ok"
         icon={Store}
         title={`Một lần uỷ quyền, ${shops.length} gian hàng`}
-        description="Tài khoản sàn vừa uỷ quyền quản lý nhiều gian hàng. Gian hàng mới cần thiết lập lần đầu trước khi kéo đơn."
+        description="Tài khoản sàn vừa uỷ quyền quản lý nhiều gian hàng. Gian hàng mới cần thiết lập lần đầu trước khi đồng bộ đơn."
         actions={later}
       >
         <ul className="grid w-full divide-y rounded-lg border text-start" data-testid="connected-shops">
@@ -93,12 +93,12 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         outcome="connected"
         tone="ok"
         icon={Check}
-        title={`Đã nối ${name}`}
-        description="Gian hàng chưa kéo đơn, chưa đẩy tồn cho đến khi xong thiết lập lần đầu: ghép SKU, tồn đầu kỳ và mốc kéo đơn."
+        title={`Đã kết nối ${name}`}
+        description="Gian hàng chưa đồng bộ đơn, tồn cho đến khi xong thiết lập lần đầu: liên kết SKU, tồn đầu kỳ và ngày bắt đầu đồng bộ đơn."
         facts={[
           { label: 'Sàn', value: platform },
-          { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
-          { label: 'Hàng trên sàn', value: remoteCountsValue(first) },
+          { label: 'ID gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
+          { label: 'Sản phẩm trên sàn', value: remoteCountsValue(first) },
         ]}
         actions={
           <>
@@ -113,9 +113,9 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
   const expires = shop.refreshExpiresAt ?? shop.accessExpiresAt;
   const before = first.previousStatus ? STATUS_LABELS[first.previousStatus] : null;
   const facts = [
-    { label: 'Mã gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
-    ...(before ? [{ label: 'Trước', value: before }] : []),
-    { label: 'Bây giờ', value: STATUS_LABELS[shop.status] },
+    { label: 'ID gian hàng', value: <span className="font-mono">{shop.externalShopId}</span> },
+    ...(before ? [{ label: 'Trạng thái trước', value: before }] : []),
+    { label: 'Trạng thái hiện tại', value: STATUS_LABELS[shop.status] },
     ...(expires ? [{ label: 'Hạn uỷ quyền mới', value: formatDate(expires) }] : []),
   ];
   const view = <Button onClick={() => onView(shop.id)}>Xem {name}</Button>;
@@ -131,7 +131,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
         description={
           caughtUp.length
             ? `Commerio đã ${caughtUp.join(', ')}.`
-            : 'Gian hàng kéo đơn và đẩy tồn lại như trước, ghép SKU cũ giữ nguyên.'
+            : 'Gian hàng đồng bộ đơn và tồn lại như trước, liên kết SKU cũ giữ nguyên.'
         }
         facts={facts}
         actions={
@@ -152,8 +152,8 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
       title={`${name} đã có trong Commerio`}
       description={
         shop.status === 'connecting'
-          ? 'Gian hàng đã nối trước đó và chưa xong thiết lập lần đầu. Commerio chỉ cấp lại token; bấm Tiếp tục thiết lập để làm tiếp.'
-          : 'Gian hàng đang chạy nên Commerio chỉ cấp lại token, giữ nguyên ghép SKU và lịch sử. Muốn thêm gian hàng khác, đăng xuất trên sàn rồi đăng nhập tài khoản của gian hàng đó.'
+          ? 'Gian hàng đã kết nối trước đó và chưa xong thiết lập lần đầu. Commerio chỉ cấp lại token; bấm Tiếp tục thiết lập để làm tiếp.'
+          : 'Gian hàng đang chạy nên Commerio chỉ cấp lại token, giữ nguyên liên kết SKU và lịch sử. Muốn thêm gian hàng khác, đăng xuất trên sàn rồi đăng nhập tài khoản của gian hàng đó.'
       }
       facts={facts}
       actions={

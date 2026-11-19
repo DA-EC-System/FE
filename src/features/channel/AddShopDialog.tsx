@@ -28,7 +28,7 @@ const PLATFORM_HINTS: Record<string, string | undefined> = {
   mock: 'Sàn mô phỏng để thử luồng kết nối, không cần tài khoản sàn.',
 };
 
-const lockedReason = (p: ShopPlatform) => p.reason || 'Sàn này chưa mở kết nối.';
+const lockedReason = (p: ShopPlatform) => p.reason || 'Commerio chưa hỗ trợ kết nối sàn này.';
 
 interface AddShopDialogProps {
   open: boolean;
@@ -92,7 +92,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
           <>
             <DialogHeader className="sr-only">
               <DialogTitle>Kết quả kết nối</DialogTitle>
-              <DialogDescription>Gian hàng vừa nối qua token</DialogDescription>
+              <DialogDescription>Gian hàng vừa kết nối qua token</DialogDescription>
             </DialogHeader>
             <ConnectedScreen
               result={result}
@@ -107,7 +107,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
           <>
             <DialogHeader className="sr-only">
               <DialogTitle>Kết quả kết nối</DialogTitle>
-              <DialogDescription>Chưa nối được gian hàng qua token</DialogDescription>
+              <DialogDescription>Chưa kết nối được gian hàng qua token</DialogDescription>
             </DialogHeader>
             <ResultScreen
               {...failureScreen(failure, selected?.name)}
@@ -143,7 +143,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
             ) : (
               <>
                 <AlertMessage severity="info">
-                  Một công ty nối được nhiều gian hàng trên cùng một sàn, mỗi lần uỷ quyền một tài khoản. Muốn thêm gian
+                  Một công ty kết nối được nhiều gian hàng trên cùng một sàn, mỗi lần uỷ quyền một tài khoản. Muốn thêm gian
                   hàng mới, đăng nhập sàn bằng tài khoản của gian hàng đó; trình duyệt đang nhớ tài khoản cũ thì đăng xuất
                   trước.
                 </AlertMessage>

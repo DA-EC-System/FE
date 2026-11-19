@@ -82,7 +82,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
         outcome: 'no_state',
         tone: 'warn',
         icon: Timer,
-        title: 'Chưa có phiên kết nối của Commerio',
+        title: 'Hãy bắt đầu kết nối từ Commerio',
         description: `Hãy bấm Kết nối ${name} trong Commerio, không uỷ quyền từ ${AUTHORIZE_PORTAL[failure.platform] ?? 'trang của sàn'}.`,
       };
     }
@@ -115,9 +115,9 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
         children:
           failure.expected && failure.actual ? (
             <div className="flex w-full flex-wrap items-stretch justify-center gap-3 text-start" data-testid="mismatch-compare">
-              <ShopBox label="Cần nối" shop={failure.expected} />
+              <ShopBox label="Gian hàng cần kết nối" shop={failure.expected} />
               <ArrowLeftRight className="size-5 self-center text-muted-foreground" aria-hidden />
-              <ShopBox label={token ? 'Token là của' : 'Sàn trả về'} shop={failure.actual} miss />
+              <ShopBox label={token ? 'Gian hàng của token' : 'Gian hàng vừa đăng nhập'} shop={failure.actual} miss />
             </div>
           ) : undefined,
       };
@@ -127,9 +127,9 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
         outcome: 'elsewhere',
         tone: 'bad',
         icon: LockKeyhole,
-        title: 'Gian hàng này đang nối ở một công ty khác',
+        title: 'Gian hàng này đang kết nối ở một công ty khác',
         description:
-          'Một gian hàng trên sàn chỉ nối với một công ty trong Commerio, để đơn và tồn không bị hai bên cùng đổi. Commerio không cho biết đó là công ty nào.',
+          'Một gian hàng trên sàn chỉ kết nối với một công ty trong Commerio, để đơn và tồn không bị hai bên cùng đổi. Commerio không cho biết đó là công ty nào.',
         children: (
           <ol className="w-full list-decimal ps-5 text-start text-sm leading-relaxed text-foreground-2">
             {elsewhereSteps(failure.via).map((step) => (

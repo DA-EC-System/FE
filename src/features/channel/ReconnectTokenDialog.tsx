@@ -49,7 +49,7 @@ export function ReconnectTokenDialog({ shop, platformName, companyId, onClose }:
             <>
               <DialogHeader className="sr-only">
                 <DialogTitle>Kết quả kết nối lại</DialogTitle>
-                <DialogDescription>Gian hàng vừa nối lại qua token</DialogDescription>
+                <DialogDescription>Gian hàng vừa kết nối lại qua token</DialogDescription>
               </DialogHeader>
               <ConnectedScreen
                 result={result}
@@ -63,7 +63,7 @@ export function ReconnectTokenDialog({ shop, platformName, companyId, onClose }:
             <>
               <DialogHeader className="sr-only">
                 <DialogTitle>Kết quả kết nối lại</DialogTitle>
-                <DialogDescription>Chưa nối lại được gian hàng qua token</DialogDescription>
+                <DialogDescription>Chưa kết nối lại được gian hàng qua token</DialogDescription>
               </DialogHeader>
               <ResultScreen
                 {...failureScreen(failure, platformName)}

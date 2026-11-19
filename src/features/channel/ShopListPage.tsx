@@ -42,7 +42,7 @@ const BLOCKED_BY_STATUS: Record<Shop['status'], string | null> = {
   connecting: 'Chưa thiết lập',
   active: null,
   needs_reauth: 'Mất uỷ quyền, cần kết nối lại',
-  disconnected: 'Đã ngắt',
+  disconnected: 'Đã ngắt kết nối',
 };
 
 /** Dòng chữ nhỏ dưới chip trạng thái */
@@ -78,12 +78,12 @@ function StatusLine({ shop, companyId }: { shop: Shop; companyId: string }) {
           className="text-xs text-warning underline underline-offset-2"
           data-testid="shop-missing-return-window"
         >
-          Chưa nhập số ngày hạn trả
+          Chưa đặt hạn trả hàng
         </Link>
       )}
       {shop.pendingJobs > 0 && (
         <span className="text-xs text-muted-foreground" data-testid="shop-pending-jobs">
-          {shop.pendingJobs} việc đang chờ
+          {shop.pendingJobs} cập nhật chờ gửi sàn
         </span>
       )}
     </>
@@ -167,7 +167,7 @@ export function ShopListPage() {
   const sync = async (s: Shop) => {
     try {
       const r = await syncMut.mutateAsync(s.id);
-      toast.success(`Đã kéo đơn của ${s.shopName}: ${r.created} đơn mới, ${r.updated} đơn cập nhật`);
+      toast.success(`Đã đồng bộ đơn của ${s.shopName}: ${r.created} đơn mới, ${r.updated} đơn cập nhật`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
@@ -211,7 +211,7 @@ export function ShopListPage() {
       },
       {
         accessorKey: 'listingCount',
-        header: 'Sản phẩm trên sàn',
+        header: 'SKU đã liên kết',
         meta: { className: 'w-20 text-right' },
       },
       {
@@ -223,17 +223,17 @@ export function ShopListPage() {
       },
       {
         id: 'feeConfig',
-        header: 'Cấu hình phí',
+        header: 'Phí sàn & thuế',
         meta: { className: 'w-28' },
         cell: ({ row }) => {
           const s = row.original;
-          if (s.status === 'disconnected') return <span className="text-muted-foreground">Không áp</span>;
-          return s.feeConfigVersion != null ? `Bản ${s.feeConfigVersion}` : <span className="text-muted-foreground">—</span>;
+          if (s.status === 'disconnected') return <span className="text-muted-foreground">Không áp dụng</span>;
+          return s.feeConfigVersion != null ? `Phiên bản ${s.feeConfigVersion}` : <span className="text-muted-foreground">—</span>;
         },
       },
       {
         id: 'lastOrderSyncAt',
-        header: 'Đồng bộ gần nhất',
+        header: 'Đồng bộ đơn gần nhất',
         meta: { className: 'w-40 whitespace-nowrap' },
         cell: ({ row }) =>
           row.original.lastOrderSyncAt ? (
@@ -262,7 +262,7 @@ export function ShopListPage() {
               </Button>
             ) : (
               <Button size="sm" variant="outline" onClick={() => openShop(s)}>
-                Sản phẩm trên sàn
+                Xem listing
               </Button>
             );
           const setupReason =
@@ -278,25 +278,25 @@ export function ShopListPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
-                  <DropdownMenuItem onSelect={() => openShop(s)}>Sản phẩm trên sàn và giá</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => openShop(s)}>Listing và giá</DropdownMenuItem>
                   {canConnect && (
                     <MenuItem
-                      label="Thiết lập lại"
+                      label="Thiết lập lần đầu"
                       reason={setupReason}
                       onSelect={() => navigate(ROUTES.company.shopSetup(companyId, s.id))}
                     />
                   )}
                   {canSync && (
                     <MenuItem
-                      label="Kéo đơn ngay"
-                      reason={blocked ?? (syncing ? 'Đang kéo đơn...' : null)}
+                      label="Đồng bộ đơn ngay"
+                      reason={blocked ?? (syncing ? 'Đang đồng bộ đơn...' : null)}
                       onSelect={() => void sync(s)}
                     />
                   )}
                   {canFeeConfig && (
                     <MenuItem
-                      label="Cấu hình phí"
-                      reason={s.status === 'disconnected' ? 'Đã ngắt' : null}
+                      label="Phí sàn & thuế"
+                      reason={s.status === 'disconnected' ? 'Đã ngắt kết nối' : null}
                       onSelect={() => navigate(ROUTES.company.financeConfigs(companyId))}
                     />
                   )}
@@ -339,7 +339,7 @@ export function ShopListPage() {
       <PageHeader
         title="Gian hàng"
         subtitle="Gian hàng trên các sàn đã kết nối với công ty."
-        help="Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio. Đơn sàn của SKU đã ghép trừ đúng tồn của biến thể, và Commerio đẩy tồn, giá lên đúng SKU đó. Commerio giữ tồn và giá, sàn giữ thông tin giao vận. Gian hàng mới phải xong thiết lập lần đầu mới bắt đầu kéo đơn và đẩy tồn."
+        help="Mỗi SKU sàn cần liên kết với một SKU trong kho. Đơn về từ sàn sẽ trừ đúng tồn của SKU đó, và Commerio đồng bộ tồn, giá lên sàn theo SKU đã liên kết. Tồn và giá sửa ở Commerio; trạng thái giao hàng lấy từ sàn. Gian hàng mới phải xong thiết lập lần đầu mới bắt đầu đồng bộ đơn và tồn."
         action={
           canConnect ? (
             <Button onClick={() => setAdding(true)}>
@@ -355,8 +355,8 @@ export function ShopListPage() {
           <AlertMessage severity="warning">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                <strong>{s.shopName}</strong> cần kết nối lại: sàn đã thu hồi quyền, chưa kéo đơn và chưa đẩy tồn được.
-                {s.pendingJobs > 0 && ` ${s.pendingJobs} việc đang chờ, sẽ chạy ngay khi kết nối lại.`}
+                <strong>{s.shopName}</strong> cần kết nối lại: sàn đã thu hồi quyền, chưa đồng bộ đơn và tồn được.
+                {s.pendingJobs > 0 && ` ${s.pendingJobs} cập nhật chờ gửi sàn, sẽ gửi ngay khi kết nối lại.`}
               </span>
               {canConnect && (
                 <Button size="sm" variant="outline" disabled={connector.pending} onClick={() => reconnect(s)}>
@@ -381,13 +381,13 @@ export function ShopListPage() {
             <TabsList variant="segmented" aria-label="Nhóm gian hàng">
               <TabsTrigger value="all">Tất cả</TabsTrigger>
               <TabsTrigger value="needs_action">Cần xử lý {actionCount}</TabsTrigger>
-              <TabsTrigger value="disconnected">Đã ngắt</TabsTrigger>
+              <TabsTrigger value="disconnected">Đã ngắt kết nối</TabsTrigger>
             </TabsList>
           </Tabs>
           <SearchInput
             value={search}
             onChange={withReset(setSearch)}
-            placeholder="Tìm theo tên hoặc mã gian hàng..."
+            placeholder="Tìm theo tên hoặc ID gian hàng..."
           />
           <FilterSelect
             loading={shopsQuery.isLoading}
