@@ -47,9 +47,9 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
     await menu(page, 'Nhật ký thao tác');
     const rows = page.locator('tbody tr[data-row-id]');
     await expect(rows).not.toHaveCount(0);
-    await chon(page, 'Thao tác', 'Cập nhật');
-    // Lọc theo action: dòng sửa có operation hiện chữ thao tác (Tạm khoá…), không phải Tạo mới/Xoá (FE#298)
-    await moiPhanTu(rows.getByTestId('audit-operation'), (t) => expect(t).not.toMatch(/^(Tạo mới|Xoá)$/));
+    await chon(page, 'Thao tác', 'Sửa');
+    // Lọc theo action: dòng sửa có operation hiện chữ thao tác (Tạm khoá…), không phải Thêm/Xoá (FE#298)
+    await moiPhanTu(rows.getByTestId('audit-operation'), (t) => expect(t).not.toMatch(/^(Thêm|Xoá)$/));
     await rows.first().click();
     await expect(page.getByTestId('audit-diff').locator('tr[data-changed]')).not.toHaveCount(0);
   });
