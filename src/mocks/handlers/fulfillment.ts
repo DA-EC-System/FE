@@ -151,9 +151,19 @@ export function movePackage(
   by: string | null,
   opts: { source?: StatusChangeSource; reason?: string | null } = {},
 ) {
-  p.history.push({ from: p.status, to, at, by, source: opts.source ?? (by ? 'user' : 'system'), reason: opts.reason ?? null });
+  const from = p.status;
+  p.history.push({ from, to, at, by, source: opts.source ?? (by ? 'user' : 'system'), reason: opts.reason ?? null });
   p.status = to;
   p.version += 1;
+  // Như BE (Documents/21 §13.2, §11.2, commerio-backend#216): mỗi lần kiện đổi trạng thái phát sự kiện kèm payload
+  const ids = { packageId: p.id, orderId: p.orderId };
+  emitRealtime(p.companyId, 'fulfillment.package_status_changed', { ...ids, from, to });
+  if (to === 'delivery_failed' && from !== to) {
+    emitRealtime(p.companyId, 'fulfillment.package_delivery_failed', { ...ids, reason: opts.reason ?? 'Sàn báo giao không thành công' });
+  }
+  if (to === 'lost' && from !== to) {
+    emitRealtime(p.companyId, 'fulfillment.package_lost', { ...ids, claimCode: p.lostReport?.claimCode ?? null });
+  }
 }
 
 // ---------- Giữ hàng theo kiện ----------
@@ -1151,6 +1161,7 @@ registerMarketplaceEvent({
   group: 'Đơn bán',
   needsShop: false,
   param: { key: 'target', label: 'Mã kiện và trạng thái', placeholder: 'KH-000005 delivered' },
+  realtime: null,
   run({ companyId, params }) {
     const [code, status] = (params.target ?? '').trim().split(/\s+/);
     const next = PLATFORM_STATUSES[status ?? ''];

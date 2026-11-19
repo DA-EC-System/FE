@@ -24,6 +24,7 @@ interface MswBridge {
     shopId?: string,
     params?: Record<string, string>,
   ) => { ok: true; entry: { message: string } } | { ok: false; message: string };
+  emit: (companyId: string, type: string, payload: Record<string, unknown>) => void;
 }
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -116,6 +117,19 @@ export async function mockApi(
 }
 
 /** Sàn giả lập phát sự kiện thẳng vào mock, không qua trang sàn giả lập; trả câu kết quả (FE#81) */
+/** Phát thẳng một sự kiện realtime (Documents/21 §13.2) với đúng payload BE, không đổi dữ liệu mock (FE#287) */
+export async function phatRealtime(page: Page, type: string, payload: Record<string, unknown>) {
+  const companyId = duongDan(page).split('/')[2] ?? '';
+  await page.evaluate(
+    ({ companyId, type, payload }) => {
+      const bridge = (window as unknown as { __msw?: MswBridge }).__msw;
+      if (!bridge) throw new Error('Cần chạy Vite dev với MSW (VITE_USE_MOCKS) để giả lập phản hồi BE');
+      bridge.emit(companyId, type, payload);
+    },
+    { companyId, type, payload },
+  );
+}
+
 export async function phatSuKienSan(page: Page, type: string, shopId?: string, params: Record<string, string> = {}) {
   const companyId = duongDan(page).split('/')[2] ?? '';
   return page.evaluate(
