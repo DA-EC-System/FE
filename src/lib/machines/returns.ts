@@ -21,14 +21,14 @@ export const returnMachine = defineMachine<ReturnStatus, ReturnAction, ReturnRec
     from: 'requested',
     to: 'refund_only',
     action: 'refund_only',
-    label: 'Hoàn tiền, khách giữ hàng',
+    label: 'Chỉ hoàn tiền',
     permission: P.returnProcess,
   },
   {
     from: 'rejected',
     to: 'awaiting_return',
     action: 'platform_reopen',
-    label: 'Sàn xử cho khách: trả hàng',
+    label: 'Sàn duyệt cho khách trả hàng',
     permission: P.returnProcess,
     guard: marketplaceOnly,
   },
@@ -36,11 +36,11 @@ export const returnMachine = defineMachine<ReturnStatus, ReturnAction, ReturnRec
     from: 'rejected',
     to: 'refund_only',
     action: 'platform_refund',
-    label: 'Sàn xử cho khách: hoàn tiền',
+    label: 'Sàn duyệt cho khách hoàn tiền',
     permission: P.returnProcess,
     guard: marketplaceOnly,
   },
-  { from: 'awaiting_return', to: 'received', action: 'receive', label: 'Nhận hàng trả', permission: P.fulfillmentProcess },
+  { from: 'awaiting_return', to: 'received', action: 'receive', label: 'Nhận hàng hoàn', permission: P.fulfillmentProcess },
   {
     from: 'awaiting_return',
     to: 'closed',
@@ -50,7 +50,7 @@ export const returnMachine = defineMachine<ReturnStatus, ReturnAction, ReturnRec
     needsReason: true,
   },
   { from: 'received', to: 'closed', action: 'close', label: 'Đóng', system: true },
-  { from: ['requested', 'awaiting_return'], to: 'closed', action: 'buyer_cancel', label: 'Khách rút yêu cầu', system: true },
+  { from: ['requested', 'awaiting_return'], to: 'closed', action: 'buyer_cancel', label: 'Khách huỷ yêu cầu', system: true },
 ]);
 
 /** Yêu cầu còn mở: chặn hoàn tất đơn, đơn mang cờ Có yêu cầu trả */

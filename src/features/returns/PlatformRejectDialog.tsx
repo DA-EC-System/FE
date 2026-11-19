@@ -75,7 +75,7 @@ export function PlatformRejectDialog({ request, open, onClose }: PlatformRejectD
         version: request.version,
         command: { kind: 'reject', reasonId, ...(comment ? { comment } : {}), attachmentIds: attachments.map((a) => a.fileId) },
       });
-      toast.success(`${request.code}: Từ chối`);
+      toast.success(`Đã từ chối yêu cầu ${request.code}`);
       onClose();
     } catch (e) {
       if (conflictCurrent<ReturnRequest>(e)) toast.warning('Yêu cầu vừa được cập nhật, đã tải lại');
@@ -92,7 +92,7 @@ export function PlatformRejectDialog({ request, open, onClose }: PlatformRejectD
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Từ chối yêu cầu {request.code}</DialogTitle>
+          <DialogTitle>Từ chối yêu cầu trả hàng {request.code}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
@@ -106,10 +106,10 @@ export function PlatformRejectDialog({ request, open, onClose }: PlatformRejectD
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center gap-1">
-                      <FormLabel>Lý do từ chối (theo sàn)</FormLabel>
+                      <FormLabel>Lý do từ chối</FormLabel>
                       <HelpTip
                         topic="Lý do từ chối"
-                        content="Lý do lấy từ danh sách của sàn, lý do ghi (cần ảnh) phải kèm ảnh. Khách có thể khiếu nại, sàn xử cho khách thì yêu cầu mở lại."
+                        content="Chọn lý do theo danh sách của sàn. Lý do có ghi (cần ảnh) thì phải đính kèm ảnh. Nếu khách khiếu nại và sàn duyệt cho khách, yêu cầu được mở lại."
                       />
                     </div>
                     <FormControl>
