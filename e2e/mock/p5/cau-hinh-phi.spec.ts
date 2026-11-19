@@ -60,8 +60,9 @@ test.describe('D4.4 · Phiên bản phí và thuế', () => {
     await dialog.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
     const dong = page.getByTestId('config-payload').locator('tr').filter({ hasText: 'Thuế suất GTGT đầu ra' });
     await expect(dong).toContainText('8%'); await expect(dong).toContainText('10%');
-    await dong.getByRole('button').hover();
-    await expect(page.getByRole('tooltip').first()).toContainText('Chỉ dùng cho doanh nghiệp');
+    // Giải thích dài hơn hai câu nên HelpTip mở bằng Popover khi bấm (helpTipMode)
+    await dong.getByRole('button').click();
+    await expect(page.getByRole('dialog').filter({ hasText: 'Chỉ dùng cho doanh nghiệp' })).toBeVisible();
   });
   test('giá chờ có cờ Dưới đáy và xác nhận theo version', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo'); await menu(page, 'Giá chờ xác nhận');
