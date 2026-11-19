@@ -30,8 +30,8 @@ import { CORE_MODULES, MODULE_LABELS, type OptionalModuleKey } from '@/utils/mod
 import type { CompanyModule } from '@/types/companySettings';
 
 const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
-  purchasing: 'Nhà cung cấp, đơn mua hàng và nhập hàng theo đơn mua.',
-  channel: 'Kết nối gian hàng Shopee, TikTok Shop, Lazada; đồng bộ đơn và tồn kho.',
+  purchasing: 'Nhà cung cấp, đơn đặt hàng nhập và nhập kho theo đơn.',
+  channel: 'Kết nối gian hàng Lazada, TikTok Shop; đồng bộ đơn và tồn kho.',
   inbox: 'Gom tin nhắn khách hàng từ các kênh vào một hộp thư.',
   assistant: 'Hỏi đáp về số liệu bán hàng bằng tiếng Việt, chạy trên OpenAI.',
   report: 'Báo cáo doanh thu, lợi nhuận, tồn kho theo thời gian.',
@@ -40,13 +40,13 @@ const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
 /** Chi tiết trong HelpTip của từng dòng; dòng chỉ giữ một câu mô tả */
 const MODULE_HELP: Record<OptionalModuleKey, string> = {
   purchasing:
-    'Thêm mục Mua hàng trên thanh bên: nhà cung cấp, đề nghị mua, đơn mua, phiếu nhập theo đơn mua và trả hàng nhà cung cấp.',
+    'Thêm mục Nhập hàng trên thanh bên: nhà cung cấp, đơn đặt hàng nhập, phiếu nhập kho và trả hàng NCC.',
   channel:
-    'Thêm mục Kênh bán: kết nối gian hàng, ghép SKU, kéo đơn sàn về và đẩy tồn, giá lên sàn.',
+    'Thêm mục Kênh bán: kết nối gian hàng, liên kết SKU, đồng bộ đơn từ sàn, đồng bộ tồn và giá lên sàn.',
   inbox: 'Tin nhắn khách gửi qua các kênh về một hộp thư, nhân viên trả lời ở một chỗ.',
   assistant:
-    'Câu hỏi cùng dữ liệu liên quan của công ty được gửi tới OpenAI, nên khi bật CEO phải đồng ý gửi dữ liệu. Mật khẩu, khoá kết nối gian hàng và thông tin thanh toán không được gửi đi.',
-  report: 'Hiện doanh thu, lãi 7 ngày và biểu đồ doanh thu theo ngày trên trang Tổng quan.',
+    'Câu hỏi cùng dữ liệu liên quan của công ty được gửi tới OpenAI, nên khi bật CEO phải đồng ý gửi dữ liệu. Mật khẩu, mã kết nối gian hàng và thông tin thanh toán không được gửi đi.',
+  report: 'Hiện doanh thu, lợi nhuận 7 ngày và biểu đồ doanh thu theo ngày trên trang Tổng quan.',
 };
 
 const MODULE_ICONS: Record<OptionalModuleKey, LucideIcon> = {
@@ -57,12 +57,12 @@ const MODULE_ICONS: Record<OptionalModuleKey, LucideIcon> = {
   report: ChartLine,
 };
 
-const HAS_DATA_NOTE = 'Công ty đã có dữ liệu trong phân hệ này nên không tắt được.';
+const HAS_DATA_NOTE = 'Công ty đã có dữ liệu trong tính năng này nên không tắt được.';
 
 const PAGE_HELP =
-  'Tắt một phân hệ thì nhân viên không còn thấy các màn hình của phân hệ đó, bật lại lúc nào cũng được. Phân hệ đã có dữ liệu thì không tắt được. Phân hệ cốt lõi luôn bật.';
+  'Tắt một tính năng thì nhân viên không còn thấy các màn hình của tính năng đó, bật lại lúc nào cũng được. Tính năng đã có dữ liệu thì không tắt được. Tính năng cơ bản luôn bật.';
 
-/** UC-PI-02: CEO bật/tắt năm phân hệ tuỳ chọn; có hiệu lực ngay với mọi nhân viên */
+/** UC-PI-02: CEO bật/tắt năm tính năng tuỳ chọn; có hiệu lực ngay với mọi nhân viên */
 export function ModuleSettingsPage() {
   const modulesQuery = useCompanyModules();
   const setModule = useSetModule();
@@ -83,8 +83,8 @@ export function ModuleSettingsPage() {
       const current = (getProblem(err) as { current?: CompanyModule } | undefined)?.current;
       if (code409 === 'module_state_changed' && current) {
         toast.warning(
-          `${label} vừa được người khác ${current.enabled ? 'bật' : 'tắt'}, hiện đang ${
-            current.enabled ? 'bật' : 'tắt'
+          `${label} vừa được người khác ${current.enabled ? 'bật' : 'tắt'}, hiện ${
+            current.enabled ? 'đã bật' : 'chưa bật'
           }. Chưa có gì thay đổi.`,
         );
       } else {
@@ -110,8 +110,8 @@ export function ModuleSettingsPage() {
   return (
     <div>
       <PageHeader
-        title="Phân hệ"
-        subtitle="Bật hoặc tắt các phân hệ tuỳ chọn. Thay đổi có hiệu lực ngay với mọi nhân viên của công ty."
+        title="Tính năng"
+        subtitle="Bật hoặc tắt các tính năng tuỳ chọn. Thay đổi có hiệu lực ngay với mọi nhân viên của công ty."
         help={PAGE_HELP}
         onTour={startTour}
       />
@@ -124,10 +124,10 @@ export function ModuleSettingsPage() {
 
       <Card className="gap-0 py-0" data-guide="modules-optional">
         <div className="flex items-center gap-2 border-b px-4 py-3 text-sm font-semibold">
-          Phân hệ tuỳ chọn
+          Tính năng tuỳ chọn
           {modulesQuery.data && (
             <span className="ms-auto text-[13px] font-normal text-muted-foreground">
-              {modulesQuery.data?.filter((m) => m.enabled).length ?? 0}/{modulesQuery.data.length} đang bật
+              {modulesQuery.data?.filter((m) => m.enabled).length ?? 0}/{modulesQuery.data.length} đã bật
             </span>
           )}
         </div>
@@ -163,7 +163,7 @@ export function ModuleSettingsPage() {
                   <span className="font-medium">{label}</span>
                   <HelpTip content={MODULE_HELP[m.code]} topic={label} />
                   <Badge variant={m.enabled ? 'success' : 'secondary'}>
-                    {busyCode === m.code ? (m.enabled ? 'Đang tắt...' : 'Đang bật...') : m.enabled ? 'Đang bật' : 'Đang tắt'}
+                    {busyCode === m.code ? (m.enabled ? 'Đang tắt...' : 'Đang bật...') : m.enabled ? 'Đã bật' : 'Chưa bật'}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{MODULE_DESCRIPTIONS[m.code]}</p>
@@ -198,7 +198,7 @@ export function ModuleSettingsPage() {
 
       <Card className="mt-4 gap-0 py-0" data-guide="modules-core">
         <div className="flex items-center gap-2 border-b px-4 py-3 text-sm font-semibold">
-          Phân hệ cốt lõi
+          Tính năng cơ bản
           <span className="ms-auto text-[13px] font-normal text-muted-foreground">luôn bật, không tắt được</span>
         </div>
         <div className="flex flex-wrap gap-2 p-4" data-testid="core-modules">
@@ -214,7 +214,7 @@ export function ModuleSettingsPage() {
       <ConfirmDialog
         open={Boolean(disabling)}
         title={`Tắt ${disabling ? MODULE_LABELS[disabling.code] : ''}?`}
-        message="Nhân viên sẽ không còn thấy các màn hình của phân hệ này. Có thể bật lại bất cứ lúc nào."
+        message="Nhân viên sẽ không còn thấy các màn hình của tính năng này. Có thể bật lại bất cứ lúc nào."
         confirmLabel="Tắt"
         destructive
         loading={setModule.isPending}
@@ -237,7 +237,7 @@ export function ModuleSettingsPage() {
             </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Mật khẩu, khoá kết nối gian hàng và thông tin thanh toán không được gửi đi.
+            Mật khẩu, mã kết nối gian hàng và thông tin thanh toán không được gửi đi.
           </p>
           <div className="flex items-start gap-3">
             <Checkbox

@@ -25,12 +25,12 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Đồng ý và bật', exact: true })).toBeDisabled();
     await dialog.getByRole('button', { name: 'Không đồng ý', exact: true }).click();
-    await expect(assistant).toContainText('Đang tắt');
+    await expect(assistant).toContainText('Chưa bật');
     await assistant.getByRole('switch').click();
     await dialog.getByRole('checkbox').click();
     await dialog.getByRole('button', { name: 'Đồng ý và bật', exact: true }).click();
     await toast(page, 'Đã bật Trợ lý AI');
-    await expect(assistant).toContainText('Đang bật');
+    await expect(assistant).toContainText('Đã bật');
 
     await mockApi(page, 'put', '/platform/modules/:code', 409, {
       status: 409,
