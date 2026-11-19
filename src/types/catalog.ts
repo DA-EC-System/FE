@@ -85,12 +85,12 @@ export type VariantMissing = 'name' | 'category' | 'image' | 'price' | 'minQty' 
 
 export const MISSING_LABELS: Record<VariantMissing, string> = {
   name: 'tên',
-  category: 'danh mục',
+  category: 'category',
   image: 'ảnh',
-  price: 'giá muốn bán',
-  minQty: 'ngưỡng tồn',
+  price: 'thực nhận mong muốn',
+  minQty: 'tồn tối thiểu',
   weight: 'cân nặng',
-  dimensions: 'kích thước gói',
+  dimensions: 'kích thước đóng gói',
 };
 
 export interface ProductVariant {
