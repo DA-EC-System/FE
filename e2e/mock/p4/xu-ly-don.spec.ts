@@ -324,18 +324,18 @@ test.describe('P4 · Xử lý đơn', () => {
       await thayChu(page, 'Kiện KH-000010', 'h1');
       await expect(trangThaiKien(page)).toContainText('Đã giữ hàng');
       await nutKien(page, 'Đóng gói').click();
-      await thayChu(page, 'Đóng gói kiện hàng KH-000010', 'h1');
+      await thayChu(page, 'Đóng gói kiện KH-000010', 'h1');
       await expect(page.getByRole('button', { name: 'Đóng gói', exact: true })).toBeDisabled();
       // Tiến độ quét (FE#139)
       await expect(page.locator('[data-testid=pack-progress]')).toContainText(/Đã quét 0\/\d+ món/);
       await page.locator('#scan-sku').fill('KHONG-CO');
       await page.locator('#scan-sku').press('Enter');
-      await thayChu(page, 'Mã KHONG-CO không thuộc kiện hàng này');
+      await thayChu(page, 'KHONG-CO không có trong kiện');
       await quetDu(page);
       await expect(page.locator('[data-testid=pack-progress]')).toContainText('100%');
       await expect(page.getByRole('progressbar', { name: 'Tiến độ quét' })).toBeAttached();
       await page.getByRole('button', { name: 'Đóng gói', exact: true }).click();
-      await toast(page, 'Đã đóng gói kiện hàng KH-000010');
+      await toast(page, 'Đã đóng gói kiện KH-000010');
       await expect(trangThaiKien(page)).toContainText('Đã đóng gói');
 
       await nutKien(page, 'Báo sàn sẵn sàng').click();
@@ -371,11 +371,11 @@ test.describe('P4 · Xử lý đơn', () => {
         window.history.pushState({}, '', p);
         window.dispatchEvent(new PopStateEvent('popstate'));
       }, '/c/cmp-001/fulfillment/packages/pkg-qua-tang/pack');
-      await thayChu(page, 'Đóng gói kiện hàng KH-009001', 'h1');
+      await thayChu(page, 'Đóng gói kiện KH-009001', 'h1');
       const rows = page.locator('[data-testid=pack-lines] tbody tr');
       await expect(rows.nth(0)).toContainText('SKU sàn SAN-AO-DO');
-      await expect(rows.nth(1)).toContainText('Không quản lý tồn');
-      await expect(rows.nth(1)).not.toContainText('Chưa liên kết SKU');
+      await expect(rows.nth(1)).toContainText('Không quản tồn');
+      await expect(rows.nth(1)).not.toContainText('Chưa ghép SKU');
       await expect(page.locator('[data-testid=pack-progress]')).toContainText('Đã quét 0/3 món');
       // SKU biến thể app và SKU sàn đều khớp dòng đã ghép
       for (const sku of ['ao-do-m', 'SAN-AO-DO']) {
@@ -392,12 +392,12 @@ test.describe('P4 · Xử lý đơn', () => {
       expect((await request).postDataJSON()).toEqual({
         version: 3, lines: [{ variantId: 'prd-001-v1', quantity: 2 }], untrackedLines: [{ lineId: 'pl-2', quantity: 1 }],
       });
-      await toast(page, 'Đã đóng gói kiện hàng KH-009001');
+      await toast(page, 'Đã đóng gói kiện KH-009001');
     });
 
     test('kiện chưa thanh toán không vào được màn đóng gói', async ({ page }) => {
       await page.goto('/c/cmp-001/fulfillment/packages/pkg-1003/pack');
-      await thayChu(page, 'Kiện hàng KH-000003 không còn ở trạng thái chờ đóng gói');
+      await thayChu(page, 'Kiện KH-000003 không ở bước đóng gói');
     });
 
     test('bàn giao hàng loạt ở Chờ lấy hàng', async ({ page }) => {
@@ -438,16 +438,16 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect.poll(() => soLanMo(page)).toBe(1);
     });
 
-    test('kiện chưa có mã kiện sàn thì báo chưa in được', async ({ page }) => {
+    test('BE báo kiện chưa có vận đơn trên sàn thì hiện đúng mã kiện (commerio-backend#239)', async ({ page }) => {
       await page.getByRole('tab', { name: /Chờ lấy hàng/ }).click();
       await dong(page, 'pkg-1015').locator('[role=checkbox]').click();
       await mockApi(page, 'get', '/fulfillment/packages/documents', 409, {
         status: 409,
         code: 'document_not_ready',
-        detail: 'Kiện KH-000015 chưa có mã kiện sàn.',
+        detail: 'Kiện KH-000015 chưa có vận đơn trên sàn',
       });
       await page.getByRole('button', { name: 'In vận đơn (1)', exact: true }).click();
-      await toast(page, /vận đơn/i);
+      await toast(page, /KH-000015 chưa có vận đơn trên sàn/);
     });
 
     test('kiện đơn sàn đã đóng gói mở lại về Đã giữ hàng', async ({ page }) => {
