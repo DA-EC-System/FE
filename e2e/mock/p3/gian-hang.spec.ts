@@ -153,41 +153,41 @@ test.describe('P3 · Gian hàng', () => {
       const goiY = page.locator('[data-testid=setup-suggestions]');
       await expect(goiY.locator('[data-suggestion]')).toHaveCount(4);
       await expect(goiY.locator('[data-match=sku]')).toHaveCount(2);
-      await expect(goiY.locator('[data-match=sku]').first()).toContainText('Trùng SKU');
+      await expect(goiY.locator('[data-match=sku]').first()).toContainText('Khớp SKU');
       await expect(goiY.locator('[data-match=sku]').first()).not.toHaveAttribute('data-chosen', '');
       const theoTen = goiY.locator('[data-match=name]');
-      await expect(theoTen.locator('[data-testid=match-score]')).toHaveText(/^Tên giống \d{2,3}%$/);
+      await expect(theoTen.locator('[data-testid=match-score]')).toHaveText(/^Khớp tên \d{2,3}%$/);
       await expect(theoTen).not.toHaveAttribute('data-chosen', '');
       const khongCo = goiY.locator('[data-match=none]');
-      await expect(khongCo).toContainText('Không tìm được');
+      await expect(khongCo).toContainText('Chưa có gợi ý');
       await expect(khongCo).toHaveAttribute('data-chosen', '');
-      await expect(goiY).toContainText('1 SKU trên sàn không tìm được biến thể nào');
+      await expect(goiY).toContainText('1 SKU sàn chưa có gợi ý');
       // Bỏ qua gợi ý theo tên rồi nhận lại, cuối cùng bỏ qua
       await theoTen.getByRole('button', { name: /^Bỏ qua / }).click();
       await expect(theoTen).toHaveAttribute('data-chosen', '');
-      await theoTen.getByRole('button', { name: /^Nhận gợi ý / }).click();
+      await theoTen.getByRole('button', { name: /^Dùng gợi ý / }).click();
       await expect(theoTen).not.toHaveAttribute('data-chosen', '');
       await theoTen.getByRole('button', { name: /^Bỏ qua / }).click();
       // SKU không tìm được thì chọn tay một biến thể; biến thể đã ghép ở dòng khác bị khoá
-      await khongCo.getByRole('button', { name: /^Chọn biến thể khác cho / }).click();
-      await khongCo.getByRole('combobox', { name: 'Ghép với biến thể' }).fill('Áo khoác gió');
+      await khongCo.getByRole('button', { name: /^Chọn SKU kho cho / }).click();
+      await khongCo.getByRole('combobox', { name: 'Liên kết với SKU kho' }).fill('Áo khoác gió');
       await page.locator('[role=option][aria-disabled=false]').first().click();
       await expect(khongCo).not.toHaveAttribute('data-chosen', '');
-      await expect(khongCo).toContainText('(bạn chọn)');
-      await expect(goiY.locator('xpath=..')).toContainText('Đã ghép 3 / 4');
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await expect(khongCo).toContainText('(chọn tay)');
+      await expect(goiY.locator('xpath=..')).toContainText('Đã liên kết 3 / 4');
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
 
       // Bước 2: lệch là dòng đã ghép có số trên sàn khác khả dụng; cột "Sau khi đẩy" là khả dụng sẽ đẩy
       const lech = page.locator('[data-testid=setup-drift] tbody tr').first();
       await expect(lech).toBeAttached();
       await expect(lech.locator('[data-testid=after-push]')).toHaveText((await lech.locator('td').nth(2).textContent()) ?? '');
-      await page.getByLabel(/Kiểm kê lại trước/).click();
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await page.getByLabel(/Kiểm kho trước khi đồng bộ/).click();
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
 
       // Bước 3: mốc kéo đơn do BE đề xuất, chỉ hiển thị; sàn giả lập tính hạn trả theo số ngày nên phải nhập 1–60
       await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
       await expect(page.getByLabel('Kéo đơn từ ngày', { exact: true })).toHaveCount(0);
-      const soNgay = page.getByRole('spinbutton', { name: /Số ngày đổi trả/ });
+      const soNgay = page.getByRole('spinbutton', { name: /Hạn trả hàng \(ngày\)/ });
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
       await thayChu(page, 'Nhập số ngày đổi trả');
       await soNgay.fill('61');
@@ -195,7 +195,7 @@ test.describe('P3 · Gian hàng', () => {
       await thayChu(page, 'Số ngày đổi trả là số nguyên từ 1 đến 60');
       await soNgay.fill('7');
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
-      await toast(page, /ABC Thử nghiệm đã sẵn sàng bán, ghép 3 sản phẩm trên sàn, lập phiếu kiểm kê KK-/);
+      await toast(page, /ABC Thử nghiệm đã thiết lập xong: liên kết 3 SKU sàn, tạo phiếu kiểm kho KK-/);
 
       // Bước 4 (§18.7.7): ở lại trang, đọc tiến độ việc nền; kéo đơn chạy xong, đẩy tồn chờ phiếu kiểm kê
       await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
@@ -203,19 +203,19 @@ test.describe('P3 · Gian hàng', () => {
       await expect(tienDo.locator('[data-step=match]')).toHaveAttribute('data-step-status', 'done');
       await expect(tienDo.locator('[data-step=open_orders]')).toHaveAttribute('data-step-status', 'done', { timeout: 10_000 });
       await expect(tienDo.locator('[data-step=opening_stock]')).toHaveAttribute('data-step-status', 'pending');
-      await expect(tienDo.locator('[data-step=opening_stock]').getByRole('link', { name: /^Mở phiếu kiểm kê KK-/ })).toBeVisible();
+      await expect(tienDo.locator('[data-step=opening_stock]').getByRole('link', { name: /^Mở phiếu kiểm kho KK-/ })).toBeVisible();
       // Chia hàng chỉ có khi kiểm kê, chờ phiếu ghi sổ (§18.7.7)
       await expect(tienDo.locator('[data-step=allocate]')).toHaveAttribute('data-step-status', 'blocked');
-      await expect(tienDo.locator('[data-step=allocate]')).toContainText('Chờ bước kiểm kê đầu kỳ xong');
+      await expect(tienDo.locator('[data-step=allocate]')).toContainText('Chờ bước kiểm kho lần đầu xong');
       await expect(tienDo.locator('[data-step=push_stock]')).toHaveAttribute('data-step-status', 'blocked');
-      await expect(tienDo.locator('[data-step=push_stock]')).toContainText('Chờ bước kiểm kê đầu kỳ xong');
+      await expect(tienDo.locator('[data-step=push_stock]')).toContainText('Chờ bước kiểm kho lần đầu xong');
       const conLai = page.locator('[data-testid=setup-unmatched]');
-      await expect(conLai).toContainText('Còn 1 SKU trên sàn chưa ghép');
-      await expect(conLai.getByRole('link', { name: 'Ghép ở Sản phẩm trên sàn và giá', exact: true })).toHaveAttribute(
+      await expect(conLai).toContainText('Còn 1 SKU sàn chưa liên kết');
+      await expect(conLai.getByRole('link', { name: 'Liên kết ở trang Listing & giá', exact: true })).toHaveAttribute(
         'href',
         /\/c\/cmp-001\/channel\/shops\/[^/]+$/,
       );
-      await page.getByRole('link', { name: 'Mở gian hàng', exact: true }).click();
+      await page.getByRole('link', { name: 'Xem listing của gian hàng', exact: true }).click();
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Đã kết nối');
       await expect(page.locator('[data-testid=listing-status]')).toHaveCount(3);
       await coPhanTu(page, '[data-testid=listing-status]', 'Đang bán');
@@ -266,23 +266,23 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       await page.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
       await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
-      await thayChu(page, 'Đây là gian hàng đầu tiên của công ty nên phải kiểm kê đầu kỳ');
-      await expect(page.getByRole('radio', { name: /Lấy số Commerio đẩy lên sàn/ })).toBeDisabled();
-      await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeChecked();
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+      await thayChu(page, 'Đây là gian hàng đầu tiên của công ty nên phải kiểm kho trước khi đồng bộ');
+      await expect(page.getByRole('radio', { name: /Đồng bộ tồn Commerio lên sàn/ })).toBeDisabled();
+      await expect(page.getByRole('radio', { name: /Kiểm kho trước khi đồng bộ/ })).toBeChecked();
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
       await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText('01/11/2026');
       // Lazada tính hạn trả theo số ngày (TikTok xem tiktok-ket-noi.spec.ts)
-      await page.getByRole('spinbutton', { name: /Số ngày đổi trả/ }).fill('7');
+      await page.getByRole('spinbutton', { name: /Hạn trả hàng \(ngày\)/ }).fill('7');
       await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
         status: 422,
         errors: { openingStock: 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ' },
       });
       await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
       await thayChu(page, 'Gian hàng đầu tiên của công ty phải kiểm kê đầu kỳ');
-      await expect(page.getByRole('radio', { name: /Kiểm kê lại trước/ })).toBeVisible();
+      await expect(page.getByRole('radio', { name: /Kiểm kho trước khi đồng bộ/ })).toBeVisible();
       // R13: BE chưa có kiểm kê đầu kỳ (commerio-backend#245) trả 501; FE hiện câu chung, không hiện detail thô
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
       await mockApi(page, 'post', '/channel/shops/:id/setup', 501, {
         status: 501,
         code: 'not_implemented',
@@ -312,9 +312,9 @@ test.describe('P3 · Gian hàng', () => {
       const goiY = page.locator('[data-testid=setup-suggestions]');
       await expect(goiY.locator('[data-suggestion]')).toHaveCount(2);
       await goiY.locator('[data-suggestion=ext-1]').getByRole('button', { name: /^Bỏ qua / }).click();
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
-      await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
-      await page.getByRole('spinbutton', { name: /Số ngày đổi trả/ }).fill('7');
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+      await page.getByRole('spinbutton', { name: /Hạn trả hàng \(ngày\)/ }).fill('7');
       await mockApi(page, 'post', '/channel/shops/:id/setup', 422, {
         status: 422,
         code: 'validation_failed',
@@ -331,7 +331,7 @@ test.describe('P3 · Gian hàng', () => {
         openingStock: 'push',
         returnWindowDays: 7,
       });
-      await thayChu(page, 'Có SKU ghép chưa hợp lệ');
+      await thayChu(page, 'Có SKU liên kết chưa hợp lệ');
       await expect(goiY.locator('[data-suggestion=ext-2] [data-testid=decision-error]')).toHaveText('Biến thể đã ghép với sản phẩm trên sàn khác');
       await expect(goiY.locator('[data-suggestion=ext-1] [data-testid=decision-error]')).toHaveCount(0);
     });

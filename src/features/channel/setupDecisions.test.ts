@@ -65,7 +65,7 @@ describe('Đơn còn mở bỏ qua vì trần môi trường (Shop.setup.openOrd
 
   it('có đơn bỏ qua thì nêu số', () => {
     expect(openOrdersSkippedNote(setup(3500))).toBe(
-      'Bỏ qua 3500 đơn còn mở cũ hơn; hàng của các đơn này chưa được giữ',
+      'Bỏ qua 3500 đơn đang xử lý cũ hơn; hàng của các đơn này chưa được tạm giữ',
     );
   });
 

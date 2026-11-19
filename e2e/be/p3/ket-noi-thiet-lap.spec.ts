@@ -136,17 +136,17 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
 
     // Bước 1: mỗi SKU sàn một dòng; giữ gợi ý chọn sẵn (chỉ dòng có variantId, mỗi biến thể một dòng)
     await expect(page.locator('[data-testid=setup-suggestions] [data-suggestion]')).toHaveCount(xemTruoc.suggestions.length);
-    await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+    await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
 
     // Bước 2: gian hàng đầu tiên của công ty thì không chọn được đẩy số Commerio
-    const day = page.getByRole('radio', { name: /Lấy số Commerio đẩy lên sàn/ });
+    const day = page.getByRole('radio', { name: /Đồng bộ tồn Commerio lên sàn/ });
     if (xemTruoc.firstShopOfCompany) await expect(day).toBeDisabled();
-    await page.getByRole('radio', { name: /Kiểm kê lại trước/ }).click();
-    await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
+    await page.getByRole('radio', { name: /Kiểm kho trước khi đồng bộ/ }).click();
+    await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
 
     // Bước 3: mốc kéo đơn chỉ hiển thị; số ngày đổi trả chỉ hỏi khi capabilities.returnWindow = days
     await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
-    const soNgay = page.getByRole('spinbutton', { name: /Số ngày đổi trả/ });
+    const soNgay = page.getByRole('spinbutton', { name: /Hạn trả hàng \(ngày\)/ });
     const hoiSoNgay = san.capabilities.returnWindow === 'days';
     // Sàn tự khoá đổi trả (TikTok: đơn sàn sang COMPLETED) thì không có ô, chỉ có câu giải thích
     await expect(soNgay).toHaveCount(hoiSoNgay ? 1 : 0);
@@ -177,7 +177,7 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     else expect(body).not.toHaveProperty('returnWindowDays');
     expect(resLuu.status()).toBe(200);
 
-    // Xong thiết lập: ở lại bước "Bắt đầu chạy", đọc Shop.setup (§18.7.7) rồi mở gian hàng
+    // Xong thiết lập: ở lại bước "Đồng bộ lần đầu", đọc Shop.setup (§18.7.7) rồi mở gian hàng
     await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}/setup`);
     const ketQuaLuu = (await resLuu.json()) as {
       shop: { openingStocktake: { documentId: string } | null; setup: { steps: { key: string }[] } | null };
@@ -185,7 +185,7 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     if (ketQuaLuu.shop.setup) {
       await expect(page.locator('[data-testid=setup-progress] [data-step]')).toHaveCount(ketQuaLuu.shop.setup.steps.length);
     }
-    await page.getByRole('link', { name: 'Mở gian hàng', exact: true }).click();
+    await page.getByRole('link', { name: 'Xem listing của gian hàng', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}`);
     // Còn phiếu kiểm kê đầu kỳ chưa ghi sổ thì có banner dẫn tới phiếu
     const banner = page.locator('[data-testid=opening-stocktake-banner]');
