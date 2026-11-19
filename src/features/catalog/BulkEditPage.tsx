@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
+import { UnitInput } from '@/components/common/UnitInput';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency } from '@/utils/format';
+import { type MeasureKind, parseMeasure } from '@/utils/measure';
 import { cn } from '@/lib/utils';
 import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow } from '@/types/catalog';
 
@@ -49,11 +51,24 @@ type RowError = BulkSaveResult['failed'][number];
 const showNumber = (field: BulkField, n: number) =>
   field === 'standardPrice' ? formatCurrency(n) : n.toLocaleString('vi-VN');
 
-/** "" là xoá giá trị; còn lại phải là số nguyên dương. Cho gõ dấu chấm ngăn nghìn */
-function parseCell(raw: string): { ok: true; value: number | null } | { ok: false } {
+/** Ô số đo và đơn vị hiện trong ô; ô khác (giá, ngưỡng tồn) không có */
+const MEASURE: Partial<Record<BulkField, { kind: MeasureKind; unit: string }>> = {
+  weightG: { kind: 'weight', unit: 'g' },
+  lengthMm: { kind: 'edge', unit: 'mm' },
+  widthMm: { kind: 'edge', unit: 'mm' },
+  heightMm: { kind: 'edge', unit: 'mm' },
+};
+
+/**
+ * "" là xoá giá trị; còn lại phải là số nguyên dương. Giá, ngưỡng tồn cho gõ dấu chấm ngăn nghìn; số đo chỉ nhận chữ số
+ * ("0,25" báo lỗi, không ghép thành 25; commerio-backend#434)
+ */
+function parseCell(field: BulkField, raw: string): { ok: true; value: number | null } | { ok: false; error: string } {
+  const measure = MEASURE[field];
+  if (measure) return parseMeasure(measure.kind, raw);
   const t = raw.trim().replace(/[.\s]/g, '');
   if (!t) return { ok: true, value: null };
-  if (!/^\d+$/.test(t) || Number(t) <= 0) return { ok: false };
+  if (!/^\d+$/.test(t) || Number(t) <= 0) return { ok: false, error: 'Nhập số lớn hơn 0' };
   return { ok: true, value: Number(t) };
 }
 
@@ -87,7 +102,11 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
   const dirty = dirtyIds.length > 0;
   const invalid = useMemo(
     () =>
-      Object.values(drafts).some((d) => Object.values(d.values).some((raw) => raw !== undefined && !parseCell(raw).ok)),
+      Object.values(drafts).some((d) =>
+        (Object.entries(d.values) as [BulkField, string | undefined][]).some(
+          ([field, raw]) => raw !== undefined && !parseCell(field, raw).ok,
+        ),
+      ),
     [drafts],
   );
 
@@ -105,7 +124,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
       const values = { ...d.values };
       const current = row.current[field];
       // Gõ lại đúng số cũ thì coi như không sửa
-      const parsed = parseCell(raw);
+      const parsed = parseCell(field, raw);
       if (parsed.ok && parsed.value === current) delete values[field];
       else values[field] = raw;
       const next = { ...prev };
@@ -144,7 +163,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     const payload: BulkSaveRow[] = Object.entries(drafts).map(([variantId, d]) => {
       const row: BulkSaveRow = { variantId, version: d.version };
       for (const [f, raw] of Object.entries(d.values) as [BulkField, string][]) {
-        const parsed = parseCell(raw);
+        const parsed = parseCell(f, raw);
         if (parsed.ok) row[f] = parsed.value;
       }
       if ('minQty' in row) row.reorderVersion = d.reorderVersion;
@@ -422,22 +441,26 @@ function BulkCell({
     );
   }
   const edited = raw !== undefined;
-  const bad = edited && !parseCell(raw).ok;
+  const parsed = edited ? parseCell(field, raw) : null;
+  const badMessage = parsed && !parsed.ok ? parsed.error : null;
+  const bad = badMessage !== null;
+  const unit = MEASURE[field]?.unit;
+  const inputProps = {
+    'aria-label': label,
+    inputMode: 'numeric' as const,
+    className: cn(
+      'h-8 w-full min-w-20 text-right tabular-nums',
+      edited && 'border-primary bg-accent',
+      (bad || error) && 'border-destructive',
+    ),
+    value: edited ? raw : current === null ? '' : String(current),
+    placeholder: 'Trống',
+    'aria-invalid': bad || Boolean(error),
+    onChange: (e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
+  };
   return (
     <div className="grid justify-items-end gap-1">
-      <Input
-        aria-label={label}
-        inputMode="numeric"
-        className={cn(
-          'h-8 w-full min-w-20 text-right tabular-nums',
-          edited && 'border-primary bg-accent',
-          (bad || error) && 'border-destructive',
-        )}
-        value={edited ? raw : current === null ? '' : String(current)}
-        placeholder="Trống"
-        aria-invalid={bad || Boolean(error)}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {unit ? <UnitInput {...inputProps} suffix={unit} /> : <Input {...inputProps} />}
       {suggestion && !edited && (
         <button
           type="button"
@@ -451,7 +474,7 @@ function BulkCell({
           <Check className="size-3" />
         </button>
       )}
-      {(bad || error) && <span className="text-xs text-destructive-text">{bad ? 'Nhập số lớn hơn 0' : error}</span>}
+      {(bad || error) && <span className="text-xs text-destructive-text">{badMessage ?? error}</span>}
     </div>
   );
 }
