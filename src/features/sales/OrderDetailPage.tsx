@@ -6,7 +6,7 @@ import { PackageShipping } from '@/features/fulfillment/PackageShipping';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Pencil, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Link2, Pencil, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -59,6 +59,9 @@ import { usePageGuide } from '@/guides/usePageGuide';
 import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
 import { OrderProfitCard } from '@/features/finance/OrderProfitCard';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { PendingBadge } from '@/features/channel/ListingStatusCell';
+import { needsUnload } from './lineMatch';
+import { useOrderLineMatch } from './useOrderLineMatch';
 
 const orderRecord = (o: Order) => ({
   source: o.source,
@@ -81,6 +84,7 @@ export function OrderDetailPage() {
   const query = useOrder(orderId);
   const order = query.data;
   useBreadcrumb(order?.code);
+  const lineMatch = useOrderLineMatch(order);
   const { startTour } = usePageGuide('order-detail', { ready: Boolean(order) });
   const confirmMut = useConfirmOrder();
   const decisionMut = useCancelRequestDecision();
@@ -387,7 +391,35 @@ export function OrderDetailPage() {
                           <div>
                             <p className="font-medium">{l.sku || l.externalSku}</p>
                             {l.untracked && <Badge variant="secondary">Không quản tồn</Badge>}
-                            {l.externalSku && !l.variantId && !l.untracked && <Badge variant="destructive">Chưa ghép SKU</Badge>}
+                            {l.externalSku && !l.variantId && !l.untracked && (
+                              <div className="flex flex-wrap items-center gap-1" data-testid="line-unmapped">
+                                <Badge variant="destructive">Chưa ghép SKU</Badge>
+                                {lineMatch.pendingOf(l) && (
+                                  <PendingBadge
+                                    id={`line-pending-${l.id}`}
+                                    pending={lineMatch.pendingOf(l)!}
+                                    target={lineMatch.pendingTarget(l)}
+                                  />
+                                )}
+                                {lineMatch.canMatchLine(l) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 px-2 text-xs"
+                                    disabled={lineMatch.missingSkuId(l)}
+                                    title={
+                                      lineMatch.missingSkuId(l)
+                                        ? 'Chưa có mã SKU sàn của dòng này. Tải lại SKU sàn ở trang gian hàng rồi ghép'
+                                        : undefined
+                                    }
+                                    onClick={() => lineMatch.open(l)}
+                                  >
+                                    <Link2 />
+                                    Ghép SKU
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                             <p className="text-xs text-muted-foreground">
                               {l.productName}
                               {l.attributesLabel && ` · ${l.attributesLabel}`}
@@ -530,6 +562,12 @@ export function OrderDetailPage() {
                             <StatusBadge status={p.status} statuses={PACKAGE_STATUS} />
                             <FlagChips flags={p.flags} meta={PACKAGE_FLAGS} />
                           </div>
+                          {/* Đổi ghép SKU khi kiện đã đóng (spec BE#237 §5.5): kho dỡ kiện về kệ để áp ghép mới */}
+                          {needsUnload(p) && (
+                            <p className="mt-1 text-xs text-destructive" data-testid="unload-task">
+                              Dỡ kiện về kệ để áp ghép SKU mới
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -588,6 +626,7 @@ export function OrderDetailPage() {
         onConfirm={acceptCancel}
         onClose={() => setDialog(null)}
       />
+      {lineMatch.dialog}
       {delivering && (
         <DeliveryDialog pkg={delivering} open onClose={() => setDelivering(null)} onConflict={onConflict} />
       )}

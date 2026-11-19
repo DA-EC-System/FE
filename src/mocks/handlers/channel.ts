@@ -44,7 +44,7 @@ import { requests as returnRequests } from '../returnsData';
 import { lines as ledgerLines } from '../ledgerData';
 import { settlementLines, statements as settlementStatements } from '../settlementData';
 import { reportRows } from '../reportData';
-import { releasePackage } from './fulfillment';
+import { applySkuMappingToOrders, releasePackage } from './fulfillment';
 import { specBlockOf, specSizeChartRule, specStatusOf } from './productSpecs';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
@@ -1760,6 +1760,8 @@ export const shopHandlers = [
     if (!sku.sellerSku) return invalid('externalSkuId', 'SKU sàn chưa có SKU người bán, đặt trên sàn trước rồi ghép');
     const mode = mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null;
     if (mode === (body.variantId ? 'mapped' : 'unmanaged') && (mapped?.variantId ?? null) === body.variantId) {
+      // Ghép đã đúng: BE vẫn áp lên đơn đã về (chạy bù, spec 237 §5.3)
+      applySkuMappingToOrders(shop.id, sku.sellerSku, body.variantId);
       return HttpResponse.json<ChannelListing>(mapped ? toListing(mapped) : unmanagedListing(unmanaged!));
     }
     // 25 §8.1, §11: "không quản tồn" luôn cần CEO duyệt; đổi ghép cần khi gian hàng đã nhận đơn mang SKU người bán này
@@ -1790,6 +1792,7 @@ export const shopHandlers = [
       return HttpResponse.json<ChannelListing>(saved, { status: 202 });
     }
     const saved = applyMapping(shop, sku, mapped, unmanaged, target);
+    applySkuMappingToOrders(shop.id, sku.sellerSku, body.variantId);
     writeCompanyLog(
       actor,
       before ? 'update' : 'create',
@@ -1915,6 +1918,7 @@ export const shopHandlers = [
     }
     const before = { variantId: mapped?.variantId ?? null };
     const saved = applyMapping(shop, sku, mapped, unmanaged, target);
+    if (sku.sellerSku) applySkuMappingToOrders(shop.id, sku.sellerSku, pending.variantId);
     writeCompanyLog(actor, 'update', listingEntity(shop, label, saved.id), before, {
       variantId: pending.variantId,
       approvedBy: actor.account.id,
