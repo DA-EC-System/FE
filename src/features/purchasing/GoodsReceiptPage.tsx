@@ -561,7 +561,8 @@ export function GoodsReceiptPage() {
       <SecondPersonDialog
         open={Boolean(confirmText)}
         title={`${confirmLabel} ${receipt.number}?`}
-        ownerLabel="Người lập đơn đặt hàng"
+        // API chưa trả tên người lập đơn đặt hàng (chỉ có requestCreatedById); hiện số đơn với nhãn đúng thay vì gắn số vào nhãn "Người lập"
+        ownerLabel="Đơn đặt hàng nhập"
         createdByName={receipt.request.number}
         selfApproval={receipt.requestCreatedById === actor.accountId}
         confirmLabel={confirmLabel}
