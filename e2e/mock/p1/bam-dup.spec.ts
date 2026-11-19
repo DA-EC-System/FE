@@ -24,7 +24,7 @@ test.describe('P1 · Bấm đúp chỉ ra một request', () => {
   test('Tạo link mời, Huỷ link: một request, một link, một toast', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Nhân viên');
-    await page.getByRole('tab', { name: /Link đã tạo/ }).click();
+    await page.getByRole('tab', { name: /Link mời chưa dùng/ }).click();
     const rows = page.locator('tbody tr[data-row-id]');
     await expect(rows.first()).toBeAttached();
     const truoc = await rows.count();

@@ -50,7 +50,7 @@ export function RoleChecklist({ roles, value, onChange, error }: RoleChecklistPr
             <span className="grid gap-0.5">
               <span className="text-sm font-medium">
                 {role.name}
-                {role.builtIn && <span className="font-normal text-muted-foreground"> · có sẵn</span>}
+                {role.builtIn && <span className="font-normal text-muted-foreground"> · mặc định</span>}
               </span>
               <span className="text-xs text-muted-foreground" data-testid={`role-note-${role.id}`}>
                 {lock ?? `${role.permissions.length} quyền`}

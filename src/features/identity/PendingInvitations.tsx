@@ -29,7 +29,7 @@ interface PendingInvitationsProps {
 }
 
 const STATUS_LABELS: Record<Invitation['status'], string> = {
-  open: 'Chưa dùng',
+  open: 'Chưa ai mở',
   claimed: 'Đang đăng ký',
   pending: 'Chờ duyệt',
   approved: 'Đã duyệt',
@@ -101,7 +101,7 @@ export function PendingInvitations({
       },
       {
         id: 'roles',
-        header: 'Vai trò của link',
+        header: 'Vai trò được gán',
         meta: { className: 'min-w-44' },
         cell: ({ row: { original: inv } }) => (
           <div className="flex flex-wrap gap-1">
@@ -112,7 +112,7 @@ export function PendingInvitations({
             ))}
             {inv.outdated && (
               <Badge variant="destructive" title="Có vai trò đã bị xoá sau khi tạo link: từ chối rồi tạo link mới">
-                Vai trò đã đổi
+                Có vai trò đã xoá
               </Badge>
             )}
           </div>
@@ -126,13 +126,13 @@ export function PendingInvitations({
       },
       {
         id: 'submittedAt',
-        header: 'Nộp lúc',
+        header: 'Gửi yêu cầu lúc',
         meta: { className: 'w-36 whitespace-nowrap' },
         cell: ({ row }) => (row.original.submittedAt ? formatDateTime(row.original.submittedAt) : ''),
       },
       {
         id: 'expiresAt',
-        header: 'Hạn link',
+        header: 'Hết hạn',
         meta: { className: 'w-40 whitespace-nowrap' },
         cell: ({ row: { original: inv } }) =>
           inv.expired ? (
@@ -195,7 +195,7 @@ export function PendingInvitations({
           getRowId={(inv) => inv.id}
           loading={loading}
           fetching={fetching}
-          empty="Không có yêu cầu nào chờ duyệt"
+          empty="Không có yêu cầu tham gia nào"
           pagination={{ page, pageSize, total: data?.total ?? 0, onChange: onPageChange }}
         />
       </Card>

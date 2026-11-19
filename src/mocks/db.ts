@@ -802,7 +802,7 @@ const invitations: MockInvitation[] = [
     version: 3,
   },
   {
-    // Link đã gửi, chưa ai mở: hiện ở tab Link đã tạo, huỷ được (US-CT-05 AC 4, 5)
+    // Link đã gửi, chưa ai mở: hiện ở tab Link mời chưa dùng, huỷ được (US-CT-05 AC 4, 5)
     id: 'inv-003',
     companyId: 'cmp-001',
     token: 'mock-inv-003',

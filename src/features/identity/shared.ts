@@ -62,7 +62,7 @@ export function protectedReason(member: StaffMember, accountId: string | undefin
 
 export const STAFF_STATUS_LABELS: Record<MembershipStatus, string> = {
   active: 'Đang hoạt động',
-  locked: 'Tạm khoá',
+  locked: 'Đã khoá',
 };
 
 /** Lỗi 409 `invalid_transition` (BE#353): trả bản hiện tại để báo theo trạng thái; lỗi khác trả null */
@@ -74,19 +74,19 @@ type InvitationLike = Pick<Invitation, 'status' | 'fullName' | 'email'>;
 const invitee = (inv: InvitationLike) => inv.fullName ?? inv.email ?? 'người được mời';
 
 /**
- * Câu báo khi lời mời không còn ở trạng thái cho phép (BE#353). `from`: tab Chờ duyệt (duyệt, từ chối)
- * hay tab Link đã tạo (huỷ).
+ * Câu báo khi lời mời không còn ở trạng thái cho phép (BE#353). `from`: tab Yêu cầu tham gia (duyệt, từ chối)
+ * hay tab Link mời chưa dùng (huỷ).
  */
 export function invitationTransitionMessage(current: InvitationLike, from: 'pending' | 'links'): string {
   switch (current.status) {
     case 'open':
     case 'claimed':
       return from === 'pending'
-        ? 'Người được mời chưa nộp yêu cầu, chưa duyệt được.'
-        : 'Link chưa có người nộp yêu cầu.';
+        ? 'Người được mời chưa gửi yêu cầu, chưa duyệt được.'
+        : 'Link chưa có người gửi yêu cầu.';
     case 'pending':
       return from === 'links'
-        ? 'Người được mời đã nộp yêu cầu. Duyệt hoặc từ chối ở tab Chờ duyệt.'
+        ? 'Người được mời đã gửi yêu cầu. Duyệt hoặc từ chối ở tab Yêu cầu tham gia.'
         : 'Yêu cầu đang chờ duyệt.';
     case 'approved':
       return `Yêu cầu của ${invitee(current)} đã được duyệt.`;

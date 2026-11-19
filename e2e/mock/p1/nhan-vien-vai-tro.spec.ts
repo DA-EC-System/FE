@@ -21,7 +21,7 @@ test.describe('P1 · Nhân viên (CEO)', () => {
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('Ngô Văn Kho');
     await page.getByRole('searchbox').fill('');
-    await chon(page, 'Trạng thái', 'Tạm khoá');
+    await chon(page, 'Trạng thái', 'Đã khoá');
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('Hồ Đã Nghỉ');
     await chon(page, 'Trạng thái', 'Tất cả');
@@ -70,7 +70,7 @@ test.describe('P1 · Nhân viên (CEO)', () => {
     await expect(alert).toContainText('Đỗ Mới Vào');
     await alert.getByRole('button', { name: 'Tạm khoá', exact: true }).click();
     await toast(page, 'Đã tạm khoá Đỗ Mới Vào');
-    await expect(dongCo(page, 'Đỗ Mới Vào')).toContainText('Tạm khoá');
+    await expect(dongCo(page, 'Đỗ Mới Vào')).toContainText('Đã khoá');
 
     await mockApi(page, 'post', '/identity/staff/:id/unlock', 409, {
       status: 409,

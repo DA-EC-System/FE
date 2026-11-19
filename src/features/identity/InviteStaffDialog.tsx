@@ -32,7 +32,7 @@ const EMPTY: InviteForm = { roleIds: [] };
 
 /**
  * US-CT-05: tạo link mời kèm vai trò sẽ gán. Nhân viên tự mở link, xác minh email, đặt mật khẩu
- * rồi chờ duyệt ở tab Chờ duyệt. Link chỉ hiện một lần (BE không lưu token).
+ * rồi chờ duyệt ở tab Yêu cầu tham gia. Link chỉ hiện một lần (BE không lưu token).
  */
 export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogProps) {
   const create = useCreateInvitation();
@@ -101,7 +101,7 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
           <DialogTitle>{created ? 'Link mời đã tạo' : 'Mời nhân viên bằng link'}</DialogTitle>
           <DialogDescription>
             {created
-              ? 'Gửi link này cho nhân viên qua kênh bạn tin cậy. Họ mở link, xác minh email và đặt mật khẩu; bạn duyệt ở tab Chờ duyệt thì họ mới vào được công ty.'
+              ? 'Gửi link này cho nhân viên qua kênh bạn tin cậy. Họ mở link, xác minh email và đặt mật khẩu; bạn duyệt ở tab Yêu cầu tham gia thì họ mới vào được công ty.'
               : 'Chọn vai trò sẽ gán cho người được mời. Mỗi link dùng cho một người, hạn 72 giờ.'}
           </DialogDescription>
         </DialogHeader>
