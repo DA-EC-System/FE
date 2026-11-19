@@ -26,7 +26,7 @@ test.describe('P2 · Phân quyền', () => {
     await chua(page, 'Áo polo nam', 'tbody tr').click();
     await expect(page.locator('input[name=name]')).toHaveAttribute('readonly');
     await expect(page.getByRole('button', { name: 'Lưu', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Thêm biến thể', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thêm variant', exact: true })).toHaveCount(0);
 
 
     await page.goto('/c/cmp-001/inventory');

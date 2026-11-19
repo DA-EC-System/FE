@@ -119,7 +119,7 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
       if (problemCode(e) === 'version_conflict' && latest) {
         reset(toForm(latest));
         setVersion(latest.version);
-        setError('SKU vừa được người khác sửa. Hộp đã hiện số mới nhất, chưa có gì thay đổi.');
+        setError('Người khác vừa sửa SKU này. Đã nạp số mới nhất; thay đổi của bạn chưa lưu, hãy nhập lại.');
         return;
       }
       const fieldErrors = getProblem(e)?.errors ?? {};
@@ -147,26 +147,26 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
             <DialogHeader>
               <DialogTitle>Thông tin SKU {variant?.sku}</DialogTitle>
               <DialogDescription>
-                Giá muốn bán, cân nặng và kích thước gói cần đủ để đăng sàn và tính phí vận chuyển. Để trống là chưa có.
+                Thực nhận mong muốn, cân nặng và kích thước đóng gói cần đủ để đăng bán và tính phí vận chuyển. Để trống là chưa có.
               </DialogDescription>
             </DialogHeader>
             <FormTextField
               control={control}
               name="standardPrice"
-              label="Giá chuẩn (đ)"
+              label="Giá bán lẻ (đ)"
               inputMode="numeric"
-              hint="Giá tham khảo của SKU, không bắt buộc để đăng sàn."
+              hint="Giá tham khảo của SKU, không bắt buộc để đăng bán."
             />
             <FormTextField
               control={control}
               name="targetNetPrice"
-              label="Giá muốn bán – số muốn thực nhận (đ)"
+              label="Thực nhận mong muốn (đ)"
               inputMode="numeric"
               hint="Số tiền muốn nhận về sau phí sàn. Giá niêm yết trên từng sàn tính ngược từ số này ở phần Kênh bán."
             />
-            <FormTextField control={control} name="weightG" label="Cân nặng (g)" inputMode="numeric" />
+            <FormTextField control={control} name="weightG" label="Cân nặng sau đóng gói (g)" inputMode="numeric" />
             <fieldset className="grid gap-2">
-              <legend className="mb-1 text-sm font-medium">Kích thước gói (mm)</legend>
+              <legend className="mb-1 text-sm font-medium">Kích thước đóng gói (mm)</legend>
               <div className="grid grid-cols-3 gap-2">
                 <FormTextField control={control} name="lengthMm" label="Dài" inputMode="numeric" />
                 <FormTextField control={control} name="widthMm" label="Rộng" inputMode="numeric" />

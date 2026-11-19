@@ -87,7 +87,7 @@ export function AddVariantDialog({
     setArchivedId(null);
     try {
       const variant = await addMut.mutateAsync({ productId: product.id, attributeValueIds: ids });
-      onDone(`Đã thêm biến thể ${variant.sku}`);
+      onDone(`Đã thêm variant ${variant.sku}`);
     } catch (e) {
       if (problemCode(e) === 'variant_archived' && getProblem(e)?.variantId) {
         setArchivedId(getProblem(e)!.variantId!);
@@ -105,7 +105,7 @@ export function AddVariantDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Thêm biến thể</DialogTitle>
+          <DialogTitle>Thêm variant</DialogTitle>
           <DialogDescription>Chọn một giá trị cho từng thuộc tính của sản phẩm.</DialogDescription>
         </DialogHeader>
 
@@ -116,8 +116,8 @@ export function AddVariantDialog({
           </p>
         ) : !productAttributes.length ? (
           <AlertMessage severity="info">
-            Sản phẩm tạo không có thuộc tính nên chỉ có một biến thể. Muốn bán theo màu, cỡ… hãy tạo
-            sản phẩm mới với các thuộc tính đó.
+            Sản phẩm này không có phân loại (màu, cỡ…) nên chỉ có một SKU. Muốn bán theo màu, cỡ thì tạo
+            sản phẩm mới có phân loại.
           </AlertMessage>
         ) : (
           <div className="grid gap-4">
@@ -143,16 +143,16 @@ export function AddVariantDialog({
             ))}
             <div className="rounded-md bg-muted p-3" data-testid="variant-sku-preview">
               <p className="text-xs text-muted-foreground">
-                {existing ? 'SKU của biến thể' : 'SKU dự kiến'}
+                {existing ? 'SKU của variant' : 'SKU dự kiến'}
               </p>
               <p className="font-mono text-sm">{preview}</p>
             </div>
             {existing && existing.businessStatus !== 'archived' && (
-              <AlertMessage severity="warning">Biến thể đã tồn tại ({existing.sku}).</AlertMessage>
+              <AlertMessage severity="warning">Variant đã có ({existing.sku}).</AlertMessage>
             )}
             {existing?.businessStatus === 'archived' && (
               <AlertMessage severity="info">
-                Tổ hợp này là biến thể {existing.sku} đã lưu trữ. Khôi phục để bán lại với SKU cũ.
+                Phân loại này đã có SKU {existing.sku} (đã lưu trữ). Bấm Khôi phục để bán lại với SKU cũ.
               </AlertMessage>
             )}
           </div>

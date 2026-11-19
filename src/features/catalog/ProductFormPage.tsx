@@ -70,9 +70,9 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
   live: 'Đang bán',
-  pending: 'Chờ sàn',
-  error: 'Có lỗi',
-  not_listed: 'Chưa đăng',
+  pending: 'Sàn đang duyệt',
+  error: 'Listing lỗi',
+  not_listed: 'Chưa đăng bán',
 };
 
 /** Thao tác trên một SKU; lưu trữ bị khoá kèm lý do khi còn tồn hoặc chứng từ mở */
@@ -84,7 +84,7 @@ const variantChoices = (v: ProductVariant): ActionChoice[] =>
 const missingText = (v: ProductVariant) => v.missing.map((k) => MISSING_LABELS[k]).join(', ');
 
 /** BE luôn trả độ hoàn thiện và hiện diện (§17.1); thiếu thì không đoán */
-const NOT_COMPUTED = <span className="text-muted-foreground">Chưa tính</span>;
+const NOT_COMPUTED = <span className="text-muted-foreground">Chưa có dữ liệu</span>;
 
 /** "200 g · 300×250×20 mm"; thiếu thì gạch ngang */
 function specText(v: ProductVariant) {
@@ -198,7 +198,7 @@ export function ProductFormPage() {
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
           variants,
         });
-        toast.success(`Đã tạo ${created.name} với ${created.variants.length} biến thể`);
+        toast.success(`Đã tạo ${created.name} với ${created.variants.length} variant`);
         navigate(ROUTES.company.catalogProduct(companyId, created.id), { replace: true });
       } else {
         const saved = await updateMut.mutateAsync({
@@ -216,7 +216,7 @@ export function ProductFormPage() {
       const latest = conflictCurrent<ProductDetail>(e);
       if (problemCode(e) === 'version_conflict' && latest) {
         load(latest);
-        setError('Sản phẩm vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
+        setError('Người khác vừa sửa sản phẩm này. Đã nạp bản mới nhất; thay đổi của bạn chưa lưu, hãy nhập lại.');
         return;
       }
       // §17.4: gỡ hết ảnh khi SKU còn trên sàn
@@ -286,7 +286,7 @@ export function ProductFormPage() {
           subtitle={
             product ? (
               <>
-                Mã <span className="font-mono" data-testid="product-code">{product.code}</span> · Cập nhật lần cuối{' '}
+                Mã SP <span className="font-mono" data-testid="product-code">{product.code}</span> · Cập nhật lần cuối{' '}
                 {formatDateTime(product.updatedAt)}
               </>
             ) : undefined
@@ -324,7 +324,7 @@ export function ProductFormPage() {
         <div className="grid gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Thông tin chung</CardTitle>
+              <CardTitle>Thông tin cơ bản</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-[2fr_1fr]">
               <FormTextField
@@ -339,15 +339,15 @@ export function ProductFormPage() {
                 name="categoryId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Danh mục</FormLabel>
+                    <FormLabel>Category</FormLabel>
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
                       disabled={!isNew || readOnly || (isNew && categoriesQuery.isLoading)}
                     >
                       <FormControl>
-                        <SelectTrigger className="w-full" aria-label="Danh mục">
-                          <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải danh mục…' : 'Chọn danh mục'} />
+                        <SelectTrigger className="w-full" aria-label="Category">
+                          <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải category…' : 'Chọn category'} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -366,8 +366,8 @@ export function ProductFormPage() {
                     {!form.formState.errors.categoryId && !readOnly && (
                       <FormDescription>
                         {isNew
-                          ? 'SKU sinh theo quy tắc của danh mục'
-                          : 'Không đổi được vì SKU đã sinh theo danh mục này'}
+                          ? 'SKU tự sinh theo quy tắc của category'
+                          : 'Không đổi được vì SKU đã sinh theo category này'}
                       </FormDescription>
                     )}
                   </FormItem>
@@ -410,10 +410,10 @@ export function ProductFormPage() {
           <Card>
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-1">
-                Ảnh bảng kích cỡ
+                Bảng size
                 <HelpTip
-                  topic="Ảnh bảng kích cỡ"
-                  content="Sàn bắt buộc với quần áo, giày dép. Thiếu ảnh này thì sàn từ chối khi đẩy sản phẩm lên."
+                  topic="Bảng size"
+                  content="Lazada, TikTok bắt buộc với quần áo, giày dép. Thiếu ảnh này thì sàn từ chối khi đăng bán."
                 />
               </CardTitle>
             </CardHeader>
@@ -433,11 +433,11 @@ export function ProductFormPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Biến thể</CardTitle>
+              <CardTitle>Variant</CardTitle>
               {!isNew && !readOnly && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
                   <Plus />
-                  Thêm biến thể
+                  Thêm variant
                 </Button>
               )}
             </CardHeader>
@@ -461,12 +461,12 @@ export function ProductFormPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>SKU</TableHead>
-                          <TableHead>Thuộc tính</TableHead>
+                          <TableHead>Thuộc tính phân loại</TableHead>
                           <TableHead>Trạng thái</TableHead>
-                          <TableHead className="text-right">Giá chuẩn</TableHead>
-                          <TableHead className="text-right">Giá muốn bán</TableHead>
+                          <TableHead className="text-right">Giá bán lẻ</TableHead>
+                          <TableHead className="text-right">Thực nhận mong muốn</TableHead>
                           <TableHead>Cân nặng · kích thước</TableHead>
-                          <TableHead>Hoàn thiện</TableHead>
+                          <TableHead>Thông tin</TableHead>
                           <TableHead>Trên sàn</TableHead>
                           {canManage && <TableHead className="w-24" />}
                         </TableRow>
@@ -494,7 +494,7 @@ export function ProductFormPage() {
                                   {/* Nhãn phụ: đang bán nhưng có listing lỗi ở gian hàng khác */}
                                   {v.businessStatus === 'selling' && v.presence === 'live' && v.hasListingError && (
                                     <Badge variant="destructive" data-flag="error">
-                                      Có lỗi
+                                      Listing lỗi
                                     </Badge>
                                   )}
                                 </span>
@@ -513,10 +513,10 @@ export function ProductFormPage() {
                               {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
                                 NOT_COMPUTED
                               ) : v.readiness === 'ready' ? (
-                                <span className="text-muted-foreground">Sẵn sàng</span>
+                                <span className="text-muted-foreground">Đủ thông tin</span>
                               ) : (
                                 <Badge variant="warning" title={`Thiếu: ${missingText(v)}`}>
-                                  Chờ hoàn thiện
+                                  Thiếu thông tin
                                 </Badge>
                               )}
                               {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
@@ -540,7 +540,7 @@ export function ProductFormPage() {
                                     variant="ghost"
                                     size="icon"
                                     aria-label={`Sửa thông tin ${v.sku}`}
-                                    title="Giá chuẩn, giá muốn bán, cân nặng, kích thước gói"
+                                    title="Giá bán lẻ, thực nhận mong muốn, cân nặng, kích thước đóng gói"
                                     onClick={() => setSpecVariantId(v.id)}
                                   >
                                     <Pencil />

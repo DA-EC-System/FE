@@ -99,7 +99,7 @@ export function ProductImagesField({
             )}
           >
             <img src={img.url} alt={`Ảnh ${i + 1}`} className="size-full object-cover" />
-            {i === 0 && <Badge className="absolute top-1 left-1">Đại diện</Badge>}
+            {i === 0 && <Badge className="absolute top-1 left-1">Ảnh bìa</Badge>}
             {!disabled && (
               <>
                 <Button
@@ -182,7 +182,7 @@ export function ProductImagesField({
 
       {!disabled && (
         <p className="text-xs text-muted-foreground">
-          JPG hoặc PNG, từ 330×330 px, {MAX_IMAGES} ảnh. Ảnh lớn hơn 1 MB tự nén trước khi tải. Ảnh đầu tiên là ảnh đại diện.
+          JPG hoặc PNG, tối thiểu 330×330 px, tối đa {MAX_IMAGES} ảnh. Ảnh trên 1 MB tự nén. Ảnh đầu là ảnh bìa.
         </p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
