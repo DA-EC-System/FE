@@ -6,7 +6,7 @@ const kpi = (page: Page, key: string) => page.locator(`[data-kpi="${key}"]`);
 const daiChiSo = (page: Page) => page.getByRole('group', { name: 'Chỉ số chính' });
 
 test.describe('Tổng quan', () => {
-  test('CEO thấy doanh thu, lợi nhuận 7 ngày kèm so sánh và sparkline; số việc khớp danh sách', async ({ page }) => {
+  test('CEO thấy doanh thu, lãi 7 ngày kèm so sánh và sparkline; số việc khớp danh sách', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await expect(page.getByRole('heading', { level: 1, name: 'Tổng quan' })).toBeVisible();
     await expect(daiChiSo(page)).toBeVisible();
@@ -15,7 +15,7 @@ test.describe('Tổng quan', () => {
     await expect(kpi(page, 'revenue')).toContainText(/₫/);
     await expect(kpi(page, 'revenue')).toContainText(/so với 7 ngày trước|Chưa có số 7 ngày trước/);
     await expect(kpi(page, 'revenue').getByTestId('sparkline')).toBeVisible();
-    await expect(kpi(page, 'profit')).toContainText('Biên lợi nhuận');
+    await expect(kpi(page, 'profit')).toContainText('Biên lãi');
 
     // Cách tính nằm ở nút "?" cạnh tên, không viết dưới số
     await page.getByRole('button', { name: 'Giải thích: Doanh thu 7 ngày', exact: true }).hover();
@@ -45,7 +45,7 @@ test.describe('Tổng quan', () => {
     await expect.poll(() => duongDan(page)).toBe(toi);
   });
 
-  test('biểu đồ doanh thu đổi 7/14/30 ngày; link Xem chứng từ tự duyệt mở Nhật ký lọc sẵn (FE#249)', async ({ page }) => {
+  test('biểu đồ doanh thu đổi 7/14/30 ngày; link Xem lần tự duyệt mở Nhật ký lọc sẵn (FE#249)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     const nhom = page.getByRole('group', { name: 'Số ngày' });
     await expect(nhom.getByRole('button', { name: '14 ngày' })).toHaveAttribute('aria-pressed', 'true');
@@ -56,7 +56,7 @@ test.describe('Tổng quan', () => {
     await expect(page.getByTestId('home-revenue-chart')).toBeVisible();
 
     await expect(page.getByRole('link', { name: 'Xem báo cáo kinh doanh' })).toHaveCount(0);
-    await page.getByRole('link', { name: 'Xem chứng từ tự duyệt' }).click();
+    await page.getByRole('link', { name: 'Xem lần tự duyệt' }).click();
     await expect.poll(() => duongDan(page)).toBe('/c/cmp-001/admin/audit-logs');
     await expect(page).toHaveURL(/selfApproved=true/);
     await expect(page.getByRole('combobox', { name: 'Tự duyệt', exact: true })).toContainText('Chỉ lần tự duyệt');
@@ -71,7 +71,7 @@ test.describe('Tổng quan', () => {
     await expect(kpi(page, 'profit')).toHaveCount(0);
     await expect(page.getByRole('group', { name: 'Số ngày' })).toHaveCount(0);
     await expect(page.getByText('Vai trò của bạn')).toBeVisible();
-    // Kho không có platform.audit.view: không thấy link chứng từ tự duyệt
-    await expect(page.getByRole('link', { name: 'Xem chứng từ tự duyệt' })).toHaveCount(0);
+    // Kho không có platform.audit.view: không thấy link lần tự duyệt
+    await expect(page.getByRole('link', { name: 'Xem lần tự duyệt' })).toHaveCount(0);
   });
 });

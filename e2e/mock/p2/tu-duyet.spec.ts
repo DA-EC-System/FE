@@ -47,7 +47,7 @@ test.describe('Nền tảng · Nhãn tự duyệt', () => {
   test('trang chủ mở nhật ký lọc sẵn lần tự duyệt, bấm mã chứng từ mở đúng chứng từ (FE#249)', async ({ page }) => {
     await ceoTuDuyet(page);
     await diToi(page, '/c/cmp-001');
-    await page.getByRole('link', { name: 'Xem chứng từ tự duyệt', exact: true }).click();
+    await page.getByRole('link', { name: 'Xem lần tự duyệt', exact: true }).click();
     const rows = page.locator('tbody tr[data-row-id]');
     await expect(rows).toHaveCount(1);
     await expect(rows.first().getByTestId('self-approved')).toBeVisible();

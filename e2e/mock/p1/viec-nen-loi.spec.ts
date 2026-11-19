@@ -29,7 +29,7 @@ test.describe('P1 · Việc nền lỗi', () => {
     await dong.getByRole('button', { name: 'Chạy lại', exact: true }).click();
     const hop = page.getByRole('alertdialog');
     await expect(hop).toContainText('ABC Fashion TikTok Shop');
-    await hop.getByRole('button', { name: 'Quay lại', exact: true }).click();
+    await hop.getByRole('button', { name: 'Huỷ', exact: true }).click();
     await expect(dongViec(page)).toHaveCount(4);
 
     await dong.getByRole('button', { name: 'Chạy lại', exact: true }).click();
