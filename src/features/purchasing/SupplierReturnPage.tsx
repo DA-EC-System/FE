@@ -72,13 +72,19 @@ const toForm = (r: SupplierReturn): ReturnFormInput => ({
 const RETURN_PATH: SupplierReturnStatus[] = ['draft', 'pending_approval', 'sent', 'refunded'];
 
 const ACTION_CONFIRM: Partial<Record<SupplierReturnAction, { title: string; message: string }>> = {
-  submit: { title: 'Gửi duyệt', message: 'Phiếu chờ CEO duyệt và gửi; trong lúc chờ không sửa được.' },
-  approve_send: { title: 'Duyệt và gửi', message: 'Hàng rời kho: chờ xử lý giảm theo số trên phiếu. Người khác bạn sẽ ghi kết quả từ nhà cung cấp.' },
-  record_replaced: {
-    title: 'Nhà cung cấp bù hàng',
-    message: 'Phiếu kết thúc. Sau đó lập đề nghị bù hàng (điền sẵn từ phiếu này) để kho nhận hàng bù như một lần nhập.',
+  submit: { title: 'Gửi duyệt', message: 'Phiếu chờ CEO duyệt; trong lúc chờ không sửa được.' },
+  approve_send: {
+    title: 'Duyệt và gửi NCC',
+    message: 'Hàng xuất khỏi kho: số hàng lỗi/chờ kiểm giảm theo số trên phiếu. Một người khác (không phải bạn) sẽ ghi kết quả NCC trả lời.',
   },
-  record_rejected: { title: 'Nhà cung cấp không nhận', message: 'Hàng quay về chờ xử lý; lập phiếu xuất huỷ hoặc trả lại lần khác.' },
+  record_replaced: {
+    title: 'Ghi NCC đổi hàng',
+    message: 'Phiếu kết thúc. Sau đó tạo đơn đặt hàng đổi (điền sẵn từ phiếu này) để kho nhập hàng đổi như một lần nhập hàng.',
+  },
+  record_rejected: {
+    title: 'Ghi NCC từ chối',
+    message: 'Hàng quay về khu Hàng lỗi/chờ kiểm; sau đó tạo phiếu xuất huỷ hoặc trả hàng NCC lần khác.',
+  },
 };
 
 /**
@@ -99,7 +105,7 @@ export function SupplierReturnPage() {
 
   const query = useSupplierReturn(isNew ? undefined : returnId);
   const ret = query.data;
-  useBreadcrumb(isNew ? 'Lập phiếu trả' : ret?.number);
+  useBreadcrumb(isNew ? 'Tạo phiếu trả' : ret?.number);
   const { startTour } = usePageGuide('supplier-return', { ready: isNew || Boolean(ret) });
   const suppliersQuery = useSuppliers({}, { enabled: canManage });
   const editable = canManage && (isNew || ret?.status === 'draft');
@@ -263,7 +269,7 @@ export function SupplierReturnPage() {
   const backToList = () => navigate(ROUTES.company.purchasing(companyId, 'returns'));
 
   if (isNew && !canManage) {
-    return <PageError severity="warning" message="Bạn không có quyền lập phiếu trả nhà cung cấp." onBack={backToList} />;
+    return <PageError severity="warning" message="Bạn không có quyền tạo phiếu trả hàng NCC." onBack={backToList} />;
   }
   if (query.isError) return <PageError message={getErrorMessage(query.error)} onBack={backToList} />;
   if (!isNew && !ret) return <PageLoading />;
@@ -281,9 +287,9 @@ export function SupplierReturnPage() {
   return (
     <div>
       <PageHeader
-        title={ret ? `Phiếu trả nhà cung cấp ${ret.number}` : 'Lập phiếu trả nhà cung cấp'}
-        subtitle="Trả hàng lỗi đang chờ xử lý cho nhà cung cấp."
-        help="Lập phiếu từ hàng chờ xử lý rồi gửi duyệt. CEO duyệt và gửi hàng cho nhà cung cấp. Người khác người gửi ghi kết quả: nhà cung cấp hoàn tiền, bù hàng hoặc không nhận. Nhà cung cấp bù hàng thì lập đề nghị bù hàng ngay từ phiếu này."
+        title={ret ? `Phiếu trả hàng NCC ${ret.number}` : 'Tạo phiếu trả hàng NCC'}
+        subtitle="Trả hàng trong khu Hàng lỗi/chờ kiểm về NCC."
+        help="Chọn hàng trong khu Hàng lỗi/chờ kiểm rồi gửi duyệt. CEO duyệt thì hàng được xuất khỏi kho để trả NCC. Sau đó một người khác (không phải người gửi) ghi kết quả NCC trả lời: hoàn tiền, đổi hàng hoặc từ chối nhận. NCC đổi hàng thì bấm “Tạo đơn đặt hàng đổi” ngay trên phiếu này."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2" data-guide="sr-actions">
@@ -300,7 +306,7 @@ export function SupplierReturnPage() {
             {canReplace && ret && (
               <Button data-guide="sr-replace" onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId, ret.id))}>
                 <FilePlus2 />
-                Lập đề nghị bù hàng
+                Tạo đơn đặt hàng đổi
               </Button>
             )}
             {(isNew ? options.filter((o) => o.transition.action === 'submit') : options).map(({ transition: t, blocked }) => {
@@ -358,20 +364,22 @@ export function SupplierReturnPage() {
                   <StatusBadge status={ret.status} statuses={RETURN_STATUS} />
                 </div>
               </Info>
-              <Info label="Nguồn">{ret.source ? <DocLink companyId={companyId} docRef={ret.source} /> : 'Lập tay'}</Info>
+              <Info label="Chứng từ gốc">
+                {ret.source ? <DocLink companyId={companyId} docRef={ret.source} /> : 'Tạo thủ công'}
+              </Info>
               <Info label="Người lập">
                 {ret.createdBy} · {formatDateTime(ret.createdAt)}
               </Info>
-              <Info label="Gửi">{ret.sentAt ? `${ret.sentBy} · ${formatDateTime(ret.sentAt)}` : '—'}</Info>
-              {ret.refundAmount !== null && <Info label="Nhà cung cấp hoàn">{formatCurrency(ret.refundAmount)}</Info>}
+              <Info label="Người gửi NCC">{ret.sentAt ? `${ret.sentBy} · ${formatDateTime(ret.sentAt)}` : '—'}</Info>
+              {ret.refundAmount !== null && <Info label="Tiền NCC hoàn">{formatCurrency(ret.refundAmount)}</Info>}
               {ret.replacementRequest && (
-                <Info label="Đề nghị bù hàng">
+                <Info label="Đơn đặt hàng đổi">
                   <DocLink companyId={companyId} docRef={ret.replacementRequest} />
                 </Info>
               )}
-              {ret.cancelDecision && <Info label="Xử lý khi huỷ">{CANCEL_DECISION_LABELS[ret.cancelDecision]}</Info>}
+              {ret.cancelDecision && <Info label="Xử lý hàng khi huỷ">{CANCEL_DECISION_LABELS[ret.cancelDecision]}</Info>}
               {ret.followUps.length > 0 && (
-                <Info label="Phiếu sinh tiếp">
+                <Info label="Phiếu liên quan">
                   <div className="flex flex-wrap gap-x-3">
                     {ret.followUps.map((f) => (
                       <DocLink key={f.id} companyId={companyId} docRef={f} />
@@ -397,7 +405,7 @@ export function SupplierReturnPage() {
                     <SelectTrigger id="ret-supplier" className="w-full" aria-invalid={Boolean(errors.supplierId)}>
                       <SelectValue
                         placeholder={
-                          suppliersQuery.isLoading ? 'Đang tải nhà cung cấp…' : 'Chọn nhà cung cấp (bắt buộc khi gửi duyệt)'
+                          suppliersQuery.isLoading ? 'Đang tải NCC…' : 'Chọn NCC (bắt buộc khi gửi duyệt)'
                         }
                       />
                     </SelectTrigger>
@@ -415,7 +423,7 @@ export function SupplierReturnPage() {
                 {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
               </div>
               <div className="grid gap-1.5" data-guide="sr-note">
-                <Label htmlFor="ret-note">Ghi chú</Label>
+                <Label htmlFor="ret-note">Lý do trả / Ghi chú</Label>
                 {editable ? (
                   <Textarea id="ret-note" rows={1} aria-invalid={Boolean(errors.note)} {...register('note')} />
                 ) : (
@@ -431,7 +439,7 @@ export function SupplierReturnPage() {
                 disabled={busy}
                 onPick={(level) => {
                   if (level.quarantine <= 0) {
-                    toast.warning(`${level.sku} không có hàng chờ xử lý để trả`);
+                    toast.warning(`SKU ${level.sku} không còn hàng lỗi/chờ kiểm để trả`);
                     return;
                   }
                   append({
@@ -451,9 +459,9 @@ export function SupplierReturnPage() {
               <Table data-testid="return-lines">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Biến thể</TableHead>
-                    <TableHead className="w-28 text-right">Chờ xử lý</TableHead>
-                    <TableHead className="w-32 text-right">Số trả</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="w-36 text-right">Hàng lỗi/chờ kiểm</TableHead>
+                    <TableHead className="w-32 text-right">SL trả</TableHead>
                     {showCost && <TableHead className="w-36 text-right">Giá vốn</TableHead>}
                     {editable && <TableHead className="w-12" />}
                   </TableRow>
@@ -462,7 +470,7 @@ export function SupplierReturnPage() {
                   {!fields.length && (
                     <TableRow>
                       <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                        {editable ? 'Tìm biến thể có hàng chờ xử lý để thêm vào phiếu.' : 'Phiếu không có dòng nào.'}
+                        {editable ? 'Tìm SKU có hàng lỗi/chờ kiểm để thêm vào phiếu.' : 'Phiếu chưa có dòng nào.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -484,7 +492,7 @@ export function SupplierReturnPage() {
                             <div className="grid gap-1">
                               <Input
                                 {...register(`lines.${i}.quantity`)}
-                                aria-label={`Số trả ${f.sku}`}
+                                aria-label={`SL trả ${f.sku}`}
                                 inputMode="numeric"
                                 aria-invalid={Boolean(err)}
                                 className="h-8 text-right"
@@ -502,7 +510,7 @@ export function SupplierReturnPage() {
                         )}
                         {editable && (
                           <TableCell>
-                            <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                            <RowAction label="Xoá dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
                               <Trash2 />
                             </RowAction>
                           </TableCell>
@@ -529,9 +537,9 @@ export function SupplierReturnPage() {
       />
       <ReasonDialog
         open={sendingBack}
-        title={`Trả về ${ret?.number ?? ''}`}
-        message="Phiếu quay về nháp để Mua hàng sửa."
-        confirmLabel="Trả về"
+        title={`Yêu cầu sửa ${ret?.number ?? ''}`}
+        message="Phiếu quay về Nháp để người lập sửa lại."
+        confirmLabel="Yêu cầu sửa"
         loading={busy}
         error={dialogError}
         onConfirm={async (reason) => {
@@ -611,11 +619,11 @@ function RefundDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Nhà cung cấp hoàn tiền cho {number}</DialogTitle>
+          <DialogTitle>Ghi NCC hoàn tiền – {number}</DialogTitle>
         </DialogHeader>
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
         <div className="grid gap-1.5">
-          <Label htmlFor="refund-amount">Số tiền nhà cung cấp hoàn (đồng)</Label>
+          <Label htmlFor="refund-amount">Số tiền NCC hoàn (VNĐ)</Label>
           <Input
             id="refund-amount"
             inputMode="numeric"
@@ -630,7 +638,7 @@ function RefundDialog({
             Huỷ
           </Button>
           <Button disabled={loading} onClick={submit}>
-            {loading ? 'Đang ghi...' : 'Ghi hoàn tiền'}
+            {loading ? 'Đang lưu...' : 'Xác nhận hoàn tiền'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -667,7 +675,7 @@ function CancelReturnDialog({
   const submit = () => {
     const r = reason.trim();
     const next = {
-      reason: !r ? 'Nhập lý do' : r.length > 500 ? 'Lý do tối đa 500 ký tự' : undefined,
+      reason: !r ? 'Nhập lý do huỷ' : r.length > 500 ? 'Lý do tối đa 500 ký tự' : undefined,
       decision: decision ? undefined : 'Chọn cách xử lý hàng',
     };
     setErrs(next);
@@ -681,7 +689,7 @@ function CancelReturnDialog({
         <DialogHeader>
           <DialogTitle>Huỷ phiếu {number}</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">Hàng trên phiếu đang ở chờ xử lý. Chọn cách xử lý số hàng này.</p>
+        <p className="text-sm text-muted-foreground">Hàng trên phiếu đang ở khu Hàng lỗi/chờ kiểm. Chọn cách xử lý số hàng này.</p>
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
         <RadioGroup
           value={decision}
@@ -710,7 +718,7 @@ function CancelReturnDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={loading}>
-            Giữ lại
+            Không huỷ
           </Button>
           <Button variant="destructive" disabled={loading} onClick={submit}>
             {loading ? 'Đang huỷ...' : 'Huỷ phiếu'}

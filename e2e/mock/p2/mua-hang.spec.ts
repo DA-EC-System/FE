@@ -155,10 +155,10 @@ test.describe('P2 · Mua hàng', () => {
       await moTab(page, 'Trả nhà cung cấp', 'TN-000001');
       await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Xác nhận hoàn tiền', exact: true }).click();
       await thayChu(dialog, 'Nhập số tiền hoàn');
-      await dialog.getByLabel(/Số tiền nhà cung cấp hoàn/).fill('240000');
-      await dialog.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
+      await dialog.getByLabel(/Số tiền NCC hoàn/).fill('240000');
+      await dialog.getByRole('button', { name: 'Xác nhận hoàn tiền', exact: true }).click();
       await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
       await thayChu(page, '240.000');
     });
@@ -193,7 +193,9 @@ test.describe('P2 · Mua hàng', () => {
       await moTab(page, 'Trả nhà cung cấp', 'TN-000002');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-      await thaoTac(page, 'Duyệt và gửi');
+      // Nút trên trang (bảng chuyển) và nút xác nhận trong hộp thoại mang nhãn khác nhau
+      await page.getByRole('button', { name: /^Duyệt và gửi( NCC)?$/ }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt và gửi NCC', exact: true }).click();
       await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
     });
   });
