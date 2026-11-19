@@ -56,8 +56,8 @@ describe('Câu báo invalid_transition (FE#300, BE#353)', () => {
   });
 
   it('tab Chờ duyệt', () => {
-    expect(invitationTransitionMessage(inv('open'), 'pending')).toBe('Người được mời chưa nộp yêu cầu, chưa duyệt được.');
-    expect(invitationTransitionMessage(inv('claimed'), 'pending')).toBe('Người được mời chưa nộp yêu cầu, chưa duyệt được.');
+    expect(invitationTransitionMessage(inv('open'), 'pending')).toBe('Người được mời chưa gửi yêu cầu, chưa duyệt được.');
+    expect(invitationTransitionMessage(inv('claimed'), 'pending')).toBe('Người được mời chưa gửi yêu cầu, chưa duyệt được.');
     expect(invitationTransitionMessage(inv('approved'), 'pending')).toBe('Yêu cầu của Lan đã được duyệt.');
     expect(invitationTransitionMessage(inv('rejected'), 'pending')).toBe('Yêu cầu của Lan đã bị từ chối.');
     expect(invitationTransitionMessage(inv('revoked'), 'pending')).toBe('Link này đã bị huỷ.');
@@ -65,7 +65,7 @@ describe('Câu báo invalid_transition (FE#300, BE#353)', () => {
 
   it('tab Link đã tạo', () => {
     expect(invitationTransitionMessage(inv('pending'), 'links')).toBe(
-      'Người được mời đã nộp yêu cầu. Duyệt hoặc từ chối ở tab Chờ duyệt.',
+      'Người được mời đã gửi yêu cầu. Duyệt hoặc từ chối ở tab Yêu cầu tham gia.',
     );
     expect(invitationTransitionMessage({ status: 'approved', fullName: null, email: 'lan@x.vn' }, 'links')).toBe(
       'Yêu cầu của lan@x.vn đã được duyệt.',

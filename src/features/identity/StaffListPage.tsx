@@ -37,8 +37,8 @@ import {
 } from './shared';
 
 /**
- * UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn; tab Chờ duyệt cho yêu cầu tham gia qua link (US-CT-07),
- * tab Link đã tạo để xem và huỷ link chưa nộp (US-CT-05 AC 4–6)
+ * UC-PI-05: quản lý tài khoản nhân viên của công ty đang chọn; tab Yêu cầu tham gia qua link (US-CT-07),
+ * tab Link mời chưa dùng để xem và huỷ link chưa nộp (US-CT-05 AC 4–6)
  */
 export function StaffListPage() {
   const { account, companyContext } = useAuth();
@@ -134,8 +134,8 @@ export function StaffListPage() {
               {STAFF_STATUS_LABELS[m.status]}
             </Badge>
             {m.pendingFirstLogin && (
-              <Badge variant="outline" title="Chưa đăng nhập lần đầu bằng mật khẩu trong thư mời">
-                Chờ đăng nhập
+              <Badge variant="outline" title="Chưa đăng nhập để đổi mật khẩu lần đầu">
+                Chưa đăng nhập
               </Badge>
             )}
           </div>
@@ -143,7 +143,7 @@ export function StaffListPage() {
       },
       {
         id: 'joinedAt',
-        header: 'Tham gia',
+        header: 'Ngày tham gia',
         meta: { className: 'w-36 whitespace-nowrap' },
         cell: ({ row }) => formatDateTime(row.original.joinedAt),
       },
@@ -223,7 +223,7 @@ export function StaffListPage() {
           <TabsList>
             <TabsTrigger value="staff">Nhân viên</TabsTrigger>
             <TabsTrigger value="pending" data-guide="staff-pending">
-              Chờ duyệt
+              Yêu cầu tham gia
               {Boolean(pendingQuery.data?.total) && (
                 <Badge variant="secondary" className="ms-1" data-testid="pending-count">
                   {pendingQuery.data?.total}
@@ -231,7 +231,7 @@ export function StaffListPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="links" data-guide="staff-links">
-              Link đã tạo
+              Link mời chưa dùng
             </TabsTrigger>
           </TabsList>
         </div>

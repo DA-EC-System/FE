@@ -14,14 +14,14 @@ import { formatDateTime } from '@/utils/format';
 import type { Invitation, InvitationStatus } from '@/types/identity';
 import { conflictCurrent, invalidTransitionCurrent, invitationTransitionMessage } from './shared';
 
-/** Link đã tạo mà chưa ai nộp yêu cầu (Documents/21 §3.1) */
+/** Link mời chưa ai gửi yêu cầu (Documents/21 §3.1) */
 const UNSUBMITTED: InvitationStatus[] = ['open', 'claimed'];
 
 /** Trạng thái mới nhất khi huỷ bị `version_conflict` */
 const LATEST_LABELS: Record<InvitationStatus, string> = {
-  open: 'vẫn chưa dùng',
+  open: 'vẫn chưa ai mở',
   claimed: 'đang được đăng ký',
-  pending: 'đã nộp yêu cầu, xem ở tab Chờ duyệt',
+  pending: 'đã gửi yêu cầu, xem ở tab Yêu cầu tham gia',
   approved: 'đã được duyệt',
   rejected: 'đã bị từ chối',
   revoked: 'đã bị huỷ',
@@ -83,12 +83,12 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
               <span className="text-muted-foreground">{inv.email}</span>
             </div>
           ) : (
-            <span className="text-muted-foreground">Chưa dùng</span>
+            <span className="text-muted-foreground">Chưa ai mở</span>
           ),
       },
       {
         id: 'roles',
-        header: 'Vai trò của link',
+        header: 'Vai trò được gán',
         meta: { className: 'min-w-44' },
         cell: ({ row: { original: inv } }) => (
           <div className="flex flex-wrap gap-1">
@@ -99,7 +99,7 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
             ))}
             {inv.outdated && (
               <Badge variant="destructive" title="Có vai trò đã bị xoá sau khi tạo link: huỷ rồi tạo link mới">
-                Vai trò đã đổi
+                Có vai trò đã xoá
               </Badge>
             )}
           </div>
@@ -107,19 +107,19 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
       },
       {
         id: 'createdBy',
-        header: 'Người tạo',
+        header: 'Người tạo link',
         meta: { className: 'min-w-36' },
         cell: ({ row }) => row.original.createdBy.fullName,
       },
       {
         id: 'createdAt',
-        header: 'Tạo lúc',
+        header: 'Ngày tạo',
         meta: { className: 'w-36 whitespace-nowrap' },
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
       {
         id: 'expiresAt',
-        header: 'Hạn link',
+        header: 'Hết hạn',
         meta: { className: 'w-40 whitespace-nowrap' },
         cell: ({ row: { original: inv } }) =>
           inv.expired ? (
@@ -170,7 +170,7 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
           getRowId={(inv) => inv.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty="Không có link nào đang chờ người được mời dùng"
+          empty="Không có link mời nào chưa dùng"
           pagination={{
             page,
             pageSize,
