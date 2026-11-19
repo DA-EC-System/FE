@@ -55,17 +55,17 @@ export function SettlementDetailPage() {
   return (
     <div>
       <PageHeader
-        title={`Tiền đơn ${payment.orderCode ?? payment.orderId}`}
-        subtitle="Số sàn quyết toán so với số Commerio ước tính cho đơn này."
-        help="Dòng ước tính được thay bằng dòng thực tế khi kéo quyết toán; dòng đã bị thay vẫn giữ để đối chiếu nhưng không cộng vào tổng. Lệch quá ngưỡng thì chốt kèm lý do; vượt hạn mức tự chốt thì CEO duyệt trước."
+        title={`Đối soát đơn ${payment.orderCode ?? payment.orderId}`}
+        subtitle="So số tiền sàn thanh toán với số phải thu của đơn này."
+        help="Khi lấy được sao kê sàn, dòng ước tính được thay bằng dòng thực tế; dòng đã thay vẫn hiện (gạch ngang) để đối chiếu, không cộng vào tổng. Chênh lệch vượt ngưỡng cho phép thì phải xử lý kèm lý do; vượt hạn mức tự xử lý thì cần CEO duyệt trước."
         action={
           <>
             <Button variant="outline" onClick={() => navigate(ROUTES.company.settlements(companyId))}>
               <ArrowLeft />
               Về danh sách
             </Button>
-            {canCeo && <Button variant="outline" onClick={() => setAction('ceo-approve')}>CEO duyệt lệch</Button>}
-            {!block && <Button onClick={() => setAction('resolve')}>Chốt lệch</Button>}
+            {canCeo && <Button variant="outline" onClick={() => setAction('ceo-approve')}>CEO duyệt chênh lệch</Button>}
+            {!block && <Button onClick={() => setAction('resolve')}>Xử lý chênh lệch</Button>}
           </>
         }
       />
@@ -75,27 +75,27 @@ export function SettlementDetailPage() {
       </div>
       {block && payment.status === 'mismatch' && block !== 'forbidden' && (
         <AlertMessage severity="warning">
-          {block === 'second_person_required' ? 'Người chốt phải khác người soạn cấu hình phí đang áp dụng.' : 'Lệch vượt hạn mức, cần CEO duyệt trước khi chốt.'}
+          {block === 'second_person_required' ? 'Người xử lý chênh lệch phải khác người lập cấu hình phí đang áp dụng.' : 'Chênh lệch vượt hạn mức tự xử lý, cần CEO duyệt trước.'}
         </AlertMessage>
       )}
       <KpiStrip label="Số tiền của đơn" className="mb-4">
-        <Kpi label="Sàn quyết toán" help="Số sàn thực trả cho đơn, có sau khi kéo quyết toán." value={payment.settledTotal === null ? '—' : <Money value={payment.settledTotal} />} />
-        <Kpi label="Commerio ước tính" help="Tính theo cấu hình phí và thuế lúc giao hàng." value={<Money value={payment.estimatedTotal} />} />
+        <Kpi label="Sàn thanh toán" help="Số sàn thực trả cho đơn, có sau khi lấy sao kê sàn." value={payment.settledTotal === null ? '—' : <Money value={payment.settledTotal} />} />
+        <Kpi label="Phải thu" help="Tính theo cấu hình phí và thuế lúc giao hàng." value={<Money value={payment.estimatedTotal} />} />
         <Kpi
           label="Chênh lệch"
-          help="Quyết toán trừ ước tính. Âm là sàn trả ít hơn."
+          help="Sàn thanh toán trừ phải thu. Âm là sàn trả thiếu."
           value={payment.diff === null ? '—' : <Money value={payment.diff} />}
-          detail={`Ngưỡng ${formatCurrency(payment.threshold.abs)} / ${payment.threshold.pct}%`}
+          detail={`Ngưỡng chênh lệch: ${formatCurrency(payment.threshold.abs)} hoặc ${payment.threshold.pct}%`}
         />
-        <Kpi label="Hạn mức tự chốt" help="Lệch vượt số này thì CEO duyệt trước khi chốt." value={<Money value={payment.threshold.resolveLimit} />} />
+        <Kpi label="Hạn mức tự xử lý" help="Chênh lệch vượt số này thì cần CEO duyệt trước khi xử lý." value={<Money value={payment.threshold.resolveLimit} />} />
       </KpiStrip>
       <DetailGrid history={<StatusTimeline history={payment.statusHistory} statuses={PAYMENT_STATES} />}>
         <Panel title="Người liên quan" bodyClassName="grid gap-4 sm:grid-cols-3">
-          <Person label="Người soạn phí">{payment.feeConfigAuthor?.name ?? '—'}</Person>
+          <Person label="Người lập cấu hình phí">{payment.feeConfigAuthor?.name ?? '—'}</Person>
           <Person label="CEO duyệt">
-            {payment.ceoApproval ? `${payment.ceoApproval.by?.name ?? '—'} · ${formatDateTime(payment.ceoApproval.at)}` : payment.needsCeoApproval ? 'Chưa duyệt' : 'Không cần'}
+            {payment.ceoApproval ? `${payment.ceoApproval.by?.name ?? '—'} · ${formatDateTime(payment.ceoApproval.at)}` : payment.needsCeoApproval ? 'Chờ CEO duyệt' : 'Không cần duyệt'}
           </Person>
-          <Person label="Lý do chốt">
+          <Person label="Lý do xử lý">
             {payment.resolved ? (
               <>
                 {payment.resolved.reason ?? '—'}
@@ -104,29 +104,29 @@ export function SettlementDetailPage() {
             ) : '—'}
           </Person>
         </Panel>
-        <Panel title="Dòng tiền" extra={<span className="text-[12.5px] text-muted-foreground tabular-nums">{lines.length}</span>} flush>
+        <Panel title="Giao dịch của đơn" extra={<span className="text-[12.5px] text-muted-foreground tabular-nums">{lines.length}</span>} flush>
           <DataTable
             data={lines}
             getRowId={(l) => l.id}
-            empty="Chưa có dòng tiền"
+            empty="Chưa có giao dịch nào"
             rowClassName={(l) => cn(l.replacedBy && 'text-muted-foreground opacity-60')}
             columns={[
-              { header: 'Ngày', cell: ({ row }) => formatDate(row.original.occurredOn) },
-              { header: 'Khoản', cell: ({ row }) => <span className="flex flex-wrap items-center gap-1">{LEDGER_KIND_LABELS[row.original.kind] ?? row.original.kind}<FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
-              { header: 'Nguồn', cell: ({ row }) => row.original.estimated ? <Badge variant="warning">Ước tính</Badge> : <Badge variant="success">Thực tế</Badge> },
+              { header: 'Ngày phát sinh', cell: ({ row }) => formatDate(row.original.occurredOn) },
+              { header: 'Khoản mục', cell: ({ row }) => <span className="flex flex-wrap items-center gap-1">{LEDGER_KIND_LABELS[row.original.kind] ?? row.original.kind}<FlagChips flags={row.original.flags} meta={PAYMENT_FLAGS} /></span> },
+              { header: 'Trạng thái ghi nhận', cell: ({ row }) => row.original.estimated ? <Badge variant="warning">Ước tính</Badge> : <Badge variant="success">Thực tế</Badge> },
               { header: 'Số tiền', meta: { numeric: true }, cell: ({ row }) => <Money value={row.original.amount} className={row.original.replacedBy ? 'line-through' : undefined} /> },
-              { header: 'Ghi chú', cell: ({ row }) => row.original.replacedBy ? 'Đã thay bằng số thực tế' : isCostKind(row.original.kind) ? 'Không tính vào tổng (không phải tiền mặt)' : row.original.reason ?? '' },
+              { header: 'Ghi chú', cell: ({ row }) => row.original.replacedBy ? 'Đã thay bằng số sàn thanh toán' : isCostKind(row.original.kind) ? 'Không cộng vào tổng (giá vốn, sàn không trả khoản này)' : row.original.reason ?? '' },
             ]}
           />
           {live.length > 0 && (
             <div className="flex justify-end gap-6 border-t px-4 py-2.5 text-sm" data-testid="lines-total">
-              <span className="me-auto text-muted-foreground">Tổng tiền (không tính dòng đã thay và giá vốn)</span>
+              <span className="me-auto text-muted-foreground">Cộng (không gồm dòng đã thay và giá vốn)</span>
               <Money className="font-medium" value={total} />
             </div>
           )}
         </Panel>
       </DetailGrid>
-      {action && <LifecycleActionDialog path={`/finance/payments/${id}/${action}`} version={payment.version} field={action === 'resolve' ? 'reason' : undefined} title={action === 'resolve' ? 'Chốt lệch' : 'CEO duyệt lệch'} onClose={() => setAction(null)} />}
+      {action && <LifecycleActionDialog path={`/finance/payments/${id}/${action}`} version={payment.version} field={action === 'resolve' ? 'reason' : undefined} title={action === 'resolve' ? 'Xử lý chênh lệch' : 'CEO duyệt chênh lệch'} onClose={() => setAction(null)} />}
     </div>
   );
 }
