@@ -9,14 +9,14 @@ import { usePageGuide } from '@/guides/usePageGuide';
 
 type PurchasingTab = 'requests' | 'receipts' | 'returns' | 'suppliers';
 
-/** Phân hệ Mua hàng: đề nghị nhập (sơ đồ A1), phiếu nhận (A2), phiếu trả nhà cung cấp (B4), nhà cung cấp */
+/** Trang Nhập hàng: đơn đặt hàng nhập (sơ đồ A1), phiếu nhận (A2), phiếu trả nhà cung cấp (B4), nhà cung cấp */
 export function PurchasingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { startTour } = usePageGuide('purchasing');
   const tabs: { value: PurchasingTab; label: string }[] = [
-    { value: 'requests', label: 'Đề nghị nhập' },
-    { value: 'receipts', label: 'Phiếu nhận' },
-    { value: 'returns', label: 'Trả nhà cung cấp' },
+    { value: 'requests', label: 'Đặt hàng nhập' },
+    { value: 'receipts', label: 'Phiếu nhập kho' },
+    { value: 'returns', label: 'Trả hàng NCC' },
     { value: 'suppliers', label: 'Nhà cung cấp' },
   ];
   const requested = searchParams.get('tab');
@@ -25,9 +25,9 @@ export function PurchasingPage() {
   return (
     <div>
       <PageHeader
-        title="Mua hàng"
-        subtitle="Đề nghị nhập, phiếu nhận và trả hàng cho nhà cung cấp."
-        help="Đề nghị nhập được duyệt rồi đặt nhà cung cấp. Hàng tới thì Kho lập phiếu nhận từ đề nghị và ghi sổ. Hàng lỗi trả lại nhà cung cấp bằng phiếu trả; nhà cung cấp bù hàng thì lập đề nghị bù."
+        title="Nhập hàng"
+        subtitle="Đặt hàng nhập, nhập kho và trả hàng cho nhà cung cấp."
+        help="Đơn đặt hàng nhập phải được duyệt rồi mới gửi NCC. Hàng về thì Kho tạo phiếu nhập kho từ đơn đặt, kiểm đếm rồi bấm Nhập kho. Hàng lỗi thì tạo phiếu trả hàng NCC; NCC đổi hàng thì tạo đơn đặt hàng đổi."
         onTour={startTour}
       />
       <Tabs

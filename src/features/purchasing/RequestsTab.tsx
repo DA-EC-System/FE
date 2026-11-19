@@ -61,12 +61,12 @@ export function RequestsTab() {
     () => [
       {
         id: 'number',
-        header: 'Số đề nghị',
+        header: 'Mã đơn đặt',
         meta: { className: 'w-36' },
         cell: ({ row }) => (
           <div>
             <p className="font-medium">{row.original.number}</p>
-            <p className="text-xs text-muted-foreground">{row.original.lineCount} dòng</p>
+            <p className="text-xs text-muted-foreground">{row.original.lineCount} SKU</p>
           </div>
         ),
       },
@@ -89,7 +89,7 @@ export function RequestsTab() {
       },
       {
         id: 'outstanding',
-        header: 'Còn chờ',
+        header: 'Chưa về',
         meta: { className: 'w-24 text-right' },
         cell: ({ row }) => (row.original.outstanding ? formatQty(row.original.outstanding) : '—'),
       },
@@ -97,7 +97,7 @@ export function RequestsTab() {
         ? ([
             {
               id: 'totalCost',
-              header: 'Giá trị',
+              header: 'Tổng tiền',
               meta: { className: 'w-36 text-right whitespace-nowrap' },
               cell: ({ row }) => (row.original.totalCost === null ? '—' : formatCurrency(row.original.totalCost)),
             },
@@ -110,13 +110,13 @@ export function RequestsTab() {
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
             <StatusBadge status={row.original.status} statuses={REQUEST_STATUS} />
-            {row.original.supplierShort && <Badge variant="destructive">Nhà cung cấp giao thiếu</Badge>}
+            {row.original.supplierShort && <Badge variant="destructive">NCC giao thiếu</Badge>}
           </div>
         ),
       },
       {
         id: 'createdAt',
-        header: 'Người lập',
+        header: 'Ngày tạo / Người lập',
         meta: { className: 'w-44' },
         cell: ({ row }) => (
           <div className="min-w-0">
@@ -138,7 +138,7 @@ export function RequestsTab() {
       )}
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số đề nghị, nhà cung cấp, ghi chú" />
+          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm mã đơn đặt, NCC, ghi chú" />
           <FilterSelect
             label="Trạng thái"
             value={status}
@@ -161,7 +161,7 @@ export function RequestsTab() {
               onClick={openNewRequest}
             >
               <Plus />
-              Lập đề nghị
+              Tạo đơn đặt hàng nhập
             </Button>
           )}
         </FilterBar>
@@ -171,7 +171,7 @@ export function RequestsTab() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty={filtered ? 'Không tìm thấy đề nghị phù hợp' : 'Chưa có đề nghị nhập nào'}
+          empty={filtered ? 'Không tìm thấy đơn phù hợp' : 'Chưa có đơn đặt hàng nhập nào'}
           onRowClick={(r) => navigate(ROUTES.company.purchaseRequest(companyId, r.id))}
           pagination={{
             page,
@@ -194,7 +194,7 @@ export function RequestsTab() {
   );
 }
 
-/** Bấm Lập đề nghị khi chưa có nhà cung cấp đang giao dịch: đề nghị nhập bắt buộc chọn nhà cung cấp */
+/** Bấm Tạo đơn đặt hàng nhập khi chưa có nhà cung cấp đang giao dịch: đề nghị nhập bắt buộc chọn nhà cung cấp */
 function NoSupplierDialog({ open, onClose, suppliersHref }: { open: boolean; onClose: () => void; suppliersHref: string }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -202,7 +202,7 @@ function NoSupplierDialog({ open, onClose, suppliersHref }: { open: boolean; onC
         <DialogHeader>
           <DialogTitle>Chưa có nhà cung cấp</DialogTitle>
           <DialogDescription>
-            Đề nghị nhập phải chọn một nhà cung cấp đang giao dịch. Thêm nhà cung cấp trước rồi quay lại lập đề nghị.
+            Đơn đặt hàng nhập phải chọn một NCC đang giao dịch. Thêm NCC trước rồi quay lại tạo đơn.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

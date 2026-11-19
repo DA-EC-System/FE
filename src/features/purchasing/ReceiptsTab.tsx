@@ -40,12 +40,12 @@ export function ReceiptsTab() {
     () => [
       {
         id: 'number',
-        header: 'Số phiếu',
+        header: 'Mã phiếu',
         meta: { className: 'w-36' },
         cell: ({ row }) => (
           <div>
             <p className="font-medium">{row.original.number}</p>
-            <p className="text-xs text-muted-foreground">Đề nghị {row.original.request.number}</p>
+            <p className="text-xs text-muted-foreground">Đơn đặt {row.original.request.number}</p>
           </div>
         ),
       },
@@ -57,13 +57,13 @@ export function ReceiptsTab() {
       },
       {
         id: 'announced',
-        header: 'Báo giao',
+        header: 'SL NCC giao',
         meta: { className: 'w-24 text-right' },
         cell: ({ row }) => formatQty(row.original.totalAnnounced),
       },
       {
         id: 'short',
-        header: 'Thiếu',
+        header: 'SL thiếu',
         meta: { className: 'w-20 text-right' },
         cell: ({ row }) =>
           row.original.shortQty ? (
@@ -80,11 +80,14 @@ export function ReceiptsTab() {
       },
       {
         id: 'createdAt',
-        header: 'Lập / ghi sổ',
+        header: 'Ngày nhập kho',
         meta: { className: 'w-44' },
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="whitespace-nowrap">{formatDateTime(row.original.postedAt ?? row.original.createdAt)}</p>
+            <p className="whitespace-nowrap">
+              {formatDateTime(row.original.postedAt ?? row.original.createdAt)}
+              {!row.original.postedAt && <span className="ms-1 text-xs text-muted-foreground">tạo</span>}
+            </p>
             <p className="truncate text-xs text-muted-foreground">{row.original.postedBy ?? row.original.createdBy}</p>
           </div>
         ),
@@ -102,7 +105,7 @@ export function ReceiptsTab() {
       )}
       <Card className="gap-0 py-0">
         <FilterBar>
-          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm số phiếu, số đề nghị" />
+          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm mã phiếu, mã đơn đặt" />
           <FilterSelect
             label="Trạng thái"
             value={status}
@@ -119,7 +122,7 @@ export function ReceiptsTab() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu nhận nào. Lập phiếu ở đề nghị đã đặt nhà cung cấp.'}
+          empty={filtered ? 'Không tìm thấy phiếu phù hợp' : 'Chưa có phiếu nhập kho nào. Mở đơn đặt hàng đã gửi NCC rồi bấm Tạo phiếu nhập.'}
           onRowClick={(r) => navigate(ROUTES.company.goodsReceipt(companyId, r.id))}
           pagination={{
             page,

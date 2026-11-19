@@ -80,13 +80,13 @@ export function SuppliersTab() {
       },
       {
         id: 'receipts',
-        header: 'Phiếu nhận',
+        header: 'Số lần nhập',
         meta: { className: 'w-28 text-right' },
         cell: ({ row }) => formatQty(row.original.receiptCount),
       },
       {
         id: 'short',
-        header: 'Giao thiếu',
+        header: 'Số lần giao thiếu',
         meta: { className: 'w-28 text-right' },
         cell: ({ row }) => (
           <span className={cn(row.original.shortReceiptCount > 0 && 'font-medium text-destructive')}>
@@ -96,7 +96,7 @@ export function SuppliersTab() {
       },
       {
         id: 'defect',
-        header: 'Tỉ lệ lỗi',
+        header: 'Tỉ lệ hàng lỗi',
         meta: { className: 'w-28 text-right' },
         cell: ({ row }) =>
           row.original.defectRate === null ? '—' : `${(row.original.defectRate * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`,
@@ -134,7 +134,7 @@ export function SuppliersTab() {
       <Card className="gap-0 py-0">
         <FilterBar>
           <SearchInput value={search} onChange={setSearch} placeholder="Tìm tên hoặc số điện thoại" />
-          <DateFilter label="Ghi sổ từ ngày" value={from} onChange={setFrom} max={to || undefined} />
+          <DateFilter label="Nhập kho từ ngày" value={from} onChange={setFrom} max={to || undefined} />
           <DateFilter label="Đến ngày" value={to} onChange={setTo} min={from || undefined} />
           {canManage && (
             <Button className="md:ms-auto" onClick={() => setEditing('new')}>
@@ -246,7 +246,7 @@ function SupplierDialog({ supplier, onClose }: { supplier: Supplier | 'new' | nu
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Switch checked={active} onCheckedChange={(v) => setValue('active', v, { shouldDirty: true })} />
-            Đang giao dịch (tắt thì không lập đề nghị mới với nhà cung cấp này)
+            Đang giao dịch (tắt thì không tạo được đơn đặt hàng mới với NCC này)
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>

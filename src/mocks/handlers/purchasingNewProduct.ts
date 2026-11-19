@@ -155,7 +155,7 @@ export function createNewProducts(req: MockPurchaseRequest, at: string) {
         companyId: req.companyId,
         categoryId: category.id,
         name: parentName,
-        description: `Tạo từ đề nghị nhập ${req.number}`,
+        description: `Tạo từ đơn đặt hàng nhập ${req.number}`,
         imageFileIds: [],
         variants: [],
         archivedAt: null,
@@ -184,7 +184,7 @@ export function checkReplacementLines(source: MockSupplierReturn, lines: MockPur
     const path = `lines.${i}`;
     const orig = l.variantId ? source.lines.find((r) => r.variantId === l.variantId) : undefined;
     if (!orig) {
-      errors[`${path}.variantId`] ??= `SKU không có trên phiếu trả ${source.number}`;
+      errors[`${path}.variantId`] ??= `SKU không có trên phiếu trả hàng NCC ${source.number}`;
       return;
     }
     if (l.quantity > orig.quantity) errors[`${path}.quantity`] ??= `Không quá số đã trả ${orig.quantity}`;

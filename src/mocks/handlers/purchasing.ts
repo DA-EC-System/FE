@@ -451,7 +451,7 @@ function postReceipt(r: MockGoodsReceipt, actor: CompanyActor, at: string) {
   r.postedBy = actor.account.id;
   r.postedAt = at;
   if (defects.length) {
-    const ret = data.createSupplierReturnDraft(r.companyId, ref, req.supplierId, defects, `Hàng lỗi giữ lại khi nhận ${r.number}`, at);
+    const ret = data.createSupplierReturnDraft(r.companyId, ref, req.supplierId, defects, `Hàng lỗi giữ lại khi nhập kho ${r.number}`, at);
     r.followUps.push(data.returnRef(ret));
   }
   rebalance(r.companyId, r.lines.map((l) => l.variantId));
@@ -560,9 +560,9 @@ registerTaskSource({
       .map((r) => ({
         id: `purchase_request.approve:${r.id}`,
         kind: 'purchase_request.approve',
-        group: 'Mua hàng',
-        title: `Duyệt đề nghị nhập ${r.number}`,
-        detail: `${supplierOf(r.supplierId)?.name ?? ''} · ${r.lines.length} dòng`,
+        group: 'Nhập hàng',
+        title: `Duyệt đơn đặt hàng nhập ${r.number}`,
+        detail: `${supplierOf(r.supplierId)?.name ?? ''} · ${r.lines.length} SKU`,
         ...dueState(r.statusHistory.at(-1)?.at ?? r.createdAt, REMIND.stockDocPending, now),
         ref: { type: 'purchase_request', id: r.id },
       })),
@@ -577,8 +577,8 @@ registerTaskSource({
       .map((r) => ({
         id: `goods_receipt.counting:${r.id}`,
         kind: 'goods_receipt.counting',
-        group: 'Mua hàng',
-        title: `Kiểm xong phiếu nhận ${r.number}`,
+        group: 'Nhập hàng',
+        title: `Kiểm xong phiếu nhập kho ${r.number}`,
         detail: r.deliveryMode === 'left' ? 'Người giao đã đi, kiểm trong 24 giờ.' : 'Người giao đang chờ.',
         ...dueState(r.createdAt, REMIND.goodsReceiptCounting, now),
         ref: { type: 'goods_receipt', id: r.id },
@@ -594,7 +594,7 @@ registerTaskSource({
       .map((r) => ({
         id: `goods_receipt.short:${r.id}`,
         kind: 'goods_receipt.short',
-        group: 'Mua hàng',
+        group: 'Nhập hàng',
         title: `Ghi kết quả giao thiếu ${r.number}`,
         detail: `${supplierOf(requestOf(r).supplierId)?.name ?? ''} giao thiếu ${receiptRecord(r).short}`,
         ...dueState(r.postedAt ?? r.createdAt, REMIND.shortDelivery, now),
@@ -611,8 +611,8 @@ registerTaskSource({
       .map((t) => ({
         id: `supplier_return.sent:${t.id}`,
         kind: 'supplier_return.sent',
-        group: 'Mua hàng',
-        title: `Ghi kết quả trả nhà cung cấp ${t.number}`,
+        group: 'Nhập hàng',
+        title: `Ghi kết quả trả hàng NCC ${t.number}`,
         detail: `${supplierOf(t.supplierId)?.name ?? ''} chưa phản hồi`,
         ...dueState(t.sentAt ?? t.createdAt, REMIND.supplierReturnSent, now),
         ref: { type: 'supplier_return', id: t.id },
@@ -716,7 +716,7 @@ export const purchasingHandlers = [
     await delay(LATENCY);
     const guard = requireViewer(request);
     if (!guard.ok) return guard.response;
-    const found = findOwned(data.requests, params.id, guard.value.companyId, 'đề nghị nhập');
+    const found = findOwned(data.requests, params.id, guard.value.companyId, 'đơn đặt hàng nhập');
     if (!found.ok) return found.response;
     return HttpResponse.json<PurchaseRequest>(toRequest(found.value, guard.value.permissions));
   }),
@@ -733,7 +733,7 @@ export const purchasingHandlers = [
       ? data.returns.find((t) => t.id === body.sourceReturnId && t.companyId === companyId)
       : null;
     if (body.sourceReturnId && (!source || source.status !== 'replaced' || source.replacementRequest)) {
-      errors.sourceReturnId = 'Phiếu trả nhà cung cấp không ở trạng thái bù hàng, hoặc đã có đề nghị bù';
+      errors.sourceReturnId = 'Phiếu trả hàng NCC không ở trạng thái đổi hàng, hoặc đã có đơn đặt hàng đổi';
     }
     if (source) checkReplacementLines(source, lines, errors);
     if (hasErrors(errors)) return invalid(errors);
@@ -777,7 +777,7 @@ export const purchasingHandlers = [
     let req: MockPurchaseRequest | null = null;
     if (body.requestId) {
       req = data.requests.find((r) => r.id === body.requestId && r.companyId === companyId) ?? null;
-      if (!req || req.status !== 'draft') errors.requestId = 'Đề nghị không còn là nháp';
+      if (!req || req.status !== 'draft') errors.requestId = 'Đơn đặt hàng không còn là nháp';
     } else {
       checkSupplier(companyId, body.supplierId, errors);
     }
@@ -792,7 +792,7 @@ export const purchasingHandlers = [
         number: data.nextNumber(companyId, 'request'),
         status: 'draft',
         supplierId: body.supplierId!,
-        note: 'Lập từ gợi ý nhập lại',
+        note: 'Tạo từ gợi ý nhập lại',
         lines: [],
         createdBy: guard.value.account.id,
         createdAt: at,
@@ -827,17 +827,17 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, P.purchaseRequestManage);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.requests, params.id, companyId, 'đề nghị nhập');
+    const found = findOwned(data.requests, params.id, companyId, 'đơn đặt hàng nhập');
     if (!found.ok) return found.response;
     const req = found.value;
     const body = (await request.json()) as PurchaseRequestInput;
     if (body.version !== req.version) {
-      return versionConflict(toRequest(req, permissions), 'Đề nghị vừa được người khác sửa hoặc xử lý.');
+      return versionConflict(toRequest(req, permissions), 'Đơn đặt hàng vừa được người khác sửa hoặc xử lý.');
     }
     if (req.status !== 'draft' && req.status !== 'changes_requested') {
-      return problem(409, 'Đề nghị không còn sửa được', {
+      return problem(409, 'Đơn đặt hàng không còn sửa được', {
         code: 'not_draft',
-        detail: 'Chỉ sửa được đề nghị nháp hoặc bị trả về.',
+        detail: 'Chỉ sửa được đơn nháp hoặc cần chỉnh sửa.',
       });
     }
     const { errors, lines } = buildRequestLines(companyId, body, req.lines);
@@ -860,15 +860,15 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, P.purchaseRequestApprove);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.requests, params.id, companyId, 'đề nghị nhập');
+    const found = findOwned(data.requests, params.id, companyId, 'đơn đặt hàng nhập');
     if (!found.ok) return found.response;
     const req = found.value;
     const body = (await request.json()) as { excluded: boolean; reason?: string | null; version: number };
     if (body.version !== req.version) {
-      return versionConflict(toRequest(req, permissions), 'Đề nghị vừa được người khác sửa hoặc xử lý.');
+      return versionConflict(toRequest(req, permissions), 'Đơn đặt hàng vừa được người khác sửa hoặc xử lý.');
     }
     if (req.status !== 'pending_approval') {
-      return problem(409, 'Chỉ loại dòng khi đề nghị đang chờ duyệt', { code: 'invalid_transition', current: req.status });
+      return problem(409, 'Chỉ loại dòng khi đơn đang chờ duyệt', { code: 'invalid_transition', current: req.status });
     }
     const target = req.lines.find((l) => l.id === params.lineId);
     if (!target) return problem(404, 'Không tìm thấy dòng', { code: 'not_found' });
@@ -892,14 +892,14 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, null);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.requests, params.id, companyId, 'đề nghị nhập');
+    const found = findOwned(data.requests, params.id, companyId, 'đơn đặt hàng nhập');
     if (!found.ok) return found.response;
     const req = found.value;
     const action = params.action as PurchaseRequestAction;
     if (!REQUEST_ACTIONS.includes(action)) return problem(404, 'Không có thao tác này');
     const body = (await request.json()) as { version: number; reason?: string | null; expectedDeliveryDate?: string; supplierOrderCode?: string | null };
     if (body.version !== req.version) {
-      return versionConflict(toRequest(req, permissions), 'Đề nghị vừa được người khác sửa hoặc xử lý.');
+      return versionConflict(toRequest(req, permissions), 'Đơn đặt hàng vừa được người khác sửa hoặc xử lý.');
     }
     const reason = body.reason?.trim() || null;
     const next = checkTransition(purchaseRequestMachine, req.status, action, guard.value, requestRecord(req), reason);
@@ -955,7 +955,7 @@ export const purchasingHandlers = [
     await delay(LATENCY);
     const guard = requireViewer(request);
     if (!guard.ok) return guard.response;
-    const found = findOwned(data.receipts, params.id, guard.value.companyId, 'phiếu nhận');
+    const found = findOwned(data.receipts, params.id, guard.value.companyId, 'phiếu nhập kho');
     if (!found.ok) return found.response;
     return HttpResponse.json<GoodsReceipt>(toReceipt(found.value));
   }),
@@ -968,12 +968,12 @@ export const purchasingHandlers = [
     const { companyId } = guard.value;
     const body = (await request.json()) as GoodsReceiptCreateInput;
     const req = data.requests.find((r) => r.id === body.requestId && r.companyId === companyId);
-    if (!req) return invalid({ requestId: 'Chọn đề nghị nhập' });
+    if (!req) return invalid({ requestId: 'Chọn đơn đặt hàng nhập' });
     if (req.status !== 'ordered' && req.status !== 'partially_received') {
-      return problem(409, 'Đề nghị chưa đặt nhà cung cấp hoặc đã đóng', { code: 'invalid_transition', current: req.status });
+      return problem(409, 'Đơn đặt hàng chưa gửi NCC hoặc đã đóng', { code: 'invalid_transition', current: req.status });
     }
     const lines = req.lines.filter((l) => l.variantId && data.outstandingOf(l) > 0);
-    if (!lines.length) return problem(409, 'Đề nghị không còn hàng chờ', { code: 'empty_document' });
+    if (!lines.length) return problem(409, 'Đơn đặt hàng không còn hàng chưa về', { code: 'empty_document' });
     if (body.deliveryMode !== 'waiting' && body.deliveryMode !== 'left') {
       return invalid({ deliveryMode: 'Chọn cách giao' });
     }
@@ -981,7 +981,7 @@ export const purchasingHandlers = [
     const followsUp = body.followsUpReceiptId
       ? data.receipts.find((x) => x.id === body.followsUpReceiptId && x.requestId === req.id && x.status === 'short')
       : null;
-    if (body.followsUpReceiptId && !followsUp) return invalid({ followsUpReceiptId: 'Chọn phiếu giao thiếu của đề nghị này' });
+    if (body.followsUpReceiptId && !followsUp) return invalid({ followsUpReceiptId: 'Chọn phiếu giao thiếu của đơn đặt hàng này' });
     const at = db.now();
     const r: MockGoodsReceipt = {
       id: rid('gr'),
@@ -1022,11 +1022,11 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, P.goodsReceiptManage);
     if (!guard.ok) return guard.response;
     const { companyId } = guard.value;
-    const found = findOwned(data.receipts, params.id, companyId, 'phiếu nhận');
+    const found = findOwned(data.receipts, params.id, companyId, 'phiếu nhập kho');
     if (!found.ok) return found.response;
     const r = found.value;
     const body = (await request.json()) as GoodsReceiptUpdateInput;
-    if (body.version !== r.version) return versionConflict(toReceipt(r), 'Phiếu vừa được người khác sửa hoặc ghi sổ.');
+    if (body.version !== r.version) return versionConflict(toReceipt(r), 'Phiếu vừa được người khác sửa hoặc nhập kho.');
     if (r.status !== 'counting') {
       return problem(409, 'Phiếu không còn sửa được', { code: 'not_draft', detail: 'Chỉ sửa được phiếu đang kiểm.' });
     }
@@ -1084,7 +1084,7 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, P.purchaseRequestManage);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.receipts, params.id, companyId, 'phiếu nhận');
+    const found = findOwned(data.receipts, params.id, companyId, 'phiếu nhập kho');
     if (!found.ok) return found.response;
     const r = found.value;
     const body = (await request.json()) as ShortResolutionInput;
@@ -1099,7 +1099,7 @@ export const purchasingHandlers = [
     let followUp: MockGoodsReceipt | null = null;
     if (body.kind === 'close_short') {
       if (!permissions.includes(P.purchaseRequestApprove)) {
-        return problem(403, 'Chỉ CEO đóng thiếu đề nghị', { code: 'forbidden' });
+        return problem(403, 'Chỉ CEO đóng thiếu đơn đặt hàng', { code: 'forbidden' });
       }
       if (!note) return invalid({ note: 'Nhập lý do đóng thiếu' }, { code: 'reason_required' });
       const next = checkTransition(purchaseRequestMachine, req.status, 'close_short', guard.value, requestRecord(req), note);
@@ -1110,7 +1110,7 @@ export const purchasingHandlers = [
         data.receipts.find(
           (x) => x.number === number && x.requestId === r.requestId && x.id !== r.id && x.status !== 'cancelled',
         ) ?? null;
-      if (!followUp) return invalid({ followUpNumber: 'Không có phiếu nhận này trong cùng đề nghị' }, { code: 'follow_up_invalid' });
+      if (!followUp) return invalid({ followUpNumber: 'Không có phiếu nhập kho này trong cùng đơn đặt hàng' }, { code: 'follow_up_invalid' });
     } else if (body.kind === 'supplier_wrong') {
       if (!note) return invalid({ note: 'Ghi nhà cung cấp nhận sai thế nào' });
     } else {
@@ -1140,20 +1140,20 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, null);
     if (!guard.ok) return guard.response;
     const { companyId } = guard.value;
-    const found = findOwned(data.receipts, params.id, companyId, 'phiếu nhận');
+    const found = findOwned(data.receipts, params.id, companyId, 'phiếu nhập kho');
     if (!found.ok) return found.response;
     const r = found.value;
     const action = params.action as GoodsReceiptAction;
     if (!RECEIPT_ACTIONS.includes(action)) return problem(404, 'Không có thao tác này');
     const body = (await request.json()) as { version: number; reason?: string | null };
-    if (body.version !== r.version) return versionConflict(toReceipt(r), 'Phiếu vừa được người khác sửa hoặc ghi sổ.');
+    if (body.version !== r.version) return versionConflict(toReceipt(r), 'Phiếu vừa được người khác sửa hoặc nhập kho.');
     const reason = body.reason?.trim() || null;
     const next = checkTransition(goodsReceiptMachine, r.status, action, guard.value, receiptRecord(r), reason);
     if (!next.ok) return next.response;
     const at = db.now();
     const before = receiptSnapshot(r);
     if (action === 'post' || action === 'post_short') {
-      if (!r.lines.some((l) => l.announced > 0)) return problem(409, 'Phiếu chưa có số báo giao', { code: 'empty_document' });
+      if (!r.lines.some((l) => l.announced > 0)) return problem(409, 'Phiếu chưa có SL NCC giao', { code: 'empty_document' });
       const over = checkOutstanding(r);
       if (hasErrors(over)) return invalid(over, { code: 'over_outstanding' });
       postReceipt(r, guard.value, at);
@@ -1195,7 +1195,7 @@ export const purchasingHandlers = [
     await delay(LATENCY);
     const guard = requireViewer(request);
     if (!guard.ok) return guard.response;
-    const found = findOwned(data.returns, params.id, guard.value.companyId, 'phiếu trả nhà cung cấp');
+    const found = findOwned(data.returns, params.id, guard.value.companyId, 'phiếu trả hàng NCC');
     if (!found.ok) return found.response;
     return HttpResponse.json<SupplierReturn>(toReturn(found.value, guard.value.permissions));
   }),
@@ -1241,7 +1241,7 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, P.supplierReturnManage);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả nhà cung cấp');
+    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả hàng NCC');
     if (!found.ok) return found.response;
     const t = found.value;
     const body = (await request.json()) as SupplierReturnInput;
@@ -1268,7 +1268,7 @@ export const purchasingHandlers = [
     const guard = requireCompany(request, null);
     if (!guard.ok) return guard.response;
     const { companyId, permissions } = guard.value;
-    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả nhà cung cấp');
+    const found = findOwned(data.returns, params.id, companyId, 'phiếu trả hàng NCC');
     if (!found.ok) return found.response;
     const t = found.value;
     const action = params.action as SupplierReturnAction;
@@ -1331,7 +1331,7 @@ export const purchasingHandlers = [
       rebalance(companyId, t.lines.map((l) => l.variantId));
     }
     if (action === 'cancel' && t.cancelDecision === 'write_off') {
-      const writeOff = createQuarantineWriteOff(companyId, ref, t.lines, `Huỷ phiếu trả nhà cung cấp ${t.number}`, at, by);
+      const writeOff = createQuarantineWriteOff(companyId, ref, t.lines, `Huỷ phiếu trả hàng NCC ${t.number}`, at, by);
       t.followUps.push({ type: 'stock_document', id: writeOff.id, number: writeOff.number });
     }
 
