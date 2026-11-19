@@ -2,7 +2,7 @@ import type { PageGuide } from './types';
 
 /**
  * Nội dung hướng dẫn theo trang, mỗi trang một khoá. Trang gọi `usePageGuide('<khoá>')`, phần tử được trỏ
- * đánh dấu `data-guide="<target>"`. Nội dung từng phân hệ viết ở issue riêng (FE#134–#141).
+ * đánh dấu `data-guide="<target>"`. Nội dung từng tính năng viết ở issue riêng (FE#134–#141).
  */
 export const GUIDES = {
   'company-home': {
@@ -12,14 +12,14 @@ export const GUIDES = {
     intro: [
       'Trang Tổng quan cho biết hôm nay cần làm gì và kinh doanh đang ra sao.',
       'Mới bắt đầu thì đi theo thứ tự: kết nối gian hàng, thêm sản phẩm, rồi nhập hàng.',
-      'Việc cần làm gom từ mọi phân hệ bạn có quyền, bấm "Mở" để tới đúng chứng từ.',
+      'Việc cần làm gom từ mọi tính năng bạn có quyền, bấm "Mở" để tới đúng chứng từ.',
     ],
     primaryAction: { label: 'Xem việc cần làm', target: 'home-tasks' },
     steps: [
       {
         target: 'home-kpis',
         title: 'Chỉ số chính',
-        body: 'Doanh thu, lãi 7 ngày và số việc trễ hạn. Di chuột vào dấu "?" cạnh tên để xem cách tính.',
+        body: 'Doanh thu, lợi nhuận 7 ngày và số việc quá hạn. Di chuột vào dấu "?" cạnh tên để xem cách tính.',
       },
       {
         target: 'home-tasks',
@@ -61,12 +61,12 @@ export const GUIDES = {
       },
       {
         target: 'staff-pending',
-        title: 'Duyệt yêu cầu',
+        title: 'Yêu cầu tham gia',
         body: 'Nhân viên mở link, xác minh email và đặt mật khẩu thì yêu cầu hiện ở tab này. Duyệt xong họ mới vào được công ty.',
       },
       {
         target: 'staff-links',
-        title: 'Link đã tạo',
+        title: 'Link mời chưa dùng',
         body: 'Link chưa có ai nộp yêu cầu nằm ở tab này. Lỡ gửi nhầm người thì huỷ link; người cầm link sẽ không dùng được nữa.',
       },
       {
@@ -88,44 +88,44 @@ export const GUIDES = {
     version: 1,
     title: 'Vai trò',
     intro: [
-      'Mỗi vai trò là một tập quyền. Vai trò có sẵn không sửa được.',
-      'Tạo vai trò tuỳ biến khi cần tập quyền riêng, ví dụ Trưởng ca đóng gói.',
+      'Mỗi vai trò là một nhóm quyền. Vai trò mặc định không sửa được.',
+      'Tạo vai trò tự tạo khi cần nhóm quyền riêng, ví dụ Trưởng ca đóng gói.',
     ],
     primaryAction: { label: 'Tạo vai trò', target: 'roles-create' },
     steps: [
       {
         target: 'roles-create',
-        title: 'Tạo vai trò tuỳ biến',
-        body: 'Đặt tên rồi tích quyền theo từng phân hệ. Quyền bạn không có bị khoá; rê chuột hoặc Tab tới để xem lý do.',
+        title: 'Tạo vai trò tự tạo',
+        body: 'Đặt tên rồi tích quyền theo từng tính năng. Quyền bạn không có bị khoá; rê chuột hoặc Tab tới để xem lý do.',
         permission: 'identity.role.manage',
       },
       {
         target: 'roles-actions',
-        title: 'Xem, sửa tập quyền',
-        body: 'Vai trò có sẵn chỉ xem được. Vai trò tuỳ biến sửa được; xoá được khi không còn tài khoản nào mang.',
+        title: 'Xem, sửa quyền',
+        body: 'Vai trò mặc định chỉ xem được. Vai trò tự tạo sửa được; xoá được khi không còn nhân viên nào được gán.',
       },
     ],
   },
   modules: {
     key: 'modules',
     version: 1,
-    title: 'Phân hệ',
+    title: 'Tính năng',
     intro: [
-      'Bật, tắt năm phân hệ tuỳ chọn: Mua hàng, Kênh bán, Hộp thư chung, Trợ lý AI, Báo cáo.',
+      'Bật, tắt năm tính năng tuỳ chọn: Nhập hàng, Kênh bán, Chat khách hàng, Trợ lý AI, Báo cáo.',
       'Thay đổi có hiệu lực ngay với mọi nhân viên của công ty.',
-      'Phân hệ đã có dữ liệu thì không tắt được.',
+      'Tính năng đã có dữ liệu thì không tắt được.',
     ],
-    primaryAction: { label: 'Xem phân hệ tuỳ chọn', target: 'modules-optional' },
+    primaryAction: { label: 'Xem tính năng tuỳ chọn', target: 'modules-optional' },
     steps: [
       {
         target: 'modules-optional',
-        title: 'Bật, tắt phân hệ',
-        body: 'Gạt công tắc ở mỗi dòng. Tắt thì nhân viên không còn thấy màn hình của phân hệ đó. Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',
+        title: 'Bật, tắt tính năng',
+        body: 'Gạt công tắc ở mỗi dòng. Tắt thì nhân viên không còn thấy màn hình của tính năng đó. Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',
         permission: 'platform.module.manage',
       },
       {
         target: 'modules-core',
-        title: 'Phân hệ cốt lõi',
+        title: 'Tính năng cơ bản',
         body: 'Sản phẩm, kho, đơn hàng, tài chính... luôn bật, không tắt được.',
       },
     ],
@@ -155,28 +155,28 @@ export const GUIDES = {
   'catalog-setup': {
     key: 'catalog-setup',
     version: 1,
-    title: 'Danh mục và thuộc tính',
+    title: 'Category và thuộc tính',
     intro: [
       'Làm trang này trước khi thêm sản phẩm.',
-      'Danh mục quyết định quy tắc sinh mã SKU cho sản phẩm trong đó.',
-      'Thuộc tính như màu, cỡ dùng để tạo các biến thể.',
+      'Category quyết định quy tắc sinh mã SKU cho sản phẩm trong đó.',
+      'Thuộc tính phân loại như màu, cỡ dùng để tạo các variant.',
     ],
-    primaryAction: { label: 'Thêm danh mục', target: 'catalog-add' },
+    primaryAction: { label: 'Thêm category', target: 'catalog-add' },
     steps: [
       {
         target: 'catalog-categories',
-        title: 'Tạo danh mục trước',
-        body: 'Mỗi danh mục có tiền tố và quy tắc SKU. Sản phẩm thuộc danh mục nào thì mã SKU sinh theo danh mục đó.',
+        title: 'Tạo category trước',
+        body: 'Mỗi category có một quy tắc SKU (vd AO-{SEQ:4}-{VAL}). Sản phẩm thuộc category nào thì mã SKU sinh theo category đó.',
       },
       {
         target: 'catalog-attributes',
         title: 'Rồi tới thuộc tính',
-        body: 'Khai báo thuộc tính và giá trị, ví dụ Màu: Trắng, Đen. Khi thêm sản phẩm, bạn chọn thuộc tính để tạo biến thể.',
+        body: 'Khai báo thuộc tính phân loại và giá trị, ví dụ Màu: Trắng, Đen. Khi thêm sản phẩm, bạn chọn thuộc tính để tạo variant.',
       },
       {
         target: 'catalog-add',
         title: 'Thêm mới',
-        body: 'Nút này thêm danh mục hoặc thuộc tính, theo tab đang mở.',
+        body: 'Nút này thêm category hoặc thuộc tính, theo tab đang mở.',
         permission: 'catalog.category.manage',
       },
     ],
@@ -186,8 +186,8 @@ export const GUIDES = {
     version: 1,
     title: 'Sản phẩm',
     intro: [
-      'Mỗi sản phẩm có các biến thể, mỗi biến thể là một SKU.',
-      'Tồn và giá chuẩn nằm ở biến thể, không ở sản phẩm.',
+      'Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU.',
+      'Tồn và giá bán lẻ nằm ở variant, không ở sản phẩm.',
       'Bấm vào một dòng để xem hoặc sửa sản phẩm.',
     ],
     primaryAction: { label: 'Thêm sản phẩm', target: 'products-add' },
@@ -195,18 +195,18 @@ export const GUIDES = {
       {
         target: 'products-add',
         title: 'Thêm sản phẩm',
-        body: 'Chọn danh mục, nhập tên rồi chọn thuộc tính để sinh các biến thể. Mã SKU tự sinh theo danh mục.',
+        body: 'Chọn category, nhập tên rồi chọn thuộc tính phân loại để tạo các variant. Mã SKU tự sinh theo category.',
         permission: 'catalog.product.manage',
       },
       {
         target: 'products-business',
         title: 'Lọc theo trạng thái kinh doanh',
-        body: 'Tìm sản phẩm có SKU đang bán, tạm ngừng hoặc ngừng bán.',
+        body: 'Tìm sản phẩm có SKU đang kinh doanh, tạm ngừng bán hoặc ngừng nhập.',
       },
       {
         target: 'products-table',
         title: 'Mở chi tiết',
-        body: 'Bấm vào dòng để mở sản phẩm: ảnh, mô tả và bảng biến thể.',
+        body: 'Bấm vào dòng để mở sản phẩm: ảnh, mô tả và bảng SKU.',
       },
     ],
   },
@@ -215,26 +215,26 @@ export const GUIDES = {
     version: 1,
     title: 'Kho hàng',
     intro: [
-      'Tồn của từng biến thể, cập nhật theo phiếu kho và kiện hàng.',
-      'Khả dụng là số bán được, cũng là số đẩy lên các sàn.',
+      'Tồn của từng SKU, cập nhật theo phiếu kho và kiện hàng.',
+      'Có thể bán là số đồng bộ lên các sàn.',
       'Muốn đổi số tồn thì lập phiếu kho, không sửa tay.',
     ],
-    primaryAction: { label: 'Xem cột khả dụng', target: 'inventory-available' },
+    primaryAction: { label: 'Xem cột Có thể bán', target: 'inventory-available' },
     steps: [
       {
         target: 'inventory-tabs',
         title: 'Tồn kho và phiếu kho',
-        body: 'Tab Tồn kho xem số hiện có. Tab Phiếu kho xem và lập phiếu kiểm kê, xuất huỷ, chuyển hàng chờ xử lý.',
+        body: 'Tab Tồn kho xem số hiện có. Tab Phiếu kho xem và tạo phiếu kiểm kho, xuất huỷ, chuyển hàng lỗi/chờ kiểm.',
       },
       {
         target: 'inventory-views',
         title: 'Nhóm tồn',
-        body: 'Lọc nhanh biến thể nên nhập lại hoặc đang có hàng chờ xử lý. Số cạnh tên là số biến thể trong nhóm.',
+        body: 'Lọc nhanh SKU cần nhập thêm hoặc có hàng lỗi/chờ kiểm. Số cạnh tên là số SKU trong nhóm.',
       },
       {
         target: 'inventory-available',
-        title: 'Cột khả dụng',
-        body: 'Khả dụng bằng tồn thực trừ đang giữ và tạm khoá. Rê chuột vào dấu ? ở đầu mỗi cột để xem số đó tính thế nào.',
+        title: 'Cột Có thể bán',
+        body: 'Có thể bán = tồn kho − tạm giữ − khoá chờ duyệt. Rê chuột vào dấu ? ở đầu mỗi cột để xem số đó tính thế nào.',
       },
       {
         target: 'inventory-sku',
@@ -243,8 +243,8 @@ export const GUIDES = {
       },
       {
         target: 'inventory-stocktake',
-        title: 'Tạo phiếu kiểm kê',
-        body: 'Đếm thực tế lệch với sổ thì lập phiếu kiểm kê. Phiếu cần người khác duyệt rồi mới ghi sổ.',
+        title: 'Tạo phiếu kiểm kho',
+        body: 'Đếm thực tế lệch với sổ thì tạo phiếu kiểm kho. Phiếu cần người khác duyệt rồi mới hoàn thành.',
         permission: 'inventory.receipt.create',
       },
     ],
@@ -254,37 +254,37 @@ export const GUIDES = {
     version: 1,
     title: 'Nhập hàng',
     intro: [
-      'Đề nghị nhập gửi nhà cung cấp, phiếu nhận khi hàng tới, phiếu trả hàng lỗi.',
-      'Mỗi đề nghị một nhà cung cấp, cần người khác người soạn duyệt rồi mới đặt.',
-      'Hàng nhận vào tồn kho khi phiếu nhận được ghi sổ.',
+      'Đơn đặt hàng gửi NCC, phiếu nhập kho khi hàng về, phiếu trả hàng lỗi cho NCC.',
+      'Mỗi đơn một NCC; người duyệt phải khác người lập.',
+      'Hàng chỉ cộng vào tồn khi bấm Nhập kho.',
     ],
-    primaryAction: { label: 'Tạo đề nghị nhập', target: 'purchasing-new' },
+    primaryAction: { label: 'Tạo đơn đặt hàng nhập', target: 'purchasing-new' },
     steps: [
       {
         target: 'purchasing-tabs',
-        title: 'Ba loại chứng từ',
-        body: 'Tab Đề nghị nhập, Phiếu nhận và Trả nhà cung cấp. Mỗi tab lọc được theo trạng thái và nhà cung cấp.',
+        title: 'Bốn tab',
+        body: 'Đặt hàng nhập, Phiếu nhập kho, Trả hàng NCC và Nhà cung cấp. Mỗi tab lọc được theo trạng thái; tab Đặt hàng nhập lọc thêm theo NCC.',
       },
       {
         target: 'purchasing-new',
-        title: 'Tạo đề nghị nhập',
-        body: 'Chọn nhà cung cấp, thêm biến thể cần nhập rồi lưu nháp. Gửi duyệt khi đã đủ dòng.',
+        title: 'Tạo đơn đặt hàng nhập',
+        body: 'Chọn NCC, thêm SKU cần nhập rồi lưu nháp. Gửi duyệt khi đã đủ dòng.',
         permission: 'purchasing.request.manage',
       },
       {
         target: 'purchasing-suppliers',
         title: 'Nhà cung cấp',
-        body: 'Danh sách nhà cung cấp. Thêm nhà cung cấp ở đây trước khi lập đề nghị.',
+        body: 'Danh sách NCC. Thêm NCC ở đây trước khi tạo đơn đặt hàng nhập.',
       },
     ],
   },
   'purchase-request': {
     key: 'purchase-request',
     version: 1,
-    title: 'Đề nghị nhập',
+    title: 'Đơn đặt hàng nhập',
     intro: [
-      'Thêm dòng, gửi duyệt, người khác duyệt rồi mới đặt nhà cung cấp.',
-      'Đã đặt thì Kho lập phiếu nhận từ đề nghị khi hàng tới.',
+      'Thêm dòng, gửi duyệt, người khác duyệt rồi mới đặt hàng với NCC.',
+      'Đã đặt thì Kho tạo phiếu nhập kho từ đơn khi hàng về.',
       'Nút mờ là thao tác chưa làm được, rê chuột để xem lý do.',
     ],
     primaryAction: { label: 'Xem các dòng', target: 'pr-lines' },
@@ -292,17 +292,17 @@ export const GUIDES = {
       {
         target: 'pr-steps',
         title: 'Đang ở bước nào',
-        body: 'Thanh bước cho biết đề nghị đang nháp, chờ duyệt, đã duyệt hay đã đặt.',
+        body: 'Thanh bước cho biết đơn đang nháp, chờ duyệt, đã duyệt hay đã đặt.',
       },
       {
         target: 'pr-lines',
         title: 'Thêm dòng',
-        body: 'Chọn biến thể và số lượng cần nhập. Chưa có sản phẩm thì bấm Sản phẩm mới.',
+        body: 'Chọn SKU và số lượng cần nhập. Chưa có sản phẩm thì bấm Sản phẩm mới.',
       },
       {
         target: 'pr-actions',
         title: 'Gửi rồi duyệt',
-        body: 'Gửi duyệt khi đủ dòng. Người duyệt phải khác người soạn; đã duyệt thì đặt nhà cung cấp rồi lập phiếu nhận.',
+        body: 'Gửi duyệt khi đủ dòng. Người duyệt phải khác người lập; duyệt xong thì đặt hàng với NCC rồi tạo phiếu nhập kho.',
       },
       {
         target: 'detail-history',
@@ -314,59 +314,59 @@ export const GUIDES = {
   'goods-receipt': {
     key: 'goods-receipt',
     version: 1,
-    title: 'Phiếu nhận hàng',
+    title: 'Phiếu nhập kho',
     intro: [
-      'Nhập số thực nhận cho từng dòng, ghi chênh lệch rồi ghi sổ một lần.',
-      'Dòng có số chênh có vạch vàng ở mép trái và nhãn Chênh.',
+      'Nhập số thực nhận cho từng dòng, ghi lý do lệch rồi nhập kho một lần.',
+      'Dòng có số lệch có vạch vàng ở mép trái và nhãn Lệch.',
     ],
     primaryAction: { label: 'Xem các dòng', target: 'gr-lines' },
     steps: [
       {
         target: 'gr-lines',
         title: 'Số thực nhận',
-        body: 'Ghi số nhà cung cấp báo giao, số đạt, lỗi giữ và trả tại chỗ. Thiếu được tính tự động.',
+        body: 'Ghi số NCC báo giao, số đạt, lỗi, giữ lại và trả tại chỗ. Thiếu được tính tự động.',
       },
       {
         target: 'gr-reason',
-        title: 'Ghi chênh lệch',
-        body: 'Có lỗi, trả tại chỗ hoặc thiếu thì ghi lý do cho dòng đó. Rê chuột vào nhãn Chênh để xem chênh gì.',
+        title: 'Ghi lý do lệch',
+        body: 'Có lỗi, trả tại chỗ hoặc thiếu thì ghi lý do cho dòng đó. Rê chuột vào nhãn Lệch để xem lệch gì.',
       },
       {
         target: 'gr-actions',
-        title: 'Hoàn tất',
-        body: 'Ghi sổ để cộng hàng đạt vào tồn. Có thiếu thì phiếu chuyển sang chờ Mua hàng ghi kết quả.',
+        title: 'Nhập kho',
+        body: 'Bấm Nhập kho để cộng hàng đạt vào tồn. Có thiếu thì phiếu chuyển sang Thiếu hàng, chờ xử lý.',
       },
     ],
   },
   'supplier-return': {
     key: 'supplier-return',
     version: 1,
-    title: 'Trả hàng nhà cung cấp',
+    title: 'Trả hàng NCC',
     intro: [
-      'Chọn dòng hàng lỗi cần trả, ghi lý do rồi gửi duyệt.',
-      'Nhà cung cấp bù hàng thì lập đề nghị bù hàng ngay từ phiếu.',
+      'Chọn hàng lỗi cần trả, ghi lý do rồi gửi duyệt.',
+      'NCC đổi hàng thì tạo đơn đặt hàng đổi ngay từ phiếu.',
     ],
     primaryAction: { label: 'Xem các dòng', target: 'sr-lines' },
     steps: [
       {
         target: 'sr-lines',
-        title: 'Chọn dòng trả',
-        body: 'Các dòng lấy từ hàng đang chờ xử lý của nhà cung cấp. Ghi số lượng trả cho từng dòng.',
+        title: 'Chọn hàng trả',
+        body: 'Chọn SKU trong khu hàng lỗi/chờ kiểm của NCC rồi nhập SL trả cho từng dòng.',
       },
       {
         target: 'sr-note',
         title: 'Lý do',
-        body: 'Ghi lý do trả để nhà cung cấp và người duyệt biết hàng lỗi thế nào.',
+        body: 'Ghi lý do trả để NCC và người duyệt biết hàng lỗi thế nào.',
       },
       {
         target: 'sr-actions',
         title: 'Gửi và ghi kết quả',
-        body: 'CEO duyệt và gửi. Người khác người gửi ghi kết quả: hoàn tiền, bù hàng hoặc không nhận.',
+        body: 'CEO duyệt và gửi. Người khác người gửi ghi kết quả: hoàn tiền, đổi hàng hoặc không nhận.',
       },
       {
         target: 'sr-replace',
-        title: 'Đề nghị bù hàng',
-        body: 'Nhà cung cấp bù hàng thì bấm đây để lập đề nghị nhập mới cho phần được bù.',
+        title: 'Đơn đặt hàng đổi',
+        body: 'NCC đổi hàng thì bấm đây để tạo đơn đặt hàng nhập cho phần hàng đổi.',
         permission: 'purchasing.request.manage',
       },
     ],
@@ -377,24 +377,24 @@ export const GUIDES = {
     title: 'Kiện hàng',
     intro: [
       'Mỗi đơn chia thành một hoặc nhiều kiện; kho làm việc theo từng kiện.',
-      'Tab theo bước: cần đóng gói, đã đóng gói, chờ lấy hàng, đang giao. Hạn bàn giao chữ đỏ là kiện gấp.',
+      'Tab theo bước: chờ đóng gói, đã đóng gói, chờ lấy hàng, đang vận chuyển. Hạn bàn giao chữ đỏ là kiện gấp.',
     ],
     primaryAction: { label: 'Xem các bước', target: 'package-tabs' },
     steps: [
       {
         target: 'package-tabs',
         title: 'Lọc theo trạng thái',
-        body: 'Số trên tab là số kiện ở bước đó. Cần xử lý gom các kiện có cờ phải mở lại.',
+        body: 'Số trên tab là số kiện ở bước đó. Cần mở lại kiện gom các kiện đã đóng nhưng phải mở hộp (đơn huỷ, sửa, chia lại).',
       },
       {
         target: 'package-actions',
         title: 'In phiếu lấy hàng',
-        body: 'Chọn kiện rồi bấm Danh sách nhặt để gộp hàng cần lấy theo SKU và in. Ở Đã đóng gói, Chờ lấy hàng thì in vận đơn, bàn giao hàng loạt.',
+        body: 'Chọn kiện rồi bấm Danh sách lấy hàng để gộp hàng cần lấy theo SKU và in. Ở Đã đóng gói, Chờ lấy hàng thì in phiếu giao hàng, bàn giao hàng loạt.',
       },
       {
         target: 'package-list',
         title: 'Vào đóng gói',
-        body: 'Bấm một kiện để mở chi tiết; kiện đã giữ hàng có nút Đóng gói dẫn sang màn quét.',
+        body: 'Bấm một kiện để mở chi tiết; kiện Chờ đóng gói có nút Đóng gói dẫn sang màn quét.',
       },
     ],
   },
@@ -420,36 +420,36 @@ export const GUIDES = {
       },
       {
         target: 'pack-submit',
-        title: 'Hoàn tất kiện',
-        body: 'Đủ mọi dòng thì nút Đóng gói sáng. Kiện sàn chọn đơn vị vận chuyển trước khi đóng.',
+        title: 'Hoàn tất đóng gói',
+        body: 'Đủ mọi dòng thì nút Đóng gói sáng. Kiện hàng của đơn sàn phải chọn đơn vị vận chuyển trước khi đóng gói.',
       },
     ],
   },
   returns: {
     key: 'returns',
     version: 1,
-    title: 'Yêu cầu trả hàng',
+    title: 'Trả hàng/Hoàn tiền',
     intro: [
-      'Yêu cầu trả từ sàn và yêu cầu lập tay cho đơn tạo tay nằm chung một danh sách.',
-      'Kho quét nhận hàng trả; kiện không khớp yêu cầu nào nằm riêng ở tab Không khớp.',
+      'Yêu cầu trả hàng từ sàn và yêu cầu tạo tay cho đơn tạo tay nằm chung một danh sách.',
+      'Kho quét nhận hàng hoàn; kiện chưa gắn được vào yêu cầu nào nằm riêng ở tab Hàng hoàn chưa rõ đơn.',
     ],
     primaryAction: { label: 'Xem các tab', target: 'return-tabs' },
     steps: [
       {
         target: 'return-tabs',
-        title: 'Yêu cầu và kiện không khớp',
-        body: 'Tab theo trạng thái yêu cầu. Tab Không khớp chứa kiện hàng trả quét ở kho mà chưa gắn được vào yêu cầu nào.',
+        title: 'Yêu cầu và hàng hoàn chưa rõ đơn',
+        body: 'Tab theo trạng thái yêu cầu. Tab Hàng hoàn chưa rõ đơn chứa kiện hàng hoàn quét ở kho mà chưa gắn được vào yêu cầu nào.',
       },
       {
         target: 'return-receive',
-        title: 'Nhận hàng trả',
-        body: 'Hàng về thì quét mã yêu cầu hoặc mã vận đơn chiều về. Khớp thì mở yêu cầu, không khớp thì kiện vào tab Không khớp.',
+        title: 'Nhận hàng hoàn',
+        body: 'Hàng hoàn về thì quét mã yêu cầu hoặc mã vận đơn hoàn. Khớp thì mở yêu cầu, không khớp thì kiện vào tab Hàng hoàn chưa rõ đơn.',
         permission: 'fulfillment.order.process',
       },
       {
         target: 'return-list',
         title: 'Ghi tình trạng',
-        body: 'Mở yêu cầu để chấp nhận, chỉ hoàn tiền hoặc từ chối. Hàng đã nhận thì ghi tình trạng (bán lại, hỏng) trên phiếu kiểm hàng về.',
+        body: 'Mở yêu cầu để chấp nhận, chỉ hoàn tiền hoặc từ chối. Hàng đã nhận thì ghi tình trạng (bán lại, hỏng) trên phiếu kiểm hàng hoàn.',
       },
     ],
   },
@@ -458,7 +458,7 @@ export const GUIDES = {
     version: 1,
     title: 'Đơn hàng',
     intro: [
-      'Đơn từ mọi gian hàng trên sàn nằm chung một danh sách.',
+      'Đơn từ mọi gian hàng Lazada, TikTok Shop nằm chung một danh sách.',
       'Tab lọc theo trạng thái, số trên tab đếm theo bộ lọc đang chọn.',
     ],
     primaryAction: { label: 'Xem danh sách', target: 'order-list' },
@@ -467,12 +467,12 @@ export const GUIDES = {
       {
         target: 'order-filters',
         title: 'Tìm và lọc',
-        body: 'Tìm theo mã đơn hoặc mã đơn sàn; lọc theo nguồn, gian hàng, cách thanh toán, ngày, giai đoạn và cờ.',
+        body: 'Tìm theo mã đơn hoặc mã đơn sàn; lọc theo kênh bán, gian hàng, thanh toán, ngày, trạng thái chi tiết và cảnh báo.',
       },
       {
         target: 'order-list',
         title: 'Mở đơn',
-        body: 'Cột Trạng thái là giai đoạn suy từ kiện, rê chuột vào nhãn để xem nghĩa. Bấm một dòng để mở đơn.',
+        body: 'Cột Trạng thái cho biết đơn đang ở bước nào, rê chuột vào nhãn để xem giải thích. Bấm một dòng để mở đơn.',
       },
     ],
   },
@@ -481,17 +481,17 @@ export const GUIDES = {
     version: 1,
     title: 'Chi tiết đơn',
     intro: [
-      'Thanh bước cho biết đơn đang ở đâu; nhãn giai đoạn suy từ các kiện.',
+      'Thanh trên cùng cho biết đơn đang ở bước nào; nhãn bên cạnh lấy theo kiện hàng.',
       'Cột phải là lịch sử của đơn.',
     ],
     primaryAction: { label: 'Xem kiện', target: 'order-packages' },
     steps: [
       { target: 'order-steps', title: 'Đơn đang ở đâu', body: 'Bước xanh là đã qua, bước viền vàng là hiện tại.' },
-      { target: 'order-lines', title: 'Hàng và tiền', body: 'Từng dòng hàng, phí giao và tổng tiền của đơn.' },
+      { target: 'order-lines', title: 'Hàng và tiền', body: 'Từng sản phẩm, phí vận chuyển và tổng tiền của đơn.' },
       {
         target: 'order-packages',
-        title: 'Kiện của đơn',
-        body: 'Mỗi kiện đi riêng: bấm mã kiện để mở trang kiện; tự giao thì cập nhật giao ở cột cuối.',
+        title: 'Kiện hàng của đơn',
+        body: 'Mỗi kiện đi riêng: bấm mã kiện để mở trang kiện; shop tự giao thì cập nhật giao ở cột cuối.',
       },
       { target: 'detail-history', title: 'Lịch sử', body: 'Ai đổi trạng thái đơn, lúc nào, lý do gì.' },
     ],
@@ -499,58 +499,58 @@ export const GUIDES = {
   settlements: {
     key: 'settlements',
     version: 1,
-    title: 'Đối soát sàn',
+    title: 'Đối soát công nợ sàn',
     intro: [
-      'Mỗi đơn có trạng thái tiền riêng: so số sàn quyết toán với số Commerio ước tính.',
-      'Đơn lệch quá ngưỡng nằm ở khung Dòng lệch, chốt ngay trên dòng kèm lý do.',
-      'Lệch vượt hạn mức tự chốt thì CEO duyệt trước.',
+      'Mỗi đơn có trạng thái thanh toán riêng: đối chiếu số sàn thanh toán với số phải thu.',
+      'Đơn chênh lệch quá ngưỡng nằm ở khung Đơn chênh lệch cần xử lý, xử lý ngay trên dòng kèm lý do.',
+      'Chênh lệch vượt hạn mức tự xử lý thì CEO duyệt trước.',
     ],
-    primaryAction: { label: 'Xem dòng lệch', target: 'settlement-mismatch' },
+    primaryAction: { label: 'Xem đơn chênh lệch', target: 'settlement-mismatch' },
     steps: [
       {
         target: 'settlement-kpis',
-        title: 'Tổng quan tiền theo đơn',
-        body: 'Số đơn chờ quyết toán, lệch tiền, đã khớp và đã chốt lệch. Bấm "?" để xem nghĩa từng trạng thái.',
+        title: 'Tổng quan đối soát theo đơn',
+        body: 'Số đơn chờ sàn thanh toán, chênh lệch, đã đối soát khớp và đã xử lý chênh lệch. Bấm "?" để xem nghĩa từng trạng thái.',
       },
       {
         target: 'settlement-mismatch',
-        title: 'Chốt đơn lệch',
-        body: 'Mỗi đơn lệch một dòng: sàn quyết toán, Commerio ước tính và số lệch. Chốt xong dòng chuyển xanh rồi ẩn.',
+        title: 'Xử lý chênh lệch',
+        body: 'Mỗi đơn chênh lệch một dòng: sàn thanh toán, phải thu và chênh lệch. Xử lý xong dòng chuyển xanh rồi ẩn.',
         permission: 'finance.settlement.resolve',
       },
       {
         target: 'settlement-tabs',
-        title: 'Lần đối soát và sao kê',
-        body: 'Lần đối soát để kéo quyết toán theo gian hàng; Khớp sao kê để gắn mã sao kê ngân hàng cho tiền rút về.',
+        title: 'Sao kê sàn và đối chiếu ngân hàng',
+        body: 'Sao kê sàn để lấy sao kê sàn theo gian hàng; Đối chiếu ngân hàng để gắn mã giao dịch ngân hàng cho tiền rút về.',
       },
     ],
   },
   'shop-listings': {
     key: 'shop-listings',
     version: 1,
-    title: 'Ghép SKU',
+    title: 'Liên kết SKU',
     intro: [
-      'Mỗi biến thể trong Commerio ghép với một SKU trên sàn.',
-      'Đã ghép thì đơn sàn trừ đúng tồn, Commerio đẩy tồn và giá lên đúng SKU.',
-      'Nhãn ở cột Trạng thái báo SKU lệch tồn, đẩy lỗi hay giá chưa đẩy; rê chuột vào nhãn để xem lý do.',
+      'Mỗi variant trong Commerio liên kết với một SKU trên sàn.',
+      'Đã liên kết thì đơn sàn trừ đúng tồn, Commerio đồng bộ tồn và giá lên đúng SKU.',
+      'Nhãn ở cột Trạng thái báo SKU lệch tồn, đăng lỗi hay giá chưa đồng bộ; rê chuột vào nhãn để xem lý do.',
     ],
-    primaryAction: { label: 'Xem SKU chưa ghép', target: 'listings-tabs' },
+    primaryAction: { label: 'Xem SKU chưa liên kết', target: 'listings-tabs' },
     steps: [
       {
         target: 'listings-tabs',
-        title: 'Lọc chưa ghép',
-        body: 'Tab Chưa ghép liệt kê SKU trên sàn chưa nối với biến thể nào. Các tab khác lọc biến thể chưa lên sàn, giá cũ hoặc đẩy lỗi.',
+        title: 'Lọc chưa liên kết',
+        body: 'Tab Chưa liên kết liệt kê SKU trên sàn chưa nối với variant nào. Các tab khác lọc variant chưa đăng bán, chờ đồng bộ giá hoặc đăng lỗi.',
       },
       {
         target: 'listings-match',
-        title: 'Ghép SKU',
-        body: 'Bấm Ghép ở dòng biến thể để chọn SKU sàn. Đổi ghép SKU đã có đơn hoặc đặt "không quản tồn" thì cần CEO duyệt.',
+        title: 'Liên kết SKU',
+        body: 'Bấm Liên kết ở dòng variant để chọn SKU sàn. Đổi liên kết SKU đã có đơn hoặc đặt "không quản lý tồn" thì cần CEO duyệt.',
         permission: 'channel.listing.match',
       },
       {
         target: 'listings-push',
-        title: 'Đẩy lên sàn',
-        body: 'Tích các biến thể rồi bấm nút này để tạo sản phẩm mới trên sàn hoặc đẩy giá mới. Sàn trả kết quả sau, trang tự đọc lại.',
+        title: 'Đăng bán',
+        body: 'Tích các variant rồi bấm nút này để tạo sản phẩm mới trên sàn hoặc đồng bộ giá mới. Sàn trả kết quả sau, trang tự đọc lại.',
         permission: 'channel.listing.manage',
       },
     ],

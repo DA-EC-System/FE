@@ -139,8 +139,8 @@ export function RequireModule({ module, permission, anyPermission, children }: R
   if (!isModuleEnabled(companyContext, module)) {
     return (
       <ForbiddenPage
-        title="Phân hệ chưa bật"
-        message={`Công ty chưa bật phân hệ ${MODULE_LABELS[module]}. CEO có thể bật phân hệ tuỳ chọn trong phần cài đặt công ty.`}
+        title="Tính năng chưa bật"
+        message={`Công ty chưa bật tính năng ${MODULE_LABELS[module]}. CEO bật ở mục Quản trị > Tính năng.`}
         backTo={backTo}
         backLabel="Về tổng quan"
       />

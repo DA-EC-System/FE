@@ -18,7 +18,7 @@ const task = (id: string, ref: TaskItem['ref'], severity: TaskItem['severity'] =
 
 describe('findActiveNav', () => {
   it('chọn mục khớp dài nhất kèm nhóm', () => {
-    expect(findActiveNav(nav, `/c/${C}/catalog/setup`)?.item.label).toBe('Danh mục & thuộc tính');
+    expect(findActiveNav(nav, `/c/${C}/catalog/setup`)?.item.label).toBe('Category & thuộc tính');
     const order = findActiveNav(nav, `/c/${C}/sales/orders/ord-1`);
     expect(order?.item.label).toBe('Đơn hàng');
     expect(order?.section.title).toBe('Đơn hàng');
@@ -29,9 +29,9 @@ describe('findActiveNav', () => {
     expect(findActiveNav(nav, `/c/${C}/khong-co`)).toBeNull();
   });
 
-  it('trang chi tiết đối soát thuộc mục Đối soát sàn', () => {
+  it('trang chi tiết đối soát thuộc mục Đối soát công nợ sàn', () => {
     const found = findActiveNav(nav, `/c/${C}/finance/settlements/st-1`);
-    expect(found?.item.label).toBe('Đối soát sàn');
+    expect(found?.item.label).toBe('Đối soát công nợ sàn');
     expect(found?.section.title).toBe('Tài chính');
   });
 });

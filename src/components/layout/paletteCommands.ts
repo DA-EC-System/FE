@@ -85,7 +85,7 @@ interface QuickActionDef {
 const QUICK_ACTIONS: QuickActionDef[] = [
   {
     id: 'purchase-request-new',
-    label: 'Tạo đề nghị nhập',
+    label: 'Tạo đơn đặt hàng nhập',
     icon: ClipboardPlus,
     module: 'purchasing',
     permission: PERMISSIONS.purchaseRequestManage,
@@ -101,7 +101,7 @@ const QUICK_ACTIONS: QuickActionDef[] = [
   },
   {
     id: 'shop-new',
-    label: 'Thêm gian hàng',
+    label: 'Kết nối gian hàng',
     icon: Store,
     module: 'channel',
     permission: PERMISSIONS.shopConnect,

@@ -57,7 +57,7 @@ export const PLATFORM_NAV: NavSection[] = [
     items: [
       { to: ROUTES.platform.overview, label: 'Tổng quan', icon: LayoutDashboard },
       { to: ROUTES.platform.companies, label: 'Công ty', icon: Building2 },
-      { to: ROUTES.platform.auditLogs, label: 'Nhật ký nền tảng', icon: History },
+      { to: ROUTES.platform.auditLogs, label: 'Nhật ký thao tác nền tảng', icon: History },
     ],
   },
 ];
@@ -84,7 +84,7 @@ export function companyNav(companyId: string): NavSection[] {
       items: [
         {
           to: ROUTES.company.purchasing(companyId),
-          label: 'Mua hàng',
+          label: 'Nhập hàng',
           icon: ClipboardList,
           module: 'purchasing',
           anyPermission: PURCHASING_PERMISSIONS,
@@ -103,7 +103,7 @@ export function companyNav(companyId: string): NavSection[] {
         },
         {
           to: ROUTES.company.catalogSetup(companyId),
-          label: 'Danh mục & thuộc tính',
+          label: 'Category & thuộc tính',
           icon: SlidersHorizontal,
           module: 'catalog',
           permission: PERMISSIONS.catalogSetup,
@@ -118,14 +118,17 @@ export function companyNav(companyId: string): NavSection[] {
       ],
     },
     {
-      title: 'Bán trên sàn',
+      title: 'Kênh bán',
       items: [
         {
           to: ROUTES.company.shops(companyId),
-          label: 'Kênh bán',
+          label: 'Gian hàng',
           icon: Store,
           module: 'channel',
           permission: PERMISSIONS.shopView,
+        },
+        {
+          to: `/c/${companyId}/channel/pending-prices`, label: 'Giá mới chờ duyệt', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
         },
       ],
     },
@@ -148,7 +151,7 @@ export function companyNav(companyId: string): NavSection[] {
         },
         {
           to: ROUTES.company.returns(companyId),
-          label: 'Yêu cầu trả',
+          label: 'Trả hàng/Hoàn tiền',
           icon: PackageX,
           module: 'sales',
           permission: PERMISSIONS.returnView,
@@ -160,23 +163,20 @@ export function companyNav(companyId: string): NavSection[] {
       items: [
         {
           to: ROUTES.company.ledger(companyId),
-          label: 'Sổ tiền',
+          label: 'Sổ giao dịch',
           icon: BookOpenText,
           module: 'finance',
           anyPermission: FINANCE_VIEW_ANY,
         },
         {
           to: ROUTES.company.settlements(companyId),
-          label: 'Đối soát sàn',
+          label: 'Đối soát công nợ sàn',
           icon: Scale,
           module: 'finance',
           anyPermission: FINANCE_VIEW_ANY,
         },
         {
-          to: `/c/${companyId}/channel/pending-prices`, label: 'Giá chờ xác nhận', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
-        },
-        {
-          to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_VIEW_ANY,
+          to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí sàn và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_VIEW_ANY,
         },
       ],
     },
@@ -199,7 +199,7 @@ export function companyNav(companyId: string): NavSection[] {
         },
         {
           to: ROUTES.company.modules(companyId),
-          label: 'Phân hệ',
+          label: 'Tính năng',
           icon: Puzzle,
           module: 'platform',
           permission: PERMISSIONS.moduleManage,
@@ -220,7 +220,7 @@ export function companyNav(companyId: string): NavSection[] {
         },
         {
           to: ROUTES.company.deadJobs(companyId),
-          label: 'Việc nền lỗi',
+          label: 'Tác vụ lỗi',
           icon: ServerCrash,
           module: 'platform',
           permission: PERMISSIONS.jobManage,
@@ -261,7 +261,7 @@ function matchLength(item: NavItem, pathname: string) {
 }
 
 /**
- * Mục khớp dài nhất cùng nhóm của nó: ở /catalog/setup chỉ sáng "Danh mục & thuộc tính", không sáng cả "Sản phẩm".
+ * Mục khớp dài nhất cùng nhóm của nó: ở /catalog/setup chỉ sáng "Category & thuộc tính", không sáng cả "Sản phẩm".
  * Dùng cho mục đang chọn trên sidebar, breadcrumb trên Header và đếm việc chờ theo mục.
  */
 export function findActiveNav(sections: NavSection[], pathname: string): ActiveNav | null {
