@@ -347,6 +347,54 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(page.locator('[data-testid=status-history]')).toContainText('Chờ lấy hàng');
     });
 
+    test('TRA-B01, KH-B06: quét SKU biến thể hay SKU sàn, dòng không quản tồn phải cho vào hộp mới đóng gói', async ({ page }) => {
+      const line = {
+        variantId: null as string | null, untracked: false, sku: '', productName: '', attributesLabel: '',
+        externalSku: null as string | null, quantity: 1, pendingDropQty: 0,
+      };
+      const kien = {
+        id: 'pkg-qua-tang', code: 'KH-009001', order: { id: 'ord-qua-tang', code: 'DH-9001', status: 'processing' },
+        source: 'marketplace', shop: { id: 'shp-001', shopName: 'Shop Lazada', platform: 'lazada' }, customerName: 'Khách sàn',
+        status: 'reserved', flags: [], flagNote: null, openPurpose: null, selfDelivery: false, paymentMethod: null, paymentStatus: null,
+        trackingCode: null, platformPackageCode: 'PK9001', carrier: null, shipBy: null, totalQty: 3,
+        lines: [
+          { ...line, id: 'pl-1', variantId: 'prd-001-v1', sku: 'AO-DO-M', productName: 'Áo thun đỏ', attributesLabel: 'Đỏ / M',
+            externalSku: 'SAN-AO-DO', quantity: 2 },
+          { ...line, id: 'pl-2', untracked: true, sku: 'QUA-TANG', productName: 'Quà tặng kèm', externalSku: 'QUA-TANG' },
+        ],
+        handedOverAt: null, deliveredAt: null, deliveredBy: null, lostReport: null, createdAt: '2026-11-18T01:00:00.000Z', version: 3,
+        statusHistory: [],
+      };
+      await mockApi(page, 'get', '/fulfillment/packages/pkg-qua-tang', 200, kien);
+      await mockApi(page, 'get', '/fulfillment/packages/pkg-qua-tang/carriers', 200, { items: [] });
+      await page.evaluate((p) => {
+        window.history.pushState({}, '', p);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }, '/c/cmp-001/fulfillment/packages/pkg-qua-tang/pack');
+      await thayChu(page, 'Đóng gói kiện KH-009001', 'h1');
+      const rows = page.locator('[data-testid=pack-lines] tbody tr');
+      await expect(rows.nth(0)).toContainText('SKU sàn SAN-AO-DO');
+      await expect(rows.nth(1)).toContainText('Không quản tồn');
+      await expect(rows.nth(1)).not.toContainText('Chưa ghép SKU');
+      await expect(page.locator('[data-testid=pack-progress]')).toContainText('Đã quét 0/3 món');
+      // SKU biến thể app và SKU sàn đều khớp dòng đã ghép
+      for (const sku of ['ao-do-m', 'SAN-AO-DO']) {
+        await page.locator('#scan-sku').fill(sku);
+        await page.locator('#scan-sku').press('Enter');
+      }
+      await expect(rows.nth(0)).toContainText('2/2');
+      await expect(page.getByRole('button', { name: 'Đóng gói', exact: true })).toBeDisabled();
+      await rows.nth(1).getByRole('button', { name: 'Đã cho vào hộp', exact: true }).click();
+      await expect(page.locator('[data-testid=pack-progress]')).toContainText('100%');
+      await mockApi(page, 'post', '/fulfillment/packages/pkg-qua-tang/pack', 200, { ...kien, status: 'packed', version: 4 });
+      const request = page.waitForRequest((r) => r.url().endsWith('/fulfillment/packages/pkg-qua-tang/pack') && r.method() === 'POST');
+      await page.getByRole('button', { name: 'Đóng gói', exact: true }).click();
+      expect((await request).postDataJSON()).toEqual({
+        version: 3, lines: [{ variantId: 'prd-001-v1', quantity: 2 }], untrackedLines: [{ lineId: 'pl-2', quantity: 1 }],
+      });
+      await toast(page, 'Đã đóng gói kiện KH-009001');
+    });
+
     test('kiện chưa thanh toán không vào được màn đóng gói', async ({ page }) => {
       await page.goto('/c/cmp-001/fulfillment/packages/pkg-1003/pack');
       await thayChu(page, 'Kiện KH-000003 không ở bước đóng gói');

@@ -386,9 +386,27 @@ export function PackageDetailPage() {
             </TableHeader>
             <TableBody>
               {p.lines.map((l) => (
-                <TableRow key={l.variantId} data-row-id={l.sku}>
-                  <TableCell className="font-mono font-medium">{l.sku}</TableCell>
-                  <TableCell className="whitespace-normal">{l.productName}</TableCell>
+                <TableRow key={l.id} data-row-id={l.sku}>
+                  <TableCell>
+                    <p className="font-mono font-medium">{l.sku}</p>
+                    {l.variantId && l.externalSku && l.externalSku !== l.sku && (
+                      <p className="font-mono text-xs text-muted-foreground">SKU sàn {l.externalSku}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-normal">
+                    {l.productName}
+                    {l.untracked ? (
+                      <Badge variant="secondary" className="ms-2">
+                        Không quản tồn
+                      </Badge>
+                    ) : (
+                      !l.variantId && (
+                        <Badge variant="destructive" className="ms-2">
+                          Chưa ghép SKU
+                        </Badge>
+                      )
+                    )}
+                  </TableCell>
                   <TableCell>{l.attributesLabel || '—'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">

@@ -46,6 +46,8 @@ export interface MockOrderLine {
   unitPrice: number;
   /** SKU sàn khi chưa ghép */
   externalSku?: string | null;
+  /** Ghép "không quản tồn" (21 §19.1): `variantId` rỗng, không giữ, không trừ tồn */
+  untracked?: boolean;
   /** Ảnh, thuộc tính sàn trả về (dòng chưa ghép thì chỉ có nguồn này) */
   thumbnailUrl?: string | null;
   attributesLabel?: string | null;

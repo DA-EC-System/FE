@@ -569,3 +569,59 @@ export interface CategoryMapInput {
   /** `null` khi danh mục chưa ghép lần nào */
   version: number | null;
 }
+
+// ---------- Category và attribute của sàn (commerio-backend#400, Documents/21 §18.5) ----------
+
+/** Một dòng cây category của sàn; dữ liệu tham chiếu của nền tảng, không theo công ty */
+export interface PlatformCategory {
+  externalId: string;
+  parentExternalId: string | null;
+  name: string;
+  /** Cả đường dẫn, vd "Thời trang nam > Áo > Áo thun" */
+  path: string;
+  isLeaf: boolean;
+  status: 'active' | 'removed';
+}
+
+/** `syncedAt: null` khi chưa đồng bộ cây của sàn lần nào (`items` rỗng) */
+export interface PlatformCategoryList {
+  items: PlatformCategory[];
+  syncedAt?: string | null;
+}
+
+export type PlatformAttributeInput = 'select' | 'multiselect' | 'text' | 'number' | 'date' | 'image' | 'cascade';
+
+/** `tier` quyết định tab của form đẩy: category (theo category), product (trang sản phẩm), company (hồ sơ công ty) */
+export interface PlatformAttribute {
+  code: string;
+  label: string;
+  kind: 'sales' | 'property';
+  input: PlatformAttributeInput;
+  options: { id: string; label: string }[];
+  allowCustom: boolean;
+  required: boolean;
+  /** Điều kiện bắt buộc theo attribute khác (TikTok `requirement_conditions`); null là không có */
+  requiredWhen: unknown;
+  isKey: boolean;
+  tier: 'category' | 'product' | 'company';
+  defaultValue: string | null;
+}
+
+export interface PlatformCategoryProduct {
+  productId: string;
+  code: string;
+  name: string;
+  source: 'push' | 'match';
+}
+
+export interface PlatformCategoryDetail {
+  category: PlatformCategory & { sizeChartRule: SizeChartRule | null };
+  attributes: PlatformAttribute[];
+  fetchedAt: string | null;
+  stale: boolean;
+  products: PlatformCategoryProduct[];
+}
+
+export interface PlatformCategorySyncResult {
+  queued: boolean;
+}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -19,21 +20,40 @@ import {
 } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
-import { useCan } from '@/hooks/usePermission';
+import { useCan, useModuleEnabled } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import type { Attribute, Category } from '@/types/catalog';
 import { CategoryFormDialog } from './CategoryFormDialog';
 import { AttributeFormDialog } from './AttributeFormDialog';
+import { PlatformCategoryTab } from './PlatformCategoryTab';
+import { PLATFORM_TABS, isPlatformTab } from './platformCategory';
 
 type Deleting = { kind: 'category'; item: Category } | { kind: 'attribute'; item: Attribute };
 type TabKey = 'categories' | 'attributes';
 
-/** UC-CP-01: danh mục kèm quy tắc SKU, thuộc tính và giá trị */
+/**
+ * UC-CP-01: danh mục kèm quy tắc SKU, thuộc tính và giá trị.
+ * Tab Lazada, TikTok: cây category và attribute của sàn, chỉ đọc (commerio-backend#400).
+ */
 export function CatalogSetupPage() {
   const can = useCan();
   const canManage = can(PERMISSIONS.catalogSetup);
+  const showPlatforms = useModuleEnabled('channel') && can(PERMISSIONS.shopView);
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab');
+  const source = showPlatforms && isPlatformTab(requested) ? requested : 'commerio';
+  const setSource = (value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === 'commerio') next.delete('tab');
+        else next.set('tab', value);
+        return next;
+      },
+      { replace: true },
+    );
   const [tab, setTab] = useState<TabKey>('categories');
   const { startTour } = usePageGuide('catalog-setup');
 
@@ -180,7 +200,7 @@ export function CatalogSetupPage() {
         help="Danh mục quyết định quy tắc sinh mã SKU của sản phẩm trong đó. Thuộc tính (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp biến thể."
         onTour={startTour}
         action={
-          canManage ? (
+          canManage && source === 'commerio' ? (
             <Button
               data-guide="catalog-add"
               onClick={() =>
@@ -194,43 +214,63 @@ export function CatalogSetupPage() {
         }
       />
 
-      {query.isError && (
-        <AlertMessage severity="error" className="mb-4">
-          {getErrorMessage(query.error)}
-        </AlertMessage>
-      )}
+      <Tabs value={source} onValueChange={setSource}>
+        {showPlatforms && (
+          <TabsList className="mb-3">
+            <TabsTrigger value="commerio">Commerio</TabsTrigger>
+            {PLATFORM_TABS.map((t) => (
+              <TabsTrigger key={t.platform} value={t.platform}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        )}
+        <TabsContent value="commerio">
+          {query.isError && (
+            <AlertMessage severity="error" className="mb-4">
+              {getErrorMessage(query.error)}
+            </AlertMessage>
+          )}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList>
-          <TabsTrigger value="categories" data-guide="catalog-categories">
-            Danh mục
-          </TabsTrigger>
-          <TabsTrigger value="attributes" data-guide="catalog-attributes">
-            Thuộc tính
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="categories">
-          <Card className="py-0">
-            <DataTable
-              columns={categoryColumns}
-              data={categoriesQuery.data ?? []}
-              getRowId={(r) => r.id}
-              loading={categoriesQuery.isLoading} fetching={categoriesQuery.isFetching}
-              empty="Chưa có danh mục"
-            />
-          </Card>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+            <TabsList>
+              <TabsTrigger value="categories" data-guide="catalog-categories">
+                Danh mục
+              </TabsTrigger>
+              <TabsTrigger value="attributes" data-guide="catalog-attributes">
+                Thuộc tính
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="categories">
+              <Card className="py-0">
+                <DataTable
+                  columns={categoryColumns}
+                  data={categoriesQuery.data ?? []}
+                  getRowId={(r) => r.id}
+                  loading={categoriesQuery.isLoading} fetching={categoriesQuery.isFetching}
+                  empty="Chưa có danh mục"
+                />
+              </Card>
+            </TabsContent>
+            <TabsContent value="attributes">
+              <Card className="py-0">
+                <DataTable
+                  columns={attributeColumns}
+                  data={attributesQuery.data ?? []}
+                  getRowId={(r) => r.id}
+                  loading={attributesQuery.isLoading} fetching={attributesQuery.isFetching}
+                  empty="Chưa có thuộc tính"
+                />
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
-        <TabsContent value="attributes">
-          <Card className="py-0">
-            <DataTable
-              columns={attributeColumns}
-              data={attributesQuery.data ?? []}
-              getRowId={(r) => r.id}
-              loading={attributesQuery.isLoading} fetching={attributesQuery.isFetching}
-              empty="Chưa có thuộc tính"
-            />
-          </Card>
-        </TabsContent>
+        {showPlatforms &&
+          PLATFORM_TABS.map((t) => (
+            <TabsContent key={t.platform} value={t.platform}>
+              <PlatformCategoryTab platform={t.platform} />
+            </TabsContent>
+          ))}
       </Tabs>
 
       <CategoryFormDialog

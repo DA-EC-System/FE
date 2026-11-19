@@ -358,7 +358,8 @@ export function OrderDetailPage() {
                           <LineThumb src={l.thumbnailUrl} alt={l.productName} />
                           <div>
                             <p className="font-medium">{l.sku || l.externalSku}</p>
-                            {l.externalSku && !l.variantId && <Badge variant="destructive">Chưa ghép SKU</Badge>}
+                            {l.untracked && <Badge variant="secondary">Không quản tồn</Badge>}
+                            {l.externalSku && !l.variantId && !l.untracked && <Badge variant="destructive">Chưa ghép SKU</Badge>}
                             <p className="text-xs text-muted-foreground">
                               {l.productName}
                               {l.attributesLabel && ` · ${l.attributesLabel}`}

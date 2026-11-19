@@ -240,6 +240,7 @@ export function toOrder(o: sales.MockOrder): Order {
     lines: o.lines.map((l) => ({
       id: l.id,
       variantId: l.variantId,
+      untracked: !l.variantId && Boolean(l.untracked),
       sku: l.sku,
       productName: l.productName,
       ...lineMedia(o, l),
