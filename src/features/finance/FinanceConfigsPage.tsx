@@ -26,9 +26,9 @@ export function FinanceConfigsPage() {
   const kind = f.params.get('kind') ?? ''; const status = f.params.get('status') ?? ''; const shopId = f.params.get('shopId') ?? '';
   const query = useFinanceConfigs({ page: f.page, pageSize: f.pageSize, kind: kind || undefined, status: status || undefined, shopId: shopId || undefined });
   const shops = useShops({ enabled: can(P.shopView) });
-  const shopName = (id: string) => shops.data?.items.find((s) => s.id === id)?.shopName ?? 'Gian hàng';
-  return <div><PageHeader title="Cấu hình phí và thuế" subtitle="Phiên bản theo ngày hiệu lực. Chạy thử không ghi sổ; mọi thay đổi áp dụng sau khi được duyệt."
-    action={can(P.financeConfigManage) ? <Button onClick={() => setCreating(true)}>Soạn phiên bản</Button> : undefined} />
+  const shopName = (id: string) => shops.data?.items.find((s) => s.id === id)?.shopName ?? 'Gian hàng không xem được';
+  return <div><PageHeader title="Cấu hình phí sàn và thuế" subtitle="Mỗi lần thay đổi là một phiên bản mới, có hiệu lực từ ngày ghi trên phiên bản sau khi được duyệt. Tính thử chỉ xem trước ảnh hưởng, không ghi sổ."
+    action={can(P.financeConfigManage) ? <Button onClick={() => setCreating(true)}>Thêm phiên bản</Button> : undefined} />
     {query.isError && <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>}
     <ActiveConfigsPanel companyId={companyId} shopName={shopName} />
     <Card className="gap-0 py-0"><FilterBar><FilterSelect label="Loại cấu hình" value={kind} onChange={f.setFilter('kind')} options={Object.entries(CONFIG_KINDS).map(([value, label]) => ({ value, label }))} />
@@ -36,12 +36,12 @@ export function FinanceConfigsPage() {
       <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} /></FilterBar>
       <DataTable data={query.data?.items ?? []} loading={query.isLoading} fetching={query.isFetching} getRowId={(c) => c.id} empty="Chưa có phiên bản cấu hình" onRowClick={(c) => navigate(ROUTES.company.financeConfig(companyId, c.id))}
         pagination={{ page: f.page, pageSize: f.pageSize, total: query.data?.total ?? 0, pageSizes: [25, 50, 100], onChange: f.onPageChange }} columns={[
-          { header: 'Loại', cell: ({ row }) => CONFIG_KINDS[row.original.kind] },
-          { header: 'Gian hàng', cell: ({ row }) => row.original.shopId ? shops.data?.items.find((s) => s.id === row.original.shopId)?.shopName ?? row.original.shopId : 'Toàn công ty' },
-          { header: 'Hiệu lực', cell: ({ row }) => `${formatDate(row.original.effectiveFrom)} → ${row.original.effectiveTo ? formatDate(row.original.effectiveTo) : 'Chưa kết thúc'}` },
+          { header: 'Loại cấu hình', cell: ({ row }) => CONFIG_KINDS[row.original.kind] },
+          { header: 'Gian hàng', cell: ({ row }) => row.original.shopId ? shopName(row.original.shopId) : 'Toàn công ty' },
+          { header: 'Thời gian hiệu lực', cell: ({ row }) => `${formatDate(row.original.effectiveFrom)} → ${row.original.effectiveTo ? formatDate(row.original.effectiveTo) : 'Chưa có ngày kết thúc'}` },
           { header: 'Trạng thái', cell: ({ row }) => <StatusBadge status={row.original.status} statuses={CONFIG_STATES} /> },
-          { header: 'Người soạn', cell: ({ row }) => row.original.createdBy?.name ?? '—' },
-          { header: 'Sửa lỗi', cell: ({ row }) => row.original.isCorrection ? `Hồi tố từ ${formatDate(row.original.retroactiveFrom)}` : '—' },
+          { header: 'Người lập', cell: ({ row }) => row.original.createdBy?.name ?? '—' },
+          { header: 'Bản điều chỉnh hồi tố', cell: ({ row }) => row.original.isCorrection ? `Hồi tố từ ${formatDate(row.original.retroactiveFrom)}` : '—' },
         ]} /></Card>
     {creating && <FinanceConfigForm onClose={() => setCreating(false)} onSaved={(c) => navigate(ROUTES.company.financeConfig(companyId, c.id))} />}
   </div>;
