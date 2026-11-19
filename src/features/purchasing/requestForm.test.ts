@@ -26,7 +26,7 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
   it('cha mới cần tên và danh mục; cha có sẵn cần chọn cha', () => {
     expect(errorsOf([line({ parentName: '', categoryId: '' })])).toMatchObject({
       'lines.0.parentName': 'Nhập tên sản phẩm cha',
-      'lines.0.categoryId': 'Chọn danh mục',
+      'lines.0.categoryId': 'Chọn category',
     });
     expect(errorsOf([line({ parentMode: 'existing', parentName: '' })])).toMatchObject({
       'lines.0.parentId': 'Chọn sản phẩm cha',
