@@ -15,7 +15,7 @@ export function OrderStage({ order }: { order: OrderSummary }) {
       <StatusBadge status={stage} statuses={ORDER_STAGE} />
       {packages > 1 && order.status === 'processing' && (
         <span className="text-xs text-muted-foreground">
-          {delivered}/{packages} kiện đã giao
+          {delivered}/{packages} kiện hàng đã giao
         </span>
       )}
       {order.outcome && order.outcome !== 'full' && (

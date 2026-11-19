@@ -117,7 +117,7 @@ export function OrderListPage() {
       },
       {
         id: 'customer',
-        header: 'Khách',
+        header: 'Người mua',
         meta: { className: 'min-w-40' },
         cell: ({ row }) =>
           row.original.customer ? (
@@ -158,10 +158,10 @@ export function OrderListPage() {
           );
         },
       },
-      { id: 'source', header: 'Nguồn', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
+      { id: 'source', header: 'Kênh bán', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
       {
         id: 'shipBy',
-        header: 'Hạn gửi',
+        header: 'Hạn bàn giao',
         meta: { className: 'w-36' },
         cell: ({ row }) => {
           const o = row.original;
@@ -184,7 +184,7 @@ export function OrderListPage() {
         cell: ({ row }) => <OrderStage order={row.original} />,
       },
       {
-        id: 'settlement', header: 'Trạng thái tiền', cell: ({ row }) => <PaymentStatusBadge status={row.original.paymentStatus} />,
+        id: 'settlement', header: 'Đối soát', cell: ({ row }) => <PaymentStatusBadge status={row.original.paymentStatus} />,
       },
       {
         id: 'paymentMethod',
@@ -194,7 +194,7 @@ export function OrderListPage() {
       },
       {
         id: 'total',
-        header: 'Tổng',
+        header: 'Tổng tiền',
         meta: { className: 'w-32 text-right' },
         cell: ({ row }) => formatCurrency(row.original.total),
       },
@@ -242,9 +242,9 @@ export function OrderListPage() {
   const syncReason = syncing
     ? 'Đang đồng bộ...'
     : shopsQuery.isLoading
-      ? 'Đang tải gian hàng...'
+      ? 'Đang tải danh sách gian hàng...'
       : syncTargets.length === 0
-        ? 'Không có gian hàng đang hoạt động'
+        ? 'Chưa có gian hàng nào đang kết nối'
         : undefined;
 
   useEffect(() => {
@@ -266,14 +266,14 @@ export function OrderListPage() {
     <div>
       <PageHeader
         title="Đơn hàng"
-        subtitle="Đơn từ các gian hàng trên sàn."
-        help="Số trên mỗi tab đếm theo bộ lọc đang chọn. Cột Trạng thái là giai đoạn suy từ các kiện; rê chuột vào nhãn để xem nghĩa."
+        subtitle="Đơn từ các gian hàng Lazada và TikTok Shop."
+        help="Số trên mỗi tab đếm theo bộ lọc đang chọn. Cột Trạng thái cho biết đơn đang ở bước nào (đơn nhiều kiện thì lấy kiện chậm nhất); rê chuột vào nhãn để xem giải thích."
         onTour={startTour}
         action={
           canSync ? (
             <Button variant="outline" onClick={() => void syncOrders()} disabled={Boolean(syncReason)} title={syncReason}>
               <RefreshCw className={cn(syncing && 'animate-spin')} />
-              {shopId ? 'Đồng bộ đơn gian hàng' : 'Đồng bộ đơn'}
+              {shopId ? 'Đồng bộ đơn gian hàng này' : 'Đồng bộ đơn'}
             </Button>
           ) : undefined
         }
@@ -307,7 +307,7 @@ export function OrderListPage() {
         <FilterBar guide="order-filters">
           <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã đơn, mã đơn sàn" />
           <FilterSelect
-            label="Nguồn"
+            label="Kênh bán"
             value={source}
             onChange={f.setFilter('source')}
             options={(Object.keys(SOURCE_LABELS) as OrderSource[]).map((s) => ({ value: s, label: SOURCE_LABELS[s] }))}
@@ -328,14 +328,14 @@ export function OrderListPage() {
           <DateFilter label="Đến ngày" value={to} min={from || undefined} onChange={f.setFilter('to')} />
           {stageOptions.length > 0 && (
             <FilterSelect
-              label="Giai đoạn"
+              label="Trạng thái chi tiết"
               value={stage}
               onChange={f.setFilter('stage')}
               options={stageOptions.map((s) => ({ value: s, label: ORDER_STAGE[s].label }))}
             />
           )}
           <FilterSelect
-            label="Cờ"
+            label="Cảnh báo"
             value={flag}
             onChange={f.setFilter('flag')}
             options={FILTERABLE_ORDER_FLAGS.map((x) => ({ value: x, label: ORDER_FLAGS[x].label }))}
