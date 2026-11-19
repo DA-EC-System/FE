@@ -90,7 +90,7 @@ export function PackageDetailPage() {
   if (query.isLoading) return <PageLoading />;
   if (query.isError || !query.data) {
     const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
-    return <PageError message={notFound ? 'Không tìm thấy kiện' : problemMessage(query.error)} onBack={back} />;
+    return <PageError message={notFound ? 'Không tìm thấy kiện hàng' : problemMessage(query.error)} onBack={back} />;
   }
   const p = query.data;
   const buttons = packageButtons(p, actor);
@@ -136,20 +136,20 @@ export function PackageDetailPage() {
     if (direct) return void run(direct, `${p.code}: ${label}`);
     switch (a) {
       case 'undo_handover':
-        return setPending({ kind: 'reason', title: 'Đảo bàn giao', label: 'Lý do', build: (reason) => ({ kind: 'undo-handover', reason }) });
+        return setPending({ kind: 'reason', title: 'Huỷ bàn giao', label: 'Lý do', build: (reason) => ({ kind: 'undo-handover', reason }) });
       case 'fail':
         return setPending({
           kind: 'reason',
-          title: 'Giao thất bại',
+          title: 'Báo giao thất bại',
           label: 'Lý do giao không thành công',
           build: (reason) => ({ kind: 'delivery', action: 'fail', reason }),
         });
       case 'return':
         return setPending({
           kind: 'confirm',
-          title: 'Hoàn về',
-          message: `Kiện ${p.code} chuyển sang Đang hoàn. Khi hàng về, quét mã kiện để nhận.`,
-          label: 'Hoàn về',
+          title: 'Chuyển hoàn hàng',
+          message: `Kiện ${p.code} chuyển sang Đang hoàn hàng. Khi hàng về, quét mã kiện để nhận.`,
+          label: 'Chuyển hoàn hàng',
           command: { kind: 'delivery', action: 'return' },
         });
       case 'open':
@@ -159,15 +159,15 @@ export function PackageDetailPage() {
           title: label,
           message:
             a === 'open_cancel'
-              ? `Mở kiện ${p.code}, trả hàng về kệ. Kiện huỷ, hàng giữ được nhả.`
+              ? `Mở kiện ${p.code}, trả hàng về kệ. Kiện bị huỷ, số hàng tạm giữ được trả về Có thể bán.`
               : p.status === 'awaiting_pickup'
                 ? // Kiện Chờ lấy hàng chờ mở (D25): giữ vận đơn, không gọi sàn; đóng lại rồi báo sẵn sàng lại
-                  `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, giữ nguyên vận đơn ${p.trackingCode ?? ''}: đóng gói lại rồi báo sẵn sàng lại, không cần lấy vận đơn mới.`.replace(
+                  `Mở kiện ${p.code} để sửa. Kiện quay về Chờ đóng gói, giữ nguyên mã vận đơn ${p.trackingCode ?? ''}: đóng gói lại rồi bấm Sẵn sàng giao lại, không cần lấy mã vận đơn mới.`.replace(
                     '  ',
                     ' ',
                   )
-                : `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, cần đóng gói lại.${
-                    p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã và vận đơn mới.' : ''
+                : `Mở kiện ${p.code} để sửa. Kiện quay về Chờ đóng gói, cần đóng gói lại.${
+                    p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã kiện và mã vận đơn mới.' : ''
                   }`,
           label,
           destructive: a === 'open_cancel',
@@ -239,14 +239,14 @@ export function PackageDetailPage() {
   const printable = canPrintLabel(p);
   // Báo sàn mất tới vài chục giây: nút báo đang làm gì (KH-U13)
   const reporting = command.isPending && command.variables?.command.kind === 'ready';
-  // Chia kiện: kiện chưa đóng gói còn hơn một món (21 mục 19.2)
+  // Tách kiện: kiện chưa đóng gói còn hơn một món (21 mục 19.2)
   const splittable =
     can(PERMISSIONS.fulfillmentProcess) && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
   const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable || splittable || Boolean(buttons.lostNote);
   // Gộp cảnh báo theo dữ liệu kiện vào một khung
   const warnings = [
     p.flagNote,
-    p.flags.includes('needs_open') && p.openPurpose ? `Chờ mở kiện: ${OPEN_PURPOSE_LABELS[p.openPurpose]}` : null,
+    p.flags.includes('needs_open') && p.openPurpose ? `Cần mở lại kiện: ${OPEN_PURPOSE_LABELS[p.openPurpose]}` : null,
     p.lostReport && p.status !== 'lost'
       ? sealedLost
         ? `${p.lostReport.by.name} báo dỡ kiện không thấy lúc ${formatDateTime(p.lostReport.at)}: ${p.lostReport.claimCode}. Cần người khác xác nhận.`
@@ -259,12 +259,12 @@ export function PackageDetailPage() {
   return (
     <div className="grid gap-4">
       <PageHeader
-        title={`Kiện ${p.code}`}
-        subtitle={`Đơn ${p.order.code}`}
+        title={`Kiện hàng ${p.code}`}
+        subtitle={`Đơn hàng ${p.order.code}`}
         action={
           <Button variant="outline" onClick={back}>
             <ArrowLeft />
-            {backTo?.label ?? 'Về hàng đợi'}
+            {backTo?.label ?? 'Về danh sách kiện'}
           </Button>
         }
       />
@@ -272,10 +272,10 @@ export function PackageDetailPage() {
       <div className="flex flex-wrap items-center gap-2" data-testid="package-status">
         <StatusBadge status={p.status} statuses={PACKAGE_STATUS} />
         <FlagChips flags={p.flags} meta={PACKAGE_FLAGS} />
-        {p.selfDelivery && <Badge variant="outline">Tự giao</Badge>}
+        {p.selfDelivery && <Badge variant="outline">Shop tự giao</Badge>}
         <HelpTip
           topic="Trạng thái kiện"
-          content="Kiện đi theo bước Đã giữ hàng → Đã đóng gói → Chờ lấy hàng → Đang giao → Đã giao. Nút thao tác đổi theo bước hiện tại; rê chuột vào cờ để xem nghĩa."
+          content="Kiện đi theo bước Chờ đóng gói → Đã đóng gói → Chờ lấy hàng → Đang giao → Đã giao. Nút thao tác đổi theo bước hiện tại; rê chuột vào nhãn cảnh báo để xem nghĩa."
         />
       </div>
 
@@ -341,13 +341,13 @@ export function PackageDetailPage() {
             {splittable && (
               <Button variant="outline" disabled={loading} onClick={() => setSplitting(true)}>
                 <Scissors />
-                Chia kiện
+                Tách kiện
               </Button>
             )}
             {printable && (
               <Button variant="outline" disabled={printDocs.isPending} onClick={print}>
                 <Printer />
-                {printDocs.isPending ? 'Đang lấy vận đơn...' : 'In vận đơn'}
+                {printDocs.isPending ? 'Đang lấy phiếu giao hàng...' : 'In phiếu giao hàng'}
               </Button>
             )}
             {buttons.note && <span className="text-sm text-muted-foreground">{buttons.note}</span>}
@@ -367,17 +367,17 @@ export function PackageDetailPage() {
         </CardHeader>
         <CardContent className="grid gap-4 text-sm sm:grid-cols-3">
           <div>
-            <p className="text-muted-foreground">Đơn</p>
+            <p className="text-muted-foreground">Đơn hàng</p>
             <Link className="text-primary underline-offset-4 hover:underline" to={ROUTES.company.order(companyId, p.order.id)}>
               {p.order.code}
             </Link>
           </div>
           <div>
-            <p className="text-muted-foreground">Nguồn</p>
+            <p className="text-muted-foreground">Kênh bán</p>
             <p>{sourceLabel(p)}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Khách</p>
+            <p className="text-muted-foreground">Người mua</p>
             <p>{p.customerName ?? '—'}</p>
           </div>
           <div>
@@ -392,18 +392,18 @@ export function PackageDetailPage() {
               </div>
               {p.shippingProviderType && (
                 <div>
-                  <p className="text-muted-foreground">Gói giao</p>
+                  <p className="text-muted-foreground">Loại vận chuyển</p>
                   <p>{shippingProviderTypeLabel(p.shippingProviderType)}</p>
                 </div>
               )}
               {p.promisedShippingAt && (
                 <div>
-                  <p className="text-muted-foreground">Sàn hứa gửi trước</p>
+                  <p className="text-muted-foreground">Hạn gửi hàng của sàn</p>
                   <p>{formatDateTime(p.promisedShippingAt)}</p>
                 </div>
               )}
               <div>
-                <p className="text-muted-foreground">Mã kiện sàn</p>
+                <p className="text-muted-foreground">Mã kiện hàng sàn</p>
                 <p>{p.platformPackageCode ?? '—'}</p>
               </div>
             </>
@@ -413,12 +413,12 @@ export function PackageDetailPage() {
             <p>{p.shipBy ? formatDateTime(p.shipBy) : '—'}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Bàn giao lúc</p>
+            <p className="text-muted-foreground">Thời gian bàn giao</p>
             <p>{p.handedOverAt ? formatDateTime(p.handedOverAt) : '—'}</p>
           </div>
           {p.deliveredAt && (
             <div>
-              <p className="text-muted-foreground">Giao lúc</p>
+              <p className="text-muted-foreground">Thời gian giao</p>
               <p>
                 {formatDateTime(p.deliveredAt)}
                 {p.deliveredBy ? ` · ${p.deliveredBy.name}` : ''}
@@ -430,7 +430,7 @@ export function PackageDetailPage() {
 
       <Card className="py-4">
         <CardHeader>
-          <CardTitle className="text-base">Hàng trong kiện</CardTitle>
+          <CardTitle className="text-base">Sản phẩm trong kiện</CardTitle>
         </CardHeader>
         <CardContent>
           <Table data-testid="package-lines">
@@ -438,7 +438,7 @@ export function PackageDetailPage() {
               <TableRow>
                 <TableHead className="w-36">SKU</TableHead>
                 <TableHead>Sản phẩm</TableHead>
-                <TableHead>Thuộc tính</TableHead>
+                <TableHead>Phân loại</TableHead>
                 <TableHead className="w-24 text-right">Số lượng</TableHead>
               </TableRow>
             </TableHeader>
@@ -455,12 +455,12 @@ export function PackageDetailPage() {
                     {l.productName}
                     {l.untracked ? (
                       <Badge variant="secondary" className="ms-2">
-                        Không quản tồn
+                        Không quản lý tồn
                       </Badge>
                     ) : (
                       !l.variantId && (
                         <Badge variant="destructive" className="ms-2">
-                          Chưa ghép SKU
+                          Chưa liên kết SKU
                         </Badge>
                       )
                     )}
@@ -550,8 +550,8 @@ export function PackageDetailPage() {
               {pending?.kind === 'scan' && pending.action === 'found' ? `Nhận kiện tìm thấy ${p.code}` : `Quét nhận hàng hoàn ${p.code}`}
             </DialogTitle>
             <DialogDescription>
-              Nhập số thật đã quét từng món. Thiếu thì sửa nhỏ lại (0 là không thấy), có món lạ thì thêm. Hàng chờ xử lý tăng đúng
-              số quét.
+              Nhập số lượng thực nhận của từng SKU. Thiếu thì giảm số (0 là không có), có SKU ngoài danh sách thì thêm. Số này
+              vào khu Hàng lỗi/chờ kiểm, chưa cộng vào Có thể bán.
             </DialogDescription>
           </DialogHeader>
           <form

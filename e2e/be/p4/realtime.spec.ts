@@ -134,10 +134,10 @@ test.describe('P4-BE · realtime kiện giữa hai tab (Lazada giả lập)', ()
     await danhDau(tabB);
 
     await nutKien(tabA, 'Đảo bàn giao').click();
-    const dialog = tabA.getByRole('dialog', { name: 'Đảo bàn giao' });
+    const dialog = tabA.getByRole('dialog', { name: 'Huỷ bàn giao' });
     await dialog.getByTestId('reason-input').fill(LY_DO_DAO);
     await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
-    await toast(tabA, `${pkg.code}: Đảo bàn giao`);
+    await toast(tabA, `${pkg.code}: Huỷ bàn giao`);
     await expect(trangThai(tabA)).toContainText('Chờ lấy hàng');
 
     await expect(dong(tabB, pkg.id)).toHaveCount(0, { timeout: 10_000 });

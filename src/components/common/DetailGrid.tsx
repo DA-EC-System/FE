@@ -23,7 +23,7 @@ export function DetailGrid({
         {history && (
           <Card className="py-4" data-guide="detail-history">
             <CardHeader>
-              <CardTitle className="text-base">Lịch sử</CardTitle>
+              <CardTitle className="text-base">Lịch sử trạng thái</CardTitle>
             </CardHeader>
             <CardContent>{history}</CardContent>
           </Card>

@@ -238,7 +238,7 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
     });
     await moKien();
     await nutKien('Đảo bàn giao').click();
-    const dialog = page.getByRole('dialog', { name: 'Đảo bàn giao' });
+    const dialog = page.getByRole('dialog', { name: 'Huỷ bàn giao' });
     await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
     await expect(dialog).toContainText('Nhập lý do');
     expect(undoCalls).toBe(0);
@@ -248,7 +248,7 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
     await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
     expect((await undo).status()).toBe(200);
     expect(undoCalls).toBe(1);
-    await toast(page, `${pkg.code}: Đảo bàn giao`);
+    await toast(page, `${pkg.code}: Huỷ bàn giao`);
     await expect(trangThaiKien()).toContainText('Chờ lấy hàng');
     await expect(lichSuMoiNhat()).toContainText('Chờ lấy hàng');
     await expect(lichSuMoiNhat().getByTestId('status-reason')).toHaveText(`Lý do: ${LY_DO_DAO}`);
@@ -341,7 +341,7 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
     expect((await kien()).status).toBe('returning');
 
     await ma.fill(pkg.trackingCode ?? pkg.code);
-    for (const l of dongBienThe()) await dialog.getByLabel(`Số quét ${l.sku}`, { exact: true }).fill(String(quet.get(l.variantId)));
+    for (const l of dongBienThe()) await dialog.getByLabel(`Thực nhận ${l.sku}`, { exact: true }).fill(String(quet.get(l.variantId)));
     const nhan = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/receive-return'));
     await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
     const ok = await nhan;

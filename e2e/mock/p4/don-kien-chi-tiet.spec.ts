@@ -29,7 +29,7 @@ test.describe('P4 · Kiện chờ mở, thất lạc (FE#284)', () => {
     const thay = /kiện thay (KH-\d+)/.exec(msg)?.[1] ?? '';
     expect(thay).not.toBe('');
     await expect(trangThaiKien(page)).toContainText('Chờ mở kiện');
-    await expect(canhBao(page)).toContainText('Chờ mở kiện: Chia lại kiện');
+    await expect(canhBao(page)).toContainText('Cần mở lại kiện: Chia lại kiện');
     await expect(canhBao(page)).toContainText('Kiện đang chờ mở: mở kiện xong mới báo sẵn sàng hay bàn giao được.');
     await expect(nutKien(page, 'Bàn giao')).toHaveCount(0);
     await expect(nutKien(page, 'Mở kiện')).toBeVisible();
@@ -52,7 +52,7 @@ test.describe('P4 · Kiện chờ mở, thất lạc (FE#284)', () => {
 
   test('kiểm kê thiếu: kiện Chờ lấy hàng mở được, nhãn Kiểm kê thiếu hàng', async ({ page }) => {
     await moKienChoLay(page, 'pkg-1015', 'package.stocktake_short');
-    await expect(canhBao(page)).toContainText('Chờ mở kiện: Kiểm kê thiếu hàng');
+    await expect(canhBao(page)).toContainText('Cần mở lại kiện: Kiểm kê thiếu hàng');
     await expect(nutKien(page, 'Mở kiện')).toBeVisible();
     await expect(nutKien(page, 'Bàn giao')).toHaveCount(0);
   });
