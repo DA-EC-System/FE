@@ -25,6 +25,9 @@ import type {
   ListingRow,
   Marketplace,
   ListingSyncResult,
+  PlatformCategoryDetail,
+  PlatformCategoryList,
+  PlatformCategorySyncResult,
   PushListingsInput,
   PushResult,
   RemoteSkuList,
@@ -62,7 +65,19 @@ export const shopKeys = {
     [...shopKeys.all(companyId), 'market-categories', id, search] as const,
   categoryAttributes: (companyId: string, id: string, externalId: string) =>
     [...shopKeys.all(companyId), 'category-attributes', id, externalId] as const,
+  platformCategories: (companyId: string, platform: string) =>
+    [...shopKeys.all(companyId), 'platform-categories', platform] as const,
+  platformCategoryList: (companyId: string, platform: string, params: PlatformCategoryParams) =>
+    [...shopKeys.platformCategories(companyId, platform), 'list', params.search ?? '', params.parentId ?? ''] as const,
+  platformCategory: (companyId: string, platform: string, externalId: string) =>
+    [...shopKeys.platformCategories(companyId, platform), 'detail', externalId] as const,
 };
+
+/** `search` (≥ 2 ký tự) hoặc `parentId`; không gửi gì là cấp gốc (Documents/21 §18.5) */
+export interface PlatformCategoryParams {
+  search?: string;
+  parentId?: string;
+}
 
 function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
@@ -614,5 +629,49 @@ export function useSaveCategoryMap() {
       return data;
     },
     onSettled: (_data, _error, { shopId }) => qc.invalidateQueries({ queryKey: shopKeys.categoryMaps(companyId, shopId) }),
+  });
+}
+
+// ---------- Category và attribute của sàn (commerio-backend#400, Documents/21 §18.5) ----------
+
+export function usePlatformCategories(platform: string, params: PlatformCategoryParams, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.platformCategoryList(companyId, platform, params),
+    enabled: Boolean(companyId) && enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PlatformCategoryList>(`/channel/platforms/${platform}/categories`, {
+        params: params.search ? { search: params.search } : params.parentId ? { parentId: params.parentId } : undefined,
+      });
+      return data;
+    },
+  });
+}
+
+/** Chi tiết leaf: BE có thể gọi sàn (lấy attribute khi chưa có hoặc quá 7 ngày) nên không thử lại khi lỗi */
+export function usePlatformCategory(platform: string, externalId: string | null) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.platformCategory(companyId, platform, externalId ?? ''),
+    enabled: Boolean(companyId && externalId),
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PlatformCategoryDetail>(
+        `/channel/platforms/${platform}/categories/${encodeURIComponent(externalId ?? '')}`,
+      );
+      return data;
+    },
+  });
+}
+
+/** Xếp một lượt đồng bộ cây chạy nền; `queued = false` khi đã có lượt chờ */
+export function useSyncPlatformCategories() {
+  return useMutation({
+    mutationFn: async (platform: string) => {
+      const { data } = await apiClient.post<PlatformCategorySyncResult>(`/channel/platforms/${platform}/categories/sync`);
+      return data;
+    },
   });
 }
