@@ -34,7 +34,7 @@ import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
-import { isShipmentDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
+import { adjustmentMachine, isShipmentDoc, stockDocMachine, type StockDocRecord } from '@/lib/machines/stockDocument';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
@@ -106,14 +106,14 @@ const ACTION_CONFIRM: Partial<Record<StockDocAction, { title: string; message: s
     message: 'Hàng trên phiếu bị tạm khoá (không bán được) đến khi duyệt hoặc từ chối. Phiếu chờ duyệt không sửa được.',
   },
   approve: {
-    title: 'Duyệt và ghi sổ',
-    message: 'Tồn kho thay đổi theo các dòng của phiếu. Phiếu đã ghi sổ không sửa, không huỷ được.',
+    title: 'Duyệt',
+    message: 'Tồn kho thay đổi theo các dòng của phiếu. Phiếu đã duyệt không sửa, không huỷ được.',
   },
   post: {
-    title: 'Ghi sổ',
-    message: 'Hàng bán lại vào tồn thực; hỏng và trả nhà cung cấp vào chờ xử lý. Phiếu đã ghi sổ không sửa được.',
+    title: 'Hoàn thành kiểm hàng',
+    message: 'Hàng bán lại vào tồn kho; hàng hỏng và trả hàng NCC vào khu hàng lỗi/chờ kiểm. Phiếu đã hoàn thành không sửa được.',
   },
-  cancel: { title: 'Huỷ phiếu', message: 'Phiếu nháp bị huỷ không ghi sổ được nữa; tồn kho không đổi.' },
+  cancel: { title: 'Huỷ phiếu', message: 'Phiếu bị huỷ sẽ không dùng lại được; tồn kho không đổi.' },
 };
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
@@ -161,7 +161,7 @@ export function StockDocPage() {
 
   const docQuery = useStockDoc(isNew ? undefined : docId);
   const doc = docQuery.data;
-  useBreadcrumb(isNew ? 'Lập phiếu' : doc?.number);
+  useBreadcrumb(isNew ? 'Tạo phiếu' : doc?.number);
   const requested = searchParams.get('type') as ManualStockDocType | null;
   const type: StockDocType = doc?.type ?? (requested && MANUAL_TYPES.includes(requested) ? requested : 'stocktake');
   const isStocktake = type === 'stocktake';
@@ -255,7 +255,7 @@ export function StockDocPage() {
       load(latest);
       setNotice({
         severity: 'warning',
-        msg: 'Phiếu vừa được người khác sửa, duyệt hoặc ghi sổ. Form đã hiện bản mới nhất, chưa có gì thay đổi.',
+        msg: 'Phiếu vừa được người khác sửa, duyệt hoặc hoàn thành. Form đã hiện bản mới nhất, chưa có gì thay đổi.',
       });
       return;
     }
@@ -379,7 +379,7 @@ export function StockDocPage() {
   if (isNew && !canManage) {
     return (
       <div className="grid justify-items-start gap-4">
-        <AlertMessage severity="warning">Bạn không có quyền lập phiếu kho.</AlertMessage>
+        <AlertMessage severity="warning">Bạn không có quyền tạo phiếu kho.</AlertMessage>
         <Button variant="outline" onClick={backToList}>
           <ArrowLeft />
           Về danh sách phiếu
@@ -407,7 +407,7 @@ export function StockDocPage() {
   }
 
   const showCost = Boolean(doc?.lines.some((l) => l.unitCost !== null));
-  const title = doc ? `${DOC_TYPE_LABELS[doc.type]} ${doc.number}` : `Lập phiếu ${DOC_TYPE_LABELS[type].toLowerCase()}`;
+  const title = doc ? `${DOC_TYPE_LABELS[doc.type]} ${doc.number}` : `Tạo phiếu ${DOC_TYPE_LABELS[type].toLowerCase()}`;
   const noteLabel = hasQuantity ? 'Lý do' : 'Ghi chú';
   const linesError = errors.lines?.root?.message ?? errors.lines?.message;
   const areaEditable = editable && (isStocktake || (type === 'write_off' && (isNew || doc?.kind === 'manual')));
@@ -440,7 +440,7 @@ export function StockDocPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={backToList}>
               <ArrowLeft />
-              Danh sách
+              Quay lại
             </Button>
             {editable && (
               <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
@@ -473,7 +473,7 @@ export function StockDocPage() {
       {doc?.needsDecision && (
         <AlertMessage severity="warning" className="mb-4">
           <div className="grid gap-2">
-            <p>Phiếu xuất huỷ hàng chờ xử lý bị từ chối. Chọn cách xử lý số hàng này.</p>
+            <p>Phiếu xuất huỷ hàng lỗi/chờ kiểm bị từ chối. Chọn cách xử lý số hàng này.</p>
             {canManage && (
               <div className="flex flex-wrap gap-2">
                 {(['restock', 'supplier_return'] as RejectDecision[]).map((d) => (
@@ -518,10 +518,10 @@ export function StockDocPage() {
             <Info label="Người lập">
               {doc.createdBy} · {formatDateTime(doc.createdAt)}
             </Info>
-            <Info label="Ghi sổ">{doc.postedAt ? `${doc.postedBy} · ${formatDateTime(doc.postedAt)}` : '—'}</Info>
+            <Info label={machine === adjustmentMachine ? 'Người duyệt' : 'Hoàn thành bởi'}>{doc.postedAt ? `${doc.postedBy} · ${formatDateTime(doc.postedAt)}` : '—'}</Info>
             {doc.rejectDecision && <Info label="Cách xử lý">{DECISION_LABELS[doc.rejectDecision]}</Info>}
             {doc.followUps.length > 0 && (
-              <Info label="Phiếu sinh tiếp">
+              <Info label="Phiếu liên quan">
                 <div className="flex flex-wrap gap-x-3">
                   {doc.followUps.map((f) => (
                     <RefLink key={f.id} companyId={companyId} docRef={f} />
@@ -568,13 +568,13 @@ export function StockDocPage() {
 
           {isInspection && missing > 0 && (
             <AlertMessage severity="warning">
-              Thiếu {formatQty(missing)} so với dự kiến: phiếu bật cờ khiếu nại ĐVVC hoặc sàn, cần người thứ hai duyệt.
+              Thiếu {formatQty(missing)} so với dự kiến: phiếu được đánh dấu để khiếu nại ĐVVC hoặc sàn, cần người khác duyệt.
             </AlertMessage>
           )}
 
           {editable && (
             <div className="grid gap-1">
-              {isInspection && <p className="text-sm text-muted-foreground">Nhận SKU khác dự kiến (sai mẫu): thêm dòng SKU thực nhận.</p>}
+              {isInspection && <p className="text-sm text-muted-foreground">Nhận SKU khác dự kiến (sai SKU): thêm dòng SKU thực nhận.</p>}
               <VariantPicker
                 taken={taken}
                 disabled={busy}
@@ -600,21 +600,21 @@ export function StockDocPage() {
             <Table data-testid="doc-lines">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Biến thể</TableHead>
+                  <TableHead>SKU</TableHead>
                   {isStocktake && (
                     <>
-                      <TableHead className="w-28 text-right">Tồn sổ</TableHead>
-                      <TableHead className="w-32 text-right">Số đếm</TableHead>
-                      <TableHead className="w-24 text-right">Δ</TableHead>
+                      <TableHead className="w-28 text-right">Tồn hệ thống</TableHead>
+                      <TableHead className="w-32 text-right">Thực tế</TableHead>
+                      <TableHead className="w-28 text-right">Chênh lệch</TableHead>
                     </>
                   )}
                   {isInspection && (
                     <>
                       <TableHead className="w-24 text-right">Dự kiến</TableHead>
-                      <TableHead className="w-28 text-right">Số quét</TableHead>
+                      <TableHead className="w-28 text-right">Đã quét</TableHead>
                       <TableHead className="w-28 text-right">Bán lại</TableHead>
                       <TableHead className="w-28 text-right">Hỏng</TableHead>
-                      <TableHead className="w-28 text-right">Trả nhà cung cấp</TableHead>
+                      <TableHead className="w-28 text-right">Trả hàng NCC</TableHead>
                       <TableHead className="w-20 text-right">Thiếu</TableHead>
                     </>
                   )}
@@ -627,7 +627,7 @@ export function StockDocPage() {
                 {!fields.length && (
                   <TableRow>
                     <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                      {editable ? 'Tìm và thêm biến thể vào phiếu.' : 'Phiếu không có dòng nào.'}
+                      {editable ? 'Tìm và thêm SKU vào phiếu.' : 'Phiếu không có dòng nào.'}
                     </TableCell>
                   </TableRow>
                 )}
@@ -650,7 +650,7 @@ export function StockDocPage() {
                           {f.sku}
                           {wrongSku && (
                             <Badge variant="warning" className="ms-2">
-                              Sai mẫu
+                              Sai SKU
                             </Badge>
                           )}
                         </p>
@@ -663,7 +663,7 @@ export function StockDocPage() {
                         <>
                           <TableCell className="text-right">{book === undefined ? '—' : formatQty(book)}</TableCell>
                           <TableCell className="text-right">
-                            {editable ? qtyInput(i, 'counted', 'Số đếm', f.sku) : formatQty(docLine?.counted ?? 0)}
+                            {editable ? qtyInput(i, 'counted', 'Thực tế', f.sku) : formatQty(docLine?.counted ?? 0)}
                           </TableCell>
                           <TableCell
                             className={cn('text-right font-medium', delta !== null && delta < 0 && 'text-destructive')}
@@ -676,7 +676,7 @@ export function StockDocPage() {
                         <>
                           <TableCell className="text-right">{formatQty(f.expected ?? 0)}</TableCell>
                           <TableCell className="text-right">
-                            {editable ? qtyInput(i, 'scanned', 'Số quét', f.sku) : formatQty(docLine?.quantity ?? 0)}
+                            {editable ? qtyInput(i, 'scanned', 'Đã quét', f.sku) : formatQty(docLine?.quantity ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
                             {editable ? qtyInput(i, 'resell', 'Bán lại', f.sku) : formatQty(docLine?.resell ?? 0)}
@@ -685,7 +685,7 @@ export function StockDocPage() {
                             {editable ? qtyInput(i, 'damaged', 'Hỏng', f.sku) : formatQty(docLine?.damaged ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {editable ? qtyInput(i, 'toSupplier', 'Trả nhà cung cấp', f.sku) : formatQty(docLine?.toSupplier ?? 0)}
+                            {editable ? qtyInput(i, 'toSupplier', 'Trả hàng NCC', f.sku) : formatQty(docLine?.toSupplier ?? 0)}
                           </TableCell>
                           <TableCell className={cn('text-right', missingOf(live) > 0 && 'font-medium text-destructive')}>
                             {formatQty(missingOf(live))}
@@ -771,7 +771,7 @@ export function StockDocPage() {
         message={
           isInspection
             ? 'Phiếu quay về nháp để kho kiểm lại.'
-            : 'Hàng tạm khoá được trả lại. Xuất huỷ hàng chờ xử lý bị từ chối thì kho phải chọn nhập lại tồn hoặc trả nhà cung cấp.'
+            : 'Hàng đang tạm khoá được mở lại. Nếu là xuất huỷ hàng lỗi/chờ kiểm, kho sẽ phải chọn đưa về kho bán hoặc trả hàng NCC.'
         }
         confirmLabel={isInspection ? 'Yêu cầu kiểm lại' : 'Từ chối'}
         destructive
@@ -788,8 +788,8 @@ export function StockDocPage() {
         title={`${decision ? DECISION_LABELS[decision] : ''}?`}
         message={
           decision === 'restock'
-            ? 'Hàng chuyển từ chờ xử lý về tồn thực và bán được tiếp.'
-            : 'Hàng ở lại chờ xử lý để lập phiếu trả nhà cung cấp.'
+            ? 'Hàng chuyển từ khu hàng lỗi/chờ kiểm về tồn kho và bán được tiếp.'
+            : 'Hàng ở lại khu hàng lỗi/chờ kiểm để tạo phiếu trả hàng NCC.'
         }
         confirmLabel={decision ? DECISION_LABELS[decision] : undefined}
         loading={busy}
