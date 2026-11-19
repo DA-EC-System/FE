@@ -8,7 +8,7 @@ export interface ConfigRecord {
 export const feeConfigMachine = defineMachine<ConfigStatus, ConfigAction, ConfigRecord>([
   { from: 'draft', to: 'pending_approval', action: 'submit', label: 'Gửi duyệt', permission: P.financeConfigManage,
     guard: (r) => r.hasDryRun ? null : 'dry_run_required' },
-  { from: 'pending_approval', to: 'draft', action: 'request_changes', label: 'Trả về', permission: P.financeConfigApprove,
+  { from: 'pending_approval', to: 'draft', action: 'request_changes', label: 'Yêu cầu sửa', permission: P.financeConfigApprove,
     needsSecondPerson: true, needsReason: true },
   { from: 'pending_approval', to: 'scheduled', action: 'approve', label: 'Duyệt', permission: P.financeConfigApprove,
     needsSecondPerson: true, allowSelfApproval: true },
@@ -17,5 +17,5 @@ export const feeConfigMachine = defineMachine<ConfigStatus, ConfigAction, Config
   { from: ['draft', 'pending_approval', 'scheduled'], to: 'cancelled', action: 'cancel', label: 'Huỷ phiên bản', permission: P.financeConfigManage,
     guard: (r) => r.effectiveFrom && r.effectiveFrom <= r.today ? 'config_already_effective' : null },
   { from: 'scheduled', to: 'active', action: 'activate', label: 'Áp dụng', system: true },
-  { from: 'active', to: 'superseded', action: 'supersede', label: 'Hết hiệu lực', system: true },
+  { from: 'active', to: 'superseded', action: 'supersede', label: 'Thay thế', system: true },
 ]);
