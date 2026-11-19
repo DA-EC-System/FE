@@ -118,12 +118,12 @@ const MESSAGES: Record<string, string> = {
   // FE#12, commerio-backend#27; `already_processed` nơi gọi ưu tiên `detail` vì có số phiếu
   already_processed: 'Chứng từ gốc đã được xử lý.',
   payment_state_changed: 'Trạng thái thanh toán của đơn vừa thay đổi.',
-  not_draft: 'Chỉ sửa, xoá, ghi sổ được phiếu chi nháp.',
+  not_draft: 'Chỉ sửa, xoá hoặc duyệt được chứng từ đang ở trạng thái nháp. Tải lại để xem trạng thái mới.',
   amount_mismatch: 'Tổng đơn khác số tiền khoản thu.',
   // FE#13, Documents/21 §12.6
   run_in_progress: 'Lần lấy sao kê sàn trước chưa xong, thử lại sau.',
   // FE#55, lib/stateMachine.ts
-  second_person_required: 'Người lập không tự duyệt hay ghi sổ được. Cần người thứ hai.',
+  second_person_required: 'Người lập không tự duyệt hoặc tự xác nhận được. Cần một người khác thực hiện bước này.',
   reason_required: 'Thao tác này cần ghi lý do.',
   // FE#56, lib/machines/stockDocument.ts
   empty_document: 'Phiếu chưa có dòng nào.',
