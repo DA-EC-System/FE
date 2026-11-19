@@ -211,3 +211,19 @@ describe('Đẩy chặn theo thông tin sàn (AC-14, AC-8, AC-9)', () => {
     expect((await push('shp-002', 'prd-001-v4')).code).toBeNull();
   });
 });
+
+describe('ListingRow.specStatus (Documents/21 §18.5, thêm 19/11/2026)', () => {
+  const rows = async (shopId: string) =>
+    ((await (await call(`/channel/shops/${shopId}/listings`)).json()) as { items: { productId: string; specStatus: string }[] }).items;
+  const statusOf = (items: { productId: string; specStatus: string }[], productId: string) =>
+    [...new Set(items.filter((r) => r.productId === productId).map((r) => r.specStatus))];
+
+  it('theo spec của sản phẩm với sàn của gian hàng: đủ, còn thiếu, chưa có', async () => {
+    const items = await rows('shp-003');
+    expect(statusOf(items, 'prd-002')).toEqual(['complete']);
+    expect(statusOf(items, 'prd-001')).toEqual(['incomplete']);
+    expect(statusOf(items, 'prd-003')).toEqual(['missing']);
+    productSpecs.find((s) => s.productId === 'prd-001' && s.platform === 'lazada')!.attributes.clothing_material = '100% Cotton';
+    expect(statusOf(await rows('shp-003'), 'prd-001')).toEqual(['complete']);
+  });
+});

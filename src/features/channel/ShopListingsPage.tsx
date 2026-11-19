@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -34,10 +33,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  fetchProductSpec,
   useDecideMapping,
   useDelistListing,
-  useIncompleteSpecs,
   useMatchListing,
   usePushListings,
   useRefreshRemoteSkus,
@@ -310,9 +307,6 @@ export function ShopListingsPage() {
   const [decideError, setDecideError] = useState<string | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
   const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
-  /** Biến thể đang đọc thông tin sàn trước khi đẩy sản phẩm mới */
-  const [checkingSpec, setCheckingSpec] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const remoteSkus = useMemo(() => remoteQuery.data?.items ?? [], [remoteQuery.data]);
@@ -620,21 +614,12 @@ export function ShopListingsPage() {
   };
 
   /**
-   * Đẩy sản phẩm mới một dòng: thông tin sàn đủ thì hỏi rồi đẩy như cũ, chưa có hay còn thiếu thì mở trang 4 bước
-   * (commerio-backend#400). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có nút Sửa thông tin sàn
+   * Đẩy sản phẩm mới một dòng: `specStatus` đủ thì hỏi rồi đẩy như cũ, chưa có hay còn thiếu thì mở trang 4 bước
+   * (commerio-backend#400, Documents/21 §18.5). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có nút Sửa thông tin sàn
    */
-  const requestNewPush = async (row: ListingRow) => {
-    if (!specPlatform) return requestPush([row]);
-    setCheckingSpec(row.variantId);
-    try {
-      const spec = await fetchProductSpec(queryClient, companyId, row.productId, specPlatform);
-      if (spec.spec && !spec.missing.length) requestPush([row]);
-      else openSpec(row.productId);
-    } catch (e) {
-      toast.error(problemMessage(e));
-    } finally {
-      setCheckingSpec(null);
-    }
+  const requestNewPush = (row: ListingRow) => {
+    if (specPlatform && row.specStatus !== 'complete') openSpec(row.productId);
+    else requestPush([row]);
   };
 
   /** Đẩy chạy nền (§18.6.4): dòng được xếp việc chuyển Đang đẩy, trang tự đọc lại tới khi sàn trả kết quả */
@@ -681,16 +666,6 @@ export function ShopListingsPage() {
   const platformName = shop ? platformLabel(shop.platform, shop.platformName) : '';
   const openSpec = (productId: string, fill = false) =>
     specPlatform && navigate(ROUTES.company.productPush(companyId, productId, specPlatform, shopId, fill));
-  /**
-   * Dòng đã ghép SKU mà thông tin sàn chưa có hoặc còn thiếu: nút Bổ sung thông tin (AC11). ListingRow chưa mang trạng
-   * thái spec nên đọc GET spec theo từng sản phẩm (ghi ở worklog FE2)
-   */
-  const matchedProductIds = useMemo(
-    () => (specPlatform ? [...new Set(items.filter((r) => r.listing && onPlatform(r.listing.status)).map((r) => r.productId))] : []),
-    [items, specPlatform],
-  );
-  const incompleteSpecs = useIncompleteSpecs(matchedProductIds, specPlatform);
-  const incompleteKey = [...incompleteSpecs].join(',');
 
   const columns = useMemo<ColumnDef<ListingRow>[]>(() => {
     const cols: ColumnDef<ListingRow>[] = [];
@@ -865,7 +840,7 @@ export function ShopListingsPage() {
               {l.status === 'push_failed' && l.pushError && SPEC_FIX_CODES.has(l.pushError.code) && canManage && specPlatform && (
                 <SpecLink label="Sửa thông tin sàn" onClick={() => openSpec(r.productId)} />
               )}
-              {onPlatform(l.status) && incompleteSpecs.has(r.productId) && canManage && (
+              {onPlatform(l.status) && r.specStatus !== 'complete' && specPlatform && canManage && (
                 <SpecLink label="Bổ sung thông tin sàn" onClick={() => openSpec(r.productId, true)} testId="fill-spec" />
               )}
               {l.outsideChange && (
@@ -1002,8 +977,8 @@ export function ShopListingsPage() {
               ) : (
                 <RowAction
                   label={r.listing ? 'Đẩy lên sàn' : 'Đẩy sản phẩm mới'}
-                  reason={pushMut.isPending ? 'Đang đẩy...' : checkingSpec === r.variantId ? 'Đang đọc thông tin sàn...' : busy}
-                  onClick={() => (r.listing ? requestPush([r]) : void requestNewPush(r))}
+                  reason={pushMut.isPending ? 'Đang đẩy...' : busy}
+                  onClick={() => (r.listing ? requestPush([r]) : requestNewPush(r))}
                 >
                   <Upload />
                 </RowAction>
@@ -1049,7 +1024,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, checkingSpec, incompleteKey, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [

@@ -51,6 +51,7 @@ const row = (variantId: string, productId: string, l: ChannelListing | null, thu
   price: 100000,
   priceSource: 'standard',
   listing: l,
+  specStatus: 'complete',
 });
 
 describe('theo dõi listing đang đẩy (§18.6.4)', () => {

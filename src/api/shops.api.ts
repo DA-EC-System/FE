@@ -5,7 +5,7 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { queryOptions, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { salesKeys } from './sales.api';
@@ -653,28 +653,6 @@ export function useProductSpec(productId: string, platform: string, enabled = tr
     ...productSpecQuery(companyId, productId, platform),
     enabled: Boolean(companyId && productId && platform) && enabled,
   });
-}
-
-/** Đọc spec của nhiều sản phẩm (dòng đã ghép SKU ở trang gian hàng); trả id sản phẩm chưa có spec hoặc còn thiếu */
-export function useIncompleteSpecs(productIds: string[], platform: string | null): ReadonlySet<string> {
-  const companyId = useCompanyId();
-  return useQueries({
-    queries: productIds.map((id) => ({
-      ...productSpecQuery(companyId, id, platform ?? ''),
-      enabled: Boolean(companyId && platform),
-      staleTime: 60_000,
-    })),
-    combine: (results) =>
-      new Set(productIds.filter((_, k) => {
-        const d = results[k]?.data;
-        return Boolean(d && (!d.spec || d.missing.length > 0));
-      })),
-  });
-}
-
-/** Đọc spec một lần (dùng trước khi đẩy sản phẩm mới) */
-export function fetchProductSpec(qc: QueryClient, companyId: string, productId: string, platform: string) {
-  return qc.fetchQuery({ ...productSpecQuery(companyId, productId, platform), staleTime: 0 });
 }
 
 /** Lưu thông tin sàn; 409 `version_conflict` mang `current` (kiểu `ProductSpecResult`) để nạp lại */

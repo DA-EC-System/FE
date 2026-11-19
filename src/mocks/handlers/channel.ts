@@ -45,7 +45,7 @@ import { lines as ledgerLines } from '../ledgerData';
 import { settlementLines, statements as settlementStatements } from '../settlementData';
 import { reportRows } from '../reportData';
 import { releasePackage } from './fulfillment';
-import { specBlockOf, specSizeChartRule } from './productSpecs';
+import { specBlockOf, specSizeChartRule, specStatusOf } from './productSpecs';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -1643,6 +1643,7 @@ export const shopHandlers = [
         thumbnailUrl: product.imageFileIds[0] ? fileUrl(product.imageFileIds[0]) : null,
         ...shopPrice(shop, variant.id),
         listing: l ? toListing(l) : null,
+        specStatus: specStatusOf(shop.companyId, product.id, shop.platform),
       };
     });
     return HttpResponse.json<{ items: ListingRow[] }>({ items: rows });

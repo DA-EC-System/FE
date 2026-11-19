@@ -314,7 +314,14 @@ export interface ListingRow {
   price: number | null;
   priceSource: 'shop' | 'standard' | null;
   listing: ChannelListing | null;
+  /**
+   * Thông tin sàn (spec) của sản phẩm với sàn của gian hàng: `missing` chưa có, `incomplete` còn thiếu (Documents/21
+   * §18.5, thêm 19/11/2026). FE dùng để hiện Bổ sung thông tin sàn và quyết định Đẩy sản phẩm mới
+   */
+  specStatus: SpecStatus;
 }
+
+export type SpecStatus = 'complete' | 'incomplete' | 'missing';
 
 /** SKU đang có trên sàn, BE lấy từ API của sàn (§18.3 `remote-skus`) */
 export interface RemoteSku {

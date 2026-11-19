@@ -7,6 +7,7 @@
 import { http, HttpResponse, delay } from 'msw';
 import type {
   CascadeOptionList,
+  SpecStatus,
   CategorySuggestionList,
   PlatformAttribute,
   ProductSpecInput,
@@ -99,6 +100,14 @@ export function specBlockOf(
     return { code: 'category_not_permitted', message: null };
   }
   return null;
+}
+
+/** `ListingRow.specStatus`; sàn chưa có cây category (Shopee, sàn giả lập) không có spec: coi là đủ */
+export function specStatusOf(companyId: string, productId: string, platform: string): SpecStatus {
+  const p = platformOf(platform);
+  if (!p) return 'complete';
+  const { spec, missing } = specResult(companyId, productId, p);
+  return !spec ? 'missing' : missing.length ? 'incomplete' : 'complete';
 }
 
 /** Leaf của spec bắt buộc bảng kích cỡ (commerio-backend#347, cột `platform_categories.size_chart_rule`) */
