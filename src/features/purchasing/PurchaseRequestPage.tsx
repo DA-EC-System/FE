@@ -153,22 +153,22 @@ const LINE_ERROR_FIELDS: Record<string, string> = {
 const REQUEST_PATH = ['draft', 'pending_approval', 'approved', 'ordered', 'received'] as const satisfies readonly PurchaseRequestStatus[];
 
 const ACTION_CONFIRM: Partial<Record<PurchaseRequestAction, { title: string; message: string }>> = {
-  submit: { title: 'Gửi duyệt', message: 'Đề nghị chờ CEO duyệt; trong lúc chờ không sửa được, rút lại để sửa.' },
-  resubmit: { title: 'Gửi lại', message: 'Đề nghị chờ CEO duyệt lại.' },
-  withdraw: { title: 'Rút lại', message: 'Đề nghị quay về nháp để sửa.' },
+  submit: { title: 'Gửi duyệt', message: 'Đơn chờ CEO duyệt; trong lúc chờ không sửa được, bấm Rút lại để sửa.' },
+  resubmit: { title: 'Gửi lại', message: 'Đơn chờ CEO duyệt lại.' },
+  withdraw: { title: 'Rút lại', message: 'Đơn quay về nháp để sửa.' },
   approve: {
     title: 'Duyệt',
-    message: 'Giá nhập được chốt; dòng sản phẩm mới được tạo SKU. Dòng đã loại không đặt nhà cung cấp.',
+    message: 'Giá nhập được chốt; dòng sản phẩm mới được tạo SKU. Dòng không duyệt sẽ không đặt hàng.',
   },
-  order: { title: 'Đã đặt nhà cung cấp', message: 'Số lượng còn chờ được cộng vào "đang về" của từng biến thể. Kho lập phiếu nhận khi hàng tới.' },
-  cancel: { title: 'Huỷ đề nghị', message: 'Đề nghị bị huỷ, không đặt nhà cung cấp được nữa.' },
+  order: { title: 'Đã đặt hàng', message: 'Số lượng chưa nhận được cộng vào Hàng đang về của từng SKU. Kho tạo phiếu nhập kho khi hàng tới.' },
+  cancel: { title: 'Huỷ đơn', message: 'Đơn bị huỷ, không đặt hàng tiếp được.' },
 };
 
 const REASON_TEXT: Partial<Record<PurchaseRequestAction, string>> = {
-  request_changes: 'Đề nghị quay về người lập để sửa rồi gửi lại.',
-  reject: 'Đề nghị kết thúc, không đặt nhà cung cấp.',
-  close_short: 'Phần còn chờ bị bỏ: "đang về" giảm, phiếu giao thiếu chuyển sang đã xử lý.',
-  cancel: 'Đề nghị đã duyệt hoặc đã đặt bị huỷ; "đang về" giảm theo phần còn chờ.',
+  request_changes: 'Đơn quay về người lập để sửa rồi gửi lại.',
+  reject: 'Đơn kết thúc, không đặt hàng.',
+  close_short: 'Không chờ phần NCC chưa giao nữa: số Hàng đang về giảm, phiếu nhập kho giao thiếu chuyển sang Đã xử lý.',
+  cancel: 'Đơn bị huỷ; Hàng đang về giảm theo số chưa nhận.',
 };
 
 /**
@@ -192,7 +192,7 @@ export function PurchaseRequestPage() {
 
   const reqQuery = usePurchaseRequest(isNew ? undefined : requestId);
   const req = reqQuery.data;
-  useBreadcrumb(isNew ? 'Lập đề nghị' : req?.number);
+  useBreadcrumb(isNew ? 'Tạo đơn' : req?.number);
   const { startTour } = usePageGuide('purchase-request', { ready: isNew || Boolean(req) });
   // Phiếu trả NCC mà đề nghị bù hàng: lập mới thì từ `?from=`, đã lưu thì phiếu đã gắn (#365: khoá giá theo dòng gốc).
   const replacementOf = fromReturnId ?? req?.sourceReturn?.id ?? null;
@@ -249,7 +249,7 @@ export function PurchaseRequestPage() {
     reset(
       {
         supplierId: source.supplier?.id ?? '',
-        note: `Bù hàng theo phiếu trả ${source.number}`,
+        note: `Đổi hàng theo phiếu trả hàng NCC ${source.number}`,
         lines: source.lines.map((l) =>
           emptyLine({
             variantId: l.variantId,
@@ -309,7 +309,7 @@ export function PurchaseRequestPage() {
       load(latest);
       setNotice({
         severity: 'warning',
-        msg: 'Đề nghị vừa được người khác sửa hoặc duyệt. Form đã hiện bản mới nhất, chưa có gì thay đổi.',
+        msg: 'Đơn vừa được người khác sửa hoặc duyệt. Form đã hiện bản mới nhất, chưa có gì thay đổi.',
       });
       return;
     }
@@ -438,7 +438,7 @@ export function PurchaseRequestPage() {
   const backToList = () => navigate(ROUTES.company.purchasing(companyId));
 
   if (isNew && !canManage) {
-    return <PageError severity="warning" message="Bạn không có quyền lập đề nghị nhập." onBack={backToList} />;
+    return <PageError severity="warning" message="Bạn không có quyền tạo đơn đặt hàng nhập." onBack={backToList} />;
   }
   if (reqQuery.isError) return <PageError message={getErrorMessage(reqQuery.error)} onBack={backToList} />;
   if (!isNew && !req) return <PageLoading />;
@@ -454,7 +454,7 @@ export function PurchaseRequestPage() {
     return Number.isFinite(q) && Number.isFinite(c) ? s + q * c : s;
   }, 0);
   const colCount = 2 + (showCost ? 1 : 0) + (showProgress ? 3 : 0) + (editable || canExclude ? 1 : 0);
-  const title = req ? `Đề nghị nhập ${req.number}` : fromReturnId ? 'Lập đề nghị bù hàng' : 'Lập đề nghị nhập';
+  const title = req ? `Đơn đặt hàng nhập ${req.number}` : fromReturnId ? 'Tạo đơn đặt hàng đổi' : 'Tạo đơn đặt hàng nhập';
   const lifecycleBlocked = options.flatMap(({ transition: t, blocked }) =>
     blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
   );
@@ -487,8 +487,8 @@ export function PurchaseRequestPage() {
     <div>
       <PageHeader
         title={title}
-        subtitle="Mỗi đề nghị một nhà cung cấp."
-        help="Mua hàng lập nháp rồi gửi duyệt. Người duyệt phải khác người soạn. Đã duyệt thì đặt nhà cung cấp; số còn chờ hiện ở cột đang về của tồn kho. Hàng tới thì Kho lập phiếu nhận từ đề nghị."
+        subtitle="Mỗi đơn đặt hàng nhập một NCC."
+        help="Nhân viên nhập hàng tạo nháp rồi gửi duyệt. Người duyệt phải khác người lập. Duyệt xong thì đặt hàng với NCC; số chưa nhận hiện ở cột Hàng đang về của tồn kho. Hàng tới thì Kho tạo phiếu nhập kho từ đơn."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2" data-guide="pr-actions">
@@ -505,7 +505,7 @@ export function PurchaseRequestPage() {
             {canCreateReceipt && (
               <Button variant="outline" disabled={busy} onClick={() => setReceiving(true)}>
                 <PackagePlus />
-                Lập phiếu nhận
+                Tạo phiếu nhập kho
               </Button>
             )}
             {(isNew ? options.filter((o) => o.transition.action === 'submit') : options).map(({ transition: t, blocked }) => {
@@ -534,7 +534,7 @@ export function PurchaseRequestPage() {
       )}
       {source && (
         <AlertMessage severity="info" className="mb-4">
-          Đề nghị bù hàng cho phiếu trả {source.number}. Lưu xong, phiếu trả sẽ liên kết tới đề nghị này.
+          Đơn đặt hàng đổi cho phiếu trả hàng NCC {source.number}. Lưu xong, phiếu trả sẽ liên kết tới đơn này.
         </AlertMessage>
       )}
 
@@ -566,21 +566,21 @@ export function PurchaseRequestPage() {
               <Info label="Trạng thái">
                 <div className="flex flex-wrap items-center gap-1" data-testid="request-status">
                   <StatusBadge status={req.status} statuses={REQUEST_STATUS} />
-                  {req.supplierShort && <Badge variant="destructive">Nhà cung cấp giao thiếu</Badge>}
+                  {req.supplierShort && <Badge variant="destructive">NCC giao thiếu</Badge>}
                 </div>
               </Info>
               <Info label="Người lập">
                 {req.createdBy} · {formatDateTime(req.createdAt)}
               </Info>
-              <Info label="Còn chờ">{formatQty(req.outstanding)}</Info>
-              {req.totalCost !== null && <Info label="Giá trị">{formatCurrency(req.totalCost)}</Info>}
+              <Info label="Chưa nhận">{formatQty(req.outstanding)}</Info>
+              {req.totalCost !== null && <Info label="Tổng tiền">{formatCurrency(req.totalCost)}</Info>}
               {req.sourceReturn && (
-                <Info label="Bù hàng cho">
+                <Info label="Đổi hàng cho phiếu trả">
                   <DocLink companyId={companyId} docRef={req.sourceReturn} />
                 </Info>
               )}
               {req.receipts.length > 0 && (
-                <Info label="Phiếu nhận">
+                <Info label="Phiếu nhập kho">
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
                     {req.receipts.map((r) => (
                       <span key={r.id} className="inline-flex items-center gap-1">
@@ -644,7 +644,7 @@ export function PurchaseRequestPage() {
 
             {editable && source && (
               <AlertMessage severity="info">
-                Đề nghị bù hàng cho phiếu trả {source.number}: chỉ SKU đã trả, số không quá số đã trả, giá theo dòng gốc.
+                Đơn đặt hàng đổi cho phiếu trả hàng NCC {source.number}: chỉ SKU đã trả, số không quá số đã trả, giá theo dòng gốc.
               </AlertMessage>
             )}
             {editable && !source && (
@@ -667,7 +667,7 @@ export function PurchaseRequestPage() {
                 </div>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true, parentMode: 'new', options: Array.from({ length: MAX_AXES }, () => ({ axis: '', value: '' })) }))}>
                   <Plus />
-                  Sản phẩm mới
+                  Thêm sản phẩm mới
                 </Button>
               </div>
             )}
@@ -677,14 +677,14 @@ export function PurchaseRequestPage() {
               <Table data-testid="request-lines">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Biến thể</TableHead>
+                    <TableHead>Sản phẩm / SKU</TableHead>
                     <TableHead className="w-32 text-right">Số lượng</TableHead>
                     {showCost && <TableHead className="w-40 text-right">Giá nhập</TableHead>}
                     {showProgress && (
                       <>
                         <TableHead className="w-24 text-right">Đã nhận</TableHead>
-                        <TableHead className="w-24 text-right">Lỗi giữ</TableHead>
-                        <TableHead className="w-24 text-right">Còn chờ</TableHead>
+                        <TableHead className="w-24 text-right">Hàng lỗi giữ lại</TableHead>
+                        <TableHead className="w-24 text-right">Chưa nhận</TableHead>
                       </>
                     )}
                     {(editable || canExclude) && <TableHead className="w-12" />}
@@ -694,7 +694,7 @@ export function PurchaseRequestPage() {
                   {!fields.length && (
                     <TableRow>
                       <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                        {editable ? 'Tìm biến thể có sẵn hoặc thêm sản phẩm mới.' : 'Đề nghị không có dòng nào.'}
+                        {editable ? 'Tìm SKU có sẵn hoặc thêm sản phẩm mới.' : 'Đơn không có dòng nào.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -732,7 +732,7 @@ export function PurchaseRequestPage() {
                                 )}
                                 {line?.excluded && (
                                   <Badge variant="secondary" className="ms-2">
-                                    Đã loại
+                                    Không duyệt
                                   </Badge>
                                 )}
                               </p>
@@ -742,7 +742,7 @@ export function PurchaseRequestPage() {
                                       optionsLabel(np.optionValues ?? {}),
                                       np.parentId
                                         ? 'Cha có sẵn'
-                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Danh mục ${np.categoryName}`,
+                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Category ${np.categoryName}`,
                                     ]
                                       .filter(Boolean)
                                       .join(' · ')
@@ -750,7 +750,7 @@ export function PurchaseRequestPage() {
                               </p>
                               {line?.excluded && line.excludedReason && (
                                 <p className="text-xs text-muted-foreground" data-testid="excluded-reason">
-                                  Lý do loại: {line.excludedReason}
+                                  Lý do không duyệt: {line.excludedReason}
                                 </p>
                               )}
                             </>
@@ -783,7 +783,7 @@ export function PurchaseRequestPage() {
                             <TableCell className="text-right">{formatQty(line?.defective ?? 0)}</TableCell>
                             <TableCell className={cn('text-right', (line?.outstanding ?? 0) > 0 && 'font-medium')}>
                               {line?.closedShort ? (
-                                <span title={`Đóng thiếu ${line.closedShort}`}>0 (đóng thiếu {formatQty(line.closedShort)})</span>
+                                <span title={`Bỏ ${line.closedShort} khi đóng đơn thiếu hàng`}>0 (bỏ {formatQty(line.closedShort)})</span>
                               ) : (
                                 formatQty(line?.outstanding ?? 0)
                               )}
@@ -799,7 +799,7 @@ export function PurchaseRequestPage() {
                             )}
                             {canExclude && line && (
                               <RowAction
-                                label={line.excluded ? 'Lấy lại dòng' : 'Loại dòng'}
+                                label={line.excluded ? 'Duyệt lại dòng' : 'Không duyệt dòng'}
                                 destructive={!line.excluded}
                                 reason={busy ? 'Đang lưu' : null}
                                 // Loại dòng bắt buộc lý do (BE#243); lấy lại thì không cần
@@ -827,7 +827,7 @@ export function PurchaseRequestPage() {
 
       <SecondPersonDialog
         open={confirm === 'approve'}
-        title={`Duyệt ${req?.number ?? 'đề nghị'}?`}
+        title={`Duyệt ${req?.number ?? 'đơn'}?`}
         createdByName={req?.createdBy ?? ''}
         selfApproval={req?.createdById === actor.accountId}
         loading={busy}
@@ -848,10 +848,10 @@ export function PurchaseRequestPage() {
       />
       <ReasonDialog
         open={excludeFor !== null}
-        title={`Loại dòng khỏi ${req?.number ?? 'đề nghị'}`}
-        message="Dòng bị loại không đặt nhà cung cấp; lý do hiện ngay dưới dòng đó."
-        label="Lý do loại"
-        confirmLabel="Loại dòng"
+        title={`Không duyệt dòng trong ${req?.number ?? 'đơn'}`}
+        message="Dòng không duyệt sẽ không đặt hàng; lý do hiện dưới dòng."
+        label="Lý do không duyệt"
+        confirmLabel="Không duyệt dòng"
         destructive
         loading={busy}
         error={reasonError}
@@ -866,7 +866,7 @@ export function PurchaseRequestPage() {
       />
       <ConfirmDialog
         open={Boolean(confirmText) && confirm !== 'approve' && confirm !== 'order'}
-        title={`${confirmText?.title ?? ''} ${req?.number ?? 'đề nghị'}?`}
+        title={`${confirmText?.title ?? ''} ${req?.number ?? 'đơn'}?`}
         message={confirmText?.message ?? ''}
         confirmLabel={confirmText?.title}
         cancelLabel={confirm === 'cancel' ? 'Giữ lại' : undefined}
@@ -904,7 +904,7 @@ export function PurchaseRequestPage() {
                 note,
                 ...(followsUpReceiptId && { followsUpReceiptId }),
               });
-              toast.success(`Đã lập phiếu nhận ${created.number}`);
+              toast.success(`Đã tạo phiếu nhập kho ${created.number}`);
               navigate(ROUTES.company.goodsReceipt(companyId, created.id));
             } catch (e) {
               setReceiving(false);
@@ -916,7 +916,7 @@ export function PurchaseRequestPage() {
       <ConfirmDialog
         open={blocker.state === 'blocked'}
         title="Rời trang khi chưa lưu?"
-        message="Thay đổi trên đề nghị chưa được lưu sẽ bị bỏ."
+        message="Thay đổi trên đơn chưa được lưu sẽ bị bỏ."
         confirmLabel="Rời trang"
         cancelLabel="Ở lại"
         destructive
@@ -960,10 +960,10 @@ function CreateReceiptDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Lập phiếu nhận cho {number}</DialogTitle>
+          <DialogTitle>Tạo phiếu nhập kho cho {number}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Phiếu lấy các dòng còn chờ của đề nghị. Kho nhập số báo giao và số kiểm được rồi ghi sổ một lần.
+          Phiếu lấy các dòng chưa nhận của đơn. Kho nhập số NCC giao và số kiểm đạt rồi xác nhận nhập kho một lần.
         </p>
         <RadioGroup value={mode} onValueChange={(v) => setMode(v as DeliveryMode)} className="grid gap-2">
           {(Object.keys(DELIVERY_LABELS) as DeliveryMode[]).map((m) => (
@@ -1000,7 +1000,7 @@ function CreateReceiptDialog({
             Huỷ
           </Button>
           <Button disabled={loading} onClick={() => onCreate(mode, note.trim(), followsUp === NO_FOLLOW_UP ? null : followsUp)}>
-            {loading ? 'Đang lập...' : 'Lập phiếu'}
+            {loading ? 'Đang tạo...' : 'Tạo phiếu'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1037,10 +1037,10 @@ function OrderDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Đã đặt nhà cung cấp {number}?</DialogTitle>
+          <DialogTitle>Đã đặt hàng {number}?</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Số lượng còn chờ được cộng vào "đang về" của từng biến thể. Kho lập phiếu nhận khi hàng tới.
+          Số lượng chưa nhận được cộng vào Hàng đang về của từng SKU. Kho tạo phiếu nhập kho khi hàng tới.
         </p>
         <div className="grid gap-1.5">
           <Label htmlFor="order-date">Ngày giao dự kiến</Label>
@@ -1048,7 +1048,7 @@ function OrderDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="order-code">Mã đơn bên nhà cung cấp (nếu có)</Label>
+          <Label htmlFor="order-code">Mã đơn của NCC (nếu có)</Label>
           <Input id="order-code" maxLength={100} value={code} onChange={(e) => setCode(e.target.value)} />
         </div>
         <DialogFooter>
@@ -1059,13 +1059,13 @@ function OrderDialog({
             disabled={loading}
             onClick={() => {
               if (!date) {
-                setError('Nhập ngày nhà cung cấp hẹn giao');
+                setError('Nhập ngày NCC hẹn giao');
                 return;
               }
               onOrder({ expectedDeliveryDate: date, supplierOrderCode: code.trim() || null });
             }}
           >
-            Đã đặt nhà cung cấp
+            Xác nhận đã đặt hàng
           </Button>
         </DialogFooter>
       </DialogContent>
