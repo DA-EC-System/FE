@@ -310,9 +310,22 @@ export interface ListingRow {
   /** "Đen / M"; rỗng nếu sản phẩm không có thuộc tính */
   attributesLabel: string;
   thumbnailUrl: string | null;
-  /** Giá sẽ đẩy: bảng giá gian hàng, thiếu thì lấy giá chuẩn (G5) */
+  /** Giá đang bán, giá sẽ đẩy: giá ghi đè tay, giá theo gian hàng đã xác nhận, hoặc giá chuẩn (BE#225) */
   price: number | null;
-  priceSource: 'shop' | 'standard' | null;
+  /** `override`: giá ghi đè tay của listing (kể cả nhận giá sàn đổi ngoài app); `shop`: giá theo gian hàng (FE#274) */
+  priceSource: 'standard' | 'shop' | 'override' | null;
+  /** Giá theo bộ lọc giá của gian hàng đã xác nhận; null khi chưa có */
+  shopPrice: number | null;
+  /** Giá mới chờ xác nhận (trang Giá chờ xác nhận); null khi không có */
+  pendingPrice: number | null;
+  /** Phiên bản phí sinh ra giá chờ */
+  configVersionId: string | null;
+  /** Thực nhận mỗi món theo giá đang bán; null khi gian hàng chưa có phí */
+  netReceived: number | null;
+  /** Giá đang bán dưới giá thấp nhất; null khi chưa có giá vốn */
+  belowFloor: boolean | null;
+  /** Tổng phí và thuế của gian hàng trên 50% */
+  feeWarning: 'over_50' | null;
   listing: ChannelListing | null;
   /**
    * Thông tin sàn (spec) của sản phẩm với sàn của gian hàng: `missing` chưa có, `incomplete` còn thiếu (Documents/21
@@ -339,38 +352,33 @@ export interface RemoteSku {
   pendingMapping: PendingMapping | null;
 }
 
-/** Lỗi của lượt tải SKU sàn (§18.3, BE#361); `retryAfterSeconds`: số giây còn lại tới lúc được tải lại */
+/** Lỗi của lần đọc trọn SKU sàn gần nhất (§18.3, BE#361) */
 export interface RemoteSkusRefreshError {
   code: string;
   platformCode: string | null;
   message: string;
+}
+
+/**
+ * Lượt tải SKU sàn của gian hàng (§18.3, BE#361). `running`: lượt đang chờ hoặc chạy, `requestedAt` là lúc xếp lượt;
+ * `failed`: lần đọc trọn lỗi gần nhất chưa quá 10 phút (hoặc lượt quá 15 phút, `refresh_stale`); `idle`: không có lượt
+ * nào. `retryAfterSeconds`: số giây còn phải chờ trước khi Tải lại, null khi bấm được ngay (FE#315)
+ */
+export interface RemoteSkusRefresh {
+  status: 'idle' | 'running' | 'failed';
+  requestedAt: string | null;
+  error: RemoteSkusRefreshError | null;
   retryAfterSeconds: number | null;
 }
 
 /**
- * Lượt tải SKU sàn gần nhất của gian hàng (§18.3, BE#361). Mỗi gian hàng mỗi lúc chỉ chạy một lượt; `startedAt` là định
- * danh lượt
- */
-export interface RemoteSkusRefresh {
-  status: 'running' | 'succeeded' | 'failed';
-  startedAt: string;
-  finishedAt: string | null;
-  error: RemoteSkusRefreshError | null;
-}
-
-/**
- * `GET remote-skus` (§18.6.5). `syncedAt`: lần đọc trọn gần nhất; lần mở đầu chưa có bản sao thì `syncedAt: null`,
- * `items: []` và `refresh.status = 'running'`. `refresh` null khi chưa từng chạy; BE trước BE#361 không gửi trường này
+ * `GET remote-skus` và `POST remote-skus/refresh` (§18.3, §18.6.5). `syncedAt`: lần đọc trọn gần nhất; lần mở đầu chưa có
+ * bản sao thì `syncedAt: null`, `items: []` và `refresh.status = 'running'`. POST trả 202 khi xếp lượt (hoặc đang chạy)
  */
 export interface RemoteSkuList {
   syncedAt: string | null;
   items: RemoteSku[];
   refresh?: RemoteSkusRefresh | null;
-}
-
-/** `POST remote-skus/refresh` (202 đang chạy, 200 lượt thành công trong 60 giây) và `GET remote-skus/refresh` */
-export interface RemoteSkusRefreshResult {
-  refresh: RemoteSkusRefresh | null;
 }
 
 /** `POST /channel/shops/:id/listings/match` (§18.6.5): ghép theo SKU sàn */

@@ -69,8 +69,8 @@ export function MatchDialog({
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return options
-      .filter((o) => !q || o.title.toLowerCase().includes(q) || o.subtitle.toLowerCase().includes(q))
-      .sort((a, b) => Number(b.suggested) - Number(a.suggested));
+      // Giữ thứ tự nơi gọi đã xếp (mục đang ghép, rồi theo độ giống; FE#326)
+      .filter((o) => !q || o.title.toLowerCase().includes(q) || o.subtitle.toLowerCase().includes(q));
   }, [options, search]);
 
   return (

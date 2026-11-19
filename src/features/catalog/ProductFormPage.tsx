@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -136,7 +136,9 @@ export function ProductFormPage() {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [specVariantId, setSpecVariantId] = useState<string | null>(null);
+  // `?spec=` mở luôn hộp Thông tin SKU (FE#326: nút Sửa cân nặng ở lỗi đẩy của trang gian hàng)
+  const [searchParams] = useSearchParams();
+  const [specVariantId, setSpecVariantId] = useState<string | null>(() => searchParams.get('spec'));
   const specVariant = product?.variants.find((v) => v.id === specVariantId) ?? null;
 
   const form = useForm<ProductForm>({

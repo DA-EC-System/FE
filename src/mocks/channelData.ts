@@ -53,6 +53,8 @@ export interface MockListing {
   delistedByDisconnect?: boolean;
   lastPushedAt: string | null;
   lastPushedPrice: number | null;
+  /** Giá ghi đè tay của listing (PUT price, nhận giá sàn đổi ngoài app; BE#225) */
+  priceOverride?: number | null;
   /** Ghép chờ CEO duyệt (§18.6.5) */
   pendingMapping?: PendingMapping | null;
   version: number;
@@ -231,3 +233,11 @@ export function seedRemoteForNewShop(shopId: string, platform?: string) {
 }
 
 export const oauthStates = new Map<string, MockOAuthState>();
+
+/** Giá chờ xác nhận theo listing (§21.4): giá gắn với listing, không đổi theo vị trí sau khi lọc/xác nhận dòng khác */
+export const pendingPrices = new Map(
+  listings.filter((l) => l.status === 'live').map((l, i) => [l.id, { pendingPrice: i % 2 ? 100000 : 160000, belowFloor: i % 2 === 1 }]),
+);
+
+/** Gian hàng có tổng phí và thuế trên 50% (`feeWarning: 'over_50'`, FE#274) */
+export const feeOverHalfShops = new Set(['shp-003']);

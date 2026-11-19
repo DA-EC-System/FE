@@ -1,0 +1,113 @@
+import { useEffect, useState } from 'react';
+import { AlertMessage } from '@/components/common/AlertMessage';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { priceText } from '@/utils/price';
+import type { ListingRow } from '@/types/shop';
+import { PRICE_SOURCE_LABEL, parsePriceInput } from './listingPrice';
+
+interface PriceOverrideDialogProps {
+  row: ListingRow | null;
+  saving: boolean;
+  /** Lỗi BE gắn với ô giá (422 `below_floor`, `validation_failed`) */
+  fieldError: string | null;
+  /** Lỗi chung (409, mạng) */
+  error: string | null;
+  onSave: (price: number | null) => void;
+  onClose: () => void;
+}
+
+/**
+ * Ghi đè giá tay của một listing (FE#274, BE#225, Documents/21 §18.6.7). Giá ghi đè thay giá theo gian hàng và giá chuẩn
+ * cho riêng SKU này; "Bỏ ghi đè" trả về giá theo gian hàng hoặc giá chuẩn
+ */
+export function PriceOverrideDialog({ row, saving, fieldError, error, onSave, onClose }: PriceOverrideDialogProps) {
+  const [text, setText] = useState('');
+  const [inputError, setInputError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!row) return;
+    setText(row.price === null ? '' : String(row.price));
+    setInputError(null);
+  }, [row]);
+
+  const submit = () => {
+    const parsed = parsePriceInput(text);
+    if ('error' in parsed) {
+      setInputError(parsed.error);
+      return;
+    }
+    setInputError(null);
+    onSave(parsed.price);
+  };
+
+  const shownError = inputError ?? fieldError;
+  const overridden = row?.priceSource === 'override';
+  const fallback = row?.shopPrice ?? null;
+
+  return (
+    <Dialog open={row !== null} onOpenChange={(v) => !v && !saving && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ghi đè giá</DialogTitle>
+          <DialogDescription>
+            Giá ghi đè chỉ áp cho {row?.listing?.sellerSku || row?.sku} ở gian hàng này, thay giá theo gian hàng và giá chuẩn.
+            Bấm Đồng bộ để đẩy giá mới lên sàn.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <AlertMessage severity="error">{error}</AlertMessage>}
+        {row && (
+          <p className="text-sm text-muted-foreground" data-testid="price-current">
+            Đang bán {row.price === null ? 'chưa có giá' : priceText(row.price)}
+            {row.priceSource ? ` (${PRICE_SOURCE_LABEL[row.priceSource]})` : ''}
+            {overridden && fallback !== null ? `. Bỏ ghi đè thì về ${priceText(fallback)} theo gian hàng.` : '.'}
+          </p>
+        )}
+        <div className="grid gap-1.5">
+          <Label htmlFor="price-override">Giá bán (đồng)</Label>
+          <Input
+            id="price-override"
+            inputMode="numeric"
+            autoComplete="off"
+            value={text}
+            aria-invalid={shownError ? true : undefined}
+            aria-describedby={shownError ? 'price-override-error' : undefined}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !saving && submit()}
+          />
+          {shownError && (
+            <p id="price-override-error" className="text-sm text-destructive" data-testid="price-error">
+              {shownError}
+            </p>
+          )}
+        </div>
+        <DialogFooter className="gap-2 sm:justify-between">
+          {overridden ? (
+            <Button variant="outline" disabled={saving} onClick={() => onSave(null)}>
+              Bỏ ghi đè
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={saving} onClick={onClose}>
+              Huỷ
+            </Button>
+            <Button disabled={saving} onClick={submit}>
+              {saving ? 'Đang lưu...' : 'Lưu giá'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
