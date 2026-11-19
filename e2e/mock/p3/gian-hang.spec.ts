@@ -32,7 +32,7 @@ const themQua = async (page: Page, platformName: string) => {
 };
 
 const moTrangGhep = async (page: Page, shopId: string) => {
-  await chonMenu(page, shopId, 'Listing & giá');
+  await chonMenu(page, shopId, 'Sản phẩm trên sàn và giá');
   await expect.poll(() => duongDan(page)).toMatch(new RegExp(`/channel/shops/${shopId}$`));
   await expect(page.locator('[data-testid=match-summary]')).toBeAttached();
 };
@@ -71,7 +71,7 @@ test.describe('P3 · Gian hàng', () => {
     test('danh sách hiện trạng thái, hạn token và số SKU đã ghép', async ({ page }) => {
       await expect(trangThai(page, 'shp-001')).toHaveText('Đã kết nối');
       await expect(trangThai(page, 'shp-002')).toHaveText('Cần kết nối lại');
-      await expect(dong(page, 'shp-002')).toContainText('3 cập nhật chờ gửi sàn');
+      await expect(dong(page, 'shp-002')).toContainText('3 việc đang chờ');
       // Sắp hết hạn là nhãn phụ của gian hàng đang kết nối, không phải trạng thái
       await expect(trangThai(page, 'shp-003')).toHaveText('Đã kết nối');
       const expiring = dong(page, 'shp-003').locator('[data-testid=shop-expiring]');
@@ -81,8 +81,8 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dong(page, 'shp-002').locator('[data-testid=shop-status-line]')).toContainText(/^Từ \d{2}\/\d{2}\/\d{4}/);
       await expect(dong(page, 'shp-008').locator('[data-testid=shop-status-line]')).toContainText('vẫn giữ lịch sử');
       // Chưa có bản cấu hình phí (BE#230) thì "—", gian hàng đã ngắt thì không áp
-      await expect(dong(page, 'shp-008')).toContainText('Không áp dụng');
-      await expect(dong(page, 'shp-001')).not.toContainText('Không áp dụng');
+      await expect(dong(page, 'shp-008')).toContainText('Không áp');
+      await expect(dong(page, 'shp-001')).not.toContainText('Không áp');
       // Refresh token còn xa hạn thì không có nhãn phụ
       await expect(dong(page, 'shp-001')).toBeAttached();
       await expect(dong(page, 'shp-001').locator('[data-testid=shop-expiring]')).toHaveCount(0);
@@ -94,13 +94,13 @@ test.describe('P3 · Gian hàng', () => {
       const ngat = dong(page, 'shp-008');
       await expect(ngat.getByRole('button', { name: 'Kết nối lại', exact: true })).toBeAttached();
       await ngat.getByRole('button', { name: 'Thao tác khác với ABC Outlet TikTok', exact: true }).click();
-      await expect(page.getByRole('menuitem', { name: /^Đồng bộ đơn ngay/ })).toContainText('Đã ngắt');
-      await expect(page.getByRole('menuitem', { name: /^Đồng bộ đơn ngay/ })).toHaveAttribute('aria-disabled', 'true');
+      await expect(page.getByRole('menuitem', { name: /^Kéo đơn ngay/ })).toContainText('Đã ngắt');
+      await expect(page.getByRole('menuitem', { name: /^Kéo đơn ngay/ })).toHaveAttribute('aria-disabled', 'true');
       await expect(page.getByRole('menuitem', { name: 'Ngắt kết nối', exact: true })).toHaveCount(0);
       await expect(page.getByRole('menuitem', { name: 'Kết nối lại', exact: true })).toBeAttached();
       await page.keyboard.press('Escape');
       // Gian hàng đang chạy: nút chính là Listing, không có Kết nối lại
-      await expect(dong(page, 'shp-001').getByRole('button', { name: 'Listing & giá', exact: true })).toBeAttached();
+      await expect(dong(page, 'shp-001').getByRole('button', { name: 'Sản phẩm trên sàn', exact: true })).toBeAttached();
       await expect(dong(page, 'shp-001').getByRole('button', { name: 'Kết nối lại', exact: true })).toHaveCount(0);
 
       // Cần xử lý: mất quyền (shp-002) và uỷ quyền sắp hết hạn (shp-003)
@@ -108,7 +108,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(2);
       await expect(dong(page, 'shp-002')).toBeAttached();
       await expect(dong(page, 'shp-003')).toBeAttached();
-      await page.getByRole('tab', { name: 'Đã ngắt kết nối', exact: true }).click();
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
       await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
       await expect(dong(page, 'shp-008')).toBeAttached();
     });
@@ -117,13 +117,13 @@ test.describe('P3 · Gian hàng', () => {
       const banner = page.locator('[data-testid=reauth-banner]');
       await expect(banner).toHaveCount(1);
       await expect(banner).toContainText('ABC Fashion TikTok Shop');
-      await expect(banner).toContainText('3 cập nhật chờ gửi sàn');
+      await expect(banner).toContainText('3 việc đang chờ');
       await expect(dong(page, 'shp-002')).toBeAttached();
       await banner.getByRole('button', { name: 'Kết nối lại', exact: true }).click();
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       const ketQua = page.locator('[data-outcome=reconnected]');
       await expect(ketQua).toContainText('Đã kết nối lại ABC Fashion TikTok Shop');
-      await expect(ketQua).toContainText('gửi 3 cập nhật đang chờ');
+      await expect(ketQua).toContainText('chạy 3 việc đang chờ');
       await expect(ketQua).toContainText('Cần kết nối lại');
       await ketQua.getByRole('button', { name: 'Để sau', exact: true }).click();
       await expect(trangThai(page, 'shp-002')).toHaveText('Đã kết nối');
@@ -138,14 +138,14 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       await thayChu(page, 'Nhập tên gian hàng');
       await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC Thử nghiệm');
-      await page.getByLabel('ID gian hàng trên sàn', { exact: true }).fill('mock-abc-01');
+      await page.getByLabel('Mã gian hàng trên sàn', { exact: true }).fill('mock-abc-01');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       const ketQua = page.locator('[data-outcome=connected]');
-      await expect(ketQua).toContainText('Đã kết nối ABC Thử nghiệm');
+      await expect(ketQua).toContainText('Đã nối ABC Thử nghiệm');
       await expect(ketQua).toContainText('mock-abc-01');
       // Sàn giả lập có 4 phân loại của 1 sản phẩm: hai số khác nhau để lộ việc đọc nhầm trường (§18.7.4)
-      await expect(ketQua).toContainText('Sản phẩm trên sàn');
-      await expect(ketQua).toContainText('1 sản phẩm · 4 SKU');
+      await expect(ketQua).toContainText('Hàng trên sàn');
+      await expect(ketQua).toContainText('1 sản phẩm · 4 phân loại');
       await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
       await expect.poll(() => duongDan(page)).toMatch(/\/channel\/shops\/[^/]+\/setup$/);
 
@@ -400,7 +400,7 @@ test.describe('P3 · Gian hàng', () => {
     test('kết nối lại gian hàng đã ngắt; uỷ quyền nhầm gian hàng thì báo lỗi', async ({ page }) => {
       await dong(page, 'shp-008').getByRole('button', { name: 'Kết nối lại', exact: true }).click();
       await expect(page.getByLabel('Tên gian hàng', { exact: true })).toHaveValue('ABC Outlet TikTok');
-      await page.getByLabel('ID gian hàng trên sàn', { exact: true }).fill('shop-khac');
+      await page.getByLabel('Mã gian hàng trên sàn', { exact: true }).fill('shop-khac');
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       const ketQua = page.locator('[data-outcome=mismatch]');
       await expect(ketQua).toContainText(/Bạn vừa đăng nhập .+, không phải ABC Outlet TikTok/);
@@ -412,7 +412,7 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Đồng ý', exact: true }).click();
       // Kết nối lại dùng bản ghi cũ, đưa listing đã gỡ khi ngắt lên lại và kéo đơn từ mốc cũ
       const noiLai = page.locator('[data-outcome=reconnected]');
-      await expect(noiLai).toContainText(/đưa lại 1 sản phẩm lên sàn, đồng bộ đơn từ/);
+      await expect(noiLai).toContainText(/đưa lại 1 sản phẩm lên sàn, kéo đơn từ/);
       await expect(noiLai).toContainText('Đã ngắt');
       await noiLai.getByRole('button', { name: 'Để sau', exact: true }).click();
       await expect(trangThai(page, 'shp-008')).toHaveText('Đã kết nối');
@@ -479,14 +479,14 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dialog.getByRole('checkbox', { name: /Đặt tồn trên sàn về 0/ })).not.toBeChecked();
       await thayChu(dialog, 'sàn đã thu hồi quyền');
       await xacNhanNgat(dialog);
-      await thayChu(page.locator('[data-testid=disconnect-blocked]'), 'Chưa ngắt được: còn 2 đơn chưa hoàn tất');
+      await thayChu(page.locator('[data-testid=disconnect-blocked]'), 'Chưa ngắt được: còn 2 đơn chưa xong');
       await expect(trangThai(page, 'shp-002')).toHaveText('Cần kết nối lại');
     });
 
     test('còn đơn chưa xong thì không ngắt, báo số đơn và link danh sách đơn của gian hàng', async ({ page }) => {
       await xacNhanNgat(await moNgat(page, 'shp-001'));
       const blocked = page.locator('[data-testid=disconnect-blocked]');
-      await expect(blocked).toContainText('Chưa ngắt được: còn 2 đơn chưa hoàn tất');
+      await expect(blocked).toContainText('Chưa ngắt được: còn 2 đơn chưa xong');
       await expect(blocked).toContainText('Còn 2 đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.');
       // Bảng đơn chưa xong BE trả kèm 409: mã đơn mở được đơn, kèm mã đơn trên sàn
       await expect(blocked.locator('tbody tr[data-order-id]')).toHaveCount(2);
@@ -494,7 +494,7 @@ test.describe('P3 · Gian hàng', () => {
         'href',
         /^\/c\/cmp-001\/sales\/orders\/[^/?]+$/,
       );
-      const link = blocked.getByRole('link', { name: 'Xem đơn hàng', exact: true });
+      const link = blocked.getByRole('link', { name: 'Mở đơn bán', exact: true });
       await expect(link).toHaveAttribute('href', '/c/cmp-001/sales/orders?shopId=shp-001');
       await blocked.getByRole('button', { name: 'Đóng', exact: true }).first().click();
       await expect(trangThai(page, 'shp-001')).toHaveText('Đã kết nối');
@@ -543,12 +543,12 @@ test.describe('P3 · Gian hàng', () => {
       await o.fill('XOA');
       await expect(nut).toBeEnabled();
       await nut.click();
-      await toast(page, /^Đã xoá ABC Fashion LazMall: 1 đơn, \d+ kiện hàng, \d+ listing$/);
+      await toast(page, /^Đã xoá ABC Fashion LazMall: 1 đơn, \d+ kiện, \d+ listing$/);
       await expect(dialog).toHaveCount(0);
       await expect(dong(page, 'shp-003')).toHaveCount(0);
       await page.getByRole('tab', { name: /^Cần xử lý/ }).click();
       await expect(dong(page, 'shp-003')).toHaveCount(0);
-      await page.getByRole('tab', { name: 'Đã ngắt kết nối', exact: true }).click();
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
       await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
       await expect(dong(page, 'shp-008')).toBeAttached();
 
@@ -559,7 +559,7 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('xoá gian hàng bị 409: hộp không đóng, giữ chữ đã gõ, nêu lý do (FE#297)', async ({ page }) => {
-      await page.getByRole('tab', { name: 'Đã ngắt kết nối', exact: true }).click();
+      await page.getByRole('tab', { name: 'Đã ngắt', exact: true }).click();
       await chonMenu(page, 'shp-008', 'Xoá gian hàng');
       const dialog = page.getByRole('alertdialog');
       const o = dialog.getByLabel(/để xác nhận/);
@@ -588,9 +588,9 @@ test.describe('P3 · Gian hàng', () => {
 
     test('hiện giá đẩy theo nguồn và trạng thái đẩy từng biến thể', async ({ page }) => {
       await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã ghép 2 /');
-      for (const t of ['165.000', 'Giá gian hàng', 'Đã đẩy']) await expect(dong(page, 'prd-001-v1')).toContainText(t);
+      for (const t of ['165.000', 'Theo gian hàng', 'Đã đẩy']) await expect(dong(page, 'prd-001-v1')).toContainText(t);
       await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toHaveText(/^Chờ đẩy giá mới, trên sàn 150\.000/);
-      for (const t of ['Theo giá chuẩn', 'Chưa ghép']) await expect(dong(page, 'prd-001-v3')).toContainText(t);
+      for (const t of ['Giá chuẩn', 'Chưa ghép']) await expect(dong(page, 'prd-001-v3')).toContainText(t);
       await expect(dong(page, 'prd-002-v3')).toContainText('Chưa có giá');
       await expect(page.locator('[data-testid=listing-tab-stale]')).toContainText('1');
       await moTab(page, 'stale');
@@ -658,19 +658,22 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByRole('button', { name: 'Bỏ ghép', exact: true })).toHaveCount(0);
     });
 
-    test('Tải lại SKU sàn chạy nền: 202 rồi hỏi lại tới khi xong, lỗi 429 nêu số phút chờ, lượt lỗi báo số phút', async ({ page }) => {
+    test('Tải lại SKU sàn chạy nền: 202 rồi hỏi lại GET remote-skus tới khi xong, lỗi 429 nêu số phút chờ, lượt lỗi báo số phút', async ({ page }) => {
       await moTab(page, 'unmatched');
       const khu = page.locator('[data-testid=remote-section]');
       await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
       const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
 
-      const yeuCau = page.waitForRequest(
-        (r) => r.method() === 'POST' && /\/channel\/shops\/shp-001\/remote-skus\/refresh$/.test(r.url()),
+      const phanHoi = page.waitForResponse(
+        (r) => r.request().method() === 'POST' && /\/channel\/shops\/shp-001\/remote-skus\/refresh$/.test(r.url()),
       );
       await taiLai.click();
-      await yeuCau;
-      // FE#265: BE trả 202, FE hỏi lại `remote-skus/refresh`; xong mới báo
+      // FE#315: POST trả cùng hình GET kèm lượt running; FE báo đang tải, hỏi lại `GET remote-skus`, hết running mới báo xong
+      const dangCo = (await (await phanHoi).json()) as { syncedAt: string; items: unknown[] };
+      expect(dangCo.items.length).toBeGreaterThan(0);
+      await toast(page, 'Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.');
       await toast(page, 'Đã tải lại SKU trên sàn');
+      // Nút không kẹt ở "Đang tải danh sách SKU…"
       await expect(taiLai).toBeEnabled();
       await expect(khu).toContainText('OLD-TEE-01');
 
@@ -685,21 +688,24 @@ test.describe('P3 · Gian hàng', () => {
       await taiLai.click();
       await toast(page, 'Lần tải SKU sàn trước bị lỗi. Thử lại sau 5 phút.');
 
-      // FE#265: lượt chạy nền lỗi vì sàn trả thiếu danh sách; số phút lấy từ `error.retryAfterSeconds`, làm tròn lên
-      const startedAt = '2026-11-17T08:00:00.000Z';
+      // Lượt chạy nền lỗi vì sàn trả thiếu danh sách; số phút lấy từ `refresh.retryAfterSeconds`, làm tròn lên
       await mockApi(page, 'post', '/channel/shops/:id/remote-skus/refresh', 202, {
-        refresh: { status: 'running', startedAt, finishedAt: null, error: null },
+        ...dangCo,
+        refresh: { status: 'running', requestedAt: '2026-11-17T08:00:00.000Z', error: null, retryAfterSeconds: null },
       });
-      await mockApi(page, 'get', '/channel/shops/:id/remote-skus/refresh', 200, {
+      await mockApi(page, 'get', '/channel/shops/:id/remote-skus', 200, {
+        ...dangCo,
         refresh: {
           status: 'failed',
-          startedAt,
-          finishedAt: '2026-11-17T08:00:05.000Z',
-          error: { code: 'marketplace_rejected', platformCode: 'incomplete_list', message: 'x', retryAfterSeconds: 250 },
+          requestedAt: null,
+          error: { code: 'marketplace_rejected', platformCode: 'incomplete_list', message: 'x' },
+          retryAfterSeconds: 250,
         },
       });
       await taiLai.click();
       await toast(page, 'Sàn trả thiếu danh sách SKU, thử lại sau 5 phút.');
+      await expect(page.locator('[data-testid=remote-refresh-alert]')).toContainText('thử lại sau 5 phút');
+      await expect(taiLai).toBeEnabled();
       // Lỗi tải lại không xoá danh sách đang có
       await expect(khu).toContainText('OLD-TEE-01');
     });
@@ -805,6 +811,67 @@ test.describe('P3 · Gian hàng', () => {
   });
 
   // FE#310: biến thể đã gỡ ghép được SKU sàn khác (gỡ là trạng thái cuối, BE tạo listing mới)
+  test.describe('giá theo gian hàng (FE#274, BE#225)', () => {
+    test.beforeEach(async ({ page }) => {
+      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+      await menu(page, 'Kênh bán');
+    });
+
+    test('ghi đè giá: dưới giá thấp nhất báo dưới ô, lưu thì thành "Ghi đè", Bỏ ghi đè về giá theo gian hàng', async ({ page }) => {
+      await moTrangGhep(page, 'shp-001');
+      const row = dong(page, 'prd-001-v1');
+      const gia = row.locator('[data-testid=price-cell]');
+      await expect(gia).toContainText('Thực nhận');
+      await row.getByRole('button', { name: /^Sửa giá / }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.locator('[data-testid=price-current]')).toContainText('165.000');
+
+      await dialog.getByLabel('Giá bán (đồng)').fill('abc');
+      await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Giá là số nguyên đồng');
+      // Số thập phân không bị bỏ dấu chấm thành số lớn gấp trăm lần
+      await dialog.getByLabel('Giá bán (đồng)').fill('150000.00');
+      await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Giá là số nguyên đồng');
+
+      await dialog.getByLabel('Giá bán (đồng)').fill('1000');
+      await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText(/^Giá dưới giá thấp nhất\. Giá thấp nhất là [\d.]+ đồng\.$/);
+
+      await dialog.getByLabel('Giá bán (đồng)').fill('170.000');
+      await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
+      await toast(page, /^Đã lưu giá/);
+      await expect(dialog).toHaveCount(0);
+      await expect(gia).toContainText('170.000');
+      await expect(gia.locator('[data-testid=price-source]')).toHaveText('Ghi đè');
+
+      await row.getByRole('button', { name: /^Sửa giá / }).click();
+      await dialog.getByRole('button', { name: 'Bỏ ghi đè', exact: true }).click();
+      await toast(page, /^Đã bỏ ghi đè giá/);
+      await expect(gia).toContainText('165.000');
+      await expect(gia.locator('[data-testid=price-source]')).toHaveText('Theo gian hàng');
+    });
+
+    test('giá mới chờ xác nhận mở trang Giá chờ xác nhận lọc theo gian hàng', async ({ page }) => {
+      await moTrangGhep(page, 'shp-001');
+      const link = page.locator('[data-testid=pending-price]').first();
+      await expect(link).toContainText('Giá mới chờ xác nhận:');
+      await link.click();
+      await expect.poll(() => page.url()).toMatch(/\/channel\/pending-prices\?shopId=shp-001$/);
+      await expect(page.getByText('Đang xem gian hàng', { exact: false })).toBeVisible();
+      await page.getByRole('button', { name: 'Xem mọi gian hàng', exact: true }).click();
+      await expect.poll(() => page.url()).toMatch(/\/channel\/pending-prices$/);
+    });
+
+    test('gian hàng có tổng phí và thuế trên 50% hiện cảnh báo', async ({ page }) => {
+      await moTrangGhep(page, 'shp-003');
+      await expect(page.locator('[data-testid=fee-warning]')).toContainText('Tổng phí và thuế của gian hàng trên 50%');
+      await menu(page, 'Kênh bán');
+      await moTrangGhep(page, 'shp-001');
+      await expect(page.locator('[data-testid=fee-warning]')).toHaveCount(0);
+    });
+  });
+
   test.describe('ghép vào biến thể đã gỡ (FE#310)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
@@ -817,6 +884,8 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('từ SKU sàn chưa ghép: hộp có biến thể đã gỡ kèm "Đã gỡ", không có biến thể đang bán; CEO thấy Áp ngay', async ({ page }) => {
+      // FE#326: listing đã gỡ không tính là đã ghép
+      await expect(page.locator('[data-testid=match-summary]')).toContainText(/Đã ghép 1 \/ \d+ biến thể \(1 đã gỡ\)/);
       await moTab(page, 'unmatched');
       const remote = chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr');
       await remote.getByRole('button', { name: 'Ghép với biến thể', exact: true }).click();
@@ -942,8 +1011,12 @@ test.describe('P3 · Gian hàng', () => {
 
     test('đang bán thì không đẩy lại, nút đẩy nêu lý do', async ({ page }) => {
       await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lên sàn', exact: true })).toBeDisabled();
-      await trangThaiListing(page, 'prd-002-v2').focus();
-      await expect(page.locator('[data-testid=listing-hint]')).toContainText('Sàn đang duyệt');
+      // Tooltip đôi khi chưa mở ở lần focus đầu (bảng vừa vẽ lại): bỏ focus rồi focus lại tới khi thấy
+      await expect(async () => {
+        await page.locator('body').click({ position: { x: 1, y: 1 } });
+        await trangThaiListing(page, 'prd-002-v2').focus();
+        await expect(page.locator('[data-testid=listing-hint]')).toContainText('Sàn đang duyệt', { timeout: 2000 });
+      }).toPass({ timeout: 15_000 });
     });
 
     test('sàn giả lập: duyệt listing, khoá listing, thu hồi quyền', async ({ page }) => {
@@ -1034,7 +1107,7 @@ test.describe('P3 · Gian hàng', () => {
       await dangNhap(page, email, password);
       await menu(page, 'Kênh bán');
       await dong(page, 'shp-008').getByRole('button', { name: /^Thao tác khác với / }).click();
-      await expect(page.getByRole('menuitem', { name: 'Listing & giá', exact: true })).toBeAttached();
+      await expect(page.getByRole('menuitem', { name: 'Sản phẩm trên sàn và giá', exact: true })).toBeAttached();
       await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
     });
   }
@@ -1060,10 +1133,10 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     const shop = dong(page, 'shp-001');
     await shop.getByRole('button', { name: /^Thao tác khác với / }).click();
-    await expect(page.getByRole('menuitem', { name: 'Listing & giá', exact: true })).toBeAttached();
+    await expect(page.getByRole('menuitem', { name: 'Sản phẩm trên sàn và giá', exact: true })).toBeAttached();
     await expect(page.getByRole('menuitem', { name: 'Ngắt kết nối', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('menuitem', { name: /^Đồng bộ đơn ngay/ })).toHaveCount(0);
-    await expect(page.getByRole('menuitem', { name: /^Thiết lập lần đầu/ })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: /^Kéo đơn ngay/ })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: /^Thiết lập lại/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await moTrangGhep(page, 'shp-001');
     await thayChu(page, 'Bạn ghép được SKU sàn với biến thể');

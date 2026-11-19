@@ -64,8 +64,8 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
     await expect(ketQua).toContainText('Một lần uỷ quyền, 2 gian hàng');
     const shops = ketQua.locator('[data-testid=connected-shops] li');
     await expect(shops).toHaveCount(2);
-    await expect(shops.nth(0)).toContainText('Mới kết nối');
-    await expect(shops.nth(1)).toContainText('Đã có sẵn');
+    await expect(shops.nth(0)).toContainText('Mới');
+    await expect(shops.nth(1)).toContainText('Đã có');
     await expect(ketQua.getByRole('button', { name: 'Thiết lập Shop thử', exact: true })).toBeAttached();
     await expect(ketQua.getByRole('button', { name: 'Xem Shop cũ', exact: true })).toBeAttached();
     await ketQua.getByRole('button', { name: 'Để sau', exact: true }).click();

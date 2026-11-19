@@ -71,7 +71,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
     await form.getByLabel('Mã truy cập (access token)', { exact: true }).fill('cong-ty-khac');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
     const oCongTyKhac = section.locator('[data-outcome=elsewhere]');
-    await expect(oCongTyKhac).toContainText('Gian hàng này đang kết nối ở một công ty khác');
+    await expect(oCongTyKhac).toContainText('Gian hàng này đang nối ở một công ty khác');
     await expect(oCongTyKhac).toContainText('lấy token của đúng gian hàng');
     await oCongTyKhac.getByRole('button', { name: 'Dán token khác', exact: true }).click();
     await form.getByRole('button', { name: 'Chọn sàn khác', exact: true }).click();
@@ -80,7 +80,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
     await page.getByLabel('Mã truy cập (access token)', { exact: true }).fill('tok-abc123');
     await form.getByRole('button', { name: 'Kết nối', exact: true }).click();
     const ketQua = section.locator('[data-outcome=connected]');
-    await expect(ketQua).toContainText('Đã kết nối Shop thử ABC123');
+    await expect(ketQua).toContainText('Đã nối Shop thử ABC123');
     await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/setup$/);
   });
@@ -125,7 +125,7 @@ test.describe('P3 · Danh sách sàn kết nối được', () => {
     await page.getByRole('option', { name: 'Sàn giả lập (mock)', exact: true }).click();
     await expect(dong(page, 'demo-30')).toBeAttached();
     await expect(page.locator('tbody tr[data-row-id]')).toHaveCount(1);
-    await page.getByPlaceholder('Tìm theo tên hoặc ID gian hàng...', { exact: true }).fill('seller-30');
+    await page.getByPlaceholder('Tìm theo tên hoặc mã gian hàng...', { exact: true }).fill('seller-30');
     await expect(dong(page, 'demo-30')).toBeAttached();
     await chon(page, 'Sàn', 'Lazada');
     await expect(chua(page, 'Không có gian hàng khớp bộ lọc')).toBeVisible();

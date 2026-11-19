@@ -39,7 +39,7 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     await expect.poll(() => duongDan(page)).toBe('/mock-oauth/authorize');
     await thayChu(page, `${TIKTOK} · Uỷ quyền ứng dụng`);
     await page.getByLabel('Tên gian hàng', { exact: true }).fill('ABC TikTok Mới');
-    await page.getByLabel('ID gian hàng trên sàn', { exact: true }).fill('7495012345678901234');
+    await page.getByLabel('Mã gian hàng trên sàn', { exact: true }).fill('7495012345678901234');
 
     // Callback gửi đủ tham số sàn trả (kể cả tham số lạ của TikTok), trừ state
     const yeuCau = page.waitForRequest((r) => r.method() === 'POST' && laCallback(r.url()));
@@ -50,7 +50,7 @@ test.describe('P3 · Gian hàng TikTok Shop (FE#198)', () => {
     expect(body.params).not.toHaveProperty('state');
 
     const ketQua = page.locator('[data-outcome=connected]');
-    await expect(ketQua).toContainText('Đã kết nối ABC TikTok Mới');
+    await expect(ketQua).toContainText('Đã nối ABC TikTok Mới');
     await ketQua.getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/channel\/shops\/[^/]+\/setup$/);
 
