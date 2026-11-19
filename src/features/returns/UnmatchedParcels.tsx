@@ -20,7 +20,7 @@ import { UNMATCHED_STATUS } from './shared';
 
 type Pending = { kind: 'attach' | 'dismiss'; parcel: UnmatchedParcel };
 
-/** Khu chờ xử lý: kiện hàng trả quét không khớp yêu cầu nào */
+/** Hàng hoàn chưa rõ đơn: kiện hàng hoàn đã quét nhưng chưa tìm được yêu cầu trả hàng */
 export function UnmatchedParcels({ companyId, canProcess }: { companyId: string; canProcess: boolean }) {
   const query = useUnmatchedParcels();
   const resolve = useResolveParcel();
@@ -39,7 +39,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
     setError(null);
     try {
       await resolve.mutateAsync({ id: pending.parcel.id, version: pending.parcel.version, ...body });
-      toast.success(body.kind === 'attach' ? `Đã gắn kiện ${pending.parcel.code} vào yêu cầu` : `Đã ghi cách xử lý kiện ${pending.parcel.code}`);
+      toast.success(body.kind === 'attach' ? `Đã khớp kiện ${pending.parcel.code} với yêu cầu trả hàng` : `Đã ghi cách xử lý kiện ${pending.parcel.code}`);
       setPending(null);
     } catch (e) {
       const errors = getProblem(e)?.errors;
@@ -52,10 +52,10 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
   return (
     <div className="p-4">
       <p className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
-        Kiện hàng trả quét ở kho nhưng chưa khớp yêu cầu nào
+        Kiện hàng hoàn đã quét ở kho nhưng chưa tìm được yêu cầu trả hàng
         <HelpTip
-          topic="Kiện không khớp"
-          content="Mã quét không trùng mã yêu cầu hay mã vận đơn chiều về nào. Gắn kiện vào yêu cầu đang chờ hàng về, hoặc ghi cách xử lý khác."
+          topic="Hàng hoàn chưa rõ đơn"
+          content="Mã quét không trùng mã yêu cầu, mã vận đơn hoàn hay mã đơn nào. Khớp kiện với một yêu cầu đang chờ hàng hoàn về, hoặc chọn Xử lý riêng và ghi cách xử lý."
         />
       </p>
       {query.isError && <AlertMessage severity="error">{problemMessage(query.error)}</AlertMessage>}
@@ -66,7 +66,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
               <TableHead className="w-40">Mã quét</TableHead>
               <TableHead className="w-36">Trạng thái</TableHead>
               <TableHead>Ghi chú / cách xử lý</TableHead>
-              <TableHead className="w-48">Nhận lúc</TableHead>
+              <TableHead className="w-48">Ngày nhận</TableHead>
               {canProcess && <TableHead className="w-56" />}
             </TableRow>
           </TableHeader>
@@ -98,10 +98,10 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
                     {x.status === 'open' && (
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => setPending({ kind: 'attach', parcel: x })}>
-                          Gắn yêu cầu
+                          Khớp yêu cầu
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setPending({ kind: 'dismiss', parcel: x })}>
-                          Xử lý khác
+                          Xử lý riêng
                         </Button>
                       </div>
                     )}
@@ -112,7 +112,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
             {!query.isLoading && items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={canProcess ? 5 : 4} className="text-center text-muted-foreground">
-                  Không có kiện không khớp
+                  Không có hàng hoàn chưa rõ đơn
                 </TableCell>
               </TableRow>
             )}
@@ -123,7 +123,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
       <Dialog open={pending?.kind === 'attach'} onOpenChange={(o) => !o && !resolve.isPending && setPending(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Gắn kiện {pending?.parcel.code} vào yêu cầu trả</DialogTitle>
+            <DialogTitle>Khớp kiện {pending?.parcel.code} với yêu cầu trả hàng</DialogTitle>
           </DialogHeader>
           <form
             className="grid gap-2"
@@ -134,7 +134,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
               void run({ kind: 'attach', returnRequestId: target });
             }}
           >
-            <Label htmlFor="attach-target">Yêu cầu đang chờ hàng về</Label>
+            <Label htmlFor="attach-target">Yêu cầu đang chờ hàng hoàn về</Label>
             <Select value={target} onValueChange={setTarget}>
               <SelectTrigger id="attach-target" className="w-full" aria-invalid={Boolean(error)}>
                 <SelectValue placeholder={waiting.isLoading ? 'Đang tải...' : 'Chọn yêu cầu'} />
@@ -148,14 +148,14 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
                 ))}
               </SelectContent>
             </Select>
-            {waiting.data?.items.length === 0 && <p className="text-sm text-muted-foreground">Không có yêu cầu nào chờ hàng về</p>}
+            {waiting.data?.items.length === 0 && <p className="text-sm text-muted-foreground">Không có yêu cầu nào chờ hàng hoàn về</p>}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter className="mt-2">
               <Button type="button" variant="outline" onClick={() => setPending(null)} disabled={resolve.isPending}>
                 Huỷ
               </Button>
               <Button type="submit" disabled={resolve.isPending}>
-                Gắn và nhận hàng
+                Khớp và nhận hàng
               </Button>
             </DialogFooter>
           </form>
@@ -164,7 +164,7 @@ export function UnmatchedParcels({ companyId, canProcess }: { companyId: string;
       <ReasonDialog
         open={pending?.kind === 'dismiss'}
         title={`Xử lý kiện ${pending?.parcel.code ?? ''}`}
-        message="Kiện không thuộc yêu cầu trả nào. Ghi cách xử lý: trả lại đơn vị vận chuyển, nhập kho qua phiếu kiểm..."
+        message="Kiện không thuộc yêu cầu trả hàng nào. Ghi cách xử lý, ví dụ: trả lại ĐVVC, nhập kho qua phiếu kiểm hàng hoàn."
         label="Cách xử lý"
         loading={resolve.isPending}
         error={error}

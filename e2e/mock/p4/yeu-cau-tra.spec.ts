@@ -34,7 +34,7 @@ const yeuCauSan = async (page: Page) => {
 };
 
 const quetNhan = async (page: Page, code: string) => {
-  await page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true }).click();
+  await page.getByRole('button', { name: 'Quét nhận hàng hoàn', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByTestId('receive-code').fill(code);
   await dialog.getByRole('button', { name: 'Nhận hàng', exact: true }).click();
@@ -53,7 +53,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await page.getByRole('tab', { name: /Chờ hàng về/ }).click();
       await expect(dong(page, 'rr-002')).toContainText('DH-1019');
       // Sale không có quyền kho nên không thấy nút quét
-      await expect(page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Quét nhận hàng hoàn', exact: true })).toHaveCount(0);
       await page.goto('/c/cmp-001/sales/orders/ord-1020');
       await expect(page.locator('[data-testid=order-returns]')).toContainText('YCT-000001');
       await expect(page.locator('main')).toContainText('Có yêu cầu trả');
@@ -164,20 +164,20 @@ test.describe('P4 · Yêu cầu trả', () => {
     test('quét không khớp: kiện vào tab Không khớp, gắn vào yêu cầu chờ hàng về', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/returns');
       await quetNhan(page, 'VD-LA-999');
-      await toast(page, 'Mã VD-LA-999 không khớp yêu cầu nào');
+      await toast(page, 'Mã VD-LA-999 chưa tìm được yêu cầu trả hàng');
       await expect(page.getByRole('tab', { name: /Không khớp/ })).toHaveAttribute('aria-selected', 'true');
       const kien = page.locator('[data-testid=unmatched-parcels] tr[data-row-id="VD-LA-999"]');
       await thayChu(kien, 'Chờ xử lý');
       // Giải thích "kiện không khớp" (FE#139)
       await page.getByRole('button', { name: 'Giải thích: Kiện không khớp', exact: true }).hover();
       await expect(page.getByRole('tooltip')).toContainText('Mã quét không trùng mã yêu cầu');
-      await kien.getByRole('button', { name: 'Gắn yêu cầu', exact: true }).click();
+      await kien.getByRole('button', { name: 'Khớp yêu cầu', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('button', { name: 'Gắn và nhận hàng', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Khớp và nhận hàng', exact: true }).click();
       await thayChu(dialog, 'Chọn yêu cầu trả');
-      await chon(page, 'Yêu cầu đang chờ hàng về', /YCT-000002/);
-      await dialog.getByRole('button', { name: 'Gắn và nhận hàng', exact: true }).click();
-      await toast(page, 'Đã gắn kiện VD-LA-999 vào yêu cầu');
+      await chon(page, 'Yêu cầu đang chờ hàng hoàn về', /YCT-000002/);
+      await dialog.getByRole('button', { name: 'Khớp và nhận hàng', exact: true }).click();
+      await toast(page, 'Đã khớp kiện VD-LA-999 với yêu cầu trả hàng');
       await expect(kien.locator('a')).toHaveText('YCT-000002');
       await kien.locator('a').click();
       await expect(trangThai(page)).toContainText('Đã nhận hàng');
@@ -187,7 +187,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await page.goto('/c/cmp-001/sales/returns');
       await quetNhan(page, 'KHONG-RO');
       const kien = page.locator('[data-testid=unmatched-parcels] tr[data-row-id="KHONG-RO"]');
-      await kien.getByRole('button', { name: 'Xử lý khác', exact: true }).click();
+      await kien.getByRole('button', { name: 'Xử lý riêng', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel('Cách xử lý', { exact: true }).fill('Trả lại đơn vị vận chuyển');
       await dialog.getByRole('button', { name: 'Xác nhận', exact: true }).click();
@@ -278,7 +278,7 @@ test.describe('P4 · Yêu cầu trả', () => {
     test('kho xem được, quét được, không có nút xử lý yêu cầu', async ({ page }) => {
       await dangNhap(page, 'kho@commerio.vn', 'kho');
       await menu(page, 'Yêu cầu trả');
-      await expect(page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true })).toBeAttached();
+      await expect(page.getByRole('button', { name: 'Quét nhận hàng hoàn', exact: true })).toBeAttached();
       await dong(page, 'rr-001').click();
       await expect(trangThai(page)).toContainText('Chờ xử lý');
       await expect(page.locator('[data-testid=return-actions]')).toHaveCount(0);

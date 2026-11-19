@@ -147,7 +147,7 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'kho@commerio.vn', 'kho');
       await menu(page, 'Yêu cầu trả');
-      await page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true }).click();
+      await page.getByRole('button', { name: 'Quét nhận hàng hoàn', exact: true }).click();
     });
 
     test('mã khớp yêu cầu thì hiện dòng của yêu cầu; quét thiếu lập phiếu kiểm có dòng thiếu', async ({ page }) => {
@@ -162,7 +162,7 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
       await thayChu(dongDau, 'Số lượng là số nguyên không âm');
       await dongDau.getByLabel(`Số quét ${sku}`, { exact: true }).fill('0');
       await dialog.getByRole('button', { name: 'Nhận hàng', exact: true }).click();
-      await toast(page, 'Đã nhận hàng trả YCT-000002, phiếu kiểm hàng về đã lập');
+      await toast(page, 'Đã nhận hàng hoàn YCT-000002, đã tạo phiếu kiểm hàng hoàn');
 
       const lines = await moPhieuKiemMoiNhat(page);
       await expect(lines.locator('tbody tr').first().getByLabel(`Số quét ${sku}`, { exact: true })).toHaveValue('0');
@@ -175,7 +175,7 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
       await themMon(page, dialog, 'receive-lines', MON_LA);
       await expect(dong(page, MON_LA)).toContainText('Ngoài danh sách');
       await dialog.getByRole('button', { name: 'Nhận hàng', exact: true }).click();
-      await toast(page, 'Mã VD-LA-212 không khớp yêu cầu nào, kiện vào khu chờ xử lý');
+      await toast(page, 'Mã VD-LA-212 chưa tìm được yêu cầu trả hàng. Kiện đã chuyển sang tab Hàng hoàn chưa rõ đơn.');
     });
   });
 });

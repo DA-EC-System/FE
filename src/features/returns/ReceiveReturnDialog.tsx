@@ -16,7 +16,7 @@ import { checkScanRows, scanErrorsOf, scanRowsFrom, type ScanRow } from '@/featu
 import type { ReceiveResult, ReturnRequestSummary } from '@/types/returns';
 import { MAX_REASON, receiveSchema, type ReceiveForm } from './shared';
 
-/** Yêu cầu chờ hàng về khớp mã quét: mã yêu cầu, hoặc mã đơn khi đơn chỉ có một yêu cầu chờ (như BE) */
+/** Yêu cầu chờ hàng hoàn về khớp mã quét: mã yêu cầu, hoặc mã đơn khi đơn chỉ có một yêu cầu chờ (như BE) */
 function matchRequest(items: ReturnRequestSummary[], raw: string) {
   const code = raw.trim().toUpperCase();
   if (!code) return null;
@@ -27,8 +27,8 @@ function matchRequest(items: ReturnRequestSummary[], raw: string) {
 }
 
 /**
- * Kho quét mã trên kiện hàng trả về (mã yêu cầu, mã vận đơn chiều về hoặc mã đơn), nhập số quét thật từng món (FE#212).
- * Không khớp yêu cầu nào thì kiện vào khu chờ xử lý, gắn cờ cho người xử lý sau.
+ * Kho quét mã trên kiện hàng hoàn (mã yêu cầu, mã vận đơn hoàn hoặc mã đơn), nhập số quét thật từng món (FE#212).
+ * Chưa tìm được yêu cầu thì kiện sang tab Hàng hoàn chưa rõ đơn, gắn cờ cho người xử lý sau.
  */
 export function ReceiveReturnDialog({
   open,
@@ -71,11 +71,11 @@ export function ReceiveReturnDialog({
     if (Object.keys(checked.errors).length) return setScanErrors(checked.errors);
     setScanErrors(null);
     try {
-      // Không khớp yêu cầu nào trên máy và kho không thêm món: để BE tự khớp (vd mã vận đơn chiều về), coi như quét đủ
+      // Không khớp yêu cầu nào trên máy và kho không thêm món: để BE tự khớp (vd mã vận đơn hoàn), coi như quét đủ
       const lines = matchedLines || rows.length ? checked.lines : undefined;
       const r = await receive.mutateAsync({ code: v.code, note: v.note || undefined, lines });
-      if (r.kind === 'matched') toast.success(`Đã nhận hàng trả ${r.request.code}, phiếu kiểm hàng về đã lập`);
-      else toast.warning(`Mã ${r.parcel.code} không khớp yêu cầu nào, kiện vào khu chờ xử lý`);
+      if (r.kind === 'matched') toast.success(`Đã nhận hàng hoàn ${r.request.code}, đã tạo phiếu kiểm hàng hoàn`);
+      else toast.warning(`Mã ${r.parcel.code} chưa tìm được yêu cầu trả hàng. Kiện đã chuyển sang tab Hàng hoàn chưa rõ đơn.`);
       onDone(r);
     } catch (e) {
       const errors = getProblem(e)?.errors;
@@ -92,8 +92,8 @@ export function ReceiveReturnDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !receive.isPending && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Quét nhận hàng trả</DialogTitle>
-          <DialogDescription>Nhập số thật đã quét từng món. Hàng chờ xử lý tăng đúng số quét.</DialogDescription>
+          <DialogTitle>Quét nhận hàng hoàn</DialogTitle>
+          <DialogDescription>Nhập số lượng thực nhận của từng món. Số này được cộng vào khu Hàng lỗi/chờ kiểm, chưa vào tồn kho.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
@@ -103,7 +103,7 @@ export function ReceiveReturnDialog({
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mã yêu cầu, mã vận đơn chiều về hoặc mã đơn</FormLabel>
+                  <FormLabel>Mã yêu cầu, mã vận đơn hoàn hoặc mã đơn</FormLabel>
                   <FormControl>
                     <Input autoFocus maxLength={100} data-testid="receive-code" {...field} />
                   </FormControl>
@@ -115,7 +115,7 @@ export function ReceiveReturnDialog({
               {match
                 ? `Khớp yêu cầu ${match.code} (đơn ${match.order.code}). Sửa số quét nếu thiếu hoặc thừa.`
                 : code.trim()
-                  ? 'Chưa thấy yêu cầu chờ hàng về khớp mã này. Thêm các món trong kiện bằng tìm SKU.'
+                  ? 'Chưa có yêu cầu chờ hàng hoàn về khớp mã này. Tìm SKU để thêm các món có trong kiện.'
                   : 'Quét mã để hiện các món của yêu cầu.'}
             </p>
             <ScannedLines id="receive-lines" rows={rows} onChange={setRows} errors={scanErrors} disabled={receive.isPending} />
@@ -124,7 +124,7 @@ export function ReceiveReturnDialog({
               name="note"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ghi chú (tình trạng kiện)</FormLabel>
+                  <FormLabel>Tình trạng kiện (móp, rách, thiếu tem...)</FormLabel>
                   <FormControl>
                     <Textarea rows={2} maxLength={MAX_REASON} {...field} />
                   </FormControl>
