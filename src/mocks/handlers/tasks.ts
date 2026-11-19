@@ -42,7 +42,7 @@ registerTaskSource({
       .map((o) => ({
         id: `order.pending:${o.id}`,
         kind: 'order.pending',
-        group: 'Bán hàng',
+        group: 'Đơn hàng',
         title: `Xác nhận đơn ${o.code}`,
         detail: 'Đơn COD đang chờ xác nhận.',
         ...dueState(o.createdAt, REMIND.orderPending, now),

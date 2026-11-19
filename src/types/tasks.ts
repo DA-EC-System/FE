@@ -1,4 +1,4 @@
-/** Việc cần làm theo hạn (FE#55): mỗi phân hệ góp một nguồn nhắc, trang Tổng quan gom lại */
+/** Việc cần làm theo hạn (FE#55): mỗi tính năng góp một nguồn nhắc, trang Tổng quan gom lại */
 
 export type TaskSeverity = 'overdue' | 'due_soon' | 'info';
 
@@ -9,7 +9,7 @@ export interface TaskItem {
   id: string;
   /** Loại nhắc, ví dụ `shop.reauth`, `goods_receipt.counting` */
   kind: string;
-  /** Nhóm hiển thị: Gian hàng, Bán hàng, Kho, Mua hàng... */
+  /** Nhóm hiển thị: Gian hàng, Đơn hàng, Kho, Nhập hàng... */
   group: string;
   title: string;
   detail: string;

@@ -11,7 +11,7 @@ interface ForbiddenPageProps {
 }
 
 export function ForbiddenPage({
-  title = '403 — Không có quyền truy cập',
+  title = 'Không có quyền truy cập',
   message,
   backTo = ROUTES.home,
   backLabel = 'Về trang chính',

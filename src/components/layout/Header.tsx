@@ -14,9 +14,9 @@ import type { ActiveNav, NavSection } from './navigation';
 import { TaskBell } from './TaskBell';
 
 const REALTIME_LABEL: Record<Exclude<RealtimeStatus, 'off'>, string> = {
-  open: 'Đang nhận cập nhật tức thời',
-  connecting: 'Đang kết nối cập nhật tức thời',
-  reconnecting: 'Mất kết nối, đang nối lại',
+  open: 'Đã kết nối',
+  connecting: 'Đang kết nối…',
+  reconnecting: 'Mất kết nối, đang thử lại',
 };
 
 interface Crumb {
@@ -96,7 +96,7 @@ export function Header({ active, sections }: { active: ActiveNav | null; section
               )}
             />
             <span aria-hidden className="max-md:hidden">
-              {realtime === 'open' ? 'Đang cập nhật tức thời' : REALTIME_LABEL[realtime]}
+              {REALTIME_LABEL[realtime]}
             </span>
           </span>
         )}
