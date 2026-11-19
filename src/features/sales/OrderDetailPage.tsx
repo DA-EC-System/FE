@@ -32,14 +32,15 @@ import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
 import type { Order, OrderStatus } from '@/types/sales';
 import {
-  COMPLETION_BLOCKER_LABELS,
   allLinesCancelled,
   cancelledAmountOf,
-  initiatorLabel,
+  completionBlockerText,
   lineCancelEvents,
+  orderCancelledBy,
   ORDER_STATUS,
   wardNote,
   lineCancelPending,
+  lineDelivered,
   lineHasIssue,
   paymentMethodLabel,
   sourceLabel,
@@ -57,6 +58,7 @@ import { HelpTip } from '@/components/common/HelpTip';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { usePageGuide } from '@/guides/usePageGuide';
 import { OrderReturnsCard } from '@/features/returns/OrderReturnsCard';
+import { useReturns } from '@/api/returns.api';
 import { OrderProfitCard } from '@/features/finance/OrderProfitCard';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { PendingBadge } from '@/features/channel/ListingStatusCell';
@@ -85,6 +87,10 @@ export function OrderDetailPage() {
   const order = query.data;
   useBreadcrumb(order?.code);
   const lineMatch = useOrderLineMatch(order);
+  // Dòng có đơn ngược (FE#252): đơn chỉ có một yêu cầu trả thì nhãn Trả hàng dẫn tới yêu cầu đó (cùng khoá với khối Yêu cầu trả)
+  const returnsQuery = useReturns({ orderId, pageSize: 100 }, { enabled: can(PERMISSIONS.returnView) && Boolean(order) });
+  const onlyReturn = returnsQuery.data?.items.length === 1 ? returnsQuery.data.items[0] : undefined;
+  const returnHref = onlyReturn ? ROUTES.company.returnRequest(companyId, onlyReturn.id) : null;
   const { startTour } = usePageGuide('order-detail', { ready: Boolean(order) });
   const confirmMut = useConfirmOrder();
   const decisionMut = useCancelRequestDecision();
@@ -227,10 +233,7 @@ export function OrderDetailPage() {
       </div>
       {order.completionBlocker && (
         <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="completion-blocker">
-          Chưa hoàn tất: {COMPLETION_BLOCKER_LABELS[order.completionBlocker] ?? order.completionBlocker}
-          {order.returnWindowEndsAt && order.completionBlocker === 'return_window'
-            ? ` (hết hạn trả hàng ${formatDateTime(order.returnWindowEndsAt)})`
-            : ''}
+          Chưa hoàn tất: {completionBlockerText(order, formatDateTime)}
         </p>
       )}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-testid="order-head">
@@ -239,6 +242,11 @@ export function OrderDetailPage() {
             <span className="text-muted-foreground">Mã đơn sàn</span>
             <span className="font-mono">{order.externalOrderId}</span>
             <CopyButton value={order.externalOrderId} label="Sao chép mã đơn sàn" />
+          </span>
+        )}
+        {order.returnWindowEndsAt && (
+          <span data-testid="return-window">
+            <span className="text-muted-foreground">Hạn trả hàng</span> {formatDateTime(order.returnWindowEndsAt)}
           </span>
         )}
         <span data-testid="payment-method">
@@ -345,9 +353,9 @@ export function OrderDetailPage() {
                 )}
               </Info>
               {order.note && <Info label="Ghi chú">{order.note}</Info>}
-              {!!order.cancelInitiators?.length && (
+              {orderCancelledBy(order) && (
                 <Info label="Người huỷ">
-                  <span data-testid="cancel-initiators">{order.cancelInitiators.map(initiatorLabel).join(', ')}</span>
+                  <span data-testid="cancel-initiators">{orderCancelledBy(order)}</span>
                 </Info>
               )}
               {order.cancelReason && <Info label="Lý do huỷ">{order.cancelReason}</Info>}
@@ -443,7 +451,12 @@ export function OrderDetailPage() {
                                 SKU sàn {l.externalShopSku}
                               </p>
                             )}
-                            <LineIssue line={l} cancelPending={lineCancelPending(order, l)} />
+                            <LineIssue
+                              line={l}
+                              cancelPending={lineCancelPending(order, l)}
+                              delivered={lineDelivered(order, l)}
+                              returnHref={returnHref}
+                            />
                           </div>
                         </div>
                       </TableCell>

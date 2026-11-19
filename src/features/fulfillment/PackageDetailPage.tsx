@@ -160,9 +160,15 @@ export function PackageDetailPage() {
           message:
             a === 'open_cancel'
               ? `Mở kiện ${p.code}, trả hàng về kệ. Kiện huỷ, hàng giữ được nhả.`
-              : `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, cần đóng gói lại.${
-                  p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã và vận đơn mới.' : ''
-                }`,
+              : p.status === 'awaiting_pickup'
+                ? // Kiện Chờ lấy hàng chờ mở (D25): giữ vận đơn, không gọi sàn; đóng lại rồi báo sẵn sàng lại
+                  `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, giữ nguyên vận đơn ${p.trackingCode ?? ''}: đóng gói lại rồi báo sẵn sàng lại, không cần lấy vận đơn mới.`.replace(
+                    '  ',
+                    ' ',
+                  )
+                : `Mở kiện ${p.code} để sửa. Kiện về Đã giữ hàng, cần đóng gói lại.${
+                    p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã và vận đơn mới.' : ''
+                  }`,
           label,
           destructive: a === 'open_cancel',
           command: { kind: 'open' },
@@ -180,6 +186,16 @@ export function PackageDetailPage() {
           destructive: true,
           command: { kind: 'confirm-lost' },
         });
+      case 'lose_on_unload':
+        // Kiện đã đóng chờ mở mà dỡ về kệ không thấy (commerio-backend#238): BE ghi bàn giao rồi chuyển thất lạc
+        return setPending({
+          kind: 'confirm',
+          title: 'Dỡ kiện không thấy',
+          message: `${p.lostReport?.by.name ?? 'Người khác'} báo không tìm thấy kiện ${p.code} khi dỡ về kệ (${p.lostReport?.claimCode ?? '—'}). Xác nhận kiện thất lạc? Hàng trong kiện được ghi là đã rời kho.`,
+          label: 'Xác nhận thất lạc',
+          destructive: true,
+          command: { kind: 'confirm-lost' },
+        });
       default:
         return undefined;
     }
@@ -188,7 +204,7 @@ export function PackageDetailPage() {
   const submitCode = () => {
     if (pending?.kind !== 'code') return;
     const v = code.trim();
-    if (!v) return setError('Nhập mã khiếu nại');
+    if (!v) return setError(sealedLost ? 'Nhập ghi chú' : 'Nhập mã khiếu nại');
     void run({ kind: 'report-lost', claimCode: v }, `Đã báo thất lạc ${p.code}, chờ người khác xác nhận`);
   };
 
@@ -214,19 +230,28 @@ export function PackageDetailPage() {
   };
 
   const loading = command.isPending || handOver.isPending;
+  // Báo mất kiện còn trong kho (dỡ kiện không thấy): chưa có khiếu nại với đơn vị vận chuyển, ô là ghi chú
+  const sealedLost = p.status === 'packed' || p.status === 'awaiting_pickup';
+  // Thất lạc do sàn báo (`platform_lost`), không có người báo
+  const platformLost =
+    p.status === 'lost' && [...p.statusHistory].reverse().find((h) => h.to === 'lost')?.source === 'marketplace';
   // Vận đơn của sàn có khi kiện đã có mã kiện sàn (§19.3)
   const printable = Boolean(p.platformPackageCode) && (p.status === 'packed' || p.status === 'awaiting_pickup');
   // Chia kiện: kiện chưa đóng gói còn hơn một món (21 mục 19.2)
   const splittable =
     can(PERMISSIONS.fulfillmentProcess) && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
-  const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable || splittable;
+  const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable || splittable || Boolean(buttons.lostNote);
   // Gộp cảnh báo theo dữ liệu kiện vào một khung
   const warnings = [
     p.flagNote,
     p.flags.includes('needs_open') && p.openPurpose ? `Chờ mở kiện: ${OPEN_PURPOSE_LABELS[p.openPurpose]}` : null,
     p.lostReport && p.status !== 'lost'
-      ? `${p.lostReport.by.name} báo thất lạc lúc ${formatDateTime(p.lostReport.at)}, mã khiếu nại ${p.lostReport.claimCode}. Cần người khác xác nhận.`
+      ? sealedLost
+        ? `${p.lostReport.by.name} báo dỡ kiện không thấy lúc ${formatDateTime(p.lostReport.at)}: ${p.lostReport.claimCode}. Cần người khác xác nhận.`
+        : `${p.lostReport.by.name} báo thất lạc lúc ${formatDateTime(p.lostReport.at)}, mã khiếu nại ${p.lostReport.claimCode}. Cần người khác xác nhận.`
       : null,
+    platformLost ? 'Sàn báo kiện thất lạc. Theo dõi bồi thường với sàn.' : null,
+    buttons.blocked,
   ].filter((w): w is string => Boolean(w));
 
   return (
@@ -252,12 +277,25 @@ export function PackageDetailPage() {
         />
       </div>
 
-      {warnings.length > 0 && (
+      {(warnings.length > 0 || p.replaces) && (
         <AlertMessage severity="warning">
           <div className="grid gap-1" data-testid="package-warnings">
             {warnings.map((w) => (
               <p key={w}>{w}</p>
             ))}
+            {p.replaces && (
+              <p data-testid="package-replaces">
+                Kiện này thay kiện{' '}
+                <Link
+                  className="text-primary underline-offset-4 hover:underline"
+                  to={ROUTES.company.package(companyId, p.replaces.id)}
+                  state={location.state}
+                >
+                  {p.replaces.code}
+                </Link>{' '}
+                do sàn chia lại kiện (kiện cũ: {PACKAGE_STATUS[p.replaces.status]?.label ?? p.replaces.status}).
+              </p>
+            )}
           </div>
         </AlertMessage>
       )}
@@ -268,7 +306,13 @@ export function PackageDetailPage() {
             {buttons.actions.map((a) => (
               <Button
                 key={a}
-                variant={a === 'open_cancel' || a === 'lose' || a === 'fail' ? 'destructive' : a === 'pack' || a === 'hand_over' ? 'default' : 'outline'}
+                variant={
+                  a === 'open_cancel' || a === 'lose' || a === 'lose_on_unload' || a === 'fail'
+                    ? 'destructive'
+                    : a === 'pack' || a === 'hand_over'
+                      ? 'default'
+                      : 'outline'
+                }
                 disabled={loading}
                 onClick={() => onAction(a)}
               >
@@ -280,9 +324,15 @@ export function PackageDetailPage() {
               <Button
                 variant="outline"
                 disabled={loading}
-                onClick={() => setPending({ kind: 'code', title: 'Báo thất lạc', label: 'Mã khiếu nại với đơn vị vận chuyển' })}
+                onClick={() =>
+                  setPending(
+                    sealedLost
+                      ? { kind: 'code', title: 'Báo dỡ kiện không thấy', label: 'Ghi chú (vd: không thấy trên kệ)' }
+                      : { kind: 'code', title: 'Báo thất lạc', label: 'Mã khiếu nại với đơn vị vận chuyển' },
+                  )
+                }
               >
-                Báo thất lạc
+                {sealedLost ? 'Báo không thấy kiện' : 'Báo thất lạc'}
               </Button>
             )}
             {splittable && (
@@ -298,6 +348,11 @@ export function PackageDetailPage() {
               </Button>
             )}
             {buttons.note && <span className="text-sm text-muted-foreground">{buttons.note}</span>}
+            {buttons.lostNote && (
+              <span className="text-sm text-muted-foreground" data-testid="lost-note">
+                {buttons.lostNote}
+              </span>
+            )}
           </CardContent>
         </Card>
       )}

@@ -36,6 +36,7 @@ import {
   holdsStock,
   isHandedOver,
   isSealed,
+  LOSE_FROM,
   orderMachine,
   packageMachine,
   platformUpdate,
@@ -90,6 +91,18 @@ export function packageFlags(p: MockPackage): PackageFlag[] {
   return flags;
 }
 
+/** Kiện cũ mà kiện này thay (sàn chia lại kiện) */
+function replacesOf(p: MockPackage): PackageSummary['replaces'] {
+  const old = p.replacesId ? fulfillment.packages.find((x) => x.id === p.replacesId) : undefined;
+  return old ? { id: old.id, code: old.code, status: old.status } : null;
+}
+
+/** Kiện thay đang chờ kho mở kiện cũ (kiện cũ còn đã đóng): chưa báo sẵn sàng, chưa bàn giao (commerio-backend#238) */
+function awaitingOpen(p: MockPackage): boolean {
+  const old = replacesOf(p);
+  return p.needsOpen || Boolean(old && isSealed(old.status));
+}
+
 export function toPackageSummary(p: MockPackage): PackageSummary {
   const o = orderOf(p);
   const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
@@ -140,6 +153,7 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
     deliveredAt: p.deliveredAt,
     deliveredBy: userRef(p.deliveredBy),
     lostReport: p.lostReport ? { by: userRef(p.lostReport.by)!, at: p.lostReport.at, claimCode: p.lostReport.claimCode } : null,
+    replaces: replacesOf(p),
     createdAt: p.createdAt,
     version: p.version,
   };
@@ -469,6 +483,7 @@ const recordOf = (p: MockPackage, o: MockOrder, extra: Partial<PackageRecord> = 
   // Trạng thái hiện tại do người chuyển tay: dòng nhật ký cuối là của người dùng
   manualStatus: p.history.at(-1)?.source === 'user',
   handoverConfirmed: handoverConfirmed(p),
+  needsOpen: p.needsOpen,
   ...extra,
 });
 
@@ -815,15 +830,17 @@ export const fulfillmentHandlers = [
 
   // Báo sàn sẵn sàng, in vận đơn (giả)
   http.post(`${API}/fulfillment/packages/:id/ready`, ({ params, request }) =>
-    withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) =>
-      step(c, 'mark_ready', {
+    withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
+      if (awaitingOpen(c.p)) return problem(409, 'Kiện đang chờ mở', { code: 'awaiting_open', current: toPackage(c.p) });
+      // Kiện mở lại từ Chờ lấy hàng giữ vận đơn cũ: báo sẵn sàng lại không lấy mã mới (D25)
+      return step(c, 'mark_ready', {
         effect: () => {
           const n = c.p.code.replace(/\D/g, '');
           c.p.trackingCode ??= `VD${n}${String(Date.now()).slice(-4)}`;
           if (c.o.source === 'marketplace') c.p.platformPackageCode ??= `PKG${n}`;
         },
-      }),
-    ),
+      });
+    }),
   ),
 
   // Bàn giao hàng loạt: từng kiện riêng, kiện bị chặn không làm hỏng kiện khác
@@ -849,6 +866,10 @@ export const fulfillmentHandlers = [
       const o = orderOf(p);
       if (p.version !== ref.version) {
         result.failed.push({ packageId: p.id, code: 'version_conflict', detail: `${p.code} vừa được người khác cập nhật` });
+        continue;
+      }
+      if (awaitingOpen(p)) {
+        result.failed.push({ packageId: p.id, code: 'awaiting_open', detail: `${p.code} đang chờ mở kiện` });
         continue;
       }
       const next = packageMachine.check(p.status, 'hand_over', {
@@ -882,11 +903,19 @@ export const fulfillmentHandlers = [
   http.post(`${API}/fulfillment/packages/:id/open`, ({ params, request }) =>
     withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
       const cancel = c.p.openPurpose === 'cancel' || c.o.status === 'cancelled' || c.o.flags.includes('cancelling');
+      // Kiện Chờ lấy hàng chỉ mở khi đang chờ mở (sàn chia lại kiện, kiểm kê thiếu); giữ vận đơn, không gọi sàn (D25)
+      const keepWaybill = c.p.status === 'awaiting_pickup';
+      if (keepWaybill && !c.p.needsOpen) {
+        return problem(409, 'Kiện Chờ lấy hàng chỉ mở khi đang chờ mở', { code: 'invalid_transition', current: toPackage(c.p) });
+      }
+      // Kiện cũ của lần sàn chia lại: hàng chuyển sang kiện thay, kiện cũ huỷ
+      const replacement =
+        c.p.openPurpose === 'resplit' ? fulfillment.packages.find((x) => x.replacesId === c.p.id) : undefined;
       return step(c, cancel ? 'open_cancel' : 'open', {
         effect: () => {
           if (cancel) releasePackage(c.p);
           // Kiện sàn đã có mã kiện: mở là repack trên sàn, đóng gói lại sẽ lấy mã mới
-          if (!cancel && c.o.source === 'marketplace') {
+          if (!cancel && !keepWaybill && c.o.source === 'marketplace') {
             c.p.platformPackageCode = null;
             c.p.trackingCode = null;
             c.p.carrier = null;
@@ -894,6 +923,9 @@ export const fulfillmentHandlers = [
           c.p.needsOpen = false;
           c.p.openPurpose = null;
           c.p.flagNote = null;
+          if (replacement) {
+            movePackage(c.p, 'cancelled', c.at, null, { source: 'system', reason: `Hàng chuyển sang kiện ${replacement.code}` });
+          }
           if (cancel) rebalancePackages(c.p.companyId, c.p.lines.map((l) => l.variantId));
         },
       });
@@ -1008,7 +1040,11 @@ export const fulfillmentHandlers = [
       if (!claimCode) return problem(422, 'Dữ liệu không hợp lệ', { errors: { claimCode: 'Nhập mã khiếu nại' } });
       if (claimCode.length > 100) return problem(422, 'Dữ liệu không hợp lệ', { errors: { claimCode: 'Tối đa 100 ký tự' } });
       if (c.p.lostReport) return problem(409, 'Kiện đã được báo thất lạc', { code: 'already_reported', current: toPackage(c.p) });
-      if (!packageMachine.transitions.some((t) => t.action === 'lose' && (t.from as readonly string[]).includes(c.p.status))) {
+      // Kiện còn trong kho (đã đóng) chỉ báo mất khi đang chờ mở: dỡ kiện về kệ mà không thấy (commerio-backend#238)
+      if (isSealed(c.p.status) && !c.p.needsOpen) {
+        return problem(409, 'Kiện không chờ mở', { code: 'not_awaiting_open', current: toPackage(c.p) });
+      }
+      if (!LOSE_FROM.includes(c.p.status) && !isSealed(c.p.status)) {
         return problem(409, 'Kiện ở trạng thái này không báo thất lạc được', { code: 'invalid_transition', current: toPackage(c.p) });
       }
       const before = packageSnapshot(c.p);
@@ -1026,6 +1062,18 @@ export const fulfillmentHandlers = [
       // Kiện tự giao: người xác nhận còn phải khác người đi giao
       if (c.p.selfDelivery && c.p.deliveredBy === c.actor.account.id) {
         return problem(409, 'Cần người thứ hai', { code: 'second_person_required', current: c.p.status });
+      }
+      // Kiện còn trong kho: ghi bàn giao (hàng rời kho) rồi sang thất lạc
+      if (isSealed(c.p.status)) {
+        return step(c, 'lose_on_unload', {
+          reason: report.claimCode,
+          record: { createdBy: report.by },
+          effect: () => {
+            leaveStock(c.p, c.at, c.actor);
+            c.p.needsOpen = false;
+            c.p.openPurpose = null;
+          },
+        });
       }
       return step(c, 'lose', { reason: report.claimCode, record: { createdBy: report.by } });
     }),
@@ -1210,6 +1258,7 @@ const PLATFORM_STATUSES: Record<string, { to: PackageStatus; raw: string }> = {
   delivered: { to: 'delivered', raw: 'TO_CONFIRM_RECEIVE' },
   delivery_failed: { to: 'delivery_failed', raw: 'SHIPPED' },
   returning: { to: 'returning', raw: 'TO_RETURN' },
+  lost: { to: 'lost', raw: 'LOST_BY_3PL' },
 };
 
 registerMarketplaceEvent({
@@ -1238,10 +1287,17 @@ registerMarketplaceEvent({
       return `${p.code}: sàn xác nhận ${next.to}`;
     }
     let kind = platformUpdate(from, next.to);
-    const direct =
+    // Có cả mũi tên người dùng lẫn hệ thống (vd `lose` và `platform_lost`): ưu tiên mũi tên hệ thống áp được
+    const matches =
       kind === 'direct'
-        ? packageMachine.transitions.find((x) => x.to === next.to && (typeof x.from === 'string' ? [x.from] : x.from).includes(from))!
-        : null;
+        ? packageMachine.transitions.filter((x) => x.to === next.to && (typeof x.from === 'string' ? [x.from] : x.from).includes(from))
+        : [];
+    const direct =
+      matches.find(
+        (x) => x.system && packageMachine.check(from, x.action, { record: recordOf(p, o, { byPlatform: true }), reason: 'Sàn báo' }).ok,
+      ) ??
+      matches[0] ??
+      null;
     // Sàn báo ngược trạng thái do sàn đặt (không phải người chuyển tay): không áp, gắn cờ (25 §8.3)
     if (direct && !packageMachine.check(from, direct.action, { record: recordOf(p, o, { byPlatform: true }), reason: 'Sàn báo' }).ok) {
       kind = 'invalid';
@@ -1264,6 +1320,54 @@ registerMarketplaceEvent({
     o.rawMarketplaceStatus = next.raw;
     settleOrder(o, at);
     return `${p.code}: ${from} → ${next.to}${kind === 'jump' ? ' (nhảy bước, đã bù tồn)' : ''}`;
+  },
+});
+
+registerMarketplaceEvent({
+  type: 'package.platform_resplit',
+  label: 'Sàn chia lại kiện',
+  description:
+    'Kiện đã đóng gói (Đã đóng gói hoặc Chờ lấy hàng) bị sàn chia lại: kiện cũ chờ mở, sinh kiện thay. Kiện thay chưa báo sẵn sàng được tới khi kho mở kiện cũ.',
+  group: 'Kho',
+  needsShop: false,
+  param: { key: 'code', label: 'Mã kiện', placeholder: 'KH-000005' },
+  run({ companyId, params }) {
+    const p = fulfillment.packages.find((x) => x.companyId === companyId && x.code === (params.code ?? '').trim().toUpperCase());
+    if (!p) throw new Error(`Không có kiện ${params.code ?? ''}`);
+    const o = orderOf(p);
+    if (o.source !== 'marketplace') throw new Error('Chỉ kiện của đơn sàn');
+    if (!isSealed(p.status)) throw new Error('Kiện chưa đóng gói hoặc đã rời kho');
+    const at = db.now();
+    // Hàng giữ đi theo kiện thay khi kho mở kiện cũ, nên kiện thay không giữ thêm
+    const q = newPackage(o, p.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })), p.selfDelivery, at);
+    q.replacesId = p.id;
+    movePackage(q, 'reserved', at, null, { source: 'marketplace', reason: `Sàn chia lại kiện ${p.code}` });
+    p.needsOpen = true;
+    p.openPurpose = 'resplit';
+    p.flagNote = `Sàn chia lại kiện: mở kiện, chuyển hàng sang kiện ${q.code}`;
+    p.version += 1;
+    emitRealtime(companyId, 'fulfillment.package_status_changed', { packageId: p.id, orderId: o.id, from: p.status, to: p.status });
+    return `${p.code} chờ mở, kiện thay ${q.code}`;
+  },
+});
+
+registerMarketplaceEvent({
+  type: 'package.stocktake_short',
+  label: 'Kiểm kê thiếu hàng trong kiện',
+  description: 'Phiếu kiểm kê đếm thấp hơn hàng trong kiện đã đóng: kiện chờ mở để kiểm lại (commerio-backend#238).',
+  group: 'Kho',
+  needsShop: false,
+  param: { key: 'code', label: 'Mã kiện', placeholder: 'KH-000005' },
+  run({ companyId, params }) {
+    const p = fulfillment.packages.find((x) => x.companyId === companyId && x.code === (params.code ?? '').trim().toUpperCase());
+    if (!p) throw new Error(`Không có kiện ${params.code ?? ''}`);
+    if (!isSealed(p.status)) throw new Error('Kiện chưa đóng gói hoặc đã rời kho');
+    p.needsOpen = true;
+    p.openPurpose = 'stocktake';
+    p.flagNote = 'Kiểm kê đếm thiếu hàng trong kiện: mở kiện kiểm lại';
+    p.version += 1;
+    emitRealtime(companyId, 'fulfillment.package_status_changed', { packageId: p.id, orderId: p.orderId, from: p.status, to: p.status });
+    return `${p.code} chờ mở (kiểm kê thiếu)`;
   },
 });
 

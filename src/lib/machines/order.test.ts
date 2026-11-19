@@ -117,7 +117,7 @@ describe('Kiện (sơ đồ D2)', () => {
   });
 
   it('dỡ kiện không thấy: kiện đã đóng sang thất lạc, người khác xác nhận', () => {
-    const reported = { ...market, createdBy: 'kho' };
+    const reported = { ...market, createdBy: 'kho', needsOpen: true };
     expect(packageMachine.check('packed', 'lose_on_unload', { actor: kho, record: reported, reason: 'Không thấy trên kệ' })).toEqual({
       ok: false,
       code: 'second_person_required',
@@ -130,6 +130,24 @@ describe('Kiện (sơ đồ D2)', () => {
       ok: true,
       to: 'lost',
     });
+    expect(
+      packageMachine.check('awaiting_pickup', 'lose_on_unload', { actor: kho2, record: reported, reason: 'Không thấy trên kệ' }),
+    ).toEqual({ ok: true, to: 'lost' });
+  });
+
+  it('kiện đã đóng không chờ mở thì không báo mất; Chờ lấy hàng không đi `lose` (commerio-backend#238)', () => {
+    const reported = { ...market, createdBy: 'kho' };
+    expect(packageMachine.check('packed', 'lose_on_unload', { actor: kho2, record: reported, reason: 'x' })).toEqual({
+      ok: false,
+      code: 'not_awaiting_open',
+    });
+    expect(packageMachine.check('awaiting_pickup', 'lose', { actor: kho2, record: reported, reason: 'x' }).ok).toBe(false);
+  });
+
+  it('sàn báo mất, sàn chia lại kiện là bước hệ thống', () => {
+    expect(packageMachine.check('in_transit', 'platform_lost', { record: market })).toEqual({ ok: true, to: 'lost' });
+    expect(packageMachine.check('awaiting_pickup', 'replaced', { record: market })).toEqual({ ok: true, to: 'cancelled' });
+    expect(packageMachine.available('in_transit', kho, market).map((t) => t.action)).not.toContain('platform_lost');
   });
 
   it('bàn giao bắt buộc: sàn báo đã lấy khi kiện chưa giữ đủ hàng', () => {

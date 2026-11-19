@@ -151,6 +151,8 @@ export interface MockPackage {
   /** Đơn vị vận chuyển chọn lúc đóng gói kiện sàn */
   carrier: { code: string; name: string } | null;
   lostReport: MockLostReport | null;
+  /** Kiện cũ mà kiện này thay khi sàn chia lại kiện (commerio-backend#238) */
+  replacesId?: string | null;
   handedOverAt: string | null;
   handedOverBy: string | null;
   /** Như BE (21 §19.2): người bấm bàn giao là `scan`, sàn báo rời kho là `marketplace` kèm mốc xác nhận */

@@ -91,6 +91,61 @@ export const COMPLETION_BLOCKER_LABELS: Record<string, string> = {
   all_packages_cancelled: 'Mọi kiện đã huỷ',
 };
 
+/**
+ * Câu đủ ý cho lý do đơn chưa hoàn tất (FE#282, Documents/25 mục 8.2). Hạn trả lấy `returnWindowEndsAt` của BE
+ * (Lazada theo `returnWindowDays` của gian hàng, TikTok null tới khi sàn báo xong), FE không tự tính. Mã lạ không hiện thô
+ */
+export function completionBlockerText(
+  order: { completionBlocker?: string | null; returnWindowEndsAt?: string | null },
+  fmt: (iso: string) => string,
+): string | null {
+  switch (order.completionBlocker) {
+    case null:
+    case undefined:
+    case '':
+      return null;
+    case 'packages_open':
+      return 'Còn kiện chưa xong: chưa giao tới khách, chưa hoàn về kho hoặc chưa huỷ.';
+    case 'return_window':
+      return order.returnWindowEndsAt
+        ? `Khách còn quyền trả hàng tới ${fmt(order.returnWindowEndsAt)}.`
+        : 'Sàn chưa báo hết quyền trả hàng của khách.';
+    case 'return_requested':
+      return 'Còn yêu cầu trả hàng chưa xong.';
+    case 'cod_unconfirmed':
+      return 'Kế toán chưa xác nhận đã thu tiền COD.';
+    case 'all_packages_cancelled':
+      return 'Mọi kiện đã huỷ, đơn sẽ chuyển sang Đã huỷ.';
+    default:
+      return 'Đơn còn việc chưa xong.';
+  }
+}
+
+/**
+ * Người huỷ đơn (FE#282): ưu tiên người huỷ dòng trên sàn; không có thì lấy dòng lịch sử chuyển sang Đã huỷ cuối cùng.
+ * Hệ thống tự huỷ khi mọi kiện đã huỷ (commerio-backend#236) ghi lý do "Mọi kiện đã huỷ"
+ */
+export function orderCancelledBy(order: {
+  status: OrderStatus;
+  cancelInitiators?: LineCancelInitiator[];
+  statusHistory: readonly { to: string; by: { name: string } | null; source: string; reason?: string | null }[];
+}): string | null {
+  if (order.cancelInitiators?.length) return order.cancelInitiators.map(initiatorLabel).join(', ');
+  if (order.status !== 'cancelled') return null;
+  const h = [...order.statusHistory].reverse().find((x) => x.to === 'cancelled');
+  if (!h) return null;
+  if (h.by) return h.by.name;
+  if (h.source === 'marketplace') return 'Sàn';
+  return h.reason === 'Mọi kiện đã huỷ' ? 'Hệ thống (mọi kiện đã huỷ)' : 'Hệ thống';
+}
+
+/**
+ * Đơn đã qua hạn bàn giao mà còn kiện chưa rời kho (FE#252): BE bật `due_soon` cả khi đã quá hạn,
+ * FE tách ra "Đã trễ hạn bàn giao" theo `shipBy`
+ */
+export const isOverdue = (o: { flags: readonly string[]; shipBy: string | null }, now: number = Date.now()): boolean =>
+  o.flags.includes('due_soon') && Boolean(o.shipBy) && new Date(o.shipBy!).getTime() < now;
+
 export const SOURCE_LABELS: Record<OrderSource, string> = {
   manual: 'Tạo tay',
   inbox: 'Hộp thư',
@@ -152,16 +207,30 @@ export const lineHasIssue = (l: {
 }) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
 /**
- * Dòng khách đang xin huỷ, người bán chưa trả lời: sàn đã ghi người huỷ là khách nhưng đơn còn cờ
- * `cancel_requested`, nên dòng chưa huỷ thật (không ghi Đã huỷ, không gạch tiền).
+ * Dòng khách đang xin huỷ, người bán chưa trả lời: đơn còn cờ `cancel_requested`, dòng chưa huỷ thật (không ghi Đã huỷ,
+ * không gạch tiền). Sàn ghi người huỷ là khách; hoặc Lazada để trống người huỷ nhưng đã tạo đơn ngược loại CANCEL cho món
+ * chưa huỷ (ca thử 17/11, review PR FE#330).
  */
 export const lineCancelPending = (
   order: { flags: readonly string[] },
-  line: { cancelInitiator?: string | null; cancelKind?: string | null },
+  line: { cancelInitiator?: string | null; cancelKind?: string | null; reverseOrderId?: string | null; cancelledQty?: number },
 ) =>
   order.flags.includes('cancel_requested') &&
-  line.cancelInitiator === 'buyer' &&
-  (line.cancelKind == null || line.cancelKind === 'cancellation');
+  (line.cancelKind == null || line.cancelKind === 'cancellation') &&
+  (line.cancelInitiator === 'buyer' || (!line.cancelInitiator && Boolean(line.reverseOrderId) && !(line.cancelledQty ?? 0)));
+
+/**
+ * Món nằm trong một kiện đã giao tới khách (khớp biến thể, không có thì SKU): đơn ngược của món này mới là trả hàng (FE#252)
+ */
+export const lineDelivered = (
+  order: { packages: readonly { status: string; lines: readonly { variantId: string | null; sku: string }[] }[] },
+  line: { variantId: string | null; sku: string },
+) =>
+  order.packages.some(
+    (p) =>
+      p.status === 'delivered' &&
+      p.lines.some((pl) => (line.variantId ? pl.variantId === line.variantId : pl.sku === line.sku)),
+  );
 
 /** Phường/xã hiện riêng khi chuỗi địa chỉ (sàn che một phần) chưa ghi rõ */
 export function wardNote(a: ShippingAddress): string | null {

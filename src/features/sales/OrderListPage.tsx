@@ -29,6 +29,7 @@ import {
   ORDER_STATUS,
   PAYMENT_METHOD_LABELS,
   SOURCE_LABELS,
+  isOverdue,
   paymentMethodLabel,
   sourceLabel,
 } from './shared';
@@ -165,7 +166,11 @@ export function OrderListPage() {
         cell: ({ row }) => {
           const o = row.original;
           if (!o.shipBy) return '—';
-          return o.flags.includes('due_soon') ? (
+          return isOverdue(o) ? (
+            <span className="font-medium text-destructive" title="Đã trễ hạn bàn giao">
+              {formatDateTime(o.shipBy)}
+            </span>
+          ) : o.flags.includes('due_soon') ? (
             <span className="font-medium text-warning">{formatDateTime(o.shipBy)}</span>
           ) : (
             formatDateTime(o.shipBy)

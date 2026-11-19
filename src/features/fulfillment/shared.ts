@@ -1,6 +1,6 @@
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import type { TransitionActor } from '@/lib/stateMachine';
-import { handoverConfirmed, packageMachine, type PackageRecord } from '@/lib/machines/order';
+import { handoverConfirmed, isSealed, LOSE_FROM, packageMachine, type PackageRecord } from '@/lib/machines/order';
 /** Gói giao của sàn (Lazada `shipping_provider_type`); giá trị lạ thì hiện nguyên */
 const SHIPPING_PROVIDER_TYPE_LABELS: Record<string, string> = {
   standard: 'Tiêu chuẩn',
@@ -56,6 +56,7 @@ export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
   cancel: 'Hàng trong kiện đã huỷ, trả hàng về kệ',
   edit: 'Sửa kiện',
   resplit: 'Chia lại kiện',
+  stocktake: 'Kiểm kê thiếu hàng',
 };
 
 /** Tổng số đơn vị chờ bỏ của kiện (sàn huỷ lẻ món sau khi đóng gói, 21 §19.2) */
@@ -82,12 +83,25 @@ export const HANDOVER_FAILURE_LABELS: Record<string, string> = {
   version_conflict: 'Kiện vừa được cập nhật',
   not_found: 'Không tìm thấy kiện',
   forbidden: 'Không có quyền',
+  awaiting_open: 'Kiện đang chờ mở',
 };
 
 export const handoverFailureLabel = (code: string) => HANDOVER_FAILURE_LABELS[code] ?? 'Không bàn giao được';
 
-/** Trạng thái báo thất lạc được (cũng là trạng thái xác nhận thất lạc được) */
-export const LOSABLE: readonly PackageStatus[] = ['awaiting_pickup', 'in_transit', 'delivery_failed', 'returning', 'self_delivering'];
+/**
+ * Báo thất lạc được (commerio-backend#238): kiện đã rời kho chưa dừng, hoặc kiện đã đóng đang chờ mở
+ * (dỡ kiện về kệ mà không thấy). Kiện đã đóng không chờ mở thì BE trả `not_awaiting_open`
+ */
+export function canReportLost(p: Pick<PackageSummary, 'status' | 'flags'>): boolean {
+  return LOSE_FROM.includes(p.status) || (isSealed(p.status) && p.flags.includes('needs_open'));
+}
+
+/**
+ * Kiện thay của lần sàn chia lại kiện mà kiện cũ chưa mở (còn đã đóng): chưa báo sẵn sàng, chưa bàn giao được,
+ * BE trả `awaiting_open`
+ */
+export const waitingReplacedOpen = (p: Pick<PackageSummary, 'replaces'>): boolean =>
+  Boolean(p.replaces && isSealed(p.replaces.status));
 
 export const packageRecord = (p: PackageSummary): PackageRecord => ({
   source: p.source,
@@ -97,6 +111,7 @@ export const packageRecord = (p: PackageSummary): PackageRecord => ({
   createdBy: p.lostReport?.by.id ?? null,
   // Ẩn Đảo bàn giao khi kiện không do kho quét hoặc sàn đã xác nhận lấy (21 §19.2)
   handoverConfirmed: handoverConfirmed(p),
+  needsOpen: p.flags.includes('needs_open'),
 });
 
 /** Nút của kiện theo bảng chuyển (sơ đồ D2), quyền và cờ */
@@ -106,24 +121,50 @@ export interface PackageButtons {
   reportLost: boolean;
   /** Ghi chú thay cho nút với kiện của đơn sàn */
   note: string | null;
+  /** Vì sao Báo sẵn sàng, Bàn giao bị ẩn (kiện chờ mở, hoặc kiện cũ chưa mở) */
+  blocked: string | null;
+  /** Ghi chú cạnh Xác nhận thất lạc: tự duyệt, hoặc vì sao người này không xác nhận được */
+  lostNote: string | null;
 }
 
 export function packageButtons(p: PackageSummary, actor: TransitionActor): PackageButtons {
   const available = packageMachine.available(p.status, actor, packageRecord(p)).map((t) => t.action);
   const opening = p.flags.includes('needs_open');
+  const waiting = waitingReplacedOpen(p);
+  // Người tự giao kiện không tự xác nhận kiện mình giao bị mất (commerio-backend#238 D13)
+  const courier = p.selfDelivery && Boolean(p.deliveredBy) && p.deliveredBy?.id === actor.accountId;
   const actions = available.filter((a) => {
-    // Mở kiện để huỷ chỉ khi kiện chờ mở vì đơn huỷ; kiện thường mở về Đã giữ
+    // Mở kiện để huỷ chỉ khi kiện chờ mở vì đơn huỷ; kiện thường mở về Đã giữ.
+    // Kiện Chờ lấy hàng chỉ mở khi chờ mở (sàn chia lại kiện, kiểm kê thiếu): giữ vận đơn (D25)
     if (a === 'open_cancel') return opening && p.openPurpose === 'cancel';
-    if (a === 'open') return p.status === 'packed' && !(opening && p.openPurpose === 'cancel');
+    if (a === 'open') return (p.status === 'packed' || opening) && !(opening && p.openPurpose === 'cancel');
+    // Kiện chờ mở, kiện thay chờ mở kiện cũ: BE trả `awaiting_open`
+    if (a === 'mark_ready' || a === 'hand_over') return !opening && !waiting;
     // Xác nhận thất lạc (cả khi dỡ kiện không thấy) khi đã có người báo
-    if (a === 'lose' || a === 'lose_on_unload') return Boolean(p.lostReport);
+    if (a === 'lose' || a === 'lose_on_unload') return Boolean(p.lostReport) && !courier;
     return true;
   });
   const canProcess = packageMachine.available('returning', actor, packageRecord(p)).length > 0;
-  const reportLost = LOSABLE.includes(p.status) && !p.lostReport && canProcess;
+  const reportLost = canReportLost(p) && !p.lostReport && canProcess;
   const shipping = ['in_transit', 'delivery_failed'].includes(p.status);
   const note = p.source === 'marketplace' && shipping ? 'Trạng thái giao lấy từ sàn.' : null;
-  return { actions, reportLost, note };
+  const blocked = !isSealed(p.status)
+    ? null
+    : opening
+      ? 'Kiện đang chờ mở: mở kiện xong mới báo sẵn sàng hay bàn giao được.'
+      : waiting
+        ? `Chờ mở kiện ${p.replaces!.code} (kiện cũ sàn đã chia lại) rồi mới báo sẵn sàng hay bàn giao được.`
+        : null;
+  let lostNote: string | null = null;
+  if (p.lostReport && canProcess) {
+    if (courier) lostNote = 'Bạn là người tự giao kiện này nên cần người khác xác nhận thất lạc.';
+    else if (p.lostReport.by.id === actor.accountId) {
+      lostNote = actor.canSelfApprove
+        ? 'Bạn là người báo. Xác nhận sẽ ghi là tự duyệt.'
+        : 'Bạn là người báo nên cần một người khác xác nhận.';
+    }
+  }
+  return { actions, reportLost, note, blocked, lostNote };
 }
 
 /** Nhóm nút giao trong hộp thoại Cập nhật giao */
