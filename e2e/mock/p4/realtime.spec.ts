@@ -7,7 +7,7 @@ test.describe('P4 · Realtime', () => {
   test.beforeEach(async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await page.goto('/c/cmp-001/sales/orders');
-    await expect(page.locator('[data-testid=realtime-status]')).toHaveAttribute('data-status', 'open');
+    await expect(page.locator('[data-testid=realtime-status]')).toHaveAttribute('data-stream', 'open');
   });
 
   test('đơn mới từ sàn tự hiện trên danh sách đang mở, có thông báo', async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe('P4 · Realtime kiện, yêu cầu trả (CEO)', () => {
   test.beforeEach(async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await page.goto('/c/cmp-001/fulfillment/packages');
-    await expect(page.locator('[data-testid=realtime-status]')).toHaveAttribute('data-status', 'open');
+    await expect(page.locator('[data-testid=realtime-status]')).toHaveAttribute('data-stream', 'open');
   });
 
   test('sàn báo đang giao rồi giao thất bại: hàng đợi tự đổi, thông báo có mã kiện, Xem mở trang kiện đã đổi', async ({ page }) => {

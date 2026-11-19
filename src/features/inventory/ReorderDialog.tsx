@@ -110,7 +110,7 @@ export function ReorderDialog({ level, onClose, onDone }: ReorderDialogProps) {
               />
               <p className={fieldError ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
                 {fieldError ??
-                  'Khả dụng dưới ngưỡng thì Nhân viên kho và Admin nhận thông báo. Để trống là bỏ ngưỡng.'}
+                  'Khả dụng cộng đang về, trừ phần còn thiếu, chạm ngưỡng thì người xem được tồn kho (Nhân viên kho, Admin…) được báo một lần trên app và ở chuông. Để trống là bỏ ngưỡng.'}
               </p>
             </div>
           </div>
