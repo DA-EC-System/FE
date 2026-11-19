@@ -22,13 +22,13 @@ const moTiktok = async (page: Page) => {
 const trangThai = (page: Page, variantId: string) => dong(page, variantId).getByTestId('listing-status');
 const banSua = (page: Page, variantId: string) => dong(page, variantId).getByTestId('pending-revision');
 const nutSua = (page: Page, variantId: string) =>
-  dong(page, variantId).getByRole('button', { name: 'Cập nhật thông tin lên sàn', exact: true });
+  dong(page, variantId).getByRole('button', { name: 'Sửa nội dung', exact: true });
 
 const suaNoiDung = async (page: Page, variantId: string) => {
   await nutSua(page, variantId).click();
   const hop = page.getByRole('alertdialog');
   await expect(hop).toContainText('sàn sẽ duyệt lại. Thường sàn vẫn bán bản cũ trong lúc duyệt; nếu sàn ngừng bán để duyệt, listing chuyển Chờ sàn duyệt. Ảnh, giá và tồn không đổi.');
-  await hop.getByRole('button', { name: 'Cập nhật', exact: true }).click();
+  await hop.getByRole('button', { name: 'Đưa lên sàn', exact: true }).click();
 };
 
 test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
@@ -37,12 +37,12 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
     await moTiktok(page);
 
     await expect(trangThai(page, 'prd-001-v3')).toHaveText('Đang bán');
-    await expect(banSua(page, 'prd-001-v3')).toHaveText('Chỉnh sửa chờ duyệt');
+    await expect(banSua(page, 'prd-001-v3')).toHaveText('Bản sửa đang duyệt');
     await banSua(page, 'prd-001-v3').hover();
     await expect(page.getByTestId('pending-revision-hint')).toContainText('vẫn bán bản cũ');
 
     await expect(trangThai(page, 'prd-001-v2')).toHaveText('Đang bán');
-    await expect(banSua(page, 'prd-001-v2')).toHaveText('Chỉnh sửa bị từ chối');
+    await expect(banSua(page, 'prd-001-v2')).toHaveText('Bản sửa bị từ chối');
     await expect(dong(page, 'prd-001-v2').getByTestId('revision-reason')).toHaveText(
       'Sàn báo: Mô tả chứa thông tin liên hệ ngoài sàn',
     );
@@ -61,7 +61,7 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
     await suaNoiDung(page, 'prd-001-v1');
     await toast(page, /Sàn đang duyệt, listing vẫn bán bản cũ/);
     await expect(trangThai(page, 'prd-001-v1')).toHaveText('Đang bán');
-    await expect(banSua(page, 'prd-001-v1')).toHaveText('Chỉnh sửa chờ duyệt');
+    await expect(banSua(page, 'prd-001-v1')).toHaveText('Bản sửa đang duyệt');
     // Vẫn gửi lại được khi bản sửa đang duyệt
     await expect(nutSua(page, 'prd-001-v1')).toBeEnabled();
   });
@@ -71,8 +71,8 @@ test.describe('P3 · Sửa nội dung listing đang bán (TikTok)', () => {
     await moTiktok(page);
 
     await suaNoiDung(page, 'prd-001-v2');
-    await toast(page, /Đã cập nhật thông tin mới/);
-    await expect(banSua(page, 'prd-001-v2')).toHaveText('Chỉnh sửa chờ duyệt');
+    await toast(page, /Đã đưa nội dung mới/);
+    await expect(banSua(page, 'prd-001-v2')).toHaveText('Bản sửa đang duyệt');
     await expect(dong(page, 'prd-001-v2').getByTestId('revision-reason')).toHaveCount(0);
   });
 

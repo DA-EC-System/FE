@@ -219,12 +219,12 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Đã kết nối');
       await expect(page.locator('[data-testid=listing-status]')).toHaveCount(3);
       await coPhanTu(page, '[data-testid=listing-status]', 'Đang bán');
-      await coPhanTu(page, '[data-testid=sync-line]', 'Chờ đồng bộ');
+      await coPhanTu(page, '[data-testid=sync-line]', 'Chờ đẩy');
       // Phiếu kiểm kê đầu kỳ chưa ghi sổ: banner dẫn tới phiếu
       const banner = page.locator('[data-testid=opening-stocktake-banner]');
-      await expect(banner).toContainText('Gian hàng đang chờ kiểm kho đầu kỳ');
+      await expect(banner).toContainText('Gian hàng đang chờ kiểm kê đầu kỳ');
       await expect(banner.getByRole('link', { name: /^KK-/ })).toHaveAttribute('href', /\/c\/cmp-001\/inventory\/documents\//);
-      await expect(page.getByRole('button', { name: 'Lập lại phiếu kiểm kho', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Lập lại phiếu kiểm kê', exact: true })).toHaveCount(0);
 
       // §18.6.11: huỷ phiếu thì banner vẫn còn, có nút lập lại phiếu
       const soPhieuCu = (await banner.getByRole('link', { name: /^KK-/ }).textContent()) ?? '';
@@ -237,8 +237,8 @@ test.describe('P3 · Gian hàng', () => {
       await expect.poll(() => duongDan(page)).toBe(trangGianHang);
       await expect(banner).toHaveAttribute('data-stocktake-status', 'cancelled');
       await expect(banner).toContainText(`phiếu ${soPhieuCu} đã huỷ`);
-      await expect(banner).toContainText('Lập lại phiếu kiểm kho để kho đếm lại.');
-      const lapLai = page.getByRole('button', { name: 'Lập lại phiếu kiểm kho', exact: true });
+      await expect(banner).toContainText('Lập lại phiếu kiểm kê để kho đếm lại.');
+      const lapLai = page.getByRole('button', { name: 'Lập lại phiếu kiểm kê', exact: true });
       // BE thấy phiếu còn mở (máy khác vừa lập) thì báo số phiếu
       await mockApi(page, 'post', '/channel/shops/:id/opening-stocktake', 409, {
         status: 409,
@@ -248,7 +248,7 @@ test.describe('P3 · Gian hàng', () => {
       await lapLai.click();
       await toast(page, 'Phiếu KK-000099 vẫn đang mở. Sửa hoặc duyệt phiếu này.');
       await lapLai.click();
-      await toast(page, /^Đã lập phiếu kiểm kho KK-/);
+      await toast(page, /^Đã lập phiếu kiểm kê KK-/);
       await expect(banner).toHaveAttribute('data-stocktake-status', 'draft');
       await expect(banner.getByRole('link', { name: /^KK-/ })).not.toHaveText(soPhieuCu);
       await expect(lapLai).toHaveCount(0);
@@ -587,10 +587,10 @@ test.describe('P3 · Gian hàng', () => {
     });
 
     test('hiện giá đẩy theo nguồn và trạng thái đẩy từng biến thể', async ({ page }) => {
-      await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã liên kết 2/');
-      for (const t of ['165.000', 'Theo gian hàng', 'Đã đồng bộ']) await expect(dong(page, 'prd-001-v1')).toContainText(t);
-      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toHaveText(/^Chờ đồng bộ giá mới, sàn đang 150\.000/);
-      for (const t of ['Giá chuẩn', 'Chưa liên kết']) await expect(dong(page, 'prd-001-v3')).toContainText(t);
+      await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã ghép 2 /');
+      for (const t of ['165.000', 'Theo gian hàng', 'Đã đẩy']) await expect(dong(page, 'prd-001-v1')).toContainText(t);
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toHaveText(/^Chờ đẩy giá mới, trên sàn 150\.000/);
+      for (const t of ['Giá chuẩn', 'Chưa ghép']) await expect(dong(page, 'prd-001-v3')).toContainText(t);
       await expect(dong(page, 'prd-002-v3')).toContainText('Chưa có giá');
       await expect(page.locator('[data-testid=listing-tab-stale]')).toContainText('1');
       await moTab(page, 'stale');
@@ -599,22 +599,22 @@ test.describe('P3 · Gian hàng', () => {
       await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).toContainText('OLD-TEE-01');
       // Ô tìm kiếm lọc cả SKU sàn chưa ghép
-      await page.getByPlaceholder('Tìm theo tên, SKU kho hoặc SKU sàn...', { exact: true }).fill('không có sku này');
+      await page.getByPlaceholder('Tìm theo tên, SKU hoặc SKU sàn...', { exact: true }).fill('không có sku này');
       await expect(page.locator('[data-testid=remote-section]')).toContainText('Không có SKU sàn khớp ô tìm kiếm');
     });
 
     test('ghép biến thể với SKU sàn được gợi ý theo SKU người bán', async ({ page }) => {
-      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Liên kết', exact: true }).click();
+      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await thayChu(dialog, 'Gợi ý');
       await expect(dialog.getByRole('radio', { checked: true })).toHaveAttribute('value', 'shp-001-sku-003');
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-      await toast(page, 'Đã liên kết');
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, 'Đã ghép');
       await expect(dialog).toHaveCount(0);
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-003');
       await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).not.toContainText('shp-001-sku-003');
-      await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã liên kết 3/');
+      await expect(page.locator('[data-testid=match-summary]')).toContainText('Đã ghép 3 /');
     });
 
     test('SKU sàn không còn trên sàn thì báo trong hộp; xung đột phiên bản thì nạp lại', async ({ page }) => {
@@ -624,9 +624,9 @@ test.describe('P3 · Gian hàng', () => {
         code: 'validation_failed',
         errors: { externalSkuId: 'SKU sàn không còn trên gian hàng' },
       });
-      await dong(page, 'prd-001-v4').getByRole('button', { name: 'Liên kết', exact: true }).click();
+      await dong(page, 'prd-001-v4').getByRole('button', { name: 'Ghép', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
       await thayChu(dialog, 'SKU sàn không còn trên gian hàng');
 
       await mockApi(page, 'post', '/channel/shops/shp-001/listings/match', 409, {
@@ -634,35 +634,35 @@ test.describe('P3 · Gian hàng', () => {
         title: 'Xung đột phiên bản',
         code: 'version_conflict',
       });
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
       await toast(page, 'vừa được người khác sửa');
       await expect(dialog).toHaveCount(0);
-      await expect(dong(page, 'prd-001-v4')).toContainText('Chưa liên kết');
+      await expect(dong(page, 'prd-001-v4')).toContainText('Chưa ghép');
     });
 
     test('ghép từ SKU sàn chưa ghép; không có nút Bỏ ghép vì BE chưa có route', async ({ page }) => {
       await moTab(page, 'unmatched');
       await chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr')
-        .getByRole('button', { name: 'Liên kết SKU kho', exact: true })
+        .getByRole('button', { name: 'Ghép với biến thể', exact: true })
         .click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByPlaceholder('Tìm SKU kho theo tên hoặc mã SKU...', { exact: true }).fill('Thắt lưng');
+      await dialog.getByPlaceholder('Tìm biến thể theo tên hoặc SKU...', { exact: true }).fill('Thắt lưng');
       await expect(dialog.getByRole('radio')).toHaveCount(1);
       await dialog.getByRole('radio').click();
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-      await toast(page, 'Đã liên kết');
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, 'Đã ghép');
       await moTab(page, 'all');
       await expect(dong(page, 'prd-003-v1').locator('[data-testid=remote-sku]')).toContainText('OLD-TEE-01');
       // Hợp đồng §18.6.5 không có route bỏ ghép; đổi ghép hoặc "không quản tồn" đi qua nút Đổi ghép
-      await expect(dong(page, 'prd-003-v1').getByRole('button', { name: 'Đổi liên kết', exact: true })).toBeVisible();
+      await expect(dong(page, 'prd-003-v1').getByRole('button', { name: 'Đổi ghép', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Bỏ ghép', exact: true })).toHaveCount(0);
     });
 
     test('Tải lại SKU sàn chạy nền: 202 rồi hỏi lại GET remote-skus tới khi xong, lỗi 429 nêu số phút chờ, lượt lỗi báo số phút', async ({ page }) => {
       await moTab(page, 'unmatched');
       const khu = page.locator('[data-testid=remote-section]');
-      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU sàn cập nhật lúc');
-      const taiLai = page.getByRole('button', { name: 'Tải SKU từ sàn', exact: true });
+      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
+      const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
 
       const phanHoi = page.waitForResponse(
         (r) => r.request().method() === 'POST' && /\/channel\/shops\/shp-001\/remote-skus\/refresh$/.test(r.url()),
@@ -671,9 +671,9 @@ test.describe('P3 · Gian hàng', () => {
       // FE#315: POST trả cùng hình GET kèm lượt running; FE báo đang tải, hỏi lại `GET remote-skus`, hết running mới báo xong
       const dangCo = (await (await phanHoi).json()) as { syncedAt: string; items: unknown[] };
       expect(dangCo.items.length).toBeGreaterThan(0);
-      await toast(page, 'Đang tải SKU từ sàn, bảng tự cập nhật khi xong.');
-      await toast(page, 'Đã tải SKU từ sàn');
-      // Nút không kẹt ở "Đang tải SKU từ sàn…"
+      await toast(page, 'Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.');
+      await toast(page, 'Đã tải lại SKU trên sàn');
+      // Nút không kẹt ở "Đang tải danh sách SKU…"
       await expect(taiLai).toBeEnabled();
       await expect(khu).toContainText('OLD-TEE-01');
 
@@ -713,8 +713,8 @@ test.describe('P3 · Gian hàng', () => {
     test('Tải lại ở tab Tất cả: tên trên sàn ở dòng đã ghép và hộp Đổi ghép theo bản sao mới (FE#294)', async ({ page }) => {
       const ten = dong(page, 'prd-001-v1').locator('[data-testid=remote-title]');
       await expect(ten).toHaveText('Áo thun basic cổ tròn - Đen, M');
-      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU sàn cập nhật lúc');
-      const taiLai = page.getByRole('button', { name: 'Tải SKU từ sàn', exact: true });
+      await expect(page.locator('[data-testid=remote-synced]')).toContainText('SKU trên sàn tải lúc');
+      const taiLai = page.getByRole('button', { name: 'Tải lại', exact: true });
       // Nút Tải lại ở mọi tab
       for (const t of ['unmatched', 'stale', 'all'] as const) {
         await moTab(page, t);
@@ -723,22 +723,22 @@ test.describe('P3 · Gian hàng', () => {
 
       await phatSuKienSan(page, 'listing.renamed', 'shp-001', { sku: 'shp-001-sku-001', title: 'Áo khoác bomber nam' });
       await taiLai.click();
-      await toast(page, 'Đã tải SKU từ sàn');
+      await toast(page, 'Đã tải lại SKU trên sàn');
       await expect(ten).toHaveText('Áo khoác bomber nam');
 
-      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi liên kết', exact: true }).click();
+      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
       await thayChu(page.getByRole('dialog'), 'Áo khoác bomber nam');
     });
 
     test('CEO đặt SKU sàn đã có đơn là không quản tồn: áp luôn, không chờ duyệt', async ({ page }) => {
-      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi liên kết', exact: true }).click();
+      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await thayChu(dialog, 'Đang liên kết với');
+      await thayChu(dialog, 'Đang ghép với');
       await expect(dialog.getByRole('radio', { checked: true })).toHaveAttribute('value', 'prd-001-v1');
-      await dialog.getByRole('radio', { name: /Không quản lý tồn/ }).click();
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-      await toast(page, 'là không quản lý tồn');
-      await expect(dong(page, 'prd-001-v1')).toContainText('Chưa liên kết');
+      await dialog.getByRole('radio', { name: /Không quản tồn/ }).click();
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, 'là không quản tồn');
+      await expect(dong(page, 'prd-001-v1')).toContainText('Chưa ghép');
       // SKU "không quản tồn" là đã ghép, không còn ở tab Chưa ghép
       await moTab(page, 'unmatched');
       await expect(page.locator('[data-testid=remote-section]')).not.toContainText('shp-001-sku-001');
@@ -751,27 +751,27 @@ test.describe('P3 · Gian hàng', () => {
       await page.getByRole('button', { name: 'Đẩy 2 biến thể lên sàn', exact: true }).click();
       const alert = page.getByRole('alertdialog');
       await thayChu(alert, '1 biến thể chưa có SKU sàn');
-      await alert.getByRole('button', { name: 'Đăng bán', exact: true }).click();
+      await alert.getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
       // Chỉ gửi mã biến thể: ảnh BE lấy từ catalog (commerio-backend#303)
       expect((await yeuCau).postDataJSON()).toEqual({ variantIds: ['prd-001-v2', 'prd-002-v2'] });
-      await toast(page, 'Đã đưa 1 SKU vào hàng chờ đăng');
-      await toast(page, '1 SKU không đăng được');
+      await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
+      await toast(page, '1 biến thể không đẩy được');
       await expect(dong(page, 'prd-001-v2').locator('[data-testid=push-error]')).toContainText('cập nhật bằng đồng bộ');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang đẩy');
-      await expect(dong(page, 'prd-002-v2')).toContainText('Chưa có SKU ID sàn');
+      await expect(dong(page, 'prd-002-v2')).toContainText('Sàn chưa trả mã');
       // Shopee không duyệt: sàn nhận xong là Đang bán, có mã SKU sàn
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang bán', CHO_SAN);
       await expect(dong(page, 'prd-002-v2').locator('[data-testid=remote-sku]')).toBeAttached();
-      await expect(dong(page, 'prd-002-v2')).not.toContainText('Chưa có SKU ID sàn');
+      await expect(dong(page, 'prd-002-v2')).not.toContainText('Sàn chưa trả mã');
       await trangThaiListing(page, 'prd-002-v2').focus();
       await expect(page.locator('[data-testid=listing-hint]')).toContainText('Đang bán trên sàn');
     });
 
     test('Đồng bộ đẩy giá đã đổi; hết lượt gọi sàn thì báo theo §18.6.8', async ({ page }) => {
-      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toContainText('Chờ đồng bộ giá mới');
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).toContainText('Chờ đẩy giá mới');
       await page.getByRole('button', { name: 'Đồng bộ', exact: true }).click();
-      await toast(page, /Đã bắt đầu đồng bộ với sàn/);
-      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).not.toContainText('Chờ đồng bộ giá');
+      await toast(page, /Đã xếp lượt đồng bộ với sàn/);
+      await expect(dong(page, 'prd-001-v2').locator('[data-testid=sync-line]')).not.toContainText('Chờ đẩy giá');
 
       await mockApi(page, 'post', '/channel/shops/:id/listings/sync', 503, {
         code: 'marketplace_unavailable',
@@ -794,19 +794,19 @@ test.describe('P3 · Gian hàng', () => {
 
       await diToi(page, '/c/cmp-001/channel/shops/shp-001');
       await expect(dong(page, 'prd-002-v2').locator('img')).toBeVisible();
-      await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đăng sản phẩm mới', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Đăng bán', exact: true }).click();
-      await toast(page, 'Đã đưa 1 SKU vào hàng chờ đăng');
+      await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+      await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang đẩy');
       await expect(dong(page, 'prd-002-v2').locator('[data-testid=push-error]')).toHaveCount(0);
     });
 
     test('biến thể chưa có giá thì báo lỗi theo dòng', async ({ page }) => {
-      await dong(page, 'prd-002-v3').getByRole('button', { name: 'Đăng sản phẩm mới', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Đăng bán', exact: true }).click();
-      await toast(page, '1 SKU không đăng được');
+      await dong(page, 'prd-002-v3').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+      await toast(page, '1 biến thể không đẩy được');
       await expect(dong(page, 'prd-002-v3').locator('[data-testid=push-error]')).toContainText('Chưa có giá');
-      await expect(dong(page, 'prd-002-v3')).toContainText('Chưa liên kết');
+      await expect(dong(page, 'prd-002-v3')).toContainText('Chưa ghép');
     });
   });
 
@@ -885,10 +885,10 @@ test.describe('P3 · Gian hàng', () => {
 
     test('từ SKU sàn chưa ghép: hộp có biến thể đã gỡ kèm "Đã gỡ", không có biến thể đang bán; CEO thấy Áp ngay', async ({ page }) => {
       // FE#326: listing đã gỡ không tính là đã ghép
-      await expect(page.locator('[data-testid=match-summary]')).toContainText(/Đã liên kết 1\/\d+ SKU \(1 đã gỡ khỏi sàn\)/);
+      await expect(page.locator('[data-testid=match-summary]')).toContainText(/Đã ghép 1 \/ \d+ biến thể \(1 đã gỡ\)/);
       await moTab(page, 'unmatched');
       const remote = chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr');
-      await remote.getByRole('button', { name: 'Liên kết SKU kho', exact: true }).click();
+      await remote.getByRole('button', { name: 'Ghép với biến thể', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.locator('label[for="match-prd-001-v1"]')).toContainText('Đã gỡ');
       await expect(dialog.locator('label[for="match-prd-001-v3"]')).not.toContainText('Đã gỡ');
@@ -898,24 +898,24 @@ test.describe('P3 · Gian hàng', () => {
       await expect(unmanaged).not.toContainText('Cần CEO duyệt');
 
       await dialog.locator('label[for="match-prd-001-v1"]').click();
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-      await toast(page, /^Đã liên kết/);
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, /^Đã ghép/);
       await expect(chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr')).toHaveCount(0);
       await moTab(page, 'all');
       await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('OLD-TEE-01');
       await expect(trangThaiListing(page, 'prd-001-v1')).not.toHaveText('Đã gỡ');
-      await expect(dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi liên kết', exact: true })).toBeAttached();
+      await expect(dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true })).toBeAttached();
     });
 
     test('từ dòng biến thể đã gỡ: nút Ghép mở danh sách SKU sàn chưa ghép; ghép xong SKU đó hết chưa ghép', async ({ page }) => {
       const row = dong(page, 'prd-001-v1');
-      await expect(row.getByRole('button', { name: 'Đổi liên kết', exact: true })).toHaveCount(0);
-      await row.getByRole('button', { name: 'Liên kết', exact: true }).click();
+      await expect(row.getByRole('button', { name: 'Đổi ghép', exact: true })).toHaveCount(0);
+      await row.getByRole('button', { name: 'Ghép', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.locator('label[for="match-shp-001-sku-001"]')).toHaveCount(0);
       await dialog.locator('label[for="match-shp-001-sku-003"]').click();
-      await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-      await toast(page, /^Đã liên kết/);
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, /^Đã ghép/);
       await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-003');
       await expect(trangThaiListing(page, 'prd-001-v1')).not.toHaveText('Đã gỡ');
       await moTab(page, 'unmatched');
@@ -934,19 +934,19 @@ test.describe('P3 · Gian hàng', () => {
       await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đang bán');
       // FE#312: một nhãn trạng thái, dòng đồng bộ chữ nhỏ thay cho nhãn "Chưa đẩy", "Tồn chờ đẩy"
       await expect(dong(page, 'prd-002-v1').locator('[data-testid=listing-status]')).toHaveCount(1);
-      await expect(dong(page, 'prd-002-v1').locator('[data-testid=sync-line]')).toHaveText('Chờ đồng bộ giá, tồn lần đầu');
+      await expect(dong(page, 'prd-002-v1').locator('[data-testid=sync-line]')).toHaveText('Chờ đẩy giá, tồn lần đầu');
       await expect(dong(page, 'prd-002-v1')).not.toContainText('Chưa đẩy');
       await expect(dong(page, 'prd-002-v1')).not.toContainText('Tồn chờ đẩy');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Chờ sàn duyệt');
       await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toContainText('Ảnh chính có chữ và logo');
-      await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Đăng lại', exact: true })).toBeAttached();
+      await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true })).toBeAttached();
       // Nhãn đồng bộ §18.6.6; câu của sàn hiện nguyên văn trong tooltip
       await expect(dong(page, 'prd-003-v1').locator('[data-testid=stock-sync]')).toHaveText('Lệch tồn: sàn 12');
       // Lệch tồn và đẩy tồn lỗi đã có nhãn: dòng đồng bộ không nhắc tồn
       await expect(dong(page, 'prd-003-v1').locator('[data-testid=sync-line]')).not.toContainText('tồn');
       const loi = dong(page, 'prd-003-v1').locator('[data-testid=sync-error]');
-      await expect(loi).toHaveText(['Đồng bộ tồn lỗi', 'Đồng bộ giá lỗi']);
+      await expect(loi).toHaveText(['Cập nhật tồn lên sàn lỗi', 'Đẩy giá lỗi']);
       const goiY = page.getByTestId('sync-error-hint');
       await loi.first().hover();
       await expect(goiY.filter({ hasText: 'SellerSku is locked by campaign' })).toBeVisible();
@@ -961,12 +961,12 @@ test.describe('P3 · Gian hàng', () => {
       await moTab(page, 'held');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Chờ sàn duyệt');
       await moTab(page, 'not_listed');
-      await moiPhanTu(dongBienThe(page), (t) => expect(t).toContain('Chưa đăng bán'));
+      await moiPhanTu(dongBienThe(page), (t) => expect(t).toContain('Chưa lên sàn'));
     });
 
     test('đẩy lại listing bị từ chối mà thông tin Lazada còn thiếu: báo theo dòng, mở trang 4 bước để sửa (commerio-backend#400)', async ({ page }) => {
-      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đăng lại', exact: true }).click();
-      await toast(page, '1 SKU không đăng được');
+      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
+      await toast(page, '1 biến thể không đẩy được');
       await expect(dong(page, 'prd-001-v3').locator('[data-testid=push-error]')).toHaveText(
         'Thông tin Lazada của sản phẩm còn thiếu: Chất liệu trang phục',
       );
@@ -984,12 +984,12 @@ test.describe('P3 · Gian hàng', () => {
           waitingFor,
         });
       await cho('open_orders');
-      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đăng lại', exact: true }).click();
+      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
       await toast(page, 'Đang kéo đơn còn mở về. Đẩy sản phẩm sau khi lượt này xong.');
       await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
 
       await cho('allocation');
-      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đăng lại', exact: true }).click();
+      await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
       await toast(page, 'Đang chia hàng cho các kiện sau kiểm kê. Đẩy sản phẩm sau khi chia xong.');
       await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Sàn từ chối');
     });
@@ -1004,13 +1004,13 @@ test.describe('P3 · Gian hàng', () => {
       await expect(dong(page, 'prd-002-v1').locator('[data-testid=remote-sku]')).toBeAttached();
       await expect(dong(page, 'prd-002-v1')).toBeAttached();
       await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true })).toHaveCount(0);
-      await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đăng lại', exact: true }).click();
+      await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
       await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đang đẩy');
       await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt', CHO_SAN);
     });
 
     test('đang bán thì không đẩy lại, nút đẩy nêu lý do', async ({ page }) => {
-      await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Đăng bán', exact: true })).toBeDisabled();
+      await expect(dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lên sàn', exact: true })).toBeDisabled();
       // Tooltip đôi khi chưa mở ở lần focus đầu (bảng vừa vẽ lại): bỏ focus rồi focus lại tới khi thấy
       await expect(async () => {
         await page.locator('body').click({ position: { x: 1, y: 1 } });
@@ -1033,7 +1033,7 @@ test.describe('P3 · Gian hàng', () => {
       await diToi(page, '/c/cmp-001/channel/shops/shp-003');
       await expect(trangThaiListing(page, 'prd-002-v2')).toHaveText('Đang bán');
       await expect(page.locator('[data-testid=shop-status]')).toHaveText('Cần kết nối lại');
-      await coPhanTu(page, '[data-testid=sync-line]', 'Chờ đồng bộ');
+      await coPhanTu(page, '[data-testid=sync-line]', 'Chờ đẩy');
     });
   });
 
@@ -1045,9 +1045,9 @@ test.describe('P3 · Gian hàng', () => {
     await page.locator('[data-outcome=reconnected]').getByRole('button', { name: 'Để sau', exact: true }).click();
     await expect(trangThai(page, 'shp-002')).toHaveText('Đã kết nối');
     await moTrangGhep(page, 'shp-002');
-    await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đăng sản phẩm mới', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Đăng bán', exact: true }).click();
-    await toast(page, 'Đã đưa 1 SKU vào hàng chờ đăng');
+    await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+    await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
     await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Đang đẩy');
     await expect(trangThaiListing(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt', CHO_SAN);
   });
@@ -1078,7 +1078,7 @@ test.describe('P3 · Gian hàng', () => {
     await moTrangGhep(page, 'shp-001');
     await expect(trangThaiListing(page, 'prd-001-v1')).toHaveText('Đang ẩn');
     const nhan = dong(page, 'prd-001-v1').locator('[data-testid=hidden-zero]');
-    await expect(nhan).toHaveText('Tạm ẩn (đặt tồn 0)');
+    await expect(nhan).toHaveText('Đang ẩn bằng tồn 0');
     await nhan.hover();
     await expect(page.getByTestId('hidden-zero-hint')).toContainText('đẩy tồn 0');
   });
@@ -1087,7 +1087,7 @@ test.describe('P3 · Gian hàng', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-001');
-    await page.getByRole('button', { name: /^Giải thích: Listing & giá/ }).click();
+    await page.getByRole('button', { name: /^Giải thích: Sản phẩm trên sàn và giá/ }).click();
     await thayChu(page.getByRole('dialog'), 'Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio');
     await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
     const tour = page.getByTestId('guide-tour');
@@ -1116,15 +1116,15 @@ test.describe('P3 · Gian hàng', () => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
     await menu(page, 'Kênh bán');
     await moTrangGhep(page, 'shp-001');
-    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi liên kết', exact: true }).click();
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByPlaceholder('Tìm SKU kho theo tên hoặc mã SKU...', { exact: true }).fill('Thắt lưng');
+    await dialog.getByPlaceholder('Tìm biến thể theo tên hoặc SKU...', { exact: true }).fill('Thắt lưng');
     await dialog.getByRole('radio').click();
-    await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-    await toast(page, 'Đã gửi CEO duyệt liên kết');
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await toast(page, 'Đã gửi CEO duyệt ghép');
     await expect(dialog).toHaveCount(0);
     await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-001');
-    await expect(dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi liên kết', exact: true })).toBeDisabled();
+    await expect(dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true })).toBeDisabled();
   });
 
   test('Sale ghép SKU sàn nhưng không kết nối, không đẩy, không gỡ', async ({ page }) => {
@@ -1139,31 +1139,31 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('menuitem', { name: /^Thiết lập lại/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await moTrangGhep(page, 'shp-001');
-    await thayChu(page, 'Bạn liên kết được SKU sàn với SKU kho');
+    await thayChu(page, 'Bạn ghép được SKU sàn với biến thể');
     await expect(page.getByRole('button', { name: /Đẩy/ })).toHaveCount(0);
     // Hướng dẫn từng bước bỏ bước Đẩy lên sàn khi thiếu quyền
-    await page.getByRole('button', { name: /^Giải thích: Listing & giá/ }).click();
+    await page.getByRole('button', { name: /^Giải thích: Sản phẩm trên sàn và giá/ }).click();
     await page.getByRole('button', { name: 'Xem hướng dẫn từng bước', exact: true }).click();
     await expect(page.getByTestId('guide-tour').getByText('Bước 1/2', { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('guide-tour')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Gỡ khỏi sàn|Bỏ ghép/ })).toHaveCount(0);
     // Ghép SKU sàn chưa ghép: áp luôn
-    await dong(page, 'prd-001-v3').getByRole('button', { name: 'Liên kết', exact: true }).click();
+    await dong(page, 'prd-001-v3').getByRole('button', { name: 'Ghép', exact: true }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-    await toast(page, 'Đã liên kết');
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await toast(page, 'Đã ghép');
     await expect(dong(page, 'prd-001-v3').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-003');
     // "Không quản tồn" luôn cần CEO duyệt
     await moTab(page, 'unmatched');
     const remote = chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr');
-    await remote.getByRole('button', { name: 'Liên kết SKU kho', exact: true }).click();
+    await remote.getByRole('button', { name: 'Ghép với biến thể', exact: true }).click();
     await expect(dialog.locator('label[for="match-__unmanaged__"]')).toContainText('Cần CEO duyệt');
     await expect(dialog.locator('label[for="match-__unmanaged__"]')).not.toContainText('Áp ngay');
-    await dialog.getByRole('radio', { name: /Không quản lý tồn/ }).click();
-    await dialog.getByRole('button', { name: 'Lưu liên kết', exact: true }).click();
-    await toast(page, 'Đã gửi CEO duyệt liên kết SKU sàn OLD-TEE-01');
-    await expect(remote.getByRole('button', { name: 'Liên kết SKU kho', exact: true })).toBeDisabled();
+    await dialog.getByRole('radio', { name: /Không quản tồn/ }).click();
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await toast(page, 'Đã gửi CEO duyệt ghép SKU sàn OLD-TEE-01');
+    await expect(remote.getByRole('button', { name: 'Ghép với biến thể', exact: true })).toBeDisabled();
   });
 
   test('gian hàng chưa kết nối (không ghép được): không có nút Tải lại, không hiện tên trên sàn (FE#294)', async ({ page }) => {
@@ -1172,7 +1172,7 @@ test.describe('P3 · Gian hàng', () => {
     await moTrangGhep(page, 'shp-002');
     await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-002-sku-001');
     await expect(page.locator('[data-testid=remote-title]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Tải SKU từ sàn', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tải lại', exact: true })).toHaveCount(0);
     await expect(page.locator('[data-testid=remote-synced]')).toHaveCount(0);
   });
 

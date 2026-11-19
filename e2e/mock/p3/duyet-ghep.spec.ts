@@ -50,39 +50,39 @@ test.describe('P3 · Duyệt ghép SKU (FE#262)', () => {
     await tab(page, 'pending').click();
     const oldTee = chua(khuSkuSan(page), 'OLD-TEE-01', 'tr');
     await oldTee.getByTestId('pending-mapping').focus();
-    await expect(page.getByTestId('pending-mapping-hint').last()).toContainText('Trần Thị Bán Hàng xin liên kết với Không quản lý tồn');
-    await expect(oldTee.getByTestId('remote-current')).toHaveText('Chưa liên kết');
+    await expect(page.getByTestId('pending-mapping-hint').last()).toContainText('Trần Thị Bán Hàng xin ghép với Không quản tồn');
+    await expect(oldTee.getByTestId('remote-current')).toHaveText('Chưa ghép');
   });
 
   test('CEO duyệt "không quản tồn" ở tab Chưa ghép: SKU sàn rời tab, hết chờ duyệt', async ({ page }) => {
     await tab(page, 'unmatched').click();
     const oldTee = chua(khuSkuSan(page), 'OLD-TEE-01', 'tr');
-    await expect(oldTee.getByRole('button', { name: 'Liên kết SKU kho', exact: true })).toBeDisabled();
-    await oldTee.getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
+    await expect(oldTee.getByRole('button', { name: 'Ghép với biến thể', exact: true })).toBeDisabled();
+    await oldTee.getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
     const hop = page.getByRole('alertdialog');
-    await expect(hop).toContainText('Không quản lý tồn');
-    await hop.getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
-    await toast(page, 'Đã duyệt liên kết SKU sàn OLD-TEE-01');
+    await expect(hop).toContainText('Không quản tồn');
+    await hop.getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
+    await toast(page, 'Đã duyệt ghép SKU sàn OLD-TEE-01');
     await expect(khuSkuSan(page).locator('tr', { hasText: chu('OLD-TEE-01') })).toHaveCount(0);
     await expect(tab(page, 'pending')).toContainText('1');
   });
 
   test('CEO duyệt đổi ghép ở dòng biến thể: SKU sàn chuyển sang Thắt lưng', async ({ page }) => {
-    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
-    await toast(page, /^Đã duyệt liên kết SKU sàn/);
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
+    await toast(page, /^Đã duyệt ghép SKU sàn/);
     await expect(dong(page, 'prd-003-v1').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-001');
     await expect(dong(page, 'prd-001-v1').getByTestId('pending-mapping')).toHaveCount(0);
   });
 
   test('từ chối phải ghi lý do; từ chối xong ghép cũ giữ nguyên', async ({ page }) => {
     const v1 = dong(page, 'prd-001-v1');
-    await v1.getByRole('button', { name: 'Từ chối liên kết', exact: true }).click();
+    await v1.getByRole('button', { name: 'Từ chối ghép', exact: true }).click();
     const hop = page.getByRole('dialog');
-    await hop.getByRole('button', { name: 'Từ chối liên kết', exact: true }).click();
+    await hop.getByRole('button', { name: 'Từ chối ghép', exact: true }).click();
     await expect(hop).toContainText('Nhập lý do');
     await hop.getByRole('textbox').fill('SKU này vẫn bán áo thun');
-    await hop.getByRole('button', { name: 'Từ chối liên kết', exact: true }).click();
+    await hop.getByRole('button', { name: 'Từ chối ghép', exact: true }).click();
     await toast(page, /Ghép cũ giữ nguyên/);
     await expect(v1.getByTestId('pending-mapping')).toHaveCount(0);
     await expect(v1.locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-001');
@@ -95,10 +95,10 @@ test.describe('P3 · Duyệt ghép SKU (FE#262)', () => {
       title: 'Dữ liệu không hợp lệ',
       errors: { reason: 'Lý do quá ngắn' },
     });
-    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Từ chối liên kết', exact: true }).click();
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Từ chối ghép', exact: true }).click();
     const hop = page.getByRole('dialog');
     await hop.getByRole('textbox').fill('x');
-    await hop.getByRole('button', { name: 'Từ chối liên kết', exact: true }).click();
+    await hop.getByRole('button', { name: 'Từ chối ghép', exact: true }).click();
     await expect(hop).toContainText('Lý do quá ngắn');
     await expect(hop).toBeVisible();
   });
@@ -108,8 +108,8 @@ test.describe('P3 · Duyệt ghép SKU (FE#262)', () => {
       code: 'invalid_transition',
       title: 'Listing không còn ghép chờ duyệt',
     });
-    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
     await toast(page, /đã được xử lý hoặc không còn/);
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
   });
@@ -120,8 +120,8 @@ test.describe('P3 · Duyệt ghép SKU (FE#262)', () => {
       title: 'Dữ liệu vừa được người khác sửa',
       current: null,
     });
-    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt liên kết', exact: true }).click();
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Duyệt ghép', exact: true }).click();
     await toast(page, /vừa được người khác sửa/);
     await expect(dong(page, 'prd-001-v1').getByTestId('pending-mapping')).toBeVisible();
   });
@@ -134,5 +134,5 @@ test('Admin không có nút Duyệt, Từ chối ghép', async ({ page }) => {
   await expect(tab(page, 'pending')).toContainText('1');
   await tab(page, 'pending').click();
   await expect(chua(khuSkuSan(page), 'OLD-TEE-01', 'tr').getByTestId('pending-mapping')).toBeVisible();
-  await expect(page.getByRole('button', { name: /^(Duyệt liên kết|Từ chối liên kết)$/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^(Duyệt ghép|Từ chối ghép)$/ })).toHaveCount(0);
 });

@@ -20,8 +20,8 @@ const moTiktok = async (page: Page) => {
 };
 
 const dayMoi = async (page: Page, variantId: string) => {
-  await dong(page, variantId).getByRole('button', { name: 'Đăng sản phẩm mới', exact: true }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Đăng bán', exact: true }).click();
+  await dong(page, variantId).getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
   await toast(page, /Đã xếp 1 biến thể/);
 };
 
@@ -62,7 +62,7 @@ test.describe('P3 · TikTok kiểm điều kiện đăng trước khi tạo sả
 
     await phatSuKienSan(page, 'listing.check_failed', 'shp-002');
     // Listing đã có (Lỗi đẩy) nên Đẩy lại không hỏi; sàn vẫn kiểm vì sản phẩm chưa tạo trên sàn
-    await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đăng lại', exact: true }).click();
+    await dong(page, 'prd-002-v1').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
     await toast(page, /Đã xếp 1 biến thể/);
     await expect(trangThai(page, 'prd-002-v1')).toHaveText('Chờ sàn duyệt', { timeout: 15_000 });
     await expect(ghiChu(page, 'prd-002-v1')).toHaveCount(0);
