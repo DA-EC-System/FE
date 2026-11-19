@@ -27,7 +27,7 @@ import { useCan, useTransitionActor } from '@/hooks/usePermission';
 import { orderMachine } from '@/lib/machines/order';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
-import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, packageButtons } from '@/features/fulfillment/shared';
+import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, PENDING_DROP_HINT, packageButtons } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
 import type { Order, OrderStatus } from '@/types/sales';
@@ -147,7 +147,7 @@ export function OrderDetailPage() {
     isMarketplace && (order.status === 'unpaid' || order.status === 'processing')
       ? 'Đơn sàn: trạng thái thanh toán và giao lấy từ sàn; huỷ đơn sẽ gửi lên sàn.'
       : order.status === 'unpaid' && order.paymentMethod === 'prepaid'
-        ? 'Đơn trả trước sang Đang xử lý khi khách thanh toán.'
+        ? 'Đơn trả trước sang Đang xử lý khi người mua thanh toán.'
         : null;
 
   /** AC-A2: hook đã tải lại đơn sau khi gọi xong, nút đổi theo trạng thái mới */
@@ -192,7 +192,7 @@ export function OrderDetailPage() {
       <PageHeader
         title={`Đơn ${order.code}`}
         subtitle={`${sourceLabel(order)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
-        help="Thanh bước là trạng thái đơn; nhãn giai đoạn bên dưới suy từ các kiện, rê chuột để xem nghĩa. Cột phải là thanh toán và lịch sử."
+        help="Thanh trên cùng là trạng thái đơn. Nhãn bên cạnh cho biết kiện hàng đang ở bước nào (rê chuột để xem nghĩa). Cột phải là lịch sử."
         onTour={startTour}
         action={
           canConfirm || canCancel || canPlatformCancel ? (
@@ -221,11 +221,11 @@ export function OrderDetailPage() {
       />
       <div className="mb-4 flex flex-wrap items-center gap-1" data-testid="order-status">
         <StatusBadge status={order.status} statuses={ORDER_STATUS} />
-        <span className="ms-2">Tiền: <PaymentStatusBadge status={order.paymentStatus} /></span>
+        <span className="ms-2">Đối soát: <PaymentStatusBadge status={order.paymentStatus} /></span>
         <OrderStage order={order} />
         {order.rawMarketplaceStatus && (
           <Badge variant="outline" title="Trạng thái gốc trên sàn">
-            Sàn: {order.rawMarketplaceStatus}
+            Trên sàn: {order.rawMarketplaceStatus}
           </Badge>
         )}
         {/* Câu giải thích không cần thao tác: đưa vào "?" thay cho Alert (FE#138) */}
@@ -233,7 +233,7 @@ export function OrderDetailPage() {
       </div>
       {order.completionBlocker && (
         <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="completion-blocker">
-          Chưa hoàn tất: {completionBlockerText(order, formatDateTime)}
+          Chưa hoàn thành: {completionBlockerText(order, formatDateTime)}
         </p>
       )}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-testid="order-head">
@@ -259,7 +259,7 @@ export function OrderDetailPage() {
           className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm"
           data-testid="buyer-note"
         >
-          <span className="font-medium">Khách ghi chú:</span> {order.buyerNote}
+          <span className="font-medium">Ghi chú của người mua:</span> {order.buyerNote}
         </div>
       )}
 
@@ -268,7 +268,7 @@ export function OrderDetailPage() {
           className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm"
           data-testid="cancel-request"
         >
-          <span>Khách xin huỷ đơn trên sàn. Trả lời trước khi đóng gói, sàn không cho đóng gói khi chưa trả lời.</span>
+          <span>Người mua gửi yêu cầu huỷ trên sàn. Bấm Đồng ý huỷ hoặc Từ chối trước khi đóng gói; sàn chặn đóng gói đến khi bạn trả lời.</span>
           {canDecide && (
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setDialog('reject-cancel')} disabled={decisionMut.isPending}>
@@ -312,7 +312,7 @@ export function OrderDetailPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">{e.title}</span>
                     <span className="text-xs text-muted-foreground tabular-nums">
-                      {e.at ? formatDateTime(e.at) : 'trước 19/11/2026'}
+                      {e.at ? formatDateTime(e.at) : 'Không rõ thời gian'}
                     </span>
                   </div>
                   {e.reason && <p>Lý do: {e.reason}</p>}
@@ -325,12 +325,12 @@ export function OrderDetailPage() {
       >
           <Card className="py-4" data-guide="order-info">
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Info label="Khách">
+              <Info label="Người mua">
                 {/* Hồ sơ khách ngoài MVP (FE#249): tên khách là chữ, không link */}
                 {order.customer?.name ?? '—'}
                 {order.customer && <p className="text-muted-foreground">{order.customer.phone}</p>}
               </Info>
-              <Info label="Giao tới">
+              <Info label="Địa chỉ nhận hàng">
                 {order.shippingAddress ? (
                   <>
                     <p>
@@ -354,7 +354,7 @@ export function OrderDetailPage() {
               </Info>
               {order.note && <Info label="Ghi chú">{order.note}</Info>}
               {orderCancelledBy(order) && (
-                <Info label="Người huỷ">
+                <Info label="Bên huỷ">
                   <span data-testid="cancel-initiators">{orderCancelledBy(order)}</span>
                 </Info>
               )}
@@ -387,7 +387,7 @@ export function OrderDetailPage() {
                     <TableHead className="w-28 text-right">Đơn giá</TableHead>
                     <TableHead className="w-24 text-right">Số lượng</TableHead>
                     <TableHead className="w-32 text-right">Thành tiền</TableHead>
-                    {hasPaid && <TableHead className="w-32 text-right">Khách trả</TableHead>}
+                    {hasPaid && <TableHead className="w-32 text-right">Người mua trả</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -398,10 +398,10 @@ export function OrderDetailPage() {
                           <LineThumb src={l.thumbnailUrl} alt={l.productName} />
                           <div>
                             <p className="font-medium">{l.sku || l.externalSku}</p>
-                            {l.untracked && <Badge variant="secondary">Không quản tồn</Badge>}
+                            {l.untracked && <Badge variant="secondary">Không quản lý tồn</Badge>}
                             {l.externalSku && !l.variantId && !l.untracked && (
                               <div className="flex flex-wrap items-center gap-1" data-testid="line-unmapped">
-                                <Badge variant="destructive">Chưa ghép SKU</Badge>
+                                <Badge variant="destructive">Chưa liên kết SKU</Badge>
                                 {lineMatch.pendingOf(l) && (
                                   <PendingBadge
                                     id={`line-pending-${l.id}`}
@@ -417,13 +417,13 @@ export function OrderDetailPage() {
                                     disabled={lineMatch.missingSkuId(l)}
                                     title={
                                       lineMatch.missingSkuId(l)
-                                        ? 'Chưa có mã SKU sàn của dòng này. Tải lại SKU sàn ở trang gian hàng rồi ghép'
+                                        ? 'Chưa có mã SKU sàn của dòng này. Tải lại SKU sàn ở trang gian hàng rồi liên kết'
                                         : undefined
                                     }
                                     onClick={() => lineMatch.open(l)}
                                   >
                                     <Link2 />
-                                    Ghép SKU
+                                    Liên kết SKU
                                   </Button>
                                 )}
                               </div>
@@ -433,7 +433,7 @@ export function OrderDetailPage() {
                                 <Link
                                   to={lineMatch.shopHref(l)!}
                                   className="underline underline-offset-2 hover:text-foreground"
-                                  title="Mở bảng ghép SKU của gian hàng"
+                                  title="Mở bảng liên kết SKU của gian hàng"
                                   data-testid="line-shop-link"
                                 >
                                   {l.productName}
@@ -446,7 +446,7 @@ export function OrderDetailPage() {
                             {l.externalShopSku && (
                               <p
                                 className="text-xs text-muted-foreground"
-                                title={l.externalSkuId ? `sku_id ${l.externalSkuId}` : undefined}
+                                title={l.externalSkuId ? `ID SKU sàn: ${l.externalSkuId}` : undefined}
                               >
                                 SKU sàn {l.externalShopSku}
                               </p>
@@ -499,7 +499,7 @@ export function OrderDetailPage() {
                     <span>{formatCurrency(order.subtotal + cancelledAmount)}</span>
                   </div>
                   <div className="flex justify-between" data-testid="cancelled-amount">
-                    <span className="text-muted-foreground">Đã huỷ món</span>
+                    <span className="text-muted-foreground">Tiền món đã huỷ</span>
                     <span>−{formatCurrency(cancelledAmount)}</span>
                   </div>
                 </>
@@ -510,25 +510,25 @@ export function OrderDetailPage() {
               </div>
               {order.shippingFeeOriginal != null && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phí ship gốc</span>
+                  <span className="text-muted-foreground">Phí vận chuyển gốc</span>
                   <span>{formatCurrency(order.shippingFeeOriginal)}</span>
                 </div>
               )}
               {order.shippingFeeDiscountSeller ? (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shop giảm phí ship</span>
+                  <span className="text-muted-foreground">Shop giảm phí vận chuyển</span>
                   <span>−{formatCurrency(order.shippingFeeDiscountSeller)}</span>
                 </div>
               ) : null}
               {order.shippingFeeDiscountPlatform ? (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sàn giảm phí ship</span>
+                  <span className="text-muted-foreground">Sàn giảm phí vận chuyển</span>
                   <span>−{formatCurrency(order.shippingFeeDiscountPlatform)}</span>
                 </div>
               ) : null}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  {order.shippingFeeOriginal != null ? 'Phí ship khách trả' : 'Phí giao'}
+                  {order.shippingFeeOriginal != null ? 'Phí vận chuyển người mua trả' : 'Phí vận chuyển'}
                 </span>
                 <span>{formatCurrency(order.shippingFee)}</span>
               </div>
@@ -547,14 +547,14 @@ export function OrderDetailPage() {
 
           <Card className="py-4" data-guide="order-packages">
             <CardHeader>
-              <CardTitle className="text-base">Kiện ({order.packages.length})</CardTitle>
+              <CardTitle className="text-base">Kiện hàng ({order.packages.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <Table data-testid="order-packages">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-32">Mã kiện</TableHead>
-                    <TableHead>Hàng</TableHead>
+                    <TableHead>Sản phẩm</TableHead>
                     <TableHead className="w-48">Trạng thái</TableHead>
                     <TableHead className="w-48 text-right" />
                   </TableRow>
@@ -577,8 +577,11 @@ export function OrderDetailPage() {
                             p.code
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-normal text-sm">
-                          {p.lines.map((l) => `${l.sku} × ${l.quantity}${l.pendingDropQty > 0 ? ` (chờ bỏ ${l.pendingDropQty})` : ''}`).join(', ')}
+                        <TableCell
+                          className="whitespace-normal text-sm"
+                          title={p.lines.some((l) => l.pendingDropQty > 0) ? PENDING_DROP_HINT : undefined}
+                        >
+                          {p.lines.map((l) => `${l.sku} × ${l.quantity}${l.pendingDropQty > 0 ? ` (bỏ ra ${l.pendingDropQty} khi mở kiện)` : ''}`).join(', ')}
                           <PackageShipping pkg={p} />
                         </TableCell>
                         <TableCell>
@@ -589,7 +592,7 @@ export function OrderDetailPage() {
                           {/* Đổi ghép SKU khi kiện đã đóng (spec BE#237 §5.5): kho dỡ kiện về kệ để áp ghép mới */}
                           {needsUnload(p) && (
                             <p className="mt-1 text-xs text-destructive" data-testid="unload-task">
-                              Dỡ kiện về kệ để áp ghép SKU mới
+                              Dỡ kiện về kệ để áp liên kết SKU mới
                             </p>
                           )}
                         </TableCell>
@@ -598,7 +601,7 @@ export function OrderDetailPage() {
                             {delivery && (
                               <Button size="sm" onClick={() => setDelivering(p)}>
                                 <Truck />
-                                Cập nhật giao
+                                Cập nhật giao hàng
                               </Button>
                             )}
                           </div>
@@ -643,7 +646,7 @@ export function OrderDetailPage() {
       <ConfirmDialog
         open={dialog === 'accept-cancel'}
         title={`Đồng ý huỷ đơn ${order.code}?`}
-        message="Đơn huỷ trên sàn theo yêu cầu của khách; kiện đã đóng gói phải mở để trả hàng về kệ."
+        message="Đơn huỷ trên sàn theo yêu cầu của người mua; kiện đã đóng gói phải mở để trả hàng về kệ."
         confirmLabel="Đồng ý huỷ"
         destructive
         loading={decisionMut.isPending}

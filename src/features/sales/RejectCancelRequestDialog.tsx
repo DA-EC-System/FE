@@ -100,7 +100,7 @@ export function RejectCancelRequestDialog({ order, open, onClose, onConflict }: 
             {error && <AlertMessage severity="error">{error}</AlertMessage>}
             {reasons.isLoading && <Skeleton className="h-24 w-full" />}
             {reasons.data && !needReason && (
-              <p className="text-sm">Từ chối yêu cầu huỷ của khách? Đơn tiếp tục xử lý.</p>
+              <p className="text-sm">Từ chối yêu cầu huỷ của người mua? Đơn tiếp tục xử lý.</p>
             )}
             {reasons.data && needReason && (
               <FormField

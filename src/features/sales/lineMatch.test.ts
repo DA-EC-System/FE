@@ -36,14 +36,14 @@ describe('lineMatch (FE#283)', () => {
   });
 
   it('câu báo theo kết quả ghép', () => {
-    expect(lineMatchToast('OLD', 'AT-01', false)).toBe('Đã ghép OLD với AT-01. Đơn đã nhận của SKU này trong gian hàng cũng được ghép.');
-    expect(lineMatchToast('OLD', null, false)).toBe('Đã đặt SKU sàn OLD là không quản tồn');
-    expect(lineMatchToast('OLD', null, true)).toBe('Đã gửi CEO duyệt ghép SKU sàn OLD. Đơn giữ cờ Chưa ghép SKU tới khi CEO duyệt.');
+    expect(lineMatchToast('OLD', 'AT-01', false)).toBe('Đã liên kết OLD với AT-01. Đơn đã nhận của SKU này trong gian hàng cũng được liên kết.');
+    expect(lineMatchToast('OLD', null, false)).toBe('Đã đặt SKU sàn OLD là không quản lý tồn');
+    expect(lineMatchToast('OLD', null, true)).toBe('Đã gửi CEO duyệt liên kết SKU sàn OLD. Đơn giữ cờ Chưa liên kết SKU đến khi CEO duyệt.');
   });
 
   it('đích của ghép chờ', () => {
     const p = { variantId: null, externalSkuId: null, requestedBy: { id: 'a', name: 'Sale' }, requestedAt: '' };
-    expect(pendingTargetLabel(p, () => 'X')).toBe('Không quản tồn');
+    expect(pendingTargetLabel(p, () => 'X')).toBe('Không quản lý tồn');
     expect(pendingTargetLabel({ ...p, variantId: 'v1' }, () => 'AT-01')).toBe('AT-01');
     expect(pendingTargetLabel({ ...p, variantId: 'v1' }, () => undefined)).toBe('biến thể khác');
   });

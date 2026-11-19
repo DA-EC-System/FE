@@ -34,7 +34,7 @@ export function OrderProfitCard({ orderId, companyId }: { orderId: string; compa
   return (
     <Card className="py-4" data-testid="order-profit">
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-base">Tiền của đơn</CardTitle>
+        <CardTitle className="text-base">Lợi nhuận đơn hàng</CardTitle>
         <div className="flex flex-wrap gap-1">
           <ProfitStateBadge estimated={p.estimated} />
           <ProfitFlags costMissing={p.costMissing} />
@@ -45,14 +45,14 @@ export function OrderProfitCard({ orderId, companyId }: { orderId: string; compa
           <Money value={p.net} />
         </Row>
         {p.gross === null ? (
-          <p className="py-1 text-xs text-muted-foreground">Cần quyền xem giá vốn để thấy lãi.</p>
+          <p className="py-1 text-xs text-muted-foreground">Cần quyền xem giá vốn để xem lợi nhuận.</p>
         ) : (
-          <Row label="Lãi gộp" strong>
+          <Row label="Lợi nhuận sau phí sàn" strong>
             <Money value={p.gross} />
           </Row>
         )}
         {p.costMissing && p.gross !== null && (
-          <p className="text-xs text-muted-foreground">Có kiện giao trước khi bắt đầu lấy đơn, chưa có giá vốn: lãi gộp đang cao hơn thực tế.</p>
+          <p className="text-xs text-muted-foreground">Có kiện hàng giao trước khi Commerio bắt đầu đồng bộ đơn nên chưa có giá vốn; lợi nhuận đang cao hơn thực tế.</p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           {p.cogs !== null && p.gross !== null && (
@@ -63,18 +63,18 @@ export function OrderProfitCard({ orderId, companyId }: { orderId: string; compa
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-72 text-sm" data-testid="order-profit-detail">
-                <p className="mb-1 font-medium">Cách tính lãi của đơn</p>
+                <p className="mb-1 font-medium">Cách tính lợi nhuận của đơn</p>
                 <Row label="Thực nhận">
                   <Money value={p.net} />
                 </Row>
                 <Row label="Giá vốn">
                   <Money value={p.cogs} />
                 </Row>
-                <Row label="Lãi gộp" strong>
+                <Row label="Lợi nhuận sau phí sàn" strong>
                   <Money value={p.gross} />
                 </Row>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Thực nhận là doanh thu trừ phí sàn, thuế khấu trừ và hoàn tiền. Chỉ tính phần đã giao.
+                  Thực nhận là doanh thu trừ phí sàn, thuế sàn khấu trừ và tiền hoàn cho người mua. Chỉ tính phần đã giao.
                 </p>
               </PopoverContent>
             </Popover>
@@ -83,7 +83,7 @@ export function OrderProfitCard({ orderId, companyId }: { orderId: string; compa
             to={`${ROUTES.company.ledger(companyId)}?orderId=${orderId}`}
             className="text-xs text-primary underline-offset-4 hover:underline"
           >
-            Xem {p.lines.length} dòng sổ của đơn
+            Xem {p.lines.length} giao dịch trong sổ
           </Link>
         </div>
       </CardContent>

@@ -90,19 +90,19 @@ export function useOrderLineMatch(order: Order | undefined) {
   const dialog = (
     <MatchDialog
       open={Boolean(line)}
-      title="Ghép SKU sàn"
+      title="Liên kết SKU sàn"
       description={
         line ? (
           <>
-            SKU sàn <strong>{line.externalSku}</strong> · {line.productName}. Chọn biến thể trong app, hoặc không quản tồn.
-            Ghép lưu vào bảng ghép của {order?.shop?.shopName ?? 'gian hàng'}: đơn đã nhận và đơn về sau của SKU này tự nhận
-            ghép.
+            SKU sàn <strong>{line.externalSku}</strong> · {line.productName}. Chọn biến thể trong app, hoặc không quản lý tồn.
+            Liên kết lưu vào bảng liên kết SKU của {order?.shop?.shopName ?? 'gian hàng'}: đơn đã nhận và đơn về sau của SKU này
+            tự được liên kết.
           </>
         ) : null
       }
       searchLabel="Tìm biến thể theo tên hoặc SKU..."
       options={options}
-      empty={listingsQuery.isLoading ? 'Đang tải biến thể...' : 'Không còn biến thể chưa ghép'}
+      empty={listingsQuery.isLoading ? 'Đang tải biến thể...' : 'Không còn biến thể chưa liên kết'}
       saving={matchMut.isPending}
       error={error}
       onSave={(id) => void save(id)}
