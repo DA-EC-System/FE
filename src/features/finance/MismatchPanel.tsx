@@ -54,7 +54,7 @@ export function MismatchPanel({ companyId, shopId }: { companyId: string; shopId
 
   return (
     <Panel
-      title="Dòng lệch"
+      title="Đơn chênh lệch cần xử lý"
       extra={<span className="text-[12.5px] text-muted-foreground tabular-nums">{query.data?.total ?? 0}</span>}
       flush
       className="mt-4"
@@ -63,15 +63,15 @@ export function MismatchPanel({ companyId, shopId }: { companyId: string; shopId
     >
       {query.isError && <AlertMessage severity="error">{problemMessage(query.error)}</AlertMessage>}
       <div className={cn(GRID, 'hidden py-2.5 text-xs text-muted-foreground md:grid')}>
-        <div>Đơn</div>
-        <div>Sàn quyết toán</div>
-        <div>Commerio ước tính</div>
-        <div className="text-end">Lệch</div>
+        <div>Mã đơn</div>
+        <div>Sàn thanh toán</div>
+        <div>Phải thu</div>
+        <div className="text-end">Chênh lệch</div>
         <div />
       </div>
       {query.isLoading && <Skeleton className="m-4 h-10" />}
       {!query.isLoading && rows.length === 0 && (
-        <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">Không còn đơn lệch tiền.</p>
+        <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">Không còn đơn chênh lệch cần xử lý.</p>
       )}
       {rows.map((p) => {
         const isSolved = Boolean(solved[p.orderId]);
@@ -91,35 +91,35 @@ export function MismatchPanel({ companyId, shopId }: { companyId: string; shopId
               <FlagChips flags={p.flags} meta={PAYMENT_FLAGS} />
             </div>
             <div className="text-end md:text-start">
-              <CellLabel>Sàn quyết toán</CellLabel>
-              {p.settledTotal === null ? <span className="text-muted-foreground">Chưa có trong quyết toán</span> : <Money value={p.settledTotal} />}
+              <CellLabel>Sàn thanh toán</CellLabel>
+              {p.settledTotal === null ? <span className="text-muted-foreground">Sàn chưa thanh toán</span> : <Money value={p.settledTotal} />}
             </div>
             <div>
-              <CellLabel>Commerio ước tính</CellLabel>
+              <CellLabel>Phải thu</CellLabel>
               <Money value={p.estimatedTotal} />
             </div>
             <div className="text-end font-medium">
-              <CellLabel>Lệch</CellLabel>
+              <CellLabel>Chênh lệch</CellLabel>
               {p.diff === null ? '—' : <Money value={p.diff} />}
             </div>
             <div className="col-span-2 flex flex-wrap items-center justify-start gap-1.5 md:col-span-1 md:justify-end">
               {isSolved ? (
-                <Badge variant="success">Đã chốt</Badge>
+                <Badge variant="success">Đã xử lý</Badge>
               ) : (
                 <>
                   {needCeo && canApprove && (
                     <Button size="sm" variant="outline" onClick={() => setAction({ payment: p, kind: 'ceo-approve' })}>
-                      CEO duyệt lệch
+                      CEO duyệt chênh lệch
                     </Button>
                   )}
                   {!block && (
                     <Button size="sm" onClick={() => setAction({ payment: p, kind: 'resolve' })}>
-                      Chốt lệch
+                      Xử lý chênh lệch
                     </Button>
                   )}
                   {block && !(needCeo && canApprove) && (
                     <span className="text-xs text-muted-foreground">
-                      {block === 'ceo_approval_required' ? 'Cần CEO duyệt' : block === 'second_person_required' ? 'Cần người khác chốt' : ''}
+                      {block === 'ceo_approval_required' ? 'Chờ CEO duyệt' : block === 'second_person_required' ? 'Cần người khác xử lý' : ''}
                     </span>
                   )}
                 </>
@@ -133,7 +133,7 @@ export function MismatchPanel({ companyId, shopId }: { companyId: string; shopId
           path={`/finance/payments/${action.payment.orderId}/${action.kind}`}
           version={action.payment.version}
           field={action.kind === 'resolve' ? 'reason' : undefined}
-          title={action.kind === 'resolve' ? 'Chốt lệch' : 'CEO duyệt lệch'}
+          title={action.kind === 'resolve' ? 'Xử lý chênh lệch' : 'CEO duyệt chênh lệch'}
           onDone={() => action.kind === 'resolve' && setSolved((s) => ({ ...s, [action.payment.orderId]: action.payment }))}
           onClose={() => setAction(null)}
         />
