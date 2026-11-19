@@ -97,9 +97,9 @@ test.describe('P1 · Vai trò', () => {
   test('CEO: vai trò có sẵn chỉ xem; tạo vai trò kiểm tên trùng; xoá vai trò còn người dùng (AC-8..AC-10)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Vai trò');
-    await expect(page.locator('thead')).toContainText('Số tài khoản');
-    await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Có sẵn') })).toHaveCount(4);
-    await dongCo(page, 'Sale').getByRole('button', { name: 'Xem tập quyền', exact: true }).click();
+    await expect(page.locator('thead')).toContainText('Số nhân viên');
+    await expect(page.locator('tbody tr[data-row-id]').filter({ hasText: chu('Mặc định') })).toHaveCount(4);
+    await dongCo(page, 'Sale').getByRole('button', { name: 'Xem quyền', exact: true }).click();
     const dialog = page.getByRole('dialog');
     const checkboxes = dialog.getByRole('checkbox');
     await expect(checkboxes.first()).toBeAttached();
@@ -123,7 +123,7 @@ test.describe('P1 · Vai trò', () => {
 
     await dongCo(page, 'Chăm sóc khách hàng').getByRole('button', { name: 'Xoá', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Xoá', exact: true }).click();
-    await toast(page, 'còn tài khoản');
+    await toast(page, 'còn nhân viên');
     await expect(dongCo(page, 'Chăm sóc khách hàng')).toBeAttached();
   });
 
@@ -131,10 +131,10 @@ test.describe('P1 · Vai trò', () => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
     await menu(page, 'Vai trò');
     const row = dongCo(page, 'Nhân viên kho');
-    await expect(row.getByRole('button', { name: 'Xem tập quyền', exact: true })).toBeAttached();
+    await expect(row.getByRole('button', { name: 'Xem quyền', exact: true })).toBeAttached();
     await expect(row.getByRole('button', { name: 'Xoá', exact: true })).toHaveCount(0);
-    await row.getByRole('button', { name: 'Xem tập quyền', exact: true }).click();
-    await expect(page.getByRole('dialog')).toHaveText(/có sẵn|quyền bạn không có/);
+    await row.getByRole('button', { name: 'Xem quyền', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveText(/mặc định|quyền mà bạn không có/);
     await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).first().click();
 
     // Tạo vai trò: quyền Admin không có thì khoá, rê vào thấy lý do (FE#141)

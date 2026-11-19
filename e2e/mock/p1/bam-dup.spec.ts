@@ -54,7 +54,7 @@ test.describe('P1 · Bấm đúp chỉ ra một request', () => {
   test('Tạo vai trò: một request, một vai trò', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await menu(page, 'Vai trò');
-    await expect(page.locator('thead')).toContainText('Số tài khoản');
+    await expect(page.locator('thead')).toContainText('Số nhân viên');
     const tao = demRequest(page, 'POST', /\/identity\/roles$/);
     await page.getByRole('button', { name: 'Tạo vai trò', exact: true }).click();
     const dialog = page.getByRole('dialog');
