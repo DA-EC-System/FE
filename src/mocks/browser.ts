@@ -8,12 +8,13 @@ import { setupWorker } from 'msw/browser';
 import { handlers } from './handlers';
 import { db } from './db';
 import { fireMarketplaceEvent } from './engine/marketplace';
+import { emitRealtime } from './engine/realtime';
 
 export const worker = setupWorker(...handlers);
 
 // E2E dùng để giả lập phản hồi khó tạo bằng dữ liệu (409, 422...), xem e2e/fixtures.ts (`mockApi`).
 // `fire` phát sự kiện sàn giả lập mà không qua trang sàn giả lập (trang đó tự làm mới mọi query),
-// để kiểm màn hình tự cập nhật nhờ realtime (FE#81).
+// để kiểm màn hình tự cập nhật nhờ realtime (FE#81). `emit` phát thẳng một sự kiện realtime đúng payload BE (FE#287).
 if (import.meta.env.DEV) {
   const fire = (companyId: string, type: string, shopId?: string, params: Record<string, string> = {}) =>
     fireMarketplaceEvent(type, {
@@ -21,5 +22,5 @@ if (import.meta.env.DEV) {
       shop: db.shops.find((s) => s.id === shopId && s.companyId === companyId) ?? null,
       params,
     });
-  Object.assign(window, { __msw: { worker, http, HttpResponse, fire } });
+  Object.assign(window, { __msw: { worker, http, HttpResponse, fire, emit: emitRealtime } });
 }
