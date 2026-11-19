@@ -46,7 +46,7 @@ const KIEN = '/c/cmp-001/fulfillment/packages/pkg-1016';
 /** Kiện pkg-1016 đang giao: cập nhật giao "Hoàn về" từ đơn ord-1016, rồi mở trang kiện */
 const hoanVe = async (page: Page) => {
   await diToi(page, '/c/cmp-001/sales/orders/ord-1016');
-  await page.locator('[data-testid=order-packages] tbody tr').first().getByRole('button', { name: 'Cập nhật giao hàng', exact: true }).click();
+  await page.locator('[data-testid=order-packages] tbody tr').first().getByRole('button', { name: 'Cập nhật giao', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Hoàn về', { exact: true }).click();
   await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();

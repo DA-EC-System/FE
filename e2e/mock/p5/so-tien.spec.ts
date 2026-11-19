@@ -63,9 +63,9 @@ test.describe('P5 · Sổ tiền', () => {
     test('kiện sàn giao xong ghi ước tính; sàn quyết toán thay từng dòng bằng số thực tế', async ({ page }) => {
       await giaoDH1015(page);
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
-      await coChu(tienDon(page), 'Ước tính', 'Thực nhận', 'Lợi nhuận sau phí sàn');
+      await coChu(tienDon(page), 'Ước tính', 'Thực nhận', 'Lãi gộp');
       await expect(tienDon(page)).not.toContainText('Giá vốn');
-      await coChu(await cachTinh(page), 'Thực nhận', 'Giá vốn', 'Lợi nhuận sau phí sàn');
+      await coChu(await cachTinh(page), 'Thực nhận', 'Giá vốn', 'Lãi gộp');
       await page.keyboard.press('Escape');
 
       // Ước tính: doanh thu, phí cố định, phí giao dịch, phí dịch vụ, thuế sàn khấu trừ
@@ -75,7 +75,7 @@ test.describe('P5 · Sổ tiền', () => {
 
       await diToi(page, '/c/cmp-001/sales/orders/ord-1015');
       await thayChu(tienDon(page), 'Theo quyết toán');
-      await chua(tienDon(page), 'giao dịch trong sổ').click();
+      await chua(tienDon(page), 'dòng sổ của đơn').click();
       await page.getByRole('tab', { name: 'Đã thay', exact: true }).click();
       await expect(page.locator('tbody tr')).toHaveCount(5);
       await expect(page.locator('tbody tr').first().locator('.line-through').first()).toBeAttached();
@@ -89,8 +89,8 @@ test.describe('P5 · Sổ tiền', () => {
 
     test('đơn tạo tay đã giao: tiền thực tế, có giá vốn; lãi theo đơn và theo SKU của kỳ', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1018');
-      await coChu(tienDon(page), 'Theo quyết toán', 'Lợi nhuận sau phí sàn');
-      await coChu(await cachTinh(page), 'Lợi nhuận sau phí sàn');
+      await coChu(tienDon(page), 'Theo quyết toán', 'Lãi gộp');
+      await coChu(await cachTinh(page), 'Lãi gộp');
       await page.keyboard.press('Escape');
 
       await page.goto(`/c/cmp-001/finance/ledger?tab=orders&${KY_DH1018}`);
@@ -123,7 +123,7 @@ test.describe('P5 · Sổ tiền', () => {
 
       await diToi(page, '/c/cmp-001/sales/orders/ord-1018');
       await coChu(tienDon(page), 'Thực nhận', 'Cần quyền xem giá vốn');
-      await expect(tienDon(page)).not.toContainText('Lợi nhuận sau phí sàn');
+      await expect(tienDon(page)).not.toContainText('Lãi gộp');
       await expect(tienDon(page).getByRole('button', { name: 'Cách tính', exact: true })).toHaveCount(0);
     });
   });

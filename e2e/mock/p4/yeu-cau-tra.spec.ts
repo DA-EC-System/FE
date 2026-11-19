@@ -107,21 +107,21 @@ test.describe('P4 · Yêu cầu trả', () => {
 
     test('lập yêu cầu trả một phần cho đơn tạo tay, vượt số thì báo tại ô', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1021');
-      await page.locator('[data-testid=order-returns]').getByRole('button', { name: 'Tạo yêu cầu trả hàng', exact: true }).click();
+      await page.locator('[data-testid=order-returns]').getByRole('button', { name: 'Tạo yêu cầu trả', exact: true }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('button', { name: 'Tạo yêu cầu', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Lập yêu cầu', exact: true }).click();
       await thayChu(dialog, 'Chọn ít nhất một dòng trả');
       const dongTra = dialog.locator('[data-testid=create-return-lines] tbody tr').first();
       const n = Number(await dongTra.locator('td').nth(2).textContent());
       await page.locator('[data-testid=create-return-lines] tbody tr').first().locator('input').fill(String(n + 1));
-      await page.getByRole('button', { name: 'Tạo yêu cầu', exact: true }).click();
+      await page.getByRole('button', { name: 'Lập yêu cầu', exact: true }).click();
       await expect(dialog).toContainText(`Còn trả được ${n}`);
       await page.locator('[data-testid=create-return-lines] tbody tr').first().locator('input').fill('1');
-      await dialog.getByRole('button', { name: 'Tạo yêu cầu', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Lập yêu cầu', exact: true }).click();
       await thayChu(dialog, 'Nhập lý do');
       await dialog.getByTestId('return-reason').fill('Khách đổi size');
-      await dialog.getByRole('button', { name: 'Tạo yêu cầu', exact: true }).click();
-      await toast(page, 'Đã tạo yêu cầu trả hàng YCT-000003');
+      await dialog.getByRole('button', { name: 'Lập yêu cầu', exact: true }).click();
+      await toast(page, 'Đã lập yêu cầu trả YCT-000003');
       await expect(page.locator('[data-testid=order-returns]')).toContainText('YCT-000003');
       await expect(page.locator('[data-testid=order-returns]')).toContainText('Chờ xử lý');
       await expect(page.locator('main')).toContainText('Có yêu cầu trả');
@@ -129,7 +129,7 @@ test.describe('P4 · Yêu cầu trả', () => {
 
     test('đơn sàn không lập tay được yêu cầu trả', async ({ page }) => {
       await page.goto('/c/cmp-001/sales/orders/ord-1015');
-      await expect(page.getByRole('button', { name: 'Tạo yêu cầu trả hàng', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Tạo yêu cầu trả', exact: true })).toHaveCount(0);
     });
   });
 

@@ -58,14 +58,14 @@ test.describe('P4 · Đơn hàng', () => {
       await page.goto('/c/cmp-001/sales/orders/ord-1012');
       await expect(page.locator('[data-testid=order-head] [data-testid=external-order-id]')).toContainText('533851500001012');
       await expect(page.locator('[data-testid=order-head] [data-testid=payment-method]')).toHaveText(/^Thanh toán\s+COD$/);
-      await expect(page.locator('[data-testid=order-status]')).toContainText('Trên sàn: READY_TO_SHIP');
+      await expect(page.locator('[data-testid=order-status]')).toContainText('Sàn: READY_TO_SHIP');
       await expect(page.locator('[data-testid=buyer-note]')).toContainText('Giao giờ hành chính giúp em');
       const dongHang = page.locator('[data-testid=order-lines] tbody tr');
       await expect(dongHang).toHaveCount(2);
       // Ảnh thật đã tải (AvatarImage chỉ hiện khi ảnh tải xong, không tính fallback)
       await expect(dongHang.first().locator('[data-slot=avatar-image]')).toBeVisible();
       await expect(dongHang.first()).toContainText('SKU sàn 4020152004_VNAMZ-1520943');
-      await expect(page.locator('[data-testid=order-lines]')).toContainText('Người mua trả');
+      await expect(page.locator('[data-testid=order-lines]')).toContainText('Khách trả');
       await expect(dongHang.first()).toContainText('135.000');
       await expect(page.locator('[data-testid=line-issue]')).toHaveCount(0);
       // DH-1002 giao thất bại: trạng thái hoàn, không ai huỷ, lý do kèm chi tiết, mã đơn ngược; tiền khách trả gạch đi
@@ -74,7 +74,7 @@ test.describe('P4 · Đơn hàng', () => {
       await expect(loi).toContainText('Giao thất bại: Đang hoàn về');
       await expect(loi).not.toContainText(/do (khách|shop|sàn)/);
       await expect(loi).toContainText('Lý do: Khách không nhận hàng (Gọi 3 lần không nghe máy)');
-      await expect(loi).toContainText('Mã yêu cầu trả hàng 7712045893');
+      await expect(loi).toContainText('Mã đơn ngược 7712045893');
       await expect(page.locator('[data-testid=order-lines] tbody tr').first().locator('.line-through')).toContainText('180.000');
     });
 
@@ -84,15 +84,15 @@ test.describe('P4 · Đơn hàng', () => {
       await expect(page.locator('[data-testid=shipping-address]')).toHaveText('1***0 L** L**, Phường Bến Nghé, T*********h');
       await expect(page.locator('[data-testid=shipping-ward]')).toHaveCount(0);
       await thayChu(page, 'Mã bưu chính 700000');
-      await thayChu(page, 'Phí vận chuyển gốc');
+      await thayChu(page, 'Phí ship gốc');
       await thayChu(page, 'Sàn giảm phí ship');
-      await thayChu(page, 'Phí vận chuyển người mua trả');
-      await expect(page.locator('[data-testid=package-shipping]').first()).toContainText(' · Tiêu chuẩn · hạn bàn giao ');
+      await thayChu(page, 'Phí ship khách trả');
+      await expect(page.locator('[data-testid=package-shipping]').first()).toContainText(' · Tiêu chuẩn · sàn hứa gửi trước ');
       // Đơn tạo tay: không có các trường sàn
       await page.goto('/c/cmp-001/sales/orders/ord-1003');
-      await expect(page.locator('[data-testid=order-lines]')).not.toContainText('Người mua trả');
+      await expect(page.locator('[data-testid=order-lines]')).not.toContainText('Khách trả');
       await expect(page.locator('[data-testid=buyer-note]')).toHaveCount(0);
-      await expect(page.getByText('Phí vận chuyển gốc')).toHaveCount(0);
+      await expect(page.getByText('Phí ship gốc')).toHaveCount(0);
     });
   });
 

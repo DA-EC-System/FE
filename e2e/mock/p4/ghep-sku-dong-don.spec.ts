@@ -18,7 +18,7 @@ async function moDonChuaGhep(page: Page) {
 }
 
 const dongChuaGhep = (page: Page) => page.locator('[data-testid=line-unmapped]');
-const nutGhep = (page: Page) => dongChuaGhep(page).getByRole('button', { name: 'Liên kết SKU', exact: true });
+const nutGhep = (page: Page) => dongChuaGhep(page).getByRole('button', { name: 'Ghép SKU', exact: true });
 
 /** `option` null: biến thể đầu danh sách */
 async function chonVaLuu(page: Page, option: RegExp | null) {
@@ -33,13 +33,13 @@ test.describe('Ghép SKU từ dòng đơn', () => {
   test('Sale ghép với biến thể: dòng hết cờ, đơn có kiện', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await moDonChuaGhep(page);
-    await expect(dongChuaGhep(page)).toContainText('Chưa liên kết SKU');
+    await expect(dongChuaGhep(page)).toContainText('Chưa ghép SKU');
     await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(0);
     await nutGhep(page).click();
     await chonVaLuu(page, null);
-    await toast(page, `Đã liên kết ${SKU_CU} với`);
+    await toast(page, `Đã ghép ${SKU_CU} với`);
     await expect(dongChuaGhep(page)).toHaveCount(0);
-    await expect(page.locator('[data-testid=order-lines]')).not.toContainText('Chưa liên kết SKU');
+    await expect(page.locator('[data-testid=order-lines]')).not.toContainText('Chưa ghép SKU');
     await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(1);
   });
 
@@ -49,12 +49,12 @@ test.describe('Ghép SKU từ dòng đơn', () => {
     await nutGhep(page).click();
     await expect(page.getByRole('dialog')).toContainText('Cần CEO duyệt');
     await chonVaLuu(page, /Không quản tồn/);
-    await toast(page, `Đã gửi CEO duyệt liên kết SKU sàn ${SKU_CU}`);
-    await expect(dongChuaGhep(page)).toContainText('Chưa liên kết SKU');
+    await toast(page, `Đã gửi CEO duyệt ghép SKU sàn ${SKU_CU}`);
+    await expect(dongChuaGhep(page)).toContainText('Chưa ghép SKU');
     await expect(dongChuaGhep(page).locator('[data-testid=pending-mapping]')).toHaveText('Chờ CEO duyệt');
     await expect(nutGhep(page)).toHaveCount(0);
     await dongChuaGhep(page).locator('[data-testid=pending-mapping]').focus();
-    await expect(page.getByRole('tooltip')).toContainText('Không quản lý tồn');
+    await expect(page.getByRole('tooltip')).toContainText('xin ghép với Không quản tồn');
   });
 
   test('CEO chọn "Không quản tồn": áp ngay, dòng thành Không quản tồn', async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe('Ghép SKU từ dòng đơn', () => {
     await chonVaLuu(page, /Không quản tồn/);
     await toast(page, `Đã đặt SKU sàn ${SKU_CU} là không quản tồn`);
     await expect(dongChuaGhep(page)).toHaveCount(0);
-    await expect(page.locator('[data-testid=order-lines]')).toContainText('Không quản lý tồn');
+    await expect(page.locator('[data-testid=order-lines]')).toContainText('Không quản tồn');
     await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(1);
   });
 });
