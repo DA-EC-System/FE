@@ -84,8 +84,8 @@ test.describe('P2 · Ảnh bảng kích cỡ', () => {
     await mockApi(page, 'post', '/channel/shops/:id/listings/push', 200, {
       results: [{ variantId: 'prd-002-v2', listingId: null, status: null, code: 'size_chart_missing', message: null }],
     });
-    await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đẩy sản phẩm mới', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Đẩy lên sàn', exact: true }).click();
+    await dong(page, 'prd-002-v2').getByRole('button', { name: 'Đăng sản phẩm mới', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Đăng bán', exact: true }).click();
     await expect(dong(page, 'prd-002-v2').locator('[data-testid=push-error]')).toContainText(
       'Danh mục sàn bắt buộc ảnh bảng kích cỡ',
     );

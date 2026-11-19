@@ -16,7 +16,7 @@ test.describe('P3 · Đẩy lên sàn theo thông tin sàn của sản phẩm', 
 
   test('Đẩy sản phẩm mới thiếu thông tin sàn: mở trang 4 bước, category khoá, điền attribute rồi đẩy', async ({ page }) => {
     await page.goto('/c/cmp-001/channel/shops/shp-003');
-    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đẩy sản phẩm mới' }).click();
+    await dong(page, 'prd-001-v1').getByRole('button', { name: 'Đăng sản phẩm mới' }).click();
     await expect(page).toHaveURL(/\/channel\/products\/prd-001\/push\/lazada\?shop=shp-003$/);
 
     // Spec ghép SKU đã có category: mở thẳng bước Attributes, chỉ thiếu Chất liệu

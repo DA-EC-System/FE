@@ -594,7 +594,7 @@ export function ShopListingsPage() {
       const problem = getProblem(e);
       if (problem?.code === 'below_floor') {
         const detail = problem.detail?.trim().replace(/\.+$/, '');
-        setPriceFieldError(detail ? `Giá dưới giá tối thiểu. ${detail}.` : 'Giá dưới giá tối thiểu của SKU ở gian hàng này.');
+        setPriceFieldError(detail ? `Giá dưới giá thấp nhất. ${detail}.` : 'Giá dưới giá thấp nhất của SKU ở gian hàng này.');
       } else if (problem?.code === 'validation_failed' && problem.errors?.price) {
         setPriceFieldError(problem.errors.price);
       } else if (problem?.code === 'version_conflict') {
@@ -828,7 +828,7 @@ export function ShopListingsPage() {
                   )}
                 </>
               )}
-              {r.belowFloor && <Badge variant="destructive">Dưới giá tối thiểu</Badge>}
+              {r.belowFloor && <Badge variant="destructive">Dưới giá thấp nhất</Badge>}
               {r.pendingPrice !== null && !canSetPrice && (
                 <span className="text-xs text-muted-foreground" data-testid="pending-price">
                   Giá mới chờ xác nhận: {priceText(r.pendingPrice)}

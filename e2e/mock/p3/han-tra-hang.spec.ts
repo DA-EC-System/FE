@@ -9,7 +9,7 @@ test.describe('P3 · Hạn trả hàng của gian hàng', () => {
     await menu(page, 'Kênh bán');
     // shp-003 Lazada (returnWindow = days) chưa có số ngày
     const nhan = dong(page, 'shp-003').getByTestId('shop-missing-return-window');
-    await expect(nhan).toHaveText('Chưa nhập số ngày hạn trả');
+    await expect(nhan).toHaveText('Chưa nhập hạn trả hàng');
     // Sàn tự báo hạn trả (Shopee, TikTok) không có nhãn
     await expect(dong(page, 'shp-001').getByTestId('shop-missing-return-window')).toHaveCount(0);
     await expect(dong(page, 'shp-002').getByTestId('shop-missing-return-window')).toHaveCount(0);
