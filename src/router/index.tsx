@@ -63,16 +63,16 @@ import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 const OUT_OF_SCOPE = {
   sales: (
     <PlaceholderPage
-      title="Ngoài phạm vi MVP"
+      title="Chưa có trong phiên bản này"
       phase="Commerio chỉ bán qua sàn"
-      description="Đơn tạo tay và hồ sơ khách không thuộc bản này. Đơn từ sàn xem ở Đơn hàng."
+      description="Đơn tạo tay và hồ sơ người mua không thuộc bản này. Đơn từ sàn xem ở Đơn hàng."
     />
   ),
   reports: (
     <PlaceholderPage
-      title="Ngoài phạm vi MVP"
+      title="Chưa có trong phiên bản này"
       phase="Commerio chỉ bán qua sàn"
-      description="Lãi theo đơn xem ở Sổ tiền, số liệu chính ở Tổng quan."
+      description="Lợi nhuận theo đơn xem ở Sổ giao dịch, số liệu chính ở Tổng quan."
     />
   ),
 };

@@ -149,7 +149,7 @@ describe('pushErrorText (FE#266, commerio-backend#305)', () => {
   it('sai luật đăng mà không có câu dịch: câu chung, câu của sàn tách riêng', () => {
     const t = pushErrorText({ code: 'listing_check_failed', message: '12099999: something else', at });
     expect(t.text).toBe(
-      'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đẩy lại.',
+      'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đăng bán lại.',
     );
     expect(t.platformMessage).toBe('12099999: something else');
   });
@@ -207,7 +207,7 @@ describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
   it('nhiều lỗi nối bằng "; ": dịch từng phần, phần không dịch được thì thêm câu chung', () => {
     const message = '12052051: product name must be between 25 and 255 characters; 12099999: other';
     expect(pushErrorText({ code: 'listing_check_failed', message, at })).toEqual({
-      text: `${TITLE} Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đẩy lại.`,
+      text: `${TITLE} Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đăng bán lại.`,
       platformMessage: message,
     });
   });

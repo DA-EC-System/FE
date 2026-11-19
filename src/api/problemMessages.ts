@@ -9,18 +9,18 @@ import { getErrorMessage, getProblem, notImplementedMessage, retryAfterSeconds }
 import type { RemoteSkusRefreshError } from '@/types/shop';
 
 const MESSAGES: Record<string, string> = {
-  dry_run_required: 'Cần chạy thử trước khi gửi duyệt.',
-  config_already_effective: 'Đã tới ngày hiệu lực, không thể huỷ. Hãy soạn bản mới.',
+  dry_run_required: 'Cần tính thử trước khi gửi duyệt.',
+  config_already_effective: 'Đã tới ngày hiệu lực, không thể huỷ. Hãy tạo phiên bản mới.',
   // commerio-backend#325: sửa lỗi cấu hình
-  invalid_correction_target: 'Chỉ sửa lỗi được bản đang áp dụng hoặc đã hết hiệu lực. Bản đang chờ hiệu lực thì huỷ rồi soạn bản mới.',
-  correction_date_mismatch: 'Bản sửa lỗi phải cùng ngày hiệu lực với bản bị sửa.',
-  config_overlap: 'Đã có phiên bản cùng ngày hiệu lực.',
-  ceo_approval_required: 'Lệch vượt hạn mức, cần CEO duyệt trước.',
-  approval_not_needed: 'Khoản lệch này không cần CEO duyệt.',
-  settlement_running: 'Gian hàng đang có lần kéo quyết toán chưa xong.',
-  file_import_unsupported: 'Chưa hỗ trợ nhập tệp báo cáo quyết toán.',
-  already_matched: 'Khoản tiền đã được khớp sao kê.',
-  not_bank_matchable: 'Chỉ khớp khoản rút tiền, nhà cung cấp hoàn tiền hoặc bồi thường thực tế.',
+  invalid_correction_target: 'Chỉ lập bản điều chỉnh cho bản đang áp dụng hoặc đã thay thế. Bản chưa có hiệu lực thì huỷ rồi tạo bản mới.',
+  correction_date_mismatch: 'Bản điều chỉnh phải cùng ngày hiệu lực với bản bị điều chỉnh.',
+  config_overlap: 'Đã có phiên bản cùng loại (và cùng gian hàng với phí sàn) có hiệu lực từ ngày này. Chọn ngày khác hoặc sửa phiên bản đó.',
+  ceo_approval_required: 'Chênh lệch vượt hạn mức tự xử lý, cần CEO duyệt trước.',
+  approval_not_needed: 'Khoản chênh lệch này trong hạn mức, không cần CEO duyệt.',
+  settlement_running: 'Gian hàng đang lấy sao kê sàn, chờ lần trước xong rồi thử lại.',
+  file_import_unsupported: 'Chưa hỗ trợ nhập tệp sao kê sàn.',
+  already_matched: 'Khoản này đã đối chiếu ngân hàng.',
+  not_bank_matchable: 'Chỉ đối chiếu ngân hàng cho khoản rút tiền từ ví sàn, NCC hoàn tiền hoặc sàn bồi thường.',
   not_found: 'Không tìm thấy. Bản ghi đã bị xoá hoặc không thuộc công ty này.',
   // FE#248: BE chưa có route này (404 not_found, detail "Không có đường dẫn ..."), không phải bản ghi bị xoá
   route_missing: 'Chức năng này chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.',
@@ -29,30 +29,30 @@ const MESSAGES: Record<string, string> = {
   // docs/21 I3
   permission_not_held: 'Vai trò có quyền bạn không có nên bạn không gán, gỡ hay sửa được.',
   protected_account: 'Không thao tác được trên tài khoản CEO hoặc tài khoản của chính bạn.',
-  builtin_role: 'Vai trò có sẵn không sửa hay xoá được.',
-  role_in_use: 'Vai trò còn tài khoản đang mang nên không xoá được. Gỡ vai trò khỏi các tài khoản đó trước.',
+  builtin_role: 'Vai trò mặc định không sửa hay xoá được.',
+  role_in_use: 'Vai trò còn nhân viên đang được gán nên không xoá được. Gỡ vai trò khỏi các nhân viên đó trước.',
   role_name_taken: 'Tên vai trò đã được dùng trong công ty.',
   // FE#148, Documents/21 §3.1: mời nhân viên bằng link
   invitation_invalid: 'Link mời không hợp lệ, đã hết hạn hoặc đã bị huỷ. Nhờ người mời tạo link mới.',
   invitation_used: 'Link mời này đã được dùng. Nhờ người mời tạo link khác.',
-  invitation_outdated: 'Có vai trò của lời mời đã bị xoá. Từ chối yêu cầu này rồi tạo link mới.',
-  registration_expired: 'Phiên đăng ký đã hết hạn. Nhập lại mã xác minh.',
+  invitation_outdated: 'Có vai trò của link mời đã bị xoá. Từ chối yêu cầu này rồi tạo link mới.',
+  registration_expired: 'Đã quá 30 phút sau khi xác minh. Bấm Gửi lại mã để nhận mã mới rồi nhập lại.',
   too_many_requests: 'Thử quá nhiều lần. Đợi một lát rồi thử lại.',
   already_member: 'Người này đã là nhân viên của công ty.',
   email_taken: 'Email này vừa được dùng cho một tài khoản khác. Từ chối yêu cầu rồi gửi link mới cho người đó.',
   // docs/21 M2
-  module_has_data: 'Phân hệ đã có dữ liệu nên không tắt được.',
+  module_has_data: 'Tính năng đã có dữ liệu nên không tắt được.',
   ai_consent_required: 'Bật Trợ lý AI cần đồng ý gửi dữ liệu tới OpenAI.',
-  module_disabled: 'Phân hệ này đã bị tắt. Tải lại trang để cập nhật menu.',
+  module_disabled: 'Tính năng này đã bị tắt. Tải lại trang để cập nhật menu.',
   // docs/21 mục 5
   in_use: 'Không thể xoá vì đang được sử dụng.',
   name_taken: 'Tên này đã được dùng trong công ty.',
-  variant_exists: 'Biến thể đã tồn tại.',
+  variant_exists: 'Variant đã có.',
   // FE#57, sơ đồ Sản phẩm B1
-  archive_blocked: 'Chưa lưu trữ được: SKU còn tồn, hàng đang về, hàng chờ xử lý hoặc chứng từ mở.',
-  variant_archived: 'Tổ hợp này là biến thể đã lưu trữ. Dùng Khôi phục để bán lại với SKU cũ.',
+  archive_blocked: 'Chưa lưu trữ được: SKU còn tồn kho, hàng đang về, hàng lỗi/chờ kiểm hoặc phiếu chưa hoàn tất.',
+  variant_archived: 'Phân loại này đã có SKU (đã lưu trữ). Bấm Khôi phục để bán lại với SKU cũ.',
   // Documents/21 §17.4: SKU còn listing chưa gỡ thì không xoá trống trường bắt buộc chung
-  listing_field_required: 'SKU đang có trên sàn nên không để trống được giá muốn bán, cân nặng, kích thước hoặc ảnh. Gỡ khỏi sàn trước nếu muốn xoá.',
+  listing_field_required: 'SKU đang có trên sàn nên không để trống được thực nhận mong muốn, cân nặng, kích thước hoặc ảnh. Gỡ khỏi sàn trước nếu muốn xoá.',
   file_type_not_allowed: 'Kiểu tệp không được nhận (ảnh sản phẩm chỉ JPG hoặc PNG).',
   file_too_large: 'Tệp quá cỡ cho phép (ảnh sản phẩm tối đa 1 MB).',
   // FE#8, chờ commerio-backend#19
@@ -65,34 +65,34 @@ const MESSAGES: Record<string, string> = {
   shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
   // §18.7.11; có `expected`, `actual` thì câu nêu tên hai công ty, xem companyMismatchMessage
   company_mismatch: 'Bạn bắt đầu kết nối ở một công ty khác với công ty đang mở. Chuyển về công ty đó rồi kết nối lại.',
-  sku_taken: 'SKU sàn này đã ghép với biến thể khác.',
+  sku_taken: 'SKU sàn này đã liên kết với variant khác.',
   // §18.6.5
-  mapping_pending: 'SKU sàn này đang chờ CEO duyệt ghép. Chờ CEO duyệt hoặc từ chối rồi ghép lại.',
+  mapping_pending: 'SKU sàn này đang chờ CEO duyệt liên kết. Chờ CEO duyệt hoặc từ chối rồi liên kết lại.',
   // Tải SKU sàn (BE#220); có `Retry-After` thì câu nêu số phút, xem retryLaterMessage
   remote_skus_retry_later: 'Lần tải SKU sàn trước bị lỗi. Thử lại sau ít phút.',
   remote_skus_busy: 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
-  price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
+  price_missing: 'Chưa có giá: bảng giá gian hàng và giá bán lẻ đều trống.',
   // Documents/21 §18.5 (commerio-backend#400, đổi nghĩa 18/11/2026): category sàn chọn theo từng sản phẩm.
   // Câu có tên sàn ở pushBlockMessage (features/channel/listingPush.ts)
-  category_unmapped: 'Chưa chọn category sàn cho sản phẩm. Mở Thông tin sàn của sản phẩm để chọn rồi đẩy lại.',
-  spec_incomplete: 'Thông tin sàn của sản phẩm còn thiếu. Bổ sung rồi đẩy lại.',
+  category_unmapped: 'Chưa chọn category sàn cho sản phẩm. Mở Thông tin sàn của sản phẩm để chọn rồi đăng bán lại.',
+  spec_incomplete: 'Thông tin sàn của sản phẩm còn thiếu. Bổ sung rồi đăng bán lại.',
   category_not_permitted: 'Gian hàng chưa được bán category này. Xin quyền trên Seller Center hoặc đổi category.',
   product_name_too_short:
     'Tên sản phẩm phải dài ít nhất 25 ký tự thì TikTok mới gợi ý category. Sửa tên ở trang sản phẩm, hoặc tìm category trong cây.',
   category_not_leaf: 'Category này còn category con. Sàn chỉ nhận sản phẩm ở leaf category.',
   dimensions_missing: 'Sản phẩm thiếu cân nặng hoặc kích thước gói, sàn bắt buộc có.',
-  images_missing: 'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đẩy lại.',
+  images_missing: 'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đăng bán lại.',
   // FE#261, commerio-backend#347: danh mục sàn bắt buộc bảng kích cỡ (quần áo, giày dép)
-  size_chart_missing: 'Danh mục sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ trong trang sản phẩm rồi đẩy lại.',
+  size_chart_missing: 'Category sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ trong trang sản phẩm rồi đăng bán lại.',
   // FE#266, Documents/21 §18.6.4 (commerio-backend#305): TikTok kiểm trước khi tạo sản phẩm
   shop_not_eligible:
-    'Gian hàng chưa đủ điều kiện đăng sản phẩm trên sàn. Hoàn tất các mục sàn yêu cầu trên Seller Center rồi đẩy lại.',
+    'Gian hàng chưa đủ điều kiện đăng sản phẩm trên sàn. Hoàn tất các mục sàn yêu cầu trên Seller Center rồi đăng bán lại.',
   // Documents/21 §18.6.10 (đổi 18/11/2026): sửa ở thông tin sàn của sản phẩm thay cho ghép danh mục
-  listing_check_failed: 'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đẩy lại.',
+  listing_check_failed: 'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đăng bán lại.',
   already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
   // FE#264, Documents/21 §18.3 (commerio-backend#360)
-  below_floor: 'Giá trên sàn thấp hơn giá thấp nhất. Đẩy lại giá Commerio hoặc gỡ khỏi sàn.',
+  below_floor: 'Giá trên sàn thấp hơn giá tối thiểu. Đồng bộ lại giá Commerio hoặc gỡ khỏi sàn.',
   // FE#9, chờ commerio-backend#24 và #23
   invalid_transition: 'Bản ghi không còn ở trạng thái cho phép thao tác này. Tải lại để xem trạng thái mới.',
   not_allowed_for_source: 'Đơn sàn lấy trạng thái từ sàn, không cập nhật tay được.',
@@ -100,10 +100,10 @@ const MESSAGES: Record<string, string> = {
   gateway_not_configured: 'Cổng thanh toán này chưa được cấu hình khoá.',
   gateway_unavailable: 'Cổng thanh toán đang lỗi, thử lại sau ít phút hoặc chọn cổng khác.',
   // FE#59, lib/machines/order.ts (Documents/21 mục 19)
-  payment_required: 'Đơn trả trước sang Đang xử lý khi khách thanh toán, không xác nhận tay.',
+  payment_required: 'Đơn trả trước sang Đang xử lý khi người mua thanh toán, không xác nhận tay.',
   already_handed_over: 'Đơn đã có kiện bàn giao, không huỷ được nữa.',
   order_not_processing: 'Đơn chưa ở Đang xử lý (chưa thanh toán hoặc chưa xác nhận) nên chưa đóng gói được.',
-  self_delivery: 'Kiện tự giao, không báo sàn sẵn sàng.',
+  self_delivery: 'Kiện shop tự giao, không báo sàn sẵn sàng giao.',
   carrier_delivery: 'Kiện giao qua đơn vị vận chuyển, không tự giao.',
   scan_mismatch: 'Số món quét chưa khớp với kiện.',
   insufficient_stock: 'Không đủ hàng để giữ lại cả kiện. Chờ hàng về rồi mở.',
@@ -114,42 +114,42 @@ const MESSAGES: Record<string, string> = {
   not_reported: 'Chưa ai báo thất lạc kiện này.',
   // commerio-backend#238: kiện đã đóng chỉ báo mất khi đang chờ mở; kiện chờ mở chưa báo sẵn sàng, bàn giao được
   not_awaiting_open: 'Kiện còn trong kho chỉ báo mất được khi đang chờ mở kiện.',
-  awaiting_open: 'Kiện đang chờ mở, mở kiện xong mới báo sẵn sàng hay bàn giao được.',
+  awaiting_open: 'Kiện đang chờ mở, mở kiện xong mới báo sẵn sàng giao hay bàn giao được.',
   // FE#12, commerio-backend#27; `already_processed` nơi gọi ưu tiên `detail` vì có số phiếu
   already_processed: 'Chứng từ gốc đã được xử lý.',
   payment_state_changed: 'Trạng thái thanh toán của đơn vừa thay đổi.',
-  not_draft: 'Chỉ sửa, xoá, ghi sổ được phiếu chi nháp.',
+  not_draft: 'Chỉ sửa, xoá hoặc duyệt được chứng từ đang ở trạng thái nháp. Tải lại để xem trạng thái mới.',
   amount_mismatch: 'Tổng đơn khác số tiền khoản thu.',
   // FE#13, Documents/21 §12.6
-  run_in_progress: 'Lần đối soát trước chưa chạy xong, thử lại sau.',
+  run_in_progress: 'Lần lấy sao kê sàn trước chưa xong, thử lại sau.',
   // FE#55, lib/stateMachine.ts
-  second_person_required: 'Người lập không tự duyệt hay ghi sổ được. Cần người thứ hai.',
+  second_person_required: 'Người lập không tự duyệt hoặc tự xác nhận được. Cần một người khác thực hiện bước này.',
   reason_required: 'Thao tác này cần ghi lý do.',
   // FE#56, lib/machines/stockDocument.ts
   empty_document: 'Phiếu chưa có dòng nào.',
-  shortage_needs_review: 'Phiếu có phần thiếu nên cần người thứ hai duyệt. Bấm Gửi duyệt phần thiếu.',
-  no_shortage: 'Phiếu không có phần thiếu, ghi sổ thẳng được.',
+  shortage_needs_review: 'Phiếu thiếu hàng nên cần người khác duyệt. Bấm Gửi duyệt (thiếu hàng).',
+  no_shortage: 'Phiếu đủ hàng, không cần báo thiếu.',
   stock_insufficient: 'Không đủ hàng ở khu vực này để giảm. Xem lại số trên phiếu.',
   decision_made: 'Phiếu đã chọn cách xử lý hàng rồi.',
   // FE#17, lib/machines/purchasing.ts
-  all_lines_excluded: 'Đề nghị phải còn ít nhất một dòng không bị loại.',
-  has_receipts: 'Đề nghị đã có phiếu nhận nên không huỷ được. Dùng Đóng thiếu nếu nhà cung cấp không giao tiếp.',
-  receipt_counting: 'Còn phiếu nhận đang kiểm. Ghi sổ hoặc huỷ phiếu đó trước khi đóng thiếu.',
-  has_shortage: 'Phiếu có phần thiếu. Bấm Ghi sổ, báo giao thiếu.',
+  all_lines_excluded: 'Đơn đặt hàng nhập phải còn ít nhất một dòng không bị loại.',
+  has_receipts: 'Đơn đã có phiếu nhập kho nên không huỷ được. Dùng Đóng đơn thiếu hàng nếu NCC không giao tiếp.',
+  receipt_counting: 'Còn phiếu nhập kho đang kiểm. Nhập kho hoặc huỷ phiếu đó trước khi đóng đơn thiếu hàng.',
+  has_shortage: 'Phiếu còn thiếu hàng. Bấm Nhập kho, báo thiếu.',
   supplier_required: 'Chọn nhà cung cấp trước khi gửi duyệt.',
   invalid_period: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.',
-  over_outstanding: 'Số nhận đạt và lỗi giữ lại vượt số còn chờ của dòng.',
-  resolution_recorded: 'Phiếu đã ghi kết quả giao thiếu rồi.',
+  over_outstanding: 'Số đạt và số lỗi, giữ lại vượt số còn phải nhận của dòng.',
+  resolution_recorded: 'Phiếu đã có cách xử lý thiếu rồi.',
   refund_required: 'Nhập số tiền nhà cung cấp hoàn.',
   cancel_decision_required: 'Chọn cách xử lý hàng: nhập lại tồn hoặc lập phiếu xuất huỷ.',
-  follow_up_invalid: 'Không tìm thấy phiếu nhận bù cùng đề nghị.',
+  follow_up_invalid: 'Không tìm thấy phiếu nhập kho giao bù của cùng đơn đặt hàng.',
   supplier_inactive: 'Nhà cung cấp đã ngừng giao dịch.',
   // FE#60, lib/machines/returns.ts
-  not_marketplace: 'Chỉ yêu cầu trả từ sàn mới có sàn xử cho khách.',
-  marketplace_return: 'Yêu cầu trả của đơn sàn do sàn đẩy về, không lập tay.',
+  not_marketplace: 'Chỉ yêu cầu trả hàng từ sàn mới do sàn xử lý với người mua.',
+  marketplace_return: 'Yêu cầu trả hàng của đơn sàn do sàn gửi về, không tạo tay.',
   return_exceeds_delivered: 'Số trả vượt số còn trả được của đơn.',
-  return_not_awaiting: 'Yêu cầu trả không ở trạng thái Chờ hàng về.',
-  parcel_resolved: 'Kiện hàng trả đã được xử lý.',
+  return_not_awaiting: 'Yêu cầu trả hàng không ở trạng thái Chờ hàng hoàn về.',
+  parcel_resolved: 'Kiện hàng hoàn đã được xử lý.',
   // R9; câu theo việc đang làm ở MARKETPLACE_ACTION_MESSAGES (FE#250, Documents/21 §18.4)
   marketplace_rejected: 'Sàn từ chối thao tác này.',
   marketplace_unauthorized: 'Sàn từ chối quyền truy cập của gian hàng. Kết nối lại gian hàng rồi thử lại.',
@@ -157,35 +157,35 @@ const MESSAGES: Record<string, string> = {
   item_not_packable: 'Có món sàn không cho đóng gói (đã huỷ hoặc đang xin huỷ).',
   rts_package_not_found: 'Sàn không thấy kiện để báo sẵn sàng giao, đóng gói lại rồi thử lại.',
   // BE gửi `detail` liệt kê mã kiện chưa có vận đơn: hiện `detail`, câu này khi thiếu (problemSummary)
-  document_not_ready: 'Vận đơn chưa sẵn sàng. Thử lại sau ít phút nếu sàn đang tạo tệp.',
+  document_not_ready: 'Phiếu giao hàng chưa sẵn sàng. Thử lại sau ít phút nếu sàn đang tạo tệp.',
   // commerio-backend#239: khách đang xin huỷ khi báo sàn (KH-B07), Lazada không cấp vận đơn đơn SOF (KH-B03)
-  cancel_requested: 'Khách đang xin huỷ đơn, chờ Sale trả lời yêu cầu huỷ rồi mới báo sàn sẵn sàng giao.',
-  document_not_supported: 'Sàn không cấp vận đơn cho kiện người bán tự giao (SOF), in phiếu giao của shop.',
+  cancel_requested: 'Người mua đang xin huỷ đơn, chờ Sale trả lời yêu cầu huỷ rồi mới báo sàn sẵn sàng giao.',
+  document_not_supported: 'Sàn không cấp phiếu giao hàng cho kiện shop tự giao (SOF), in phiếu giao hàng của shop.',
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
-  shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
+  shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn thành hoặc huỷ rồi ngắt.',
   // commerio-backend#398: chỉ xoá được gian hàng đã ngắt
   shop_not_disconnected: 'Gian hàng chưa ngắt kết nối. Ngắt kết nối trước rồi mới xoá được.',
   // §18.6.2
   // R13, §18.7.9: mọi 501 chức năng chờ issue khác; có `issue`, `owner` thì câu nêu issue, xem notImplementedMessage
   not_implemented: 'Chức năng này chưa làm xong',
-  shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kê đầu kỳ. Ghi sổ phiếu kiểm kê đầu kỳ rồi thử lại.',
+  shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kho đầu kỳ. Hoàn thành phiếu kiểm kho đầu kỳ rồi thử lại.',
   // Documents#55 (21 mục 5, 16, 18.3, 19), FE#153
   product_in_use: 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.',
-  too_many_axes: 'Một sản phẩm chỉ có tối đa 2 trục phân loại.',
+  too_many_axes: 'Một sản phẩm tối đa 2 thuộc tính phân loại (vd Màu, Cỡ).',
   unsupported_file_type: 'Chỉ nhận tệp CSV, XLSX hoặc TXT.',
-  evidence_required: 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi ghi sổ.',
-  shop_not_active: 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đẩy sản phẩm.',
+  evidence_required: 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi nhập kho.',
+  shop_not_active: 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đăng bán.',
   handover_confirmed_by_platform:
     'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
   // §18.6.11 (Documents#95); có `waitingFor` thì câu theo lý do, xem awaitingAllocationMessage
-  shop_awaiting_allocation: 'Gian hàng đang giữ tồn. Đẩy sản phẩm sau khi kéo đơn và chia hàng xong.',
+  shop_awaiting_allocation: 'Gian hàng đang giữ tồn. Đăng bán sau khi đồng bộ đơn và chia hàng xong.',
   // §18.6.11: lập lại phiếu kiểm kê đầu kỳ; có `number` thì câu nêu số phiếu, xem problemMessage
-  shop_not_awaiting_stocktake: 'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ.',
-  opening_stocktake_open: 'Phiếu kiểm kê đầu kỳ vẫn đang mở. Sửa hoặc duyệt phiếu này.',
+  shop_not_awaiting_stocktake: 'Gian hàng không còn chờ phiếu kiểm kho đầu kỳ.',
+  opening_stocktake_open: 'Phiếu kiểm kho đầu kỳ vẫn đang mở. Sửa hoặc duyệt phiếu này.',
   // §18.6.8: hết lượt gọi sàn cho thao tác tay (`platformCode` company_call_limit, daily_call_limit)
   call_limit: 'Hôm nay đã hết lượt gọi sàn cho thao tác tay. Việc tự động vẫn chạy và sẽ đồng bộ sau.',
   // §18.5, §18.6.4: mã của từng dòng PushResult
-  push_in_progress: 'Đang đẩy, chờ sàn trả kết quả.',
+  push_in_progress: 'Đang đăng bán, chờ sàn trả kết quả.',
   sku_not_ready: 'SKU chưa đủ điều kiện bán (xem trạng thái sản phẩm).',
   platform_hold: 'Sàn đang khoá sản phẩm này.',
   // §18.3, §18.5 (commerio-backend#293): sửa nội dung listing đang bán; câu theo ngữ cảnh ở updateContentMessage
@@ -240,8 +240,8 @@ export const CALL_LIMIT_CODES = ['company_call_limit', 'daily_call_limit'];
 
 /** Câu báo 409 `shop_awaiting_allocation` theo `waitingFor` (§18.6.11): lượt đơn mở chưa xong hay chưa chia hàng xong */
 export function awaitingAllocationMessage(waitingFor: unknown): string {
-  if (waitingFor === 'open_orders') return 'Đang kéo đơn còn mở về. Đẩy sản phẩm sau khi lượt này xong.';
-  if (waitingFor === 'allocation') return 'Đang chia hàng cho các kiện sau kiểm kê. Đẩy sản phẩm sau khi chia xong.';
+  if (waitingFor === 'open_orders') return 'Đang đồng bộ đơn còn mở. Đăng bán sau khi lượt này xong.';
+  if (waitingFor === 'allocation') return 'Đang chia hàng cho các kiện sau kiểm kho. Đăng bán sau khi chia xong.';
   return MESSAGES.shop_awaiting_allocation;
 }
 
@@ -295,7 +295,7 @@ export function companyMismatchMessage(expected: unknown, actual: unknown): stri
  */
 export function openOrdersMessage(openOrders: unknown): string {
   return typeof openOrders === 'number' && openOrders > 0
-    ? `Còn ${openOrders} đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.`
+    ? `Còn ${openOrders} đơn chưa xong. Đợi các đơn hoàn thành hoặc huỷ rồi ngắt.`
     : MESSAGES.shop_has_open_orders;
 }
 
@@ -336,7 +336,7 @@ function retryLaterMessage(error: unknown): string {
 /** Câu lỗi riêng của nút Sửa nội dung (§18.3 update-content); mã khác dùng problemMessage */
 const UPDATE_CONTENT_MESSAGES: Record<string, string> = {
   invalid_transition: 'Listing không còn đang bán nên không sửa nội dung được. Tải lại để xem trạng thái mới.',
-  listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên. Ghép SKU sàn với biến thể trước.',
+  listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên. Liên kết SKU sàn với variant trước.',
   shared_remote_product: 'Sản phẩm trên sàn có nhiều SKU, Commerio chưa sửa nội dung từng SKU được. Sửa trên Seller Center.',
   marketplace_unavailable: 'Sàn đang lỗi, chưa đưa được nội dung mới lên. Thử lại sau ít phút.',
   marketplace_unsupported: 'Sàn này chưa hỗ trợ sửa nội dung sản phẩm đang bán.',
@@ -375,7 +375,7 @@ const MARKETPLACE_ACTION_MESSAGES: Record<MarketplaceAction, Record<string, stri
   rts: {
     marketplace_rejected: 'Sàn chưa nhận báo sẵn sàng giao của kiện này. Tải lại kiện để xem trạng thái trên sàn rồi thử lại.',
   },
-  push: { marketplace_rejected: 'Sàn từ chối đẩy sản phẩm.' },
+  push: { marketplace_rejected: 'Sàn từ chối đăng bán sản phẩm.' },
   remote_skus: { marketplace_rejected: 'Sàn chưa trả được danh sách SKU. Thử lại sau ít phút.' },
   cancel: { marketplace_rejected: 'Sàn không cho huỷ đơn này.' },
 };

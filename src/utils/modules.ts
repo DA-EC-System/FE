@@ -29,19 +29,19 @@ export type OptionalModuleKey = (typeof OPTIONAL_MODULES)[number];
 export type ModuleKey = CoreModuleKey | OptionalModuleKey;
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
-  platform: 'Nền tảng',
-  identity: 'Tài khoản và phân quyền',
+  platform: 'Hệ thống',
+  identity: 'Nhân viên & phân quyền',
   catalog: 'Sản phẩm',
   pricing: 'Bảng giá',
   inventory: 'Kho',
   sales: 'Đơn hàng',
-  fulfillment: 'Duyệt đơn và giao hàng',
+  fulfillment: 'Xử lý đơn & giao hàng',
   finance: 'Tài chính',
   payment: 'Thanh toán',
   notification: 'Thông báo',
-  purchasing: 'Mua hàng',
+  purchasing: 'Nhập hàng',
   channel: 'Kênh bán',
-  inbox: 'Hộp thư chung',
+  inbox: 'Chat khách hàng',
   assistant: 'Trợ lý AI',
   report: 'Báo cáo',
 };

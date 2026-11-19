@@ -5,7 +5,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 interface SecondPersonDialogProps {
   open: boolean;
-  /** Ví dụ "Duyệt đề nghị nhập PR-0012" */
+  /** Ví dụ "Duyệt đơn đặt hàng nhập PR-0012" */
   title: string;
   /** Người lập chứng từ */
   createdByName: string;
@@ -54,15 +54,15 @@ export function SecondPersonDialog({
             <p className="flex gap-2 rounded-md bg-warning-soft px-3 py-2 text-warning" data-testid="self-approval">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" />
               <span>
-                Bạn đang tự duyệt chứng từ do chính mình lập. Bạn được phép vì là CEO hoặc công ty chỉ có một người;
-                nhật ký ghi lại đây là tự duyệt.
+                Bạn đang duyệt chứng từ do chính mình lập. Được phép vì bạn là CEO hoặc công ty chỉ có một người;
+                nhật ký sẽ ghi là tự duyệt.
               </span>
             </p>
           ) : (
             <p className="flex gap-2 text-foreground">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
               <span>
-                {ownerLabel}: <b>{createdByName}</b>. Bạn là người thứ hai kiểm và duyệt.
+                {ownerLabel}: <b>{createdByName}</b>. Bạn duyệt với tư cách người kiểm tra độc lập.
               </span>
             </p>
           )}

@@ -23,10 +23,10 @@ const loi = (data: ProblemDetails) =>
 describe('mã mới của Documents#55 (FE#153)', () => {
   it.each([
     ['product_in_use', 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.'],
-    ['too_many_axes', 'Một sản phẩm chỉ có tối đa 2 trục phân loại.'],
+    ['too_many_axes', 'Một sản phẩm tối đa 2 thuộc tính phân loại (vd Màu, Cỡ).'],
     ['unsupported_file_type', 'Chỉ nhận tệp CSV, XLSX hoặc TXT.'],
-    ['evidence_required', 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi ghi sổ.'],
-    ['shop_not_active', 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đẩy sản phẩm.'],
+    ['evidence_required', 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi nhập kho.'],
+    ['shop_not_active', 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đăng bán.'],
     [
       'handover_confirmed_by_platform',
       'Không huỷ bàn giao được: sàn đã xác nhận lấy hàng, hoặc kiện không được bàn giao bằng quét ở kho.',
@@ -39,16 +39,16 @@ describe('mã mới của Documents#55 (FE#153)', () => {
 describe('shop_has_open_orders (§18.6.1)', () => {
   it('có openOrders thì câu kèm số đơn', () => {
     expect(problemMessage(loi({ status: 409, code: 'shop_has_open_orders', openOrders: 3 }))).toBe(
-      'Còn 3 đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
+      'Còn 3 đơn chưa xong. Đợi các đơn hoàn thành hoặc huỷ rồi ngắt.',
     );
   });
 
   it('BE cũ thiếu openOrders thì báo câu không có số', () => {
     expect(problemMessage(loi({ status: 409, code: 'shop_has_open_orders' }))).toBe(
-      'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
+      'Còn đơn chưa xong. Đợi các đơn hoàn thành hoặc huỷ rồi ngắt.',
     );
-    expect(openOrdersMessage(0)).toBe('Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.');
-    expect(openOrdersMessage('2')).toBe('Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.');
+    expect(openOrdersMessage(0)).toBe('Còn đơn chưa xong. Đợi các đơn hoàn thành hoặc huỷ rồi ngắt.');
+    expect(openOrdersMessage('2')).toBe('Còn đơn chưa xong. Đợi các đơn hoàn thành hoặc huỷ rồi ngắt.');
   });
 });
 
@@ -122,13 +122,13 @@ describe('đẩy listing (§18.6.8, §18.6.10)', () => {
 
   it('chờ phân hàng: câu theo waitingFor', () => {
     expect(problemMessage(loi({ code: 'shop_awaiting_allocation', waitingFor: 'open_orders' }))).toBe(
-      'Đang kéo đơn còn mở về. Đẩy sản phẩm sau khi lượt này xong.',
+      'Đang đồng bộ đơn còn mở. Đăng bán sau khi lượt này xong.',
     );
     expect(problemMessage(loi({ code: 'shop_awaiting_allocation', waitingFor: 'allocation' }))).toBe(
-      'Đang chia hàng cho các kiện sau kiểm kê. Đẩy sản phẩm sau khi chia xong.',
+      'Đang chia hàng cho các kiện sau kiểm kho. Đăng bán sau khi chia xong.',
     );
     expect(problemMessage(loi({ code: 'shop_awaiting_allocation' }))).toBe(
-      'Gian hàng đang giữ tồn. Đẩy sản phẩm sau khi kéo đơn và chia hàng xong.',
+      'Gian hàng đang giữ tồn. Đăng bán sau khi đồng bộ đơn và chia hàng xong.',
     );
   });
 
@@ -137,10 +137,10 @@ describe('đẩy listing (§18.6.8, §18.6.10)', () => {
       'Phiếu KK-000012 vẫn đang mở. Sửa hoặc duyệt phiếu này.',
     );
     expect(problemMessage(loi({ code: 'opening_stocktake_open' }))).toBe(
-      'Phiếu kiểm kê đầu kỳ vẫn đang mở. Sửa hoặc duyệt phiếu này.',
+      'Phiếu kiểm kho đầu kỳ vẫn đang mở. Sửa hoặc duyệt phiếu này.',
     );
     expect(problemMessage(loi({ code: 'shop_not_awaiting_stocktake' }))).toBe(
-      'Gian hàng không còn chờ phiếu kiểm kê đầu kỳ.',
+      'Gian hàng không còn chờ phiếu kiểm kho đầu kỳ.',
     );
   });
 });
@@ -173,7 +173,7 @@ describe('404 vì chưa có route khác 404 bản ghi không có (FE#248)', () =
 describe('updateContentMessage: lỗi nút Sửa nội dung (FE#275, §18.3 update-content)', () => {
   it.each([
     ['invalid_transition', 'Listing không còn đang bán'],
-    ['listing_unmanaged', 'Ghép SKU sàn với biến thể trước'],
+    ['listing_unmanaged', 'Liên kết SKU sàn với variant trước'],
     ['shared_remote_product', 'Sửa trên Seller Center'],
     ['marketplace_unavailable', 'chưa đưa được nội dung mới lên'],
     ['marketplace_unsupported', 'chưa hỗ trợ sửa nội dung'],
@@ -227,7 +227,7 @@ describe('lỗi sàn chung theo ngữ cảnh (FE#250, Documents/21 §18.4)', () 
 
   it.each([
     ['rts', 'Sàn chưa nhận báo sẵn sàng giao của kiện này. Tải lại kiện để xem trạng thái trên sàn rồi thử lại.'],
-    ['push', 'Sàn từ chối đẩy sản phẩm.'],
+    ['push', 'Sàn từ chối đăng bán sản phẩm.'],
     ['remote_skus', 'Sàn chưa trả được danh sách SKU. Thử lại sau ít phút.'],
     ['cancel', 'Sàn không cho huỷ đơn này.'],
     ['connect', CONNECT],
@@ -307,7 +307,7 @@ describe('Mã lỗi trang đẩy lên sàn (commerio-backend#400, Documents/21 �
 describe('báo sàn, in vận đơn (commerio-backend#239, FE#338)', () => {
   it('KH-B07: cancel_requested có câu riêng, không khuyên tải lại kiện', () => {
     const m = problemMessage(loi({ code: 'cancel_requested', detail: 'x' }), 'rts');
-    expect(m).toContain('Khách đang xin huỷ');
+    expect(m).toContain('Người mua đang xin huỷ');
     expect(m).not.toContain('Tải lại kiện');
   });
 

@@ -26,7 +26,7 @@ describe('định dạng', () => {
 
 describe('bảng nhãn', () => {
   it('mã lỗi đã biết có câu tiếng Việt, mã lạ giữ nguyên', () => {
-    expect(codeMessage('second_person_required')).toMatch(/người thứ hai/);
+    expect(codeMessage('second_person_required')).toMatch(/người khác/);
     expect(codeMessage('ma_chua_co')).toBe('ma_chua_co');
   });
 
