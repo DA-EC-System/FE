@@ -60,7 +60,7 @@ test.describe('P2 · Ảnh bảng kích cỡ', () => {
     expect(bodies[1]).not.toHaveProperty('sizeChartFileId');
     await expect(bangKichCo(page)).toHaveCount(1);
 
-    await page.getByRole('button', { name: 'Bỏ ảnh bảng size', exact: true }).click();
+    await page.getByRole('button', { name: 'Bỏ ảnh bảng kích cỡ', exact: true }).click();
     await page.getByRole('button', { name: 'Lưu', exact: true }).click();
     await toast(page, 'Đã lưu Quần kaki ống suông');
     expect(bodies[2]?.sizeChartFileId).toBeNull();

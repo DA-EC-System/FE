@@ -42,7 +42,7 @@ test.describe('P2 · Sản phẩm', () => {
     await expect(loiTen(page)).not.toBeEmpty();
 
     await chon(page, 'Danh mục', 'Áo');
-    const thuocTinh = page.getByRole('group', { name: 'Thuộc tính phân loại', exact: true });
+    const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await thuocTinh.getByRole('button', { name: 'Kích cỡ', exact: true }).click();
     const mau = page.getByRole('group', { name: 'Màu sắc', exact: true });
@@ -51,7 +51,7 @@ test.describe('P2 · Sản phẩm', () => {
     const co = page.getByRole('group', { name: 'Kích cỡ', exact: true });
     await co.getByRole('button', { name: 'S', exact: true }).click();
     await co.getByRole('button', { name: 'M', exact: true }).click();
-    await page.getByRole('checkbox', { name: 'Tạo variant Đen / M', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Tạo biến thể Đen / M', exact: true }).click();
     await expect(page.locator('[data-testid=variant-plan] tbody tr')).toHaveCount(4);
 
     // Tên trùng (409 name_taken) báo dưới ô Tên

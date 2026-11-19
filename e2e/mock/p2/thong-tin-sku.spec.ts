@@ -81,7 +81,7 @@ test.describe('P2 · Thông tin SKU', () => {
   test('tạo sản phẩm chỉ chọn được tối đa 2 thuộc tính phân loại', async ({ page }) => {
     await page.getByRole('button', { name: 'Thêm sản phẩm', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/new$/);
-    const thuocTinh = page.getByRole('group', { name: 'Thuộc tính phân loại', exact: true });
+    const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await thuocTinh.getByRole('button', { name: 'Kích cỡ', exact: true }).click();
     await expect(thuocTinh.getByRole('button', { name: 'Chất liệu', exact: true })).toBeDisabled();
