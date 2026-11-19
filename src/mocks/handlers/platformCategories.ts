@@ -5,12 +5,14 @@
  */
 
 import { http, HttpResponse, delay } from 'msw';
-import type { PlatformCategory, PlatformCategoryDetail, PlatformCategoryList } from '@/types/shop';
+import type { PlatformAttribute, PlatformCategory, PlatformCategoryDetail, PlatformCategoryList } from '@/types/shop';
 import { PERMISSIONS } from '@/utils/permissions';
 import * as catalog from '../catalogData';
 import { db } from '../db';
 import {
   categorySync,
+  COMPANY_ADDRESSES,
+  COMPANY_ADDRESS_ATTRIBUTES,
   COMPANY_NAME_ATTRIBUTES,
   foldPath,
   MOCK_PLATFORMS,
@@ -47,6 +49,14 @@ export function searchPlatformCategories(rows: MockPlatformCategory[], search: s
     .filter((c) => c.isLeaf && c.status === 'active' && words.every((w) => c.pathSearch.includes(w)))
     .sort((a, b) => rank(a) - rank(b) || a.path.localeCompare(b.path, 'vi'))
     .slice(0, SEARCH_LIMIT);
+}
+
+/** `defaultValue` của attribute `tier = 'company'` từ hồ sơ công ty (commerio-backend#292); attribute khác null */
+export function companyDefault(a: Pick<PlatformAttribute, 'code' | 'tier'>, companyName: string | null, companyId: string) {
+  if (a.tier !== 'company') return null;
+  if (COMPANY_NAME_ATTRIBUTES.has(a.code)) return companyName;
+  if (COMPANY_ADDRESS_ATTRIBUTES.has(a.code)) return COMPANY_ADDRESSES[companyId] ?? null;
+  return null;
 }
 
 export const platformCategoryHandlers = [
@@ -113,7 +123,7 @@ export const platformCategoryHandlers = [
       attributes: stored.attributes.map((a) => ({
         ...a,
         options: a.options.map((o) => ({ ...o })),
-        defaultValue: a.tier === 'company' && COMPANY_NAME_ATTRIBUTES.has(a.code) ? (company?.name ?? null) : null,
+        defaultValue: companyDefault(a, company?.name ?? null, guard.value.companyId),
       })),
       fetchedAt: stored.fetchedAt,
       stale: STALE_LEAVES[platform].has(category.externalId),

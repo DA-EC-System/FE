@@ -45,6 +45,9 @@ export interface MockProduct {
   imageFileIds: string[];
   /** catalog.products.size_chart_file_id */
   sizeChartFileId?: string | null;
+  /** Xuất xứ (ISO alpha-2), thương hiệu: dùng chung mọi sàn (Documents/21 §17.2, commerio-backend#340) */
+  originCountry?: string | null;
+  brand?: string | null;
   variants: MockVariant[];
   archivedAt: string | null;
   updatedAt: string;
@@ -187,6 +190,8 @@ seed({
   categoryId: 'cat-ao',
   name: 'Áo thun basic cổ tròn',
   description: 'Cotton 100%, form regular.',
+  originCountry: 'VN',
+  brand: 'ABC Fashion',
   imageFileIds: ['fil-001', 'fil-002'],
   combos: [
     ['val-den', 'val-m'],

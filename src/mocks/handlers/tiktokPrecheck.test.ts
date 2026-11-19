@@ -3,11 +3,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { setupServer } from 'msw/node';
 import { db } from '../db';
 import { listings } from '../channelData';
+import { productSpecs } from '../platformCategoryData';
 import { fireMarketplaceEvent } from '../engine/marketplace';
 import { settleDuePushes, shopHandlers } from './channel';
 
 const server = setupServer(...shopHandlers);
 const snapListings = structuredClone(listings);
+const snapSpecs = structuredClone(productSpecs);
 const snapShop = structuredClone(db.shops.find((s) => s.id === 'shp-002')!);
 beforeAll(() => {
   vi.stubGlobal('location', new URL('http://localhost'));
@@ -19,6 +21,9 @@ afterAll(() => {
 });
 beforeEach(() => {
   listings.splice(0, listings.length, ...structuredClone(snapListings));
+  // Quần kaki đã có thông tin TikTok trong mock (leaf không bắt buộc bảng kích cỡ)
+  productSpecs.splice(0, productSpecs.length, ...structuredClone(snapSpecs));
+
   // Gian hàng TikTok của mock đang cần kết nối lại: cho dùng được để đẩy
   Object.assign(shop(), structuredClone(snapShop), { status: 'active', precheckFail: null });
 });

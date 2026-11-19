@@ -14,11 +14,12 @@ import {
   pendingRevisionHint,
   pendingRevisionLabel,
   pushErrorText,
+  SPEC_FIX_CODES,
 } from './listingPush';
 import { stockDriftLabel, syncLine } from './listingSync';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from './shopSchemas';
 
-/** Lỗi đẩy của lượt vừa bấm; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
+/** Lỗi đẩy của lượt vừa bấm; giữ `code` để gắn lối sửa (vd mã trong `SPEC_FIX_CODES`) */
 export interface PushError {
   code?: string;
   message: string;
@@ -38,8 +39,10 @@ interface Props {
   listingReview: boolean;
   /** Đích của ghép chờ CEO duyệt: SKU biến thể hoặc "Không quản tồn" */
   pendingTarget: (p: PendingMapping) => string;
-  resolvingCategory: boolean;
-  onCategoryMap: () => void;
+  /** Gian hàng ở sàn có thông tin sàn của sản phẩm (Lazada, TikTok; commerio-backend#400) */
+  specFixable: boolean;
+  /** Mở trang đẩy lên sàn của sản phẩm; `fill` là bổ sung thông tin cho listing đã lên sàn */
+  onOpenSpec: (fill?: boolean) => void;
 }
 
 /**
@@ -56,30 +59,18 @@ export function ListingStatusCell({
   canEditProduct,
   listingReview,
   pendingTarget,
-  resolvingCategory,
-  onCategoryMap,
+  specFixable,
+  onOpenSpec,
 }: Props) {
+  const canFixSpec = canManage && specFixable;
   if (err) {
     return (
       <div className="flex flex-col items-start gap-1">
         <span className="text-destructive" data-testid="push-error">
           {err.message}
         </span>
-        {err.code === 'category_unmapped' && canManage && (
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="h-auto p-0"
-            disabled={resolvingCategory}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCategoryMap();
-            }}
-            data-testid="open-category-map"
-          >
-            Ghép danh mục
-          </Button>
+        {err.code && SPEC_FIX_CODES.has(err.code) && canFixSpec && (
+          <SpecLink label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />
         )}
         {PRODUCT_FIX_CODES.has(err.code) && canEditProduct && <EditProductLink companyId={companyId} productId={r.productId} />}
       </div>
@@ -128,6 +119,12 @@ export function ListingStatusCell({
       <PlatformDetail text={pushErr?.platformMessage} />
       {l.status === 'push_failed' && l.pushError && PRODUCT_FIX_CODES.has(l.pushError.code) && canEditProduct && (
         <EditProductLink companyId={companyId} productId={r.productId} />
+      )}
+      {l.status === 'push_failed' && l.pushError && SPEC_FIX_CODES.has(l.pushError.code) && canFixSpec && (
+        <SpecLink label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />
+      )}
+      {live && r.specStatus !== 'complete' && canFixSpec && (
+        <SpecLink label="Bổ sung thông tin sàn" onClick={() => onOpenSpec(true)} testId="fill-spec" />
       )}
       {l.outsideChange && (
         <SyncBadge
@@ -209,6 +206,25 @@ export function ListingStatusCell({
         </span>
       )}
     </div>
+  );
+}
+
+/** Lối sang trang đẩy lên sàn của sản phẩm để sửa hoặc bổ sung thông tin sàn (commerio-backend#400) */
+function SpecLink({ label, onClick, testId = 'open-spec' }: { label: string; onClick: () => void; testId?: string }) {
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      className="h-auto p-0"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      data-testid={testId}
+    >
+      {label}
+    </Button>
   );
 }
 

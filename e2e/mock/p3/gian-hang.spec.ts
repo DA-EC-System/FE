@@ -895,14 +895,15 @@ test.describe('P3 · Gian hàng', () => {
       await moiPhanTu(dongBienThe(page), (t) => expect(t).toContain('Chưa lên sàn'));
     });
 
-    test('đẩy lại listing bị từ chối thì Đang đẩy rồi chờ sàn duyệt (Lazada)', async ({ page }) => {
+    test('đẩy lại listing bị từ chối mà thông tin Lazada còn thiếu: báo theo dòng, mở trang 4 bước để sửa (commerio-backend#400)', async ({ page }) => {
       await dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lại', exact: true }).click();
-      await toast(page, 'Đã xếp 1 biến thể vào hàng đẩy lên sàn');
-      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Đang đẩy');
-      await expect(dong(page, 'prd-001-v3').getByRole('button', { name: 'Đẩy lên sàn', exact: true })).toBeDisabled();
-      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveText('Chờ sàn duyệt', CHO_SAN);
-      await expect(dong(page, 'prd-001-v3')).toBeAttached();
-      await expect(dong(page, 'prd-001-v3').locator('[data-testid=listing-note]')).toHaveCount(0);
+      await toast(page, '1 biến thể không đẩy được');
+      await expect(dong(page, 'prd-001-v3').locator('[data-testid=push-error]')).toHaveText(
+        'Thông tin Lazada của sản phẩm còn thiếu: Chất liệu trang phục',
+      );
+      await expect(trangThaiListing(page, 'prd-001-v3')).toHaveCount(0);
+      await dong(page, 'prd-001-v3').getByTestId('open-spec').click();
+      await expect(page).toHaveURL(/\/channel\/products\/prd-001\/push\/lazada\?shop=shp-003$/);
     });
 
     test('đẩy khi gian hàng đang giữ tồn: báo theo waitingFor, không đổi trạng thái (§18.6.11)', async ({ page }) => {

@@ -314,7 +314,14 @@ export interface ListingRow {
   price: number | null;
   priceSource: 'shop' | 'standard' | null;
   listing: ChannelListing | null;
+  /**
+   * Thông tin sàn (spec) của sản phẩm với sàn của gian hàng: `missing` chưa có, `incomplete` còn thiếu (Documents/21
+   * §18.5, thêm 19/11/2026). FE dùng để hiện Bổ sung thông tin sàn và quyết định Đẩy sản phẩm mới
+   */
+  specStatus: SpecStatus;
 }
+
+export type SpecStatus = 'complete' | 'incomplete' | 'missing';
 
 /** SKU đang có trên sàn, BE lấy từ API của sàn (§18.3 `remote-skus`) */
 export interface RemoteSku {
@@ -521,54 +528,7 @@ export interface PendingPrice {
   price: number; pendingPrice: number; belowFloor: boolean; configVersionId: string;
 }
 
-// ---------- Ghép danh mục với danh mục sàn (FE#146, Documents/21 §18.5) ----------
-
-/** Danh mục lá của sàn; `name` là cả đường dẫn, vd "Thời trang nam > Áo > Áo thun" */
-export interface MarketplaceCategory {
-  externalId: string;
-  name: string;
-}
-
-export interface MarketplaceCategoryList {
-  items: MarketplaceCategory[];
-}
-
-/** Thuộc tính bắt buộc cấp sản phẩm của một danh mục sàn; `options` rỗng là nhập tự do */
-export interface CategoryAttribute {
-  name: string;
-  label: string;
-  options: string[];
-}
-
-export interface CategoryAttributeList {
-  items: CategoryAttribute[];
-}
-
-/** channel.category_maps: một danh mục Commerio ghép với một danh mục lá của sàn, theo gian hàng */
-export interface CategoryMap {
-  categoryId: string;
-  platform: Marketplace;
-  externalCategoryId: string;
-  /** Giá trị thuộc tính bắt buộc, theo `CategoryAttribute.name` */
-  attributes: Record<string, string>;
-  /** Bảng kích cỡ của danh mục sàn: `required` thì sản phẩm cần ảnh bảng kích cỡ mới đẩy được; null là chưa biết */
-  sizeChartRule: SizeChartRule | null;
-  version: number;
-  updatedAt: string;
-}
-
 export type SizeChartRule = 'required' | 'optional' | 'unsupported';
-
-export interface CategoryMapList {
-  items: CategoryMap[];
-}
-
-export interface CategoryMapInput {
-  externalCategoryId: string;
-  attributes: Record<string, string>;
-  /** `null` khi danh mục chưa ghép lần nào */
-  version: number | null;
-}
 
 // ---------- Category và attribute của sàn (commerio-backend#400, Documents/21 §18.5) ----------
 
@@ -600,11 +560,20 @@ export interface PlatformAttribute {
   options: { id: string; label: string }[];
   allowCustom: boolean;
   required: boolean;
-  /** Điều kiện bắt buộc theo attribute khác (TikTok `requirement_conditions`); null là không có */
-  requiredWhen: unknown;
+  /**
+   * Bắt buộc khi có ít nhất một điều kiện đúng: attribute `code` chọn một trong `optionIds` (TikTok
+   * `requirement_conditions`); null là không có điều kiện (mọi attribute Lazada)
+   */
+  requiredWhen: RequiredWhen[] | null;
   isKey: boolean;
   tier: 'category' | 'product' | 'company';
   defaultValue: string | null;
+}
+
+/** Một điều kiện bắt buộc của `PlatformAttribute.requiredWhen` (Documents/21 §18.5, chốt 18/11/2026) */
+export interface RequiredWhen {
+  code: string;
+  optionIds: string[];
 }
 
 export interface PlatformCategoryProduct {
@@ -624,4 +593,77 @@ export interface PlatformCategoryDetail {
 
 export interface PlatformCategorySyncResult {
   queued: boolean;
+}
+
+// ---------- Thông tin sàn của sản phẩm: ProductSpec (commerio-backend#400, Documents/21 §18.5) ----------
+
+/** Quyền bán category của gian hàng TikTok; Lazada luôn `null` */
+export type CategoryPermission = 'available' | 'invite_only' | 'non_main_category' | 'prohibited';
+
+export interface CategorySuggestion {
+  externalId: string;
+  path: string;
+  permission: CategoryPermission | null;
+}
+
+/** Lazada tối đa 5, đúng thứ tự sàn trả; TikTok 1 leaf. `cached` luôn false tới khi có Redis */
+export interface CategorySuggestionList {
+  items: CategorySuggestion[];
+  cached: boolean;
+}
+
+/** Giá trị attribute: select lưu mã lựa chọn, multiselect mảng mã, text/number/date chuỗi */
+export type SpecValue = string | string[];
+
+export interface ProductSpec {
+  productId: string;
+  platform: Marketplace;
+  externalCategoryId: string;
+  categoryPath: string;
+  categoryStatus: 'ok' | 'changed' | 'removed';
+  attributes: Record<string, SpecValue>;
+  /** Mỗi trục phân loại (id thuộc tính Commerio) → `code` sales attribute của leaf hoặc `__custom` */
+  axisMap: Record<string, string>;
+  /** Id giá trị thuộc tính Commerio → `options[].id` của sales attribute đã ánh xạ; thiếu khoá là gửi custom value */
+  valueMap: Record<string, string>;
+  /** `push`: lưu ở trang đẩy; `match`: đọc từ sàn lúc ghép SKU */
+  source: 'push' | 'match';
+  version: number;
+  updatedAt: string;
+}
+
+export type SpecMissingReason = 'required' | 'required_when' | 'axis_unmapped' | 'category_changed' | 'category_removed';
+
+export interface SpecMissing {
+  code: string;
+  label: string;
+  reason: SpecMissingReason;
+}
+
+/** `spec: null`, `missing: []` khi sản phẩm chưa có thông tin của sàn */
+export interface ProductSpecResult {
+  spec: ProductSpec | null;
+  missing: SpecMissing[];
+}
+
+/** `version: null` khi tạo mới. Chỉ attribute `tier = 'category'` và `company` khác `defaultValue` được lưu */
+export interface ProductSpecInput {
+  externalCategoryId: string;
+  attributes: Record<string, SpecValue>;
+  axisMap: Record<string, string>;
+  valueMap: Record<string, string>;
+  version: number | null;
+}
+
+/** Một giá trị của cấp kế attribute cascade; `leaf` là cấp cuối (Documents/21 §18.5, chốt 19/11/2026) */
+export interface CascadeOption {
+  id: string;
+  label: string;
+  leaf: boolean;
+}
+
+/** `GET …/cascade?code&path&shopId`: `prop` là attribute của cấp kế (Lazada GetNextCascadeProp), null khi sàn không trả */
+export interface CascadeOptionList {
+  prop: { id: string; label: string; required: boolean } | null;
+  items: CascadeOption[];
 }

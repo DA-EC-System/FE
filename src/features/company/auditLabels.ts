@@ -35,6 +35,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   'channel.shops': 'Gian hàng',
   'channel.listings': 'Ghép SKU',
   'channel.category_maps': 'Ghép danh mục sàn',
+  'channel.product_specs': 'Thông tin sàn của sản phẩm',
   'order.customers': 'Khách hàng',
   'order.orders': 'Đơn hàng',
   'order.packages': 'Kiện hàng',

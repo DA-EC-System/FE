@@ -45,6 +45,7 @@ import { lines as ledgerLines } from '../ledgerData';
 import { settlementLines, statements as settlementStatements } from '../settlementData';
 import { reportRows } from '../reportData';
 import { releasePackage } from './fulfillment';
+import { specBlockOf, specSizeChartRule, specStatusOf } from './productSpecs';
 import type { MockStockDoc } from '../inventoryData';
 import { availableOf } from '../engine/stock';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -706,11 +707,6 @@ export const listingEntity = (shop: MockShop, sku: string, id: string) => ({
 export function ownShop(id: unknown, companyId: string): { ok: true; value: MockShop } | { ok: false; response: Response } {
   const shop = db.shops.find((s) => s.id === id && s.companyId === companyId);
   return shop ? { ok: true, value: shop } : { ok: false, response: problem(404, 'Không tìm thấy gian hàng') };
-}
-
-/** Danh mục Commerio đã ghép với danh mục sàn ở gian hàng chưa (FE#146) */
-export function categoryMapped(shopId: string, categoryId: string) {
-  return channel.categoryMaps.some((m) => m.shopId === shopId && m.categoryId === categoryId);
 }
 
 export function sellableVariant(companyId: string, variantId: unknown) {
@@ -1656,6 +1652,7 @@ export const shopHandlers = [
         thumbnailUrl: product.imageFileIds[0] ? fileUrl(product.imageFileIds[0]) : null,
         ...shopPrice(shop, variant.id),
         listing: l ? toListing(l) : null,
+        specStatus: specStatusOf(shop.companyId, product.id, shop.platform),
       };
     });
     return HttpResponse.json<{ items: ListingRow[] }>({ items: rows });
@@ -1953,11 +1950,15 @@ export const shopHandlers = [
     }
     const target = sellableVariant(shop.companyId, l.variantId);
     if (!target) return problem(404, 'Biến thể không còn bán', { code: 'not_found' });
-    if (!categoryMapped(shop.id, target.product.categoryId)) {
-      return problem(409, 'Danh mục chưa ghép với danh mục của sàn', { code: 'category_unmapped' });
-    }
     if (shop.platform !== 'tiktok') {
       return problem(422, 'Sàn này chưa hỗ trợ sửa nội dung sản phẩm đang bán', { code: 'marketplace_unsupported' });
+    }
+    // Sửa nội dung chặn bằng thông tin sàn như đẩy (Documents/21 §18.5, commerio-backend#400); quyền category theo
+    // gian hàng chỉ chặn đẩy mới
+    const specBlock = specBlockOf(shop.companyId, target.product.id, shop.platform, shop.id);
+    if (specBlock && specBlock.code !== 'category_not_permitted') {
+      const detail = specBlock.code === 'category_unmapped' ? 'Sản phẩm chưa có thông tin sàn' : 'Thông tin sàn của sản phẩm còn thiếu';
+      return problem(409, detail, { code: specBlock.code, detail, ...(specBlock.message ? { message: specBlock.message } : {}) });
     }
     if (shop.outage) return problem(503, 'Sàn đang lỗi tạm', { code: 'marketplace_unavailable' });
     const shared = channel.listings.some(
@@ -2089,18 +2090,17 @@ export const shopHandlers = [
       if (l && (l.status === 'under_review' || l.status === 'live' || l.status === 'hidden')) {
         return blocked(variantId, 'already_listed', l);
       }
-      if (shop.platform === 'lazada' && !categoryMapped(shop.id, target.product.categoryId)) {
-        return blocked(variantId, 'category_unmapped', l);
-      }
       if (shopPrice(shop, variantId).price === null) return blocked(variantId, 'price_missing', l);
+      // Thông tin sàn của sản phẩm (commerio-backend#400): thứ tự như push-block.ts (plan A14)
+      const specBlock = specBlockOf(shop.companyId, target.product.id, shop.platform, shop.id);
+      if (specBlock) return blocked(variantId, specBlock.code, l, specBlock.message ?? undefined);
       // Như BE (listings.ts, push-block.ts): đủ ảnh khi listing của chính SKU này đã có ảnh trên sàn, hoặc sản phẩm có
       // ảnh catalog. SKU khác cùng sản phẩm đã lên sàn không tính
       if (!l?.externalImageUrls?.length && !target.product.imageFileIds.length) {
         return blocked(variantId, 'images_missing', l);
       }
       // commerio-backend#347 (push-block.ts): danh mục sàn bắt buộc bảng kích cỡ mà sản phẩm chưa có
-      const map = channel.categoryMaps.find((m) => m.shopId === shop.id && m.categoryId === target.product.categoryId);
-      if (map?.sizeChartRule === 'required' && !target.product.sizeChartFileId) {
+      if (specSizeChartRule(shop.companyId, target.product.id, shop.platform) === 'required' && !target.product.sizeChartFileId) {
         return blocked(variantId, 'size_chart_missing', l);
       }
 

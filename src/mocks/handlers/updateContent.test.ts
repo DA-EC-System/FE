@@ -3,13 +3,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { setupServer } from 'msw/node';
 import type { ChannelListing, ListingRow } from '@/types/shop';
 import { db } from '../db';
-import { categoryMaps, listings } from '../channelData';
+import { listings } from '../channelData';
+import { productSpecs } from '../platformCategoryData';
 import { fireMarketplaceEvent } from '../engine/marketplace';
 import { shopHandlers } from './channel';
 
 const server = setupServer(...shopHandlers);
 const snapListings = structuredClone(listings);
-const snapMaps = structuredClone(categoryMaps);
+const snapSpecs = structuredClone(productSpecs);
 const snapShops = structuredClone(db.shops);
 beforeAll(() => {
   vi.stubGlobal('location', new URL('http://localhost'));
@@ -21,7 +22,7 @@ afterAll(() => {
 });
 beforeEach(() => {
   listings.splice(0, listings.length, ...structuredClone(snapListings));
-  categoryMaps.splice(0, categoryMaps.length, ...structuredClone(snapMaps));
+  productSpecs.splice(0, productSpecs.length, ...structuredClone(snapSpecs));
   db.shops.splice(0, db.shops.length, ...structuredClone(snapShops));
   // Gian hàng TikTok của mock đang cần kết nối lại: coi như đã nối lại
   db.shops.find((s) => s.id === 'shp-002')!.status = 'active';
@@ -102,8 +103,8 @@ describe('POST update-content', () => {
     expect(await res.json()).toMatchObject({ code: 'invalid_transition' });
   });
 
-  it('danh mục chưa ghép: 409 category_unmapped', async () => {
-    categoryMaps.splice(0, categoryMaps.length, ...categoryMaps.filter((m) => m.shopId !== 'shp-002'));
+  it('sản phẩm chưa có thông tin TikTok: 409 category_unmapped (commerio-backend#400)', async () => {
+    productSpecs.splice(0, productSpecs.length, ...productSpecs.filter((s) => s.platform !== 'tiktok'));
     const { listing } = await row('shp-002', 'prd-001-v1');
     const res = await sua('shp-002', listing!);
     expect(await res.json()).toMatchObject({ status: 409, code: 'category_unmapped' });

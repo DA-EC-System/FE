@@ -10,7 +10,9 @@ import {
   outsideChangeLabel,
   pendingRevisionHint,
   pendingRevisionLabel,
+  pushBlockMessage,
   pushErrorText,
+  SPEC_FIX_CODES,
   splitPushResults,
 } from './listingPush';
 
@@ -49,6 +51,7 @@ const row = (variantId: string, productId: string, l: ChannelListing | null, thu
   price: 100000,
   priceSource: 'standard',
   listing: l,
+  specStatus: 'complete',
 });
 
 describe('theo dõi listing đang đẩy (§18.6.4)', () => {
@@ -139,7 +142,7 @@ describe('pushErrorText (FE#266, commerio-backend#305)', () => {
   it('sai luật đăng mà không có câu dịch: câu chung, câu của sàn tách riêng', () => {
     const t = pushErrorText({ code: 'listing_check_failed', message: '12099999: something else', at });
     expect(t.text).toBe(
-      'Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.',
+      'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đẩy lại.',
     );
     expect(t.platformMessage).toBe('12099999: something else');
   });
@@ -161,12 +164,12 @@ describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
     [
       'listing_check_failed',
       '12052104: attribute Material is required',
-      'Danh mục sàn bắt buộc một thuộc tính còn thiếu. Bổ sung ở trang sản phẩm rồi đẩy lại.',
+      'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
     ],
     [
       'marketplace_rejected',
       'E0501: Category attribute "brand" is mandatory',
-      'Danh mục Lazada bắt buộc thuộc tính "brand". Bổ sung ở trang sản phẩm rồi đẩy lại.',
+      'Category Lazada bắt buộc attribute "brand". Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
     ],
   ])('%s: %s', (code, message, text) => {
     expect(pushErrorText({ code, message, at })).toEqual({ text, platformMessage: message });
@@ -175,7 +178,7 @@ describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
   it('nhiều lỗi nối bằng "; ": dịch từng phần, phần không dịch được thì thêm câu chung', () => {
     const message = '12052051: product name must be between 25 and 255 characters; 12099999: other';
     expect(pushErrorText({ code: 'listing_check_failed', message, at })).toEqual({
-      text: `${TITLE} Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.`,
+      text: `${TITLE} Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đẩy lại.`,
       platformMessage: message,
     });
   });
@@ -215,5 +218,27 @@ describe('Sửa nội dung listing đang bán (FE#275, §18.3)', () => {
     expect(pendingRevisionLabel({ status: 'failed', rejectReason: 'x', at })).toBe('Bản sửa bị từ chối');
     expect(pendingRevisionHint({ status: 'auditing', rejectReason: null, at })).toContain('vẫn bán bản cũ');
     expect(pendingRevisionHint({ status: 'failed', rejectReason: 'x', at })).toContain('bấm Sửa nội dung để gửi lại');
+  });
+});
+
+describe('Mã chặn đẩy theo thông tin sàn (commerio-backend#400, Documents/21 §18.5)', () => {
+  it('câu theo tên sàn đúng bảng FE báo của hợp đồng', () => {
+    expect(pushBlockMessage('category_unmapped', null, 'Lazada')).toBe('Chưa chọn category Lazada cho sản phẩm');
+    expect(pushBlockMessage('spec_incomplete', 'Chất liệu, Kiểu cổ', 'Lazada')).toBe(
+      'Thông tin Lazada của sản phẩm còn thiếu: Chất liệu, Kiểu cổ',
+    );
+    expect(pushBlockMessage('spec_incomplete', null, 'TikTok')).toBe('Thông tin TikTok của sản phẩm còn thiếu');
+    expect(pushBlockMessage('category_not_permitted', null, 'TikTok')).toBe(
+      'Gian hàng chưa được bán category này. Xin quyền trên Seller Center hoặc đổi category',
+    );
+  });
+
+  it('mã khác: message BE trả, không có thì câu theo mã', () => {
+    expect(pushBlockMessage('price_missing', null, 'Lazada')).toContain('Chưa có giá');
+    expect(pushBlockMessage('marketplace_rejected', 'Sàn báo X', 'Lazada')).toBe('Sàn báo X');
+  });
+
+  it('mã mở được trang Thông tin sàn', () => {
+    expect([...SPEC_FIX_CODES].sort()).toEqual(['category_not_permitted', 'category_unmapped', 'listing_check_failed', 'spec_incomplete']);
   });
 });

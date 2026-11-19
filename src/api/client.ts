@@ -45,6 +45,10 @@ export interface ProblemDetails {
   reasons?: string[];
   /** 409 `variant_archived` (§17.2): SKU đã lưu trữ trùng tổ hợp, dùng Khôi phục */
   variantId?: string;
+  /** 422 `product_name_too_short` (§18.5): số ký tự tối thiểu của tên sản phẩm */
+  min?: number;
+  /** 409 `version_conflict`: bản hiện tại trên máy chủ, kiểu theo route */
+  current?: unknown;
 }
 
 /**

@@ -28,6 +28,7 @@ import { CompanyHomePage } from '@/features/company/CompanyHomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
 import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
+import { ProductPushPage } from '@/features/channel/ProductPushPage';
 import { MockOAuthPage, ShopOAuthCallbackPage, ShopOAuthRedirect } from '@/features/channel/ShopOAuthPages';
 import { StaffListPage } from '@/features/identity/StaffListPage';
 import { JoinPage } from '@/features/auth/JoinPage';
@@ -148,6 +149,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.shopView}>
                         <ShopListingsPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'channel/products/:productId/push/:platform',
+                    element: (
+                      <RequireModule module="channel" permission={PERMISSIONS.listingManage}>
+                        <ProductPushPage />
                       </RequireModule>
                     ),
                   },

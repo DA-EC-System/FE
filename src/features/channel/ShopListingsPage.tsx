@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -45,10 +44,8 @@ import {
   useShopListings,
   useSyncListings,
 } from '@/api/shops.api';
-import { apiClient, getErrorMessage, getProblem, isTimeout } from '@/api/client';
-import { catalogKeys } from '@/api/catalog.api';
+import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
-  codeMessage,
   problemCode,
   problemMessage,
   remoteRefreshErrorMessage,
@@ -64,7 +61,6 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
-import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import { isDelisted, UNMANAGED, variantMatchOptions } from './matchOptions';
@@ -74,9 +70,9 @@ import {
   LISTING_POLL_MAX_MS,
   listingPollDelay,
   REPUSH_STATUSES,
+  pushBlockMessage,
   splitPushResults,
 } from './listingPush';
-import { CategoryMapSection } from './CategoryMapSection';
 import { ListingStatusCell, PendingBadge, type PushError } from './ListingStatusCell';
 import {
   isUsable,
@@ -100,6 +96,9 @@ interface Deciding {
   /** Biến thể xin ghép, hoặc "Không quản tồn" */
   target: string;
 }
+
+/** Sàn lưu thông tin sàn của sản phẩm (Documents/21 §18.5) */
+const SPEC_PLATFORMS: ReadonlySet<string> = new Set(['lazada', 'tiktok']);
 
 /**
  * Tab theo Test_UI `v-listing`. "Chưa ghép" là SKU trên sàn chưa ghép biến thể nào;
@@ -250,10 +249,6 @@ export function ShopListingsPage() {
   const [decideError, setDecideError] = useState<string | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
   const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
-  /** Danh mục Commerio đang mở hộp ghép danh mục sàn (FE#146) */
-  const [mapCategoryId, setMapCategoryId] = useState<string | null>(null);
-  const [resolvingCategory, setResolvingCategory] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const remoteSkus = useMemo(() => remoteQuery.data?.items ?? [], [remoteQuery.data]);
@@ -552,6 +547,15 @@ export function ShopListingsPage() {
     else void push(targets);
   };
 
+  /**
+   * Đẩy sản phẩm mới một dòng: `specStatus` đủ thì hỏi rồi đẩy như cũ, chưa có hay còn thiếu thì mở trang 4 bước
+   * (commerio-backend#400, Documents/21 §18.5). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có nút Sửa thông tin sàn
+   */
+  const requestNewPush = (row: ListingRow) => {
+    if (specPlatform && row.specStatus !== 'complete') openSpec(row.productId);
+    else requestPush([row]);
+  };
+
   /** Đẩy chạy nền (§18.6.4): dòng được xếp việc chuyển Đang đẩy, trang tự đọc lại tới khi sàn trả kết quả */
   const push = async (targets: ListingRow[]) => {
     try {
@@ -560,7 +564,7 @@ export function ShopListingsPage() {
       setPushErrors((prev) => {
         const next = new Map(prev);
         results.forEach((r) => {
-          if (r.code) next.set(r.variantId, { code: r.code, message: r.message ?? codeMessage(r.code) });
+          if (r.code) next.set(r.variantId, { code: r.code, message: pushBlockMessage(r.code, r.message, platformName) });
           else next.delete(r.variantId);
         });
         return next;
@@ -591,25 +595,11 @@ export function ShopListingsPage() {
     }
   };
 
-  /**
-   * Dòng đẩy lỗi `category_unmapped`: PushResult và ListingRow không có danh mục,
-   * nên lấy danh mục từ chi tiết sản phẩm rồi mở hộp ghép của danh mục đó.
-   */
-  const openCategoryMap = async (row: ListingRow) => {
-    setResolvingCategory(row.variantId);
-    try {
-      const product = await queryClient.fetchQuery({
-        queryKey: catalogKeys.product(companyId, row.productId),
-        queryFn: async () => (await apiClient.get<ProductDetail>(`/catalog/products/${row.productId}`)).data,
-      });
-      setMapCategoryId(product.category.id);
-    } catch {
-      toast.error('Không xác định được danh mục của sản phẩm. Chọn danh mục ở mục Ghép danh mục bên dưới.');
-      document.getElementById('category-maps')?.scrollIntoView({ behavior: 'smooth' });
-    } finally {
-      setResolvingCategory(null);
-    }
-  };
+  /** Sàn có thông tin sàn của sản phẩm (category, attribute; commerio-backend#400) */
+  const specPlatform = shop && SPEC_PLATFORMS.has(shop.platform) ? shop.platform : null;
+  const platformName = shop ? platformLabel(shop.platform, shop.platformName) : '';
+  const openSpec = (productId: string, fill = false) =>
+    specPlatform && navigate(ROUTES.company.productPush(companyId, productId, specPlatform, shopId, fill));
 
   const columns = useMemo<ColumnDef<ListingRow>[]>(() => {
     const cols: ColumnDef<ListingRow>[] = [];
@@ -727,8 +717,8 @@ export function ShopListingsPage() {
             canEditProduct={canEditProduct}
             listingReview={listingReview}
             pendingTarget={pendingTarget}
-            resolvingCategory={resolvingCategory === row.original.variantId}
-            onCategoryMap={() => void openCategoryMap(row.original)}
+            specFixable={!!specPlatform}
+            onOpenSpec={(fill) => openSpec(row.original.productId, fill)}
           />
         ),
       },
@@ -772,7 +762,7 @@ export function ShopListingsPage() {
                 <RowAction
                   label={r.listing ? 'Đẩy lên sàn' : 'Đẩy sản phẩm mới'}
                   reason={pushMut.isPending ? 'Đang đẩy...' : busy}
-                  onClick={() => requestPush([r])}
+                  onClick={() => (r.listing ? requestPush([r]) : requestNewPush(r))}
                 >
                   <Upload />
                 </RowAction>
@@ -818,7 +808,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -1113,8 +1103,6 @@ export function ShopListingsPage() {
           />
         )}
       </Card>
-
-      <CategoryMapSection shopId={shopId} editingCategoryId={mapCategoryId} onEditingChange={setMapCategoryId} />
 
       <MatchDialog
         open={Boolean(matching)}
