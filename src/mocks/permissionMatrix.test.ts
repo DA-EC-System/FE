@@ -13,8 +13,8 @@ import { parseMatrix, render } from '../../scripts/sinh-quyen-mock.mjs';
 describe('mock quyền theo ma trận', () => {
   const codes = MATRIX_PERMISSIONS.map((p) => p.code);
 
-  it('ma trận 54 quyền, không trùng mã', () => {
-    expect(codes).toHaveLength(54);
+  it('ma trận 55 quyền, không trùng mã', () => {
+    expect(codes).toHaveLength(55);
     expect(new Set(codes).size).toBe(codes.length);
   });
 
@@ -32,7 +32,7 @@ describe('mock quyền theo ma trận', () => {
       ['Kho', [...MATRIX_ROLES.kho]],
     ]);
     expect([MATRIX_ROLES.ceo, MATRIX_ROLES.admin, MATRIX_ROLES.sale, MATRIX_ROLES.kho].map((r) => r.length)).toEqual([
-      54, 37, 15, 10,
+      55, 38, 15, 10,
     ]);
   });
 
