@@ -127,7 +127,7 @@ const MESSAGES: Record<string, string> = {
   reason_required: 'Thao tác này cần ghi lý do.',
   // FE#56, lib/machines/stockDocument.ts
   empty_document: 'Phiếu chưa có dòng nào.',
-  shortage_needs_review: 'Phiếu thiếu hàng nên cần người khác duyệt phần thiếu.',
+  shortage_needs_review: 'Phiếu thiếu hàng nên cần người khác duyệt. Bấm Gửi duyệt (thiếu hàng).',
   no_shortage: 'Phiếu đủ hàng, không cần báo thiếu.',
   stock_insufficient: 'Không đủ hàng ở khu vực này để giảm. Xem lại số trên phiếu.',
   decision_made: 'Phiếu đã chọn cách xử lý hàng rồi.',
