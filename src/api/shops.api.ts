@@ -63,8 +63,8 @@ export const shopKeys = {
     [...shopKeys.platformCategories(companyId, platform), 'list', params.search ?? '', params.parentId ?? ''] as const,
   platformCategory: (companyId: string, platform: string, externalId: string) =>
     [...shopKeys.platformCategories(companyId, platform), 'detail', externalId] as const,
-  cascade: (companyId: string, platform: string, externalId: string, code: string, parent: string) =>
-    [...shopKeys.platformCategories(companyId, platform), 'cascade', externalId, code, parent] as const,
+  cascade: (companyId: string, platform: string, externalId: string, code: string, path: string) =>
+    [...shopKeys.platformCategories(companyId, platform), 'cascade', externalId, code, path] as const,
   suggestions: (companyId: string, shopId: string, productId: string) =>
     [...shopKeys.all(companyId), 'category-suggestions', shopId, productId] as const,
   productSpec: (companyId: string, productId: string, platform: string) =>
@@ -695,17 +695,24 @@ export function useSaveProductSpec() {
 }
 
 /** Giá trị cấp kế của attribute `input = 'cascade'` (Lazada propCascade); BE gọi sàn, không lưu */
-export function usePlatformCascade(platform: string, externalId: string, code: string, parent: string | null, enabled = true) {
+export function usePlatformCascade(
+  platform: string,
+  externalId: string,
+  code: string,
+  path: string,
+  shopId: string | null,
+  enabled = true,
+) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: shopKeys.cascade(companyId, platform, externalId, code, parent ?? ''),
+    queryKey: shopKeys.cascade(companyId, platform, externalId, code, path),
     enabled: Boolean(companyId && externalId && code) && enabled,
     staleTime: 30 * 60_000,
     retry: false,
     queryFn: async () => {
       const { data } = await apiClient.get<CascadeOptionList>(
         `/channel/platforms/${platform}/categories/${encodeURIComponent(externalId)}/cascade`,
-        { params: parent ? { code, parent } : { code } },
+        { params: { code, ...(path ? { path } : {}), ...(shopId ? { shopId } : {}) } },
       );
       return data;
     },

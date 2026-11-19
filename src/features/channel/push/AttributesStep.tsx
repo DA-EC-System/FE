@@ -50,6 +50,8 @@ interface AttributesStepProps {
   focus: string | null;
   onFocused: () => void;
   onFocusRequest: (code: string) => void;
+  /** Gian hàng mở trang: route cascade của Lazada cần token gian hàng */
+  shopId: string | null;
 }
 
 /** Bước 2: attribute của leaf chia ba tab theo `tier` (Documents/21 §18.5) */
@@ -284,6 +286,7 @@ function FieldCard({
   errors,
   onChange,
   platform,
+  shopId,
   badge,
   flagged,
 }: Omit<TabProps, 'items' | 'missing'> & { attribute: PlatformAttribute; badge?: React.ReactNode; flagged: boolean }) {
@@ -303,6 +306,7 @@ function FieldCard({
         invalid={Boolean(error)}
         platform={platform}
         externalId={draft.externalCategoryId ?? ''}
+        shopId={shopId}
       />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p className="text-xs text-destructive-text">{error}</p>}

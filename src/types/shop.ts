@@ -648,11 +648,15 @@ export interface ProductSpecInput {
   version: number | null;
 }
 
+/** Một giá trị của cấp kế attribute cascade; `leaf` là cấp cuối (Documents/21 §18.5, chốt 19/11/2026) */
 export interface CascadeOption {
   id: string;
   label: string;
+  leaf: boolean;
 }
 
+/** `GET …/cascade?code&path&shopId`: `prop` là attribute của cấp kế (Lazada GetNextCascadeProp), null khi sàn không trả */
 export interface CascadeOptionList {
+  prop: { id: string; label: string; required: boolean } | null;
   items: CascadeOption[];
 }

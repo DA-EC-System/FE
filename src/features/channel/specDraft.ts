@@ -316,3 +316,11 @@ export function fieldHint(a: PlatformAttribute): string {
   if (a.input === 'date') return 'Chọn ngày';
   return a.defaultValue ? 'Để trống thì dùng giá trị từ hồ sơ công ty' : 'Nhập tự do';
 }
+
+/**
+ * `path` của attribute cascade: mã các cấp đã chọn theo thứ tự, gửi lên route cascade và lưu vào spec khi tới cấp
+ * `leaf` (Documents/21 §18.5). Dấu ngăn theo định dạng `path` của Lazada GetNextCascadeProp, chưa đo trên sàn thật
+ */
+export const CASCADE_SEPARATOR = ',';
+export const cascadePath = (ids: string[]) => ids.join(CASCADE_SEPARATOR);
+export const cascadeLevels = (path: string) => (path ? path.split(CASCADE_SEPARATOR) : []);

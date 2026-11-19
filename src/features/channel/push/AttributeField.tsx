@@ -10,8 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { usePlatformCascade } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
-import type { PlatformAttribute, SpecValue } from '@/types/shop';
-import { valueLabel } from '../specDraft';
+import type { CascadeOption, PlatformAttribute, SpecValue } from '@/types/shop';
+import { cascadeLevels, cascadePath, valueLabel } from '../specDraft';
 
 /** Danh sách ngắn, không cho giá trị riêng: dùng Select; dài hơn thì ô tìm */
 const SHORT_LIST = 15;
@@ -26,6 +26,8 @@ interface FieldProps {
   invalid: boolean;
   platform: string;
   externalId: string;
+  /** Gian hàng Lazada gửi kèm route cascade (cần token gian hàng) */
+  shopId: string | null;
 }
 
 /** Ô nhập một attribute của sàn theo `input` (Documents/21 §18.5) */
@@ -151,56 +153,58 @@ function OptionPicker({ attribute: a, value, onChange, inputId, invalid, multipl
 }
 
 /**
- * Attribute cascade (Lazada propCascade): chọn từng cấp, cấp sau lấy từ `GET …/cascade?code&parent`. Lưu mã của cấp
- * cuối đã chọn (hợp đồng chưa nói dạng giá trị của cascade, ghi ở worklog FE2)
+ * Attribute cascade (Lazada propCascade): chọn từng cấp, cấp sau lấy từ `GET …/cascade?code&path&shopId` tới khi gặp
+ * giá trị `leaf`; spec lưu `path` của các cấp đã chọn (Documents/21 §18.5, chốt 19/11/2026). Chưa tới leaf thì ô còn trống
  */
-function CascadeField({ attribute: a, value, onChange, inputId, invalid, platform, externalId }: FieldProps) {
-  const [chain, setChain] = useState<{ id: string; label: string }[]>([]);
-  const parent = chain.at(-1)?.id ?? null;
-  const level = usePlatformCascade(platform, externalId, a.code, parent);
-  if (value && !chain.length) {
+function CascadeField({ attribute: a, value, onChange, inputId, invalid, platform, externalId, shopId }: FieldProps) {
+  const [chain, setChain] = useState<CascadeOption[]>([]);
+  const done = chain.at(-1)?.leaf === true;
+  const path = cascadePath(chain.map((c) => c.id));
+  const level = usePlatformCascade(platform, externalId, a.code, path, shopId, !done);
+  const reset = () => {
+    setChain([]);
+    onChange(null);
+  };
+  // Giá trị đã lưu (path) mà chưa chọn lại ở phiên này: sàn không trả nhãn theo path nên hiện mã các cấp
+  if (typeof value === 'string' && value && !chain.length) {
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <span>Đã chọn: <b>{String(value)}</b></span>
-        <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => onChange(null)}>
+      <div className="flex items-center gap-2 text-sm" id={inputId}>
+        <span>
+          Đã chọn: <b>{cascadeLevels(value).join(' › ')}</b>
+        </span>
+        <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={reset}>
           Chọn lại
         </Button>
       </div>
     );
   }
+  const pick = (id: string) => {
+    const hit = level.data?.items.find((x) => x.id === id);
+    if (!hit) return;
+    const next = [...chain, hit];
+    setChain(next);
+    onChange(hit.leaf ? cascadePath(next.map((c) => c.id)) : null);
+  };
   return (
     <div className="grid gap-1.5" id={inputId} aria-invalid={invalid || undefined}>
       {chain.length > 0 && (
         <p className="text-sm">
           {chain.map((c) => c.label).join(' › ')}{' '}
-          <button
-            type="button"
-            className="text-xs text-muted-foreground underline"
-            onClick={() => {
-              setChain([]);
-              onChange(null);
-            }}
-          >
+          <button type="button" className="text-xs text-muted-foreground underline" onClick={reset}>
             Chọn lại
           </button>
         </p>
       )}
-      {level.isLoading ? (
+      {done ? (
+        <p className="text-xs text-success-text">Đã chọn tới cấp cuối.</p>
+      ) : level.isLoading ? (
         <Skeleton className="h-9 w-full" />
       ) : level.isError ? (
         <p className="text-sm text-destructive-text">{problemMessage(level.error)}</p>
       ) : level.data?.items.length ? (
-        <Select
-          value=""
-          onValueChange={(id) => {
-            const hit = level.data.items.find((x) => x.id === id);
-            if (!hit) return;
-            setChain([...chain, hit]);
-            onChange(hit.id);
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={`Cấp ${chain.length + 1}…`} />
+        <Select value="" onValueChange={pick}>
+          <SelectTrigger className="w-full" aria-label={level.data.prop?.label ?? `Cấp ${chain.length + 1}`}>
+            <SelectValue placeholder={`${level.data.prop?.label ?? `Cấp ${chain.length + 1}`}…`} />
           </SelectTrigger>
           <SelectContent>
             {level.data.items.map((o) => (
@@ -210,11 +214,10 @@ function CascadeField({ attribute: a, value, onChange, inputId, invalid, platfor
             ))}
           </SelectContent>
         </Select>
-      ) : chain.length ? (
-        <p className="text-xs text-muted-foreground">Đã tới cấp cuối.</p>
       ) : (
         <p className="text-sm text-muted-foreground">Sàn không trả giá trị nào.</p>
       )}
+      {chain.length > 0 && !done && <p className="text-xs text-warning-text">Chọn tiếp tới cấp cuối mới lưu được.</p>}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import type {
 import { PERMISSIONS } from '@/utils/permissions';
 import {
   CUSTOM_AXIS,
+  cascadePath,
   isFilled,
   productAxes,
   requirementOf,
@@ -157,17 +158,26 @@ function storedAttributes(values: Record<string, SpecValue>, attrs: PlatformAttr
   return out;
 }
 
-/** Cascade Lazada giả lập: hai cấp (bản thật gọi GetNextCascadeProp, không lưu) */
-const CASCADE: Record<string, { id: string; label: string }[]> = {
-  '': [
-    { id: 'vn', label: 'Việt Nam' },
-    { id: 'cn', label: 'Trung Quốc' },
-  ],
-  vn: [
-    { id: 'vn-hcm', label: 'TP. Hồ Chí Minh' },
-    { id: 'vn-hn', label: 'Hà Nội' },
-  ],
-  cn: [{ id: 'cn-gz', label: 'Quảng Châu' }],
+/** Cascade Lazada giả lập theo `path` (bản thật gọi GetNextCascadeProp bằng token gian hàng, không lưu) */
+const CASCADE: Record<string, CascadeOptionList> = {
+  '': {
+    prop: { id: 'origin_country', label: 'Quốc gia', required: true },
+    items: [
+      { id: 'vn', label: 'Việt Nam', leaf: false },
+      { id: 'cn', label: 'Trung Quốc', leaf: false },
+    ],
+  },
+  [cascadePath(['vn'])]: {
+    prop: { id: 'origin_city', label: 'Tỉnh, thành', required: true },
+    items: [
+      { id: 'vn-hcm', label: 'TP. Hồ Chí Minh', leaf: true },
+      { id: 'vn-hn', label: 'Hà Nội', leaf: true },
+    ],
+  },
+  [cascadePath(['cn'])]: {
+    prop: { id: 'origin_city', label: 'Tỉnh, thành', required: true },
+    items: [{ id: 'cn-gz', label: 'Quảng Châu', leaf: true }],
+  },
 };
 
 export const productSpecHandlers = [
@@ -281,6 +291,14 @@ export const productSpecHandlers = [
     if (params.platform !== 'lazada') return unsupported();
     const url = new URL(request.url);
     if (!url.searchParams.get('code')) return problem(422, 'Dữ liệu không hợp lệ', { errors: { code: 'Thiếu mã attribute' } });
-    return HttpResponse.json<CascadeOptionList>({ items: CASCADE[url.searchParams.get('parent') ?? ''] ?? [] });
+    // GetNextCascadeProp cần token gian hàng Lazada (khác cây và attribute)
+    const shopId = url.searchParams.get('shopId');
+    const hasShop = db.shops.some(
+      (s) => s.companyId === guard.value.companyId && s.platform === 'lazada' && s.status === 'active' && (!shopId || s.id === shopId),
+    );
+    if (!hasShop) {
+      return problem(409, 'Gian hàng chưa kết nối', { code: 'shop_not_connected', detail: 'Công ty chưa có gian hàng Lazada đang kết nối.' });
+    }
+    return HttpResponse.json<CascadeOptionList>(CASCADE[url.searchParams.get('path') ?? ''] ?? { prop: null, items: [] });
   }),
 ];

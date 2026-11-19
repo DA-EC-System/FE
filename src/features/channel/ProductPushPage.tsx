@@ -302,6 +302,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
                 focus={focus}
                 onFocused={() => setFocus(null)}
                 onFocusRequest={setFocus}
+                shopId={suggestShop?.id ?? null}
               />
             )}
             {step === 2 && (

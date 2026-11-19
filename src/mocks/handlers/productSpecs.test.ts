@@ -8,6 +8,7 @@ import { categoryPermissions, productSpecs } from '../platformCategoryData';
 import { shopHandlers } from './channel';
 import { platformCategoryHandlers } from './platformCategories';
 import { productSpecHandlers } from './productSpecs';
+import { cascadePath } from '@/features/channel/specDraft';
 
 const server = setupServer(...shopHandlers, ...platformCategoryHandlers, ...productSpecHandlers);
 const snap = {
@@ -168,12 +169,21 @@ describe('PUT spec', () => {
 });
 
 describe('GET cascade', () => {
-  it('Lazada trả cấp kế theo parent; TikTok 422 marketplace_unsupported', async () => {
-    const root = await (await call('/channel/platforms/lazada/categories/6371/cascade?code=propCascade')).json();
-    expect(root.items.length).toBeGreaterThan(0);
-    const next = await (await call(`/channel/platforms/lazada/categories/6371/cascade?code=propCascade&parent=${root.items[0].id}`)).json();
-    expect(next.items.length).toBeGreaterThan(0);
+  const url = (q: string) => `/channel/platforms/lazada/categories/6371/cascade?code=propCascade${q}`;
+  it('Lazada: cấp đầu kèm prop, cấp kế theo path tới leaf; TikTok 422 marketplace_unsupported', async () => {
+    const root = await (await call(url(''))).json();
+    expect(root.prop).toMatchObject({ label: expect.any(String), required: true });
+    expect(root.items[0]).toMatchObject({ id: 'vn', leaf: false });
+    const next = await (await call(url(`&path=${cascadePath(['vn'])}`))).json();
+    expect(next.items).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'vn-hcm', leaf: true })]));
     expect((await call('/channel/platforms/tiktok/categories/601226/cascade?code=x')).status).toBe(422);
+  });
+
+  it('không có gian hàng Lazada đang hoạt động → 409 shop_not_connected', async () => {
+    db.shops.filter((s) => s.platform === 'lazada').forEach((s) => (s.status = 'disconnected'));
+    const res = await call(url(''));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('shop_not_connected');
   });
 });
 

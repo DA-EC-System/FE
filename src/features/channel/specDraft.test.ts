@@ -19,6 +19,8 @@ import {
   withCategory,
   type ProductAxis,
   fieldHint,
+  cascadePath,
+  cascadeLevels,
 } from './specDraft';
 
 const attr = (over: Partial<PlatformAttribute>): PlatformAttribute => ({
@@ -227,5 +229,13 @@ describe('fieldHint', () => {
     expect(fieldHint(attr({ input: 'multiselect', options: [], allowCustom: true }))).toBe('Gõ giá trị rồi chọn để thêm');
     expect(fieldHint(attr({ input: 'text', options: [], defaultValue: 'Công ty ABC' }))).toBe('Để trống thì dùng giá trị từ hồ sơ công ty');
     expect(fieldHint(attr({ input: 'image', options: [] }))).toBe('');
+  });
+});
+
+describe('cascadePath', () => {
+  it('ghép mã các cấp đã chọn thành path, tách lại được; rỗng là cấp đầu', () => {
+    expect(cascadePath([])).toBe('');
+    expect(cascadeLevels(cascadePath(['vn', 'vn-hcm']))).toEqual(['vn', 'vn-hcm']);
+    expect(cascadeLevels('')).toEqual([]);
   });
 });
