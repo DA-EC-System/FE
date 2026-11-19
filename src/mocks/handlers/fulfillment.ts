@@ -211,6 +211,45 @@ export function placePackage(p: MockPackage, at: string) {
   syncBackordered(p.companyId, p.lines.map((l) => l.variantId));
 }
 
+/**
+ * Ghép SKU có hiệu lực (commerio-backend#237 PR 1, spec §5.4): dòng **chưa ghép** của đơn đã nhận cùng gian hàng, cùng SKU
+ * người bán, nhận biến thể hoặc "không quản tồn"; dòng đã ghép giữ ghép cũ. Đơn hết dòng chưa ghép thì tắt cờ
+ * `unmapped_sku`. Mock: đơn chưa ghép chưa có kiện (xem sự kiện `order.created`), ghép xong đơn còn mở thì lập kiện
+ */
+export function applySkuMappingToOrders(shopId: string, sellerSku: string, variantId: string | null): number {
+  const at = db.now();
+  const unmapped = (l: MockOrder['lines'][number]) => !l.variantId && !l.untracked;
+  let count = 0;
+  for (const o of sales.orders) {
+    if (o.shopId !== shopId) continue;
+    const hit = o.lines.filter((l) => unmapped(l) && l.externalSku === sellerSku);
+    if (!hit.length) continue;
+    for (const l of hit) {
+      if (variantId) {
+        l.variantId = variantId;
+        l.sku = sellerSku;
+      } else l.untracked = true;
+    }
+    count += hit.length;
+    const flagged = o.flags.includes('unmapped_sku');
+    if (!o.lines.some(unmapped)) o.flags = o.flags.filter((x) => x !== 'unmapped_sku');
+    o.version += 1;
+    const open = o.status === 'unpaid' || o.status === 'processing';
+    if (open && !o.lines.some(unmapped) && !fulfillment.packages.some((p) => p.orderId === o.id)) {
+      const tracked = o.lines.filter((l) => l.variantId).map((l) => ({ variantId: l.variantId, quantity: l.quantity }));
+      const p = newPackage(o, tracked, false, at);
+      // Kiện chỉ có dòng "không quản tồn": không có gì để giữ, vào thẳng Đã giữ hàng (spec §5.2)
+      if (tracked.length) placePackage(p, at);
+      else p.history.push({ from: null, to: 'reserved', at, by: null, source: 'system', reason: null });
+      p.lines.push(...o.lines.filter((l) => l.untracked).map((l) => ({ variantId: '', quantity: l.quantity })));
+    }
+    if (open && flagged !== o.flags.includes('unmapped_sku')) {
+      emitRealtime(o.companyId, 'sales.order_status_changed', { orderId: o.id, code: o.code, from: o.status, to: o.status, flags: o.flags });
+    }
+  }
+  return count;
+}
+
 export function newPackage(o: MockOrder, lines: MockPackage['lines'], selfDelivery: boolean, at: string): MockPackage {
   const p: MockPackage = {
     id: rid('pkg'),
@@ -1099,6 +1138,7 @@ registerMarketplaceEvent({
     const at = db.now();
     const variantId = listing?.variantId ?? '';
     const variant = variantId ? variantLabel(companyId, variantId) : null;
+    const lineId = `${rid('orl')}-0`;
     const o: MockOrder = {
       id: rid('ord'),
       companyId,
@@ -1119,9 +1159,11 @@ registerMarketplaceEvent({
       note: '',
       cancelReason: null,
       invoiceNumber: null,
+      // Định danh SKU sàn của dòng (21 §19.1): trang đơn dùng để ghép SKU từ dòng đơn (FE#283)
+      platform: remote ? { lines: { [lineId]: { externalSkuId: remote.externalSkuId, externalProductId: remote.externalProductId } } } : undefined,
       lines: [
         {
-          id: `${rid('orl')}-0`,
+          id: lineId,
           variantId,
           sku: variant?.sku ?? '',
           productName: remote?.title ?? 'Sản phẩm sàn',
