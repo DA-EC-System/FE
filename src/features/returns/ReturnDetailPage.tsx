@@ -49,6 +49,16 @@ const COMMANDS: Partial<Record<ReturnAction, ReturnCommand['kind']>> = {
   no_show: 'no-show',
 };
 
+/** Câu toast sau khi thao tác xong, nối mã yêu cầu ở cuối */
+const DONE_MESSAGES: Partial<Record<ReturnAction, string>> = {
+  accept: 'Đã chấp nhận trả hàng cho yêu cầu',
+  reject: 'Đã từ chối yêu cầu',
+  refund_only: 'Đã hoàn tiền, khách giữ hàng, cho yêu cầu',
+  platform_reopen: 'Đã ghi nhận sàn duyệt cho khách trả hàng, yêu cầu',
+  platform_refund: 'Đã ghi nhận sàn duyệt cho khách hoàn tiền, yêu cầu',
+  no_show: 'Đã đóng vì khách không gửi hàng, yêu cầu',
+};
+
 type Pending = { action: ReturnAction; label: string; needsReason: boolean };
 
 /** Lịch sử đơn ngược phía sàn: reverse_status, ofc_status gốc (§20.1) */
@@ -57,14 +67,14 @@ function PlatformHistory({ returnId }: { returnId: string }) {
   if (query.isLoading) return <Skeleton className="h-24 w-full" />;
   if (query.isError) return <AlertMessage severity="error">{problemMessage(query.error)}</AlertMessage>;
   const items = query.data?.items ?? [];
-  if (!items.length) return <p className="text-sm text-muted-foreground">Sàn chưa ghi bước nào.</p>;
+  if (!items.length) return <p className="text-sm text-muted-foreground">Sàn chưa có cập nhật nào.</p>;
   return (
     <Table data-testid="platform-history">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-40">Lúc</TableHead>
-          <TableHead className="w-44">reverse_status</TableHead>
-          <TableHead className="w-52">ofc_status</TableHead>
+          <TableHead className="w-40">Thời gian</TableHead>
+          <TableHead className="w-44">Trạng thái trả hàng</TableHead>
+          <TableHead className="w-52">Trạng thái hàng hoàn</TableHead>
           <TableHead>Ghi chú</TableHead>
         </TableRow>
       </TableHeader>
@@ -103,7 +113,7 @@ export function ReturnDetailPage() {
   if (query.isLoading) return <PageLoading />;
   if (query.isError || !query.data) {
     const notFound = getProblem(query.error)?.status === 404 && !isRouteMissing(query.error);
-    return <PageError message={notFound ? 'Không tìm thấy yêu cầu trả' : problemMessage(query.error)} onBack={back} />;
+    return <PageError message={notFound ? 'Không tìm thấy yêu cầu trả hàng' : problemMessage(query.error)} onBack={back} />;
   }
   const r = query.data;
   const actions = returnMachine.available(r.status, actor, { source: r.source });
@@ -114,12 +124,12 @@ export function ReturnDetailPage() {
     try {
       if (p.action === 'receive') {
         await receive.mutateAsync({ code: r.code });
-        toast.success(`Đã nhận hàng trả ${r.code}, phiếu kiểm hàng về đã lập`);
+        toast.success(`Đã nhận hàng hoàn ${r.code} và tạo phiếu kiểm hàng hoàn`);
       } else {
         const kind = COMMANDS[p.action]!;
         const cmd = (reason ? { kind, reason } : { kind }) as ReturnCommand;
         await command.mutateAsync({ id: r.id, version: r.version, command: cmd });
-        toast.success(`${r.code}: ${p.label}`);
+        toast.success(`${DONE_MESSAGES[p.action] ?? 'Đã cập nhật yêu cầu'} ${r.code}`);
       }
       setPending(null);
     } catch (e) {
@@ -144,7 +154,7 @@ export function ReturnDetailPage() {
   return (
     <div className="grid gap-4">
       <PageHeader
-        title={`Yêu cầu trả ${r.code}`}
+        title={`Yêu cầu trả hàng ${r.code}`}
         subtitle={`Đơn ${r.order.code}`}
         action={
           <Button variant="outline" onClick={back}>
@@ -163,8 +173,8 @@ export function ReturnDetailPage() {
           topic="Trạng thái yêu cầu"
           content={
             r.source === 'marketplace'
-              ? 'Yêu cầu từ sàn, trạng thái đồng bộ theo sàn. Khách có thể khiếu nại, sàn xử cho khách thì yêu cầu mở lại.'
-              : 'Yêu cầu lập tay: Chờ xử lý → Chờ hàng về → Đã nhận hàng → Đã đóng.'
+              ? 'Yêu cầu từ sàn, trạng thái cập nhật theo sàn. Nếu khách khiếu nại và sàn duyệt cho khách, yêu cầu được mở lại.'
+              : 'Yêu cầu tạo thủ công: Chờ phản hồi → Chờ hàng hoàn về → Đã nhận hàng hoàn → Đã đóng.'
           }
         />
       </div>
@@ -191,8 +201,8 @@ export function ReturnDetailPage() {
           r.source === 'marketplace' ? (
             <Tabs defaultValue="app">
               <TabsList>
-                <TabsTrigger value="app">Trong app</TabsTrigger>
-                <TabsTrigger value="platform">Lịch sử phía sàn</TabsTrigger>
+                <TabsTrigger value="app">Trên Commerio</TabsTrigger>
+                <TabsTrigger value="platform">Trên sàn</TabsTrigger>
               </TabsList>
               <TabsContent value="app" className="pt-2">
                 <StatusTimeline history={r.statusHistory} statuses={RETURN_STATUS} />
@@ -216,11 +226,11 @@ export function ReturnDetailPage() {
               {r.order.code}
             </Link>
           </Info>
-          <Info label="Nguồn">{r.source === 'marketplace' ? `Sàn · ${r.shopName ?? ''}` : 'Lập tay'}</Info>
-          <Info label="Khách">{r.customerName ?? '—'}</Info>
-          <Info label="Lý do">{r.reason}</Info>
+          <Info label="Nguồn">{r.source === 'marketplace' ? `Sàn · ${r.shopName ?? ''}` : 'Tạo thủ công'}</Info>
+          <Info label="Người mua">{r.customerName ?? '—'}</Info>
+          <Info label="Lý do trả hàng">{r.reason}</Info>
           {r.rejectReason && (
-            <Info label="Lý do từ chối (theo sàn)">
+            <Info label="Lý do từ chối">
               <span className="inline-flex items-center gap-1">
                 {r.rejectReason.label}
                 <HelpTip topic="Lý do từ chối" content="Lý do chọn từ danh sách của sàn khi từ chối; sàn dựa vào đó và ảnh bằng chứng để xét khiếu nại của khách." />
@@ -235,16 +245,16 @@ export function ReturnDetailPage() {
               </span>
             </Info>
           )}
-          <Info label="Mã vận đơn chiều về">{r.returnTrackingCode ?? '—'}</Info>
-          <Info label="Tạo lúc">{formatDateTime(r.createdAt)}</Info>
+          <Info label="Mã vận đơn hàng hoàn">{r.returnTrackingCode ?? '—'}</Info>
+          <Info label="Ngày tạo">{formatDateTime(r.createdAt)}</Info>
           {r.receivedAt && (
-            <Info label="Nhận hàng lúc">
+            <Info label="Ngày nhận hàng hoàn">
               {formatDateTime(r.receivedAt)}
               {r.receivedBy ? ` · ${r.receivedBy.name}` : ''}
             </Info>
           )}
           {r.inspection && (
-            <Info label="Phiếu kiểm hàng về">
+            <Info label="Phiếu kiểm hàng hoàn">
               <DocLink companyId={companyId} docRef={r.inspection} />
             </Info>
           )}
@@ -260,7 +270,7 @@ export function ReturnDetailPage() {
 
       <Card className="py-4">
         <CardHeader>
-          <CardTitle className="text-base">Hàng trả</CardTitle>
+          <CardTitle className="text-base">Sản phẩm trả</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table data-testid="return-lines">
@@ -268,8 +278,8 @@ export function ReturnDetailPage() {
               <TableRow>
                 <TableHead className="w-36">SKU</TableHead>
                 <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-32">Kiện</TableHead>
-                <TableHead className="w-20 text-right">Số trả</TableHead>
+                <TableHead className="w-32">Kiện hàng</TableHead>
+                <TableHead className="w-20 text-right">SL trả</TableHead>
                 <TableHead className="w-32 text-right">Đơn giá</TableHead>
               </TableRow>
             </TableHeader>
@@ -305,16 +315,16 @@ export function ReturnDetailPage() {
 
       <Card className="py-4">
         <CardHeader>
-          <CardTitle className="text-base">Tiền</CardTitle>
+          <CardTitle className="text-base">Hoàn tiền</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3" data-testid="return-money">
-          <Info label="Tiền hoàn khách">
+          <Info label="Số tiền hoàn">
             <Money value={r.money.refundAmount} />
             <span className="ms-2 text-muted-foreground">{r.money.refunded ? 'Đã hoàn' : 'Chưa hoàn'}</span>
           </Info>
-          <Info label="Số bán lại được">{r.money.resellQty ?? 'Chờ kiểm hàng về'}</Info>
+          <Info label="SL bán lại">{r.money.resellQty ?? 'Chờ kiểm hàng hoàn'}</Info>
           {canCost && (
-            <Info label="Giảm giá vốn (phần bán lại)">
+            <Info label="Giảm giá vốn hàng trả lại (phần bán lại)">
               {r.money.resellCost === null ? '—' : <Money value={r.money.resellCost} />}
             </Info>
           )}
@@ -329,7 +339,7 @@ export function ReturnDetailPage() {
         message={
           <>
             {pending?.action === 'receive'
-              ? `Nhận hàng trả ${r.code}. Phiếu kiểm hàng về được lập để kho chia bán lại, hỏng, trả nhà cung cấp.`
+              ? `Nhận hàng hoàn ${r.code}. Hệ thống tạo phiếu kiểm hàng hoàn để kho phân loại: bán lại, hỏng, trả hàng NCC.`
               : pending && ACTION_MESSAGES[pending.action]}
             {error && (
               <AlertMessage severity="error" className="mt-3">
