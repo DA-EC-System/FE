@@ -45,7 +45,7 @@ export const categoryRules: Record<string, MockCategoryRule> = {
 
 export const ruleOf = (categoryId: string) => categoryRules[categoryId] ?? DEFAULT_RULE;
 
-/** Giới hạn BE kiểm khi lưu, FE không chặn trước để thấy lỗi theo dòng */
+/** Giới hạn BE kiểm khi lưu. FE chặn trước cân nặng, kích thước (`utils/measure.ts`); mock vẫn kiểm như BE */
 export const SPEC_LIMITS = { weightG: 50000, sizeMm: 2000, maxRows: 200 } as const;
 
 /** Câu lỗi vượt trần như BE (`catalog/domain/measure.ts`, commerio-backend#434) */
