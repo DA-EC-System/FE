@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import type { Order, OrderLine } from '@/types/sales';
 import { PERMISSIONS } from '@/utils/permissions';
-import { isUnmappedLine, lineMatchToast, pendingTargetLabel, remoteSkuOf } from './lineMatch';
+import { isUnmappedLine, lineMatchToast, lineShopHref, pendingTargetLabel, remoteSkuOf } from './lineMatch';
 
 /**
  * Ghép SKU từ dòng đơn (FE#283, commerio-backend#237): dòng Chưa ghép SKU có nút "Ghép SKU" cho người có
@@ -117,6 +117,8 @@ export function useOrderLineMatch(order: Order | undefined) {
     missingSkuId: (l: OrderLine) => !externalSkuIdOf(l),
     pendingOf,
     pendingTarget,
+    /** Link tới trang gian hàng để ghép trong bảng ghép (FE#327); không có quyền ghép thì null */
+    shopHref: (l: OrderLine) => (canMatch && order ? lineShopHref(companyId, order, l) : null),
     open,
     dialog,
   };

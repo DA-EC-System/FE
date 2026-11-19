@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import {
@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { useOrder } from '@/api/sales.api';
+import { type ListingTab, readShopListingParams, resolveMatchTarget, writeShopListingParams } from './shopListingParams';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
@@ -84,7 +86,6 @@ import { useStartConnect } from './useStartConnect';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** Tab của bảng theo Test_UI `v-listing` */
-type ListingTab = 'all' | 'unmatched' | 'pending' | 'not_listed' | 'stale' | 'failed' | 'held';
 
 /** Hộp CEO duyệt hoặc từ chối ghép chờ đang mở (§18.6.5) */
 interface Deciding {
@@ -234,8 +235,17 @@ export function ShopListingsPage() {
   const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
   const connector = useStartConnect();
 
-  const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<ListingTab>('all');
+  // Tab, ô tìm theo URL (FE#327): mở lại hay gửi link vẫn đúng chỗ; `match` mở hộp ghép, `from` là đơn dẫn tới
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlParams = readShopListingParams(searchParams);
+  const [search, setSearch] = useState(urlParams.q);
+  const [tab, setTab] = useState<ListingTab>(urlParams.tab);
+  const fromOrderId = urlParams.from;
+  const fromOrder = useOrder(fromOrderId ?? '').data;
+  const fromLabel = fromOrder?.code ?? '';
+  const backToOrder = fromOrderId ? () => navigate(ROUTES.company.order(companyId, fromOrderId)) : null;
+  /** SellerSku của `match` không có trong bản sao SKU sàn: nhắc Tải lại */
+  const [missingMatch, setMissingMatch] = useState<string | null>(null);
   const [delisting, setDelisting] = useState<ListingRow | null>(null);
   const [decidingOutside, setDecidingOutside] = useState<{ row: ListingRow; action: OutsideChangeAction } | null>(null);
   const [updatingContent, setUpdatingContent] = useState<ListingRow | null>(null);
@@ -362,19 +372,57 @@ export function ShopListingsPage() {
     setTab(v as ListingTab);
     setPage(1);
     setSelection(new Set());
+    setSearchParams((p) => writeShopListingParams(p, { tab: v as ListingTab }), { replace: true });
   };
+
+  const changeSearch = (v: string) => {
+    setSearch(v);
+    setPage(1);
+    setSearchParams((p) => writeShopListingParams(p, { q: v }), { replace: true });
+  };
+
+  // `match` (FE#327): SKU sàn tải xong thì mở hộp ghép một lần rồi xoá khỏi URL. Không có trong bản sao thì nhắc Tải lại,
+  // tải xong (dữ liệu đổi) thì thử lại; đã ghép hay đang chờ duyệt thì báo, không mở
+  const matchParam = urlParams.match;
+  const matchLabel = urlParams.q || matchParam;
+  const remoteData = remoteQuery.data;
+  const listingsReady = Boolean(listingsQuery.data);
+  const refreshRunning = refreshPoll.running;
+  useEffect(() => {
+    if (!matchParam || !canMatch || !remoteData || !listingsReady) return;
+    const target = resolveMatchTarget(remoteData.items, matchParam);
+    if (target.kind === 'missing') {
+      setMissingMatch(refreshRunning ? null : matchLabel);
+      return;
+    }
+    setMissingMatch(null);
+    setSearchParams(
+      (p) => {
+        const next = new URLSearchParams(p);
+        next.delete('match');
+        return next;
+      },
+      { replace: true },
+    );
+    const label = target.sku.sellerSku || matchLabel;
+    if (target.kind === 'pending') toast.info(`SKU sàn ${label} đang chờ CEO duyệt ghép`);
+    else if (target.kind === 'matched') toast.info(`SKU sàn ${label} đã được ghép, không cần ghép lại`);
+    else {
+      setMatchError(null);
+      setMatching({
+        from: 'remote',
+        externalSkuId: target.sku.externalSkuId,
+        title: target.sku.title,
+        sellerSku: target.sku.sellerSku,
+        current: null,
+      });
+    }
+  }, [matchParam, matchLabel, canMatch, remoteData, listingsReady, refreshRunning, setSearchParams]);
 
   // Phân trang tại chỗ: API trả mọi biến thể đang bán
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, pageCount);
   const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
-
-  const withReset =
-    <T,>(set: (v: T) => void) =>
-    (v: T) => {
-      set(v);
-      setPage(1);
-    };
 
   const selectedRows = items.filter((r) => selection.has(r.variantId));
   const allFilteredSelected = rows.length > 0 && rows.every((r) => selection.has(r.variantId));
@@ -447,10 +495,17 @@ export function ShopListingsPage() {
     try {
       const { pending } = await matchMut.mutateAsync({ shopId, ...input });
       setMatching(null);
+      // Tới từ đơn (FE#327): toast có nút quay lại đơn
+      const back = backToOrder
+        ? { action: { label: `Quay lại đơn ${fromLabel}`.trim(), onClick: backToOrder } }
+        : undefined;
       if (pending) {
-        toast.info(`Đã gửi CEO duyệt ghép SKU sàn ${label}. Trong lúc chờ, ghép cũ giữ nguyên.`);
+        toast.info(`Đã gửi CEO duyệt ghép SKU sàn ${label}. Trong lúc chờ, ghép cũ giữ nguyên.`, back);
       } else {
-        toast.success(input.variantId ? `Đã ghép ${variantSku ?? label}` : `Đã đặt SKU sàn ${label} là không quản tồn`);
+        toast.success(
+          input.variantId ? `Đã ghép ${variantSku ?? label}` : `Đã đặt SKU sàn ${label} là không quản tồn`,
+          back,
+        );
       }
     } catch (e) {
       const problem = getProblem(e);
@@ -921,6 +976,12 @@ export function ShopListingsPage() {
                 {STATUS_LABELS[shop.status]}
               </Badge>
             )}
+            {backToOrder && (
+              <Button variant="outline" onClick={backToOrder} data-testid="back-to-order">
+                <ArrowLeft />
+                {fromLabel ? `Đơn ${fromLabel}` : 'Về đơn'}
+              </Button>
+            )}
             <Button variant="outline" onClick={backToList}>
               <ArrowLeft />
               Danh sách
@@ -1004,7 +1065,7 @@ export function ShopListingsPage() {
           </TabsList>
         </Tabs>
         <FilterBar>
-          <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm theo tên, SKU hoặc SKU sàn..." />
+          <SearchInput value={search} onChange={changeSearch} placeholder="Tìm theo tên, SKU hoặc SKU sàn..." />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:ms-auto md:self-center">
             <p className="text-sm text-muted-foreground" data-testid="match-summary">
               Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
@@ -1019,6 +1080,11 @@ export function ShopListingsPage() {
                       ? `SKU trên sàn tải lúc ${formatDateTime(remoteQuery.data.syncedAt)}`
                       : null}
                 </p>
+                {missingMatch && (
+                  <p className="text-sm text-destructive" data-testid="match-missing">
+                    Chưa thấy SKU sàn {missingMatch} trong danh sách. Bấm Tải lại để lấy SKU mới từ sàn.
+                  </p>
+                )}
                 <Button size="sm" variant="outline" disabled={refreshing} onClick={refreshRemote}>
                   <RefreshCw className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
                   {refreshing ? 'Đang tải danh sách SKU…' : 'Tải lại'}

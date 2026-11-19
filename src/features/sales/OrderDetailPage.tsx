@@ -421,7 +421,18 @@ export function OrderDetailPage() {
                               </div>
                             )}
                             <p className="text-xs text-muted-foreground">
-                              {l.productName}
+                              {lineMatch.shopHref(l) ? (
+                                <Link
+                                  to={lineMatch.shopHref(l)!}
+                                  className="underline underline-offset-2 hover:text-foreground"
+                                  title="Mở bảng ghép SKU của gian hàng"
+                                  data-testid="line-shop-link"
+                                >
+                                  {l.productName}
+                                </Link>
+                              ) : (
+                                l.productName
+                              )}
                               {l.attributesLabel && ` · ${l.attributesLabel}`}
                             </p>
                             {l.externalShopSku && (

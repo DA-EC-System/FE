@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { RemoteSku } from '@/types/shop';
-import { REMAP_UNLOAD_NOTE, isUnmappedLine, lineMatchToast, needsUnload, pendingTargetLabel, remoteSkuOf } from './lineMatch';
+import {
+  REMAP_UNLOAD_NOTE,
+  isUnmappedLine,
+  lineMatchToast,
+  lineShopHref,
+  needsUnload,
+  pendingTargetLabel,
+  remoteSkuOf,
+} from './lineMatch';
+import type { OrderFlag } from '@/types/sales';
 
 const remote = (externalSkuId: string, sellerSku: string) => ({ externalSkuId, sellerSku }) as RemoteSku;
 
@@ -37,5 +46,27 @@ describe('lineMatch (FE#283)', () => {
     expect(pendingTargetLabel(p, () => 'X')).toBe('Không quản tồn');
     expect(pendingTargetLabel({ ...p, variantId: 'v1' }, () => 'AT-01')).toBe('AT-01');
     expect(pendingTargetLabel({ ...p, variantId: 'v1' }, () => undefined)).toBe('biến thể khác');
+  });
+});
+
+describe('lineShopHref (FE#327)', () => {
+  const order = { id: 'ord-1', source: 'marketplace' as const, shop: { id: 'shp-1', shopName: 'S', platform: 'lazada' }, flags: [] as OrderFlag[] };
+  const line = { externalSku: 'OLD-TEE-01', externalSkuId: 's-9', variantId: null, untracked: false };
+
+  it('dòng chưa ghép: tab Chưa ghép, tìm SellerSku, mở hộp ghép, nhớ đơn', () => {
+    expect(lineShopHref('cmp-1', order, line)).toBe(
+      '/c/cmp-1/channel/shops/shp-1?tab=unmatched&q=OLD-TEE-01&match=s-9&from=ord-1',
+    );
+    expect(lineShopHref('cmp-1', order, { ...line, externalSkuId: null })).toBe(
+      '/c/cmp-1/channel/shops/shp-1?tab=unmatched&q=OLD-TEE-01&from=ord-1',
+    );
+  });
+
+  it('không có link: đã ghép, không quản tồn, đơn tạo tay, không gian hàng, gian hàng đã ngắt', () => {
+    expect(lineShopHref('cmp-1', order, { ...line, variantId: 'v1' })).toBeNull();
+    expect(lineShopHref('cmp-1', order, { ...line, untracked: true })).toBeNull();
+    expect(lineShopHref('cmp-1', { ...order, source: 'manual' }, line)).toBeNull();
+    expect(lineShopHref('cmp-1', { ...order, shop: null }, line)).toBeNull();
+    expect(lineShopHref('cmp-1', { ...order, flags: ['shop_disconnected'] }, line)).toBeNull();
   });
 });

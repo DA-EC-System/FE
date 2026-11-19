@@ -1,4 +1,4 @@
-// P4 · Ghép SKU từ dòng đơn trên trang chi tiết đơn (sơ đồ D1; FE#283, commerio-backend#237)
+// P4 · Ghép SKU từ dòng đơn trên trang chi tiết đơn (sơ đồ D1; FE#283, commerio-backend#237) và link tới trang gian hàng (FE#327)
 import { type Page } from '@playwright/test';
 import { dangNhap, expect, phatSuKienSan, test, toast } from '../../fixtures';
 
@@ -67,5 +67,42 @@ test.describe('Ghép SKU từ dòng đơn', () => {
     await expect(dongChuaGhep(page)).toHaveCount(0);
     await expect(page.locator('[data-testid=order-lines]')).toContainText('Không quản tồn');
     await expect(page.locator('[data-testid=order-packages] tbody tr')).toHaveCount(1);
+  });
+});
+
+test.describe('Dòng chưa ghép dẫn tới trang gian hàng (FE#327)', () => {
+  test('bấm tên sản phẩm: đúng gian hàng, tab Chưa ghép, ô tìm, hộp ghép tự mở; ghép xong quay lại đơn', async ({ page }) => {
+    await dangNhap(page, 'sale@commerio.vn', 'sale');
+    const code = await moDonChuaGhep(page);
+    await page.getByTestId('line-shop-link').click();
+    await expect(page).toHaveURL(/\/channel\/shops\/shp-001\?/);
+    await expect(page.getByTestId('listing-tab-unmatched')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByPlaceholder('Tìm theo tên, SKU hoặc SKU sàn...')).toHaveValue(SKU_CU);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Ghép SKU sàn với biến thể' })).toBeVisible();
+    await expect(page).not.toHaveURL(/match=/);
+    await expect(page.getByTestId('back-to-order')).toHaveText(`Đơn ${code}`);
+    await dialog.getByRole('radio').first().check();
+    await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole('button', { name: `Quay lại đơn ${code}`, exact: true }).click();
+    await expect(page.getByRole('heading', { name: `Đơn ${code}` })).toBeVisible();
+    await expect(dongChuaGhep(page)).toHaveCount(0);
+    await expect(page.getByTestId('line-shop-link')).toHaveCount(0);
+  });
+
+  test('mở thẳng link: đúng tab, ô tìm; đổi tab thì URL đổi; SKU không có trong bản sao thì nhắc Tải lại', async ({ page }) => {
+    await dangNhap(page, 'sale@commerio.vn', 'sale');
+    await page.goto('/c/cmp-001/channel/shops/shp-001?tab=unmatched&q=KHONG-CO&match=sku-khong-co');
+    await expect(page.getByTestId('listing-tab-unmatched')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByPlaceholder('Tìm theo tên, SKU hoặc SKU sàn...')).toHaveValue('KHONG-CO');
+    await expect(page.getByTestId('match-missing')).toHaveText(
+      'Chưa thấy SKU sàn KHONG-CO trong danh sách. Bấm Tải lại để lấy SKU mới từ sàn.',
+    );
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByTestId('listing-tab-failed').click();
+    await expect(page).toHaveURL(/tab=failed/);
+    await page.getByPlaceholder('Tìm theo tên, SKU hoặc SKU sàn...').fill('');
+    await expect(page).not.toHaveURL(/[?&]q=/);
   });
 });
