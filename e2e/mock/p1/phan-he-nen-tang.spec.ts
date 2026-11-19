@@ -25,12 +25,12 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Đồng ý và bật', exact: true })).toBeDisabled();
     await dialog.getByRole('button', { name: 'Không đồng ý', exact: true }).click();
-    await expect(assistant).toContainText('Chưa bật');
+    await expect(assistant).toContainText('Đang tắt');
     await assistant.getByRole('switch').click();
     await dialog.getByRole('checkbox').click();
     await dialog.getByRole('button', { name: 'Đồng ý và bật', exact: true }).click();
     await toast(page, 'Đã bật Trợ lý AI');
-    await expect(assistant).toContainText('Đã bật');
+    await expect(assistant).toContainText('Đang bật');
 
     await mockApi(page, 'put', '/platform/modules/:code', 409, {
       status: 409,
@@ -48,7 +48,8 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
     const rows = page.locator('tbody tr[data-row-id]');
     await expect(rows).not.toHaveCount(0);
     await chon(page, 'Thao tác', 'Sửa');
-    await moiPhanTu(rows, (t) => expect(t).toContain('Sửa'));
+    // Lọc theo action: dòng sửa có operation hiện chữ thao tác (Tạm khoá…), không phải Thêm/Xoá (FE#298)
+    await moiPhanTu(rows.getByTestId('audit-operation'), (t) => expect(t).not.toMatch(/^(Thêm|Xoá)$/));
     await rows.first().click();
     await expect(page.getByTestId('audit-diff').locator('tr[data-changed]')).not.toHaveCount(0);
   });
