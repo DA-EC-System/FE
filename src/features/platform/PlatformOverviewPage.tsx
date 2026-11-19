@@ -33,16 +33,16 @@ export function PlatformOverviewPage() {
           detail={data && total ? `${Math.round((data.activeCompanies / total) * 100)}% số công ty` : undefined}
         />
         <Kpi
-          label="Đang bị khoá"
+          label="Đã khoá"
           help="Công ty bị quản trị nền tảng khoá; người dùng của công ty đó không đăng nhập được."
           value={data?.lockedCompanies}
           loading={isLoading}
         />
-        <Kpi label="Đăng ký trong 30 ngày" value={data?.registeredLast30Days} loading={isLoading} />
+        <Kpi label="Đăng ký mới (30 ngày)" value={data?.registeredLast30Days} loading={isLoading} />
       </KpiStrip>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Panel title="Phân hệ tuỳ chọn đang dùng">
+        <Panel title="Tính năng tuỳ chọn đang dùng">
           <div className="grid gap-3">
             {data?.optionalModuleUsage.map(({ module, companies }) => {
               const pct = total ? (companies / total) * 100 : 0;

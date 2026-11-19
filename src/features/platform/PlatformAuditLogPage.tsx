@@ -16,14 +16,14 @@ import { AUDIT_ACTION_LABELS } from './auditLabels';
 const columns: ColumnDef<PlatformAuditLog>[] = [
   {
     id: 'createdAt',
-    header: 'Thời điểm',
+    header: 'Thời gian',
     meta: { className: 'w-40 whitespace-nowrap' },
     cell: ({ row }) => formatDateTime(row.original.createdAt),
   },
   {
     id: 'action',
-    header: 'Hành động',
-    meta: { className: 'w-28' },
+    header: 'Thao tác',
+    meta: { className: 'w-36' },
     cell: ({ row }) => {
       const a = AUDIT_ACTION_LABELS[row.original.action];
       return <Badge variant={a.variant}>{a.label}</Badge>;
@@ -39,7 +39,7 @@ const columns: ColumnDef<PlatformAuditLog>[] = [
   },
 ];
 
-/** Nhật ký cấp nền tảng (company_id null): đăng ký, khoá, mở khoá công ty. Chỉ đọc. */
+/** Nhật ký thao tác cấp nền tảng (company_id null): đăng ký, khoá, mở khoá công ty. Chỉ đọc. */
 export function PlatformAuditLogPage() {
   const [action, setAction] = useState<PlatformAuditAction | ''>('');
   const [searchInput, setSearchInput] = useState('');
@@ -68,7 +68,7 @@ export function PlatformAuditLogPage() {
   return (
     <div>
       <PageHeader
-        title="Nhật ký nền tảng"
+        title="Nhật ký thao tác nền tảng"
         subtitle="Các thao tác cấp nền tảng: công ty đăng ký, bị khoá và được mở khoá."
       />
 
@@ -86,7 +86,7 @@ export function PlatformAuditLogPage() {
             placeholder="Tìm theo công ty hoặc người thực hiện..."
           />
           <FilterSelect
-            label="Hành động"
+            label="Thao tác"
             value={action}
             onChange={withReset((v: string) => setAction(v as PlatformAuditAction | ''))}
             options={Object.entries(AUDIT_ACTION_LABELS).map(([value, { label }]) => ({ value, label }))}
@@ -100,7 +100,7 @@ export function PlatformAuditLogPage() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty="Không có dòng nào"
+          empty={action || search || from || to ? 'Không có thao tác khớp bộ lọc' : 'Chưa có thao tác nào'}
           pagination={{
             page,
             pageSize,

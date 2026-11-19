@@ -126,7 +126,7 @@ test.describe('P1 · Quản trị nền tảng', () => {
     await dongCo(page, 'Mỹ phẩm XYZ').getByRole('button', { name: 'Khoá', exact: true }).click();
     await page.locator('textarea[name=reason]').fill('Thử xung đột');
     await page.getByRole('dialog').getByRole('button', { name: 'Khoá công ty', exact: true }).click();
-    await expect(await toast(page, 'vừa được người khác đổi')).toContainText('đã khoá');
+    await expect(await toast(page, 'vừa được người khác cập nhật')).toContainText('đã khoá');
 
     await mockApi(page, 'post', '/platform/companies/:id/unlock', 404, { status: 404, title: 'Không tìm thấy', code: 'not_found' });
     await dongCo(page, 'Nông sản').getByRole('button', { name: 'Mở khoá', exact: true }).click();
