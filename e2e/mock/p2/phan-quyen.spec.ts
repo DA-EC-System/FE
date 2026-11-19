@@ -61,9 +61,9 @@ test.describe('P2 · Phân quyền', () => {
     await expect(page.getByRole('button', { name: /Kiểm kê|Xuất huỷ|Chuyển chờ xử lý/ })).toHaveCount(0);
     await chua(page, 'XK-000001', 'tbody tr').click();
     await expect(page.getByTestId('doc-lines')).toBeAttached();
-    await expect(page.getByRole('button', { name: /Hoàn thành kiểm hàng|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Ghi sổ|Lưu nháp|Huỷ phiếu|Gửi duyệt/ })).toHaveCount(0);
     await page.goto('/c/cmp-001/inventory/documents/new?type=stocktake');
-    await expect(page.locator('main')).toContainText('Bạn không có quyền tạo phiếu kho.');
+    await expect(page.locator('main')).toContainText('Bạn không có quyền lập phiếu kho.');
   });
 
   test('CEO: thấy giá vốn và đủ thao tác', async ({ page }) => {

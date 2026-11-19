@@ -144,10 +144,10 @@ test.describe('P4 · Yêu cầu trả', () => {
       await expect(tien(page)).toContainText('Chờ kiểm hàng về');
       await chaCua(page, 'Phiếu kiểm hàng về').locator('a').click();
       const lines = page.getByTestId('doc-lines');
-      await lines.getByLabel(/^Đã quét /).first().fill('1');
+      await lines.getByLabel(/^Số quét /).first().fill('1');
       await lines.getByLabel(/^Bán lại /).first().fill('1');
-      await page.getByRole('button', { name: 'Hoàn thành kiểm hàng', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Hoàn thành kiểm hàng', exact: true }).click();
+      await page.getByRole('button', { name: 'Ghi sổ', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Ghi sổ', exact: true }).click();
       await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
       await diToi(page, '/c/cmp-001/sales/returns/rr-002');
       await expect(trangThai(page)).toContainText('Đã đóng');
