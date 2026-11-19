@@ -66,7 +66,7 @@ test.describe('P4 · Yêu cầu trả', () => {
       await page.getByRole('alertdialog').getByRole('button', { name: 'Chấp nhận trả hàng', exact: true }).click();
       await toast(page, 'YCT-000001: Chấp nhận trả hàng');
       await expect(trangThai(page)).toContainText('Chờ hàng hoàn về');
-      await expect(page.locator('[data-testid=return-actions]')).toContainText('Người mua không gửi hàng');
+      await expect(page.locator('[data-testid=return-actions]')).toContainText('Khách không gửi hàng');
       await expect(page.locator('[data-testid=return-actions]')).not.toContainText('Nhận hàng trả');
       // Yêu cầu lập tay không có lịch sử phía sàn
       await expect(page.getByRole('tab', { name: 'Lịch sử phía sàn', exact: true })).toHaveCount(0);
