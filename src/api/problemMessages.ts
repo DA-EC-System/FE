@@ -114,7 +114,7 @@ const MESSAGES: Record<string, string> = {
   not_reported: 'Chưa ai báo thất lạc kiện này.',
   // commerio-backend#238: kiện đã đóng chỉ báo mất khi đang chờ mở; kiện chờ mở chưa báo sẵn sàng, bàn giao được
   not_awaiting_open: 'Kiện còn trong kho chỉ báo mất được khi đang chờ mở kiện.',
-  awaiting_open: 'Kiện đang chờ mở, mở kiện xong mới báo sẵn sàng hay bàn giao được.',
+  awaiting_open: 'Kiện đang chờ mở, mở kiện xong mới báo sẵn sàng giao hay bàn giao được.',
   // FE#12, commerio-backend#27; `already_processed` nơi gọi ưu tiên `detail` vì có số phiếu
   already_processed: 'Chứng từ gốc đã được xử lý.',
   payment_state_changed: 'Trạng thái thanh toán của đơn vừa thay đổi.',
