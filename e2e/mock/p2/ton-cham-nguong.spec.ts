@@ -27,9 +27,21 @@ test.describe('Tồn chạm ngưỡng', () => {
     await expect(muc).toContainText('đã chạm ngưỡng 9.999');
     await muc.getByRole('button', { name: 'Thêm vào đề nghị nhập', exact: true }).click();
     await expect(page.getByRole('dialog').getByLabel('Số lượng', { exact: true })).toHaveValue(/^[1-9]\d*$/);
+    await page.getByRole('dialog').getByRole('button', { name: 'Huỷ', exact: true }).click();
+
+    // Bỏ thông báo thì chuông không còn mục đó
+    await page.getByTestId('task-bell').click();
+    await muc.getByRole('button', { name: 'Bỏ thông báo' }).click();
+    await expect(muc).toHaveCount(0);
+  });
+
+  test('tab Phiếu kho không phải trang tự cập nhật', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Phiếu kho' }).click();
+    await expect(page.getByTestId('realtime-status')).toHaveAttribute('data-status', 'manual');
   });
 
   test('chấm tức thời chỉ ở trang nối SSE', async ({ page }) => {
+    await expect(page.getByTestId('realtime-status')).toBeVisible();
     await expect(page.getByTestId('realtime-status')).not.toHaveAttribute('data-status', 'manual');
     await menu(page, 'Nhật ký thao tác');
     await expect(page.getByTestId('realtime-status')).toHaveAttribute('data-status', 'manual');

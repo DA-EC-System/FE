@@ -3,14 +3,12 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { connectRealtime, type RealtimeMessage } from '@/api/realtime';
-import { apiClient } from '@/api/client';
 import { fulfillmentKeys } from '@/api/fulfillment.api';
-import { inventoryKeys } from '@/api/inventory.api';
+import { stockDetailQuery } from '@/api/inventory.api';
 import { useAuthStore } from '@/stores/authStore';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useStockAlertStore } from '@/stores/stockAlertStore';
 import type { CompanyContext } from '@/types/auth';
-import type { StockDetail } from '@/types/inventory';
 import { hasPermission, isModuleEnabled, PERMISSIONS } from '@/utils/permissions';
 import { formatQty } from '@/features/inventory/shared';
 
@@ -38,16 +36,23 @@ const ALL_GROUPS = [...new Set(GROUPS.flatMap(([, groups]) => groups))];
 
 /**
  * Trang thật sự tự đổi theo sự kiện BE đang phát qua SSE (core/notification rules: đơn mới, đơn đổi trạng thái, thanh
- * toán, tồn dưới ngưỡng, ghi sổ phiếu nhận, gửi đề nghị nhập): danh sách và chi tiết đơn, Tồn kho, Mua hàng và đề nghị
- * nhập. Trang khác (kiện, phiếu kho, trả hàng…) chưa có sự kiện tới khi commerio-backend#216 xong (FE#318).
+ * toán, tồn dưới ngưỡng, ghi sổ phiếu nhận, gửi đề nghị nhập): Tổng quan (việc cần làm), danh sách và chi tiết đơn,
+ * tab Tồn kho, tab Đề nghị nhập và chi tiết đề nghị. Trang tạo mới không có gì để tự đổi. Trang khác (kiện, phiếu kho,
+ * trả hàng…) chưa có sự kiện tới khi commerio-backend#216 xong (FE#318).
+ * `tab`: tab mặc định của trang (không có ?tab) mới là tab tự đổi.
  */
-const LIVE_PATHS = [
-  /^\/c\/[^/]+\/sales\/orders(\/|$)/,
-  /^\/c\/[^/]+\/inventory\/?$/,
-  /^\/c\/[^/]+\/purchasing(\/requests\/[^/]+)?\/?$/,
+const LIVE_PATHS: { re: RegExp; tab?: string }[] = [
+  { re: /^\/c\/[^/]+\/?$/ },
+  { re: /^\/c\/[^/]+\/sales\/orders(\/(?!new\/?$)[^/]+)?\/?$/ },
+  { re: /^\/c\/[^/]+\/inventory\/?$/, tab: 'stock' },
+  { re: /^\/c\/[^/]+\/purchasing\/?$/, tab: 'requests' },
+  { re: /^\/c\/[^/]+\/purchasing\/requests\/(?!new\/?$)[^/]+\/?$/ },
 ];
 
-export const isLivePath = (pathname: string) => LIVE_PATHS.some((re) => re.test(pathname));
+export const isLivePath = (pathname: string, search = '') => {
+  const tab = new URLSearchParams(search).get('tab');
+  return LIVE_PATHS.some((p) => p.re.test(pathname) && (!p.tab || !tab || tab === p.tab));
+};
 
 export function groupsOf(type: string): string[] {
   return GROUPS.find(([prefix]) => type.startsWith(prefix))?.[1] ?? [];
@@ -107,8 +112,12 @@ export function useRealtime() {
   const setStatus = useRealtimeStore((s) => s.setStatus);
 
   useEffect(() => {
+    // Đổi công ty, đăng xuất: bỏ thông báo tồn và đóng hộp của công ty cũ
+    useStockAlertStore.getState().reset(signedIn ? companyId || null : null);
     if (!companyId || !signedIn) return;
     const base = `/c/${companyId}`;
+    // Đổi công ty trong lúc đang lấy mã SKU thì bỏ thông báo của công ty cũ
+    let active = true;
     /**
      * Payload chỉ có `variantId`: lấy mã SKU qua chi tiết tồn (có sẵn trong cache thì dùng luôn). Báo một lần bằng toast
      * và ghi vào chuông; nút mở hộp thêm vào đề nghị nhập, không có quyền thì mở trang Tồn kho.
@@ -116,13 +125,10 @@ export function useRealtime() {
     const notifyBelowThreshold = async (message: RealtimeMessage) => {
       const { variantId, available, minQty } = message.payload as { variantId: string; available: number; minQty: number };
       const sku = await qc
-        .fetchQuery({
-          queryKey: inventoryKeys.stockDetail(companyId, variantId),
-          queryFn: async () => (await apiClient.get<StockDetail>(`/inventory/stock/${variantId}`)).data,
-          staleTime: 30_000,
-        })
+        .fetchQuery({ ...stockDetailQuery(companyId, variantId), staleTime: 30_000 })
         .then((d) => d.level.sku)
         .catch(() => undefined);
+      if (!active) return;
       const text = belowThresholdText(sku, available, minQty);
       const alerts = useStockAlertStore.getState();
       alerts.push(companyId, { id: message.eventId, variantId, text, at: message.occurredAt });
@@ -158,10 +164,14 @@ export function useRealtime() {
             : null;
       toast.warning(notice.text, { action: to ? { label: 'Xem', onClick: () => navigate(to) } : undefined });
     };
-    return connectRealtime({
+    const disconnect = connectRealtime({
       onMessage,
       onStatus: setStatus,
       onReconnect: () => invalidate(qc, companyId, ALL_GROUPS),
     });
+    return () => {
+      active = false;
+      disconnect();
+    };
   }, [companyId, signedIn, qc, navigate, setStatus]);
 }

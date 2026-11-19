@@ -148,7 +148,7 @@ const FIELD_LABELS: Record<string, string> = {
   code: 'Mã chứng từ',
   action: 'Thao tác',
   selfApproved: 'Tự duyệt',
-  address: 'Địa chỉ đăng ký',
+  address: 'Địa chỉ',
   responsibleName: 'Tổ chức chịu trách nhiệm hàng hoá',
   responsibleAddress: 'Địa chỉ tổ chức chịu trách nhiệm',
 };

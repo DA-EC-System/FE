@@ -59,8 +59,10 @@ export function useUpdateCompanyProfile() {
       (await apiClient.put<CompanyProfile>('/platform/company', body)).data,
     onSuccess: (data) => {
       qc.setQueryData(companySettingsKeys.profile(companyId), data);
-      // Thuộc tính sàn tier 'company' điền sẵn từ hồ sơ: lấy lại khi mở ghép danh mục
-      void qc.invalidateQueries({ queryKey: shopKeys.all(companyId) });
+      // Thuộc tính sàn tier 'company' điền sẵn từ hồ sơ: chi tiết category sàn và thông tin sàn của sản phẩm
+      for (const part of ['platform-categories', 'product-spec']) {
+        void qc.invalidateQueries({ queryKey: [...shopKeys.all(companyId), part] });
+      }
       void qc.invalidateQueries({ queryKey: companySettingsKeys.audit(companyId) });
     },
     // Lệch version: BE trả bản mới trong `current`, thay vào cache để form hiện bản đó

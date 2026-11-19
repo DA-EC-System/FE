@@ -43,7 +43,8 @@ export function Header({ active, sections }: { active: ActiveNav | null; section
   const { companyContext } = useAuth();
   const realtime = useRealtimeStore((s) => s.status);
   // Trang chưa nối SSE không hứa "cập nhật tức thời" (FE#318)
-  const live = isLivePath(useLocation().pathname);
+  const location = useLocation();
+  const live = isLivePath(location.pathname, location.search);
   const detail = useBreadcrumbStore((s) => s.detail);
   const crumbs = buildCrumbs(active, detail);
   const guideKey = useGuideStore((s) => s.page?.key);

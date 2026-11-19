@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlarmClock, Bell, CheckCheck, CircleAlert, CloudOff, Info, PackageMinus } from 'lucide-react';
+import { AlarmClock, Bell, CheckCheck, CircleAlert, CloudOff, Info, PackageMinus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useTasks } from '@/api/tasks.api';
@@ -85,8 +85,8 @@ export function TaskBell({ companyId }: { companyId: string }) {
             <p className="font-medium text-foreground">Chưa tải được việc cần làm</p>
             <p className="mt-1">{problemMessage(tasks.error)}</p>
           </div>
-        ) : items.length ? (
-          <div className="min-h-0 flex-1 overflow-y-auto pb-1">
+        ) : items.length || notices.length ? (
+          <div className={cn('min-h-0 flex-1 overflow-y-auto', items.length > 0 && 'pb-1')}>
             {byGroup(items.slice(0, SHOWN)).map(([group, list]) => (
               <section key={group} aria-label={group}>
                 <h3 className="px-4 pt-2.5 pb-1 text-xs font-normal text-muted-foreground">{group}</h3>
@@ -118,13 +118,24 @@ export function TaskBell({ companyId }: { companyId: string }) {
 function StockNotices({ notices, companyId }: { notices: StockNotice[]; companyId: string }) {
   const { companyContext } = useAuth();
   const openRequest = useStockAlertStore((s) => s.openRequest);
+  const dismiss = useStockAlertStore((s) => s.dismiss);
+  const clear = useStockAlertStore((s) => s.clear);
   const canRequest = canAddToRequest(companyContext);
   return (
     <section aria-label="Tồn chạm ngưỡng" className="border-b pb-1" data-testid="stock-notices">
-      <h3 className="px-4 pt-2.5 pb-1 text-xs font-normal text-muted-foreground">Tồn chạm ngưỡng</h3>
+      <div className="flex items-center px-4 pt-2.5 pb-1">
+        <h3 className="text-xs font-normal text-muted-foreground">Tồn chạm ngưỡng</h3>
+        <button
+          type="button"
+          className="ms-auto text-xs text-primary-text hover:text-primary-hover"
+          onClick={clear}
+        >
+          Bỏ hết
+        </button>
+      </div>
       <ul className="max-h-48 overflow-y-auto">
         {notices.map((n) => (
-          <li key={n.id} className="grid grid-cols-[32px_minmax(0,1fr)] gap-3 px-4 py-2.5">
+          <li key={n.id} className="grid grid-cols-[32px_minmax(0,1fr)_auto] gap-3 px-4 py-2.5" data-notice-id={n.id}>
             <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-warning-soft text-warning">
               <PackageMinus className="size-4" />
             </span>
@@ -147,6 +158,14 @@ function StockNotices({ notices, companyId }: { notices: StockNotice[]; companyI
                 )}
               </span>
             </div>
+            <button
+              type="button"
+              aria-label="Bỏ thông báo"
+              className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-table-head hover:text-foreground"
+              onClick={() => dismiss(n.id)}
+            >
+              <X className="size-3.5" />
+            </button>
           </li>
         ))}
       </ul>

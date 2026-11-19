@@ -86,16 +86,15 @@ export function useStock(params: StockListParams, options: { enabled?: boolean }
   });
 }
 
+/** Chi tiết tồn một SKU; dùng chung cho trang Tồn kho và thông báo chạm ngưỡng để cùng dạng cache */
+export const stockDetailQuery = (companyId: string, variantId: string) => ({
+  queryKey: inventoryKeys.stockDetail(companyId, variantId),
+  queryFn: async () => (await apiClient.get<StockDetail>(`/inventory/stock/${variantId}`)).data,
+});
+
 export function useStockDetail(variantId: string | null) {
   const companyId = useCompanyId();
-  return useQuery({
-    queryKey: inventoryKeys.stockDetail(companyId, variantId ?? ''),
-    enabled: Boolean(companyId && variantId),
-    queryFn: async () => {
-      const { data } = await apiClient.get<StockDetail>(`/inventory/stock/${variantId}`);
-      return data;
-    },
-  });
+  return useQuery({ ...stockDetailQuery(companyId, variantId ?? ''), enabled: Boolean(companyId && variantId) });
 }
 
 export function useSetReorderRule() {

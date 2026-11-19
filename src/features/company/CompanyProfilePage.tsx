@@ -50,28 +50,29 @@ export function CompanyProfilePage() {
 
 function ProfileForm({ profile }: { profile: CompanyProfile }) {
   const update = useUpdateCompanyProfile();
-  const [version, setVersion] = useState(profile.version);
   const [error, setError] = useState<string | null>(null);
   const form = useForm<CompanyProfileForm>({ resolver: zodResolver(schema), defaultValues: toProfileForm(profile) });
   const { control, setError: setFieldError, reset, watch } = form;
 
-  // Hồ sơ đổi từ nơi khác (lưu xong, lấy lại) thì hiện bản mới
+  // Hồ sơ đổi từ nơi khác (lệch version, lấy lại) thì nạp bản mới vào ô chưa sửa, giữ ô người dùng đang sửa
   useEffect(() => {
-    reset(toProfileForm(profile));
-    setVersion(profile.version);
+    reset(toProfileForm(profile), { keepDirtyValues: true });
   }, [profile, reset]);
 
   const address = watch('address').trim();
 
   const onSubmit = form.handleSubmit((v) => {
     setError(null);
-    update.mutate(toProfileBody(v, version), {
-      onSuccess: () => toast.success('Đã lưu hồ sơ công ty'),
+    update.mutate(toProfileBody(v, profile.version), {
+      onSuccess: (saved) => {
+        reset(toProfileForm(saved));
+        toast.success('Đã lưu hồ sơ công ty');
+      },
       onError: (e) => {
         const problem = getProblem(e);
         if (problem?.code === 'version_conflict') {
-          // Hook đã thay cache bằng bản mới; effect ở trên nạp lại form
-          setError('Hồ sơ vừa được người khác sửa. Đã tải bản mới, xem lại rồi lưu lần nữa.');
+          // Hook đã thay cache bằng bản mới; effect ở trên nạp ô chưa sửa, giữ phần đang sửa
+          setError('Hồ sơ vừa được người khác sửa. Đã tải bản mới, phần bạn đang sửa vẫn giữ; xem lại rồi lưu lần nữa.');
           return;
         }
         const fields = problem?.errors ?? {};

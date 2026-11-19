@@ -7,7 +7,10 @@ const acc = (id: string) => ({ id }) as Account;
 describe('Đồng bộ đăng nhập giữa các tab (FE#317)', () => {
   it('tab đang khởi động chưa có tài khoản: bỏ qua tài khoản tab khác báo', () => {
     expect(shouldReloadOnAuthMessage('a1', { status: 'loading', account: null })).toBe(false);
-    expect(shouldReloadOnAuthMessage(null, { status: 'loading', account: null })).toBe(false);
+  });
+
+  it('tab đang khởi động nhận đăng xuất thì vẫn tải lại (token xin được trước khi cookie bị huỷ)', () => {
+    expect(shouldReloadOnAuthMessage(null, { status: 'loading', account: null })).toBe(true);
   });
 
   it('cùng tài khoản thì ở lại', () => {

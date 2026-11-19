@@ -17,6 +17,12 @@ interface StockAlertStore {
   /** SKU đang mở hộp "Thêm vào đề nghị nhập" từ toast hay chuông */
   requestVariantId: string | null;
   push: (companyId: string, notice: StockNotice) => void;
+  /** Bỏ một thông báo khỏi chuông */
+  dismiss: (id: string) => void;
+  /** Bỏ hết thông báo */
+  clear: () => void;
+  /** Đổi công ty hay đăng xuất: bỏ thông báo, đóng hộp của công ty cũ */
+  reset: (companyId: string | null) => void;
   openRequest: (variantId: string) => void;
   closeRequest: () => void;
 }
@@ -31,6 +37,10 @@ export const useStockAlertStore = create<StockAlertStore>((set) => ({
       companyId,
       notices: [notice, ...(s.companyId === companyId ? s.notices : [])].slice(0, KEEP),
     })),
+  dismiss: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
+  clear: () => set({ notices: [] }),
+  reset: (companyId) =>
+    set((s) => (s.companyId === companyId ? s : { companyId, notices: [], requestVariantId: null })),
   openRequest: (requestVariantId) => set({ requestVariantId }),
   closeRequest: () => set({ requestVariantId: null }),
 }));

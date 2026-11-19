@@ -69,12 +69,26 @@ describe('Tồn chạm ngưỡng, trang nối SSE (FE#318)', () => {
     expect(belowThresholdText(undefined, 1200, 1500)).toBe('Một SKU còn 1.200, đã chạm ngưỡng 1.500');
   });
 
-  it('chỉ đơn, tồn kho, mua hàng là trang tự cập nhật', () => {
-    for (const p of ['/c/a/sales/orders', '/c/a/sales/orders/o1', '/c/a/inventory', '/c/a/purchasing', '/c/a/purchasing/requests/r1']) {
+  it('chỉ Tổng quan, đơn, tab Tồn kho, tab Đề nghị nhập là trang tự cập nhật', () => {
+    for (const p of ['/c/a', '/c/a/sales/orders', '/c/a/sales/orders/o1', '/c/a/inventory', '/c/a/purchasing', '/c/a/purchasing/requests/r1']) {
       expect(isLivePath(p), p).toBe(true);
     }
-    for (const p of ['/c/a', '/c/a/fulfillment/packages', '/c/a/inventory/documents/d1', '/c/a/sales/returns', '/c/a/purchasing/receipts/x']) {
+    for (const p of [
+      '/c/a/fulfillment/packages',
+      '/c/a/inventory/documents/d1',
+      '/c/a/sales/returns',
+      '/c/a/purchasing/receipts/x',
+      '/c/a/sales/orders/new',
+      '/c/a/purchasing/requests/new',
+    ]) {
       expect(isLivePath(p), p).toBe(false);
     }
+  });
+
+  it('xét tab trong query', () => {
+    expect(isLivePath('/c/a/inventory', '?tab=stock')).toBe(true);
+    expect(isLivePath('/c/a/inventory', '?tab=documents')).toBe(false);
+    expect(isLivePath('/c/a/purchasing', '?tab=suppliers')).toBe(false);
+    expect(isLivePath('/c/a/sales/orders', '?status=new')).toBe(true);
   });
 });
