@@ -13,6 +13,7 @@ import {
   outsideChangeLabel,
   pendingRevisionHint,
   pendingRevisionLabel,
+  isWeightError,
   pushErrorText,
   SPEC_FIX_CODES,
 } from './listingPush';
@@ -73,6 +74,9 @@ export function ListingStatusCell({
           <SpecLink label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />
         )}
         {PRODUCT_FIX_CODES.has(err.code) && canEditProduct && <EditProductLink companyId={companyId} productId={r.productId} />}
+        {isWeightError(err) && canEditProduct && (
+          <EditProductLink companyId={companyId} productId={r.productId} spec={r.variantId} label="Sửa cân nặng" />
+        )}
       </div>
     );
   }
@@ -120,6 +124,9 @@ export function ListingStatusCell({
       {l.status === 'push_failed' && l.pushError && PRODUCT_FIX_CODES.has(l.pushError.code) && canEditProduct && (
         <EditProductLink companyId={companyId} productId={r.productId} />
       )}
+      {l.status === 'push_failed' && isWeightError(l.pushError) && canEditProduct && (
+        <EditProductLink companyId={companyId} productId={r.productId} spec={r.variantId} label="Sửa cân nặng" />
+      )}
       {l.status === 'push_failed' && l.pushError && SPEC_FIX_CODES.has(l.pushError.code) && canFixSpec && (
         <SpecLink label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />
       )}
@@ -153,7 +160,7 @@ export function ListingStatusCell({
         <SyncBadge
           id={`hidden-paused-${r.variantId}`}
           variant="secondary"
-          label="Đã ẩn: SKU tạm ngừng"
+          label="Vì SKU tạm ngừng"
           hint="Bỏ tạm ngừng ở trang sản phẩm thì SKU tự hiện lại trên sàn. Không ẩn hoặc hiện tay ở đây."
           testId="hidden-paused"
         />
@@ -228,7 +235,18 @@ function SpecLink({ label, onClick, testId = 'open-spec' }: { label: string; onC
   );
 }
 
-export function EditProductLink({ companyId, productId }: { companyId: string; productId: string }) {
+/** Lối sang trang sản phẩm; `spec`: mở luôn hộp Thông tin SKU của biến thể (Sửa cân nặng, FE#326) */
+export function EditProductLink({
+  companyId,
+  productId,
+  spec,
+  label = 'Sửa sản phẩm',
+}: {
+  companyId: string;
+  productId: string;
+  spec?: string;
+  label?: string;
+}) {
   const navigate = useNavigate();
   return (
     <Button
@@ -238,11 +256,11 @@ export function EditProductLink({ companyId, productId }: { companyId: string; p
       className="h-auto p-0"
       onClick={(e) => {
         e.stopPropagation();
-        navigate(ROUTES.company.catalogProduct(companyId, productId));
+        navigate(ROUTES.company.catalogProduct(companyId, productId, spec));
       }}
-      data-testid="edit-product"
+      data-testid={spec ? 'edit-weight' : 'edit-product'}
     >
-      Sửa sản phẩm
+      {label}
     </Button>
   );
 }

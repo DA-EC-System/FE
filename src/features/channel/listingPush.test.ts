@@ -11,6 +11,7 @@ import {
   pendingRevisionHint,
   pendingRevisionLabel,
   pushBlockMessage,
+  isWeightError,
   pushErrorText,
   SPEC_FIX_CODES,
   splitPushResults,
@@ -50,6 +51,12 @@ const row = (variantId: string, productId: string, l: ChannelListing | null, thu
   thumbnailUrl: thumb,
   price: 100000,
   priceSource: 'standard',
+  shopPrice: null,
+  pendingPrice: null,
+  configVersionId: null,
+  netReceived: null,
+  belowFloor: null,
+  feeWarning: null,
   listing: l,
   specStatus: 'complete',
 });
@@ -149,6 +156,28 @@ describe('pushErrorText (FE#266, commerio-backend#305)', () => {
 
   it('mã khác, câu không khớp bảng dịch: giữ nguyên câu BE trả', () => {
     expect(pushErrorText({ code: 'marketplace_rejected', message: 'Sàn từ chối sản phẩm', at })).toEqual({ text: 'Sàn từ chối sản phẩm' });
+  });
+});
+
+describe('lỗi cân nặng kiện hàng (FE#326)', () => {
+  it('câu tiếng Việt nêu khoảng sàn cho phép, câu gốc ở Chi tiết từ sàn', () => {
+    const message = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
+    const t = pushErrorText({ code: 'marketplace_rejected', message, at: '2026-11-18T00:00:00.000Z' });
+    expect(t.text).toBe('Cân nặng kiện hàng phải từ 0,001 đến 300 kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.');
+    expect(t.platformMessage).toBe(message);
+    expect(isWeightError({ message })).toBe(true);
+    expect(isWeightError({ message: 'other' })).toBe(false);
+  });
+
+  it('đi cùng lỗi attribute: giữ cả hai câu; số lạ sau mã không bị lấy làm khoảng', () => {
+    const at = '2026-11-18T00:00:00.000Z';
+    const message =
+      '12052104: attribute missing; BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
+    const t = pushErrorText({ code: 'listing_check_failed', message, at });
+    expect(t.text).toContain('Category của sàn bắt buộc một attribute');
+    expect(t.text).toContain('Cân nặng kiện hàng phải từ 0,001 đến 300 kg');
+    const odd = pushErrorText({ code: 'marketplace_rejected', message: 'PACKAGE_WEIGHT_INVALID SellerSku ABC-12, weight 500', at });
+    expect(odd.text).toContain('Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép');
   });
 });
 

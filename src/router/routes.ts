@@ -29,6 +29,9 @@ export const ROUTES = {
     shops: (companyId: string) => `/c/${companyId}/channel/shops`,
     shop: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}`,
     shopSetup: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}/setup`,
+    /** Giá chờ xác nhận (§21.4); shopId: lọc theo gian hàng (FE#274) */
+    pendingPrices: (companyId: string, shopId?: string) =>
+      `/c/${companyId}/channel/pending-prices${shopId ? `?shopId=${encodeURIComponent(shopId)}` : ''}`,
     /**
      * Trang 4 bước đẩy sản phẩm lên sàn (commerio-backend#400); shop: gian hàng mở trang; fill: chỉ bổ sung thông tin sàn
      * cho sản phẩm đã có trên sàn (bước cuối là Lưu, không đẩy)
@@ -43,8 +46,9 @@ export const ROUTES = {
     shopOAuthCallback: (companyId: string, platform: string) => `/c/${companyId}/channel/shops/oauth-callback/${platform}`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
-    catalogProduct: (companyId: string, productId: string) =>
-      `/c/${companyId}/catalog/products/${productId}`,
+    /** spec: mở luôn hộp Thông tin SKU của biến thể (FE#326, lối sửa cân nặng từ lỗi đẩy) */
+    catalogProduct: (companyId: string, productId: string, spec?: string) =>
+      `/c/${companyId}/catalog/products/${productId}${spec ? `?spec=${encodeURIComponent(spec)}` : ''}`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,
     inventoryTab: (companyId: string, tab: 'stock' | 'documents') =>

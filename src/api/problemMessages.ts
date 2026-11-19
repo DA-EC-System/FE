@@ -205,6 +205,7 @@ function incompleteListMessage(error: unknown): string {
 /** Lỗi của lượt tải SKU sàn chạy nền (`refresh.error`, §18.3, BE#361) không có câu chung trong MESSAGES */
 const REFRESH_ERROR_MESSAGES: Record<string, string> = {
   timed_out: 'Sàn trả danh sách SKU quá 10 phút nên lượt tải đã dừng.',
+  refresh_stale: 'Quá 15 phút chưa tải xong danh sách SKU nên lượt tải đã dừng.',
   marketplace_unavailable: 'Sàn đang lỗi, chưa tải được danh sách SKU.',
   marketplace_unauthorized: 'Sàn từ chối quyền truy cập của gian hàng. Kết nối lại gian hàng rồi tải lại.',
   marketplace_rejected: 'Sàn chưa trả được danh sách SKU.',
@@ -212,7 +213,7 @@ const REFRESH_ERROR_MESSAGES: Record<string, string> = {
 
 /**
  * Câu báo lượt tải SKU sàn hỏng (§18.3, BE#361). `secondsLeft`: số giây còn lại tới lúc được tải lại, đếm ngược từ
- * `error.retryAfterSeconds`; còn thì câu nêu số phút làm tròn lên, hết thì mời bấm Tải lại
+ * `refresh.retryAfterSeconds`; còn thì câu nêu số phút làm tròn lên, hết thì mời bấm Tải lại
  */
 export function remoteRefreshErrorMessage(error: RemoteSkusRefreshError, secondsLeft: number | null): string {
   const minutes = secondsLeft && secondsLeft > 0 ? Math.ceil(secondsLeft / 60) : null;

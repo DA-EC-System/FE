@@ -51,7 +51,7 @@ describe('isTimeout', () => {
 });
 
 describe('remoteRefreshErrorMessage: lỗi của lượt tải chạy nền (BE#361)', () => {
-  const err = (code: string, platformCode: string | null = null) => ({ code, platformCode, message: 'BE message', retryAfterSeconds: 600 });
+  const err = (code: string, platformCode: string | null = null) => ({ code, platformCode, message: 'BE message' });
 
   it('sàn trả thiếu danh sách: đếm ngược số phút, hết giờ thì mời bấm Tải lại', () => {
     expect(remoteRefreshErrorMessage(err('marketplace_rejected', 'incomplete_list'), 250)).toBe(
@@ -86,6 +86,12 @@ describe('remoteRefreshErrorMessage: lỗi của lượt tải chạy nền (BE#
   it('gian hàng quá 10.000 sản phẩm: không mời bấm Tải lại', () => {
     expect(remoteRefreshErrorMessage(err('marketplace_rejected', 'too_many_products'), 300)).toBe(
       'Gian hàng quá 10.000 sản phẩm, sàn không cho đọc hết danh sách.',
+    );
+  });
+
+  it('lượt kẹt quá 15 phút (refresh_stale, FE#315): mời bấm Tải lại', () => {
+    expect(remoteRefreshErrorMessage(err('refresh_stale'), null)).toBe(
+      'Quá 15 phút chưa tải xong danh sách SKU nên lượt tải đã dừng. Bấm Tải lại để thử lại.',
     );
   });
 

@@ -11,7 +11,6 @@ import type {
   RemoteSku,
   RemoteSkuList,
   RemoteSkusRefresh,
-  RemoteSkusRefreshResult,
   SetupDecision,
   SetupSuggestion,
   Shop,
@@ -248,13 +247,43 @@ export function decodeMockCode(code: string): { externalShopId: string; shopName
   }
 }
 
-/** Giá đẩy lên sàn: bảng giá của gian hàng, thiếu thì lấy giá chuẩn (G5) */
-export function shopPrice(shop: MockShop, variantId: string) {
+/** Giá đẩy lên sàn: giá ghi đè tay của listing, rồi bảng giá của gian hàng, thiếu thì lấy giá chuẩn (G5, BE#225) */
+export function shopPrice(
+  shop: MockShop,
+  variantId: string,
+): { price: number | null; priceSource: 'override' | 'shop' | 'standard' | null } {
+  const override = channel.listings.find((x) => x.shopId === shop.id && x.variantId === variantId && x.status !== 'delisted')
+    ?.priceOverride;
+  if (override != null) return { price: override, priceSource: 'override' };
   const own = pricing.pricelists.find((p) => p.shopId === shop.id)?.prices[variantId];
-  if (own !== undefined) return { price: own, priceSource: 'shop' as const };
+  if (own !== undefined) return { price: own, priceSource: 'shop' };
   const standard = ensureStandard(shop.companyId).prices[variantId];
-  if (standard !== undefined) return { price: standard, priceSource: 'standard' as const };
+  if (standard !== undefined) return { price: standard, priceSource: 'standard' };
   return { price: null, priceSource: null };
+}
+
+/** Giá thấp nhất của mock: 60% giá chuẩn (BE tính từ giá vốn, phí, thuế); null khi chưa có giá chuẩn */
+function priceFloor(shop: MockShop, variantId: string): number | null {
+  const standard = ensureStandard(shop.companyId).prices[variantId];
+  return standard === undefined ? null : Math.round(standard * 0.6);
+}
+
+/** Phần giá của dòng ghép (FE#274, BE#225): nguồn giá, thực nhận, dưới giá thấp nhất, giá chờ xác nhận */
+function rowPricing(shop: MockShop, variantId: string, l: MockListing | undefined) {
+  const { price, priceSource } = shopPrice(shop, variantId);
+  const floor = priceFloor(shop, variantId);
+  const pending = l && l.status !== 'delisted' ? channel.pendingPrices.get(l.id) : undefined;
+  const feeRate = channel.feeOverHalfShops.has(shop.id) ? 0.55 : 0.18;
+  return {
+    price,
+    priceSource,
+    shopPrice: pricing.pricelists.find((p) => p.shopId === shop.id)?.prices[variantId] ?? null,
+    pendingPrice: pending?.pendingPrice ?? null,
+    configVersionId: pending ? `cfg-${shop.companyId}` : null,
+    netReceived: price === null ? null : Math.round(price * (1 - feeRate)),
+    belowFloor: price === null || floor === null ? null : price < floor,
+    feeWarning: channel.feeOverHalfShops.has(shop.id) ? ('over_50' as const) : null,
+  };
 }
 
 /** Khả dụng của biến thể: số đẩy lên sàn (không đẩy tồn thực) */
@@ -1154,38 +1183,54 @@ function remoteCounts(shopId: string, platform: string) {
 /** Lần đọc trọn SKU sàn gần nhất theo gian hàng (`syncedAt` của `remote-skus`) */
 const remoteSyncedAt = new Map<string, string>();
 
-/** Lượt tải SKU sàn gần nhất theo gian hàng (§18.3, BE#361); `doneAt`: mốc mock coi lượt chạy xong */
-const remoteRefreshes = new Map<string, RemoteSkusRefresh & { doneAt: number }>();
+/** Lượt tải SKU sàn đang chờ theo gian hàng (§18.3, BE#361): mốc mock coi lượt chạy xong */
+const remoteRefreshes = new Map<string, { requestedAt: string; doneAt: number }>();
 /** Thời gian một lượt tải của mock: đủ thấy trạng thái đang tải, e2e (LATENCY 0) thì ngắn */
 const REMOTE_REFRESH_MS = LATENCY === 0 ? 200 : 2500;
 
-const publicRefresh = ({ doneAt: _doneAt, ...refresh }: RemoteSkusRefresh & { doneAt: number }): RemoteSkusRefresh =>
-  refresh;
-
-function startRefresh(shopId: string): RemoteSkusRefresh {
-  const run = {
-    status: 'running' as const,
-    startedAt: new Date().toISOString(),
-    finishedAt: null,
-    error: null,
-    doneAt: Date.now() + REMOTE_REFRESH_MS,
-  };
-  remoteRefreshes.set(shopId, run);
-  return publicRefresh(run);
+function startRefresh(shopId: string) {
+  remoteRefreshes.set(shopId, { requestedAt: new Date().toISOString(), doneAt: Date.now() + REMOTE_REFRESH_MS });
 }
 
-/** Lượt tải gần nhất; đã tới mốc xong thì chuyển `succeeded` và ghi bản sao */
-function currentRefresh(shopId: string): RemoteSkusRefresh | null {
+/**
+ * Trạng thái lượt tải theo hợp đồng BE (`refreshState`): có lượt chờ thì `running`; tới mốc xong thì ghi bản sao, xoá lượt
+ * và trả `idle`. Mock không giữ lỗi đọc trọn 10 phút (`failed`) và mốc kẹt 15 phút
+ */
+function currentRefresh(shopId: string): RemoteSkusRefresh {
   const run = remoteRefreshes.get(shopId);
-  if (!run) return null;
-  if (run.status === 'running' && Date.now() >= run.doneAt) {
-    run.status = 'succeeded';
-    run.finishedAt = new Date().toISOString();
-    remoteSyncedAt.set(shopId, run.finishedAt);
+  if (run && Date.now() < run.doneAt) {
+    return { status: 'running', requestedAt: run.requestedAt, error: null, retryAfterSeconds: null };
+  }
+  if (run) {
+    remoteRefreshes.delete(shopId);
+    remoteSyncedAt.set(shopId, new Date().toISOString());
     // Bản sao lấy tên mới nhất trên sàn
     for (const r of channel.remoteSkus[shopId] ?? []) delete r.copiedTitle;
   }
-  return publicRefresh(run);
+  return { status: 'idle', requestedAt: null, error: null, retryAfterSeconds: null };
+}
+
+/** Bản sao SKU sàn của gian hàng kèm lượt tải (`GET remote-skus`, `POST remote-skus/refresh`) */
+function remoteSkuList(shop: MockShop, refresh: RemoteSkusRefresh, unmatched: boolean): RemoteSkuList {
+  const syncedAt = remoteSyncedAt.get(shop.id) ?? null;
+  const skus: RemoteSku[] = syncedAt
+    ? (channel.remoteSkus[shop.id] ?? []).map((r) => {
+        const { mapped, unmanaged } = listingOfSku(shop.id, r.externalSkuId);
+        const row = mapped ?? unmanaged;
+        return {
+          externalProductId: r.externalProductId,
+          externalSkuId: r.externalSkuId,
+          title: r.copiedTitle ?? r.title,
+          sellerSku: r.sellerSku,
+          matchedVariantId: mapped?.variantId ?? null,
+          mode: mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null,
+          listingId: row?.id ?? null,
+          listingVersion: row?.version ?? null,
+          pendingMapping: row?.pendingMapping ?? null,
+        };
+      })
+    : [];
+  return { syncedAt, items: unmatched ? skus.filter((x) => !x.mode) : skus, refresh };
 }
 
 /** Gian hàng của công ty, còn kết nối, người gọi có quyền ghép SKU (BE#220) */
@@ -1650,7 +1695,7 @@ export const shopHandlers = [
           .map((a) => a.value)
           .join(' / '),
         thumbnailUrl: product.imageFileIds[0] ? fileUrl(product.imageFileIds[0]) : null,
-        ...shopPrice(shop, variant.id),
+        ...rowPricing(shop, variant.id, l),
         listing: l ? toListing(l) : null,
         specStatus: specStatusOf(shop.companyId, product.id, shop.platform),
       };
@@ -1658,9 +1703,9 @@ export const shopHandlers = [
     return HttpResponse.json<{ items: ListingRow[] }>({ items: rows });
   }),
 
-  // §18.3, BE#361: tải SKU sàn chạy nền. `GET remote-skus` đọc bản sao kèm lượt tải gần nhất; lần mở đầu chưa có bản sao
-  // thì bắt đầu một lượt, trả `items: []`. `POST remote-skus/refresh` (Tải lại) trả 202 kèm lượt đang chạy hoặc lượt mới;
-  // FE hỏi `GET remote-skus/refresh` theo `Retry-After`. Mock không giữ mốc 60 giây (200) chống bấm liên tục của BE
+  // §18.3, BE#361: tải SKU sàn chạy nền. `GET remote-skus` đọc bản sao kèm `refresh`; lần mở đầu chưa có bản sao thì xếp
+  // lượt, trả `items: []`. `POST remote-skus/refresh` (Tải lại) trả cùng hình, 202 khi xếp lượt hoặc đang có lượt; FE hỏi
+  // lại `GET remote-skus` tới khi `refresh.status` khác running (FE#315). Mock không giữ mốc 60 giây (200) của BE
   http.get(`${API}/channel/shops/:id/remote-skus`, async ({ params, request }) => {
     await delay(LATENCY * 2);
     const found = remoteShop(request, params.id);
@@ -1668,31 +1713,12 @@ export const shopHandlers = [
     const shop = found.value;
     settleDuePushes(shop);
     let refresh = currentRefresh(shop.id);
-    if (!remoteSyncedAt.has(shop.id) && refresh?.status !== 'running') refresh = startRefresh(shop.id);
-    const syncedAt = remoteSyncedAt.get(shop.id) ?? null;
-    const skus: RemoteSku[] = syncedAt
-      ? (channel.remoteSkus[shop.id] ?? []).map((r) => {
-          const { mapped, unmanaged } = listingOfSku(shop.id, r.externalSkuId);
-          const row = mapped ?? unmanaged;
-          return {
-            externalProductId: r.externalProductId,
-            externalSkuId: r.externalSkuId,
-            title: r.copiedTitle ?? r.title,
-            sellerSku: r.sellerSku,
-            matchedVariantId: mapped?.variantId ?? null,
-            mode: mapped ? 'mapped' : unmanaged?.approved ? 'unmanaged' : null,
-            listingId: row?.id ?? null,
-            listingVersion: row?.version ?? null,
-            pendingMapping: row?.pendingMapping ?? null,
-          };
-        })
-      : [];
+    if (!remoteSyncedAt.has(shop.id) && refresh.status !== 'running') {
+      startRefresh(shop.id);
+      refresh = currentRefresh(shop.id);
+    }
     const unmatched = new URL(request.url).searchParams.get('unmatched') === 'true';
-    return HttpResponse.json<RemoteSkuList>({
-      syncedAt,
-      items: unmatched ? skus.filter((s) => !s.mode) : skus,
-      refresh,
-    });
+    return HttpResponse.json<RemoteSkuList>(remoteSkuList(shop, refresh, unmatched));
   }),
 
   http.post(`${API}/channel/shops/:id/remote-skus/refresh`, async ({ params, request }) => {
@@ -1700,22 +1726,8 @@ export const shopHandlers = [
     const found = remoteShop(request, params.id);
     if (!found.ok) return found.response;
     const shop = found.value;
-    const current = currentRefresh(shop.id);
-    const refresh = current?.status === 'running' ? current : startRefresh(shop.id);
-    return HttpResponse.json<RemoteSkusRefreshResult>(
-      { refresh },
-      { status: 202, headers: { 'Retry-After': '1', Location: `${API}/channel/shops/${shop.id}/remote-skus/refresh` } },
-    );
-  }),
-
-  http.get(`${API}/channel/shops/:id/remote-skus/refresh`, async ({ params, request }) => {
-    await delay(LATENCY);
-    const found = remoteShop(request, params.id);
-    if (!found.ok) return found.response;
-    return HttpResponse.json<RemoteSkusRefreshResult>(
-      { refresh: currentRefresh(found.value.id) },
-      { headers: { 'Retry-After': '1' } },
-    );
+    if (currentRefresh(shop.id).status !== 'running') startRefresh(shop.id);
+    return HttpResponse.json<RemoteSkuList>(remoteSkuList(shop, currentRefresh(shop.id), false), { status: 202 });
   }),
 
   /**
@@ -1804,6 +1816,38 @@ export const shopHandlers = [
   }),
 
   /** CEO quyết thay đổi ngoài app (§18.3, commerio-backend#360): bật lại với giá app, hoặc nhận giá sàn */
+  /**
+   * Ghi đè giá tay của listing (BE#225, Documents/21 §18.6.7): `price` số nguyên đồng, null bỏ ghi đè (về giá theo gian
+   * hàng hoặc giá chuẩn). Dưới giá thấp nhất thì 422 `below_floor`
+   */
+  http.put(`${API}/channel/shops/:id/listings/:listingId/price`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.listingManage);
+    if (!guard.ok) return guard.response;
+    const found = ownShop(params.id, guard.value.companyId);
+    if (!found.ok) return found.response;
+    const shop = found.value;
+    const l = channel.listings.find((x) => x.shopId === shop.id && x.id === params.listingId && x.status !== 'delisted');
+    if (!l) return problem(404, 'Không tìm thấy sản phẩm trên sàn');
+    const body = (await request.json()) as { version: number; price: number | null };
+    if (body.price !== null) {
+      if (!Number.isInteger(body.price)) {
+        return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors: { price: 'Giá là số nguyên đồng' } });
+      }
+      if (body.price <= 0) {
+        return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors: { price: 'Giá phải lớn hơn 0' } });
+      }
+    }
+    if (body.version !== l.version) return versionConflict(toListing(l), 'Sản phẩm trên sàn vừa được người khác sửa.');
+    const floor = priceFloor(shop, l.variantId);
+    if (body.price !== null && floor !== null && body.price < floor) {
+      return problem(422, 'Giá dưới giá thấp nhất', { code: 'below_floor', detail: `Giá thấp nhất là ${floor.toLocaleString('vi-VN')} đồng` });
+    }
+    l.priceOverride = body.price;
+    l.version += 1;
+    return HttpResponse.json<ChannelListing>(toListing(l));
+  }),
+
   http.post(`${API}/channel/shops/:id/listings/:listingId/outside-change/:action`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.listingManage);
@@ -1826,16 +1870,8 @@ export const shopHandlers = [
       return problem(409, 'Sản phẩm không còn chờ quyết thay đổi ngoài app', { code: 'invalid_transition' });
     }
     const before = { status: l.status, outsideChange: oc };
-    if (action === 'accept-price') {
-      // Giá ghi đè tay của listing: mock ghi vào bảng giá của gian hàng
-      let list = pricing.pricelists.find((p) => p.shopId === shop.id);
-      if (!list) {
-        list = { id: rid('pl'), companyId: shop.companyId, name: `Giá ${shop.shopName}`, type: 'channel', shopId: shop.id, prices: {}, version: 1, updatedAt: db.now() };
-        pricing.pricelists.push(list);
-      }
-      list.prices[l.variantId] = oc.platformPrice!;
-      list.version += 1;
-    }
+    // Nhận giá sàn: thành giá ghi đè tay của listing (BE#225, `priceSource = 'override'`)
+    if (action === 'accept-price') l.priceOverride = oc.platformPrice!;
     l.outsideChange = null;
     l.lastPushedPrice = shopPrice(shop, l.variantId).price;
     l.lastPushedAt = db.now();

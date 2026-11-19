@@ -1,4 +1,4 @@
-import { listings } from '../channelData';
+import { listings, pendingPrices } from '../channelData';
 import { toListing } from './channel';
 import type { ChannelListing, PendingPrice } from '@/types/shop';
 import { http, HttpResponse, delay } from 'msw';
@@ -37,8 +37,6 @@ function activateDue() {
 }
 
 const previousDay = (day: string) => new Date(Date.parse(day) - 86400000).toISOString().slice(0, 10);
-// Giá gắn với listing, không đổi theo vị trí sau khi lọc/xác nhận dòng khác.
-const pendingPrices = new Map(listings.filter((l) => l.status === 'live').map((l, i) => [l.id, { pendingPrice: i % 2 ? 100000 : 160000, belowFloor: i % 2 === 1 }]));
 export const financeLifecycleHandlers = [
   http.get(`${API}/channel/listings/pending-prices`, async ({ request }) => {
     const g = requireCompany(request, P.listingManage); if (!g.ok) return g.response;

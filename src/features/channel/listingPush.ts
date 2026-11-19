@@ -150,10 +150,27 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
     text: () => 'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
   },
   {
+    // Lazada, staging 18/11/2026: "BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0"
+    // Số lấy theo cụm "khoảng A và B" / "between A and B", không bắt số lạ đứng sau mã (vd SellerSku ABC-12)
+    pattern:
+      /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i,
+    text: (m) =>
+      m[1] && m[2]
+        ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.`
+        : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa cân nặng ở Thông tin SKU rồi bấm Đẩy lại.',
+  },
+  {
     pattern: /Category attribute "([^"]+)" is mandatory/i,
     text: (m) => `Category Lazada bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.`,
   },
 ];
+
+/** Số kg của sàn ("300.0", "0.001") theo cách viết Việt Nam: "300", "0,001" */
+const kgText = (raw: string) => Number(raw).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+
+/** Lỗi đẩy vì cân nặng kiện hàng: hiện nút Sửa cân nặng mở hộp Thông tin SKU (FE#326) */
+export const isWeightError = (e: { message?: string } | null | undefined) =>
+  Boolean(e?.message && /PACKAGE_WEIGHT[A-Z_]*INVALID/i.test(e.message));
 
 function translatePart(part: string): string | null {
   for (const t of PUSH_ERROR_TRANSLATIONS) {
@@ -169,10 +186,12 @@ function translatePart(part: string): string | null {
  * dịch được thì dùng câu chung của mã; mã khác không khớp thì giữ `message` BE trả
  */
 export function pushErrorText(e: SyncError): { text: string; platformMessage?: string } {
-  if (!PLATFORM_MESSAGE_CODES.has(e.code) || !e.message) {
+  // Lỗi cân nặng dịch dù BE gắn mã nào (FE#326); có thể đi cùng lỗi khác nên tách "; " và dịch từng phần như mã kiểm trước
+  const weight = isWeightError(e);
+  if (!weight && (!PLATFORM_MESSAGE_CODES.has(e.code) || !e.message)) {
     return { text: e.message || codeMessage(e.code) };
   }
-  const precheck = PRECHECK_CODES.has(e.code);
+  const precheck = weight || PRECHECK_CODES.has(e.code);
   const parts = precheck ? e.message.split('; ') : [e.message];
   const translated = parts.map(translatePart);
   const texts = [...new Set(translated.filter((t): t is string => t !== null))];

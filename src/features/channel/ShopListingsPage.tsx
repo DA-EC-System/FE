@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import {
@@ -36,10 +36,10 @@ import {
   useDecideMapping,
   useDelistListing,
   useMatchListing,
+  useOverrideListingPrice,
   usePushListings,
   useRefreshRemoteSkus,
   useRemoteSkus,
-  useRemoteSkusRefresh,
   useResolveOutsideChange,
   useUpdateListingContent,
   useShop,
@@ -65,7 +65,7 @@ import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
-import { isDelisted, UNMANAGED, variantMatchOptions } from './matchOptions';
+import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
   LISTED_STATUSES,
@@ -76,6 +76,8 @@ import {
   splitPushResults,
 } from './listingPush';
 import { ListingStatusCell, PendingBadge, type PushError } from './ListingStatusCell';
+import { PRICE_SOURCE_LABEL } from './listingPrice';
+import { PriceOverrideDialog } from './PriceOverrideDialog';
 import {
   isUsable,
   platformLabel,
@@ -151,6 +153,9 @@ const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
  * Hộp ghép đang mở. BE ghép theo SKU sàn (§18.6.5): biến thể chưa ghép thì chọn SKU sàn; từ SKU sàn (chưa ghép, hoặc
  * Đổi ghép ở dòng biến thể) thì chọn biến thể khác hoặc "không quản tồn"
  */
+/** Lượt tải SKU sàn lỗi mà BE không kèm lỗi cụ thể */
+const REFRESH_FAILED_GENERIC = 'Chưa tải lại được danh sách SKU trên sàn. Bấm Tải lại để thử lại.';
+
 type Matching =
   | { from: 'variant'; row: ListingRow }
   | { from: 'remote'; externalSkuId: string; title: string; sellerSku: string | null; current: ListingRow | null };
@@ -174,6 +179,9 @@ export function ShopListingsPage() {
   /** Quyết thay đổi ngoài app: `listing.manage` + vai trò CEO (§18.3, commerio-backend#360) */
   const isCeo = Boolean(companyContext?.roles.includes('CEO'));
   const canDecideOutside = canManage && isCeo;
+  /** Ghi đè giá chỉ lưu ở Commerio, không gọi sàn: cần `listing.manage`, gian hàng ngắt vẫn sửa được (FE#274) */
+  const canSetPrice = can(PERMISSIONS.listingManage);
+  const canSync = can(PERMISSIONS.shopSync);
   /** Duyệt ghép chờ cần quyền đẩy listing và vai trò CEO (§18.6.5); FE dựa `canSelfApprove` của BE */
   const canDecide = can(PERMISSIONS.listingManage) && Boolean(companyContext?.canSelfApprove) && usable;
   const canReconnect =
@@ -197,14 +205,17 @@ export function ShopListingsPage() {
   const remoteQuery = useRemoteSkus(shopId, canMatch);
   const matchMut = useMatchListing();
   const refreshMut = useRefreshRemoteSkus();
-  // Lượt tải SKU sàn chạy nền (§18.3, BE#361): mở trang lần đầu hay bấm Tải lại thì BE chạy nền, FE hỏi lại tới khi xong
+  // Lượt tải SKU sàn chạy nền (§18.3, BE#361): mở trang lần đầu hay bấm Tải lại thì BE chạy nền, `useRemoteSkus` hỏi lại
+  // `GET remote-skus` tới khi `refresh.status` khác running (FE#315)
   const remoteRefresh = remoteQuery.data?.refresh ?? null;
-  const refreshPoll = useRemoteSkusRefresh(shopId, remoteRefresh);
-  const refreshing = refreshMut.isPending || refreshPoll.running;
-  /** Lượt do người dùng bấm Tải lại: xong thì báo bằng toast */
+  const refreshRunning = remoteRefresh?.status === 'running';
+  const refreshing = refreshMut.isPending || refreshRunning;
+  /** Hỏi lại lỗi (mạng, BE) khi lượt đang chạy: báo, giữ danh sách đang có */
+  const refreshPollError = refreshRunning && remoteQuery.isRefetchError ? remoteQuery.error : null;
+  /** Người dùng bấm Tải lại và BE xếp lượt nền: lượt xong thì báo bằng toast */
   const userRefresh = useRef<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const retrySeconds = remoteRefresh?.status === 'failed' ? (remoteRefresh.error?.retryAfterSeconds ?? null) : null;
+  const retrySeconds = remoteRefresh?.status === 'failed' ? remoteRefresh.retryAfterSeconds : null;
   // Đếm ngược số phút được tải lại theo `error.retryAfterSeconds`, tính từ lúc nhận phản hồi
   useEffect(() => {
     if (!retrySeconds) return;
@@ -214,19 +225,28 @@ export function ShopListingsPage() {
   const secondsLeft =
     retrySeconds === null ? null : Math.max(0, retrySeconds - Math.max(0, now - remoteQuery.dataUpdatedAt) / 1000);
   const refreshFailure =
-    remoteRefresh?.status === 'failed' && remoteRefresh.error
-      ? remoteRefreshErrorMessage(remoteRefresh.error, secondsLeft)
+    remoteRefresh?.status === 'failed'
+      ? remoteRefresh.error
+        ? remoteRefreshErrorMessage(remoteRefresh.error, secondsLeft)
+        : REFRESH_FAILED_GENERIC
       : null;
   useEffect(() => {
-    if (!remoteRefresh || remoteRefresh.status === 'running' || userRefresh.current !== remoteRefresh.startedAt) return;
+    // Chỉ báo cho đúng gian hàng đã bấm Tải lại; chuyển gian hàng giữa chừng thì bỏ lượt báo
+    if (userRefresh.current === null || !remoteRefresh || remoteRefresh.status === 'running') return;
+    const mine = userRefresh.current === shopId;
     userRefresh.current = null;
-    if (remoteRefresh.status === 'succeeded') toast.success('Đã tải lại SKU trên sàn');
-    else if (remoteRefresh.error) {
-      toast.error(remoteRefreshErrorMessage(remoteRefresh.error, remoteRefresh.error.retryAfterSeconds));
-    }
-  }, [remoteRefresh]);
+    if (!mine) return;
+    if (remoteRefresh.status === 'failed') {
+      toast.error(
+        remoteRefresh.error
+          ? remoteRefreshErrorMessage(remoteRefresh.error, remoteRefresh.retryAfterSeconds)
+          : REFRESH_FAILED_GENERIC,
+      );
+    } else toast.success('Đã tải lại SKU trên sàn');
+  }, [remoteRefresh, shopId]);
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
+  const priceMut = useOverrideListingPrice();
   const outsideMut = useResolveOutsideChange();
   const contentMut = useUpdateListingContent();
   const decideMut = useDecideMapping();
@@ -247,6 +267,10 @@ export function ShopListingsPage() {
   /** SellerSku của `match` không có trong bản sao SKU sàn: nhắc Tải lại */
   const [missingMatch, setMissingMatch] = useState<string | null>(null);
   const [delisting, setDelisting] = useState<ListingRow | null>(null);
+  /** Dòng đang ghi đè giá (FE#274) */
+  const [pricing, setPricing] = useState<ListingRow | null>(null);
+  const [priceFieldError, setPriceFieldError] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [decidingOutside, setDecidingOutside] = useState<{ row: ListingRow; action: OutsideChangeAction } | null>(null);
   const [updatingContent, setUpdatingContent] = useState<ListingRow | null>(null);
   const [page, setPage] = useState(1);
@@ -387,7 +411,6 @@ export function ShopListingsPage() {
   const matchLabel = urlParams.q || matchParam;
   const remoteData = remoteQuery.data;
   const listingsReady = Boolean(listingsQuery.data);
-  const refreshRunning = refreshPoll.running;
   useEffect(() => {
     if (!matchParam || !canMatch || !remoteData || !listingsReady) return;
     const target = resolveMatchTarget(remoteData.items, matchParam);
@@ -438,16 +461,20 @@ export function ShopListingsPage() {
     if (!matching) return [];
     if (matching.from === 'variant') {
       const row = matching.row;
-      return unmatchedRemote
-        .filter((r) => !r.pendingMapping)
-        .map((r) => ({
-          id: r.externalSkuId,
-          title: r.title,
-          subtitle: `${r.sellerSku || 'Không có SKU người bán'} · ${r.externalSkuId}`,
-          suggested: Boolean(r.sellerSku) && r.sellerSku === row.sku,
-        }));
+      const name = [row.productName, row.attributesLabel].filter(Boolean).join(' · ');
+      // Xếp theo độ giống tên/SKU với biến thể đang ghép (FE#326)
+      return rankByScore(
+        unmatchedRemote.filter((r) => !r.pendingMapping),
+        (r) => matchScore(r, { name, sku: row.sku }),
+      ).map(({ item: r, suggested }) => ({
+        id: r.externalSkuId,
+        title: r.title,
+        subtitle: `${r.sellerSku || 'Không có SKU người bán'} · ${r.externalSkuId}`,
+        suggested,
+      }));
     }
     return variantMatchOptions(items, {
+      title: matching.title,
       sellerSku: matching.sellerSku,
       currentVariantId: matching.current?.variantId,
       isCeo,
@@ -522,13 +549,22 @@ export function ShopListingsPage() {
     }
   };
 
-  // Tải lại SKU sàn (§18.3, BE#361): 202 thì chờ lượt chạy nền xong mới báo; 200 là lượt thành công trong 60 giây.
+  // Tải lại SKU sàn (§18.3, BE#361): POST trả danh sách đang có kèm lượt; lượt chạy nền thì báo đang tải, bảng tự cập nhật
+  // và báo xong khi `refresh.status` hết running (FE#315). 200 không có lượt chạy là danh sách vừa đọc trong 60 giây.
   // Lỗi trả ngay trên POST (429 kèm số phút chờ, gian hàng chưa nối) báo luôn
   const refreshRemote = () =>
     refreshMut.mutate(shopId, {
       onSuccess: (data) => {
-        if (!('items' in data) && data.refresh?.status === 'running') userRefresh.current = data.refresh.startedAt;
-        else toast.success('Đã tải lại SKU trên sàn');
+        if (data.refresh?.status === 'running') {
+          userRefresh.current = shopId;
+          toast.info('Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.');
+        } else if (data.refresh?.status === 'failed') {
+          toast.error(
+            data.refresh.error
+              ? remoteRefreshErrorMessage(data.refresh.error, data.refresh.retryAfterSeconds)
+              : REFRESH_FAILED_GENERIC,
+          );
+        } else toast.success('Đã tải lại SKU trên sàn');
       },
       onError: (e) =>
         toast.error(
@@ -537,6 +573,50 @@ export function ShopListingsPage() {
             : problemMessage(e, 'remote_skus'),
         ),
     });
+
+  const openPrice = (r: ListingRow) => {
+    setPriceFieldError(null);
+    setPriceError(null);
+    setPricing(r);
+  };
+
+  // Ghi đè giá (FE#274, BE#225): 422 lỗi ô giá hiện dưới ô, 409 nạp lại và giữ hộp mở để người dùng xem giá mới
+  const savePrice = async (price: number | null) => {
+    const l = pricing?.listing;
+    if (!pricing || !l) return;
+    setPriceFieldError(null);
+    setPriceError(null);
+    try {
+      await priceMut.mutateAsync({ shopId, listingId: l.id, version: l.version, price });
+      toast.success(price === null ? `Đã bỏ ghi đè giá ${l.sellerSku || pricing.sku}` : `Đã lưu giá ${l.sellerSku || pricing.sku}`);
+      setPricing(null);
+    } catch (e) {
+      const problem = getProblem(e);
+      if (problem?.code === 'below_floor') {
+        const detail = problem.detail?.trim().replace(/\.+$/, '');
+        setPriceFieldError(detail ? `Giá dưới giá thấp nhất. ${detail}.` : 'Giá dưới giá thấp nhất của SKU ở gian hàng này.');
+      } else if (problem?.code === 'validation_failed' && problem.errors?.price) {
+        setPriceFieldError(problem.errors.price);
+      } else if (problem?.code === 'version_conflict') {
+        // Nạp lại để lấy version mới; ô giá giữ chữ người dùng đã gõ (hộp chỉ đặt lại ô khi đổi biến thể)
+        const fresh = await listingsQuery.refetch();
+        const row = fresh.isError ? undefined : fresh.data?.find((x) => x.variantId === pricing.variantId);
+        if (fresh.isError) {
+          setPriceError('Listing vừa được cập nhật nhưng chưa nạp lại được. Đóng hộp rồi mở lại để lưu.');
+        } else if (!row?.listing || isDelisted(row)) {
+          setPricing(null);
+          toast.error(`${l.sellerSku || pricing.sku} vừa bị gỡ khỏi sàn nên không sửa giá được nữa.`);
+        } else {
+          setPricing(row);
+          setPriceError(
+            `Listing vừa được cập nhật, giá đang bán là ${row.price === null ? 'chưa có' : priceText(row.price)}. Xem lại rồi lưu.`,
+          );
+        }
+      } else {
+        setPriceError(problemMessage(e));
+      }
+    }
+  };
 
   const handleDelist = async () => {
     if (!delisting?.listing) return;
@@ -726,13 +806,54 @@ export function ShopListingsPage() {
         meta: { className: 'w-36 text-right whitespace-nowrap' },
         cell: ({ row }) => {
           const r = row.original;
-          if (r.price === null) return <span className="text-muted-foreground italic">Chưa có giá</span>;
+          // Nguồn giá, thực nhận, dưới giá thấp nhất, giá chờ xác nhận (FE#274, BE#225)
+          const editable = canSetPrice && r.listing && !isDelisted(r);
           return (
-            <div className="grid">
-              <span>{priceText(r.price)}</span>
-              <span className="text-xs text-muted-foreground">
-                {r.priceSource === 'shop' ? 'Giá gian hàng' : 'Theo giá chuẩn'}
-              </span>
+            <div className="grid justify-items-end gap-0.5" data-testid="price-cell">
+              {r.price === null ? (
+                <span className="text-muted-foreground italic">Chưa có giá</span>
+              ) : (
+                <>
+                  <span>{priceText(r.price)}</span>
+                  {r.priceSource && (
+                    <span className="text-xs text-muted-foreground" data-testid="price-source">
+                      {PRICE_SOURCE_LABEL[r.priceSource]}
+                    </span>
+                  )}
+                  {r.netReceived !== null && (
+                    <span className="text-xs text-muted-foreground" data-testid="net-received">
+                      Thực nhận {priceText(r.netReceived)}
+                    </span>
+                  )}
+                </>
+              )}
+              {r.belowFloor && <Badge variant="destructive">Dưới giá thấp nhất</Badge>}
+              {r.pendingPrice !== null && !canSetPrice && (
+                <span className="text-xs text-muted-foreground" data-testid="pending-price">
+                  Giá mới chờ xác nhận: {priceText(r.pendingPrice)}
+                </span>
+              )}
+              {r.pendingPrice !== null && canSetPrice && (
+                <Link
+                  to={ROUTES.company.pendingPrices(companyId, shopId)}
+                  className="text-xs text-primary underline-offset-2 hover:underline"
+                  data-testid="pending-price"
+                >
+                  Giá mới chờ xác nhận: {priceText(r.pendingPrice)}
+                </Link>
+              )}
+              {editable && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  aria-label={`Sửa giá ${r.listing?.sellerSku || r.sku}`}
+                  onClick={() => openPrice(r)}
+                >
+                  <PencilLine className="size-3" />
+                  Sửa giá
+                </Button>
+              )}
             </div>
           );
         },
@@ -790,7 +911,9 @@ export function ShopListingsPage() {
             status === 'pushing'
               ? 'Đang đẩy, chờ sàn trả kết quả'
               : status && LISTED_STATUSES.includes(status)
-                ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
+                ? canSync
+                  ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
+                  : 'Giá và tồn tự cập nhật mỗi 15 phút; CEO hoặc Admin bấm Đồng bộ để cập nhật ngay.'
                 : null;
           return (
             <div className="flex justify-end gap-1" data-guide={canMatch ? 'listings-match' : undefined}>
@@ -863,7 +986,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview, canSetPrice, canSync, shopId]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -1068,13 +1191,15 @@ export function ShopListingsPage() {
           <SearchInput value={search} onChange={changeSearch} placeholder="Tìm theo tên, SKU hoặc SKU sàn..." />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:ms-auto md:self-center">
             <p className="text-sm text-muted-foreground" data-testid="match-summary">
-              Đã ghép {items.filter((r) => r.listing).length} / {items.length} biến thể
+              {/* Listing đã gỡ không tính là đã ghép: Đã ghép + Chưa lên sàn không vượt tổng (FE#326) */}
+              Đã ghép {items.filter((r) => r.listing && !isDelisted(r)).length} / {items.length} biến thể
+              {items.some(isDelisted) && ` (${items.filter(isDelisted).length} đã gỡ)`}
             </p>
             {/* Bản sao SKU sàn dùng chung cho mọi tab (tên trên sàn, hộp Đổi ghép, tab Chưa ghép) nên Tải lại nằm ở đây (FE#294) */}
             {canMatch && (
               <>
                 <p className="text-sm text-muted-foreground" data-testid="remote-synced">
-                  {refreshPoll.running
+                  {refreshRunning
                     ? 'Đang tải SKU trên sàn, bảng tự cập nhật khi xong.'
                     : remoteQuery.data?.syncedAt
                       ? `SKU trên sàn tải lúc ${formatDateTime(remoteQuery.data.syncedAt)}`
@@ -1093,14 +1218,17 @@ export function ShopListingsPage() {
             )}
           </div>
         </FilterBar>
-        {usable && canMatch && (refreshFailure || refreshPoll.stuck || refreshPoll.error) && (
+        {items.some((r) => r.feeWarning === 'over_50') && (
+          <div className="px-4 pb-3" data-testid="fee-warning">
+            <AlertMessage severity="warning">
+              Tổng phí và thuế của gian hàng trên 50%. Kiểm tra cấu hình phí trước khi đặt giá.
+            </AlertMessage>
+          </div>
+        )}
+        {usable && canMatch && (refreshFailure || refreshPollError) && (
           <div className="px-4 pb-3" data-testid="remote-refresh-alert">
-            <AlertMessage severity={refreshPoll.stuck ? 'warning' : 'error'}>
-              {refreshPoll.stuck
-                ? 'Tải danh sách SKU lâu bất thường. Tải lại trang để xem kết quả.'
-                : refreshPoll.error
-                  ? problemMessage(refreshPoll.error, 'remote_skus')
-                  : refreshFailure}
+            <AlertMessage severity="error">
+              {refreshPollError ? problemMessage(refreshPollError, 'remote_skus') : refreshFailure}
             </AlertMessage>
           </div>
         )}
@@ -1128,7 +1256,7 @@ export function ShopListingsPage() {
                 columns={remoteColumns}
                 data={remoteRows}
                 getRowId={(r) => r.externalSkuId}
-                loading={remoteQuery.isLoading || (refreshPoll.running && !remoteQuery.data?.syncedAt)}
+                loading={remoteQuery.isLoading || (refreshRunning && !remoteQuery.data?.syncedAt)}
                 fetching={remoteQuery.isFetching}
                 empty={
                   searching
@@ -1201,6 +1329,14 @@ export function ShopListingsPage() {
         error={matchError}
         onSave={saveMatch}
         onClose={() => setMatching(null)}
+      />
+      <PriceOverrideDialog
+        row={pricing}
+        saving={priceMut.isPending}
+        fieldError={priceFieldError}
+        error={priceError}
+        onSave={(price) => void savePrice(price)}
+        onClose={() => setPricing(null)}
       />
       <ConfirmDialog
         open={Boolean(delisting)}
@@ -1287,7 +1423,7 @@ export function ShopListingsPage() {
         message={
           <>
             Từ chối yêu cầu ghép SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>.
-            Ghép cũ giữ nguyên; người xin ghép thấy lý do trong nhật ký.
+            Ghép cũ giữ nguyên. Lý do được ghi vào nhật ký hoạt động của gian hàng.
           </>
         }
         label="Lý do từ chối"

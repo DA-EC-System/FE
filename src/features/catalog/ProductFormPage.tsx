@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -136,8 +136,28 @@ export function ProductFormPage() {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [specVariantId, setSpecVariantId] = useState<string | null>(null);
-  const specVariant = product?.variants.find((v) => v.id === specVariantId) ?? null;
+  // `?spec=` mở luôn hộp Thông tin SKU (FE#326: nút Sửa cân nặng ở lỗi đẩy của trang gian hàng)
+  // Cùng điều kiện với nút bút chì: có quyền, sản phẩm và biến thể chưa lưu trữ. Đóng hộp thì xoá `spec` khỏi URL để F5/Back
+  // không mở lại
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [specVariantId, setSpecVariantId] = useState<string | null>(() => searchParams.get('spec'));
+  const specVariant =
+    canManage && !archived
+      ? (product?.variants.find((v) => v.id === specVariantId && v.businessStatus !== 'archived') ?? null)
+      : null;
+  const closeSpec = () => {
+    setSpecVariantId(null);
+    if (searchParams.has('spec')) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('spec');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  };
 
   const form = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
@@ -605,9 +625,9 @@ export function ProductFormPage() {
         <VariantSpecDialog
           productId={product.id}
           variant={specVariant}
-          onClose={() => setSpecVariantId(null)}
+          onClose={closeSpec}
           onDone={(message) => {
-            setSpecVariantId(null);
+            closeSpec();
             toast.success(message);
           }}
         />
