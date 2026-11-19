@@ -40,6 +40,7 @@ import {
   ORDER_STATUS,
   wardNote,
   lineCancelPending,
+  lineDelivered,
   lineHasIssue,
   paymentMethodLabel,
   sourceLabel,
@@ -450,7 +451,12 @@ export function OrderDetailPage() {
                                 SKU sàn {l.externalShopSku}
                               </p>
                             )}
-                            <LineIssue line={l} cancelPending={lineCancelPending(order, l)} returnHref={returnHref} />
+                            <LineIssue
+                              line={l}
+                              cancelPending={lineCancelPending(order, l)}
+                              delivered={lineDelivered(order, l)}
+                              returnHref={returnHref}
+                            />
                           </div>
                         </div>
                       </TableCell>

@@ -8,6 +8,7 @@ import {
   initiatorLabel,
   lineCancelEvents,
   lineCancelPending,
+  lineDelivered,
   lineHasIssue,
   paymentMethodLabel,
   wardNote,
@@ -57,6 +58,27 @@ describe('thông tin đơn sàn (FE#176)', () => {
     expect(lineCancelPending(asking, { cancelInitiator: 'platform', cancelKind: null })).toBe(false);
     expect(lineCancelPending(asking, { cancelInitiator: 'buyer', cancelKind: 'return' })).toBe(false);
     expect(lineCancelPending(asking, {})).toBe(false);
+  });
+
+  it('Lazada để trống người huỷ: món chưa huỷ có đơn ngược khi đơn còn cờ xin huỷ là khách xin huỷ (review PR FE#330)', () => {
+    const asking = { flags: ['cancel_requested'] };
+    expect(lineCancelPending(asking, { reverseOrderId: 'RO-1', cancelledQty: 0 })).toBe(true);
+    // Món đã huỷ, hay đơn không còn cờ xin huỷ, hay đơn ngược loại trả: không phải xin huỷ
+    expect(lineCancelPending(asking, { reverseOrderId: 'RO-1', cancelledQty: 1 })).toBe(false);
+    expect(lineCancelPending({ flags: [] }, { reverseOrderId: 'RO-1' })).toBe(false);
+    expect(lineCancelPending(asking, { reverseOrderId: 'RO-1', cancelKind: 'return' })).toBe(false);
+  });
+
+  it('món đã giao: nằm trong kiện Đã giao, khớp biến thể hoặc SKU', () => {
+    const order = {
+      packages: [
+        { status: 'delivered', lines: [{ variantId: 'v1', sku: 'A' }, { variantId: null, sku: 'U' }] },
+        { status: 'in_transit', lines: [{ variantId: 'v2', sku: 'B' }] },
+      ],
+    };
+    expect(lineDelivered(order, { variantId: 'v1', sku: 'A' })).toBe(true);
+    expect(lineDelivered(order, { variantId: null, sku: 'U' })).toBe(true);
+    expect(lineDelivered(order, { variantId: 'v2', sku: 'B' })).toBe(false);
   });
 });
 

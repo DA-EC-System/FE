@@ -207,16 +207,30 @@ export const lineHasIssue = (l: {
 }) => Boolean(l.cancelKind || l.cancelReason || l.cancelInitiator || l.returnStatus || l.reverseOrderId);
 
 /**
- * Dòng khách đang xin huỷ, người bán chưa trả lời: sàn đã ghi người huỷ là khách nhưng đơn còn cờ
- * `cancel_requested`, nên dòng chưa huỷ thật (không ghi Đã huỷ, không gạch tiền).
+ * Dòng khách đang xin huỷ, người bán chưa trả lời: đơn còn cờ `cancel_requested`, dòng chưa huỷ thật (không ghi Đã huỷ,
+ * không gạch tiền). Sàn ghi người huỷ là khách; hoặc Lazada để trống người huỷ nhưng đã tạo đơn ngược loại CANCEL cho món
+ * chưa huỷ (ca thử 17/11, review PR FE#330).
  */
 export const lineCancelPending = (
   order: { flags: readonly string[] },
-  line: { cancelInitiator?: string | null; cancelKind?: string | null },
+  line: { cancelInitiator?: string | null; cancelKind?: string | null; reverseOrderId?: string | null; cancelledQty?: number },
 ) =>
   order.flags.includes('cancel_requested') &&
-  line.cancelInitiator === 'buyer' &&
-  (line.cancelKind == null || line.cancelKind === 'cancellation');
+  (line.cancelKind == null || line.cancelKind === 'cancellation') &&
+  (line.cancelInitiator === 'buyer' || (!line.cancelInitiator && Boolean(line.reverseOrderId) && !(line.cancelledQty ?? 0)));
+
+/**
+ * Món nằm trong một kiện đã giao tới khách (khớp biến thể, không có thì SKU): đơn ngược của món này mới là trả hàng (FE#252)
+ */
+export const lineDelivered = (
+  order: { packages: readonly { status: string; lines: readonly { variantId: string | null; sku: string }[] }[] },
+  line: { variantId: string | null; sku: string },
+) =>
+  order.packages.some(
+    (p) =>
+      p.status === 'delivered' &&
+      p.lines.some((pl) => (line.variantId ? pl.variantId === line.variantId : pl.sku === line.sku)),
+  );
 
 /** Phường/xã hiện riêng khi chuỗi địa chỉ (sàn che một phần) chưa ghi rõ */
 export function wardNote(a: ShippingAddress): string | null {
