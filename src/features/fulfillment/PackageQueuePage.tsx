@@ -30,7 +30,7 @@ import { formatDateTime } from '@/utils/format';
 import type { PackageSummary, PackageTab } from '@/types/fulfillment';
 import type { OrderSource } from '@/types/sales';
 import { SOURCE_LABELS, sourceLabel } from '@/features/sales/shared';
-import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, handoverFailureLabel, isHotPackage, pendingDropTotal } from './shared';
+import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, canPrintLabel, handoverFailureLabel, isHotPackage, pendingDropTotal } from './shared';
 import { PendingDropBadge } from './PendingDropBadge';
 
 const PAGE_SIZES = [25, 50, 100];
@@ -96,6 +96,12 @@ export function PackageQueuePage() {
     });
 
   const printSelected = async () => {
+    // Chỉ in kiện sàn đã cấp vận đơn; báo trước, không gọi BE (commerio-backend#239 KH-B03)
+    const missing = [...selected.values()].filter((p) => !canPrintLabel(p)).map((p) => p.code);
+    if (missing.length) {
+      toast.error(`Kiện ${missing.join(', ')} chưa có vận đơn trên sàn. Bỏ chọn rồi in lại.`);
+      return;
+    }
     try {
       await printDocs.mutateAsync({ ids: [...selected.keys()] });
     } catch (e) {

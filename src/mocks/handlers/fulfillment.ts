@@ -83,10 +83,14 @@ export const orderOf = (p: MockPackage) => sales.orders.find((o) => o.id === p.o
 export const packageEntity = (p: MockPackage) => ({ type: 'order.packages', id: p.id, label: p.code });
 const packageSnapshot = (p: MockPackage) => ({ code: p.code, status: p.status, flags: packageFlags(p) });
 
+/** Kiện chưa rời kho (commerio-backend#239: cờ khách xin huỷ chỉ trên các kiện này) */
+const PRE_HANDOVER = ['backordered', 'reserved', 'packed', 'awaiting_pickup'];
+
 export function packageFlags(p: MockPackage): PackageFlag[] {
   const flags: PackageFlag[] = [];
   if (p.needsOpen) flags.push('needs_open');
   if (p.needsAttention) flags.push('needs_attention');
+  if (PRE_HANDOVER.includes(p.status) && orderOf(p).flags.includes('cancel_requested')) flags.push('cancel_requested');
   if (p.lostReport && p.status !== 'lost') flags.push('lost_reported');
   return flags;
 }
@@ -700,12 +704,17 @@ export const fulfillmentHandlers = [
       if (!found.ok) return found.response;
       picked.push(found.value);
     }
-    const notReady = picked.filter((p) => !p.platformPackageCode);
+    // In khi sàn đã cấp vận đơn: có mã kiện sàn và mã vận đơn (commerio-backend#239 KH-B03)
+    const notReady = picked.filter((p) => !p.platformPackageCode || !p.trackingCode);
     if (notReady.length) {
       return problem(409, 'Chưa in được vận đơn', {
         code: 'document_not_ready',
-        detail: `Kiện ${notReady.map((p) => p.code).join(', ')} chưa có mã kiện sàn.`,
+        detail: `Kiện ${notReady.map((p) => p.code).join(', ')} chưa có vận đơn trên sàn`,
       });
+    }
+    // Lazada không cấp vận đơn cho đơn người bán tự giao (SOF), mã sàn 50008
+    if (picked.some((p) => orderOf(p).platform?.shippingProviderType === 'seller_own_fleet')) {
+      return problem(409, 'Sàn từ chối thao tác này', { code: 'document_not_supported', platformCode: '50008' });
     }
     const pages = picked.map(
       (p) =>
@@ -832,6 +841,8 @@ export const fulfillmentHandlers = [
   http.post(`${API}/fulfillment/packages/:id/ready`, ({ params, request }) =>
     withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
       if (awaitingOpen(c.p)) return problem(409, 'Kiện đang chờ mở', { code: 'awaiting_open', current: toPackage(c.p) });
+      // Khách đang xin huỷ: chặn trước khi gọi sàn, không bật Lỗi lấy vận đơn (commerio-backend#239 KH-B07)
+      if (c.o.flags.includes('cancel_requested')) return problem(409, 'Khách đang xin huỷ đơn', { code: 'cancel_requested' });
       // Kiện mở lại từ Chờ lấy hàng giữ vận đơn cũ: báo sẵn sàng lại không lấy mã mới (D25)
       return step(c, 'mark_ready', {
         effect: () => {

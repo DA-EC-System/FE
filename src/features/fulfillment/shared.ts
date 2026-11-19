@@ -1,4 +1,5 @@
 import type { StatusMeta } from '@/components/common/StatusBadge';
+import { RTS_CODE_MISSING } from '@/api/problemMessages';
 import type { TransitionActor } from '@/lib/stateMachine';
 import { handoverConfirmed, isSealed, LOSE_FROM, packageMachine, type PackageRecord } from '@/lib/machines/order';
 /** Gói giao của sàn (Lazada `shipping_provider_type`); giá trị lạ thì hiện nguyên */
@@ -38,6 +39,7 @@ export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {
 export const PACKAGE_FLAGS: Record<PackageFlag, StatusMeta> = {
   needs_open: { label: 'Chờ mở kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa hoặc chia lại kiện.' },
   needs_attention: { label: 'Cần xử lý', variant: 'destructive', hint: 'Kiện có vấn đề cần người xem, lý do ghi trong chi tiết kiện.' },
+  cancel_requested: { label: 'Khách xin huỷ', variant: 'warning', hint: 'Khách đang xin huỷ đơn, chờ Sale trả lời. Chưa báo sàn sẵn sàng giao được.' },
   lost_reported: { label: 'Báo thất lạc', variant: 'warning', hint: 'Đã báo thất lạc, cần một người khác xác nhận.' },
   label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive', hint: 'Lần báo sẵn sàng giao gần nhất gặp lỗi. Kiểm tra gian hàng rồi báo lại.' },
   cod_unconfirmed: { label: 'Chờ xác nhận COD', variant: 'warning', hint: 'Đã giao nhưng chưa xác nhận đã thu tiền COD.' },
@@ -103,6 +105,15 @@ export function canReportLost(p: Pick<PackageSummary, 'status' | 'flags'>): bool
 export const waitingReplacedOpen = (p: Pick<PackageSummary, 'replaces'>): boolean =>
   Boolean(p.replaces && isSealed(p.replaces.status));
 
+/**
+ * In vận đơn khi sàn đã cấp vận đơn: có mã kiện sàn và mã vận đơn (Documents/21 §19.3, commerio-backend#239 KH-B03).
+ * Lazada có từ lúc đóng gói, TikTok sau khi báo sàn sẵn sàng giao. Chỉ hiện trước khi bàn giao.
+ */
+export const canPrintLabel = (p: Pick<PackageSummary, 'status' | 'platformPackageCode' | 'trackingCode'>): boolean =>
+  Boolean(p.platformPackageCode && p.trackingCode) && (p.status === 'packed' || p.status === 'awaiting_pickup');
+
+const CANCEL_REQUESTED_BLOCK = 'Khách đang xin huỷ đơn, chờ Sale trả lời yêu cầu huỷ rồi mới báo sàn sẵn sàng giao.';
+
 export const packageRecord = (p: PackageSummary): PackageRecord => ({
   source: p.source,
   selfDelivery: p.selfDelivery,
@@ -133,7 +144,11 @@ export function packageButtons(p: PackageSummary, actor: TransitionActor): Packa
   const waiting = waitingReplacedOpen(p);
   // Người tự giao kiện không tự xác nhận kiện mình giao bị mất (commerio-backend#238 D13)
   const courier = p.selfDelivery && Boolean(p.deliveredBy) && p.deliveredBy?.id === actor.accountId;
+  // BE trả `cancel_requested`, `rts_package_not_found` (commerio-backend#239 KH-B07, TRA-B06)
+  const cancelRequested = p.flags.includes('cancel_requested');
+  const codeMissing = p.source === 'marketplace' && !p.platformPackageCode;
   const actions = available.filter((a) => {
+    if (a === 'mark_ready' && (cancelRequested || codeMissing)) return false;
     // Mở kiện để huỷ chỉ khi kiện chờ mở vì đơn huỷ; kiện thường mở về Đã giữ.
     // Kiện Chờ lấy hàng chỉ mở khi chờ mở (sàn chia lại kiện, kiểm kê thiếu): giữ vận đơn (D25)
     if (a === 'open_cancel') return opening && p.openPurpose === 'cancel';
@@ -154,7 +169,13 @@ export function packageButtons(p: PackageSummary, actor: TransitionActor): Packa
       ? 'Kiện đang chờ mở: mở kiện xong mới báo sẵn sàng hay bàn giao được.'
       : waiting
         ? `Chờ mở kiện ${p.replaces!.code} (kiện cũ sàn đã chia lại) rồi mới báo sẵn sàng hay bàn giao được.`
-        : null;
+        : p.status !== 'packed'
+          ? null
+          : cancelRequested
+            ? CANCEL_REQUESTED_BLOCK
+            : codeMissing
+              ? RTS_CODE_MISSING
+              : null;
   let lostNote: string | null = null;
   if (p.lostReport && canProcess) {
     if (courier) lostNote = 'Bạn là người tự giao kiện này nên cần người khác xác nhận thất lạc.';

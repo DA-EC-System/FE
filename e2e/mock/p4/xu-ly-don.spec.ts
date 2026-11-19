@@ -438,16 +438,16 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect.poll(() => soLanMo(page)).toBe(1);
     });
 
-    test('kiện chưa có mã kiện sàn thì báo chưa in được', async ({ page }) => {
+    test('BE báo kiện chưa có vận đơn trên sàn thì hiện đúng mã kiện (commerio-backend#239)', async ({ page }) => {
       await page.getByRole('tab', { name: /Chờ lấy hàng/ }).click();
       await dong(page, 'pkg-1015').locator('[role=checkbox]').click();
       await mockApi(page, 'get', '/fulfillment/packages/documents', 409, {
         status: 409,
         code: 'document_not_ready',
-        detail: 'Kiện KH-000015 chưa có mã kiện sàn.',
+        detail: 'Kiện KH-000015 chưa có vận đơn trên sàn',
       });
       await page.getByRole('button', { name: 'In vận đơn (1)', exact: true }).click();
-      await toast(page, /vận đơn/i);
+      await toast(page, /KH-000015 chưa có vận đơn trên sàn/);
     });
 
     test('kiện đơn sàn đã đóng gói mở lại về Đã giữ hàng', async ({ page }) => {

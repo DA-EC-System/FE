@@ -156,7 +156,11 @@ const MESSAGES: Record<string, string> = {
   package_status_not_allowed: 'Sàn không cho thao tác ở trạng thái hiện tại của kiện, tải lại để xem trạng thái mới.',
   item_not_packable: 'Có món sàn không cho đóng gói (đã huỷ hoặc đang xin huỷ).',
   rts_package_not_found: 'Sàn không thấy kiện để báo sẵn sàng giao, đóng gói lại rồi thử lại.',
+  // BE gửi `detail` liệt kê mã kiện chưa có vận đơn: hiện `detail`, câu này khi thiếu (problemSummary)
   document_not_ready: 'Vận đơn chưa sẵn sàng. Thử lại sau ít phút nếu sàn đang tạo tệp.',
+  // commerio-backend#239: khách đang xin huỷ khi báo sàn (KH-B07), Lazada không cấp vận đơn đơn SOF (KH-B03)
+  cancel_requested: 'Khách đang xin huỷ đơn, chờ Sale trả lời yêu cầu huỷ rồi mới báo sàn sẵn sàng giao.',
+  document_not_supported: 'Sàn không cấp vận đơn cho kiện người bán tự giao (SOF), in phiếu giao của shop.',
   // §18.6.1, commerio-backend#207; có `openOrders` thì câu kèm số, xem openOrdersMessage
   shop_has_open_orders: 'Còn đơn chưa xong. Đợi các đơn hoàn tất hoặc huỷ rồi ngắt.',
   // commerio-backend#398: chỉ xoá được gian hàng đã ngắt
@@ -382,7 +386,12 @@ const REJECTED_PLATFORM_MESSAGES: Record<string, string> = {
   too_many_products: 'Gian hàng quá 10.000 sản phẩm, sàn không cho đọc hết danh sách.',
 };
 
+/** Kiện đơn sàn chưa có mã kiện sàn (TikTok đơn còn chờ sàn duyệt, commerio-backend#239 TRA-B06) */
+export const RTS_CODE_MISSING = 'Sàn chưa cấp mã kiện cho đơn này (đơn còn chờ sàn duyệt). Bấm Kéo đơn ngay rồi thử lại.';
+
 function marketplaceMessage(code: string | undefined, platformCode: string | undefined, action?: MarketplaceAction) {
+  // App chưa có mã kiện sàn (TikTok đơn còn chờ sàn duyệt): BE trả mã này mà không có `platformCode` (TRA-B06)
+  if (code === 'rts_package_not_found' && !platformCode) return RTS_CODE_MISSING;
   if (code === 'marketplace_rejected' && platformCode && REJECTED_PLATFORM_MESSAGES[platformCode]) {
     return REJECTED_PLATFORM_MESSAGES[platformCode];
   }
@@ -406,6 +415,8 @@ export function problemSummary(error: unknown, action?: MarketplaceAction): Prob
   const message =
     code === 'marketplace_rejected' && problem?.platformCode && INCOMPLETE_LIST_CODES.includes(problem.platformCode)
       ? incompleteListMessage(error)
+      : code === 'document_not_ready' && problem?.detail
+      ? problem.detail
       : code === 'shop_awaiting_allocation'
       ? awaitingAllocationMessage(problem?.waitingFor)
       : code === 'opening_stocktake_open' && problem?.number

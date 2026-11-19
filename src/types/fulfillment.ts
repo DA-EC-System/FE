@@ -55,6 +55,8 @@ export type PackageAction =
 export type PackageFlag =
   | 'needs_open'
   | 'needs_attention'
+  /** Khách đang xin huỷ đơn, chờ Sale trả lời; chỉ khi kiện chưa bàn giao (commerio-backend#239 KH-B07) */
+  | 'cancel_requested'
   | 'lost_reported'
   | 'label_error'
   | 'cod_unconfirmed'

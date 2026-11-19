@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, PackageCheck, Printer, Scissors } from 'lucide-react';
+import { ArrowLeft, Loader2, PackageCheck, Printer, Scissors } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -35,7 +35,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
-import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, handoverFailureLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
+import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, canPrintLabel, handoverFailureLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { PendingDropBadge } from './PendingDropBadge';
 import { SplitPackageDialog } from './SplitPackageDialog';
@@ -235,8 +235,10 @@ export function PackageDetailPage() {
   // Thất lạc do sàn báo (`platform_lost`), không có người báo
   const platformLost =
     p.status === 'lost' && [...p.statusHistory].reverse().find((h) => h.to === 'lost')?.source === 'marketplace';
-  // Vận đơn của sàn có khi kiện đã có mã kiện sàn (§19.3)
-  const printable = Boolean(p.platformPackageCode) && (p.status === 'packed' || p.status === 'awaiting_pickup');
+  // In khi sàn đã cấp vận đơn: Lazada từ lúc đóng gói, TikTok sau khi báo sàn (§19.3, commerio-backend#239 KH-B03)
+  const printable = canPrintLabel(p);
+  // Báo sàn mất tới vài chục giây: nút báo đang làm gì (KH-U13)
+  const reporting = command.isPending && command.variables?.command.kind === 'ready';
   // Chia kiện: kiện chưa đóng gói còn hơn một món (21 mục 19.2)
   const splittable =
     can(PERMISSIONS.fulfillmentProcess) && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
@@ -317,7 +319,8 @@ export function PackageDetailPage() {
                 onClick={() => onAction(a)}
               >
                 {a === 'pack' && <PackageCheck />}
-                {PACKAGE_ACTION_LABELS[a]}
+                {a === 'mark_ready' && reporting && <Loader2 className="animate-spin" />}
+                {a === 'mark_ready' && reporting ? 'Đang báo sàn…' : PACKAGE_ACTION_LABELS[a]}
               </Button>
             ))}
             {buttons.reportLost && (
