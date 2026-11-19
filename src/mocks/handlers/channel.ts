@@ -1293,7 +1293,8 @@ export const shopHandlers = [
     return HttpResponse.json<ShopCallbackResult>({ shop, created, reconnect, shops }, { status: shops.some((s) => s.created) ? 201 : 200 });
   }),
 
-  // Shop thử không đi OAuth được: dán token lấy ở trang nhà phát triển của sàn. Mock: token "sai", "khong-shop", "cong-ty-khac" ra lỗi
+  // Shop thử không đi OAuth được: dán token lấy ở trang nhà phát triển của sàn. Mock: token "sai", "khong-shop", "cong-ty-khac" ra lỗi;
+  // token "ma:<mã gian hàng trên sàn>" ra đúng seller đó (thử kết nối lại bằng token), token khác ra seller "TKN-<6 ký tự cuối>"
   http.post(`${API}/channel/shops/:platform/token`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.shopConnect);
@@ -1308,6 +1309,14 @@ export const shopHandlers = [
         code: 'validation_failed',
         errors: { accessToken: 'Nhập mã truy cập' },
       });
+    }
+    // Kết nối lại bằng token (commerio-backend#398, Documents#162): `shopId` kiểm trước khi gọi sàn như `authorize-url`
+    const shopId = body.shopId === undefined ? null : String(body.shopId).trim();
+    if (shopId === '') {
+      return problem(422, 'Dữ liệu không hợp lệ', { code: 'validation_failed', errors: { shopId: 'Mã gian hàng không hợp lệ' } });
+    }
+    if (shopId && !db.shops.some((s) => s.id === shopId && s.companyId === guard.value.companyId && s.platform === platform)) {
+      return problem(404, 'Không tìm thấy gian hàng', { code: 'not_found' });
     }
     // Như BE (Documents/21 §18.4): token sai là `marketplace_unauthorized`; token không ra gian hàng là `no_shop`
     if (accessToken === 'sai') {
@@ -1324,7 +1333,13 @@ export const shopHandlers = [
       return problem(409, 'Gian hàng đã kết nối ở công ty khác', { code: 'shop_connected_elsewhere' });
     }
     const seller = accessToken.slice(-6).toUpperCase();
-    const response = attachGranted(guard.value, platform, { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` }, null);
+    const named = accessToken.startsWith('ma:') ? accessToken.slice(3) : null;
+    const known = named ? db.shops.find((s) => s.companyId === guard.value.companyId && s.externalShopId === named) : undefined;
+    const granted = named
+      ? { externalShopId: named, shopName: known?.shopName ?? `Shop thử ${named}` }
+      : { externalShopId: `TKN-${seller}`, shopName: `Shop thử ${seller}` };
+    // Token của seller khác gian hàng `shopId` → 409 `shop_mismatch` (attachGranted, cùng luật với callback)
+    const response = attachGranted(guard.value, platform, granted, shopId);
     if (!response.ok) return response;
     // §18.4: kết quả dán token cùng dạng với callback, có shops[]
     const result = (await response.json()) as ShopConnectionResult;
