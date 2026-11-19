@@ -45,8 +45,16 @@ export const categoryRules: Record<string, MockCategoryRule> = {
 
 export const ruleOf = (categoryId: string) => categoryRules[categoryId] ?? DEFAULT_RULE;
 
-/** Giới hạn BE kiểm khi lưu, FE không chặn trước để thấy lỗi theo dòng */
+/** Giới hạn BE kiểm khi lưu. FE chặn trước cân nặng, kích thước (`utils/measure.ts`); mock vẫn kiểm như BE */
 export const SPEC_LIMITS = { weightG: 50000, sizeMm: 2000, maxRows: 200 } as const;
+
+/** Câu lỗi vượt trần như BE (`catalog/domain/measure.ts`, commerio-backend#434) */
+export const SPEC_TOO_BIG: Record<string, string> = {
+  weightG: 'Cân nặng tối đa 50 kg',
+  lengthMm: 'Chiều dài tối đa 2.000 mm',
+  widthMm: 'Chiều rộng tối đa 2.000 mm',
+  heightMm: 'Chiều cao tối đa 2.000 mm',
+};
 
 /** Số ngày bán dùng tính tốc độ bán */
 export const VELOCITY_DAYS = 30;

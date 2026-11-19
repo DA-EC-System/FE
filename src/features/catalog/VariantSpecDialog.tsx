@@ -18,31 +18,17 @@ import { useUpdateVariant } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
+import { measureTextSchema } from '@/utils/measure';
 import { priceTextSchema } from '@/utils/price';
 import type { ProductDetail, ProductVariant, VariantUpdateInput } from '@/types/catalog';
 
-/** Ô số nguyên dương, trống là chưa có (null) */
-const positiveInt = (max: number, tooBig: string) =>
-  z.string().transform((raw, ctx): number | null => {
-    const text = raw.trim().replace(/[.,\s]/g, '');
-    if (!text) return null;
-    if (!/^\d+$/.test(text) || Number(text) <= 0) {
-      ctx.addIssue({ code: 'custom', message: 'Số nguyên dương' });
-      return z.NEVER;
-    }
-    if (Number(text) > max) {
-      ctx.addIssue({ code: 'custom', message: tooBig });
-      return z.NEVER;
-    }
-    return Number(text);
-  });
-
-const size = positiveInt(2000, 'Quá 2 m, kiểm tra lại đơn vị mm');
+// Số đo không tự ghép số: "0,25" báo lỗi tại ô thay vì lưu 25 g (commerio-backend#434)
+const size = measureTextSchema('edge');
 const specSchema = z
   .object({
     standardPrice: priceTextSchema,
     targetNetPrice: priceTextSchema,
-    weightG: positiveInt(50000, 'Quá 50 kg, kiểm tra lại đơn vị gram'),
+    weightG: measureTextSchema('weight'),
     lengthMm: size,
     widthMm: size,
     heightMm: size,
@@ -164,13 +150,19 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
               inputMode="numeric"
               hint="Số tiền muốn nhận về sau phí sàn. Giá niêm yết trên từng sàn tính ngược từ số này ở phần Kênh bán."
             />
-            <FormTextField control={control} name="weightG" label="Cân nặng sau đóng gói (g)" inputMode="numeric" />
+            <FormTextField
+              control={control}
+              name="weightG"
+              label="Cân nặng sau đóng gói"
+              inputMode="numeric"
+              suffix="g"
+            />
             <fieldset className="grid gap-2">
-              <legend className="mb-1 text-sm font-medium">Kích thước đóng gói (mm)</legend>
+              <legend className="mb-1 text-sm font-medium">Kích thước đóng gói</legend>
               <div className="grid grid-cols-3 gap-2">
-                <FormTextField control={control} name="lengthMm" label="Dài" inputMode="numeric" />
-                <FormTextField control={control} name="widthMm" label="Rộng" inputMode="numeric" />
-                <FormTextField control={control} name="heightMm" label="Cao" inputMode="numeric" />
+                <FormTextField control={control} name="lengthMm" label="Dài" inputMode="numeric" suffix="mm" />
+                <FormTextField control={control} name="widthMm" label="Rộng" inputMode="numeric" suffix="mm" />
+                <FormTextField control={control} name="heightMm" label="Cao" inputMode="numeric" suffix="mm" />
               </div>
             </fieldset>
             {error && <AlertMessage severity="warning">{error}</AlertMessage>}

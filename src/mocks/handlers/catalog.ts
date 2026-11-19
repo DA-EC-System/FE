@@ -7,7 +7,7 @@ import * as inventory from '../inventoryData';
 import * as purchasing from '../purchasingData';
 import * as channel from '../channelData';
 import * as pricing from '../pricingData';
-import { SPEC_LIMITS, specOf } from '../catalogBulkData';
+import { SPEC_LIMITS, SPEC_TOO_BIG, specOf } from '../catalogBulkData';
 import type { Attribute, AttributeInput, BusinessStatusInput, BusinessStatusResult, Category, CategoryInput, ProductCreateInput, ProductDetail, ProductListItem, ProductUpdateInput, ProductVariant, UploadTicket, VariantAttribute, VariantBusinessStatus, VariantMainLabel, VariantMissing, VariantPresence, VariantUpdateInput } from '@/types/catalog';
 import { BUSINESS_ACTIONS, hidesListings, mainLabel, variantMachine } from '@/lib/machines/product';
 import { PERMISSIONS } from '@/utils/permissions';
@@ -863,8 +863,8 @@ export const catalogHandlers = [
       if (n === undefined || n === null) continue;
       if (!Number.isInteger(n) || n <= 0) errors[f] = 'Phải là số nguyên dương';
       else if ((f === 'standardPrice' || f === 'targetNetPrice') && n > 10_000_000_000) errors[f] = 'Giá tối đa 10 tỷ đồng';
-      else if (f === 'weightG' && n > SPEC_LIMITS.weightG) errors[f] = 'Quá 50 kg, kiểm tra lại đơn vị gram';
-      else if (f !== 'standardPrice' && f !== 'targetNetPrice' && f !== 'weightG' && n > SPEC_LIMITS.sizeMm) errors[f] = 'Quá 2 m, kiểm tra lại đơn vị mm';
+      else if (f === 'weightG' && n > SPEC_LIMITS.weightG) errors[f] = SPEC_TOO_BIG[f]!;
+      else if (f !== 'standardPrice' && f !== 'targetNetPrice' && f !== 'weightG' && n > SPEC_LIMITS.sizeMm) errors[f] = SPEC_TOO_BIG[f]!;
     }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
 

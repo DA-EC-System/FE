@@ -1,10 +1,10 @@
 // P2 · Sửa hàng loạt SKU ở /catalog (FE#155, US-SP-04; hợp đồng đề xuất cho commerio-backend#242)
 import { type Page } from '@playwright/test';
-import { dangNhap, dong, duongDan, expect, menu, test, toast } from '../../fixtures';
+import { dangNhap, dong, duongDan, expect, menu, mockApi, test, toast } from '../../fixtures';
 
 const o = (page: Page, variantId: string, cot: RegExp) => dong(page, variantId).getByRole('textbox', { name: cot });
 const goiY = (page: Page, variantId: string, cot: string) =>
-  dong(page, variantId).getByRole('button', { name: new RegExp(`^Nhận gợi ý ${cot}`) });
+  dong(page, variantId).getByRole('button', { name: new RegExp(`^Áp dụng gợi ý ${cot}`) });
 const luu = (page: Page) => page.getByRole('button', { name: /^Lưu \d+ SKU$/ });
 
 test.describe('P2 · Sửa hàng loạt SKU', () => {
@@ -57,18 +57,29 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
   });
 
   test('dòng lỗi báo trên dòng, dòng khác vẫn lưu', async ({ page }) => {
-    await goiY(page, 'prd-003-v1', 'Giá chuẩn').click();
-    await o(page, 'prd-001-v4', /^Khối lượng/).fill('90000');
+    await goiY(page, 'prd-003-v1', 'Giá bán lẻ').click();
+    await o(page, 'prd-001-v4', /^Khối lượng/).fill('210');
+    // FE chặn số vượt trần ngay tại ô (commerio-backend#434), nên lỗi theo dòng lấy từ phản hồi BE giả lập
+    await mockApi(page, 'patch', '/catalog/variants/bulk', 200, {
+      saved: [{ variantId: 'prd-003-v1', version: 2 }],
+      failed: [
+        {
+          variantId: 'prd-001-v4',
+          code: 'validation_failed',
+          message: 'Có ô chưa hợp lệ',
+          errors: { weightG: 'Cân nặng tối đa 50 kg' },
+        },
+      ],
+    });
     await luu(page).click();
     await toast(page, 'Đã lưu 1 SKU, 1 SKU lỗi');
     await expect(dong(page, 'prd-001-v4').getByTestId('bulk-row-error')).toContainText('Có ô chưa hợp lệ');
-    await expect(dong(page, 'prd-001-v4')).toContainText('Quá 50 kg');
-    await expect(o(page, 'prd-001-v4', /^Khối lượng/)).toHaveValue('90000');
+    await expect(dong(page, 'prd-001-v4')).toContainText('Cân nặng tối đa 50 kg');
+    await expect(o(page, 'prd-001-v4', /^Khối lượng/)).toHaveValue('210');
     await expect(page.getByTestId('bulk-dirty')).toContainText('1 SKU có thay đổi chưa lưu');
-    await expect(dong(page, 'prd-003-v1')).toHaveCount(0);
 
     // Sửa lại rồi lưu được
-    await o(page, 'prd-001-v4', /^Khối lượng/).fill('210');
+    await o(page, 'prd-001-v4', /^Khối lượng/).fill('220');
     await luu(page).click();
     await toast(page, 'Đã lưu 1 SKU');
     await expect(dong(page, 'prd-001-v4').getByTestId('bulk-row-error')).toHaveCount(0);
@@ -76,7 +87,19 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
 
   test('ô sai định dạng chặn lưu', async ({ page }) => {
     await o(page, 'prd-001-v4', /^Khối lượng/).fill('abc');
-    await expect(dong(page, 'prd-001-v4')).toContainText('Số nguyên dương');
+    await expect(dong(page, 'prd-001-v4')).toContainText('Nhập số gam nguyên, vd 250');
+    await expect(luu(page)).toBeDisabled();
+  });
+
+  test('ô cân nặng, kích thước không tự ghép số; vượt trần báo tại ô (commerio-backend#434)', async ({ page }) => {
+    await o(page, 'prd-001-v4', /^Khối lượng/).fill('0,25');
+    await expect(dong(page, 'prd-001-v4')).toContainText('Nhập số gam nguyên, vd 250');
+    await expect(luu(page)).toBeDisabled();
+    await o(page, 'prd-001-v4', /^Khối lượng/).fill('50001');
+    await expect(dong(page, 'prd-001-v4')).toContainText('Cân nặng tối đa 50 kg');
+    await o(page, 'prd-001-v4', /^Khối lượng/).fill('250');
+    await o(page, 'prd-001-v4', /^Dài/).fill('30.5');
+    await expect(dong(page, 'prd-001-v4')).toContainText('Nhập số mm nguyên, vd 300');
     await expect(luu(page)).toBeDisabled();
   });
 
