@@ -161,6 +161,8 @@ function platformLine(x: sales.MockPlatformLine | undefined) {
     externalProductId: x?.externalProductId ?? null,
     paidPrice: x?.paidPrice ?? null,
     taxAmount: x?.taxAmount ?? null,
+    cancelledQty: x?.cancelledQty ?? 0,
+    cancelledAt: x?.cancelledAt ?? null,
     cancelReason: x?.cancelReason ?? null,
     cancelReasonDetail: x?.cancelReasonDetail ?? null,
     cancelInitiator: x?.cancelInitiator ?? null,
@@ -208,13 +210,13 @@ export function toOrderSummary(o: sales.MockOrder): OrderSummary {
   };
 }
 
-/** Người huỷ món của đơn như BE#417: người không trùng của dòng đã huỷ, thứ tự buyer, seller, platform. Mock không có
- * `cancelledQty` nên coi dòng đã huỷ là dòng `cancelKind = cancellation` hay mọi dòng của đơn đã huỷ. */
+/** Người huỷ món của đơn như BE#417: người không trùng của dòng đã huỷ, thứ tự buyer, seller, platform. Dòng đã huỷ là
+ * dòng có `cancelledQty`, hay (mock cũ chưa ghi) dòng `cancelKind = cancellation` của đơn đã huỷ. */
 function cancelInitiatorsOf(o: sales.MockOrder): LineCancelInitiator[] {
   const seen = new Set(
     o.lines
       .map((l) => o.platform?.lines?.[l.id])
-      .filter((x) => x?.cancelInitiator && (o.status === 'cancelled' || x.cancelKind === 'cancellation'))
+      .filter((x) => x?.cancelInitiator && ((x.cancelledQty ?? 0) > 0 || (o.status === 'cancelled' && x.cancelKind === 'cancellation')))
       .map((x) => x!.cancelInitiator!),
   );
   return (['buyer', 'seller', 'platform'] as const).filter((c) => seen.has(c));

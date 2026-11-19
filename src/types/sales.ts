@@ -147,6 +147,8 @@ export interface OrderLine {
   quantity: number;
   /** Số món sàn đã huỷ của dòng (0..quantity); dòng huỷ hết không tính vào tạm tính, tổng của đơn (BE trả từ 19/11/2026) */
   cancelledQty?: number;
+  /** Lúc app ghi huỷ món theo sàn báo (BE#417); null khi chưa huỷ, hay huỷ trước BE#417. FE xen vào lịch sử đơn */
+  cancelledAt?: string | null;
   /** Giá chuẩn lúc tạo đơn, ghi cứng vào dòng (QT-12) */
   unitPrice: number;
   lineTotal: number;
