@@ -60,7 +60,7 @@ describe('connectedOutcome', () => {
 
 describe('reconnectSummary', () => {
   it('kể việc đã bù, bỏ phần bằng 0', () => {
-    expect(reconnectSummary({ jobsRun: 3, relisted: 0, pulledFrom: null })).toEqual(['chạy 3 việc đang chờ']);
+    expect(reconnectSummary({ jobsRun: 3, relisted: 0, pulledFrom: null })).toEqual(['gửi 3 cập nhật đang chờ']);
     expect(reconnectSummary({ jobsRun: 0, relisted: 2, pulledFrom: null })).toEqual(['đưa lại 2 sản phẩm lên sàn']);
   });
 
@@ -73,9 +73,9 @@ describe('hàng trên sàn: số sản phẩm và số phân loại (§18.7.4)',
   const counts = (remoteProductCount?: number | null, remoteSkuCount?: number | null) => ({ remoteProductCount, remoteSkuCount });
 
   it('có cả hai số thì hiện một cụm', () => {
-    expect(remoteCountsText(counts(305, 812))).toBe('305 sản phẩm · 812 phân loại');
-    expect(remoteCountsSuffix(counts(305, 812))).toBe(' · 305 sản phẩm · 812 phân loại');
-    expect(remoteCountsValue(counts(305, 812))).toBe('305 sản phẩm · 812 phân loại');
+    expect(remoteCountsText(counts(305, 812))).toBe('305 sản phẩm · 812 SKU');
+    expect(remoteCountsSuffix(counts(305, 812))).toBe(' · 305 sản phẩm · 812 SKU');
+    expect(remoteCountsValue(counts(305, 812))).toBe('305 sản phẩm · 812 SKU');
   });
 
   it('chưa có số phân loại thì chỉ hiện số sản phẩm', () => {
@@ -84,7 +84,7 @@ describe('hàng trên sàn: số sản phẩm và số phân loại (§18.7.4)',
   });
 
   it('0 là gian hàng rỗng thật, vẫn hiện số', () => {
-    expect(remoteCountsValue(counts(0, 0))).toBe('0 sản phẩm · 0 phân loại');
+    expect(remoteCountsValue(counts(0, 0))).toBe('0 sản phẩm · 0 SKU');
   });
 
   it('chưa có số sản phẩm thì ô hiện "—", màn nhiều gian hàng bỏ cả cụm', () => {

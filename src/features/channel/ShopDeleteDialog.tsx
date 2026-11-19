@@ -53,7 +53,7 @@ function DeleteContent({ shop, onClose, onStale }: { shop: Shop } & Omit<ShopDel
     try {
       const { deleted } = await del.mutateAsync({ id: shop.id, confirm: DELETE_CONFIRM_WORD, version: shop.version });
       toast.success(
-        `Đã xoá ${shop.shopName}: ${deleted.orders} đơn, ${deleted.packages} kiện, ${deleted.listings} listing`,
+        `Đã xoá ${shop.shopName}: ${deleted.orders} đơn, ${deleted.packages} kiện hàng, ${deleted.listings} listing`,
       );
       onClose();
     } catch (e) {
@@ -92,13 +92,13 @@ function DeleteContent({ shop, onClose, onStale }: { shop: Shop } & Omit<ShopDel
         <AlertDialogDescription asChild>
           <div className="grid gap-2">
             <p>
-              {platformLabel(shop.platform, shop.platformName)}, mã <span className="font-mono">{shop.externalShopId}</span>.
+              {platformLabel(shop.platform, shop.platformName)}, ID gian hàng <span className="font-mono">{shop.externalShopId}</span>.
               Mọi dữ liệu của gian hàng này bị xoá và <strong className="text-foreground">không hoàn tác được</strong>:
             </p>
             <ul className="list-disc ps-5 text-foreground-2">
-              <li>Đơn, kiện, yêu cầu trả hàng</li>
-              <li>Sản phẩm trên sàn (listing) và ghép SKU</li>
-              <li>Đối soát, sổ tiền và số liệu báo cáo của gian hàng</li>
+              <li>Đơn hàng, kiện hàng, yêu cầu trả hàng/hoàn tiền</li>
+              <li>Listing trên sàn và liên kết SKU</li>
+              <li>Đối soát, sổ giao dịch và số liệu báo cáo của gian hàng</li>
             </ul>
             <p>Tồn kho và phiếu kho đã ghi sổ được giữ nguyên.</p>
           </div>
