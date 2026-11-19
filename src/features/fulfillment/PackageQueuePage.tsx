@@ -36,7 +36,7 @@ import { PendingDropBadge } from './PendingDropBadge';
 const PAGE_SIZES = [25, 50, 100];
 const MAX_HANDOVER = 50;
 
-/** Hàng đợi kiện theo bước làm việc của kho (sơ đồ D2): nhặt, đóng gói, bàn giao hàng loạt */
+/** Hàng đợi kiện theo bước làm việc của kho (sơ đồ D2): lấy hàng, đóng gói, bàn giao hàng loạt */
 export function PackageQueuePage() {
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -56,7 +56,7 @@ export function PackageQueuePage() {
     source: source || undefined,
     shopId: shopId || undefined,
   });
-  // Kho không có quyền xem gian hàng nên chỉ lọc theo nguồn
+  // Kho không có quyền xem gian hàng nên chỉ lọc theo kênh bán
   const shops = useShops({ enabled: canViewShops });
   const handOver = useHandOver();
   const { startTour } = usePageGuide('packages');
@@ -67,7 +67,7 @@ export function PackageQueuePage() {
   const [showPick, setShowPick] = useState(false);
   const picking = tab === 'reserved';
   const handing = tab === 'awaiting_pickup';
-  // In vận đơn hàng loạt ở Đã đóng gói và Chờ lấy hàng (§19.3)
+  // In phiếu giao hàng hàng loạt ở Đã đóng gói và Chờ lấy hàng (§19.3)
   const printing = tab === 'packed' || handing;
   const selectable = picking || printing;
   const printDocs = usePrintPackageDocuments();
@@ -137,9 +137,9 @@ export function PackageQueuePage() {
           </div>
         ),
       },
-      { id: 'order', header: 'Đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
-      { id: 'source', header: 'Nguồn', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
-      { id: 'customer', header: 'Khách', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
+      { id: 'order', header: 'Mã đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
+      { id: 'source', header: 'Kênh bán', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
+      { id: 'customer', header: 'Người mua', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
       {
         id: 'totalQty',
         header: 'Số lượng',
@@ -159,7 +159,7 @@ export function PackageQueuePage() {
           <div className="flex flex-wrap gap-1">
             <StatusBadge status={row.original.status} statuses={PACKAGE_STATUS} />
             <FlagChips flags={row.original.flags} meta={PACKAGE_FLAGS} />
-            {row.original.selfDelivery && <Badge variant="outline">Tự giao</Badge>}
+            {row.original.selfDelivery && <Badge variant="outline">Shop tự giao</Badge>}
           </div>
         ),
       },
@@ -199,18 +199,18 @@ export function PackageQueuePage() {
   const action = picking ? (
     <Button variant="outline" data-guide="package-actions" onClick={() => setShowPick((v) => !v)}>
       <ClipboardList />
-      Danh sách nhặt{selected.size > 0 ? ` (${selected.size} kiện)` : ''}
+      Danh sách lấy hàng{selected.size > 0 ? ` (${selected.size} kiện)` : ''}
     </Button>
   ) : printing ? (
     <div className="flex flex-wrap gap-2" data-guide="package-actions">
       <Button variant="outline" disabled={selected.size === 0 || tooMany || printDocs.isPending} onClick={printSelected}>
         <Printer />
-        In vận đơn{selected.size > 0 ? ` (${selected.size})` : ''}
+        In phiếu giao hàng{selected.size > 0 ? ` (${selected.size})` : ''}
       </Button>
       {handing && (
         <Button disabled={selected.size === 0 || tooMany} onClick={() => setConfirmOpen(true)}>
           <Truck />
-          Bàn giao{selected.size > 0 ? ` (${selected.size})` : ''}
+          Bàn giao ĐVVC{selected.size > 0 ? ` (${selected.size})` : ''}
         </Button>
       )}
     </div>
@@ -220,8 +220,8 @@ export function PackageQueuePage() {
     <div>
       <PageHeader
         title="Kiện hàng"
-        subtitle="Nhặt, đóng gói, bàn giao và theo dõi giao theo từng kiện."
-        help="Chọn kiện ở Cần đóng gói để in danh sách nhặt, bấm một kiện để vào đóng gói. Hạn bàn giao chữ đỏ là kiện đã quá hạn hoặc còn dưới 24 giờ."
+        subtitle="Lấy hàng, đóng gói, bàn giao ĐVVC và theo dõi giao theo từng kiện."
+        help="Chọn kiện ở Chờ đóng gói để in danh sách lấy hàng, bấm một kiện để vào đóng gói. Hạn bàn giao chữ đỏ là kiện đã quá hạn hoặc còn dưới 24 giờ."
         onTour={startTour}
         action={action}
       />
@@ -268,7 +268,7 @@ export function PackageQueuePage() {
         <Card className="print-area mb-4">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
-              Danh sách nhặt · {pickList.data ? `${pickList.data.packageCount} kiện${selected.size > 0 ? ' đã chọn' : ''}` : selected.size > 0 ? `${selected.size} kiện đã chọn` : 'kiện cần đóng gói'}
+              Danh sách lấy hàng · {pickList.data ? `${pickList.data.packageCount} kiện${selected.size > 0 ? ' đã chọn' : ''}` : selected.size > 0 ? `${selected.size} kiện đã chọn` : 'kiện chờ đóng gói'}
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               <Printer />
@@ -283,7 +283,7 @@ export function PackageQueuePage() {
                 <TableRow>
                   <TableHead className="w-36">SKU</TableHead>
                   <TableHead>Sản phẩm</TableHead>
-                  <TableHead>Thuộc tính</TableHead>
+                  <TableHead>Thuộc tính phân loại</TableHead>
                   <TableHead className="w-24 text-right">Số lượng</TableHead>
                   <TableHead className="w-20 text-right">Số kiện</TableHead>
                 </TableRow>
@@ -293,7 +293,7 @@ export function PackageQueuePage() {
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground" data-testid="pick-list-loading">
                       <Loader2 className="me-2 inline size-4 animate-spin" />
-                      Đang tổng hợp danh sách nhặt…
+                      Đang tổng hợp danh sách lấy hàng…
                     </TableCell>
                   </TableRow>
                 )}
@@ -304,12 +304,12 @@ export function PackageQueuePage() {
                       {l.productName}
                       {l.untracked ? (
                         <Badge variant="secondary" className="ms-2">
-                          Không quản tồn
+                          Không quản lý tồn
                         </Badge>
                       ) : (
                         !l.variantId && (
                           <Badge variant="destructive" className="ms-2">
-                            Chưa ghép SKU
+                            Chưa liên kết SKU
                           </Badge>
                         )
                       )}
@@ -322,7 +322,7 @@ export function PackageQueuePage() {
                 {pickList.data?.items.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      Không có kiện cần nhặt
+                      Không có kiện cần lấy hàng
                     </TableCell>
                   </TableRow>
                 )}
@@ -333,9 +333,9 @@ export function PackageQueuePage() {
       )}
       <Card className="gap-0 py-0" data-guide="package-list">
         <FilterBar>
-          <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã kiện, mã đơn, tên khách" />
+          <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã kiện, mã đơn, tên người mua" />
           <FilterSelect
-            label="Nguồn"
+            label="Kênh bán"
             value={source}
             onChange={(v) => f.update({ source: v, shopId: v === 'marketplace' ? shopId : undefined, page: undefined })}
             options={(Object.keys(SOURCE_LABELS) as OrderSource[]).map((s) => ({ value: s, label: SOURCE_LABELS[s] }))}
@@ -368,9 +368,9 @@ export function PackageQueuePage() {
       </Card>
       <ConfirmDialog
         open={confirmOpen}
-        title="Bàn giao kiện"
-        message={`Bàn giao ${selected.size} kiện cho đơn vị vận chuyển. Hàng rời kho, tồn thực giảm theo từng kiện.`}
-        confirmLabel="Bàn giao"
+        title="Bàn giao cho ĐVVC"
+        message={`Bàn giao ${selected.size} kiện cho đơn vị vận chuyển. Hàng rời kho, tồn kho giảm theo từng kiện.`}
+        confirmLabel="Bàn giao ĐVVC"
         loading={handOver.isPending}
         onConfirm={submitHandOver}
         onClose={() => setConfirmOpen(false)}

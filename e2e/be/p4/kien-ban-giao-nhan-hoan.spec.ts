@@ -200,9 +200,9 @@ test.describe('P4-BE · bàn giao, đảo bàn giao, nhận hàng hoàn (Lazada 
 
     await page.goto(`/c/${companyId}/fulfillment/packages?tab=awaiting_pickup`);
     await page.getByRole('checkbox', { name: `Chọn ${pkg.code}`, exact: true }).click();
-    await page.getByRole('button', { name: 'Bàn giao (1)', exact: true }).click();
+    await page.getByRole('button', { name: 'Bàn giao ĐVVC (1)', exact: true }).click();
     const handOver = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/fulfillment/packages/hand-over'));
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Bàn giao', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Bàn giao ĐVVC', exact: true }).click();
     const res = await handOver;
     expect(res.status()).toBe(200);
     expect(await res.json()).toMatchObject({ handedOver: [expect.objectContaining({ id: pkg.id })], failed: [] });

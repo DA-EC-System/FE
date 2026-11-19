@@ -304,14 +304,14 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect(dong(page, 'pkg-1006')).toBeAttached();
     });
 
-    test('Cần đóng gói chỉ có kiện của đơn đang xử lý; danh sách nhặt gộp kiện chọn', async ({ page }) => {
+    test('Cần đóng gói chỉ có kiện của đơn đang xử lý; danh sách lấy hàng gộp kiện chọn', async ({ page }) => {
       await expect(page.getByRole('tab', { name: /Cần đóng gói/ })).toHaveAttribute('data-state', 'active');
       await expect(dong(page, 'pkg-1003')).toHaveCount(0);
       await expect(dong(page, 'pkg-1004')).toHaveCount(0);
       await page.getByRole('checkbox', { name: 'Chọn KH-000010', exact: true }).click();
       await page.getByRole('checkbox', { name: 'Chọn KH-000011', exact: true }).click();
-      await page.getByRole('button', { name: 'Danh sách nhặt (2 kiện)', exact: true }).click();
-      await thayChu(page, 'Danh sách nhặt · 2 kiện đã chọn');
+      await page.getByRole('button', { name: 'Danh sách lấy hàng (2 kiện)', exact: true }).click();
+      await thayChu(page, 'Danh sách lấy hàng · 2 kiện đã chọn');
       const rows = page.locator('[data-testid=pick-list] tbody tr');
       await expect(rows).toHaveCount(2);
       await expect(rows.first()).toContainText('3');
@@ -405,10 +405,10 @@ test.describe('P4 · Xử lý đơn', () => {
       await expect.poll(() => new URL(page.url()).search).toContain('tab=awaiting_pickup');
       await expect(page.getByRole('button', { name: /Bàn giao/ })).toBeDisabled();
       await dong(page, 'pkg-1015').locator('[role=checkbox]').click();
-      await page.getByRole('button', { name: 'Bàn giao (1)', exact: true }).click();
+      await page.getByRole('button', { name: 'Bàn giao ĐVVC (1)', exact: true }).click();
       const alert = page.getByRole('alertdialog');
       await thayChu(alert, 'Bàn giao 1 kiện');
-      await alert.getByRole('button', { name: 'Bàn giao', exact: true }).click();
+      await alert.getByRole('button', { name: 'Bàn giao ĐVVC', exact: true }).click();
       await toast(page, 'Đã bàn giao 1 kiện');
       await expect(dong(page, 'pkg-1015')).toHaveCount(0);
       await page.getByRole('tab', { name: /Đang giao/ }).click();
@@ -422,19 +422,19 @@ test.describe('P4 · Xử lý đơn', () => {
         handedOver: [],
         failed: [{ packageId: 'pkg-1015', code: 'version_conflict', detail: 'vừa được cập nhật' }],
       });
-      await page.getByRole('button', { name: 'Bàn giao (1)', exact: true }).click();
-      await page.getByRole('alertdialog').getByRole('button', { name: 'Bàn giao', exact: true }).click();
+      await page.getByRole('button', { name: 'Bàn giao ĐVVC (1)', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Bàn giao ĐVVC', exact: true }).click();
       await thayChu(page, '1 kiện chưa bàn giao được');
       await expect(dong(page, 'pkg-1015')).toContainText('Kiện vừa được cập nhật');
-      await expect(page.getByRole('button', { name: 'Bàn giao (1)', exact: true })).toBeAttached();
+      await expect(page.getByRole('button', { name: 'Bàn giao ĐVVC (1)', exact: true })).toBeAttached();
     });
 
     test('in vận đơn hàng loạt ở Đã đóng gói', async ({ page }) => {
       await page.getByRole('tab', { name: /Đã đóng gói/ }).click();
-      await expect(page.getByRole('button', { name: /In vận đơn/ })).toBeDisabled();
+      await expect(page.getByRole('button', { name: /In phiếu giao hàng/ })).toBeDisabled();
       await chua(page, 'DH-1012', 'tbody tr').locator('[role=checkbox]').click();
       await chanCuaSoIn(page);
-      await page.getByRole('button', { name: 'In vận đơn (1)', exact: true }).click();
+      await page.getByRole('button', { name: 'In phiếu giao hàng (1)', exact: true }).click();
       await expect.poll(() => soLanMo(page)).toBe(1);
     });
 
@@ -446,7 +446,7 @@ test.describe('P4 · Xử lý đơn', () => {
         code: 'document_not_ready',
         detail: 'Kiện KH-000015 chưa có vận đơn trên sàn',
       });
-      await page.getByRole('button', { name: 'In vận đơn (1)', exact: true }).click();
+      await page.getByRole('button', { name: 'In phiếu giao hàng (1)', exact: true }).click();
       await toast(page, /KH-000015 chưa có vận đơn trên sàn/);
     });
 

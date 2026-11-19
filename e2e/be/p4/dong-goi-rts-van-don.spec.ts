@@ -31,7 +31,7 @@ test('P4-BE · nhặt hàng, quét đóng gói, báo sẵn sàng và in vận đ
   await page.goto(`/c/${companyId}/fulfillment/packages`);
   await page.getByRole('checkbox', { name: `Chọn ${packageCode}`, exact: true }).click();
   const pickResponse = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/fulfillment/pick-list'));
-  await page.getByRole('button', { name: 'Danh sách nhặt (1 kiện)', exact: true }).click();
+  await page.getByRole('button', { name: 'Danh sách lấy hàng (1 kiện)', exact: true }).click();
   const picked = await pickResponse;
   expect(picked.status()).toBe(200);
   const list: PickList = await picked.json();
@@ -66,7 +66,7 @@ test('P4-BE · nhặt hàng, quét đóng gói, báo sẵn sàng và in vận đ
   await page.getByRole('checkbox', { name: `Chọn ${packageCode}`, exact: true }).click();
   await page.evaluate(() => { window.open = () => null; });
   const pdfResponse = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/fulfillment/packages/documents'));
-  await page.getByRole('button', { name: 'In vận đơn (1)', exact: true }).click();
+  await page.getByRole('button', { name: 'In phiếu giao hàng (1)', exact: true }).click();
   const pdf = await pdfResponse;
   expect(pdf.status()).toBe(200);
   expect(pdf.headers()['content-type']).toBe('application/pdf');
