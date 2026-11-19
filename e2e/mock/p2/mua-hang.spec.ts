@@ -18,7 +18,7 @@ test.describe('P2 · Mua hàng', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'ceo@commerio.vn', 'ceo'));
 
     test('tự duyệt đề nghị mình lập rồi tự ghi sổ phiếu nhận (A1, A2; FE#93)', async ({ page }) => {
-      await moTab(page, 'Đặt hàng nhập', 'DN-000003');
+      await moTab(page, 'Đề nghị nhập', 'DN-000003');
       await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
       for (const label of ['Duyệt', 'Trả về', 'Từ chối']) {
         const nut = page.getByRole('button', { name: label, exact: true });
@@ -61,7 +61,7 @@ test.describe('P2 · Mua hàng', () => {
     });
 
     test('loại dòng của đề nghị người khác lập: bắt buộc lý do, lý do hiện dưới dòng bị loại (US-NH-03; BE#243)', async ({ page }) => {
-      await moTab(page, 'Đặt hàng nhập', 'DN-000004');
+      await moTab(page, 'Đề nghị nhập', 'DN-000004');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
       const dong = page.getByTestId('request-lines').locator('tbody tr').first();
@@ -77,7 +77,7 @@ test.describe('P2 · Mua hàng', () => {
     });
 
     test('CEO là người gửi phiếu trả vẫn tự ghi kết quả từ nhà cung cấp được (ngoại lệ tự duyệt, B4; BE#210)', async ({ page }) => {
-      await moTab(page, 'Trả hàng NCC', 'TN-000001');
+      await moTab(page, 'Trả nhà cung cấp', 'TN-000001');
       await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
       // Người gửi không phải CEO thì bị chặn (unit test bảng chuyển); CEO được tự làm nên không có dòng chặn
       await expect(page.getByTestId('lifecycle-blocked')).toHaveCount(0);
@@ -189,10 +189,10 @@ test.describe('P2 · Mua hàng', () => {
       await page.getByRole('tab', { name: 'Nhà cung cấp', exact: true }).click();
       const phieuNhan = () => chua(page, 'Xưởng may Thành Công', 'tbody tr').locator('td').nth(1);
       // NH-000001 ghi sổ ngày 08/10/2026
-      await page.getByLabel('Nhập kho từ ngày', { exact: true }).fill('2026-10-08');
+      await page.getByLabel('Ghi sổ từ ngày', { exact: true }).fill('2026-10-08');
       await page.getByLabel('Đến ngày', { exact: true }).fill('2026-10-08');
       await expect(phieuNhan()).toHaveText('1');
-      await page.getByLabel('Nhập kho từ ngày', { exact: true }).fill('2026-10-09');
+      await page.getByLabel('Ghi sổ từ ngày', { exact: true }).fill('2026-10-09');
       await page.getByLabel('Đến ngày', { exact: true }).fill('2026-10-09');
       await expect(phieuNhan()).toHaveText('0');
     });
@@ -202,7 +202,7 @@ test.describe('P2 · Mua hàng', () => {
     test.beforeEach(({ page }) => dangNhap(page, 'kho@commerio.vn', 'kho'));
 
     test('kiểm đếm báo lỗi tiếng Việt, rồi ghi sổ phiếu đủ hàng (A2)', async ({ page }) => {
-      await moTab(page, 'Phiếu nhập kho', 'NH-000002');
+      await moTab(page, 'Phiếu nhận', 'NH-000002');
       await expect(page.getByTestId('receipt-status')).toContainText('Đang kiểm');
       await thayChu(page, 'Người giao đã đi');
       await page.getByLabel(/^Đạt /).first().fill('12');
@@ -217,7 +217,7 @@ test.describe('P2 · Mua hàng', () => {
     });
 
     test('lập phiếu nhận giao bù: chọn phiếu Giao thiếu của cùng đề nghị, phiếu mới hiện phiếu được bù (A2; BE#244)', async ({ page }) => {
-      await moTab(page, 'Đặt hàng nhập', 'DN-000002');
+      await moTab(page, 'Đề nghị nhập', 'DN-000002');
       await page.getByRole('button', { name: 'Lập phiếu nhận', exact: true }).click();
       const hop = page.getByRole('dialog');
       await hop.getByLabel('Giao bù cho phiếu', { exact: true }).click();
@@ -233,7 +233,7 @@ test.describe('P2 · Mua hàng', () => {
   test.describe('Mua hàng ↔ CEO', () => {
     test('Mua hàng ghi nhà cung cấp hoàn tiền cho phiếu CEO đã gửi (B4)', async ({ page }) => {
       await dangNhap(page, 'muahang@commerio.vn', 'muahang');
-      await moTab(page, 'Trả hàng NCC', 'TN-000001');
+      await moTab(page, 'Trả nhà cung cấp', 'TN-000001');
       await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
@@ -246,7 +246,7 @@ test.describe('P2 · Mua hàng', () => {
 
     test('Mua hàng gửi duyệt phiếu trả nháp, không tự duyệt (B4)', async ({ page }) => {
       await dangNhap(page, 'muahang@commerio.vn', 'muahang');
-      await moTab(page, 'Trả hàng NCC', 'TN-000002');
+      await moTab(page, 'Trả nhà cung cấp', 'TN-000002');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
       // Thiếu quyền duyệt: nút vẫn hiện nhưng mờ, kèm lý do (FE#137)
@@ -257,7 +257,7 @@ test.describe('P2 · Mua hàng', () => {
 
     test('Mua hàng xem đề nghị chờ duyệt: nút Duyệt mờ kèm lý do (A1; FE#137)', async ({ page }) => {
       await dangNhap(page, 'muahang@commerio.vn', 'muahang');
-      await moTab(page, 'Đặt hàng nhập', 'DN-000003');
+      await moTab(page, 'Đề nghị nhập', 'DN-000003');
       await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
       const duyet = page.getByRole('button', { name: 'Duyệt', exact: true });
       await expect(duyet).toHaveAttribute('aria-disabled', 'true');
@@ -271,7 +271,7 @@ test.describe('P2 · Mua hàng', () => {
     // Đăng nhập lại tải trang làm mock về dữ liệu đầu, nên phần CEO duyệt chạy trong một phiên
     test('CEO duyệt và gửi phiếu trả chờ duyệt (B4)', async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-      await moTab(page, 'Trả hàng NCC', 'TN-000002');
+      await moTab(page, 'Trả nhà cung cấp', 'TN-000002');
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
       await thaoTac(page, 'Duyệt và gửi');

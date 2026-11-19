@@ -187,9 +187,9 @@ test.describe('Hướng dẫn trang', () => {
     await page.keyboard.press('Escape');
 
     const phieu: [string, string, string, string][] = [
-      ['Đặt hàng nhập', 'DN-000003', 'Đề nghị nhập', 'Đang ở bước nào'],
-      ['Phiếu nhập kho', '', 'Phiếu nhận hàng', 'Số thực nhận'],
-      ['Trả hàng NCC', 'TN-000001', 'Trả hàng nhà cung cấp', 'Chọn dòng trả'],
+      ['Đề nghị nhập', 'DN-000003', 'Đề nghị nhập', 'Đang ở bước nào'],
+      ['Phiếu nhận', '', 'Phiếu nhận hàng', 'Số thực nhận'],
+      ['Trả nhà cung cấp', 'TN-000001', 'Trả hàng nhà cung cấp', 'Chọn dòng trả'],
     ];
     for (const [tab, so, tieuDe, buoc1] of phieu) {
       await menu(page, 'Mua hàng');
