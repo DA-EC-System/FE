@@ -307,7 +307,7 @@ describe('Mã lỗi trang đẩy lên sàn (commerio-backend#400, Documents/21 �
 describe('báo sàn, in vận đơn (commerio-backend#239, FE#338)', () => {
   it('KH-B07: cancel_requested có câu riêng, không khuyên tải lại kiện', () => {
     const m = problemMessage(loi({ code: 'cancel_requested', detail: 'x' }), 'rts');
-    expect(m).toContain('Khách đang xin huỷ');
+    expect(m).toContain('Người mua đang xin huỷ');
     expect(m).not.toContain('Tải lại kiện');
   });
 
