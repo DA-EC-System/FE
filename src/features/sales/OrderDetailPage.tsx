@@ -33,6 +33,7 @@ import type { PackageSummary } from '@/types/fulfillment';
 import type { Order, OrderStatus } from '@/types/sales';
 import {
   COMPLETION_BLOCKER_LABELS,
+  initiatorLabel,
   ORDER_STATUS,
   wardNote,
   lineCancelPending,
@@ -312,6 +313,11 @@ export function OrderDetailPage() {
                 )}
               </Info>
               {order.note && <Info label="Ghi chú">{order.note}</Info>}
+              {!!order.cancelInitiators?.length && (
+                <Info label="Người huỷ">
+                  <span data-testid="cancel-initiators">{order.cancelInitiators.map(initiatorLabel).join(', ')}</span>
+                </Info>
+              )}
               {order.cancelReason && <Info label="Lý do huỷ">{order.cancelReason}</Info>}
               <Info label="Số hoá đơn">
                 <span className="inline-flex items-center gap-1" data-testid="invoice-number">

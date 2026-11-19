@@ -194,8 +194,8 @@ export interface Order extends OrderSummary {
   buyerNote?: string | null;
   /** Lý do huỷ cả đơn; huỷ một phần món thì null (lý do ở từng dòng) */
   cancelReason: string | null;
-  /** Người khởi xướng huỷ cả đơn: Sale huỷ trên sàn `seller`, Sale đồng ý khách xin huỷ `buyer`, sàn tự huỷ `platform` (21 §19.1, DH-B06) */
-  cancelInitiator?: LineCancelInitiator | null;
+  /** Những người đã huỷ món của đơn, không trùng, thứ tự buyer, seller, platform; suy ra từ `cancelInitiator` của dòng đã huỷ (21 §19.1, DH-B06, BE#417). Chưa món nào huỷ: `[]` */
+  cancelInitiators?: LineCancelInitiator[];
   /** Số hoá đơn gửi lên sàn (Lazada SetInvoiceNumber), §19.3 */
   invoiceNumber: string | null;
   lines: OrderLine[];

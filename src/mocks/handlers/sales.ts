@@ -7,6 +7,7 @@ import * as payment from '../paymentData';
 import * as fulfillment from '../fulfillmentData';
 import { openRequestsOf } from '../returnsData';
 import type {
+  LineCancelInitiator,
   Order,
   OrderFlag,
   OrderSummary,
@@ -207,6 +208,18 @@ export function toOrderSummary(o: sales.MockOrder): OrderSummary {
   };
 }
 
+/** Người huỷ món của đơn như BE#417: người không trùng của dòng đã huỷ, thứ tự buyer, seller, platform. Mock không có
+ * `cancelledQty` nên coi dòng đã huỷ là dòng `cancelKind = cancellation` hay mọi dòng của đơn đã huỷ. */
+function cancelInitiatorsOf(o: sales.MockOrder): LineCancelInitiator[] {
+  const seen = new Set(
+    o.lines
+      .map((l) => o.platform?.lines?.[l.id])
+      .filter((x) => x?.cancelInitiator && (o.status === 'cancelled' || x.cancelKind === 'cancellation'))
+      .map((x) => x!.cancelInitiator!),
+  );
+  return (['buyer', 'seller', 'platform'] as const).filter((c) => seen.has(c));
+}
+
 export function toOrder(o: sales.MockOrder): Order {
   const own = packagesOf(o);
   const last = lastDeliveredAt(o);
@@ -222,6 +235,7 @@ export function toOrder(o: sales.MockOrder): Order {
     note: o.note,
     buyerNote: o.buyerNote,
     cancelReason: o.cancelReason,
+    cancelInitiators: cancelInitiatorsOf(o),
     invoiceNumber: o.invoiceNumber,
     lines: o.lines.map((l) => ({
       id: l.id,
