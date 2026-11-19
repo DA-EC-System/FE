@@ -48,7 +48,7 @@ test.describe('P2 · Nhãn sản phẩm (FE#260)', () => {
     await page.getByRole('button', { name: 'Thêm sản phẩm', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/new$/);
     await chon(page, 'Danh mục', 'Áo');
-    const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
+    const thuocTinh = page.getByRole('group', { name: 'Thuộc tính phân loại', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await page.getByRole('group', { name: 'Màu sắc', exact: true }).getByRole('button', { name: 'Đen', exact: true }).click();
     await page.locator('input[name=name]').fill('Áo thử xoá hẳn');

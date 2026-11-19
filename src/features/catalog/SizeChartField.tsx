@@ -54,7 +54,7 @@ export function SizeChartField({ value, onChange, onBusyChange, disabled, error 
         {value && (
           <div className="relative size-30 overflow-hidden rounded-md border" data-image-id={value.fileId}>
             {value.url ? (
-              <img src={value.url} alt="Ảnh bảng kích cỡ" className="size-full object-contain" />
+              <img src={value.url} alt="Ảnh bảng size" className="size-full object-contain" />
             ) : (
               <div className="flex size-full items-center justify-center p-2 text-center text-xs text-muted-foreground">
                 Đã có ảnh, chưa xem trước được
@@ -65,7 +65,7 @@ export function SizeChartField({ value, onChange, onBusyChange, disabled, error 
                 type="button"
                 variant="secondary"
                 size="icon"
-                aria-label="Bỏ ảnh bảng kích cỡ"
+                aria-label="Bỏ ảnh bảng size"
                 className="absolute top-1 right-1 size-6"
                 onClick={() => onChange(null)}
               >
@@ -96,7 +96,7 @@ export function SizeChartField({ value, onChange, onBusyChange, disabled, error 
             )}
           </Button>
         )}
-        {disabled && !value && <p className="text-sm text-muted-foreground">Chưa có ảnh bảng kích cỡ.</p>}
+        {disabled && !value && <p className="text-sm text-muted-foreground">Chưa có ảnh bảng size.</p>}
       </div>
 
       <input

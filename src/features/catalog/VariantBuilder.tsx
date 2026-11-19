@@ -44,8 +44,8 @@ export function planError(plan: VariantPlan, attributes: Attribute[]): string | 
   const empty = attributes.find((a) => plan.attributeIds.includes(a.id) && !plan.values[a.id]?.length);
   if (empty) return `Chọn ít nhất một giá trị cho ${empty.name}`;
   const count = planCombos(plan, attributes).filter((c) => !plan.excluded.includes(comboKey(c))).length;
-  if (!count) return 'Cần ít nhất một biến thể';
-  if (count > MAX_VARIANTS) return `Tối đa ${MAX_VARIANTS} biến thể mỗi lần tạo`;
+  if (!count) return 'Cần ít nhất một variant';
+  if (count > MAX_VARIANTS) return `Tối đa ${MAX_VARIANTS} variant mỗi lần tạo`;
   return null;
 }
 
@@ -112,16 +112,16 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
   });
   const includedCount = rows.filter((r) => r.included).length;
   // Báo ngay khi vượt, không đợi bấm Lưu
-  const tooMany = includedCount > MAX_VARIANTS ? `Tối đa ${MAX_VARIANTS} biến thể mỗi lần tạo` : null;
+  const tooMany = includedCount > MAX_VARIANTS ? `Tối đa ${MAX_VARIANTS} variant mỗi lần tạo` : null;
   const shownError = tooMany ?? error;
 
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">
-        Chọn tối đa {MAX_AXES} thuộc tính làm biến thể (vd màu, cỡ). Không chọn thuộc tính nào thì sản phẩm có
-        một biến thể.
+        Chọn tối đa {MAX_AXES} thuộc tính phân loại để chia variant (vd Màu, Cỡ). Không chọn thì sản phẩm chỉ có
+        một variant &lsquo;Mặc định&rsquo;.
       </p>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Thuộc tính">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Thuộc tính phân loại">
         {attributes.map((a) => (
           <ToggleChip
             key={a.id}
@@ -136,15 +136,15 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
         {loading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
             <Loader2 className="size-4 animate-spin" />
-            Đang tải thuộc tính…
+            Đang tải thuộc tính phân loại…
           </p>
         ) : (
-          !attributes.length && <p className="text-sm text-muted-foreground">Công ty chưa có thuộc tính nào.</p>
+          !attributes.length && <p className="text-sm text-muted-foreground">Chưa có thuộc tính phân loại nào. Tạo ở trang Category &amp; thuộc tính.</p>
         )}
       </div>
       {axesFull && attributes.length > MAX_AXES && (
         <p className="text-xs text-muted-foreground" data-testid="axes-limit">
-          Đã chọn đủ {MAX_AXES} thuộc tính phân loại. Bỏ một thuộc tính để chọn thuộc tính khác.
+          Đã chọn đủ {MAX_AXES} thuộc tính phân loại. Bỏ một cái để chọn cái khác.
         </p>
       )}
 
@@ -173,7 +173,7 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
           <TableHeader>
             <TableRow>
               <TableHead className="w-10" />
-              <TableHead>Biến thể</TableHead>
+              <TableHead>Variant</TableHead>
               <TableHead>SKU dự kiến</TableHead>
             </TableRow>
           </TableHeader>
@@ -187,12 +187,12 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
                       checked={r.included}
                       disabled={rows.length === 1}
                       onCheckedChange={() => toggleCombo(r.key)}
-                      aria-label={`Tạo biến thể ${label}`}
+                      aria-label={`Tạo variant ${label}`}
                     />
                   </TableCell>
                   <TableCell>{label}</TableCell>
                   <TableCell className="font-mono">
-                    {r.sku ?? (r.included ? 'Chọn danh mục để xem' : '—')}
+                    {r.sku ?? (r.included ? 'Chọn category để xem SKU' : '—')}
                   </TableCell>
                 </TableRow>
               );
@@ -202,12 +202,12 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
       </div>
       {rows.length > MAX_ROWS_SHOWN && (
         <p className="text-xs text-muted-foreground">
-          Chỉ hiện {MAX_ROWS_SHOWN} trên {rows.length} tổ hợp.
+          Chỉ hiện {MAX_ROWS_SHOWN} trên {rows.length} variant.
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        Sẽ tạo <Badge variant="secondary">{includedCount}</Badge> biến thể. SKU chính thức do hệ thống
-        cấp khi lưu và có thể khác bản xem trước nếu có người vừa tạo sản phẩm cùng danh mục.
+        Sẽ tạo <Badge variant="secondary">{includedCount}</Badge> variant. SKU thật cấp khi lưu, có thể lệch bản xem trước nếu có
+        người vừa tạo sản phẩm cùng category.
       </p>
       {shownError && <AlertMessage severity="error">{shownError}</AlertMessage>}
     </div>
