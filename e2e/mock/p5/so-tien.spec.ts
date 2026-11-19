@@ -134,7 +134,7 @@ test.describe('P5 · Sổ tiền', () => {
     // Admin chỉ có finance.config.manage, finance.settlement.resolve: đủ xem sổ tiền như financeView ở BE
     test('mở được sổ tiền từ menu', async ({ page }) => {
       await page.goto('/c/cmp-001');
-      await page.getByRole('link', { name: 'Sổ tiền', exact: true }).click();
+      await page.getByRole('link', { name: 'Sổ giao dịch', exact: true }).click();
       await thayChu(page, 'Sổ tiền', 'h1');
       await thayChu(page, 'DH-1018', 'tr');
     });
@@ -147,7 +147,7 @@ test.describe('P5 · Sổ tiền', () => {
       await page.goto('/c/cmp-001/sales/orders/ord-1018');
       await thayChu(page, 'DH-1018', 'h1');
       await expect(page.locator('[data-testid=order-profit]')).toHaveCount(0);
-      await expect(page.getByRole('link', { name: 'Sổ tiền', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Sổ giao dịch', exact: true })).toHaveCount(0);
       await page.goto('/c/cmp-001/finance/ledger');
       await thayChu(page, CHAN_QUYEN);
     });

@@ -13,7 +13,7 @@ const daXem = (page: Page) =>
 
 /** Rời Tổng quan rồi quay lại bằng menu (không tải lại trang, mock giữ phiên) */
 async function quayLaiTongQuan(page: Page) {
-  await menu(page, 'Kênh bán');
+  await menu(page, 'Gian hàng');
   await expect(nutHoi(page)).toHaveCount(0);
   await menu(page, 'Tổng quan');
   await expect(nutHoi(page)).toBeVisible();
@@ -71,11 +71,11 @@ test.describe('Hướng dẫn trang', () => {
     await expect(tour(page).getByRole('heading', { name: 'Quét mã', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await menu(page, 'Yêu cầu trả');
-    await expect(popup(page).getByRole('heading', { name: 'Yêu cầu trả hàng', exact: true })).toBeVisible();
+    await menu(page, 'Trả hàng/Hoàn tiền');
+    await expect(popup(page).getByRole('heading', { name: 'Trả hàng/Hoàn tiền', exact: true })).toBeVisible();
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
     await expect(tour(page).getByText('Bước 1/3', { exact: true })).toBeVisible();
-    await expect(tour(page).getByRole('heading', { name: 'Yêu cầu và kiện không khớp', exact: true })).toBeVisible();
+    await expect(tour(page).getByRole('heading', { name: 'Yêu cầu và hàng hoàn chưa rõ đơn', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(tour(page)).toHaveCount(0);
   });
@@ -145,7 +145,7 @@ test.describe('Hướng dẫn trang', () => {
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
     const trang: [string, string, string][] = [
       ['Sản phẩm', 'Sản phẩm', 'Thêm sản phẩm'],
-      ['Danh mục & thuộc tính', 'Danh mục và thuộc tính', 'Tạo danh mục trước'],
+      ['Category & thuộc tính', 'Category và thuộc tính', 'Tạo category trước'],
       ['Kho', 'Kho hàng', 'Tồn kho và phiếu kho'],
     ];
     for (const [muc, tieuDe, buoc1] of trang) {
@@ -167,7 +167,7 @@ test.describe('Hướng dẫn trang', () => {
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
     // Nút "Kiểm kê" ở tab Phiếu kho đang ẩn nên bỏ bước đó: 4 bước
     await expect(tour(page).getByText('Bước 1/4', { exact: true })).toBeVisible();
-    for (const t of ['Nhóm tồn', 'Cột khả dụng', 'Mở thẻ kho']) {
+    for (const t of ['Nhóm tồn', 'Cột Có thể bán', 'Mở thẻ kho']) {
       await page.keyboard.press('ArrowRight');
       await expect(tour(page).getByRole('heading', { name: t, exact: true })).toBeVisible();
     }
@@ -176,23 +176,23 @@ test.describe('Hướng dẫn trang', () => {
   test('Nhập hàng và các phiếu nhập có hướng dẫn riêng (FE#137)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
-    await menu(page, 'Mua hàng');
+    await menu(page, 'Nhập hàng');
     await expect(popup(page).getByRole('heading', { name: 'Nhập hàng', exact: true })).toBeVisible();
     await popup(page).getByRole('button', { name: 'Xem từng bước', exact: true }).click();
     await expect(tour(page).getByText('Bước 1/3', { exact: true })).toBeVisible();
-    for (const t of ['Tạo đề nghị nhập', 'Nhà cung cấp']) {
+    for (const t of ['Tạo đơn đặt hàng nhập', 'Nhà cung cấp']) {
       await page.keyboard.press('ArrowRight');
       await expect(tour(page).getByRole('heading', { name: t, exact: true })).toBeVisible();
     }
     await page.keyboard.press('Escape');
 
     const phieu: [string, string, string, string][] = [
-      ['Đề nghị nhập', 'DN-000003', 'Đề nghị nhập', 'Đang ở bước nào'],
-      ['Phiếu nhận', '', 'Phiếu nhận hàng', 'Số thực nhận'],
-      ['Trả nhà cung cấp', 'TN-000001', 'Trả hàng nhà cung cấp', 'Chọn dòng trả'],
+      ['Đề nghị nhập', 'DN-000003', 'Đơn đặt hàng nhập', 'Đang ở bước nào'],
+      ['Phiếu nhận', '', 'Phiếu nhập kho', 'Số thực nhận'],
+      ['Trả nhà cung cấp', 'TN-000001', 'Trả hàng NCC', 'Chọn hàng trả'],
     ];
     for (const [tab, so, tieuDe, buoc1] of phieu) {
-      await menu(page, 'Mua hàng');
+      await menu(page, 'Nhập hàng');
       await page.getByRole('tab', { name: tab, exact: true }).click();
       await page.locator('tbody tr[data-row-id]').filter({ hasText: so }).first().click();
       await expect(popup(page).getByRole('heading', { name: tieuDe, exact: true })).toBeVisible();
@@ -224,14 +224,14 @@ test.describe('Hướng dẫn trang', () => {
     await expect(tour(page)).toHaveCount(0);
   });
 
-  test('Nhân viên, Vai trò, Phân hệ có hướng dẫn riêng (FE#141)', async ({ page }) => {
+  test('Nhân viên, Vai trò, Tính năng có hướng dẫn riêng (FE#141)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
 
     const cacTrang: [string, string, string, string][] = [
       ['Nhân viên', 'Nhân viên', 'Bước 1/5', 'Mời nhân viên'],
-      ['Vai trò', 'Vai trò', 'Bước 1/2', 'Tạo vai trò tuỳ biến'],
-      ['Phân hệ', 'Phân hệ', 'Bước 1/2', 'Bật, tắt phân hệ'],
+      ['Vai trò', 'Vai trò', 'Bước 1/2', 'Tạo vai trò tự tạo'],
+      ['Tính năng', 'Tính năng', 'Bước 1/2', 'Bật, tắt tính năng'],
     ];
     for (const [muc, tieuDe, buoc, buoc1] of cacTrang) {
       await menu(page, muc);

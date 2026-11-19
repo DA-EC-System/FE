@@ -146,7 +146,7 @@ test.describe('P5 · Quét nhận hàng về theo số lượng', () => {
   test.describe('hàng trả', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'kho@commerio.vn', 'kho');
-      await menu(page, 'Yêu cầu trả');
+      await menu(page, 'Trả hàng/Hoàn tiền');
       await page.getByRole('button', { name: 'Quét nhận hàng trả', exact: true }).click();
     });
 

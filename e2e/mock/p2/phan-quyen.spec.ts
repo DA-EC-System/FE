@@ -16,7 +16,7 @@ test.describe('P2 · Phân quyền', () => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await coMenu(page, 'Sản phẩm');
     await khongCoMenu(page, 'Bảng giá');
-    await khongCoMenu(page, 'Danh mục & thuộc tính');
+    await khongCoMenu(page, 'Category & thuộc tính');
     await khongCoMenu(page, 'Kho');
 
     await menu(page, 'Sản phẩm');
@@ -37,7 +37,7 @@ test.describe('P2 · Phân quyền', () => {
 
   test('Nhân viên kho: lập phiếu, không thấy giá vốn, không đặt ngưỡng, không vào Sổ tiền', async ({ page }) => {
     await dangNhap(page, 'kho@commerio.vn', 'kho');
-    await khongCoMenu(page, 'Sổ tiền');
+    await khongCoMenu(page, 'Sổ giao dịch');
     await menu(page, 'Kho');
     await expect(dong(page, 'prd-001-v1')).toBeAttached();
     await expect(page.locator('thead')).not.toContainText('Giá vốn BQ');
@@ -68,7 +68,7 @@ test.describe('P2 · Phân quyền', () => {
 
   test('CEO: thấy giá vốn và đủ thao tác', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await coMenu(page, 'Danh mục & thuộc tính');
+    await coMenu(page, 'Category & thuộc tính');
     await menu(page, 'Kho');
     await expect(page.locator('thead')).toContainText('Giá vốn BQ');
     await expect(page.locator('thead')).toContainText('Giá trị tồn');

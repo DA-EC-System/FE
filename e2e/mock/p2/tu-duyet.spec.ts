@@ -12,7 +12,7 @@ const diToi = (page: Page, path: string) =>
 
 /** CEO duyệt đề nghị chính mình lập (DN-000003 của dữ liệu mock) */
 async function ceoTuDuyet(page: Page) {
-  await menu(page, 'Mua hàng');
+  await menu(page, 'Nhập hàng');
   await page.getByRole('tab', { name: 'Đề nghị nhập', exact: true }).click();
   await chua(page, 'DN-000003', 'tbody tr').click();
   await page.getByRole('button', { name: 'Duyệt', exact: true }).click();

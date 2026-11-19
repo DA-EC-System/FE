@@ -10,7 +10,7 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
   test.beforeEach(({ page }) => dangNhap(page, 'ceo@commerio.vn', 'ceo'));
 
   test('5 dòng phân hệ; Kênh bán đã có dữ liệu thì không tắt được (AC-11)', async ({ page }) => {
-    await menu(page, 'Phân hệ');
+    await menu(page, 'Tính năng');
     await expect(page.locator('[data-module]')).toHaveCount(5);
     const channel = page.locator('[data-module="channel"]');
     await expect(channel.getByRole('switch')).toBeDisabled();
@@ -19,7 +19,7 @@ test.describe('P1 · Phân hệ, nhật ký (CEO)', () => {
   });
 
   test('bật Trợ lý AI phải tích đồng ý; module_state_changed thì báo (AC-12)', async ({ page }) => {
-    await menu(page, 'Phân hệ');
+    await menu(page, 'Tính năng');
     const assistant = page.locator('[data-module="assistant"]');
     await assistant.getByRole('switch').click();
     const dialog = page.getByRole('dialog');
@@ -66,14 +66,14 @@ test.describe('P1 · Phân quyền khu quản trị công ty', () => {
   test('Admin: không có Phân hệ, có Nhật ký; mở Phân hệ bằng URL bị chặn (AC-11, AC-13)', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
     await expect(thanhBen(page)).toContainText('Nhật ký thao tác');
-    await expect(thanhBen(page)).not.toContainText('Phân hệ');
+    await expect(thanhBen(page)).not.toContainText('Tính năng');
     await page.goto('/c/cmp-001/admin/modules');
     await expect(page.locator('main')).toHaveText(KHONG_CO_QUYEN);
   });
 
   test('Sale: xem danh sách nhân viên không có nút thao tác; Phân hệ, Nhật ký bị chặn (AC-2, AC-11, AC-13)', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await expect(thanhBen(page)).not.toContainText('Phân hệ');
+    await expect(thanhBen(page)).not.toContainText('Tính năng');
     await expect(thanhBen(page)).not.toContainText('Nhật ký thao tác');
     await page.goto('/c/cmp-001/admin/staff');
     await expect(page.getByRole('button', { name: 'Mời nhân viên', exact: true })).toHaveCount(0);
@@ -112,7 +112,7 @@ test.describe('P1 · Quản trị nền tảng', () => {
     await alert.getByRole('button', { name: 'Mở khoá', exact: true }).click();
     await toast(page, 'Đã mở khoá');
 
-    await menu(page, 'Nhật ký nền tảng');
+    await menu(page, 'Nhật ký thao tác nền tảng');
     await expect(page.locator('tbody tr[data-row-id]')).not.toHaveCount(0);
   });
 

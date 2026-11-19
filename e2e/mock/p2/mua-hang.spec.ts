@@ -3,7 +3,7 @@ import { type Page } from '@playwright/test';
 import { chon, chua, dangNhap, expect, menu, test, thayChu, toast } from '../../fixtures';
 
 const moTab = async (page: Page, tab: string, number: string) => {
-  await menu(page, 'Mua hàng');
+  await menu(page, 'Nhập hàng');
   await page.getByRole('tab', { name: tab, exact: true }).click();
   await chua(page, number, 'tbody tr').click();
 };
@@ -185,7 +185,7 @@ test.describe('P2 · Mua hàng', () => {
     });
 
     test('báo cáo nhà cung cấp lọc theo kỳ ghi sổ (A2)', async ({ page }) => {
-      await menu(page, 'Mua hàng');
+      await menu(page, 'Nhập hàng');
       await page.getByRole('tab', { name: 'Nhà cung cấp', exact: true }).click();
       const phieuNhan = () => chua(page, 'Xưởng may Thành Công', 'tbody tr').locator('td').nth(1);
       // NH-000001 ghi sổ ngày 08/10/2026

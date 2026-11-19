@@ -31,35 +31,35 @@ const khongCuonNgang = async (page: Page) =>
 const MENU: Record<string, string[]> = {
   ceo: [
     'Tổng quan: Tổng quan',
-    'Nhập hàng: Mua hàng',
-    'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
-    'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả',
-    'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
-    'Quản trị: Nhân viên | Vai trò | Phân hệ | Hồ sơ công ty | Nhật ký thao tác | Việc nền lỗi',
+    'Nhập hàng: Nhập hàng',
+    'Sản phẩm và kho: Sản phẩm | Category & thuộc tính | Kho',
+    'Kênh bán: Gian hàng | Giá mới chờ duyệt',
+    'Đơn hàng: Đơn hàng | Kiện hàng | Trả hàng/Hoàn tiền',
+    'Tài chính: Sổ giao dịch | Đối soát công nợ sàn | Cấu hình phí sàn và thuế',
+    'Quản trị: Nhân viên | Vai trò | Tính năng | Hồ sơ công ty | Nhật ký thao tác | Tác vụ lỗi',
     'Dữ liệu giả: Sàn giả lập',
   ],
   admin: [
     'Tổng quan: Tổng quan',
-    'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
-    'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Yêu cầu trả', // Admin có sales.return.view theo ma trận (FE#152)
-    'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
-    'Quản trị: Nhân viên | Vai trò | Hồ sơ công ty | Nhật ký thao tác | Việc nền lỗi',
+    'Sản phẩm và kho: Sản phẩm | Category & thuộc tính | Kho',
+    'Kênh bán: Gian hàng | Giá mới chờ duyệt',
+    'Đơn hàng: Đơn hàng | Trả hàng/Hoàn tiền', // Admin có sales.return.view theo ma trận (FE#152)
+    'Tài chính: Sổ giao dịch | Đối soát công nợ sàn | Cấu hình phí sàn và thuế',
+    'Quản trị: Nhân viên | Vai trò | Hồ sơ công ty | Nhật ký thao tác | Tác vụ lỗi',
     'Dữ liệu giả: Sàn giả lập',
   ],
   sale: [
     'Tổng quan: Tổng quan',
     'Sản phẩm và kho: Sản phẩm',
-    'Bán trên sàn: Kênh bán',
-    'Đơn hàng: Đơn hàng | Yêu cầu trả',
+    'Kênh bán: Gian hàng',
+    'Đơn hàng: Đơn hàng | Trả hàng/Hoàn tiền',
     'Dữ liệu giả: Sàn giả lập',
   ],
   kho: [
     'Tổng quan: Tổng quan',
-    'Nhập hàng: Mua hàng',
+    'Nhập hàng: Nhập hàng',
     'Sản phẩm và kho: Sản phẩm | Kho',
-    'Đơn hàng: Kiện hàng | Yêu cầu trả',
+    'Đơn hàng: Kiện hàng | Trả hàng/Hoàn tiền',
   ],
 };
 
@@ -77,7 +77,7 @@ test.describe('P1 · Khung trang', () => {
     await page.locator('input[name=password]').fill('platform');
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/^\/platform/);
-    expect(await menuTheoNhom(page)).toEqual(['Quản trị nền tảng: Tổng quan | Công ty | Nhật ký nền tảng']);
+    expect(await menuTheoNhom(page)).toEqual(['Quản trị nền tảng: Tổng quan | Công ty | Nhật ký thao tác nền tảng']);
     await expect(page.getByTestId('nav-user')).toContainText('Quản trị nền tảng');
     await expect(page.getByTestId('task-bell')).toHaveCount(0);
   });
@@ -86,7 +86,7 @@ test.describe('P1 · Khung trang', () => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     const taiChinh = tenNhom(page, 'Tài chính');
     await expect(taiChinh).toHaveAttribute('aria-expanded', 'true');
-    await expect(nhom(page, 'Tài chính')).toContainText('Sổ tiền');
+    await expect(nhom(page, 'Tài chính')).toContainText('Sổ giao dịch');
     await taiChinh.click();
     await expect(taiChinh).toHaveAttribute('aria-expanded', 'false');
     await expect(nhom(page, 'Tài chính').locator('[data-sidebar="menu-button"]')).toHaveCount(0);
@@ -98,7 +98,7 @@ test.describe('P1 · Khung trang', () => {
     await expect(tenNhom(page, 'Đơn hàng')).toHaveAttribute('aria-expanded', 'true');
 
     await tenNhom(page, 'Tài chính').click();
-    await expect(nhom(page, 'Tài chính')).toContainText('Sổ tiền');
+    await expect(nhom(page, 'Tài chính')).toContainText('Sổ giao dịch');
     await page.reload();
     await expect(tenNhom(page, 'Tài chính')).toHaveAttribute('aria-expanded', 'true');
   });

@@ -94,7 +94,7 @@ test.describe('P2 · Thông tin SKU', () => {
 
   test('không còn trang Bảng giá; Giá chờ xác nhận nằm dưới Kênh bán', async ({ page }) => {
     await expect(page.locator('[data-sidebar="menu-button"]', { hasText: /^\s*Bảng giá\s*$/ })).toHaveCount(0);
-    await menu(page, 'Giá chờ xác nhận');
+    await menu(page, 'Giá mới chờ duyệt');
     await expect.poll(() => duongDan(page)).toMatch(/\/channel\/pending-prices$/);
   });
 });

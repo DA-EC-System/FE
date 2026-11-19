@@ -62,7 +62,7 @@ test.describe('P1 · Xác thực và chặn trang', () => {
     await expect(thanhBen(page).locator('[data-sidebar="header"]')).toContainText('Thời trang ABC');
     await expect(thanhBen(page)).toContainText('Sản phẩm');
     await expect(thanhBen(page)).not.toContainText('Vai trò');
-    await expect(thanhBen(page)).not.toContainText('Phân hệ');
+    await expect(thanhBen(page)).not.toContainText('Tính năng');
     await page.getByTestId('nav-user').click();
     await expect(page.getByRole('menuitem', { name: 'Đổi mật khẩu', exact: true })).toBeAttached();
     await expect(page.getByRole('menuitem', { name: 'Đăng xuất', exact: true })).toBeAttached();
@@ -78,7 +78,7 @@ test.describe('P1 · Xác thực và chặn trang', () => {
   test('phân hệ chưa bật thì báo chưa bật (AC-8)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo', 'Minh Phát');
     await page.goto('/c/cmp-003/channel/shops');
-    await expect(page.locator('main')).toContainText('Phân hệ chưa bật');
+    await expect(page.locator('main')).toContainText('Tính năng chưa bật');
   });
 
   test('quản trị nền tảng vào /platform, không có menu khu công ty (AC-9)', async ({ page }) => {

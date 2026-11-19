@@ -73,7 +73,7 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
   });
 
   test('MSW nối hai shop của tài khoản chính và hiện nút thiết lập từng shop', async ({ page }) => {
-    await menu(page, 'Kênh bán');
+    await menu(page, 'Gian hàng');
     await page.getByRole('button', { name: 'Thêm gian hàng', exact: true }).click();
     const section = page.locator('[data-testid=connect-section]');
     await section.getByRole('button', { name: 'Sàn giả lập (mock)', exact: true }).click();
@@ -99,7 +99,7 @@ test.describe('FE #102, #103 · Hợp đồng sàn', () => {
       { ...base, id: 'a', tokenExpiringSoon: true },
       { ...base, id: 'b', tokenExpiringSoon: false, authExpiresAt: '2020-01-01T00:00:00Z' },
     ] });
-    await menu(page, 'Kênh bán');
+    await menu(page, 'Gian hàng');
     await expect(dong(page, 'a')).toContainText('shopee_v2');
     await expect(dong(page, 'a').locator('[data-testid=shop-expiring]')).toContainText('02/01/2099');
     await expect(dong(page, 'b')).toBeAttached();

@@ -10,7 +10,7 @@ const KHONG_CO_QUYEN = /403|không có quyền/i;
 test.describe('P1 · Việc nền lỗi', () => {
   test('Admin xem việc lỗi: nhãn loại việc, tên gian hàng, lọc theo loại', async ({ page }) => {
     await dangNhap(page, 'admin@commerio.vn', 'admin');
-    await menu(page, 'Việc nền lỗi');
+    await menu(page, 'Tác vụ lỗi');
     await expect(dongViec(page)).toHaveCount(4);
     // Mới nhất trước; tên gian hàng lấy từ danh sách gian hàng; hàng lạ hiện nguyên tên
     await expect(dongViec(page).first()).toContainText('Làm mới token sàn');
@@ -24,7 +24,7 @@ test.describe('P1 · Việc nền lỗi', () => {
 
   test('chạy lại có xác nhận, xong thì dòng biến mất; việc không còn thì báo 404', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Việc nền lỗi');
+    await menu(page, 'Tác vụ lỗi');
     const dong = dongCo(page, 'Lấy đơn');
     await dong.getByRole('button', { name: 'Chạy lại', exact: true }).click();
     const hop = page.getByRole('alertdialog');
@@ -48,7 +48,7 @@ test.describe('P1 · Việc nền lỗi', () => {
   test('rỗng thì báo "Không có việc lỗi"; BE lỗi thì hiện lỗi', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await mockApi(page, 'get', '/platform/jobs/dead', 200, { items: [], total: 0, page: 1, pageSize: 20 });
-    await menu(page, 'Việc nền lỗi');
+    await menu(page, 'Tác vụ lỗi');
     await expect(page.locator('tbody')).toContainText('Không có việc lỗi');
 
     await mockApi(page, 'get', '/platform/jobs/dead', 403, { status: 403, code: 'forbidden' });
@@ -58,7 +58,7 @@ test.describe('P1 · Việc nền lỗi', () => {
 
   test('Sale không có quyền: không thấy menu, mở URL thì bị chặn', async ({ page }) => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
-    await expect(thanhBen(page)).not.toContainText('Việc nền lỗi');
+    await expect(thanhBen(page)).not.toContainText('Tác vụ lỗi');
     await page.goto('/c/cmp-001/admin/dead-jobs');
     await expect(page.locator('main')).toHaveText(KHONG_CO_QUYEN);
   });
