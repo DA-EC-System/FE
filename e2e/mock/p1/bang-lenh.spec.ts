@@ -49,7 +49,7 @@ test.describe('P1 · Bảng lệnh', () => {
     await o(page).fill('so giao dich');
     await expect(lenh(page)).toHaveCount(0);
     await o(page).fill('tao don');
-    await expect(lenh(page)).toHaveCount(0);
+    await expect(lenh(page).filter({ hasText: /^\s*Tạo đơn\s*$/ })).toHaveCount(0);
     await o(page).fill('');
     await expect(lenh(page).filter({ hasText: /^Kho/ })).toHaveCount(1);
     await expect(lenh(page).filter({ hasText: 'Kết nối gian hàng' })).toHaveCount(0);

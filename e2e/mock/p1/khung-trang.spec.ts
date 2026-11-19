@@ -124,7 +124,7 @@ test.describe('P1 · Khung trang', () => {
   test('số việc chờ cuối mục, không làm đổi chữ của mục', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     const kenhBan = thanhBen(page).locator('[data-sidebar="menu-item"]', {
-      has: page.locator('[data-sidebar="menu-button"]', { hasText: /^\s*Kênh bán\s*$/ }),
+      has: page.locator('[data-sidebar="menu-button"]', { hasText: /^\s*Gian hàng\s*$/ }),
     });
     await expect(kenhBan.locator('[data-sidebar="menu-badge"]')).toHaveText(/^\d+\+?$/);
   });
