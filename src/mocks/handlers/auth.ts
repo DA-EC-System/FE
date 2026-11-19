@@ -24,7 +24,7 @@ export const authHandlers = [
     if (!account) {
       return problem(401, 'Chưa có tài khoản', {
         code: 'google_account_not_found',
-        detail: `Email ${credential} chưa có tài khoản Commerio. Hệ thống không tự tạo tài khoản; hãy nhờ CEO công ty mời bạn.`,
+        detail: `Email ${credential} chưa có tài khoản Commerio. Nhờ CEO hoặc Admin công ty gửi link mời cho bạn.`,
       });
     }
     setRefreshCookie(account.id);

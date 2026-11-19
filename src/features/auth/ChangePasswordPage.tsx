@@ -70,7 +70,7 @@ export function ChangePasswordPage() {
       )}
       {!done && forced && (
         <AlertMessage severity="info" className="mb-4">
-          Bạn đang dùng mật khẩu trong thư mời. Hãy đặt mật khẩu mới trước khi bắt đầu làm việc.
+          Bạn đang dùng mật khẩu tạm thời. Hãy đặt mật khẩu mới để tiếp tục.
         </AlertMessage>
       )}
       {error && (
@@ -84,7 +84,7 @@ export function ChangePasswordPage() {
             <FormTextField
               control={control}
               name="currentPassword"
-              label={forced ? 'Mật khẩu trong thư mời' : 'Mật khẩu hiện tại'}
+              label={forced ? 'Mật khẩu tạm thời' : 'Mật khẩu hiện tại'}
               password
               autoComplete="current-password"
               autoFocus
