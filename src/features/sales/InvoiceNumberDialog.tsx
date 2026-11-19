@@ -60,7 +60,7 @@ export function InvoiceNumberDialog({ order, open, onClose, onConflict }: Invoic
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Số hoá đơn đơn {order.code}</DialogTitle>
+          <DialogTitle>Số hoá đơn của đơn {order.code}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">

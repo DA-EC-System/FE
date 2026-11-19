@@ -20,7 +20,7 @@ import { CONFLICT_CODES } from './CancelOrderDialog';
 
 const deliverySchema = z
   .object({
-    action: z.enum(['deliver', 'fail', 'redeliver', 'return'], { message: 'Chọn trạng thái giao' }),
+    action: z.enum(['deliver', 'fail', 'redeliver', 'return'], { message: 'Chọn kết quả giao hàng' }),
     reason: z.string().trim().max(500, 'Lý do tối đa 500 ký tự'),
   })
   .refine((v) => v.action !== 'fail' || v.reason.length > 0, {
@@ -85,7 +85,7 @@ export function DeliveryDialog({ pkg, open, onClose, onConflict }: DeliveryDialo
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Cập nhật giao kiện {pkg.code}</DialogTitle>
+          <DialogTitle>Cập nhật giao hàng kiện {pkg.code}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
@@ -95,7 +95,7 @@ export function DeliveryDialog({ pkg, open, onClose, onConflict }: DeliveryDialo
               name="action"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Trạng thái giao</FormLabel>
+                  <FormLabel>Kết quả giao hàng</FormLabel>
                   <FormControl>
                     <RadioGroup value={field.value ?? ''} onValueChange={field.onChange} className="grid gap-2">
                       {options.map((a) => (

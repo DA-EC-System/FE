@@ -57,7 +57,7 @@ export function PlatformCancelDialog({ order, open, onClose, onConflict }: Platf
     try {
       const r = await mutation.mutateAsync({ id: order.id, version: order.version, reasonId });
       toast.success(
-        r.pendingOpen > 0 ? `Đã huỷ đơn ${order.code} trên sàn, còn ${r.pendingOpen} kiện chờ mở` : `Đã huỷ đơn ${order.code} trên sàn`,
+        r.pendingOpen > 0 ? `Đã huỷ đơn ${order.code} trên sàn, còn ${r.pendingOpen} kiện hàng cần mở để trả hàng về kệ` : `Đã huỷ đơn ${order.code} trên sàn`,
       );
       onClose();
     } catch (e) {
@@ -74,13 +74,13 @@ export function PlatformCancelDialog({ order, open, onClose, onConflict }: Platf
     <Dialog open={open} onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Huỷ đơn sàn {order.code}</DialogTitle>
+          <DialogTitle>Huỷ đơn trên sàn {order.code}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
             <AlertMessage severity="warning">
               Đơn huỷ trên sàn, không mở lại được.
-              {sealed > 0 && ` ${sealed} kiện đã đóng gói phải mở để trả hàng về kệ.`}
+              {sealed > 0 && ` ${sealed} kiện hàng đã đóng gói phải mở để trả hàng về kệ.`}
             </AlertMessage>
             {rejected && (
               <div data-testid="cancel-rejected">

@@ -25,15 +25,15 @@ export const needsUnload = (p: Pick<PackageSummary, 'flags' | 'flagNote'>) =>
 
 /** Câu báo sau khi ghép từ dòng đơn; `pending` (202): chờ CEO duyệt, đơn giữ cờ */
 export function lineMatchToast(label: string, variantSku: string | null, pending: boolean) {
-  if (pending) return `Đã gửi CEO duyệt ghép SKU sàn ${label}. Đơn giữ cờ Chưa ghép SKU tới khi CEO duyệt.`;
+  if (pending) return `Đã gửi CEO duyệt liên kết SKU sàn ${label}. Đơn giữ cờ Chưa liên kết SKU đến khi CEO duyệt.`;
   return variantSku
-    ? `Đã ghép ${label} với ${variantSku}. Đơn đã nhận của SKU này trong gian hàng cũng được ghép.`
-    : `Đã đặt SKU sàn ${label} là không quản tồn`;
+    ? `Đã liên kết ${label} với ${variantSku}. Đơn đã nhận của SKU này trong gian hàng cũng được liên kết.`
+    : `Đã đặt SKU sàn ${label} là không quản lý tồn`;
 }
 
 /** Đích của ghép chờ: SKU biến thể (tra trong danh sách) hoặc "Không quản tồn" */
 export const pendingTargetLabel = (p: PendingMapping, skuOf: (variantId: string) => string | undefined) =>
-  p.variantId ? (skuOf(p.variantId) ?? 'biến thể khác') : 'Không quản tồn';
+  p.variantId ? (skuOf(p.variantId) ?? 'biến thể khác') : 'Không quản lý tồn';
 
 /**
  * Link từ dòng Chưa ghép SKU tới trang gian hàng (FE#327): tab Chưa ghép, ô tìm có SellerSku, tự mở hộp ghép SKU sàn đó,

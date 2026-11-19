@@ -8,8 +8,8 @@ export function PackageShipping({ pkg }: { pkg: PackageSummary }) {
   const parts = [
     provider,
     shippingProviderTypeLabel(pkg.shippingProviderType),
-    pkg.promisedShippingAt && `sàn hứa gửi trước ${formatDateTime(pkg.promisedShippingAt)}`,
-    pkg.trackingCode && `vận đơn ${pkg.trackingCode}`,
+    pkg.promisedShippingAt && `hạn bàn giao ${formatDateTime(pkg.promisedShippingAt)}`,
+    pkg.trackingCode && `Mã vận đơn ${pkg.trackingCode}`,
   ].filter(Boolean);
   if (!parts.length) return null;
   return (

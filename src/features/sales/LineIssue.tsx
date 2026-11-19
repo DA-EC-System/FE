@@ -28,7 +28,7 @@ export function LineIssue({
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1 text-xs" data-testid="line-issue">
       {cancelPending ? (
-        <Badge variant="warning">Khách xin huỷ</Badge>
+        <Badge variant="warning">Yêu cầu huỷ</Badge>
       ) : isReturn ? (
         <Badge variant="warning" data-testid="line-return">
           {CANCEL_KIND_LABELS[line.cancelKind ?? 'return']}
@@ -50,10 +50,10 @@ export function LineIssue({
             : line.cancelReason || line.cancelReasonDetail}
         </span>
       )}
-      {line.reverseOrderId && <span className="text-muted-foreground">· Mã đơn ngược {line.reverseOrderId}</span>}
+      {line.reverseOrderId && <span className="text-muted-foreground">· Mã yêu cầu trả hàng {line.reverseOrderId}</span>}
       {isReturn && returnHref && !cancelPending && (
         <Link className="text-primary underline-offset-4 hover:underline" to={returnHref} data-testid="line-return-link">
-          Xem yêu cầu trả
+          Xem yêu cầu trả hàng
         </Link>
       )}
     </div>

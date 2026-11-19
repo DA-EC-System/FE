@@ -48,11 +48,11 @@ export function OrderReturnsCard({ order, companyId }: { order: Order; companyId
   return (
     <Card className="py-4" data-testid="order-returns">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Yêu cầu trả ({items.length})</CardTitle>
+        <CardTitle className="text-base">Trả hàng/Hoàn tiền ({items.length})</CardTitle>
         {canCreate && hasReturnable && (
           <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
             <Undo2 />
-            Tạo yêu cầu trả
+            Tạo yêu cầu trả hàng
           </Button>
         )}
       </CardHeader>
@@ -61,9 +61,9 @@ export function OrderReturnsCard({ order, companyId }: { order: Order; companyId
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-32">Mã</TableHead>
+                <TableHead className="w-32">Mã yêu cầu</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead className="w-20 text-right">Số trả</TableHead>
+                <TableHead className="w-20 text-right">SL trả</TableHead>
                 <TableHead className="w-32 text-right">Tiền hoàn</TableHead>
               </TableRow>
             </TableHeader>
@@ -137,7 +137,7 @@ function CreateReturnDialog({
         reason: v.reason,
         lines: picked.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
       });
-      toast.success(`Đã lập yêu cầu trả ${r.code}`);
+      toast.success(`Đã tạo yêu cầu trả hàng ${r.code}`);
       onCreated();
     } catch (e) {
       const errors = getProblem(e)?.errors;
@@ -158,7 +158,7 @@ function CreateReturnDialog({
     <Dialog open onOpenChange={(o) => !o && !create.isPending && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Tạo yêu cầu trả cho đơn {order.code}</DialogTitle>
+          <DialogTitle>Tạo yêu cầu trả hàng cho đơn {order.code}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(submit)} noValidate className="grid gap-4">
             {error && <AlertMessage severity="error">{error}</AlertMessage>}
@@ -169,7 +169,7 @@ function CreateReturnDialog({
                     <TableHead>Sản phẩm</TableHead>
                     <TableHead className="w-24 text-right">Đã giao</TableHead>
                     <TableHead className="w-28 text-right">Còn trả được</TableHead>
-                    <TableHead className="w-28">Số trả</TableHead>
+                    <TableHead className="w-28">SL trả</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -186,7 +186,7 @@ function CreateReturnDialog({
                         <TableCell>
                           <Input
                             inputMode="numeric"
-                            aria-label={`Số trả ${l.sku}`}
+                            aria-label={`SL trả ${l.sku}`}
                             aria-invalid={Boolean(errors.lines?.[i]?.quantity)}
                             {...form.register(`lines.${i}.quantity`)}
                           />
@@ -211,7 +211,7 @@ function CreateReturnDialog({
               />
             </p>
             <div className="grid gap-2">
-              <Label htmlFor="return-reason">Lý do trả</Label>
+              <Label htmlFor="return-reason">Lý do trả hàng</Label>
               <Textarea
                 id="return-reason"
                 rows={2}
@@ -227,7 +227,7 @@ function CreateReturnDialog({
                 Đóng
               </Button>
               <Button type="submit" disabled={create.isPending}>
-                Lập yêu cầu
+                Tạo yêu cầu
               </Button>
             </DialogFooter>
         </form>

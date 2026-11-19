@@ -50,7 +50,7 @@ export function CancelOrderDialog({ order, open, onClose, onConflict }: CancelOr
     try {
       const r = await mutation.mutateAsync({ id: order.id, version: order.version, reason });
       toast.success(
-        r.pendingOpen > 0 ? `Đã huỷ đơn ${order.code}, còn ${r.pendingOpen} kiện chờ mở` : `Đã huỷ đơn ${order.code}`,
+        r.pendingOpen > 0 ? `Đã huỷ đơn ${order.code}, còn ${r.pendingOpen} kiện hàng cần mở để trả hàng về kệ` : `Đã huỷ đơn ${order.code}`,
       );
       onClose();
     } catch (e) {
@@ -73,15 +73,15 @@ export function CancelOrderDialog({ order, open, onClose, onConflict }: CancelOr
             <AlertMessage severity="warning">
               Sau khi huỷ:
               <ul className="mt-1 list-disc ps-5">
-                <li>Kiện chưa đóng gói huỷ ngay, nhả số hàng đang giữ.</li>
+                <li>Kiện hàng chưa đóng gói bị huỷ ngay, số đang tạm giữ được trả lại số có thể bán.</li>
                 {sealed > 0 && (
                   <li>
-                    {sealed} kiện đã đóng gói phải mở để trả hàng về kệ; đơn mang cờ Đang huỷ tới khi mở xong.
+                    {sealed} kiện hàng đã đóng gói phải mở để trả hàng về kệ; đơn ở trạng thái Đang huỷ đến khi mở xong.
                   </li>
                 )}
                 {order.paymentMethod === 'prepaid' && (
                   <>
-                    <li>Mã thanh toán còn hiệu lực (nếu có) bị huỷ.</li>
+                    <li>Link/mã QR thanh toán chưa dùng (nếu có) sẽ bị huỷ.</li>
                     <li>Đơn đã thanh toán chuyển sang chờ hoàn tiền.</li>
                   </>
                 )}
