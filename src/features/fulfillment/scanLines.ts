@@ -35,7 +35,7 @@ export function checkScanRows(rows: ScanRow[]): { errors: Record<string, string>
   const lines = rows.map((r, i) => {
     const text = r.quantity.trim();
     if (!/^\d+$/.test(text)) errors[`lines.${i}.quantity`] = 'Số lượng là số nguyên không âm';
-    if (seen.has(r.variantId)) errors[`lines.${i}.variantId`] = 'Biến thể bị lặp';
+    if (seen.has(r.variantId)) errors[`lines.${i}.variantId`] = 'SKU bị lặp';
     seen.add(r.variantId);
     return { variantId: r.variantId, quantity: Number(text) };
   });

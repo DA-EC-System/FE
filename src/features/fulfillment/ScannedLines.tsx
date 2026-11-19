@@ -13,10 +13,23 @@ interface ScannedLinesProps {
   disabled?: boolean;
   /** Cần khác nhau khi một trang có nhiều bảng */
   id?: string;
+  /** Nhãn theo ngữ cảnh: trang trả hàng truyền "SL yêu cầu trả", "Ngoài yêu cầu", "Thêm món ngoài yêu cầu" */
+  expectedLabel?: string;
+  outsideLabel?: string;
+  addLabel?: string;
 }
 
 /** Bảng số kho quét thật lúc nhận: sửa số từng món, thêm món ngoài danh sách bằng tìm SKU (FE#212) */
-export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-lines' }: ScannedLinesProps) {
+export function ScannedLines({
+  rows,
+  onChange,
+  errors,
+  disabled,
+  id = 'scan-lines',
+  expectedLabel = 'Dự kiến',
+  outsideLabel = 'Ngoài danh sách',
+  addLabel = 'Thêm món ngoài danh sách',
+}: ScannedLinesProps) {
   const setQty = (i: number, quantity: string) => onChange(rows.map((r, j) => (j === i ? { ...r, quantity } : r)));
   const add = (level: StockLevel) => {
     if (rows.some((r) => r.variantId === level.variantId)) return;
@@ -40,9 +53,9 @@ export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-line
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Hàng</TableHead>
-                <TableHead className="w-20 text-right">Dự kiến</TableHead>
-                <TableHead className="w-28">Số quét</TableHead>
+                <TableHead>Sản phẩm</TableHead>
+                <TableHead className="w-20 text-right">{expectedLabel}</TableHead>
+                <TableHead className="w-28">Thực nhận</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -61,12 +74,12 @@ export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-line
                       {variantError && <p className="text-xs text-destructive">{variantError}</p>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {r.expected ?? <span className="text-xs text-muted-foreground">Ngoài danh sách</span>}
+                      {r.expected ?? <span className="text-xs text-muted-foreground">{outsideLabel}</span>}
                     </TableCell>
                     <TableCell>
                       <Input
                         inputMode="numeric"
-                        aria-label={`Số quét ${r.sku}`}
+                        aria-label={`Thực nhận ${r.sku}`}
                         className="h-8"
                         value={r.quantity}
                         disabled={disabled}
@@ -100,7 +113,7 @@ export function ScannedLines({ rows, onChange, errors, disabled, id = 'scan-line
       {errors?.lines && <p className="text-sm text-destructive">{errors.lines}</p>}
       <VariantPicker
         id={`${id}-add`}
-        label="Thêm món ngoài danh sách"
+        label={addLabel}
         takenLabel="Đã có trong bảng"
         taken={new Set(rows.map((r) => r.variantId))}
         disabled={disabled}

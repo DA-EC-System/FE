@@ -18,7 +18,7 @@ interface SplitPackageDialogProps {
 }
 
 /**
- * Chia kiện chưa đóng gói: chọn số món chuyển sang kiện mới, phần còn lại ở kiện cũ.
+ * Tách kiện chưa đóng gói: chọn số món chuyển sang kiện mới, phần còn lại ở kiện cũ.
  * Nằm ở trang kiện vì quyền là `fulfillment.order.process`; Kho không có `sales.order.view` (FE#153).
  */
 export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDialogProps) {
@@ -43,7 +43,7 @@ export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDia
       .filter((l) => l.quantity > 0);
     try {
       await mutation.mutateAsync({ id: pkg.id, version: pkg.version, parts: [part] });
-      toast.success(`Đã chia kiện ${pkg.code}`);
+      toast.success(`Đã tách kiện ${pkg.code}`);
       onClose();
     } catch (e) {
       const problem = getProblem(e);
@@ -57,7 +57,7 @@ export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDia
     <Dialog open onOpenChange={(next) => !next && !loading && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Chia kiện {pkg.code}</DialogTitle>
+          <DialogTitle>Tách kiện {pkg.code}</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">Nhập số món chuyển sang kiện mới. Kiện cũ phải còn ít nhất một món.</p>
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
@@ -97,7 +97,7 @@ export function SplitPackageDialog({ pkg, onClose, onConflict }: SplitPackageDia
             Đóng
           </Button>
           <Button onClick={submit} disabled={!valid || loading}>
-            {loading ? 'Đang chia...' : 'Chia kiện'}
+            {loading ? 'Đang tách...' : 'Tách kiện'}
           </Button>
         </DialogFooter>
       </DialogContent>
