@@ -81,6 +81,7 @@ export function ProductPushPage() {
       initial={spec.data}
       shops={platformShops}
       shopParam={search.get('shop')}
+      fillOnly={search.get('mode') === 'fill'}
     />
   );
 }
@@ -91,9 +92,11 @@ interface WizardProps {
   initial: ProductSpecResult;
   shops: Shop[];
   shopParam: string | null;
+  /** Mở từ Bổ sung thông tin: bước cuối chỉ Lưu */
+  fillOnly: boolean;
 }
 
-function PushWizard({ platform, product, initial, shops, shopParam }: WizardProps) {
+function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: WizardProps) {
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const label = platformLabel(platform);
@@ -104,8 +107,8 @@ function PushWizard({ platform, product, initial, shops, shopParam }: WizardProp
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [outcome, setOutcome] = useState<ShopOutcome[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const fillOnly = draft.source === 'match';
-  const locked = fillOnly;
+  /** Category đọc từ sàn lúc ghép SKU: không đổi ở trang này */
+  const locked = draft.source === 'match';
 
   const usable = shops.filter((s) => isUsable(s.status));
   const fromParam = shops.find((s) => s.id === shopParam);
@@ -234,7 +237,8 @@ function PushWizard({ platform, product, initial, shops, shopParam }: WizardProp
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_280px]">
         <Card className="gap-0 py-0">
           <nav aria-label="Các bước" className="flex flex-wrap gap-1.5 border-b px-4 py-3">
-            {STEPS.map((name, k) => {
+            {STEPS.map((step_, k) => {
+              const name = k === 3 && fillOnly ? 'Xem lại & lưu' : step_;
               const s = k as PushStep;
               // Đã qua và không còn thiếu ở bước đó (bước 4 không có phần thiếu riêng)
               const done = k < step && !missing.some((m) => stepOfMissing(m.reason) === k);

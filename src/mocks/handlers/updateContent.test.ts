@@ -3,14 +3,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { setupServer } from 'msw/node';
 import type { ChannelListing, ListingRow } from '@/types/shop';
 import { db } from '../db';
-import { categoryMaps, listings } from '../channelData';
+import { listings } from '../channelData';
 import { productSpecs } from '../platformCategoryData';
 import { fireMarketplaceEvent } from '../engine/marketplace';
 import { shopHandlers } from './channel';
 
 const server = setupServer(...shopHandlers);
 const snapListings = structuredClone(listings);
-const snapMaps = structuredClone(categoryMaps);
 const snapSpecs = structuredClone(productSpecs);
 const snapShops = structuredClone(db.shops);
 beforeAll(() => {
@@ -23,7 +22,6 @@ afterAll(() => {
 });
 beforeEach(() => {
   listings.splice(0, listings.length, ...structuredClone(snapListings));
-  categoryMaps.splice(0, categoryMaps.length, ...structuredClone(snapMaps));
   productSpecs.splice(0, productSpecs.length, ...structuredClone(snapSpecs));
   db.shops.splice(0, db.shops.length, ...structuredClone(snapShops));
   // Gian hàng TikTok của mock đang cần kết nối lại: coi như đã nối lại

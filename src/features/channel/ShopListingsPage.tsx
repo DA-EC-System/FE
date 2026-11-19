@@ -34,8 +34,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
+  fetchProductSpec,
   useDecideMapping,
   useDelistListing,
+  useIncompleteSpecs,
   useMatchListing,
   usePushListings,
   useRefreshRemoteSkus,
@@ -47,10 +49,8 @@ import {
   useShopListings,
   useSyncListings,
 } from '@/api/shops.api';
-import { apiClient, getErrorMessage, getProblem, isTimeout } from '@/api/client';
-import { catalogKeys } from '@/api/catalog.api';
+import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
-  codeMessage,
   problemCode,
   problemMessage,
   remoteRefreshErrorMessage,
@@ -66,7 +66,6 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
-import type { ProductDetail } from '@/types/catalog';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import {
@@ -81,9 +80,10 @@ import {
   pendingRevisionLabel,
   pushErrorText,
   REPUSH_STATUSES,
+  SPEC_FIX_CODES,
+  pushBlockMessage,
   splitPushResults,
 } from './listingPush';
-import { CategoryMapSection } from './CategoryMapSection';
 import {
   isUsable,
   LISTING_STATUS_LABELS,
@@ -113,6 +113,27 @@ interface Deciding {
 /** Lỗi đẩy của một biến thể; giữ `code` để gắn lối sửa (vd `category_unmapped`) */
 /** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */
 const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing', 'listing_check_failed']);
+
+/** Sàn lưu thông tin sàn của sản phẩm (Documents/21 §18.5) */
+const SPEC_PLATFORMS: ReadonlySet<string> = new Set(['lazada', 'tiktok']);
+
+function SpecLink({ label, onClick, testId = 'open-spec' }: { label: string; onClick: () => void; testId?: string }) {
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      className="h-auto p-0"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      data-testid={testId}
+    >
+      {label}
+    </Button>
+  );
+}
 
 function EditProductLink({ companyId, productId }: { companyId: string; productId: string }) {
   const navigate = useNavigate();
@@ -289,9 +310,8 @@ export function ShopListingsPage() {
   const [decideError, setDecideError] = useState<string | null>(null);
   /** Lý do không đẩy được của lần đẩy gần nhất, theo biến thể */
   const [pushErrors, setPushErrors] = useState<Map<string, PushError>>(new Map());
-  /** Danh mục Commerio đang mở hộp ghép danh mục sàn (FE#146) */
-  const [mapCategoryId, setMapCategoryId] = useState<string | null>(null);
-  const [resolvingCategory, setResolvingCategory] = useState<string | null>(null);
+  /** Biến thể đang đọc thông tin sàn trước khi đẩy sản phẩm mới */
+  const [checkingSpec, setCheckingSpec] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const items = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
@@ -599,6 +619,24 @@ export function ShopListingsPage() {
     else void push(targets);
   };
 
+  /**
+   * Đẩy sản phẩm mới một dòng: thông tin sàn đủ thì hỏi rồi đẩy như cũ, chưa có hay còn thiếu thì mở trang 4 bước
+   * (commerio-backend#400). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có nút Sửa thông tin sàn
+   */
+  const requestNewPush = async (row: ListingRow) => {
+    if (!specPlatform) return requestPush([row]);
+    setCheckingSpec(row.variantId);
+    try {
+      const spec = await fetchProductSpec(queryClient, companyId, row.productId, specPlatform);
+      if (spec.spec && !spec.missing.length) requestPush([row]);
+      else openSpec(row.productId);
+    } catch (e) {
+      toast.error(problemMessage(e));
+    } finally {
+      setCheckingSpec(null);
+    }
+  };
+
   /** Đẩy chạy nền (§18.6.4): dòng được xếp việc chuyển Đang đẩy, trang tự đọc lại tới khi sàn trả kết quả */
   const push = async (targets: ListingRow[]) => {
     try {
@@ -607,7 +645,7 @@ export function ShopListingsPage() {
       setPushErrors((prev) => {
         const next = new Map(prev);
         results.forEach((r) => {
-          if (r.code) next.set(r.variantId, { code: r.code, message: r.message ?? codeMessage(r.code) });
+          if (r.code) next.set(r.variantId, { code: r.code, message: pushBlockMessage(r.code, r.message, platformName) });
           else next.delete(r.variantId);
         });
         return next;
@@ -638,25 +676,21 @@ export function ShopListingsPage() {
     }
   };
 
+  /** Sàn có thông tin sàn của sản phẩm (category, attribute; commerio-backend#400) */
+  const specPlatform = shop && SPEC_PLATFORMS.has(shop.platform) ? shop.platform : null;
+  const platformName = shop ? platformLabel(shop.platform, shop.platformName) : '';
+  const openSpec = (productId: string, fill = false) =>
+    specPlatform && navigate(ROUTES.company.productPush(companyId, productId, specPlatform, shopId, fill));
   /**
-   * Dòng đẩy lỗi `category_unmapped`: PushResult và ListingRow không có danh mục,
-   * nên lấy danh mục từ chi tiết sản phẩm rồi mở hộp ghép của danh mục đó.
+   * Dòng đã ghép SKU mà thông tin sàn chưa có hoặc còn thiếu: nút Bổ sung thông tin (AC11). ListingRow chưa mang trạng
+   * thái spec nên đọc GET spec theo từng sản phẩm (ghi ở worklog FE2)
    */
-  const openCategoryMap = async (row: ListingRow) => {
-    setResolvingCategory(row.variantId);
-    try {
-      const product = await queryClient.fetchQuery({
-        queryKey: catalogKeys.product(companyId, row.productId),
-        queryFn: async () => (await apiClient.get<ProductDetail>(`/catalog/products/${row.productId}`)).data,
-      });
-      setMapCategoryId(product.category.id);
-    } catch {
-      toast.error('Không xác định được danh mục của sản phẩm. Chọn danh mục ở mục Ghép danh mục bên dưới.');
-      document.getElementById('category-maps')?.scrollIntoView({ behavior: 'smooth' });
-    } finally {
-      setResolvingCategory(null);
-    }
-  };
+  const matchedProductIds = useMemo(
+    () => (specPlatform ? [...new Set(items.filter((r) => r.listing && onPlatform(r.listing.status)).map((r) => r.productId))] : []),
+    [items, specPlatform],
+  );
+  const incompleteSpecs = useIncompleteSpecs(matchedProductIds, specPlatform);
+  const incompleteKey = [...incompleteSpecs].join(',');
 
   const columns = useMemo<ColumnDef<ListingRow>[]>(() => {
     const cols: ColumnDef<ListingRow>[] = [];
@@ -774,21 +808,8 @@ export function ShopListingsPage() {
                 <span className="text-destructive" data-testid="push-error">
                   {err.message}
                 </span>
-                {err.code === 'category_unmapped' && canManage && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0"
-                    disabled={resolvingCategory === r.variantId}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void openCategoryMap(r);
-                    }}
-                    data-testid="open-category-map"
-                  >
-                    Ghép danh mục
-                  </Button>
+                {err.code && SPEC_FIX_CODES.has(err.code) && canManage && specPlatform && (
+                  <SpecLink label="Sửa thông tin sàn" onClick={() => openSpec(r.productId)} />
                 )}
                 {PRODUCT_FIX_CODES.has(err.code) && canEditProduct && (
                   <EditProductLink companyId={companyId} productId={r.productId} />
@@ -841,6 +862,12 @@ export function ShopListingsPage() {
                 l.pushError &&
                 PRODUCT_FIX_CODES.has(l.pushError.code) &&
                 canEditProduct && <EditProductLink companyId={companyId} productId={r.productId} />}
+              {l.status === 'push_failed' && l.pushError && SPEC_FIX_CODES.has(l.pushError.code) && canManage && specPlatform && (
+                <SpecLink label="Sửa thông tin sàn" onClick={() => openSpec(r.productId)} />
+              )}
+              {onPlatform(l.status) && incompleteSpecs.has(r.productId) && canManage && (
+                <SpecLink label="Bổ sung thông tin sàn" onClick={() => openSpec(r.productId, true)} testId="fill-spec" />
+              )}
               {l.outsideChange && (
                 <SyncBadge
                   id={`outside-change-${r.variantId}`}
@@ -975,8 +1002,8 @@ export function ShopListingsPage() {
               ) : (
                 <RowAction
                   label={r.listing ? 'Đẩy lên sàn' : 'Đẩy sản phẩm mới'}
-                  reason={pushMut.isPending ? 'Đang đẩy...' : busy}
-                  onClick={() => requestPush([r])}
+                  reason={pushMut.isPending ? 'Đang đẩy...' : checkingSpec === r.variantId ? 'Đang đọc thông tin sàn...' : busy}
+                  onClick={() => (r.listing ? requestPush([r]) : void requestNewPush(r))}
                 >
                   <Upload />
                 </RowAction>
@@ -1022,7 +1049,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, resolvingCategory, remoteQuery.isError, pushMut.isPending, listingReview]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, checkingSpec, incompleteKey, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
     () => [
@@ -1317,8 +1344,6 @@ export function ShopListingsPage() {
           />
         )}
       </Card>
-
-      <CategoryMapSection shopId={shopId} editingCategoryId={mapCategoryId} onEditingChange={setMapCategoryId} />
 
       <MatchDialog
         open={Boolean(matching)}

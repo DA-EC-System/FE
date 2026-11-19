@@ -5,24 +5,17 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { queryOptions, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { salesKeys } from './sales.api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
-  CategoryAttribute,
-  CategoryAttributeList,
-  CategoryMap,
-  CategoryMapInput,
-  CategoryMapList,
   CascadeOptionList,
   CategorySuggestionList,
   ChannelListing,
   OutsideChangeAction,
   MappingDecision,
-  MarketplaceCategory,
-  MarketplaceCategoryList,
   ListingMatchInput,
   ListingRow,
   Marketplace,
@@ -64,11 +57,6 @@ export const shopKeys = {
   remoteSkus: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus', id] as const,
   remoteSkusRefresh: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus-refresh', id] as const,
   setup: (companyId: string, id: string) => [...shopKeys.all(companyId), 'setup', id] as const,
-  categoryMaps: (companyId: string, id: string) => [...shopKeys.all(companyId), 'category-maps', id] as const,
-  marketCategories: (companyId: string, id: string, search: string) =>
-    [...shopKeys.all(companyId), 'market-categories', id, search] as const,
-  categoryAttributes: (companyId: string, id: string, externalId: string) =>
-    [...shopKeys.all(companyId), 'category-attributes', id, externalId] as const,
   platformCategories: (companyId: string, platform: string) =>
     [...shopKeys.all(companyId), 'platform-categories', platform] as const,
   platformCategoryList: (companyId: string, platform: string, params: PlatformCategoryParams) =>
@@ -581,67 +569,6 @@ export function useSyncListings() {
   });
 }
 
-// ---------- Ghép danh mục với danh mục sàn (FE#146, Documents/21 §18.5) ----------
-
-/** Danh mục Commerio đã ghép của gian hàng (quyền shop.view) */
-export function useCategoryMaps(shopId: string) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: shopKeys.categoryMaps(companyId, shopId),
-    enabled: Boolean(companyId && shopId),
-    queryFn: async () => {
-      const { data } = await apiClient.get<CategoryMapList>(`/channel/shops/${shopId}/category-maps`);
-      return data.items;
-    },
-  });
-}
-
-/** Tìm danh mục lá trên sàn, BE trả tối đa 50 (quyền listing.manage, gọi sàn) */
-export function useMarketplaceCategories(shopId: string, search: string, enabled: boolean) {
-  const companyId = useCompanyId();
-  return useQuery<MarketplaceCategory[]>({
-    queryKey: shopKeys.marketCategories(companyId, shopId, search),
-    enabled: Boolean(companyId && shopId && enabled),
-    staleTime: 5 * 60_000,
-    retry: false,
-    queryFn: async () => {
-      const { data } = await apiClient.get<MarketplaceCategoryList>(`/channel/shops/${shopId}/categories`, {
-        params: search ? { search } : undefined,
-      });
-      return data.items;
-    },
-  });
-}
-
-/** Thuộc tính bắt buộc của một danh mục sàn */
-export function useCategoryAttributes(shopId: string, externalId: string | null) {
-  const companyId = useCompanyId();
-  return useQuery<CategoryAttribute[]>({
-    queryKey: shopKeys.categoryAttributes(companyId, shopId, externalId ?? ''),
-    enabled: Boolean(companyId && shopId && externalId),
-    staleTime: 5 * 60_000,
-    retry: false,
-    queryFn: async () => {
-      const { data } = await apiClient.get<CategoryAttributeList>(
-        `/channel/shops/${shopId}/categories/${encodeURIComponent(externalId ?? '')}/attributes`,
-      );
-      return data.items;
-    },
-  });
-}
-
-export function useSaveCategoryMap() {
-  const qc = useQueryClient();
-  const companyId = useCompanyId();
-  return useMutation({
-    mutationFn: async ({ shopId, categoryId, input }: { shopId: string; categoryId: string; input: CategoryMapInput }) => {
-      const { data } = await apiClient.put<CategoryMap>(`/channel/shops/${shopId}/category-maps/${categoryId}`, input);
-      return data;
-    },
-    onSettled: (_data, _error, { shopId }) => qc.invalidateQueries({ queryKey: shopKeys.categoryMaps(companyId, shopId) }),
-  });
-}
-
 // ---------- Category và attribute của sàn (commerio-backend#400, Documents/21 §18.5) ----------
 
 export function usePlatformCategories(platform: string, params: PlatformCategoryParams, enabled = true) {
@@ -711,16 +638,43 @@ export function useCategorySuggestions(shopId: string | null, productId: string,
 }
 
 /** Thông tin sàn của sản phẩm: một bộ mỗi sàn, mọi gian hàng của sàn dùng chung (§18.5) */
-export function useProductSpec(productId: string, platform: string, enabled = true) {
-  const companyId = useCompanyId();
-  return useQuery({
+const productSpecQuery = (companyId: string, productId: string, platform: string) =>
+  queryOptions({
     queryKey: shopKeys.productSpec(companyId, productId, platform),
-    enabled: Boolean(companyId && productId && platform) && enabled,
     queryFn: async () => {
       const { data } = await apiClient.get<ProductSpecResult>(`/channel/products/${productId}/specs/${platform}`);
       return data;
     },
   });
+
+export function useProductSpec(productId: string, platform: string, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    ...productSpecQuery(companyId, productId, platform),
+    enabled: Boolean(companyId && productId && platform) && enabled,
+  });
+}
+
+/** Đọc spec của nhiều sản phẩm (dòng đã ghép SKU ở trang gian hàng); trả id sản phẩm chưa có spec hoặc còn thiếu */
+export function useIncompleteSpecs(productIds: string[], platform: string | null): ReadonlySet<string> {
+  const companyId = useCompanyId();
+  return useQueries({
+    queries: productIds.map((id) => ({
+      ...productSpecQuery(companyId, id, platform ?? ''),
+      enabled: Boolean(companyId && platform),
+      staleTime: 60_000,
+    })),
+    combine: (results) =>
+      new Set(productIds.filter((_, k) => {
+        const d = results[k]?.data;
+        return Boolean(d && (!d.spec || d.missing.length > 0));
+      })),
+  });
+}
+
+/** Đọc spec một lần (dùng trước khi đẩy sản phẩm mới) */
+export function fetchProductSpec(qc: QueryClient, companyId: string, productId: string, platform: string) {
+  return qc.fetchQuery({ ...productSpecQuery(companyId, productId, platform), staleTime: 0 });
 }
 
 /** Lưu thông tin sàn; 409 `version_conflict` mang `current` (kiểu `ProductSpecResult`) để nạp lại */
