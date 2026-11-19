@@ -17,7 +17,7 @@ describe('variantMatchOptions (FE#310)', () => {
   it('có biến thể chưa có listing và biến thể đã gỡ (kèm "Đã gỡ"), không có biến thể đang có listing khác delisted', () => {
     const opts = variantMatchOptions(items, { sellerSku: null, isCeo: false });
     expect(opts.map((o) => o.id)).toEqual(['v-none', 'v-delisted', UNMANAGED]);
-    expect(opts.find((o) => o.id === 'v-delisted')!.subtitle).toBe('V-DELISTED · Đã gỡ');
+    expect(opts.find((o) => o.id === 'v-delisted')!.subtitle).toBe('V-DELISTED · Đã gỡ khỏi sàn');
     expect(opts.find((o) => o.id === 'v-none')!.subtitle).toBe('V-NONE');
   });
 

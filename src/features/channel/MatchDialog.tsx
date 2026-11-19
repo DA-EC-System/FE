@@ -117,7 +117,7 @@ export function MatchDialog({
             Huỷ
           </Button>
           <Button disabled={!selected || saving || selected === initialId} onClick={() => onSave(selected)}>
-            {saving ? 'Đang lưu...' : 'Lưu ghép'}
+            {saving ? 'Đang lưu...' : 'Lưu liên kết'}
           </Button>
         </DialogFooter>
       </DialogContent>

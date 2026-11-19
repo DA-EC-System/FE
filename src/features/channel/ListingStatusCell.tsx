@@ -81,7 +81,7 @@ export function ListingStatusCell({
     );
   }
   const l = r.listing;
-  if (!l) return <Badge variant="info">Chưa lên sàn</Badge>;
+  if (!l) return <Badge variant="info">Chưa đăng bán</Badge>;
   const live = onPlatform(l.status);
   const pushErr = (l.status === 'push_failed' || l.status === 'pushing') && l.pushError ? pushErrorText(l.pushError) : null;
   const note =
@@ -160,7 +160,7 @@ export function ListingStatusCell({
         <SyncBadge
           id={`hidden-paused-${r.variantId}`}
           variant="secondary"
-          label="Vì SKU tạm ngừng"
+          label="Vì SKU ngừng bán"
           hint="Bỏ tạm ngừng ở trang sản phẩm thì SKU tự hiện lại trên sàn. Không ẩn hoặc hiện tay ở đây."
           testId="hidden-paused"
         />
@@ -169,8 +169,8 @@ export function ListingStatusCell({
         <SyncBadge
           id={`hidden-zero-${r.variantId}`}
           variant="secondary"
-          label="Đang ẩn bằng tồn 0"
-          hint="Sàn không ẩn riêng từng phân loại nên Commerio đẩy tồn 0 để khách không đặt được SKU này."
+          label="Tạm ẩn (đặt tồn 0)"
+          hint="Sàn không ẩn riêng từng phân loại nên Commerio đặt tồn 0 để khách không đặt được SKU này."
           testId="hidden-zero"
         />
       )}
@@ -179,14 +179,14 @@ export function ListingStatusCell({
           id={`stock-drift-${r.variantId}`}
           variant="destructive"
           label={stockDriftLabel(l.platformStock)}
-          hint="Số tồn trên sàn khác Commerio hai lượt đối chiếu liền. Lượt đẩy tồn sau sẽ ghi đè số trên sàn."
+          hint="Số tồn trên sàn khác Commerio hai lượt đối chiếu liền. Lượt đồng bộ tồn sau sẽ ghi đè số trên sàn."
           testId="stock-sync"
         />
       )}
       {/* Lỗi đẩy của riêng SKU này: câu của sàn hiện nguyên văn trong tooltip (§18.4, §18.6.6) */}
       {[
-        { key: 'stock', label: 'Cập nhật tồn lên sàn lỗi', err: l.stockSyncError },
-        { key: 'price', label: 'Đẩy giá lỗi', err: l.priceSyncError },
+        { key: 'stock', label: 'Đồng bộ tồn lỗi', err: l.stockSyncError },
+        { key: 'price', label: 'Đồng bộ giá lỗi', err: l.priceSyncError },
       ].map(
         ({ key, label, err }) =>
           err && (
@@ -202,7 +202,7 @@ export function ListingStatusCell({
       )}
       {l.qcAlert && (
         <span className="text-xs text-warning" data-testid="qc-alert">
-          Sàn cảnh báo QC: {l.qcAlert.reason}
+          Sàn cảnh báo chất lượng (QC): {l.qcAlert.reason}
         </span>
       )}
 
@@ -275,7 +275,7 @@ export function PendingBadge({ id, pending, target }: { id: string; pending: Pen
         </Badge>
       </TooltipTrigger>
       <TooltipContent id={id} className="max-w-64" data-testid="pending-mapping-hint">
-        {pending.requestedBy.name} xin ghép với {target} · {formatDateTime(pending.requestedAt)}
+        {pending.requestedBy.name} xin liên kết với {target} · {formatDateTime(pending.requestedAt)}
       </TooltipContent>
     </Tooltip>
   );

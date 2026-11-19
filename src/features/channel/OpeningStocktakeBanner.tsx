@@ -44,7 +44,7 @@ export function OpeningStocktakeBanner({ shop, companyId }: { shop: Shop; compan
     restart.mutate(shop.id, {
       onSuccess: ({ shop: next, stocktakeNumber }) => {
         const docId = next.openingStocktake?.documentId;
-        toast.success(`Đã lập phiếu kiểm kê ${stocktakeNumber}`, {
+        toast.success(`Đã lập phiếu kiểm kho ${stocktakeNumber}`, {
           action: docId
             ? { label: 'Mở phiếu', onClick: () => navigate(ROUTES.company.inventoryDoc(companyId, docId)) }
             : undefined,
@@ -57,20 +57,20 @@ export function OpeningStocktakeBanner({ shop, companyId }: { shop: Shop; compan
     <AlertMessage severity="warning" className="mb-4">
       <span data-testid="opening-stocktake-banner" data-stocktake-status={st.status}>
         {st.status === 'posted' ? (
-          <>Đang xử lý phiếu kiểm kê {docLink}, quá lâu thì liên hệ quản trị nền tảng.</>
+          <>Đang xử lý phiếu kiểm kho {docLink}. Chờ quá lâu thì liên hệ bộ phận hỗ trợ Commerio.</>
         ) : (
           <>
-            Gian hàng đang chờ kiểm kê đầu kỳ: phiếu {docLink} {STOCKTAKE_STATUS_TEXT[st.status]}.{' '}
-            {canRestart && 'Lập lại phiếu kiểm kê để kho đếm lại. '}
-            {redo && !canRestart && 'Nhờ người quản lý gian hàng lập lại phiếu kiểm kê. '}
-            Đến khi phiếu ghi sổ, Commerio chưa đẩy tồn và chưa đẩy sản phẩm lên sàn; đơn vẫn kéo về.
+            Gian hàng đang chờ kiểm kho đầu kỳ: phiếu {docLink} {STOCKTAKE_STATUS_TEXT[st.status]}.{' '}
+            {canRestart && 'Lập lại phiếu kiểm kho để kho đếm lại. '}
+            {redo && !canRestart && 'Nhờ người quản lý gian hàng lập lại phiếu kiểm kho. '}
+            Đến khi phiếu kiểm kho hoàn thành, Commerio chưa đồng bộ tồn và chưa đăng bán; đơn vẫn đồng bộ về.
           </>
         )}
       </span>
       {canRestart && (
         <Button size="sm" variant="outline" className="ms-3" disabled={restart.isPending} onClick={onRestart}>
           <RotateCcw />
-          Lập lại phiếu kiểm kê
+          Lập lại phiếu kiểm kho
         </Button>
       )}
     </AlertMessage>

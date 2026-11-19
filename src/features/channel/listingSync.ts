@@ -9,13 +9,13 @@ type SyncFields = Pick<ChannelListing, 'lastPushedAt' | 'lastPushedPrice' | 'pri
  * Lệch tồn (`stockSync = error`) hoặc đẩy tồn lỗi (`stockSyncError`, BE giữ `pending`) đã có nhãn riêng nên câu không nhắc tồn.
  */
 export function syncLine(l: SyncFields): string {
-  if (l.lastPushedAt === null) return 'Chờ đẩy giá, tồn lần đầu';
+  if (l.lastPushedAt === null) return 'Chờ đồng bộ giá, tồn lần đầu';
   const price = l.priceSync === 'pending';
   const stock = l.stockSync === 'pending' && !l.stockSyncError;
-  if (price && stock) return `Chờ đẩy giá (sàn ${priceText(l.lastPushedPrice)}) và tồn`;
-  if (price) return `Chờ đẩy giá mới, trên sàn ${priceText(l.lastPushedPrice)}`;
-  if (stock) return `Chờ đẩy tồn · Đẩy lần cuối ${formatDateTime(l.lastPushedAt)}`;
-  return `Đã đẩy ${formatDateTime(l.lastPushedAt)}`;
+  if (price && stock) return `Chờ đồng bộ giá (sàn đang ${priceText(l.lastPushedPrice)}) và tồn`;
+  if (price) return `Chờ đồng bộ giá mới, sàn đang ${priceText(l.lastPushedPrice)}`;
+  if (stock) return `Chờ đồng bộ tồn · Lần cuối ${formatDateTime(l.lastPushedAt)}`;
+  return `Đã đồng bộ ${formatDateTime(l.lastPushedAt)}`;
 }
 
 /** Nhãn Lệch tồn kèm số trên sàn. BE chưa trả tồn có thể bán của Commerio trong listings nên chưa nêu số đó */

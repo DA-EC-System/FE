@@ -109,12 +109,12 @@ const SPEC_PLATFORMS: ReadonlySet<string> = new Set(['lazada', 'tiktok']);
  */
 const LISTING_TABS: { value: ListingTab; label: string }[] = [
   { value: 'all', label: 'Tất cả' },
-  { value: 'unmatched', label: 'Chưa ghép' },
-  { value: 'pending', label: 'Chờ duyệt' },
-  { value: 'not_listed', label: 'Chưa lên sàn' },
-  { value: 'stale', label: 'Giá chưa đẩy' },
-  { value: 'failed', label: 'Đẩy lỗi' },
-  { value: 'held', label: 'Sàn khoá, đã ẩn' },
+  { value: 'unmatched', label: 'Chưa liên kết' },
+  { value: 'pending', label: 'Chờ duyệt liên kết' },
+  { value: 'not_listed', label: 'Chưa đăng bán' },
+  { value: 'stale', label: 'Chờ đồng bộ giá' },
+  { value: 'failed', label: 'Đăng lỗi' },
+  { value: 'held', label: 'Không hiển thị' },
 ];
 
 const FAILED_STATUSES: ListingStatus[] = ['push_failed', 'rejected'];
@@ -154,7 +154,7 @@ const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
  * Đổi ghép ở dòng biến thể) thì chọn biến thể khác hoặc "không quản tồn"
  */
 /** Lượt tải SKU sàn lỗi mà BE không kèm lỗi cụ thể */
-const REFRESH_FAILED_GENERIC = 'Chưa tải lại được danh sách SKU trên sàn. Bấm Tải lại để thử lại.';
+const REFRESH_FAILED_GENERIC = 'Chưa tải được SKU từ sàn. Bấm Tải SKU từ sàn để thử lại.';
 
 type Matching =
   | { from: 'variant'; row: ListingRow }
@@ -242,7 +242,7 @@ export function ShopListingsPage() {
           ? remoteRefreshErrorMessage(remoteRefresh.error, remoteRefresh.retryAfterSeconds)
           : REFRESH_FAILED_GENERIC,
       );
-    } else toast.success('Đã tải lại SKU trên sàn');
+    } else toast.success('Đã tải SKU từ sàn');
   }, [remoteRefresh, shopId]);
   const pushMut = usePushListings();
   const delistMut = useDelistListing();
@@ -335,7 +335,7 @@ export function ShopListingsPage() {
 
   /** Đích của ghép chờ: SKU biến thể xin ghép, hoặc "Không quản tồn" */
   const pendingTarget = (p: PendingMapping) =>
-    p.variantId ? (items.find((r) => r.variantId === p.variantId)?.sku ?? 'biến thể khác') : 'Không quản tồn';
+    p.variantId ? (items.find((r) => r.variantId === p.variantId)?.sku ?? 'SKU kho khác') : 'Không quản lý tồn';
 
   const reloadMatching = () => void Promise.all([listingsQuery.refetch(), remoteQuery.refetch()]);
 
@@ -353,8 +353,8 @@ export function ShopListingsPage() {
       setDeciding(null);
       toast.success(
         action === 'approve'
-          ? `Đã duyệt ghép SKU sàn ${label}`
-          : `Đã từ chối ghép SKU sàn ${label}. Ghép cũ giữ nguyên.`,
+          ? `Đã duyệt liên kết SKU sàn ${label}`
+          : `Đã từ chối liên kết SKU sàn ${label}. Liên kết cũ giữ nguyên.`,
       );
       reloadMatching();
     } catch (e) {
@@ -363,11 +363,11 @@ export function ShopListingsPage() {
         setDecideError(problem.errors.reason);
       } else if (problem?.code === 'version_conflict') {
         setDeciding(null);
-        toast.warning(`Ghép SKU sàn ${label} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        toast.warning(`Liên kết SKU sàn ${label} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
         reloadMatching();
       } else if (problem?.code === 'invalid_transition') {
         setDeciding(null);
-        toast.info(`Yêu cầu ghép SKU sàn ${label} đã được xử lý hoặc không còn. Đã nạp lại dữ liệu.`);
+        toast.info(`Yêu cầu liên kết SKU sàn ${label} đã được xử lý hoặc không còn. Đã nạp lại dữ liệu.`);
         reloadMatching();
       } else if (action === 'reject') {
         setDecideError(problemMessage(e));
@@ -383,10 +383,10 @@ export function ShopListingsPage() {
   const decideActions = (listingId: string | null, version: number | null, label: string, p: PendingMapping | null) =>
     canDecide && p && listingId && version !== null ? (
       <>
-        <RowAction label="Duyệt ghép" onClick={() => openDecide('approve', listingId, version, label, p)}>
+        <RowAction label="Duyệt liên kết" onClick={() => openDecide('approve', listingId, version, label, p)}>
           <Check />
         </RowAction>
-        <RowAction label="Từ chối ghép" destructive onClick={() => openDecide('reject', listingId, version, label, p)}>
+        <RowAction label="Từ chối liên kết" destructive onClick={() => openDecide('reject', listingId, version, label, p)}>
           <X />
         </RowAction>
       </>
@@ -428,8 +428,8 @@ export function ShopListingsPage() {
       { replace: true },
     );
     const label = target.sku.sellerSku || matchLabel;
-    if (target.kind === 'pending') toast.info(`SKU sàn ${label} đang chờ CEO duyệt ghép`);
-    else if (target.kind === 'matched') toast.info(`SKU sàn ${label} đã được ghép, không cần ghép lại`);
+    if (target.kind === 'pending') toast.info(`SKU sàn ${label} đang chờ CEO duyệt liên kết`);
+    else if (target.kind === 'matched') toast.info(`SKU sàn ${label} đã liên kết, không cần liên kết lại`);
     else {
       setMatchError(null);
       setMatching({
@@ -488,13 +488,13 @@ export function ShopListingsPage() {
   const matchBlock = (r: ListingRow) => {
     const live = r.listing && !isDelisted(r) ? r.listing : null;
     return live?.pendingMapping
-      ? 'Đang chờ CEO duyệt ghép'
+      ? 'Đang chờ CEO duyệt liên kết'
       : live?.status === 'pushing'
-        ? 'Đang đẩy, ghép sau khi sàn trả kết quả'
+        ? 'Đang đăng, liên kết sau khi sàn phản hồi'
         : live && !live.externalSkuId
-          ? 'Sàn chưa trả mã SKU'
+          ? 'Sàn chưa cấp SKU ID'
           : !live && remoteQuery.isError
-            ? 'Chưa tải được SKU trên sàn'
+            ? 'Chưa tải được SKU sàn'
             : null;
   };
 
@@ -527,10 +527,10 @@ export function ShopListingsPage() {
         ? { action: { label: `Quay lại đơn ${fromLabel}`.trim(), onClick: backToOrder } }
         : undefined;
       if (pending) {
-        toast.info(`Đã gửi CEO duyệt ghép SKU sàn ${label}. Trong lúc chờ, ghép cũ giữ nguyên.`, back);
+        toast.info(`Đã gửi CEO duyệt liên kết SKU sàn ${label}. Trong lúc chờ, liên kết cũ giữ nguyên.`, back);
       } else {
         toast.success(
-          input.variantId ? `Đã ghép ${variantSku ?? label}` : `Đã đặt SKU sàn ${label} là không quản tồn`,
+          input.variantId ? `Đã liên kết ${variantSku ?? label}` : `Đã đặt SKU sàn ${label} là không quản lý tồn`,
           back,
         );
       }
@@ -540,7 +540,7 @@ export function ShopListingsPage() {
       if (problem?.code === 'version_conflict') {
         // UC-CH-02 ngoại lệ 5a: không đổi gì, nạp lại để chọn lại
         setMatching(null);
-        toast.warning(`Ghép SKU của ${label} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
+        toast.warning(`Liên kết SKU của ${label} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại dữ liệu.`);
         reload();
       } else {
         setMatchError(fieldError ?? problemMessage(e));
@@ -557,14 +557,14 @@ export function ShopListingsPage() {
       onSuccess: (data) => {
         if (data.refresh?.status === 'running') {
           userRefresh.current = shopId;
-          toast.info('Đang tải danh sách SKU trên sàn, bảng tự cập nhật khi xong.');
+          toast.info('Đang tải SKU từ sàn, bảng tự cập nhật khi xong.');
         } else if (data.refresh?.status === 'failed') {
           toast.error(
             data.refresh.error
               ? remoteRefreshErrorMessage(data.refresh.error, data.refresh.retryAfterSeconds)
               : REFRESH_FAILED_GENERIC,
           );
-        } else toast.success('Đã tải lại SKU trên sàn');
+        } else toast.success('Đã tải SKU từ sàn');
       },
       onError: (e) =>
         toast.error(
@@ -594,7 +594,7 @@ export function ShopListingsPage() {
       const problem = getProblem(e);
       if (problem?.code === 'below_floor') {
         const detail = problem.detail?.trim().replace(/\.+$/, '');
-        setPriceFieldError(detail ? `Giá dưới giá thấp nhất. ${detail}.` : 'Giá dưới giá thấp nhất của SKU ở gian hàng này.');
+        setPriceFieldError(detail ? `Giá dưới giá tối thiểu. ${detail}.` : 'Giá dưới giá tối thiểu của SKU ở gian hàng này.');
       } else if (problem?.code === 'validation_failed' && problem.errors?.price) {
         setPriceFieldError(problem.errors.price);
       } else if (problem?.code === 'version_conflict') {
@@ -640,7 +640,8 @@ export function ShopListingsPage() {
     const { row, action } = decidingOutside;
     try {
       const saved = await outsideMut.mutateAsync({ shopId, listingId: l.id, action, version: l.version });
-      const done = action === 'restore' ? `Đã đẩy lại giá Commerio cho ${row.sku}` : `Đã nhận giá trên sàn cho ${row.sku}`;
+      const done =
+        action === 'restore' ? `Đã bật lại và dùng giá Commerio cho ${row.sku}` : `Đã dùng giá trên sàn cho ${row.sku}`;
       toast.success(saved.status === 'hidden' ? `${done}. SKU đang tạm ngừng nên vẫn ẩn trên sàn.` : done);
     } catch (e) {
       if (problemCode(e) === 'version_conflict') {
@@ -662,8 +663,8 @@ export function ShopListingsPage() {
       const saved = await contentMut.mutateAsync({ shopId, listingId: l.id, version: l.version });
       toast.success(
         saved.status === 'under_review'
-          ? `Đã đưa nội dung mới của ${row.sku} lên sàn. Sàn tạm ngừng bán để duyệt lại.`
-          : `Đã đưa nội dung mới của ${row.sku} lên sàn. Sàn đang duyệt, listing vẫn bán bản cũ.`,
+          ? `Đã cập nhật thông tin mới của ${row.sku} lên sàn. Sàn tạm ngừng bán để duyệt lại.`
+          : `Đã cập nhật thông tin mới của ${row.sku} lên sàn. Sàn đang duyệt, listing vẫn bán bản cũ.`,
       );
     } catch (e) {
       if (problemCode(e) === 'version_conflict') {
@@ -707,10 +708,10 @@ export function ShopListingsPage() {
       if (queued) {
         pollFrom.current = Date.now();
         setPollTimedOut(false);
-        toast.success(`Đã xếp ${queued} biến thể vào hàng đẩy lên sàn. Trang tự cập nhật khi sàn trả kết quả.`);
+        toast.success(`Đã đưa ${queued} SKU vào hàng chờ đăng. Trang tự cập nhật khi sàn phản hồi.`);
         setSelection(new Set());
       }
-      if (blocked.length) toast.warning(`${blocked.length} biến thể không đẩy được, xem lý do ở cột Trạng thái`);
+      if (blocked.length) toast.warning(`${blocked.length} SKU không đăng được, xem lý do ở cột Trạng thái`);
     } catch (e) {
       toast.error(problemMessage(e, 'push'));
     }
@@ -722,8 +723,8 @@ export function ShopListingsPage() {
       const r = await syncMut.mutateAsync(shopId);
       toast.success(
         r.queued
-          ? 'Đã xếp lượt đồng bộ với sàn. Bảng tự tải lại sau khoảng 15 giây; chưa thấy đổi thì tải lại trang.'
-          : 'Gian hàng đã có lượt đồng bộ đang chờ, không xếp thêm.',
+          ? 'Đã bắt đầu đồng bộ với sàn. Bảng tự tải lại sau khoảng 15 giây; chưa thấy đổi thì tải lại trang.'
+          : 'Gian hàng đang có lượt đồng bộ chờ chạy, không tạo thêm.',
       );
     } catch (e) {
       toast.error(problemMessage(e));
@@ -788,7 +789,7 @@ export function ShopListingsPage() {
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate font-medium">{r.productName}</p>
-                <p className="truncate text-xs text-muted-foreground">{r.attributesLabel || 'Không có thuộc tính'}</p>
+                <p className="truncate text-xs text-muted-foreground">{r.attributesLabel || 'Không có phân loại'}</p>
               </div>
             </div>
           );
@@ -796,13 +797,13 @@ export function ShopListingsPage() {
       },
       {
         accessorKey: 'sku',
-        header: 'SKU Commerio',
+        header: 'SKU kho',
         meta: { className: 'w-40' },
         cell: ({ row }) => <span className="font-mono text-xs">{row.original.sku}</span>,
       },
       {
         id: 'price',
-        header: 'Giá ở gian hàng này',
+        header: 'Giá bán trên gian hàng',
         meta: { className: 'w-36 text-right whitespace-nowrap' },
         cell: ({ row }) => {
           const r = row.original;
@@ -827,7 +828,7 @@ export function ShopListingsPage() {
                   )}
                 </>
               )}
-              {r.belowFloor && <Badge variant="destructive">Dưới giá thấp nhất</Badge>}
+              {r.belowFloor && <Badge variant="destructive">Dưới giá tối thiểu</Badge>}
               {r.pendingPrice !== null && !canSetPrice && (
                 <span className="text-xs text-muted-foreground" data-testid="pending-price">
                   Giá mới chờ xác nhận: {priceText(r.pendingPrice)}
@@ -864,13 +865,13 @@ export function ShopListingsPage() {
         meta: { className: 'min-w-44' },
         cell: ({ row }) => {
           const l = row.original.listing;
-          if (!l) return <Badge variant="outline">Chưa ghép</Badge>;
+          if (!l) return <Badge variant="outline">Chưa liên kết</Badge>;
           // Tên trong bản sao SKU sàn (FE#294): chưa tải hoặc SKU đã xoá trên sàn thì không hiện
           const remoteTitle = canMatch && l.externalSkuId ? remoteTitles.get(l.externalSkuId) : undefined;
           return (
             <div className="grid" data-testid="remote-sku">
               <span className="font-mono text-xs">{l.sellerSku || '—'}</span>
-              <span className="font-mono text-xs text-muted-foreground">{l.externalSkuId ?? 'Sàn chưa trả mã'}</span>
+              <span className="font-mono text-xs text-muted-foreground">{l.externalSkuId ?? 'Chưa có SKU ID sàn'}</span>
               {remoteTitle && (
                 <span className="max-w-64 truncate text-xs text-muted-foreground" title={remoteTitle} data-testid="remote-title">
                   {remoteTitle}
@@ -909,10 +910,10 @@ export function ShopListingsPage() {
           const status = r.listing?.status;
           const busy =
             status === 'pushing'
-              ? 'Đang đẩy, chờ sàn trả kết quả'
+              ? 'Đang đăng, chờ sàn phản hồi'
               : status && LISTED_STATUSES.includes(status)
                 ? canSync
-                  ? 'Đã lên sàn. Giá và tồn cập nhật bằng nút Đồng bộ'
+                  ? 'Đã đăng bán. Giá và tồn cập nhật bằng nút Đồng bộ'
                   : 'Giá và tồn tự cập nhật mỗi 15 phút; CEO hoặc Admin bấm Đồng bộ để cập nhật ngay.'
                 : null;
           return (
@@ -921,7 +922,7 @@ export function ShopListingsPage() {
                 decideActions(r.listing.id, r.listing.version, r.listing.sellerSku || r.sku, r.listing.pendingMapping)}
               {canMatch && (
                 <RowAction
-                  label={r.listing && !isDelisted(r) ? 'Đổi ghép' : 'Ghép'}
+                  label={r.listing && !isDelisted(r) ? 'Đổi liên kết' : 'Liên kết'}
                   reason={matchBlock(r)}
                   onClick={() => (r.listing && !isDelisted(r) ? openRemap(r) : openMatch({ from: 'variant', row: r }))}
                 >
@@ -930,16 +931,16 @@ export function ShopListingsPage() {
               )}
               {!canManage ? null : status && REPUSH_STATUSES.includes(status) ? (
                 <RowAction
-                  label="Đẩy lại"
-                  reason={pushMut.isPending ? 'Đang đẩy...' : null}
+                  label="Đăng lại"
+                  reason={pushMut.isPending ? 'Đang đăng...' : null}
                   onClick={() => requestPush([r])}
                 >
                   <RotateCcw />
                 </RowAction>
               ) : (
                 <RowAction
-                  label={r.listing ? 'Đẩy lên sàn' : 'Đẩy sản phẩm mới'}
-                  reason={pushMut.isPending ? 'Đang đẩy...' : busy}
+                  label={r.listing ? 'Đăng bán' : 'Đăng sản phẩm mới'}
+                  reason={pushMut.isPending ? 'Đang đăng...' : busy}
                   onClick={() => (r.listing ? requestPush([r]) : requestNewPush(r))}
                 >
                   <Upload />
@@ -948,7 +949,7 @@ export function ShopListingsPage() {
               {canDecideOutside && r.listing?.outsideChange && (
                 <>
                   <RowAction
-                    label="Bật lại, đẩy giá Commerio"
+                    label="Bật lại, dùng giá Commerio"
                     reason={outsideMut.isPending ? 'Đang gửi...' : null}
                     onClick={() => setDecidingOutside({ row: r, action: 'restore' })}
                   >
@@ -956,7 +957,7 @@ export function ShopListingsPage() {
                   </RowAction>
                   {r.listing.outsideChange.kind === 'price_changed' && (
                     <RowAction
-                      label="Nhận giá trên sàn"
+                      label="Dùng giá trên sàn"
                       reason={outsideMut.isPending ? 'Đang gửi...' : null}
                       onClick={() => setDecidingOutside({ row: r, action: 'accept-price' })}
                     >
@@ -967,7 +968,7 @@ export function ShopListingsPage() {
               )}
               {canManage && canUpdateContent(shop?.platform, r.listing) && (
                 <RowAction
-                  label="Sửa nội dung"
+                  label="Cập nhật thông tin lên sàn"
                   reason={contentMut.isPending ? 'Đang gửi...' : null}
                   onClick={() => setUpdatingContent(r)}
                 >
@@ -997,7 +998,7 @@ export function ShopListingsPage() {
         meta: { className: 'w-40 font-mono text-xs' },
         cell: ({ row }) => row.original.sellerSku || <span className="text-muted-foreground">—</span>,
       },
-      { accessorKey: 'externalSkuId', header: 'Mã SKU sàn', meta: { className: 'w-44 font-mono text-xs' } },
+      { accessorKey: 'externalSkuId', header: 'SKU ID sàn', meta: { className: 'w-44 font-mono text-xs' } },
       {
         id: 'pending',
         header: 'Trạng thái',
@@ -1005,10 +1006,10 @@ export function ShopListingsPage() {
         cell: ({ row }) => {
           const r = row.original;
           const current = r.matchedVariantId
-            ? `Đang ghép ${items.find((x) => x.variantId === r.matchedVariantId)?.sku ?? 'biến thể khác'}`
+            ? `Liên kết với ${items.find((x) => x.variantId === r.matchedVariantId)?.sku ?? 'SKU kho khác'}`
             : r.mode === 'unmanaged'
-              ? 'Đang không quản tồn'
-              : 'Chưa ghép';
+              ? 'Không quản lý tồn'
+              : 'Chưa liên kết';
           return (
             <div className="grid justify-items-start gap-1">
               {r.pendingMapping && (
@@ -1038,8 +1039,8 @@ export function ShopListingsPage() {
                     {decideActions(r.listingId, r.listingVersion, r.sellerSku || r.externalSkuId, r.pendingMapping)}
                     {canMatch && !r.matchedVariantId && !r.mode && (
                       <RowAction
-                        label="Ghép với biến thể"
-                        reason={r.pendingMapping ? 'Đang chờ CEO duyệt ghép' : null}
+                        label="Liên kết SKU kho"
+                        reason={r.pendingMapping ? 'Đang chờ CEO duyệt liên kết' : null}
                         onClick={() =>
                           openMatch({
                             from: 'remote',
@@ -1084,13 +1085,13 @@ export function ShopListingsPage() {
   return (
     <div>
       <PageHeader
-        title={shop ? `Sản phẩm trên sàn và giá · ${shop.shopName}` : 'Sản phẩm trên sàn và giá'}
+        title={shop ? `Listing · ${shop.shopName}` : 'Listing'}
         subtitle={
           shop
             ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
             : undefined
         }
-        help="Ghép SKU là nối mỗi SKU trên sàn với một biến thể trong Commerio. Đơn sàn của SKU đã ghép trừ đúng tồn của biến thể, và Commerio đẩy tồn, giá lên đúng SKU đó. Giá đẩy lấy từ bảng giá của gian hàng, thiếu thì lấy giá chuẩn."
+        help="Liên kết SKU (mapping) là nối mỗi SKU sàn với một SKU kho trong Commerio. Đơn của SKU đã liên kết sẽ trừ đúng tồn, và Commerio đồng bộ tồn, giá lên đúng SKU sàn đó. Giá lấy từ giá riêng của gian hàng, chưa đặt thì lấy giá bán lẻ."
         onTour={startTour}
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -1107,7 +1108,7 @@ export function ShopListingsPage() {
             )}
             <Button variant="outline" onClick={backToList}>
               <ArrowLeft />
-              Danh sách
+              Danh sách gian hàng
             </Button>
             {usable && can(PERMISSIONS.shopSync) && (
               <Button variant="outline" disabled={syncMut.isPending} onClick={() => void sync()}>
@@ -1123,10 +1124,10 @@ export function ShopListingsPage() {
               >
                 <Upload />
                 {pushMut.isPending
-                  ? 'Đang đẩy...'
+                  ? 'Đang đăng...'
                   : selectedRows.length
-                    ? `Đẩy ${selectedRows.length} biến thể lên sàn`
-                    : 'Đẩy lên sàn'}
+                    ? `Đăng bán ${selectedRows.length} SKU`
+                    : 'Đăng bán'}
               </Button>
             )}
           </div>
@@ -1136,8 +1137,8 @@ export function ShopListingsPage() {
       {shop && !usable && (
         <AlertMessage severity="warning" className="mb-4">
           <span>
-            Gian hàng {STATUS_LABELS[shop.status].toLowerCase()} nên chỉ xem được ghép SKU cũ. Kết nối lại để ghép và đẩy
-            giá.
+            Gian hàng {STATUS_LABELS[shop.status].toLowerCase()} nên chỉ xem được liên kết SKU cũ. Kết nối lại để liên kết và
+            đồng bộ giá.
           </span>
           {canReconnect && (
             <Button
@@ -1158,14 +1159,14 @@ export function ShopListingsPage() {
       {shop && usable && !can(PERMISSIONS.listingManage) && (
         <AlertMessage severity="info" className="mb-4">
           {can(PERMISSIONS.listingMatch)
-            ? 'Bạn ghép được SKU sàn với biến thể. Đẩy sản phẩm, giá và gỡ khỏi sàn cần quyền đẩy sản phẩm lên sàn.'
-            : 'Bạn chỉ có quyền xem ghép SKU của gian hàng.'}
+            ? 'Bạn liên kết được SKU sàn với SKU kho. Đăng bán, đồng bộ giá và gỡ khỏi sàn cần quyền Đăng bán.'
+            : 'Bạn chỉ có quyền xem liên kết SKU của gian hàng.'}
         </AlertMessage>
       )}
       {pollTimedOut && (
         <AlertMessage severity="info" className="mb-4">
           <span data-testid="poll-timeout">
-            Đã theo dõi {LISTING_POLL_MAX_MS / 60000} phút mà sàn chưa trả kết quả. Commerio vẫn chờ sàn; bấm Đồng bộ
+            Đã chờ {LISTING_POLL_MAX_MS / 60000} phút mà sàn chưa phản hồi. Commerio vẫn chờ; bấm Đồng bộ
             hoặc tải lại trang để xem kết quả mới.
           </span>
         </AlertMessage>
@@ -1188,31 +1189,31 @@ export function ShopListingsPage() {
           </TabsList>
         </Tabs>
         <FilterBar>
-          <SearchInput value={search} onChange={changeSearch} placeholder="Tìm theo tên, SKU hoặc SKU sàn..." />
+          <SearchInput value={search} onChange={changeSearch} placeholder="Tìm theo tên, SKU kho hoặc SKU sàn..." />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:ms-auto md:self-center">
             <p className="text-sm text-muted-foreground" data-testid="match-summary">
-              {/* Listing đã gỡ không tính là đã ghép: Đã ghép + Chưa lên sàn không vượt tổng (FE#326) */}
-              Đã ghép {items.filter((r) => r.listing && !isDelisted(r)).length} / {items.length} biến thể
-              {items.some(isDelisted) && ` (${items.filter(isDelisted).length} đã gỡ)`}
+              {/* Listing đã gỡ không tính là đã liên kết: Đã liên kết + Chưa đăng bán không vượt tổng (FE#326) */}
+              Đã liên kết {items.filter((r) => r.listing && !isDelisted(r)).length}/{items.length} SKU
+              {items.some(isDelisted) && ` (${items.filter(isDelisted).length} đã gỡ khỏi sàn)`}
             </p>
             {/* Bản sao SKU sàn dùng chung cho mọi tab (tên trên sàn, hộp Đổi ghép, tab Chưa ghép) nên Tải lại nằm ở đây (FE#294) */}
             {canMatch && (
               <>
                 <p className="text-sm text-muted-foreground" data-testid="remote-synced">
                   {refreshRunning
-                    ? 'Đang tải SKU trên sàn, bảng tự cập nhật khi xong.'
+                    ? 'Đang tải SKU từ sàn, bảng tự cập nhật khi xong.'
                     : remoteQuery.data?.syncedAt
-                      ? `SKU trên sàn tải lúc ${formatDateTime(remoteQuery.data.syncedAt)}`
+                      ? `SKU sàn cập nhật lúc ${formatDateTime(remoteQuery.data.syncedAt)}`
                       : null}
                 </p>
                 {missingMatch && (
                   <p className="text-sm text-destructive" data-testid="match-missing">
-                    Chưa thấy SKU sàn {missingMatch} trong danh sách. Bấm Tải lại để lấy SKU mới từ sàn.
+                    Chưa thấy SKU sàn {missingMatch} trong danh sách. Bấm Tải SKU từ sàn để lấy SKU mới.
                   </p>
                 )}
                 <Button size="sm" variant="outline" disabled={refreshing} onClick={refreshRemote}>
                   <RefreshCw className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
-                  {refreshing ? 'Đang tải danh sách SKU…' : 'Tải lại'}
+                  {refreshing ? 'Đang tải SKU từ sàn…' : 'Tải SKU từ sàn'}
                 </Button>
               </>
             )}
@@ -1237,16 +1238,16 @@ export function ShopListingsPage() {
             <p className="max-w-prose px-4 pb-3 text-sm text-muted-foreground" data-testid="remote-hint">
               {tab === 'pending'
                 ? canDecide
-                  ? 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Duyệt thì ghép mới có hiệu lực; từ chối thì ghép cũ giữ nguyên.'
-                  : 'SKU sàn có yêu cầu ghép chờ CEO duyệt. Trong lúc chờ, ghép cũ giữ nguyên.'
-                : 'SKU trên sàn chưa ghép với biến thể nào. Ghép để đơn của các SKU này trừ đúng tồn và nhận giá từ Commerio. Vừa thêm SKU trên sàn thì bấm Tải lại.'}
+                  ? 'SKU sàn có yêu cầu liên kết chờ CEO duyệt. Duyệt thì liên kết mới có hiệu lực; từ chối thì liên kết cũ giữ nguyên.'
+                  : 'SKU sàn có yêu cầu liên kết chờ CEO duyệt. Trong lúc chờ, liên kết cũ giữ nguyên.'
+                : 'SKU sàn chưa liên kết SKU kho nào. Liên kết để đơn trừ đúng tồn và nhận giá từ Commerio. Vừa thêm sản phẩm trên sàn thì bấm Tải SKU từ sàn.'}
             </p>
             {!usable ? (
               <p className="px-4 pb-6 text-sm text-muted-foreground">
-                Không tải được SKU trên sàn khi gian hàng chưa kết nối.
+                Không tải được SKU sàn khi gian hàng chưa kết nối.
               </p>
             ) : !can(PERMISSIONS.listingMatch) ? (
-              <p className="px-4 pb-6 text-sm text-muted-foreground">Xem SKU sàn chưa ghép cần quyền ghép SKU.</p>
+              <p className="px-4 pb-6 text-sm text-muted-foreground">Xem SKU sàn chưa liên kết cần quyền liên kết SKU.</p>
             ) : remoteQuery.isError ? (
               <div className="px-4 pb-6">
                 <AlertMessage severity="error">{problemMessage(remoteQuery.error, 'remote_skus')}</AlertMessage>
@@ -1262,10 +1263,10 @@ export function ShopListingsPage() {
                   searching
                     ? 'Không có SKU sàn khớp ô tìm kiếm'
                     : tab === 'pending'
-                      ? 'Không có yêu cầu ghép nào chờ duyệt'
+                      ? 'Không có yêu cầu liên kết chờ duyệt'
                       : remoteQuery.data && !remoteQuery.data.syncedAt
-                        ? 'Chưa có danh sách SKU trên sàn'
-                        : 'Mọi SKU trên sàn đã được ghép'
+                        ? 'Chưa tải SKU từ sàn'
+                        : 'Mọi SKU sàn đã liên kết'
                 }
               />
             )}
@@ -1280,10 +1281,10 @@ export function ShopListingsPage() {
             fetching={listingsQuery.isFetching}
             empty={
               searching
-                ? 'Không có biến thể khớp ô tìm kiếm'
+                ? 'Không có SKU khớp ô tìm kiếm'
                 : tab !== 'all'
-                  ? 'Không còn biến thể nào ở mục này'
-                  : 'Công ty chưa có biến thể đang bán'
+                  ? 'Không còn SKU nào ở mục này'
+                  : 'Công ty chưa có SKU đang bán'
             }
             pagination={{
               page: safePage,
@@ -1303,28 +1304,28 @@ export function ShopListingsPage() {
         title={
           matching?.from === 'remote'
             ? matching.current
-              ? 'Đổi ghép SKU sàn'
-              : 'Ghép SKU sàn với biến thể'
-            : 'Ghép biến thể với SKU sàn'
+              ? 'Đổi liên kết SKU sàn'
+              : 'Liên kết SKU sàn với SKU kho'
+            : 'Liên kết SKU kho với SKU sàn'
         }
         description={
           matching?.from === 'remote' ? (
             <>
               SKU sàn <strong>{matching.title}</strong> ({matching.sellerSku || matching.externalSkuId}).{' '}
               {matching.current
-                ? `Đang ghép với ${matching.current.sku}. Chọn biến thể khác hoặc không quản tồn. Gian hàng đã nhận đơn của SKU này thì đổi ghép cần CEO duyệt; đơn đã nhận giữ ghép cũ.`
-                : 'Chọn biến thể chưa ghép, hoặc không quản tồn.'}
+                ? `Đang liên kết với ${matching.current.sku}. Chọn SKU kho khác hoặc không quản lý tồn. Gian hàng đã nhận đơn của SKU này thì đổi liên kết cần CEO duyệt; đơn đã nhận giữ liên kết cũ.`
+                : 'Chọn SKU kho chưa liên kết, hoặc không quản lý tồn.'}
             </>
           ) : matching ? (
             <>
-              Biến thể <strong>{matching.row.sku}</strong> · {matching.row.productName}. Chọn SKU trên sàn chưa ghép.
+              SKU kho <strong>{matching.row.sku}</strong> · {matching.row.productName}. Chọn SKU sàn chưa liên kết.
             </>
           ) : null
         }
-        searchLabel={matching?.from === 'remote' ? 'Tìm biến thể theo tên hoặc SKU...' : 'Tìm SKU sàn...'}
+        searchLabel={matching?.from === 'remote' ? 'Tìm SKU kho theo tên hoặc mã SKU...' : 'Tìm SKU sàn...'}
         options={matchOptions}
         initialId={matching?.from === 'remote' ? (matching.current?.variantId ?? null) : null}
-        empty={matching?.from === 'remote' ? 'Không còn biến thể chưa ghép' : 'Không còn SKU sàn chưa ghép'}
+        empty={matching?.from === 'remote' ? 'Không còn SKU kho chưa liên kết' : 'Không còn SKU sàn chưa liên kết'}
         saving={matchMut.isPending}
         error={matchError}
         onSave={saveMatch}
@@ -1343,8 +1344,8 @@ export function ShopListingsPage() {
         title="Gỡ khỏi sàn?"
         message={
           <>
-            Gỡ <strong>{delisting?.sku}</strong> khỏi {shop?.shopName}. Khách không đặt được SKU này trên sàn nữa; ghép SKU
-            vẫn giữ để đẩy lại sau.
+            Gỡ <strong>{delisting?.sku}</strong> khỏi {shop?.shopName}. Khách không đặt được SKU này trên sàn nữa; liên kết
+            SKU vẫn giữ để đăng lại sau.
           </>
         }
         confirmLabel="Gỡ khỏi sàn"
@@ -1355,7 +1356,7 @@ export function ShopListingsPage() {
       />
       <ConfirmDialog
         open={Boolean(decidingOutside)}
-        title={decidingOutside?.action === 'accept-price' ? 'Nhận giá trên sàn?' : 'Bật lại trên sàn?'}
+        title={decidingOutside?.action === 'accept-price' ? 'Dùng giá trên sàn?' : 'Bật lại trên sàn?'}
         message={
           decidingOutside?.action === 'accept-price' ? (
             <>
@@ -1364,19 +1365,19 @@ export function ShopListingsPage() {
             </>
           ) : (
             <>
-              Đẩy lại giá Commerio <strong>{priceText(decidingOutside?.row.price)}</strong> và bật lại{' '}
+              Dùng lại giá Commerio <strong>{priceText(decidingOutside?.row.price)}</strong> và bật lại{' '}
               <strong>{decidingOutside?.row.sku}</strong> trên {shop?.shopName}.
             </>
           )
         }
-        confirmLabel={decidingOutside?.action === 'accept-price' ? 'Nhận giá trên sàn' : 'Bật lại'}
+        confirmLabel={decidingOutside?.action === 'accept-price' ? 'Dùng giá trên sàn' : 'Bật lại'}
         loading={outsideMut.isPending}
         onConfirm={handleOutside}
         onClose={() => setDecidingOutside(null)}
       />
       <ConfirmDialog
         open={Boolean(updatingContent)}
-        title="Sửa nội dung trên sàn?"
+        title="Cập nhật thông tin lên sàn?"
         message={
           <>
             Đưa tên, mô tả, thuộc tính mới của <strong>{updatingContent?.sku}</strong> lên {shop?.shopName}; sàn sẽ duyệt lại.
@@ -1384,50 +1385,50 @@ export function ShopListingsPage() {
             và tồn không đổi.
           </>
         }
-        confirmLabel="Đưa lên sàn"
+        confirmLabel="Cập nhật"
         loading={contentMut.isPending}
         onConfirm={handleUpdateContent}
         onClose={() => setUpdatingContent(null)}
       />
       <ConfirmDialog
         open={Boolean(pushing)}
-        title="Đẩy lên sàn?"
+        title="Đăng bán lên sàn?"
         message={
           <>
-            Đẩy {pushing?.length} biến thể lên {shop?.shopName}. <strong>{newCount} biến thể chưa có SKU sàn</strong> sẽ được
-            tạo sản phẩm mới trên sàn và tự ghép với SKU sàn trả về.
+            Đăng bán {pushing?.length} SKU lên {shop?.shopName}. <strong>{newCount} SKU chưa có trên sàn</strong> sẽ được tạo
+            thành sản phẩm mới, và tự liên kết với SKU sàn vừa tạo.
           </>
         }
-        confirmLabel="Đẩy lên sàn"
+        confirmLabel="Đăng bán"
         loading={pushMut.isPending}
         onConfirm={() => pushing && push(pushing)}
         onClose={() => setPushing(null)}
       />
       <ConfirmDialog
         open={deciding?.action === 'approve'}
-        title="Duyệt ghép SKU sàn?"
+        title="Duyệt liên kết SKU sàn?"
         message={
           <>
-            Ghép SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>. Đơn mới của SKU
-            này trừ tồn theo ghép mới; đơn đã nhận giữ ghép cũ.
+            Liên kết SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>. Đơn mới của SKU
+            này trừ tồn theo liên kết mới; đơn đã nhận giữ liên kết cũ.
           </>
         }
-        confirmLabel="Duyệt ghép"
+        confirmLabel="Duyệt liên kết"
         loading={decideMut.isPending}
         onConfirm={() => void decide()}
         onClose={() => setDeciding(null)}
       />
       <ReasonDialog
         open={deciding?.action === 'reject'}
-        title="Từ chối ghép SKU sàn?"
+        title="Từ chối liên kết SKU sàn?"
         message={
           <>
-            Từ chối yêu cầu ghép SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>.
-            Ghép cũ giữ nguyên. Lý do được ghi vào nhật ký hoạt động của gian hàng.
+            Từ chối yêu cầu liên kết SKU sàn <strong>{deciding?.label}</strong> với <strong>{deciding?.target}</strong>.
+            Liên kết cũ giữ nguyên. Lý do được ghi vào Nhật ký thao tác của gian hàng.
           </>
         }
         label="Lý do từ chối"
-        confirmLabel="Từ chối ghép"
+        confirmLabel="Từ chối liên kết"
         destructive
         loading={decideMut.isPending}
         error={decideError}

@@ -22,30 +22,30 @@ const l = (
 
 describe('syncLine (FE#312)', () => {
   it('chưa đẩy lần nào: chờ đẩy giá, tồn lần đầu', () => {
-    expect(syncLine(l('pending', 'pending', { lastPushedAt: null }))).toBe('Chờ đẩy giá, tồn lần đầu');
-    expect(syncLine(l('synced', 'synced', { lastPushedAt: null }))).toBe('Chờ đẩy giá, tồn lần đầu');
+    expect(syncLine(l('pending', 'pending', { lastPushedAt: null }))).toBe('Chờ đồng bộ giá, tồn lần đầu');
+    expect(syncLine(l('synced', 'synced', { lastPushedAt: null }))).toBe('Chờ đồng bộ giá, tồn lần đầu');
   });
 
   it('giá và tồn cùng chờ: một câu kèm giá trên sàn', () => {
-    expect(syncLine(l('pending', 'pending'))).toBe(`Chờ đẩy giá (sàn ${priceText(150000)}) và tồn`);
+    expect(syncLine(l('pending', 'pending'))).toBe(`Chờ đồng bộ giá (sàn đang ${priceText(150000)}) và tồn`);
   });
 
   it('chỉ giá chờ: giá mới, trên sàn giá cũ', () => {
-    expect(syncLine(l('pending', 'synced'))).toBe(`Chờ đẩy giá mới, trên sàn ${priceText(150000)}`);
+    expect(syncLine(l('pending', 'synced'))).toBe(`Chờ đồng bộ giá mới, sàn đang ${priceText(150000)}`);
   });
 
   it('chỉ tồn chờ: kèm lần đẩy cuối', () => {
-    expect(syncLine(l('synced', 'pending'))).toBe(`Chờ đẩy tồn · Đẩy lần cuối ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'pending'))).toBe(`Chờ đồng bộ tồn · Lần cuối ${formatDateTime(AT)}`);
   });
 
   it('đã đồng bộ cả hai: đã đẩy lúc nào', () => {
-    expect(syncLine(l('synced', 'synced'))).toBe(`Đã đẩy ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'synced'))).toBe(`Đã đồng bộ ${formatDateTime(AT)}`);
   });
 
   it('Lệch tồn hoặc đẩy tồn lỗi đã có nhãn riêng: câu không nhắc tồn', () => {
-    expect(syncLine(l('synced', 'pending', { stockSyncError: ERR }))).toBe(`Đã đẩy ${formatDateTime(AT)}`);
-    expect(syncLine(l('pending', 'pending', { stockSyncError: ERR }))).toBe(`Chờ đẩy giá mới, trên sàn ${priceText(150000)}`);
-    expect(syncLine(l('synced', 'error'))).toBe(`Đã đẩy ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'pending', { stockSyncError: ERR }))).toBe(`Đã đồng bộ ${formatDateTime(AT)}`);
+    expect(syncLine(l('pending', 'pending', { stockSyncError: ERR }))).toBe(`Chờ đồng bộ giá mới, sàn đang ${priceText(150000)}`);
+    expect(syncLine(l('synced', 'error'))).toBe(`Đã đồng bộ ${formatDateTime(AT)}`);
   });
 });
 
