@@ -31,7 +31,7 @@ describe('D4.4 cấu hình', () => {
     expect(formatPayloadValue('outputVatPct', 1.5)).toBe('1,5%');
     expect(formatPayloadValue('returnFee', 10000)).toBe('10.000 ₫');
     expect(formatPayloadValue('regime', 'household')).toBe('Hộ kinh doanh');
-    expect(payloadSummary('fee', { fixedPct: 3, transactionPct: 2, servicePct: 1, optionalPct: 0, returnFee: 10000 })).toBe('Tổng phí 6%, hoàn hàng 10.000 ₫');
+    expect(payloadSummary('fee', { fixedPct: 3, transactionPct: 2, servicePct: 1, optionalPct: 0, returnFee: 10000 })).toBe('Tổng phí sàn 6%, phí khi hàng hoàn 10.000 ₫/kiện');
   });
 });
 describe('D4.2 chốt lệch', () => {

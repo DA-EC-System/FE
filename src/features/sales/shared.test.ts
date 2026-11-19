@@ -17,15 +17,15 @@ import {
 describe('thông tin đơn sàn (FE#176)', () => {
   it('nhãn thanh toán: đơn tạo tay, giá trị gốc của sàn, giá trị lạ, chưa có', () => {
     const platform = (platformPaymentMethod: string | null) => paymentMethodLabel({ paymentMethod: null, platformPaymentMethod });
-    expect(paymentMethodLabel({ paymentMethod: 'cod' })).toBe('Thu khi giao (COD)');
+    expect(paymentMethodLabel({ paymentMethod: 'cod' })).toBe('COD');
     expect(paymentMethodLabel({ paymentMethod: 'prepaid', platformPaymentMethod: 'COD' })).toBe('Trả trước');
     expect(platform('COD')).toBe('COD');
     expect(platform('MIXEDCARD')).toBe('Thẻ');
     expect(platform('Lazada Wallet')).toBe('Ví Lazada');
     expect(platform('PAYLATER_X')).toBe('PAYLATER_X');
     expect(platform('toString')).toBe('toString');
-    expect(platform(null)).toBe('Sàn thu hộ');
-    expect(paymentMethodLabel({ paymentMethod: null })).toBe('Sàn thu hộ');
+    expect(platform(null)).toBe('Qua sàn');
+    expect(paymentMethodLabel({ paymentMethod: null })).toBe('Qua sàn');
   });
 
   it('phường hiện riêng khi chuỗi địa chỉ chưa có; BE cũ chưa trả thì không', () => {
@@ -35,7 +35,7 @@ describe('thông tin đơn sàn (FE#176)', () => {
   });
 
   it('ai huỷ', () => {
-    expect(initiatorLabel('buyer')).toBe('khách');
+    expect(initiatorLabel('buyer')).toBe('người mua');
     expect(initiatorLabel('platform')).toBe('sàn');
   });
 
@@ -107,7 +107,7 @@ describe('huỷ món: tiền và lịch sử (BE#417)', () => {
       ['a', 'Đổi ý', 200000],
       ['b', null, 0],
     ]);
-    expect(events[0]!.title).toMatch(/^Khách huỷ món Áo/);
+    expect(events[0]!.title).toMatch(/^Người mua huỷ món Áo/);
     expect(events[1]!.title).toMatch(/^Sàn huỷ món Quần/);
     expect(allLinesCancelled(lines)).toBe(true);
     expect(cancelledAmountOf(lines)).toBe(300000);
@@ -127,10 +127,10 @@ describe('chi tiết đơn: lý do chưa hoàn tất, người huỷ, trễ hạ
   it('câu đủ ý cho từng mã, hạn trả theo BE, mã lạ không hiện thô', () => {
     expect(completionBlockerText({ completionBlocker: null }, fmt)).toBeNull();
     expect(completionBlockerText({ completionBlocker: 'return_window', returnWindowEndsAt: '2026-11-25T00:00:00Z' }, fmt)).toBe(
-      'Khách còn quyền trả hàng tới 2026-11-25.',
+      'Người mua còn quyền trả hàng tới 2026-11-25.',
     );
     expect(completionBlockerText({ completionBlocker: 'return_window', returnWindowEndsAt: null }, fmt)).toBe(
-      'Sàn chưa báo hết quyền trả hàng của khách.',
+      'Sàn chưa báo hết quyền trả hàng của người mua.',
     );
     expect(completionBlockerText({ completionBlocker: 'packages_open' }, fmt)).toMatch(/^Còn kiện chưa xong/);
     expect(completionBlockerText({ completionBlocker: 'xyz_new' }, fmt)).toBe('Đơn còn việc chưa xong.');
@@ -141,7 +141,7 @@ describe('chi tiết đơn: lý do chưa hoàn tất, người huỷ, trễ hạ
       { to: 'processing', by: null, source: 'system' },
       { to: 'cancelled', by, source, reason },
     ];
-    expect(orderCancelledBy({ status: 'cancelled', cancelInitiators: ['buyer'], statusHistory: [] })).toBe('khách');
+    expect(orderCancelledBy({ status: 'cancelled', cancelInitiators: ['buyer'], statusHistory: [] })).toBe('người mua');
     expect(orderCancelledBy({ status: 'cancelled', statusHistory: h({ name: 'Sale A' }, 'user') })).toBe('Sale A');
     expect(orderCancelledBy({ status: 'cancelled', statusHistory: h(null, 'marketplace') })).toBe('Sàn');
     expect(orderCancelledBy({ status: 'cancelled', statusHistory: h(null, 'system', 'Mọi kiện đã huỷ') })).toBe(

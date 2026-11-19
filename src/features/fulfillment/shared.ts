@@ -10,7 +10,7 @@ const SHIPPING_PROVIDER_TYPE_LABELS: Record<string, string> = {
   instant: 'Hoả tốc',
   seller_own_fleet: 'Shop tự giao',
   pickup_in_store: 'Nhận tại cửa hàng',
-  digital: 'Hàng số',
+  digital: 'Hàng kỹ thuật số',
 };
 
 export function shippingProviderTypeLabel(v: string | null | undefined): string | null {
@@ -23,27 +23,27 @@ import type { OpenPurpose, PackageAction, PackageFlag, PackageLine, PackageStatu
 
 export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {
   backordered: { label: 'Thiếu hàng', variant: 'destructive' },
-  reserved: { label: 'Đã giữ hàng', variant: 'info' },
+  reserved: { label: 'Chờ đóng gói', variant: 'info' },
   packed: { label: 'Đã đóng gói', variant: 'info' },
   awaiting_pickup: { label: 'Chờ lấy hàng', variant: 'info' },
-  in_transit: { label: 'Đang giao', variant: 'info' },
-  self_delivering: { label: 'Đang tự giao', variant: 'info' },
+  in_transit: { label: 'Đang vận chuyển', variant: 'info' },
+  self_delivering: { label: 'Shop tự giao', variant: 'info' },
   delivered: { label: 'Đã giao', variant: 'success' },
   delivery_failed: { label: 'Giao thất bại', variant: 'destructive' },
-  returning: { label: 'Đang hoàn', variant: 'warning' },
+  returning: { label: 'Đang hoàn hàng', variant: 'warning' },
   returned: { label: 'Đã hoàn về kho', variant: 'secondary' },
   lost: { label: 'Thất lạc', variant: 'destructive' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 export const PACKAGE_FLAGS: Record<PackageFlag, StatusMeta> = {
-  needs_open: { label: 'Chờ mở kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa hoặc chia lại kiện.' },
+  needs_open: { label: 'Cần mở lại kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa hoặc tách lại kiện.' },
   needs_attention: { label: 'Cần xử lý', variant: 'destructive', hint: 'Kiện có vấn đề cần người xem, lý do ghi trong chi tiết kiện.' },
-  cancel_requested: { label: 'Khách xin huỷ', variant: 'warning', hint: 'Khách đang xin huỷ đơn, chờ Sale trả lời. Chưa báo sàn sẵn sàng giao được.' },
-  lost_reported: { label: 'Báo thất lạc', variant: 'warning', hint: 'Đã báo thất lạc, cần một người khác xác nhận.' },
-  label_error: { label: 'Lỗi lấy vận đơn', variant: 'destructive', hint: 'Lần báo sẵn sàng giao gần nhất gặp lỗi. Kiểm tra gian hàng rồi báo lại.' },
+  cancel_requested: { label: 'Người mua xin huỷ', variant: 'warning', hint: 'Người mua đang xin huỷ đơn, chờ Sale trả lời. Chưa bấm Sẵn sàng giao được.' },
+  lost_reported: { label: 'Đã báo thất lạc', variant: 'warning', hint: 'Đã báo thất lạc, cần một người khác xác nhận.' },
+  label_error: { label: 'Lỗi lấy mã vận đơn', variant: 'destructive', hint: 'Lần bấm Sẵn sàng giao gần nhất bị lỗi. Kiểm tra kết nối gian hàng rồi bấm lại.' },
   cod_unconfirmed: { label: 'Chờ xác nhận COD', variant: 'warning', hint: 'Đã giao nhưng chưa xác nhận đã thu tiền COD.' },
-  pickup_unconfirmed: { label: 'Chưa thấy sàn xác nhận lấy', variant: 'warning', hint: 'Đã bàn giao nhưng sàn chưa báo đơn vị vận chuyển lấy hàng.' },
+  pickup_unconfirmed: { label: 'Sàn chưa xác nhận lấy hàng', variant: 'warning', hint: 'Đã bàn giao nhưng sàn chưa báo đơn vị vận chuyển lấy hàng.' },
 };
 
 /** Kiện chưa rời kho có hạn bàn giao đã qua hoặc còn dưới 24 giờ: chữ đỏ `.hot` của Test_UI */
@@ -57,8 +57,8 @@ export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
   // Kiện chờ mở để huỷ có thể chỉ vì một món bị huỷ, đơn vẫn chạy tiếp (test đêm 18/11/2026, KH-B09)
   cancel: 'Hàng trong kiện đã huỷ, trả hàng về kệ',
   edit: 'Sửa kiện',
-  resplit: 'Chia lại kiện',
-  stocktake: 'Kiểm kê thiếu hàng',
+  resplit: 'Tách lại kiện',
+  stocktake: 'Kiểm kho thiếu hàng',
 };
 
 /** Tổng số đơn vị chờ bỏ của kiện (sàn huỷ lẻ món sau khi đóng gói, 21 §19.2) */
@@ -67,22 +67,22 @@ export const pendingDropTotal = (lines: readonly Pick<PackageLine, 'pendingDropQ
 
 export const PENDING_DROP_HINT = 'Sàn đã huỷ phần này, hàng còn trong hộp: bỏ ra khi mở kiện.';
 
-/** Hàng đợi kho theo bước làm việc; Cần đóng gói là tab mặc định */
+/** Hàng đợi kho theo bước làm việc; Chờ đóng gói là tab mặc định */
 export const PACKAGE_TABS: { value: PackageTab; label: string }[] = [
-  { value: 'reserved', label: 'Cần đóng gói' },
+  { value: 'reserved', label: 'Chờ đóng gói' },
   { value: 'packed', label: 'Đã đóng gói' },
   { value: 'awaiting_pickup', label: 'Chờ lấy hàng' },
-  { value: 'shipping', label: 'Đang giao' },
+  { value: 'shipping', label: 'Đang vận chuyển' },
   { value: 'delivery_failed', label: 'Giao thất bại' },
-  { value: 'returning', label: 'Đang hoàn' },
+  { value: 'returning', label: 'Đang hoàn hàng' },
   { value: 'backordered', label: 'Thiếu hàng' },
-  { value: 'needs_open', label: 'Cần xử lý' },
+  { value: 'needs_open', label: 'Cần mở lại kiện' },
 ];
 
 /** Lý do kiện không bàn giao được trong kết quả bàn giao hàng loạt */
 export const HANDOVER_FAILURE_LABELS: Record<string, string> = {
-  invalid_transition: 'Kiện không ở Chờ lấy hàng',
-  version_conflict: 'Kiện vừa được cập nhật',
+  invalid_transition: 'Kiện không còn ở trạng thái Chờ lấy hàng',
+  version_conflict: 'Kiện vừa có người sửa, tải lại rồi thử lại',
   not_found: 'Không tìm thấy kiện',
   forbidden: 'Không có quyền',
   awaiting_open: 'Kiện đang chờ mở',
@@ -112,7 +112,7 @@ export const waitingReplacedOpen = (p: Pick<PackageSummary, 'replaces'>): boolea
 export const canPrintLabel = (p: Pick<PackageSummary, 'status' | 'platformPackageCode' | 'trackingCode'>): boolean =>
   Boolean(p.platformPackageCode && p.trackingCode) && (p.status === 'packed' || p.status === 'awaiting_pickup');
 
-const CANCEL_REQUESTED_BLOCK = 'Khách đang xin huỷ đơn, chờ Sale trả lời yêu cầu huỷ rồi mới báo sàn sẵn sàng giao.';
+const CANCEL_REQUESTED_BLOCK = 'Người mua đang xin huỷ đơn, chờ Sale trả lời yêu cầu huỷ rồi mới bấm Sẵn sàng giao.';
 
 export const packageRecord = (p: PackageSummary): PackageRecord => ({
   source: p.source,
@@ -162,13 +162,13 @@ export function packageButtons(p: PackageSummary, actor: TransitionActor): Packa
   const canProcess = packageMachine.available('returning', actor, packageRecord(p)).length > 0;
   const reportLost = canReportLost(p) && !p.lostReport && canProcess;
   const shipping = ['in_transit', 'delivery_failed'].includes(p.status);
-  const note = p.source === 'marketplace' && shipping ? 'Trạng thái giao lấy từ sàn.' : null;
+  const note = p.source === 'marketplace' && shipping ? 'Trạng thái giao hàng cập nhật tự động từ sàn.' : null;
   const blocked = !isSealed(p.status)
     ? null
     : opening
-      ? 'Kiện đang chờ mở: mở kiện xong mới báo sẵn sàng hay bàn giao được.'
+      ? 'Kiện đang chờ mở: mở kiện xong mới bấm Sẵn sàng giao hay bàn giao được.'
       : waiting
-        ? `Chờ mở kiện ${p.replaces!.code} (kiện cũ sàn đã chia lại) rồi mới báo sẵn sàng hay bàn giao được.`
+        ? `Chờ mở kiện ${p.replaces!.code} (kiện cũ sàn đã tách lại) rồi mới bấm Sẵn sàng giao hay bàn giao được.`
         : p.status !== 'packed'
           ? null
           : cancelRequested

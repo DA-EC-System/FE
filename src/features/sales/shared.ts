@@ -20,55 +20,55 @@ import type { BadgeVariant, StatusMeta } from '@/components/common/StatusBadge';
 export const ORDER_STATUS: Record<OrderStatus, { label: string; variant: BadgeVariant }> = {
   unpaid: { label: 'Chưa thanh toán', variant: 'warning' },
   processing: { label: 'Đang xử lý', variant: 'info' },
-  completed: { label: 'Đã hoàn tất', variant: 'success' },
+  completed: { label: 'Hoàn thành', variant: 'success' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary' },
 };
 
 /** Giai đoạn hiển thị suy từ kiện (sơ đồ D1, ô "Hiển thị"); rê chuột vào nhãn để xem câu giải thích (FE#138) */
 export const ORDER_STAGE: Record<OrderStage, StatusMeta> = {
-  awaiting_payment: { label: 'Chờ thanh toán', variant: 'warning', hint: 'Đơn trả trước, chờ khách thanh toán.' },
+  awaiting_payment: { label: 'Chưa thanh toán', variant: 'warning', hint: 'Đơn trả trước, người mua chưa thanh toán.' },
   awaiting_confirmation: { label: 'Chờ xác nhận', variant: 'warning', hint: 'Chờ người bán xác nhận đơn.' },
   unmapped: {
-    label: 'Chưa ghép SKU',
+    label: 'Chưa liên kết SKU',
     variant: 'destructive',
-    hint: 'Có dòng hàng sàn chưa ghép với SKU trong kho, chưa giữ hàng được.',
+    hint: 'Có SKU sàn trên đơn chưa liên kết với SKU kho nên chưa tạm giữ tồn được. Vào Liên kết SKU để liên kết.',
   },
   cancelling: { label: 'Đang huỷ', variant: 'warning', hint: 'Đã gửi yêu cầu huỷ lên sàn, chờ sàn trả lời.' },
-  backordered: { label: 'Thiếu hàng', variant: 'destructive', hint: 'Kho không đủ hàng để giữ, kiện chờ hàng về.' },
-  reserved: { label: 'Chờ đóng gói', variant: 'info', hint: 'Đã giữ hàng, chờ kho đóng gói.' },
+  backordered: { label: 'Thiếu hàng', variant: 'destructive', hint: 'Kho không đủ hàng để tạm giữ, kiện chờ hàng về.' },
+  reserved: { label: 'Chờ đóng gói', variant: 'info', hint: 'Đã tạm giữ hàng, chờ kho đóng gói.' },
   packed: { label: 'Đã đóng gói', variant: 'info', hint: 'Đã đóng gói, chờ bàn giao vận chuyển.' },
   awaiting_pickup: { label: 'Chờ lấy hàng', variant: 'info', hint: 'Chờ đơn vị vận chuyển tới lấy hàng.' },
-  in_transit: { label: 'Đang giao', variant: 'info', hint: 'Đơn vị vận chuyển đang giao.' },
-  self_delivering: { label: 'Đang tự giao', variant: 'info', hint: 'Cửa hàng đang tự giao.' },
-  delivered: { label: 'Đã giao', variant: 'success', hint: 'Khách đã nhận hàng.' },
+  in_transit: { label: 'Đang vận chuyển', variant: 'info', hint: 'Đơn vị vận chuyển đang giao.' },
+  self_delivering: { label: 'Shop tự giao', variant: 'info', hint: 'Shop tự giao cho người mua, không qua đơn vị vận chuyển của sàn.' },
+  delivered: { label: 'Đã giao', variant: 'success', hint: 'Người mua đã nhận hàng.' },
   delivery_failed: {
     label: 'Giao thất bại',
     variant: 'destructive',
-    hint: 'Giao không thành công, cần giao lại hoặc hoàn về.',
+    hint: 'Giao không thành công, cần giao lại hoặc hoàn hàng về kho.',
   },
-  returning: { label: 'Đang hoàn', variant: 'warning', hint: 'Kiện đang hoàn về kho.' },
+  returning: { label: 'Đang hoàn hàng', variant: 'warning', hint: 'Kiện đang hoàn về kho.' },
   returned: { label: 'Đã hoàn về kho', variant: 'secondary', hint: 'Kiện đã về kho.' },
   lost: { label: 'Thất lạc', variant: 'destructive', hint: 'Kiện bị thất lạc khi giao.' },
   awaiting_completion: {
-    label: 'Chờ hoàn tất',
+    label: 'Chờ hoàn thành',
     variant: 'success',
-    hint: 'Mọi kiện đã dừng, đơn chờ đủ điều kiện để hoàn tất.',
+    hint: 'Mọi kiện hàng đã giao xong hoặc đã hoàn về; đơn chờ hết hạn trả hàng (và xác nhận tiền COD nếu có) để hoàn thành.',
   },
-  completed: { label: 'Đã hoàn tất', variant: 'success', hint: 'Đơn đã xong.' },
+  completed: { label: 'Hoàn thành', variant: 'success', hint: 'Đơn đã xong.' },
   cancelled: { label: 'Đã huỷ', variant: 'secondary', hint: 'Đơn đã huỷ.' },
 };
 
 export const ORDER_FLAGS: Record<OrderFlag, { label: string; variant: BadgeVariant }> = {
   needs_attention: { label: 'Cần xử lý', variant: 'destructive' },
-  unmapped_sku: { label: 'Chưa ghép SKU', variant: 'destructive' },
-  cancel_requested: { label: 'Khách xin huỷ', variant: 'warning' },
+  unmapped_sku: { label: 'Chưa liên kết SKU', variant: 'destructive' },
+  cancel_requested: { label: 'Yêu cầu huỷ', variant: 'warning' },
   cancelling: { label: 'Đang huỷ', variant: 'warning' },
   platform_cancelled: { label: 'Sàn đã huỷ', variant: 'warning' },
   due_soon: { label: 'Sắp trễ hạn', variant: 'warning' },
-  return_requested: { label: 'Có yêu cầu trả', variant: 'warning' },
-  payment_mismatch: { label: 'Lệch tiền', variant: 'destructive' },
-  cod_mismatch: { label: 'Lệch COD', variant: 'destructive' },
-  shop_disconnected: { label: 'Gian hàng đã ngắt', variant: 'warning' },
+  return_requested: { label: 'Yêu cầu trả hàng', variant: 'warning' },
+  payment_mismatch: { label: 'Chênh lệch', variant: 'destructive' },
+  cod_mismatch: { label: 'Chênh lệch COD', variant: 'destructive' },
+  shop_disconnected: { label: 'Gian hàng đã ngắt kết nối', variant: 'warning' },
 };
 
 /** Cờ lọc được ở danh sách đơn: đúng danh sách BE nhận (`payment_mismatch` chỉ hiện trên đơn, lọc thì 422) */
@@ -84,11 +84,11 @@ export const OUTCOME_LABELS: Record<OrderOutcome, string> = {
 
 /** Lý do đơn chưa hoàn tất khi mọi kiện đã dừng */
 export const COMPLETION_BLOCKER_LABELS: Record<string, string> = {
-  packages_open: 'Còn kiện chưa dừng',
+  packages_open: 'Còn kiện hàng chưa giao xong',
   return_window: 'Chưa hết hạn trả hàng',
   return_requested: 'Còn yêu cầu trả hàng chưa xong',
   cod_unconfirmed: 'Kế toán chưa xác nhận tiền COD',
-  all_packages_cancelled: 'Mọi kiện đã huỷ',
+  all_packages_cancelled: 'Mọi kiện hàng đã huỷ',
 };
 
 /**
@@ -105,11 +105,11 @@ export function completionBlockerText(
     case '':
       return null;
     case 'packages_open':
-      return 'Còn kiện chưa xong: chưa giao tới khách, chưa hoàn về kho hoặc chưa huỷ.';
+      return 'Còn kiện chưa xong: chưa giao tới người mua, chưa hoàn về kho hoặc chưa huỷ.';
     case 'return_window':
       return order.returnWindowEndsAt
-        ? `Khách còn quyền trả hàng tới ${fmt(order.returnWindowEndsAt)}.`
-        : 'Sàn chưa báo hết quyền trả hàng của khách.';
+        ? `Người mua còn quyền trả hàng tới ${fmt(order.returnWindowEndsAt)}.`
+        : 'Sàn chưa báo hết quyền trả hàng của người mua.';
     case 'return_requested':
       return 'Còn yêu cầu trả hàng chưa xong.';
     case 'cod_unconfirmed':
@@ -147,14 +147,14 @@ export const isOverdue = (o: { flags: readonly string[]; shipBy: string | null }
   o.flags.includes('due_soon') && Boolean(o.shipBy) && new Date(o.shipBy!).getTime() < now;
 
 export const SOURCE_LABELS: Record<OrderSource, string> = {
-  manual: 'Tạo tay',
-  inbox: 'Hộp thư',
-  marketplace: 'Sàn',
+  manual: 'Tạo thủ công',
+  inbox: 'Tin nhắn',
+  marketplace: 'Sàn TMĐT',
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   prepaid: 'Trả trước',
-  cod: 'Thu khi giao (COD)',
+  cod: 'COD',
 };
 
 /** Phương thức thanh toán gốc của sàn (Lazada `payment_method`) */
@@ -169,17 +169,17 @@ const MARKETPLACE_PAYMENT_LABELS: Record<string, string> = {
   INSTALLMENT: 'Trả góp',
 };
 
-/** Nhãn thanh toán: đơn tạo tay theo `paymentMethod`, đơn sàn theo `platformPaymentMethod` gốc; sàn chưa trả thì "Sàn thu hộ" */
+/** Nhãn thanh toán: đơn tạo tay theo `paymentMethod`, đơn sàn theo `platformPaymentMethod` gốc; sàn chưa trả thì "Qua sàn" */
 export function paymentMethodLabel(o: { paymentMethod: PaymentMethod | null; platformPaymentMethod?: string | null }): string {
   if (o.paymentMethod) return PAYMENT_METHOD_LABELS[o.paymentMethod];
   const raw = o.platformPaymentMethod;
-  if (!raw) return 'Sàn thu hộ';
+  if (!raw) return 'Qua sàn';
   const key = raw.toUpperCase().replace(/[\s-]+/g, '_');
   return Object.prototype.hasOwnProperty.call(MARKETPLACE_PAYMENT_LABELS, key) ? MARKETPLACE_PAYMENT_LABELS[key]! : raw;
 }
 
 const LINE_CANCEL_INITIATOR_LABELS: Record<LineCancelInitiator, string> = {
-  buyer: 'khách',
+  buyer: 'người mua',
   seller: 'shop',
   platform: 'sàn',
 };
