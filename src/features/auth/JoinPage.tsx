@@ -323,7 +323,7 @@ export function JoinPage() {
             {step.next === 'sign_in' ? 'mật khẩu hiện tại của tài khoản này' : 'mật khẩu vừa đặt'}.
           </AlertMessage>
           <Button asChild size="lg" variant="outline">
-            <Link to={ROUTES.login} state={{ registeredEmail: step.email }}>
+            <Link to={ROUTES.login} state={{ joinedEmail: step.email }}>
               Về trang đăng nhập
             </Link>
           </Button>
