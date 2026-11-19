@@ -4,7 +4,7 @@ import { dangNhap, dong, duongDan, expect, menu, test, toast } from '../../fixtu
 
 const o = (page: Page, variantId: string, cot: RegExp) => dong(page, variantId).getByRole('textbox', { name: cot });
 const goiY = (page: Page, variantId: string, cot: string) =>
-  dong(page, variantId).getByRole('button', { name: new RegExp(`^Áp dụng gợi ý ${cot}`) });
+  dong(page, variantId).getByRole('button', { name: new RegExp(`^Nhận gợi ý ${cot}`) });
 const luu = (page: Page) => page.getByRole('button', { name: /^Lưu \d+ SKU$/ });
 
 test.describe('P2 · Sửa hàng loạt SKU', () => {
@@ -20,7 +20,7 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
     // AC1: SKU có trong đề nghị nhập hiện nhà cung cấp và giá nhập
     await expect(dong(page, 'prd-003-v1').getByTestId('bulk-source')).toContainText('giá nhập 205.000');
     // AC2: giá nhập 205.000 × 1,6 (Phụ kiện) làm tròn nghìn = 328.000, nhãn "gợi ý"
-    const gia = goiY(page, 'prd-003-v1', 'Giá bán lẻ');
+    const gia = goiY(page, 'prd-003-v1', 'Giá chuẩn');
     await expect(gia).toContainText('gợi ý');
     await expect(gia).toContainText('328.000');
     await expect(gia).toHaveAttribute('title', /205\.000 × 1,6/);
@@ -28,7 +28,7 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
     await expect(goiY(page, 'prd-001-v4', 'Khối lượng')).toContainText('200');
     await expect(goiY(page, 'prd-001-v4', 'Dài')).toContainText('300');
     // AC3: SKU đã có bán, chưa đặt ngưỡng: tốc độ bán × ngày nhà cung cấp giao + dự phòng
-    await expect(page.getByRole('button', { name: /^Áp dụng gợi ý Tồn tối thiểu/ }).first()).toHaveAttribute(
+    await expect(page.getByRole('button', { name: /^Nhận gợi ý Ngưỡng tồn/ }).first()).toHaveAttribute(
       'title',
       /\/ngày × \d+ ngày nhà cung cấp giao \+ \d+ dự phòng/,
     );
@@ -37,27 +37,27 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
   });
 
   test('chỉ lưu gợi ý đã nhận, gợi ý chưa nhận giữ nguyên', async ({ page }) => {
-    await goiY(page, 'prd-003-v1', 'Giá bán lẻ').click();
-    await expect(o(page, 'prd-003-v1', /^Giá bán lẻ/)).toHaveValue('328000');
+    await goiY(page, 'prd-003-v1', 'Giá chuẩn').click();
+    await expect(o(page, 'prd-003-v1', /^Giá chuẩn/)).toHaveValue('328000');
     await o(page, 'prd-001-v4', /^Dài/).fill('320');
     await expect(page.getByTestId('bulk-dirty')).toContainText('2 SKU có thay đổi chưa lưu');
     await luu(page).click();
     await toast(page, 'Đã lưu 2 SKU');
     await expect(page.getByTestId('bulk-dirty')).toContainText('Chưa có thay đổi');
 
-    // SKU đủ thông tin rời khỏi bộ lọc "thiếu thông tin"
+    // SKU đủ thông tin rời khỏi bộ lọc "còn trống ô"
     await expect(dong(page, 'prd-003-v1')).toHaveCount(0);
     // AC5: khối lượng gợi ý chưa nhận nên chưa lưu
     await expect(o(page, 'prd-001-v4', /^Dài/)).toHaveValue('320');
     await expect(o(page, 'prd-001-v4', /^Khối lượng/)).toHaveValue('');
     await expect(goiY(page, 'prd-001-v4', 'Khối lượng')).toBeVisible();
 
-    await page.getByLabel('Chỉ SKU thiếu thông tin').click();
-    await expect(o(page, 'prd-003-v1', /^Giá bán lẻ/)).toHaveValue('328000');
+    await page.getByLabel('Chỉ SKU còn trống ô').click();
+    await expect(o(page, 'prd-003-v1', /^Giá chuẩn/)).toHaveValue('328000');
   });
 
   test('dòng lỗi báo trên dòng, dòng khác vẫn lưu', async ({ page }) => {
-    await goiY(page, 'prd-003-v1', 'Giá bán lẻ').click();
+    await goiY(page, 'prd-003-v1', 'Giá chuẩn').click();
     await o(page, 'prd-001-v4', /^Khối lượng/).fill('90000');
     await luu(page).click();
     await toast(page, 'Đã lưu 1 SKU, 1 SKU lỗi');
@@ -76,14 +76,14 @@ test.describe('P2 · Sửa hàng loạt SKU', () => {
 
   test('ô sai định dạng chặn lưu', async ({ page }) => {
     await o(page, 'prd-001-v4', /^Khối lượng/).fill('abc');
-    await expect(dong(page, 'prd-001-v4')).toContainText('Nhập số lớn hơn 0');
+    await expect(dong(page, 'prd-001-v4')).toContainText('Số nguyên dương');
     await expect(luu(page)).toBeDisabled();
   });
 
   test('nhận mọi gợi ý của SKU đã chọn, rời trang khi chưa lưu thì hỏi lại', async ({ page }) => {
     await dong(page, 'prd-001-v4').getByRole('checkbox').click();
-    await page.getByRole('button', { name: /^Áp dụng gợi ý cho SKU đã chọn \(4\)$/ }).click();
-    await toast(page, 'Đã áp dụng 4 gợi ý');
+    await page.getByRole('button', { name: /^Nhận gợi ý cho SKU đã chọn \(4\)$/ }).click();
+    await toast(page, 'Đã nhận 4 gợi ý');
     await expect(o(page, 'prd-001-v4', /^Khối lượng/)).toHaveValue('200');
     await expect(o(page, 'prd-001-v4', /^Cao/)).toHaveValue('20');
 

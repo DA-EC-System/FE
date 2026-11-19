@@ -68,19 +68,19 @@ test.describe('P3 · Nhãn listing khi sàn đổi ngoài app', () => {
     await expect(nut(page, 'prd-001-v1', 'Nhận giá trên sàn')).toHaveCount(0);
   });
 
-  test('tạm ngừng SKU trên Lazada: "Đã ẩn: SKU tạm ngừng", không có nút ẩn hoặc hiện tay', async ({ page }) => {
+  test('tạm ngừng SKU trên Lazada: "Đang ẩn" kèm "Vì SKU tạm ngừng", không có nút ẩn hoặc hiện tay', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await diToi(page, '/c/cmp-001/catalog/products/prd-002');
     const bienThe = page.locator('[data-testid=variants] tr[data-row-id=prd-002-v1]');
     await bienThe.getByRole('button', { name: /^Đổi trạng thái/ }).click();
-    await page.getByRole('menuitem', { name: 'Tạm ngừng bán', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm ngừng bán', exact: true }).click();
-    await expect(bienThe.getByTestId('variant-status')).toContainText('Đang tạm ngừng bán');
+    await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
+    await expect(bienThe.getByTestId('variant-status')).toContainText('Tạm ngừng');
 
     await moGianHang(page, 'shp-003');
     await expect(trangThai(page, 'prd-002-v1')).toHaveText('Đang ẩn');
     const nhan = dong(page, 'prd-002-v1').getByTestId('hidden-paused');
-    await expect(nhan).toHaveText('Đã ẩn: SKU tạm ngừng');
+    await expect(nhan).toHaveText('Vì SKU tạm ngừng');
     await nhan.hover();
     await expect(page.getByTestId('hidden-paused-hint')).toContainText('Bỏ tạm ngừng ở trang sản phẩm');
     await expect(dong(page, 'prd-002-v1').getByTestId('outside-change')).toHaveCount(0);

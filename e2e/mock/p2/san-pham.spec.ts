@@ -88,12 +88,12 @@ test.describe('P2 · Sản phẩm', () => {
   test('ngừng nhập rồi lưu trữ cả sản phẩm, lưu trữ thì chỉ còn xem (B1)', async ({ page }) => {
     await doiTrangThai(page, 'Áo khoác gió', 'Ngừng nhập');
     await toast(page, 'Ngừng nhập: 4 SKU của Áo khoác gió');
-    await expect(chua(page, 'Áo khoác gió', 'tbody tr').getByTestId('product-status')).toContainText('Đã ngừng nhập');
+    await expect(chua(page, 'Áo khoác gió', 'tbody tr').getByTestId('product-status')).toContainText('Ngừng nhập');
 
     await doiTrangThai(page, 'Áo khoác gió', 'Lưu trữ');
     await toast(page, 'Lưu trữ: 4 SKU của Áo khoác gió');
     await khongCoDong(page, 'Áo khoác gió');
-    await chon(page, 'Hiển thị', 'Đã lưu trữ');
+    await chon(page, 'Trạng thái', 'Đã lưu trữ');
     await chua(page, 'Áo khoác gió', 'tbody tr').click();
     await thayChu(page, 'chỉ xem được', '[role=status]');
     await expect(page.getByRole('button', { name: 'Lưu', exact: true })).toHaveCount(0);
@@ -106,7 +106,7 @@ test.describe('P2 · Sản phẩm', () => {
     await dong.getByRole('button', { name: /^Đổi trạng thái/ }).click();
     await page.getByRole('menuitem', { name: 'Ngừng nhập', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Ngừng nhập', exact: true }).click();
-    await expect(dong.getByTestId('variant-status')).toContainText('Đã ngừng nhập');
+    await expect(dong.getByTestId('variant-status')).toContainText('Ngừng nhập');
 
     await dong.getByRole('button', { name: /^Đổi trạng thái/ }).click();
     const luuTru = page.getByRole('menuitem', { name: /^Lưu trữ/ });
@@ -115,20 +115,20 @@ test.describe('P2 · Sản phẩm', () => {
     await expect(luuTru.getByTestId('archive-blockers')).toContainText('Còn chứng từ mở');
   });
 
-  test('tạm ngừng bán một SKU rồi mở bán lại (B1)', async ({ page }) => {
+  test('tạm ngừng một SKU rồi bỏ tạm ngừng (B1)', async ({ page }) => {
     await chua(page, 'Áo thun basic cổ tròn', 'tbody tr').click();
     const dong = page.locator('[data-testid=variants] tr[data-row-id=prd-001-v1]');
     const alert = page.getByRole('alertdialog');
     await expect(dong.getByTestId('variant-status')).toContainText('Đang bán');
     await dong.getByRole('button', { name: /^Đổi trạng thái/ }).click();
-    await page.getByRole('menuitem', { name: 'Tạm ngừng bán', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
     await expect(alert).toContainText('Sản phẩm trên các sàn bị ẩn');
-    await alert.getByRole('button', { name: 'Tạm ngừng bán', exact: true }).click();
-    await expect(dong.getByTestId('variant-status')).toContainText('Đang tạm ngừng bán');
+    await alert.getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
+    await expect(dong.getByTestId('variant-status')).toContainText('Tạm ngừng');
     await dong.getByRole('button', { name: /^Đổi trạng thái/ }).click();
     await expect(page.getByRole('menuitem', { name: 'Lưu trữ', exact: true })).toHaveCount(0);
-    await page.getByRole('menuitem', { name: 'Mở bán lại', exact: true }).click();
-    await alert.getByRole('button', { name: 'Mở bán lại', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Bỏ tạm ngừng', exact: true }).click();
+    await alert.getByRole('button', { name: 'Bỏ tạm ngừng', exact: true }).click();
     await expect(dong.getByTestId('variant-status')).toContainText('Đang bán');
   });
 
