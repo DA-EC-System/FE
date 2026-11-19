@@ -94,13 +94,19 @@ export function toPackageSummary(p: MockPackage): PackageSummary {
   const o = orderOf(p);
   const shop = o.shopId ? db.shops.find((s) => s.id === o.shopId) : undefined;
   const customer = o.customerId ? sales.customers.find((c) => c.id === o.customerId) : undefined;
+  // 21 §19.2: dòng đã ghép hiện SKU, tên, thuộc tính của biến thể app; chưa ghép hay "không quản tồn" hiện của sàn
   const lines = p.lines.map((l) => {
     const line = o.lines.find((x) => x.variantId === l.variantId);
+    const app = l.variantId ? variantLabel(o.companyId, l.variantId) : null;
+    const externalSku = o.source === 'marketplace' ? (line?.externalSku ?? line?.sku ?? null) : null;
     return {
+      id: `pl-${p.id}-${line?.id ?? l.variantId}`,
       variantId: l.variantId,
-      sku: line?.sku ?? '',
-      productName: line?.productName ?? '',
-      attributesLabel: variantLabel(o.companyId, l.variantId).attributesLabel,
+      untracked: !l.variantId && Boolean(line?.untracked),
+      sku: app ? (line?.sku || app.sku) : (externalSku ?? line?.sku ?? ''),
+      productName: app?.productName || line?.productName || '',
+      attributesLabel: app?.attributesLabel ?? line?.attributesLabel ?? '',
+      externalSku,
       quantity: l.quantity,
       pendingDropQty: l.pendingDropQty ?? 0,
     };
@@ -151,9 +157,19 @@ export function movePackage(
   by: string | null,
   opts: { source?: StatusChangeSource; reason?: string | null } = {},
 ) {
-  p.history.push({ from: p.status, to, at, by, source: opts.source ?? (by ? 'user' : 'system'), reason: opts.reason ?? null });
+  const from = p.status;
+  p.history.push({ from, to, at, by, source: opts.source ?? (by ? 'user' : 'system'), reason: opts.reason ?? null });
   p.status = to;
   p.version += 1;
+  // Như BE (Documents/21 §13.2, §11.2, commerio-backend#216): mỗi lần kiện đổi trạng thái phát sự kiện kèm payload
+  const ids = { packageId: p.id, orderId: p.orderId };
+  emitRealtime(p.companyId, 'fulfillment.package_status_changed', { ...ids, from, to });
+  if (to === 'delivery_failed' && from !== to) {
+    emitRealtime(p.companyId, 'fulfillment.package_delivery_failed', { ...ids, reason: opts.reason ?? 'Sàn báo giao không thành công' });
+  }
+  if (to === 'lost' && from !== to) {
+    emitRealtime(p.companyId, 'fulfillment.package_lost', { ...ids, claimCode: p.lostReport?.claimCode ?? null });
+  }
 }
 
 // ---------- Giữ hàng theo kiện ----------
@@ -715,14 +731,25 @@ export const fulfillmentHandlers = [
   http.post(`${API}/fulfillment/packages/:id/pack`, ({ params, request }) =>
     withPackage(request, params.id, PERMISSIONS.fulfillmentProcess, (c) => {
       const scanned = Array.isArray(c.body.lines) ? (c.body.lines as { variantId: string; quantity: number }[]) : [];
+      const boxed = Array.isArray(c.body.untrackedLines) ? (c.body.untrackedLines as { lineId: string; quantity: number }[]) : [];
       const count = (variantId: string, from: { variantId: string | null; quantity: number }[]) =>
         from.filter((l) => l.variantId === variantId).reduce((sum, l) => sum + l.quantity, 0);
       const ids = new Set([...c.p.lines, ...scanned].flatMap((l) => l.variantId ? [l.variantId] : []));
       const mismatch = [...ids].filter((v) => count(v, scanned) !== count(v, c.p.lines));
-      if (mismatch.length) {
+      // Dòng "không quản tồn" phải cho vào hộp đủ, so theo id dòng kiện (21 §19.2)
+      const untracked = toPackageSummary(c.p).lines.filter((l) => l.untracked);
+      const boxedQty = new Map(boxed.map((l) => [l.lineId, l.quantity]));
+      const untrackedMismatch = [
+        ...untracked.filter((l) => boxedQty.get(l.id) !== l.quantity).map((l) => l.id),
+        ...boxed.filter((b) => !untracked.some((l) => l.id === b.lineId)).map((b) => b.lineId),
+      ];
+      if (mismatch.length || untrackedMismatch.length) {
         return problem(422, 'Số quét chưa khớp kiện', {
           code: 'scan_mismatch',
-          errors: Object.fromEntries(mismatch.map((v) => [`lines.${v}`, 'Số quét khác số trong kiện'])),
+          errors: Object.fromEntries([
+            ...mismatch.map((v) => [`lines.${v}`, 'Số quét khác số trong kiện']),
+            ...untrackedMismatch.map((id) => [`untrackedLines.${id}`, 'Số cho vào hộp khác số trong kiện']),
+          ]),
         });
       }
       // Sàn không cho đóng gói khi khách đang xin huỷ
@@ -1151,6 +1178,7 @@ registerMarketplaceEvent({
   group: 'Đơn bán',
   needsShop: false,
   param: { key: 'target', label: 'Mã kiện và trạng thái', placeholder: 'KH-000005 delivered' },
+  realtime: null,
   run({ companyId, params }) {
     const [code, status] = (params.target ?? '').trim().split(/\s+/);
     const next = PLATFORM_STATUSES[status ?? ''];

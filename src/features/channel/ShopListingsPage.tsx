@@ -65,6 +65,7 @@ import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
+import { isDelisted, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
   LISTED_STATUSES,
@@ -210,9 +211,6 @@ type Matching =
   | { from: 'variant'; row: ListingRow }
   | { from: 'remote'; externalSkuId: string; title: string; sellerSku: string | null; current: ListingRow | null };
 
-/** Lựa chọn "không quản tồn" trong hộp ghép: gửi `variantId: null` */
-const UNMANAGED = '__unmanaged__';
-
 /** UC-CH-02: ghép biến thể với SKU trên sàn, đẩy sản phẩm và giá theo kênh */
 export function ShopListingsPage() {
   const { shopId = '' } = useParams();
@@ -230,7 +228,8 @@ export function ShopListingsPage() {
   const canMatch = can(PERMISSIONS.listingMatch) && usable;
   const canEditProduct = can(PERMISSIONS.productManage);
   /** Quyết thay đổi ngoài app: `listing.manage` + vai trò CEO (§18.3, commerio-backend#360) */
-  const canDecideOutside = canManage && Boolean(companyContext?.roles.includes('CEO'));
+  const isCeo = Boolean(companyContext?.roles.includes('CEO'));
+  const canDecideOutside = canManage && isCeo;
   /** Duyệt ghép chờ cần quyền đẩy listing và vai trò CEO (§18.6.5); FE dựa `canSelfApprove` của BE */
   const canDecide = can(PERMISSIONS.listingManage) && Boolean(companyContext?.canSelfApprove) && usable;
   const canReconnect =
@@ -457,37 +456,29 @@ export function ShopListingsPage() {
           suggested: Boolean(r.sellerSku) && r.sellerSku === row.sku,
         }));
     }
-    const { sellerSku, current } = matching;
-    const variants = items
-      .filter((r) => !r.listing || r.variantId === current?.variantId)
-      .map((r) => ({
-        id: r.variantId,
-        title: [r.productName, r.attributesLabel].filter(Boolean).join(' · '),
-        subtitle: r.sku,
-        suggested: Boolean(sellerSku) && sellerSku === r.sku,
-      }));
-    return [
-      ...variants,
-      {
-        id: UNMANAGED,
-        title: 'Không quản tồn',
-        subtitle: 'Đơn của SKU sàn này không trừ tồn biến thể nào. Cần CEO duyệt',
-        suggested: false,
-      },
-    ];
-  }, [matching, unmatchedRemote, items]);
+    return variantMatchOptions(items, {
+      sellerSku: matching.sellerSku,
+      currentVariantId: matching.current?.variantId,
+      isCeo,
+    });
+  }, [matching, unmatchedRemote, items, isCeo]);
 
-  /** Lý do chưa ghép, đổi ghép được ở dòng biến thể */
-  const matchBlock = (r: ListingRow) =>
-    r.listing?.pendingMapping
+  /**
+   * Lý do chưa ghép, đổi ghép được ở dòng biến thể. Listing đã gỡ không chặn (còn `externalSkuId` cũ nhưng là trạng thái
+   * cuối): ghép như biến thể chưa có listing (FE#310)
+   */
+  const matchBlock = (r: ListingRow) => {
+    const live = r.listing && !isDelisted(r) ? r.listing : null;
+    return live?.pendingMapping
       ? 'Đang chờ CEO duyệt ghép'
-      : r.listing?.status === 'pushing'
+      : live?.status === 'pushing'
         ? 'Đang đẩy, ghép sau khi sàn trả kết quả'
-        : r.listing && !r.listing.externalSkuId
+        : live && !live.externalSkuId
           ? 'Sàn chưa trả mã SKU'
-          : !r.listing && remoteQuery.isError
+          : !live && remoteQuery.isError
             ? 'Chưa tải được SKU trên sàn'
             : null;
+  };
 
   /** Đổi ghép: mở hộp từ SKU sàn đang ghép với biến thể này */
   const openRemap = (r: ListingRow) => {
@@ -959,9 +950,9 @@ export function ShopListingsPage() {
                 decideActions(r.listing.id, r.listing.version, r.listing.sellerSku || r.sku, r.listing.pendingMapping)}
               {canMatch && (
                 <RowAction
-                  label={r.listing ? 'Đổi ghép' : 'Ghép'}
+                  label={r.listing && !isDelisted(r) ? 'Đổi ghép' : 'Ghép'}
                   reason={matchBlock(r)}
-                  onClick={() => (r.listing ? openRemap(r) : openMatch({ from: 'variant', row: r }))}
+                  onClick={() => (r.listing && !isDelisted(r) ? openRemap(r) : openMatch({ from: 'variant', row: r }))}
                 >
                   <Link2 />
                 </RowAction>

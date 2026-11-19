@@ -292,9 +292,22 @@ export function PackageQueuePage() {
                   </TableRow>
                 )}
                 {(pickList.data?.items ?? []).map((l) => (
-                  <TableRow key={l.variantId ?? `sku:${l.sku}`} data-row-id={l.sku}>
+                  <TableRow key={l.variantId ?? `${l.untracked ? 'untracked' : 'sku'}:${l.sku}`} data-row-id={l.sku}>
                     <TableCell className="font-medium">{l.sku}</TableCell>
-                    <TableCell className="whitespace-normal">{l.productName}</TableCell>
+                    <TableCell className="whitespace-normal">
+                      {l.productName}
+                      {l.untracked ? (
+                        <Badge variant="secondary" className="ms-2">
+                          Không quản tồn
+                        </Badge>
+                      ) : (
+                        !l.variantId && (
+                          <Badge variant="destructive" className="ms-2">
+                            Chưa ghép SKU
+                          </Badge>
+                        )
+                      )}
+                    </TableCell>
                     <TableCell>{l.attributesLabel || '—'}</TableCell>
                     <TableCell className="text-right">{l.quantity}</TableCell>
                     <TableCell className="text-right">{l.packageCount}</TableCell>

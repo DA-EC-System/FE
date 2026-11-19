@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { FulfillmentLine } from '@/types/fulfillment';
 import { buildPickList } from './pickList';
 
-const line = (variantId: string | null, sku: string, quantity: number): FulfillmentLine => ({
+const line = (variantId: string | null, sku: string, quantity: number, untracked = false): FulfillmentLine => ({
   variantId,
+  untracked,
   sku,
   productName: `SP ${sku}`,
   attributesLabel: '',
@@ -35,6 +36,14 @@ describe('buildPickList (FE#59)', () => {
       items: [{ variantId: null, sku: 'A', quantity: 3, packageCount: 1 }, { variantId: null, sku: 'B', quantity: 1, packageCount: 1 }],
       packageCount: 1, truncated: true,
     });
+  });
+
+  it('dòng không quản tồn gộp riêng với dòng chưa ghép cùng SKU sàn', () => {
+    const { items } = buildPickList([{ lines: [line(null, 'A', 1), line(null, 'A', 2, true)] }]);
+    expect(items.map((l) => [l.sku, l.untracked, l.quantity])).toEqual([
+      ['A', false, 1],
+      ['A', true, 2],
+    ]);
   });
 
   it('không có kiện ra danh sách rỗng', () => {

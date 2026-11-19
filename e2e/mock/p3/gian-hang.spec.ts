@@ -804,6 +804,56 @@ test.describe('P3 · Gian hàng', () => {
     });
   });
 
+  // FE#310: biến thể đã gỡ ghép được SKU sàn khác (gỡ là trạng thái cuối, BE tạo listing mới)
+  test.describe('ghép vào biến thể đã gỡ (FE#310)', () => {
+    test.beforeEach(async ({ page }) => {
+      await dangNhap(page, 'ceo@commerio.vn', 'ceo');
+      await menu(page, 'Kênh bán');
+      await moTrangGhep(page, 'shp-001');
+      await dong(page, 'prd-001-v1').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true }).click();
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Gỡ khỏi sàn', exact: true }).click();
+      await toast(page, /Đã gỡ .* khỏi sàn/);
+      await expect(trangThaiListing(page, 'prd-001-v1')).toHaveText('Đã gỡ');
+    });
+
+    test('từ SKU sàn chưa ghép: hộp có biến thể đã gỡ kèm "Đã gỡ", không có biến thể đang bán; CEO thấy Áp ngay', async ({ page }) => {
+      await moTab(page, 'unmatched');
+      const remote = chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr');
+      await remote.getByRole('button', { name: 'Ghép với biến thể', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.locator('label[for="match-prd-001-v1"]')).toContainText('Đã gỡ');
+      await expect(dialog.locator('label[for="match-prd-001-v3"]')).not.toContainText('Đã gỡ');
+      await expect(dialog.locator('label[for="match-prd-001-v2"]')).toHaveCount(0);
+      const unmanaged = dialog.locator('label[for="match-__unmanaged__"]');
+      await expect(unmanaged).toContainText('Áp ngay (ghi là tự duyệt)');
+      await expect(unmanaged).not.toContainText('Cần CEO duyệt');
+
+      await dialog.locator('label[for="match-prd-001-v1"]').click();
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, /^Đã ghép/);
+      await expect(chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr')).toHaveCount(0);
+      await moTab(page, 'all');
+      await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('OLD-TEE-01');
+      await expect(trangThaiListing(page, 'prd-001-v1')).not.toHaveText('Đã gỡ');
+      await expect(dong(page, 'prd-001-v1').getByRole('button', { name: 'Đổi ghép', exact: true })).toBeAttached();
+    });
+
+    test('từ dòng biến thể đã gỡ: nút Ghép mở danh sách SKU sàn chưa ghép; ghép xong SKU đó hết chưa ghép', async ({ page }) => {
+      const row = dong(page, 'prd-001-v1');
+      await expect(row.getByRole('button', { name: 'Đổi ghép', exact: true })).toHaveCount(0);
+      await row.getByRole('button', { name: 'Ghép', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.locator('label[for="match-shp-001-sku-001"]')).toHaveCount(0);
+      await dialog.locator('label[for="match-shp-001-sku-003"]').click();
+      await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
+      await toast(page, /^Đã ghép/);
+      await expect(dong(page, 'prd-001-v1').locator('[data-testid=remote-sku]')).toContainText('shp-001-sku-003');
+      await expect(trangThaiListing(page, 'prd-001-v1')).not.toHaveText('Đã gỡ');
+      await moTab(page, 'unmatched');
+      await expect(page.locator('[data-testid=remote-section]')).not.toContainText('shp-001-sku-003');
+    });
+  });
+
   test.describe('trạng thái listing (sơ đồ C2)', () => {
     test.beforeEach(async ({ page }) => {
       await dangNhap(page, 'ceo@commerio.vn', 'ceo');
@@ -1029,6 +1079,8 @@ test.describe('P3 · Gian hàng', () => {
     await moTab(page, 'unmatched');
     const remote = chua(page.locator('[data-testid=remote-section]'), 'OLD-TEE-01', 'tr');
     await remote.getByRole('button', { name: 'Ghép với biến thể', exact: true }).click();
+    await expect(dialog.locator('label[for="match-__unmanaged__"]')).toContainText('Cần CEO duyệt');
+    await expect(dialog.locator('label[for="match-__unmanaged__"]')).not.toContainText('Áp ngay');
     await dialog.getByRole('radio', { name: /Không quản tồn/ }).click();
     await dialog.getByRole('button', { name: 'Lưu ghép', exact: true }).click();
     await toast(page, 'Đã gửi CEO duyệt ghép SKU sàn OLD-TEE-01');

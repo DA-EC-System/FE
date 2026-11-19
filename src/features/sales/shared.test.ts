@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { initiatorLabel, lineCancelPending, lineHasIssue, paymentMethodLabel, wardNote } from './shared';
+import {
+  allLinesCancelled,
+  cancelledAmountOf,
+  initiatorLabel,
+  lineCancelEvents,
+  lineCancelPending,
+  lineHasIssue,
+  paymentMethodLabel,
+  wardNote,
+} from './shared';
 
 describe('thông tin đơn sàn (FE#176)', () => {
   it('nhãn thanh toán: đơn tạo tay, giá trị gốc của sàn, giá trị lạ, chưa có', () => {
@@ -45,5 +54,44 @@ describe('thông tin đơn sàn (FE#176)', () => {
     expect(lineCancelPending(asking, { cancelInitiator: 'platform', cancelKind: null })).toBe(false);
     expect(lineCancelPending(asking, { cancelInitiator: 'buyer', cancelKind: 'return' })).toBe(false);
     expect(lineCancelPending(asking, {})).toBe(false);
+  });
+});
+
+describe('huỷ món: tiền và lịch sử (BE#417)', () => {
+  const line = (id: string, unitPrice: number, extra: Partial<Parameters<typeof lineCancelEvents>[0][number]> = {}) => ({
+    id,
+    sku: id.toUpperCase(),
+    productName: id === 'a' ? 'Áo' : 'Quần',
+    quantity: 1,
+    unitPrice,
+    cancelledQty: 0,
+    cancelledAt: null,
+    cancelReason: null,
+    cancelReasonDetail: null,
+    cancelInitiator: null,
+    ...extra,
+  });
+
+  it('huỷ lần lượt: mỗi lần một dòng lịch sử, tiền hàng còn lại giảm dần, cũ trước mới sau', () => {
+    const lines = [
+      line('b', 200000, { cancelledQty: 1, cancelledAt: '2026-11-19T01:00:00Z' }),
+      line('a', 100000, { cancelledQty: 1, cancelledAt: '2026-11-18T07:20:00Z', cancelInitiator: 'buyer', cancelReason: 'Đổi ý' }),
+    ];
+    const events = lineCancelEvents(lines);
+    expect(events.map((e) => [e.key, e.reason, e.remaining])).toEqual([
+      ['a', 'Đổi ý', 200000],
+      ['b', null, 0],
+    ]);
+    expect(events[0]!.title).toMatch(/^Khách huỷ món Áo/);
+    expect(events[1]!.title).toMatch(/^Sàn huỷ món Quần/);
+    expect(allLinesCancelled(lines)).toBe(true);
+    expect(cancelledAmountOf(lines)).toBe(300000);
+  });
+
+  it('huỷ một phần: chỉ món đã huỷ có dòng lịch sử; món huỷ trước BE#417 không có giờ', () => {
+    const lines = [line('a', 100000, { cancelledQty: 1, cancelledAt: null }), line('b', 200000)];
+    expect(lineCancelEvents(lines)).toMatchObject([{ key: 'a', at: null, remaining: 200000 }]);
+    expect(allLinesCancelled(lines)).toBe(false);
+    expect(cancelledAmountOf(lines)).toBe(100000);
   });
 });
