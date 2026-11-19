@@ -19,14 +19,14 @@ export const CONFIG_STATES: Record<ConfigStatus, StatusMeta> = {
 export const CONFIG_KINDS: Record<ConfigKind, string> = { fee: 'Phí sàn', tax_regime: 'Loại hình thuế', tax_rules: 'Quy tắc thuế', mismatch_threshold: 'Ngưỡng lệch', min_margin: 'Biên tối thiểu' };
 export const PAYLOAD_FIELDS: Record<ConfigKind, Record<string, string>> = {
   fee: { fixedPct: 'Phí cố định (%)', transactionPct: 'Phí giao dịch (%)', servicePct: 'Phí dịch vụ (%)', optionalPct: 'Phí tuỳ chọn (%)', returnFee: 'Phí hoàn hàng (đ)' },
-  tax_regime: { regime: 'Loại hình thuế' }, tax_rules: { vatPct: 'Thuế GTGT (%)', pitPct: 'Thuế TNCN (%)', outputVatPct: 'Thuế GTGT đầu ra (%)', milestones: 'Mốc doanh thu (đ, cách nhau bằng dấu phẩy)' },
+  tax_regime: { regime: 'Loại hình thuế' }, tax_rules: { vatPct: 'Thuế GTGT sàn khấu trừ (%)', pitPct: 'Thuế TNCN sàn khấu trừ (%)', outputVatPct: 'Thuế suất GTGT đầu ra (%)', milestones: 'Mốc doanh thu (đ, cách nhau bằng dấu phẩy)' },
   mismatch_threshold: { abs: 'Ngưỡng tuyệt đối (đ)', pct: 'Ngưỡng phần trăm (%)', resolveLimit: 'Hạn mức tự chốt (đ)' }, min_margin: { pct: 'Biên tối thiểu (%)' },
 };
 /** Giải thích ngắn cạnh nhãn ô (HelpTip). `outputVatPct` theo Documents/21 §21.4, 25 §10.2 */
 export const PAYLOAD_HINTS: Record<string, string> = {
-  vatPct: 'Thuế khoán của hộ kinh doanh, cá nhân, tính trên doanh thu.',
-  pitPct: 'Thuế khoán của hộ kinh doanh, cá nhân, tính trên doanh thu.',
-  outputVatPct: 'Chỉ áp khi loại hình là doanh nghiệp. Lãi tính trên doanh thu không thuế = giá bán / (1 + thuế suất); sổ thu chi vẫn ghi đủ giá bán.',
+  vatPct: 'Tỷ lệ % trên doanh thu mà sàn khấu trừ, nộp thay thuế GTGT cho hộ, cá nhân kinh doanh (Nghị định 117/2025/NĐ-CP; bán hàng hoá: 1%). Doanh nghiệp không bị sàn khấu trừ.',
+  pitPct: 'Tỷ lệ % trên doanh thu mà sàn khấu trừ, nộp thay thuế TNCN cho hộ, cá nhân kinh doanh (Nghị định 117/2025/NĐ-CP; bán hàng hoá: 0,5%). Doanh nghiệp không bị sàn khấu trừ.',
+  outputVatPct: 'Chỉ dùng cho doanh nghiệp nộp thuế GTGT theo phương pháp khấu trừ. Giá bán trên sàn đã gồm thuế GTGT: doanh thu chưa thuế = giá bán / (1 + thuế suất), lợi nhuận tính trên doanh thu chưa thuế. Sổ giao dịch vẫn ghi đủ giá bán.',
   resolveLimit: 'Lệch quá số này thì cần CEO duyệt trước khi chốt.',
 };
 export const REGIMES: Record<string, string> = { company: 'Doanh nghiệp', household: 'Hộ kinh doanh', individual: 'Cá nhân' };
