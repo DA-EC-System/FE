@@ -3,11 +3,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { setupServer } from 'msw/node';
 import { db } from '../db';
 import { listings } from '../channelData';
+import { platformCategories, productSpecs } from '../platformCategoryData';
 import { fireMarketplaceEvent } from '../engine/marketplace';
 import { settleDuePushes, shopHandlers } from './channel';
 
 const server = setupServer(...shopHandlers);
 const snapListings = structuredClone(listings);
+const snapSpecs = structuredClone(productSpecs);
+/** Leaf TikTok chưa có attribute trong bảng và không bắt buộc bảng kích cỡ: thông tin sàn chỉ cần ánh xạ trục */
+const plainLeaf = platformCategories.tiktok.find((c) => c.isLeaf && !['601226', '601357', '601534'].includes(c.externalId))!;
 const snapShop = structuredClone(db.shops.find((s) => s.id === 'shp-002')!);
 beforeAll(() => {
   vi.stubGlobal('location', new URL('http://localhost'));
@@ -19,6 +23,20 @@ afterAll(() => {
 });
 beforeEach(() => {
   listings.splice(0, listings.length, ...structuredClone(snapListings));
+  productSpecs.splice(0, productSpecs.length, ...structuredClone(snapSpecs), {
+    companyId: 'cmp-001',
+    productId: 'prd-002',
+    platform: 'tiktok',
+    externalCategoryId: plainLeaf.externalId,
+    categoryPath: plainLeaf.path,
+    categoryStatus: 'ok',
+    attributes: {},
+    axisMap: { 'att-size': '__custom' },
+    valueMap: {},
+    source: 'push',
+    version: 1,
+    updatedAt: '2026-11-18T00:00:00.000Z',
+  });
   // Gian hàng TikTok của mock đang cần kết nối lại: cho dùng được để đẩy
   Object.assign(shop(), structuredClone(snapShop), { status: 'active', precheckFail: null });
 });

@@ -151,6 +151,12 @@ export interface ProductDetail extends ProductListItem {
   images: ProductImage[];
   /** Ảnh bảng kích cỡ, một ảnh dùng chung mọi SKU và gian hàng; `url` rỗng khi máy chủ chưa cấu hình link ảnh */
   sizeChart: { fileId: string; url: string } | null;
+  /**
+   * Xuất xứ (ISO alpha-2) và thương hiệu, dùng chung mọi sàn (Documents/21 §17.2, commerio-backend#340). Tuỳ chọn tới
+   * khi BE #340 merge; trang đẩy lên sàn đọc để hiện ở tab Product info
+   */
+  originCountry?: string | null;
+  brand?: string | null;
   variants: ProductVariant[];
 }
 

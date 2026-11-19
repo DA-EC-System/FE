@@ -2,7 +2,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { sizeChartPatch } from '@/features/catalog/shared';
-import { categoryMaps, listings } from '../channelData';
+import { listings } from '../channelData';
+import { db } from '../db';
 import { files, products } from '../catalogData';
 import { catalogHandlers } from './catalog';
 import { shopHandlers } from './channel';
@@ -10,7 +11,7 @@ import { shopHandlers } from './channel';
 const server = setupServer(...catalogHandlers, ...shopHandlers);
 const snapProducts = structuredClone(products);
 const snapFiles = structuredClone(files);
-const snapMaps = structuredClone(categoryMaps);
+const snapShops = structuredClone(db.shops);
 const snapListings = structuredClone(listings);
 beforeAll(() => {
   vi.stubGlobal('location', new URL('http://localhost'));
@@ -23,7 +24,7 @@ afterAll(() => {
 beforeEach(() => {
   products.splice(0, products.length, ...structuredClone(snapProducts));
   files.splice(0, files.length, ...structuredClone(snapFiles));
-  categoryMaps.splice(0, categoryMaps.length, ...structuredClone(snapMaps));
+  db.shops.splice(0, db.shops.length, ...structuredClone(snapShops));
   listings.splice(0, listings.length, ...structuredClone(snapListings));
 });
 
@@ -93,26 +94,17 @@ describe('Ảnh bảng kích cỡ trong sản phẩm', () => {
 });
 
 describe('Đẩy listing khi danh mục sàn bắt buộc bảng kích cỡ', () => {
+  // Áo thun basic có thông tin TikTok (leaf Áo thun nam 601226, size_chart_rule = required, commerio-backend#400)
   const push = async () => {
-    const res = await call('/channel/shops/shp-001/listings/push', 'POST', { variantIds: ['prd-002-v1'] });
+    const res = await call('/channel/shops/shp-002/listings/push', 'POST', { variantIds: ['prd-001-v4'] });
     return ((await res.json()) as { results: { code: string | null }[] }).results[0]!;
   };
 
   it('chưa có ảnh thì size_chart_missing, có ảnh thì đẩy được', async () => {
-    categoryMaps.push({
-      companyId: 'cmp-001',
-      shopId: 'shp-001',
-      categoryId: 'cat-quan',
-      platform: 'shopee',
-      externalCategoryId: '10028',
-      attributes: {},
-      sizeChartRule: 'required',
-      version: 1,
-      updatedAt: '2026-11-17T00:00:00.000Z',
-    });
+    db.shops.find((s) => s.id === 'shp-002')!.status = 'active';
     expect((await push()).code).toBe('size_chart_missing');
     addFile('fil-sc4');
-    products.find((p) => p.id === 'prd-002')!.sizeChartFileId = 'fil-sc4';
+    products.find((p) => p.id === 'prd-001')!.sizeChartFileId = 'fil-sc4';
     expect((await push()).code).toBeNull();
   });
 });

@@ -23,7 +23,7 @@ describe('Nhóm attribute của leaf (commerio-backend#400)', () => {
     expect(attributeGroup(attr({ tier: 'company', required: true }))).toBe('company');
     expect(attributeGroup(attr({ tier: 'product' }))).toBe('product');
     expect(attributeGroup(attr({ required: true, isKey: true }))).toBe('required');
-    expect(attributeGroup(attr({ requiredWhen: [{ attributeId: '101734', valueId: '1' }] }))).toBe('conditional');
+    expect(attributeGroup(attr({ requiredWhen: [{ code: '101734', optionIds: ['1'] }] }))).toBe('conditional');
     expect(attributeGroup(attr({ isKey: true }))).toBe('key');
     expect(attributeGroup(attr({}))).toBe('optional');
   });
@@ -40,8 +40,7 @@ describe('Nhóm attribute của leaf (commerio-backend#400)', () => {
   it('điều kiện rỗng không tính là bắt buộc theo điều kiện', () => {
     expect(hasCondition({ requiredWhen: null })).toBe(false);
     expect(hasCondition({ requiredWhen: [] })).toBe(false);
-    expect(hasCondition({ requiredWhen: {} })).toBe(false);
-    expect(hasCondition({ requiredWhen: { any: true } })).toBe(true);
+    expect(hasCondition({ requiredWhen: [{ code: '101734', optionIds: ['1'] }] })).toBe(true);
   });
 });
 

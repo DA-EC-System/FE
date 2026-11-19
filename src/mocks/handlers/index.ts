@@ -22,6 +22,7 @@ import { purchasingHandlers } from './purchasing';
 import { shopHandlers } from './channel';
 import { categoryMapHandlers } from './categoryMaps';
 import { platformCategoryHandlers } from './platformCategories';
+import { productSpecHandlers } from './productSpecs';
 import { salesHandlers } from './sales';
 import { fulfillmentHandlers } from './fulfillment';
 import { returnHandlers } from './returns';
@@ -46,6 +47,7 @@ export const handlers = [
   ...shopHandlers,
   ...categoryMapHandlers,
   ...platformCategoryHandlers,
+  ...productSpecHandlers,
   ...salesHandlers,
   ...fulfillmentHandlers,
   ...returnHandlers,

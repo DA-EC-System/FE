@@ -237,6 +237,8 @@ export function toProductDetail(p: MockProduct): ProductDetail {
       position,
     })),
     sizeChart: p.sizeChartFileId ? { fileId: p.sizeChartFileId, url: fileUrl(p.sizeChartFileId) } : null,
+    originCountry: p.originCountry ?? null,
+    brand: p.brand ?? null,
     variants: p.variants.map((v) => toVariant(p, v)),
   };
 }

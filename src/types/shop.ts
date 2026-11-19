@@ -600,11 +600,20 @@ export interface PlatformAttribute {
   options: { id: string; label: string }[];
   allowCustom: boolean;
   required: boolean;
-  /** Điều kiện bắt buộc theo attribute khác (TikTok `requirement_conditions`); null là không có */
-  requiredWhen: unknown;
+  /**
+   * Bắt buộc khi có ít nhất một điều kiện đúng: attribute `code` chọn một trong `optionIds` (TikTok
+   * `requirement_conditions`); null là không có điều kiện (mọi attribute Lazada)
+   */
+  requiredWhen: RequiredWhen[] | null;
   isKey: boolean;
   tier: 'category' | 'product' | 'company';
   defaultValue: string | null;
+}
+
+/** Một điều kiện bắt buộc của `PlatformAttribute.requiredWhen` (Documents/21 §18.5, chốt 18/11/2026) */
+export interface RequiredWhen {
+  code: string;
+  optionIds: string[];
 }
 
 export interface PlatformCategoryProduct {
@@ -624,4 +633,73 @@ export interface PlatformCategoryDetail {
 
 export interface PlatformCategorySyncResult {
   queued: boolean;
+}
+
+// ---------- Thông tin sàn của sản phẩm: ProductSpec (commerio-backend#400, Documents/21 §18.5) ----------
+
+/** Quyền bán category của gian hàng TikTok; Lazada luôn `null` */
+export type CategoryPermission = 'available' | 'invite_only' | 'non_main_category' | 'prohibited';
+
+export interface CategorySuggestion {
+  externalId: string;
+  path: string;
+  permission: CategoryPermission | null;
+}
+
+/** Lazada tối đa 5, đúng thứ tự sàn trả; TikTok 1 leaf. `cached` luôn false tới khi có Redis */
+export interface CategorySuggestionList {
+  items: CategorySuggestion[];
+  cached: boolean;
+}
+
+/** Giá trị attribute: select lưu mã lựa chọn, multiselect mảng mã, text/number/date chuỗi */
+export type SpecValue = string | string[];
+
+export interface ProductSpec {
+  productId: string;
+  platform: Marketplace;
+  externalCategoryId: string;
+  categoryPath: string;
+  categoryStatus: 'ok' | 'changed' | 'removed';
+  attributes: Record<string, SpecValue>;
+  /** Mỗi trục phân loại (id thuộc tính Commerio) → `code` sales attribute của leaf hoặc `__custom` */
+  axisMap: Record<string, string>;
+  /** Id giá trị thuộc tính Commerio → `options[].id` của sales attribute đã ánh xạ; thiếu khoá là gửi custom value */
+  valueMap: Record<string, string>;
+  /** `push`: lưu ở trang đẩy; `match`: đọc từ sàn lúc ghép SKU */
+  source: 'push' | 'match';
+  version: number;
+  updatedAt: string;
+}
+
+export type SpecMissingReason = 'required' | 'required_when' | 'axis_unmapped' | 'category_changed' | 'category_removed';
+
+export interface SpecMissing {
+  code: string;
+  label: string;
+  reason: SpecMissingReason;
+}
+
+/** `spec: null`, `missing: []` khi sản phẩm chưa có thông tin của sàn */
+export interface ProductSpecResult {
+  spec: ProductSpec | null;
+  missing: SpecMissing[];
+}
+
+/** `version: null` khi tạo mới. Chỉ attribute `tier = 'category'` và `company` khác `defaultValue` được lưu */
+export interface ProductSpecInput {
+  externalCategoryId: string;
+  attributes: Record<string, SpecValue>;
+  axisMap: Record<string, string>;
+  valueMap: Record<string, string>;
+  version: number | null;
+}
+
+export interface CascadeOption {
+  id: string;
+  label: string;
+}
+
+export interface CascadeOptionList {
+  items: CascadeOption[];
 }

@@ -30,6 +30,31 @@ export const REPUSH_STATUSES: ListingStatus[] = ['push_failed', 'rejected', 'pla
 /** Đã trên sàn: đẩy lại trả `already_listed`, giá và tồn cập nhật bằng Đồng bộ */
 export const LISTED_STATUSES: ListingStatus[] = ['under_review', 'live', 'hidden'];
 
+/**
+ * Mã chặn đẩy sửa được ở trang Thông tin sàn của sản phẩm (trang 4 bước, commerio-backend#400): chưa chọn category,
+ * thiếu attribute, gian hàng chưa có quyền category, TikTok báo sai luật đăng
+ */
+export const SPEC_FIX_CODES: ReadonlySet<string> = new Set([
+  'category_unmapped',
+  'spec_incomplete',
+  'category_not_permitted',
+  'listing_check_failed',
+]);
+
+/** Câu của dòng bị chặn khi đẩy, theo bảng "FE báo" của Documents/21 §18.5; `platform` là tên sàn */
+export function pushBlockMessage(code: string, message: string | null, platform: string): string {
+  switch (code) {
+    case 'category_unmapped':
+      return `Chưa chọn category ${platform} cho sản phẩm`;
+    case 'spec_incomplete':
+      return message ? `Thông tin ${platform} của sản phẩm còn thiếu: ${message}` : `Thông tin ${platform} của sản phẩm còn thiếu`;
+    case 'category_not_permitted':
+      return 'Gian hàng chưa được bán category này. Xin quyền trên Seller Center hoặc đổi category';
+    default:
+      return message || codeMessage(code);
+  }
+}
+
 /** Tách kết quả đẩy: dòng đã xếp việc và dòng bị chặn (có `code`) */
 export function splitPushResults(results: PushResult[]) {
   const blocked = results.filter((r) => r.code !== null);
@@ -122,11 +147,11 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
   },
   {
     pattern: /^12052104:/,
-    text: () => 'Danh mục sàn bắt buộc một thuộc tính còn thiếu. Bổ sung ở trang sản phẩm rồi đẩy lại.',
+    text: () => 'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.',
   },
   {
     pattern: /Category attribute "([^"]+)" is mandatory/i,
-    text: (m) => `Danh mục Lazada bắt buộc thuộc tính "${m[1]}". Bổ sung ở trang sản phẩm rồi đẩy lại.`,
+    text: (m) => `Category Lazada bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đẩy lại.`,
   },
 ];
 

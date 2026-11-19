@@ -73,8 +73,14 @@ const MESSAGES: Record<string, string> = {
   remote_skus_busy: 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
   price_missing: 'Chưa có giá: bảng giá gian hàng và bảng giá chuẩn đều trống.',
-  // FE#146, Documents/21 §18.5
-  category_unmapped: 'Danh mục của sản phẩm chưa ghép với danh mục sàn. Ghép danh mục rồi đẩy lại.',
+  // Documents/21 §18.5 (commerio-backend#400, đổi nghĩa 18/11/2026): category sàn chọn theo từng sản phẩm.
+  // Câu có tên sàn ở pushBlockMessage (features/channel/listingPush.ts)
+  category_unmapped: 'Chưa chọn category sàn cho sản phẩm. Mở Thông tin sàn của sản phẩm để chọn rồi đẩy lại.',
+  spec_incomplete: 'Thông tin sàn của sản phẩm còn thiếu. Bổ sung rồi đẩy lại.',
+  category_not_permitted: 'Gian hàng chưa được bán category này. Xin quyền trên Seller Center hoặc đổi category.',
+  product_name_too_short:
+    'Tên sản phẩm phải dài ít nhất 25 ký tự thì TikTok mới gợi ý category. Sửa tên ở trang sản phẩm, hoặc tìm category trong cây.',
+  category_not_leaf: 'Category này còn category con. Sàn chỉ nhận sản phẩm ở leaf category.',
   dimensions_missing: 'Sản phẩm thiếu cân nặng hoặc kích thước gói, sàn bắt buộc có.',
   images_missing: 'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đẩy lại.',
   // FE#261, commerio-backend#347: danh mục sàn bắt buộc bảng kích cỡ (quần áo, giày dép)
@@ -82,8 +88,8 @@ const MESSAGES: Record<string, string> = {
   // FE#266, Documents/21 §18.6.4 (commerio-backend#305): TikTok kiểm trước khi tạo sản phẩm
   shop_not_eligible:
     'Gian hàng chưa đủ điều kiện đăng sản phẩm trên sàn. Hoàn tất các mục sàn yêu cầu trên Seller Center rồi đẩy lại.',
-  listing_check_failed:
-    'Sản phẩm chưa đạt luật đăng bán của sàn. Sửa theo lỗi sàn báo (tiêu đề, thuộc tính bắt buộc của danh mục) rồi đẩy lại.',
+  // Documents/21 §18.6.10 (đổi 18/11/2026): sửa ở thông tin sàn của sản phẩm thay cho ghép danh mục
+  listing_check_failed: 'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đẩy lại.',
   already_listed: 'Sản phẩm đã có trên sàn; giá và tồn cập nhật bằng đồng bộ.',
   // FE#264, Documents/21 §18.3 (commerio-backend#360)
   below_floor: 'Giá trên sàn thấp hơn giá thấp nhất. Đẩy lại giá Commerio hoặc gỡ khỏi sàn.',

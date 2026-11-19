@@ -16,6 +16,8 @@ import type {
   CategoryMap,
   CategoryMapInput,
   CategoryMapList,
+  CascadeOptionList,
+  CategorySuggestionList,
   ChannelListing,
   OutsideChangeAction,
   MappingDecision,
@@ -28,6 +30,8 @@ import type {
   PlatformCategoryDetail,
   PlatformCategoryList,
   PlatformCategorySyncResult,
+  ProductSpecInput,
+  ProductSpecResult,
   PushListingsInput,
   PushResult,
   RemoteSkuList,
@@ -71,6 +75,12 @@ export const shopKeys = {
     [...shopKeys.platformCategories(companyId, platform), 'list', params.search ?? '', params.parentId ?? ''] as const,
   platformCategory: (companyId: string, platform: string, externalId: string) =>
     [...shopKeys.platformCategories(companyId, platform), 'detail', externalId] as const,
+  cascade: (companyId: string, platform: string, externalId: string, code: string, parent: string) =>
+    [...shopKeys.platformCategories(companyId, platform), 'cascade', externalId, code, parent] as const,
+  suggestions: (companyId: string, shopId: string, productId: string) =>
+    [...shopKeys.all(companyId), 'category-suggestions', shopId, productId] as const,
+  productSpec: (companyId: string, productId: string, platform: string) =>
+    [...shopKeys.all(companyId), 'product-spec', productId, platform] as const,
 };
 
 /** `search` (≥ 2 ký tự) hoặc `parentId`; không gửi gì là cấp gốc (Documents/21 §18.5) */
@@ -649,8 +659,11 @@ export function usePlatformCategories(platform: string, params: PlatformCategory
   });
 }
 
-/** Chi tiết leaf: BE có thể gọi sàn (lấy attribute khi chưa có hoặc quá 7 ngày) nên không thử lại khi lỗi */
-export function usePlatformCategory(platform: string, externalId: string | null) {
+/**
+ * Chi tiết leaf: BE có thể gọi sàn (lấy attribute khi chưa có hoặc quá 7 ngày) nên không thử lại khi lỗi.
+ * `shopId`: gian hàng đang mở trang đẩy, TikTok gọi sàn bằng token của gian hàng đó
+ */
+export function usePlatformCategory(platform: string, externalId: string | null, shopId?: string | null) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.platformCategory(companyId, platform, externalId ?? ''),
@@ -660,6 +673,7 @@ export function usePlatformCategory(platform: string, externalId: string | null)
     queryFn: async () => {
       const { data } = await apiClient.get<PlatformCategoryDetail>(
         `/channel/platforms/${platform}/categories/${encodeURIComponent(externalId ?? '')}`,
+        { params: shopId ? { shopId } : undefined },
       );
       return data;
     },
@@ -671,6 +685,74 @@ export function useSyncPlatformCategories() {
   return useMutation({
     mutationFn: async (platform: string) => {
       const { data } = await apiClient.post<PlatformCategorySyncResult>(`/channel/platforms/${platform}/categories/sync`);
+      return data;
+    },
+  });
+}
+
+/**
+ * Gợi ý category của sàn cho một sản phẩm, gọi sàn bằng token của gian hàng (§18.5). Không thử lại: lỗi
+ * `product_name_too_short`, `images_missing` không đổi khi gọi lại, sàn lỗi thì BE đã gọi lại một lần
+ */
+export function useCategorySuggestions(shopId: string | null, productId: string, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.suggestions(companyId, shopId ?? '', productId),
+    enabled: Boolean(companyId && shopId && productId) && enabled,
+    staleTime: 30 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<CategorySuggestionList>(`/channel/shops/${shopId}/category-suggestions`, {
+        params: { productId },
+      });
+      return data;
+    },
+  });
+}
+
+/** Thông tin sàn của sản phẩm: một bộ mỗi sàn, mọi gian hàng của sàn dùng chung (§18.5) */
+export function useProductSpec(productId: string, platform: string, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.productSpec(companyId, productId, platform),
+    enabled: Boolean(companyId && productId && platform) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<ProductSpecResult>(`/channel/products/${productId}/specs/${platform}`);
+      return data;
+    },
+  });
+}
+
+/** Lưu thông tin sàn; 409 `version_conflict` mang `current` (kiểu `ProductSpecResult`) để nạp lại */
+export function useSaveProductSpec() {
+  const companyId = useCompanyId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ productId, platform, input }: { productId: string; platform: string; input: ProductSpecInput }) => {
+      const { data } = await apiClient.put<ProductSpecResult>(`/channel/products/${productId}/specs/${platform}`, input);
+      return data;
+    },
+    onSuccess: (data, { productId, platform }) => {
+      qc.setQueryData(shopKeys.productSpec(companyId, productId, platform), data);
+      // Danh sách "sản phẩm đang dùng" của leaf ở trang Danh mục & thuộc tính đổi theo
+      void qc.invalidateQueries({ queryKey: shopKeys.platformCategories(companyId, platform) });
+    },
+  });
+}
+
+/** Giá trị cấp kế của attribute `input = 'cascade'` (Lazada propCascade); BE gọi sàn, không lưu */
+export function usePlatformCascade(platform: string, externalId: string, code: string, parent: string | null, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.cascade(companyId, platform, externalId, code, parent ?? ''),
+    enabled: Boolean(companyId && externalId && code) && enabled,
+    staleTime: 30 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await apiClient.get<CascadeOptionList>(
+        `/channel/platforms/${platform}/categories/${encodeURIComponent(externalId)}/cascade`,
+        { params: parent ? { code, parent } : { code } },
+      );
       return data;
     },
   });

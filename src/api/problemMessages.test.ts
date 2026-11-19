@@ -287,3 +287,19 @@ describe('lỗi sàn chung theo ngữ cảnh (FE#250, Documents/21 §18.4)', () 
     });
   });
 });
+
+describe('Mã lỗi trang đẩy lên sàn (commerio-backend#400, Documents/21 §18.5)', () => {
+  it.each([
+    ['product_name_too_short', 'ít nhất 25 ký tự'],
+    ['category_not_leaf', 'leaf category'],
+    ['category_not_permitted', 'Xin quyền trên Seller Center'],
+    ['spec_incomplete', 'còn thiếu'],
+    ['category_unmapped', 'Chưa chọn category'],
+  ])('%s có câu tiếng Việt', (code, text) => {
+    expect(problemMessage(loi({ status: 422, code, detail: 'English' }))).toContain(text);
+  });
+
+  it('category_unmapped không còn nói ghép danh mục', () => {
+    expect(problemMessage(loi({ status: 422, code: 'category_unmapped' }))).not.toContain('Ghép danh mục');
+  });
+});

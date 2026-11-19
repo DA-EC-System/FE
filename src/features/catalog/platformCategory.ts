@@ -14,13 +14,9 @@ export const isPlatformTab = (value: string | null): value is PlatformTab =>
 export const platformLabel = (platform: string) =>
   PLATFORM_TABS.find((t) => t.platform === platform)?.label ?? platform;
 
-/** `requiredWhen` là jsonb điều kiện của sàn; null, mảng rỗng, object rỗng là không có điều kiện */
+/** Có điều kiện bắt buộc theo attribute khác (Documents/21 §18.5: `{ code, optionIds }[] | null`) */
 export function hasCondition(a: Pick<PlatformAttribute, 'requiredWhen'>): boolean {
-  const w = a.requiredWhen;
-  if (w === null || w === undefined || w === false || w === 0 || w === '') return false;
-  if (Array.isArray(w)) return w.length > 0;
-  if (typeof w === 'object') return Object.keys(w).length > 0;
-  return true;
+  return Boolean(a.requiredWhen?.length);
 }
 
 export type AttributeGroupKey = 'sales' | 'required' | 'conditional' | 'key' | 'product' | 'company' | 'optional';
