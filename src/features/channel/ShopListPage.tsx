@@ -262,7 +262,7 @@ export function ShopListPage() {
               </Button>
             ) : (
               <Button size="sm" variant="outline" onClick={() => openShop(s)}>
-                Xem listing
+                Listing & giá
               </Button>
             );
           const setupReason =
@@ -278,7 +278,7 @@ export function ShopListPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
-                  <DropdownMenuItem onSelect={() => openShop(s)}>Listing và giá</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => openShop(s)}>Listing & giá</DropdownMenuItem>
                   {canConnect && (
                     <MenuItem
                       label="Thiết lập lần đầu"

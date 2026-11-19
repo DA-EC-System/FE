@@ -32,7 +32,7 @@ const themQua = async (page: Page, platformName: string) => {
 };
 
 const moTrangGhep = async (page: Page, shopId: string) => {
-  await chonMenu(page, shopId, 'Listing và giá');
+  await chonMenu(page, shopId, 'Listing & giá');
   await expect.poll(() => duongDan(page)).toMatch(new RegExp(`/channel/shops/${shopId}$`));
   await expect(page.locator('[data-testid=match-summary]')).toBeAttached();
 };
@@ -100,7 +100,7 @@ test.describe('P3 · Gian hàng', () => {
       await expect(page.getByRole('menuitem', { name: 'Kết nối lại', exact: true })).toBeAttached();
       await page.keyboard.press('Escape');
       // Gian hàng đang chạy: nút chính là Listing, không có Kết nối lại
-      await expect(dong(page, 'shp-001').getByRole('button', { name: 'Xem listing', exact: true })).toBeAttached();
+      await expect(dong(page, 'shp-001').getByRole('button', { name: 'Listing & giá', exact: true })).toBeAttached();
       await expect(dong(page, 'shp-001').getByRole('button', { name: 'Kết nối lại', exact: true })).toHaveCount(0);
 
       // Cần xử lý: mất quyền (shp-002) và uỷ quyền sắp hết hạn (shp-003)
@@ -1034,7 +1034,7 @@ test.describe('P3 · Gian hàng', () => {
       await dangNhap(page, email, password);
       await menu(page, 'Kênh bán');
       await dong(page, 'shp-008').getByRole('button', { name: /^Thao tác khác với / }).click();
-      await expect(page.getByRole('menuitem', { name: 'Listing và giá', exact: true })).toBeAttached();
+      await expect(page.getByRole('menuitem', { name: 'Listing & giá', exact: true })).toBeAttached();
       await expect(page.getByRole('menuitem', { name: 'Xoá gian hàng', exact: true })).toHaveCount(0);
     });
   }
@@ -1060,7 +1060,7 @@ test.describe('P3 · Gian hàng', () => {
     await expect(page.getByRole('button', { name: 'Thêm gian hàng', exact: true })).toHaveCount(0);
     const shop = dong(page, 'shp-001');
     await shop.getByRole('button', { name: /^Thao tác khác với / }).click();
-    await expect(page.getByRole('menuitem', { name: 'Listing và giá', exact: true })).toBeAttached();
+    await expect(page.getByRole('menuitem', { name: 'Listing & giá', exact: true })).toBeAttached();
     await expect(page.getByRole('menuitem', { name: 'Ngắt kết nối', exact: true })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: /^Đồng bộ đơn ngay/ })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: /^Thiết lập lần đầu/ })).toHaveCount(0);

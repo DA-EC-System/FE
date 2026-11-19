@@ -22,7 +22,7 @@ const xinGhep = (page: Page, account: string, externalSkuId: string, variantId: 
 const moTrangGhep = async (page: Page) => {
   await menu(page, 'Kênh bán');
   await dong(page, 'shp-001').getByRole('button', { name: /^Thao tác khác với / }).click();
-  await page.getByRole('menuitem', { name: 'Listing và giá' }).click();
+  await page.getByRole('menuitem', { name: 'Listing & giá' }).click();
   await expect.poll(() => duongDan(page)).toMatch(/\/channel\/shops\/shp-001$/);
   await expect(page.locator('[data-testid=match-summary]')).toBeAttached();
 };
