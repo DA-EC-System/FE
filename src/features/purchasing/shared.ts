@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { NEW_PRODUCT_PARENT } from '@/utils/env';
+import { moneySchema } from '@/utils/price';
 import { MAX_QTY, qtyText } from '@/features/inventory/shared';
 import type {
   DeliveryMode,
@@ -61,22 +62,6 @@ export const CANCEL_DECISION_LABELS: Record<SupplierReturnCancelDecision, string
 };
 
 const MAX_COST = 1_000_000_000;
-
-/** Ô tiền nhập chữ: số nguyên đồng, cho phép dấu phân cách nghìn */
-export const moneyText = (label: string, min = 0) =>
-  z.string().transform((raw, ctx): number => {
-    const text = raw.trim().replace(/[\s.,]/g, '');
-    const fail = (message: string) => {
-      ctx.addIssue({ code: 'custom', message });
-      return z.NEVER;
-    };
-    if (!text) return fail(`Nhập ${label.toLowerCase()}`);
-    if (!/^\d+$/.test(text)) return fail(`${label} là số nguyên không âm`);
-    const value = Number(text);
-    if (value < min) return fail(`${label} phải lớn hơn ${min - 1}`);
-    if (value > MAX_COST) return fail(`${label} tối đa ${MAX_COST.toLocaleString('vi-VN')}`);
-    return value;
-  });
 
 export const supplierSchema = z.object({
   name: z.string().trim().min(1, 'Nhập tên nhà cung cấp').max(150, 'Tối đa 150 ký tự'),
@@ -150,7 +135,7 @@ const requestLineSchema = z
     categoryId: z.string(),
     options: z.array(optionSchema).max(MAX_AXES),
     quantity: qtyText(1, MAX_QTY),
-    unitCost: moneyText('Giá nhập'),
+    unitCost: moneySchema({ label: 'Giá nhập', max: MAX_COST }),
   })
   .superRefine((l, ctx) => {
     if (!l.isNew) return;
@@ -328,7 +313,7 @@ export interface ReturnFormInput {
 }
 export type ReturnFormOutput = z.output<typeof returnFormSchema>;
 
-export const refundSchema = moneyText('Số tiền hoàn', 1);
+export const refundSchema = moneySchema({ label: 'Số tiền hoàn', min: 1, max: MAX_COST });
 
 /**
  * Đề nghị nhập phải có nhà cung cấp đang giao dịch. Chưa tải xong danh sách thì `undefined` (không chặn);

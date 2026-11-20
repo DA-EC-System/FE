@@ -828,11 +828,11 @@ test.describe('P3 · Gian hàng', () => {
 
       await dialog.getByLabel('Giá bán (đồng)').fill('abc');
       await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
-      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Giá là số nguyên đồng');
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Số tiền là số nguyên đồng, ví dụ 1.500.000');
       // Số thập phân không bị bỏ dấu chấm thành số lớn gấp trăm lần
       await dialog.getByLabel('Giá bán (đồng)').fill('150000.00');
       await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
-      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Giá là số nguyên đồng');
+      await expect(dialog.locator('[data-testid=price-error]')).toHaveText('Số tiền là số nguyên đồng, ví dụ 1.500.000');
 
       await dialog.getByLabel('Giá bán (đồng)').fill('1000');
       await dialog.getByRole('button', { name: 'Lưu giá', exact: true }).click();
