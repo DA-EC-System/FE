@@ -1,13 +1,21 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Check, Percent, Scale, ShieldCheck, X } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { FanCards, type FanCardItem } from '@/components/ui/fan-cards';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
-import { LANDING_FACTS, LANDING_GROUPS, LANDING_SCREENS } from './landingContent';
+import {
+  LANDING_DIFFS,
+  LANDING_FACTS,
+  LANDING_GROUPS,
+  LANDING_MARKET_NOTE,
+  LANDING_ONBOARDING,
+  LANDING_PAINS,
+  LANDING_SCREENS,
+} from './landingContent';
 import './landing.css';
 
 /**
@@ -94,9 +102,38 @@ const FAN_CARDS: FanCardItem[] = LANDING_GROUPS.map((g, i) => ({
 }));
 
 const NAV = [
+  { href: '#van-de', label: 'Vấn đề' },
   { href: '#phan-he', label: 'Phân hệ' },
+  { href: '#doanh-nghiep', label: 'Doanh nghiệp' },
   { href: '#man-hinh', label: 'Màn hình' },
 ];
+
+const DIFF_ICONS = { scale: Scale, shield: ShieldCheck, percent: Percent };
+
+/** Nhãn nhỏ + tiêu đề + phụ đề của một khối */
+function SectionHead({
+  id,
+  eyebrow,
+  title,
+  lead,
+  center = true,
+}: {
+  id: string;
+  eyebrow: string;
+  title: string;
+  lead?: ReactNode;
+  center?: boolean;
+}) {
+  return (
+    <FadeUp className={cn('max-w-3xl', center && 'mx-auto text-center')}>
+      <p className="text-xs font-bold tracking-[0.14em] text-primary uppercase">{eyebrow}</p>
+      <h2 id={id} className="mt-3 text-3xl leading-tight font-bold tracking-[-0.02em] text-balance sm:text-[40px]">
+        {title}
+      </h2>
+      {lead && <p className="mt-4 text-[17px] leading-relaxed text-foreground-2">{lead}</p>}
+    </FadeUp>
+  );
+}
 
 /** Đã cuộn qua phần đầu hero chưa: thanh trên trong suốt trên nền tối, có nền sáng khi cuộn xuống */
 function useScrolled(offset = 24) {
@@ -174,7 +211,7 @@ export function LandingPage() {
             <div className={CONTAINER}>
               <div className="max-w-[720px]">
                 <h1 className="text-[40px] leading-[1.05] font-extrabold tracking-[-0.03em] text-balance sm:text-6xl">
-                  <RevealWords text="Một số tồn cho mọi gian hàng, từ lúc nhập hàng tới khi tiền sàn về" />
+                  <RevealWords text="Quản lý bán hàng đa sàn cho doanh nghiệp" />
                 </h1>
                 <motion.p
                   className="mt-6 max-w-[600px] text-lg leading-relaxed text-white/80"
@@ -182,8 +219,8 @@ export function LandingPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.7, ease: EASE }}
                 >
-                  Commerio giữ sản phẩm, tồn kho và giá cho gian hàng Lazada và TikTok Shop. Đơn về tự giữ tồn, kho đóng
-                  gói theo hàng đợi, tiền sàn trả được đối soát theo từng đơn.
+                  Mỗi sàn một trang quản lý riêng nên tồn, đơn và tiền nằm rải rác. Commerio gom về một chỗ: một số tồn
+                  cho mọi gian hàng, một danh sách đơn, tồn tổng để nhập hàng có căn cứ và lãi thực theo từng đơn.
                 </motion.p>
                 <motion.div
                   className="mt-9 flex flex-wrap gap-3"
@@ -218,7 +255,7 @@ export function LandingPage() {
                       <dd>
                         <span
                           className={cn(
-                            'block text-xl font-bold whitespace-nowrap sm:text-3xl',
+                            'block text-lg leading-tight font-bold sm:text-3xl',
                             i === 1 ? 'text-white' : ACCENT_ON_DARK,
                           )}
                         >
@@ -235,20 +272,52 @@ export function LandingPage() {
             </div>
           </section>
 
-          <section id="phan-he" aria-labelledby="phan-he-title" className="scroll-mt-20 py-24">
+          <section id="van-de" aria-labelledby="van-de-title" className="scroll-mt-20 py-24">
             <div className={CONTAINER}>
-              <FadeUp className="mx-auto max-w-3xl text-center">
-                <p className="text-xs font-bold tracking-[0.14em] text-primary uppercase">Phân hệ</p>
-                <h2
-                  id="phan-he-title"
-                  className="mt-3 text-3xl leading-tight font-bold tracking-[-0.02em] text-balance sm:text-[40px]"
-                >
-                  Từ kho tới tiền, mỗi phân hệ một việc rõ ràng
-                </h2>
-                <p className="mt-4 text-[17px] leading-relaxed text-foreground-2">
-                  Sáu phân hệ gom thành ba nhóm. Bấm vào một thẻ để xem nhóm đó làm gì.
-                </p>
-              </FadeUp>
+              <SectionHead
+                id="van-de-title"
+                eyebrow="Vấn đề"
+                title="Bán trên nhiều sàn, dữ liệu nằm ở nhiều nơi"
+                lead={LANDING_MARKET_NOTE}
+              />
+              <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {LANDING_PAINS.map((p, i) => (
+                  <FadeUp
+                    key={p.title}
+                    as="li"
+                    delay={i * 0.08}
+                    className="flex flex-col rounded-2xl bg-card p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                  >
+                    <span className="text-sm font-bold text-primary">0{i + 1}</span>
+                    <h3 className="mt-2 text-lg leading-snug font-semibold">{p.title}</h3>
+                    <p className="mt-3 flex gap-2 text-sm leading-relaxed text-muted-foreground">
+                      <X className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+                      <span>
+                        <span className="sr-only">Vấn đề: </span>
+                        {p.pain}
+                      </span>
+                    </p>
+                    <p className="mt-auto flex gap-2 border-t pt-4 text-sm leading-relaxed font-medium">
+                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                      <span>
+                        <span className="sr-only">Commerio: </span>
+                        {p.fix}
+                      </span>
+                    </p>
+                  </FadeUp>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          <section id="phan-he" aria-labelledby="phan-he-title" className="scroll-mt-20 bg-card py-24">
+            <div className={CONTAINER}>
+              <SectionHead
+                id="phan-he-title"
+                eyebrow="Phân hệ"
+                title="Từ kho tới tiền, mỗi phân hệ một việc rõ ràng"
+                lead="Sáu phân hệ gom thành ba nhóm. Bấm vào một thẻ để xem nhóm đó làm gì."
+              />
             </div>
             <div className="mx-auto h-[340px] w-full max-w-6xl overflow-x-clip sm:h-[530px] lg:h-[720px]">
               <div className="relative left-1/2 w-[900px] origin-top -translate-x-1/2 scale-[0.42] sm:scale-[0.66] lg:scale-100">
@@ -263,6 +332,60 @@ export function LandingPage() {
                 </FadeUp>
               ))}
             </ul>
+          </section>
+
+          <section id="doanh-nghiep" aria-labelledby="doanh-nghiep-title" className="scroll-mt-20 py-24">
+            <div className={CONTAINER}>
+              <SectionHead
+                id="doanh-nghiep-title"
+                eyebrow="Dành cho doanh nghiệp"
+                title="Mỗi công ty một không gian riêng"
+                lead="Nhiều doanh nghiệp dùng chung Commerio. Sản phẩm, kho, đơn, tiền và nhân viên của công ty nào chỉ công ty đó thấy."
+              />
+              <ol className="relative mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                <span aria-hidden className="absolute top-5 right-[12%] left-[12%] hidden h-px bg-border lg:block" />
+                {LANDING_ONBOARDING.map((step, i) => (
+                  <FadeUp key={step.title} as="li" delay={i * 0.08} className="relative">
+                    <span
+                      aria-hidden
+                      className="relative grid size-10 place-items-center rounded-full bg-primary text-base font-bold text-primary-foreground ring-8 ring-background"
+                    >
+                      {i + 1}
+                    </span>
+                    <h3 className="mt-4 text-lg font-semibold">{step.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.text}</p>
+                  </FadeUp>
+                ))}
+              </ol>
+              <div className="mt-12 flex justify-center">
+                <Button asChild size="lg" className="h-12 px-6 text-base font-semibold">
+                  <Link to={ROUTES.register}>
+                    Đăng ký công ty
+                    <ArrowRight aria-hidden />
+                  </Link>
+                </Button>
+              </div>
+
+              <ul className="mt-20 grid gap-4 md:grid-cols-3">
+                {LANDING_DIFFS.map((d, i) => {
+                  const Icon = DIFF_ICONS[d.icon];
+                  return (
+                    <FadeUp
+                      key={d.title}
+                      as="li"
+                      delay={i * 0.08}
+                      className="rounded-2xl bg-card p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                    >
+                      <span className="grid size-11 place-items-center rounded-xl bg-accent text-accent-foreground">
+                        <Icon className="size-5" aria-hidden />
+                      </span>
+                      <h3 className="mt-4 text-lg font-semibold">{d.title}</h3>
+                      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{d.text}</p>
+                    </FadeUp>
+                  );
+                })}
+              </ul>
+            </div>
           </section>
 
           <section id="man-hinh" aria-labelledby="man-hinh-title" className="scroll-mt-20 bg-card py-20">
@@ -320,7 +443,8 @@ export function LandingPage() {
                 <span className="text-lg font-bold">Commerio</span>
               </span>
               <p className="mt-4 max-w-xs text-sm leading-relaxed">
-                Phần mềm quản lý hàng, kho, đơn và tiền cho người bán trên Lazada và TikTok Shop.
+                Nền tảng quản lý bán hàng đa sàn cho doanh nghiệp bán lẻ: hàng, kho, đơn và tiền của mỗi công ty ở một
+                chỗ.
               </p>
             </div>
             <FooterCol title="Trên trang">
@@ -338,7 +462,7 @@ export function LandingPage() {
                 Đăng ký công ty
               </Link>
             </FooterCol>
-            <FooterCol title="Sàn hỗ trợ">
+            <FooterCol title="Sàn đang hỗ trợ">
               <span>Lazada</span>
               <span>TikTok Shop</span>
             </FooterCol>

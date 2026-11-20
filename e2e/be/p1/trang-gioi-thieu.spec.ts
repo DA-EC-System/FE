@@ -7,7 +7,7 @@ const UUID = '[0-9a-f-]{36}';
 test.describe('P1 · Trang giới thiệu (BE thật)', () => {
   test('AC-1, AC-2: chưa đăng nhập mở / thấy trang giới thiệu, hai nút dẫn tới /register và /login', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Một số tồn cho mọi gian hàng');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Quản lý bán hàng đa sàn cho doanh nghiệp');
     expect(duongDan(page)).toBe('/');
     await expect(page.locator('#man-hinh li')).toHaveCount(3);
 
@@ -35,7 +35,7 @@ test.describe('P1 · Trang giới thiệu (BE thật)', () => {
     test('AC-3: mở / thì vào thẳng công ty, không thấy trang giới thiệu', async () => {
       await cty.page.goto('/');
       await expect.poll(() => duongDan(cty.page)).toMatch(new RegExp(`^/c/${UUID}`));
-      await expect(cty.page.getByRole('heading', { name: 'Một số tồn cho mọi gian hàng' })).toHaveCount(0);
+      await expect(cty.page.getByRole('heading', { name: 'Quản lý bán hàng đa sàn cho doanh nghiệp' })).toHaveCount(0);
     });
   });
 });
