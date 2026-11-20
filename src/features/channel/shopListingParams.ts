@@ -1,7 +1,7 @@
 import type { RemoteSku } from '@/types/shop';
 
 /** Tab của trang gian hàng (Test_UI `v-listing`) */
-export const LISTING_TAB_VALUES = ['all', 'unmatched', 'pending', 'not_listed', 'stale', 'failed', 'held'] as const;
+export const LISTING_TAB_VALUES = ['all', 'unmatched', 'pending', 'not_listed', 'stale', 'failed', 'held', 'category'] as const;
 export type ListingTab = (typeof LISTING_TAB_VALUES)[number];
 
 export interface ShopListingParams {

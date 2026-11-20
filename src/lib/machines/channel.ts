@@ -51,7 +51,7 @@ export const listingMachine = defineMachine<ListingMachineStatus, ListingAction>
   { from: 'pushing', to: 'under_review', action: 'send_review', label: 'Sàn nhận, chờ duyệt', system: true },
   { from: 'pushing', to: 'push_failed', action: 'fail', label: 'Lỗi đẩy', system: true },
   { from: 'under_review', to: 'live', action: 'approve', label: 'Sàn duyệt', system: true },
-  { from: 'under_review', to: 'rejected', action: 'reject', label: 'Sàn từ chối', system: true },
+  { from: ['under_review', 'live', 'hidden'], to: 'rejected', action: 'reject', label: 'Sàn từ chối', system: true },
   { from: ['live', 'hidden'], to: 'platform_hold', action: 'hold', label: 'Sàn khoá', system: true },
   { from: 'platform_hold', to: 'live', action: 'release', label: 'Sàn gỡ khoá', system: true },
   { from: 'live', to: 'hidden', action: 'hide', label: 'Ẩn', system: true },

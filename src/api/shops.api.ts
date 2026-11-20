@@ -5,18 +5,20 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { salesKeys } from './sales.api';
 import { useAuthStore } from '@/stores/authStore';
 import type {
+  ApplyCategoryResult,
   CascadeOptionList,
   CategorySuggestionList,
   ChannelListing,
   OutsideChangeAction,
   MappingDecision,
   ListingMatchInput,
+  ListingMatchPreview,
   ListingRow,
   Marketplace,
   ListingSyncResult,
@@ -36,6 +38,7 @@ import type {
   ShopCallbackResult,
   ShopConnectInput,
   ShopDeleteInput,
+  ProductListingRow,
   ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpeningStocktakeRestart,
@@ -67,6 +70,7 @@ export const shopKeys = {
     [...shopKeys.all(companyId), 'category-suggestions', shopId, productId] as const,
   productSpec: (companyId: string, productId: string, platform: string) =>
     [...shopKeys.all(companyId), 'product-spec', productId, platform] as const,
+  productListings: (companyId: string, productId: string) => [...shopKeys.all(companyId), 'product-listings', productId] as const,
 };
 
 /** `search` (≥ 2 ký tự) hoặc `parentId`; không gửi gì là cấp gốc (Documents/21 §18.5) */
@@ -339,6 +343,23 @@ export function useRefreshRemoteSkus() {
       return data;
     },
     onSuccess: (data, shopId) => queryClient.setQueryData(shopKeys.remoteSkus(companyId, shopId), data),
+  });
+}
+
+/** Xem trước số sẽ đẩy khi chọn một cặp trong hộp ghép (§18.3, commerio-backend#460); không gọi sàn, không ghi */
+export function useMatchPreview(shopId: string, pair: { externalSkuId: string; variantId: string } | null) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: [...shopKeys.all(companyId), 'match-preview', shopId, pair?.externalSkuId, pair?.variantId] as const,
+    enabled: Boolean(companyId && shopId && pair),
+    retry: false,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListingMatchPreview>(`/channel/shops/${shopId}/listings/match-preview`, {
+        params: pair!,
+      });
+      return data;
+    },
   });
 }
 
@@ -636,5 +657,66 @@ export function usePlatformCascade(
       );
       return data;
     },
+  });
+}
+
+/**
+ * Dòng listing của một sản phẩm ở mọi gian hàng của sàn: không có route riêng theo sản phẩm nên đọc danh sách listing của
+ * từng gian hàng (cùng khoá với `useShopListings`, dùng chung cache) rồi lọc theo `productId`. `poll` trả số ms hỏi lại
+ * hoặc false (theo dõi `categoryChange.queued`, §18.5)
+ */
+/**
+ * Listing của sản phẩm ở mọi gian hàng chưa ngắt, mỗi biến thể chưa lưu trữ × gian hàng một dòng (Documents/21 §18.5,
+ * commerio-backend#467). Trang sản phẩm dùng; cùng nhóm khoá `shops` nên thao tác listing làm mới luôn
+ */
+export function useProductListingRows(productId: string | undefined, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.productListings(companyId, productId ?? ''),
+    enabled: Boolean(companyId && productId) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ items: ProductListingRow[] }>(`/channel/products/${productId}/listings`);
+      return data.items;
+    },
+  });
+}
+
+export function useProductListings(shopIds: string[], productId: string, poll?: (rows: ListingRow[]) => number | false) {
+  const companyId = useCompanyId();
+  const results = useQueries({
+    queries: shopIds.map((id) => ({
+      queryKey: shopKeys.listings(companyId, id),
+      enabled: Boolean(companyId && id),
+      refetchInterval: poll
+        ? (query: { state: { data?: ListingRow[] } }) => poll((query.state.data ?? []).filter((r) => r.productId === productId))
+        : false,
+      refetchIntervalInBackground: false,
+      queryFn: async () => {
+        const { data } = await apiClient.get<{ items: ListingRow[] }>(`/channel/shops/${id}/listings`);
+        return data.items;
+      },
+    })),
+  });
+  const rows = results.flatMap((r, k) =>
+    (r.data ?? []).filter((row) => row.productId === productId).map((row) => ({ shopId: shopIds[k]!, row })),
+  );
+  return { rows, isLoading: results.some((r) => r.isLoading) };
+}
+
+/**
+ * Đổi category của sản phẩm đã đăng lên sàn (TikTok), chạy nền: 202 kèm danh sách sản phẩm trên sàn sẽ đổi (§18.5
+ * `apply-category`). Lỗi 409 `version_conflict` mang `current` để nạp lại spec
+ */
+export function useApplyCategory() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ productId, platform, version }: { productId: string; platform: string; version: number }) => {
+      const { data } = await apiClient.post<ApplyCategoryResult>(
+        `/channel/products/${productId}/specs/${platform}/apply-category`,
+        { version },
+      );
+      return data;
+    },
+    onSettled: invalidate,
   });
 }

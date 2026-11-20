@@ -17,6 +17,7 @@ import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import type { ProductDetail } from '@/types/catalog';
 import type { CategorySuggestion, ProductSpecResult, PushResult, Shop, SpecValue } from '@/types/shop';
+import { CategoryPath } from '@/features/catalog/CategoryPath';
 import { platformLabel } from '@/features/catalog/platformCategory';
 import { SPEC_FIX_CODES, pushBlockMessage, splitPushResults } from './listingPush';
 import { isUsable } from './shopSchemas';
@@ -42,6 +43,7 @@ import {
   type SpecDraft,
 } from './specDraft';
 import { CategoryStep } from './push/CategoryStep';
+import { CategoryChangeBlock } from './push/CategoryChangeBlock';
 import { AttributesStep } from './push/AttributesStep';
 import { VariantsStep } from './push/VariantsStep';
 import { axisFieldId, valueFieldId } from './push/fieldIds';
@@ -101,6 +103,8 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const label = platformLabel(platform);
+  /** Bản đã lưu ở BE: khối đổi category trên sàn chỉ làm việc trên bản này, không trên bản nháp */
+  const [saved, setSaved] = useState<ProductSpecResult>(initial);
   const [draft, setDraft] = useState<SpecDraft>(() => draftFromSpec(initial.spec));
   const [step, setStep] = useState<PushStep>(() => firstStep(initial));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -108,9 +112,6 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [outcome, setOutcome] = useState<ShopOutcome[] | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Category đọc từ sàn lúc ghép SKU: không đổi ở trang này */
-  const locked = draft.source === 'match';
-
   const usable = shops.filter((s) => isUsable(s.status));
   const fromParam = shops.find((s) => s.id === shopParam);
   /** Gian hàng gọi gợi ý: gian hàng mở trang, không thì gian hàng dùng được đầu tiên */
@@ -186,6 +187,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
           toast.error('Còn ô chưa hợp lệ, xem các ô viền đỏ.');
         } else if (problem?.code === 'version_conflict' && problem.current) {
           const current = problem.current as ProductSpecResult;
+          setSaved(current);
           setDraft(draftFromSpec(current.spec));
           setStep(firstStep(current));
           toast.warning(`Người khác vừa sửa thông tin ${label} của sản phẩm này. Đã nạp bản mới nhất, xem lại rồi bấm lại.`);
@@ -194,6 +196,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
         }
         return;
       }
+      setSaved(saved);
       setDraft(draftFromSpec(saved.spec));
       if (fillOnly) {
         toast.success(saved.missing.length ? `Đã lưu. Còn thiếu ${saved.missing.length} mục.` : `Đã lưu thông tin ${label} của sản phẩm.`);
@@ -243,7 +246,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
       </Link>
       <PageHeader
         title={title}
-        subtitle={`${label} · ${activeVariants} variant${locked ? ' · category lấy từ sàn khi ghép SKU' : ''}`}
+        subtitle={`${label} · ${activeVariants} variant`}
         help="Thông tin sàn (category, attribute, mapping variant) lưu theo sản phẩm và sàn, dùng chung cho mọi gian hàng cùng sàn. Lưu xong mới đẩy."
       />
 
@@ -283,13 +286,29 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
                 shopId={suggestShop?.id ?? null}
                 product={product}
                 draft={draft}
-                locked={locked}
+                pathIds={leaf.data?.category.pathIds ?? null}
                 onPick={(c) => {
                   setDraft((d) => withCategory(d, c.externalId, c.path));
                   clearError('externalCategoryId');
                 }}
                 onSuggestions={setSuggestions}
-              />
+              >
+                <CategoryChangeBlock
+                  platform={platform}
+                  label={label}
+                  companyId={companyId}
+                  productId={product.id}
+                  shops={shops}
+                  draftPath={draft.categoryPath}
+                  draftCategoryId={draft.externalCategoryId ?? ''}
+                  saved={saved}
+                  sizeChartRule={leaf.data?.category.sizeChartRule ?? null}
+                  onConflict={(current) => {
+                    setSaved(current);
+                    setDraft(draftFromSpec(current.spec));
+                  }}
+                />
+              </CategoryStep>
             )}
             {step === 0 && errors.externalCategoryId && (
               <p className="mt-2 text-sm text-destructive-text">{errors.externalCategoryId}</p>
@@ -392,7 +411,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
 
         <Card className="gap-0 py-0 text-sm" aria-label="Tóm tắt">
           <SummaryRow title="Category" ok={Boolean(draft.externalCategoryId) && !missing.some((m) => stepOfMissing(m.reason) === 0)} onEdit={() => goTo(0)}>
-            {draft.externalCategoryId ? draft.categoryPath.split(' > ').at(-1) : 'Chưa chọn'}
+            {draft.externalCategoryId ? <CategoryPath path={draft.categoryPath} /> : 'Chưa chọn'}
           </SummaryRow>
           <SummaryRow
             title="Attributes"
@@ -440,7 +459,7 @@ function SummaryRow({ title, ok, onEdit, children }: { title: string; ok?: boole
         <div className="flex items-center gap-1.5">
           {ok === true && <Check className="size-3.5 flex-none text-success-text" aria-label="Đủ" />}
           {ok === false && <span className="size-2 flex-none rounded-full bg-warning" aria-label="Chưa đủ" />}
-          <span className="truncate">{children}</span>
+          <span className="min-w-0 break-words">{children}</span>
         </div>
       </div>
       {onEdit && (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +41,12 @@ import {
   useUpdateProduct,
 } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
+import { useStock } from '@/api/inventory.api';
+import { useProductListingRows, useShops } from '@/api/shops.api';
+import { formatQty } from '@/features/inventory/shared';
+import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
+import type { ProductListingRow } from '@/types/shop';
+import { STOCK_STATE } from '@/features/inventory/shared';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +69,12 @@ import { SizeChartField } from './SizeChartField';
 import { HelpTip } from '@/components/common/HelpTip';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { formatCurrency } from '@/utils/format';
+import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
+import { SkuCode } from '@/components/common/SkuCode';
+import { ProductMarketplaceCard } from './ProductMarketplaceCard';
+import { ProductSkuSheet } from './ProductSkuSheet';
+import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
   live: 'Đang bán',
@@ -121,6 +133,32 @@ export function ProductFormPage() {
   const archived = product?.status === 'archived';
   const canManage = can(PERMISSIONS.productManage);
   const readOnly = !canManage || archived;
+
+  // US-SP-11 (commerio-backend#467): sàn, listing, tồn theo quyền; thiếu quyền thì không gọi API để khỏi 403
+  const canShop = can(PERMISSIONS.shopView);
+  const canStock = can(PERMISSIONS.stockView);
+  const canCost = can(PERMISSIONS.costView);
+  const shopsQuery = useShops({ enabled: canShop && !isNew });
+  const listingsQuery = useProductListingRows(productId, canShop);
+  const stockQuery = useStock({ productId, pageSize: 100 }, { enabled: canStock && !isNew });
+  const platforms = activePlatforms(shopsQuery.data?.items ?? []);
+  const listingRows = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
+  const listed = useMemo(() => listingsByVariant(listingRows), [listingRows]);
+  const levels = useMemo(() => new Map((stockQuery.data?.items ?? []).map((l) => [l.variantId, l])), [stockQuery.data]);
+  const [skuVariantId, setSkuVariantId] = useState<string | null>(null);
+  const [skuTab, setSkuTab] = useState<'stock' | 'shops'>('stock');
+  const openSku = (id: string, tab: 'stock' | 'shops') => {
+    setSkuTab(tab);
+    setSkuVariantId(id);
+  };
+  const retry = (refetch: () => unknown) => (
+    <>
+      Không tải được.{' '}
+      <button type="button" className="cursor-pointer font-medium underline underline-offset-2" onClick={() => refetch()}>
+        Thử lại
+      </button>
+    </>
+  );
 
   const [images, setImages] = useState<ImageItem[]>([]);
   const [imagesError, setImagesError] = useState<string | undefined>();
@@ -340,6 +378,36 @@ export function ProductFormPage() {
           </AlertMessage>
         )}
 
+        {product && (
+          <KpiStrip label="Tóm tắt sản phẩm" className="mb-4">
+            <Kpi label="Nhóm hàng" value={<span className="text-lg">{product.group.name}</span>} />
+            <Kpi
+              label="SKU theo trạng thái"
+              value={product.variants.length}
+              unit="SKU"
+              detail={businessSummary(product.variants)}
+            />
+            {canStock && (
+              <Kpi
+                label="Tổng có thể bán"
+                help="Cộng số có thể bán của mọi SKU: tồn thực trừ đang giữ cho đơn và khoá chờ duyệt. Đây là số đẩy lên sàn."
+                value={formatQty(totalAvailable([...levels.values()]))}
+                loading={stockQuery.isLoading}
+                error={stockQuery.isError ? retry(stockQuery.refetch) : undefined}
+              />
+            )}
+            {canShop && (
+              <Kpi
+                label="Gian hàng đang bán"
+                help="Số gian hàng có ít nhất một SKU của sản phẩm đang hoạt động trên sàn."
+                value={sellingShopCount(listingRows)}
+                loading={listingsQuery.isLoading}
+                error={listingsQuery.isError ? retry(listingsQuery.refetch) : undefined}
+              />
+            )}
+          </KpiStrip>
+        )}
+
         <div className="grid gap-4">
           <Card>
             <CardHeader>
@@ -393,6 +461,33 @@ export function ProductFormPage() {
               />
             </CardContent>
           </Card>
+
+          {product && canShop && (
+            <ProductMarketplaceCard
+              companyId={companyId}
+              productId={product.id}
+              platforms={platforms}
+              rows={listingRows}
+              loading={shopsQuery.isLoading || listingsQuery.isLoading}
+              canManage={can(PERMISSIONS.listingManage) && !archived}
+            />
+          )}
+          {product && canShop && listingsQuery.isError && (
+            <AlertMessage severity="warning">
+              Không tải được listing của sản phẩm: {problemMessage(listingsQuery.error)}{' '}
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => listingsQuery.refetch()}>
+                Thử lại
+              </Button>
+            </AlertMessage>
+          )}
+          {product && canStock && stockQuery.isError && (
+            <AlertMessage severity="warning">
+              Không tải được tồn kho của sản phẩm: {problemMessage(stockQuery.error)}{' '}
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => stockQuery.refetch()}>
+                Thử lại
+              </Button>
+            </AlertMessage>
+          )}
 
           <Card>
             <CardHeader>
@@ -471,11 +566,10 @@ export function ProductFormPage() {
                           <TableHead>SKU</TableHead>
                           <TableHead>Thuộc tính phân loại</TableHead>
                           <TableHead>Trạng thái</TableHead>
+                          {canStock && <TableHead className="text-right">Có thể bán</TableHead>}
+                          {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
                           <TableHead className="text-right">Giá bán lẻ</TableHead>
-                          <TableHead className="text-right">Thực nhận mong muốn</TableHead>
-                          <TableHead>Cân nặng · kích thước</TableHead>
                           <TableHead>Thông tin</TableHead>
-                          <TableHead>Trên sàn</TableHead>
                           {canManage && <TableHead className="w-24" />}
                         </TableRow>
                       </TableHeader>
@@ -486,8 +580,13 @@ export function ProductFormPage() {
                             data-row-id={v.id}
                             className={cn(v.businessStatus === 'archived' && 'text-muted-foreground')}
                           >
-                            <TableCell className={cn('font-mono', v.businessStatus === 'archived' && 'line-through')}>
-                              {v.sku}
+                            <TableCell className="whitespace-nowrap">
+                              <SkuCode
+                                code={v.sku}
+                                hint={canStock || canShop ? 'Xem tồn kho và listing' : undefined}
+                                onClick={canStock || canShop ? () => openSku(v.id, canStock ? 'stock' : 'shops') : undefined}
+                                className={cn(v.businessStatus === 'archived' && 'line-through')}
+                              />
                             </TableCell>
                             <TableCell>
                               {v.attributes.map((a) => `${a.attributeName}: ${a.value}`).join(', ') ||
@@ -507,15 +606,50 @@ export function ProductFormPage() {
                                   )}
                                 </span>
                               )}
+                              {v.businessStatus !== 'archived' && (
+                                <div className="mt-1" data-testid="variant-shops">
+                                  {canShop && listed.get(v.id)?.length ? (
+                                    <ShopSummary rows={listed.get(v.id)!} onOpen={() => openSku(v.id, 'shops')} />
+                                  ) : v.presence !== undefined && v.listingCount ? (
+                                    <span className="text-[12.5px] text-muted-foreground">
+                                      {PRESENCE_LABELS[v.presence]} · {v.listingCount} gian hàng
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
                             </TableCell>
-                            <TableCell className="text-right whitespace-nowrap" data-testid="variant-price">
-                              {priceText(v.standardPrice)}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap" data-testid="variant-target-price">
-                              {priceText(v.targetNetPrice)}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap" data-testid="variant-spec">
-                              {specText(v)}
+                            {canStock && (
+                              <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-stock">
+                                {(() => {
+                                  const l = levels.get(v.id);
+                                  if (stockQuery.isLoading) return <Skeleton className="ms-auto h-4 w-20" />;
+                                  if (!l) return <span className="text-muted-foreground">—</span>;
+                                  return (
+                                    <>
+                                      <span className="inline-flex items-center gap-1.5">
+                                        {l.state !== 'in_stock' && (
+                                          <Badge variant={STOCK_STATE[l.state].variant}>{STOCK_STATE[l.state].label}</Badge>
+                                        )}
+                                        <span className="font-semibold">{formatQty(l.available)}</span>
+                                      </span>
+                                      <span className="block text-[12.5px] text-muted-foreground">
+                                        Thực {formatQty(l.onHand)} · Giữ {formatQty(l.reserved)}
+                                      </span>
+                                    </>
+                                  );
+                                })()}
+                              </TableCell>
+                            )}
+                            {canStock && canCost && (
+                              <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-cost">
+                                {levels.get(v.id)?.avgCost == null ? '—' : formatCurrency(levels.get(v.id)!.avgCost!)}
+                              </TableCell>
+                            )}
+                            <TableCell className="text-right whitespace-nowrap tabular-nums">
+                              <span data-testid="variant-price">{priceText(v.standardPrice)}</span>
+                              <span className="block text-[12.5px] text-muted-foreground" data-testid="variant-target-price">
+                                Thực nhận {priceText(v.targetNetPrice)}
+                              </span>
                             </TableCell>
                             <TableCell data-testid="variant-readiness">
                               {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
@@ -530,15 +664,6 @@ export function ProductFormPage() {
                               {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
                                 <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {missingText(v)}</div>
                               )}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {v.businessStatus === 'archived'
-                                ? null
-                                : v.presence === undefined
-                                  ? NOT_COMPUTED
-                                  : v.listingCount
-                                  ? `${PRESENCE_LABELS[v.presence]} · ${v.listingCount} gian hàng`
-                                  : PRESENCE_LABELS[v.presence]}
                             </TableCell>
                             {canManage && (
                               <TableCell className="text-right whitespace-nowrap">
@@ -610,6 +735,19 @@ export function ProductFormPage() {
         )}
       </form>
       {product && (
+        <ProductSkuSheet
+          companyId={companyId}
+          variant={product.variants.find((v) => v.id === skuVariantId) ?? null}
+          rows={listingRows.filter((r) => r.variantId === skuVariantId)}
+          tab={skuTab}
+          specText={(v) => specText(v)}
+          canStock={canStock}
+          canShop={canShop}
+          canCost={canCost}
+          onClose={() => setSkuVariantId(null)}
+        />
+      )}
+      {product && (
         <VariantSpecDialog
           productId={product.id}
           variant={specVariant}
@@ -621,5 +759,39 @@ export function ProductFormPage() {
         />
       )}
     </Form>
+  );
+}
+
+/**
+ * Tóm tắt listing của SKU trong cột Trạng thái (audit FE#405): số gian hàng, mỗi gian hàng một chấm màu kèm tên trạng thái
+ * cho trình đọc màn hình, và số listing cần xem bằng chữ; bấm mở tab Gian hàng của ngăn SKU
+ */
+function ShopSummary({ rows, onOpen }: { rows: ProductListingRow[]; onOpen: () => void }) {
+  const issues = rows.filter((r) => ['push_failed', 'rejected', 'platform_hold'].includes(r.listing!.status)).length;
+  const dot: Record<string, string> = {
+    success: 'bg-success',
+    warning: 'bg-warning',
+    destructive: 'bg-destructive',
+    info: 'bg-info',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-[12.5px] text-muted-foreground hover:text-primary-text focus-visible:outline-2 focus-visible:outline-ring"
+      aria-label={`Listing trên ${rows.length} gian hàng: ${rows.map((r) => `${r.shopName} ${LISTING_STATUS_LABELS[r.listing!.status]}`).join(', ')}`}
+    >
+      <span className="inline-flex gap-0.5" aria-hidden>
+        {rows.map((r) => (
+          <span
+            key={r.shopId}
+            className={cn('size-2 rounded-full border', dot[LISTING_STATUS_VARIANTS[r.listing!.status]] ?? 'bg-muted')}
+            title={`${r.shopName}: ${LISTING_STATUS_LABELS[r.listing!.status]}`}
+          />
+        ))}
+      </span>
+      {rows.length} gian hàng
+      {issues > 0 && <span className="font-medium text-destructive">· {issues} lỗi</span>}
+    </button>
   );
 }

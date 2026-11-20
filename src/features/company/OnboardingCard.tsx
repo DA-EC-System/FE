@@ -60,7 +60,7 @@ export function OnboardingCard({ companyId }: { companyId: string }) {
             aria-valuemin={0}
             aria-valuemax={data.total}
             aria-valuenow={data.done}
-            className="h-1.5 w-28 overflow-hidden rounded-full bg-fill"
+            className="hidden h-1.5 w-28 overflow-hidden rounded-full bg-fill sm:block"
           >
             <span className="block h-full bg-primary" style={{ width: `${(data.done / data.total) * 100}%` }} />
           </span>
@@ -88,9 +88,7 @@ export function OnboardingCard({ companyId }: { companyId: string }) {
                 {s.done ? <Check className="size-4" aria-label="Đã xong" /> : i + 1}
               </span>
               <div className="min-w-0">
-                <b className={cn('text-[13.5px] font-semibold', s.done && 'text-muted-foreground line-through')}>
-                  {s.label}
-                </b>
+                <b className="text-[13.5px] font-semibold">{s.label}</b>
                 {s.optional && (
                   <Badge variant="outline" className="ms-2 align-middle font-normal">
                     Tuỳ chọn
@@ -99,12 +97,15 @@ export function OnboardingCard({ companyId }: { companyId: string }) {
                 <span className="block text-[12.5px] text-muted-foreground">{s.hint}</span>
               </div>
               {s.done ? (
-                <span />
+                <Badge variant="outline" className="border-success/30 bg-success/10 font-normal text-success-text">
+                  <Check className="size-3.5" aria-hidden />
+                  Xong
+                </Badge>
               ) : (
-                <Button asChild variant="outline" size="sm" aria-label={`Làm: ${s.label}`}>
+                <Button asChild variant="outline" size="sm">
                   <Link to={s.to}>
-                    Làm
-                    <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
+                    {s.action}
+                    <ArrowRight className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
                   </Link>
                 </Button>
               )}
