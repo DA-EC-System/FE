@@ -192,12 +192,20 @@ function Suggestions({
         </SourceHeading>
         {sourceOne}
       </section>
-      {shopId && data && (
-        <section aria-labelledby="cat-src-2" className="grid grid-cols-1 gap-2">
+      {/* Luôn hiện đủ ba nguồn để số thứ tự không nhảy; nguồn 2 đọc chung lời gọi gợi ý nên theo trạng thái của nó */}
+      <section aria-labelledby="cat-src-2" className="grid grid-cols-1 gap-2">
           <SourceHeading id="cat-src-2" step="2 / 3 · theo nhóm hàng">
             Sản phẩm cùng nhóm {groupName} đã dùng trên {label}
           </SourceHeading>
-          {!group?.length ? (
+          {!shopId ? (
+            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              Kết nối gian hàng {label} để xem category các sản phẩm nhóm {groupName} đã dùng.
+            </p>
+          ) : q.isLoading ? (
+            <Skeleton className="h-14 w-full" aria-busy />
+          ) : !data ? (
+            <p className="text-sm text-muted-foreground">Chưa đọc được category nhóm {groupName} đã dùng. Bấm Thử lại ở trên.</p>
+          ) : !group?.length ? (
             <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
               Chưa có sản phẩm nào khác trong nhóm {groupName} lên {label}. Category bạn chọn lần này sẽ thành gợi ý cho các sản
               phẩm sau của nhóm.
@@ -219,8 +227,7 @@ function Suggestions({
               ))}
             </div>
           )}
-        </section>
-      )}
+      </section>
     </>
   );
 }
