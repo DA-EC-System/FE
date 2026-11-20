@@ -6,6 +6,7 @@ import type {
   ProductSpec,
   RemoteProductFacts,
   RemoteVariantFacts,
+  ResolvedAttribute,
   SizeChartRule,
   SpecValue,
 } from '@/types/shop';
@@ -27,6 +28,8 @@ export const SHARED_TARGETS = {
   brand: 'product-field-brand',
   sizeChart: 'product-field-size-chart',
   variants: 'product-field-variants',
+  /** Card "Thông số của nhóm" ở tab Commerio (thông số gốc ánh xạ sang attribute sàn) */
+  specs: 'product-field-specs',
 } as const;
 export type SharedTarget = keyof typeof SHARED_TARGETS;
 
@@ -73,17 +76,25 @@ export function attributeGroups(attrs: readonly PlatformAttribute[], values: Rec
 }
 
 /** Nguồn của một ô ở tab sàn */
-export type FieldSource = 'shared' | 'own' | 'company' | 'match';
+export type FieldSource = 'shared' | 'own' | 'company' | 'match' | 'override' | 'catalog' | 'default';
 
 /**
- * Nguồn theo tier, và theo `fieldSources` của spec (commerio-backend#497): attribute sàn đọc lúc ghép mà người dùng chưa
- * sửa là "Đọc từ sàn khi ghép". Attribute công ty, sản phẩm giữ nhãn theo tier vì giá trị lấy từ hồ sơ, catalog
+ * Nguồn của một attribute ở tab sàn. Có `source` (nguồn đã tính từ `resolved`, Documents/21 §18.8.2) thì theo nó; ghi đè
+ * thì tách tiếp theo `fieldSources` (commerio-backend#497): đọc lúc ghép là "Đọc từ sàn khi ghép", lưu lúc đẩy là "Riêng
+ * cho sàn", người dùng sửa là "Bạn sửa riêng". Chưa có giá trị thì theo tier
  */
 export const attributeSource = (
   a: Pick<PlatformAttribute, 'tier' | 'code'>,
   fieldSources?: ProductSpec['fieldSources'],
-): FieldSource =>
-  a.tier === 'product' ? 'shared' : a.tier === 'company' ? 'company' : fieldSources?.[a.code] === 'match' ? 'match' : 'own';
+  source?: ResolvedAttribute['source'] | null,
+): FieldSource => {
+  if (source === 'catalog' || source === 'company' || source === 'default') return source;
+  if (source === 'override') {
+    const from = fieldSources?.[a.code];
+    return from === 'match' ? 'match' : from === 'push' ? 'own' : 'override';
+  }
+  return a.tier === 'product' ? 'shared' : a.tier === 'company' ? 'company' : fieldSources?.[a.code] === 'match' ? 'match' : 'own';
+};
 
 export interface SharedGap {
   target: SharedTarget;

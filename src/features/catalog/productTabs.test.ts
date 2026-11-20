@@ -74,6 +74,17 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
     expect(attributeSource({ tier: 'company', code: 'a' }, { a: 'match' })).toBe('company');
   });
 
+  it('nguồn theo resolved: catalog, công ty, mặc định sàn; ghi đè tách theo fieldSources', () => {
+    const a = { tier: 'category' as const, code: 'a' };
+    expect(attributeSource({ tier: 'product', code: 'p' }, undefined, 'catalog')).toBe('catalog');
+    expect(attributeSource(a, undefined, 'company')).toBe('company');
+    expect(attributeSource(a, { a: 'match' }, 'default')).toBe('default');
+    expect(attributeSource(a, { a: 'user' }, 'override')).toBe('override');
+    expect(attributeSource(a, { a: 'push' }, 'override')).toBe('own');
+    expect(attributeSource(a, { a: 'match' }, 'override')).toBe('match');
+    expect(attributeSource(a, undefined, 'override')).toBe('override');
+  });
+
   it('trường dùng chung còn thiếu: ảnh, mô tả, bảng size khi bắt buộc, cân nặng kích thước của SKU chưa lưu trữ', () => {
     const empty = { images: [], description: ' ', sizeChart: null, variants: [variant({ weightG: null })] };
     expect(sharedGaps(empty, 'required').map((g) => g.target)).toEqual(['images', 'description', 'sizeChart', 'variants']);

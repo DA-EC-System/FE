@@ -9,7 +9,9 @@ import {
   permissionBlocked,
   productAxes,
   profilePatch,
+  mergedValues,
   specInput,
+  valueSource,
   specMissing,
   stepOfError,
   stepOfMissing,
@@ -156,7 +158,7 @@ describe('Bản nháp và body PUT', () => {
     expect(withAxis(mapped, AXES[0], CUSTOM_AXIS).valueMap).toEqual({ 'val-m': 'Int:M' });
   });
 
-  it('chỉ gửi tier category và company khác defaultValue; bỏ product, sales, mã không có ở leaf, trục lạ', () => {
+  it('gửi mọi ghi đè trừ company trùng defaultValue, sales, mã không có ở leaf, trục lạ (thương hiệu, xuất xứ ghi đè được)', () => {
     const d = {
       ...draftFromSpec(spec()),
       attributes: { material: 'm1', '101489': 'Công ty ABC', '100149': 'VN', color_family: 'Đen', old: 'x', collar: ['a', 'b'] },
@@ -165,7 +167,7 @@ describe('Bản nháp và body PUT', () => {
     };
     expect(specInput(d, ATTRS, AXES)).toEqual({
       externalCategoryId: '7930',
-      attributes: { material: 'm1', collar: ['a', 'b'] },
+      attributes: { material: 'm1', '100149': 'VN', collar: ['a', 'b'] },
       axisMap: { 'att-mau': 'color_family' },
       valueMap: { 'val-den': 'Đen' },
       version: 2,
@@ -320,5 +322,26 @@ describe('profilePatch', () => {
   it('không có gì để ghi thì null; mã lạ bỏ qua', () => {
     expect(profilePatch(['101490'], {}, 1)).toBeNull();
     expect(profilePatch(['100149'], { '100149': 'VN' }, 1)).toBeNull();
+  });
+});
+
+describe('Giá trị tự điền (resolved, Documents/21 §18.8.2)', () => {
+  const resolved = {
+    '100149': { value: 'VN', source: 'catalog' as const, fieldId: null },
+    '101489': { value: 'Công ty ABC', source: 'company' as const, fieldId: null },
+    brand: { value: 'No Brand', source: 'default' as const, fieldId: null },
+    material: { value: 'm9', source: 'override' as const, fieldId: null },
+  };
+
+  it('ghi đè trong nháp đè giá trị gốc; ghi đè đã bỏ thì không lấy lại giá trị ghi đè cũ của BE', () => {
+    expect(mergedValues({ brand: 'ACME' }, resolved)).toEqual({ '100149': 'VN', '101489': 'Công ty ABC', brand: 'ACME' });
+    expect(mergedValues({}, undefined)).toEqual({});
+  });
+
+  it('nguồn từng ô: nháp có ghi đè là override, không thì nguồn BE; chưa có giá trị là null', () => {
+    expect(valueSource('brand', { brand: 'ACME' }, resolved)).toBe('override');
+    expect(valueSource('100149', {}, resolved)).toBe('catalog');
+    expect(valueSource('material', {}, resolved)).toBeNull();
+    expect(valueSource('x', { x: '' }, resolved)).toBeNull();
   });
 });
