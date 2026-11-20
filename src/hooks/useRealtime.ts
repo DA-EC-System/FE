@@ -19,16 +19,16 @@ import { formatQty } from '@/features/inventory/shared';
  */
 const GROUPS: [prefix: string, groups: string[]][] = [
   // sales.order_created, sales.order_status_changed
-  ['sales.order_', ['sales', 'fulfillment', 'tasks']],
+  ['sales.order_', ['sales', 'fulfillment', 'tasks', 'onboarding']],
   // fulfillment.package_status_changed, package_delivery_failed, package_lost
-  ['fulfillment.', ['fulfillment', 'sales', 'tasks']],
+  ['fulfillment.', ['fulfillment', 'sales', 'tasks', 'onboarding']],
   // sales.return_status_changed: danh sách, chi tiết yêu cầu trả và việc chờ duyệt trả
-  ['sales.return_', ['returns', 'sales', 'tasks']],
+  ['sales.return_', ['returns', 'sales', 'tasks', 'onboarding']],
   // channel.shop_status_changed: gian hàng cần kết nối lại cũng là việc cần làm
-  ['channel.shop_', ['shops', 'tasks']],
+  ['channel.shop_', ['shops', 'tasks', 'onboarding']],
   ['channel.listing_', ['shops']],
-  ['inventory.', ['inventory', 'tasks']],
-  ['purchasing.', ['purchasing', 'tasks']],
+  ['inventory.', ['inventory', 'tasks', 'onboarding']],
+  ['purchasing.', ['purchasing', 'tasks', 'onboarding']],
 ];
 
 /** Mọi nhóm ở trên: nối lại sau khi mất kết nối thì làm mới một lần (T14) */
