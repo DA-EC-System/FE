@@ -20,12 +20,11 @@ export function RemoteSuggestion({ platformName, shopName, readAt, value, onUse,
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md border border-dashed border-primary-border bg-accent/40 px-2.5 py-1.5 text-xs">
       <span className="text-muted-foreground">
-        {platformName} đang ghi
+        {platformName} đang ghi:
         <span className="sr-only">
           {' '}
           (gian hàng {shopName}, đọc lúc {formatDateTime(readAt)})
         </span>
-        :
       </span>
       <span className="line-clamp-2 min-w-0 font-medium break-words text-foreground" title={`Gian hàng ${shopName}, đọc lúc ${formatDateTime(readAt)}`}>
         {value}
