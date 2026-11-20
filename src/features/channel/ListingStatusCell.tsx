@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { onPlatform } from '@/lib/machines/channel';
 import { ROUTES } from '@/router/routes';
-import type { ListingRow, PendingMapping } from '@/types/shop';
+import type { CategoryChange, ListingRow, PendingMapping } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
 import {
   listingStatusHint,
@@ -24,6 +24,18 @@ import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from './shopSchemas';
 export interface PushError {
   code?: string;
   message: string;
+}
+
+const CATEGORY_CHANGE_LABELS: Record<CategoryChange['status'], string> = {
+  queued: 'Đang đổi category',
+  failed: 'Đổi category lỗi',
+  mismatch: 'Đổi category cần xem lại',
+};
+
+function categoryChangeHint(c: CategoryChange) {
+  const to = c.toCategoryPath ? ` sang ${c.toCategoryPath}` : '';
+  if (c.status === 'queued') return `Đang gửi lên sàn đổi category${to}.`;
+  return `${c.message ?? 'Sàn không nhận bản đổi category.'} · ${formatDateTime(c.at)}`;
 }
 
 /** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */
@@ -154,6 +166,20 @@ export function ListingStatusCell({
       {l.pendingRevision?.status === 'failed' && (
         <span className="text-xs text-destructive" data-testid="revision-reason">
           {l.pendingRevision.rejectReason ? `Sàn báo: ${l.pendingRevision.rejectReason}` : 'Sàn không nêu lý do'}
+        </span>
+      )}
+      {l.categoryChange && (
+        <SyncBadge
+          id={`category-change-${r.variantId}`}
+          variant={l.categoryChange.status === 'failed' ? 'destructive' : l.categoryChange.status === 'mismatch' ? 'warning' : 'secondary'}
+          label={CATEGORY_CHANGE_LABELS[l.categoryChange.status]}
+          hint={categoryChangeHint(l.categoryChange)}
+          testId="category-change"
+        />
+      )}
+      {l.categoryChange && l.categoryChange.status !== 'queued' && l.categoryChange.message && (
+        <span className="text-xs text-destructive" data-testid="category-change-message">
+          {l.categoryChange.message}
         </span>
       )}
       {l.status === 'hidden' && !l.outsideChange && l.hiddenBy !== 'zero_stock' && (

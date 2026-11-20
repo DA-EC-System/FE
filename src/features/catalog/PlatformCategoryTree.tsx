@@ -7,7 +7,7 @@ import { usePlatformCategories } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import type { PlatformCategory } from '@/types/shop';
-import { parentPath } from './platformCategory';
+import { CategoryPath } from './CategoryPath';
 
 /*
  * Cây category của sàn theo cấp (parentId) và danh sách kết quả tìm, dùng chung cho tab sàn ở Nhóm hàng & thuộc tính
@@ -126,11 +126,10 @@ export function SearchResults({ loading, error, items, selected, onSelect }: Sea
             selected === c.externalId && 'bg-accent',
           )}
         >
-          <span className="flex items-center gap-2 text-sm">
-            {c.name}
+          <span className="flex items-start gap-2 text-sm">
+            <CategoryPath path={c.path} />
             <RemovedBadge category={c} />
           </span>
-          <span className="block text-xs text-muted-foreground">{parentPath(c.path) || 'Cấp gốc'}</span>
         </button>
       ))}
     </div>
