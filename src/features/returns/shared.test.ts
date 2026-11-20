@@ -17,7 +17,7 @@ describe('respondByState (commerio-backend#392)', () => {
     expect(respondByState('requested', at(-1), now)).toMatchObject({ urgent: false, overdue: true });
   });
 
-  it('không chờ người bán, sàn không có hạn (Lazada) hay giá trị hỏng: không hiện', () => {
+  it('không chờ người bán, sàn không trả hạn hay giá trị hỏng: không hiện', () => {
     expect(respondByState('awaiting_return', at(5), now)).toBeNull();
     expect(respondByState('requested', null, now)).toBeNull();
     expect(respondByState('requested', undefined, now)).toBeNull();

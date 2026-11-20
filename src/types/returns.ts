@@ -79,7 +79,7 @@ export interface ReturnPlatformInfo {
   /** Khách đang khiếu nại lên sàn */
   disputeInProgress: boolean;
   returnTo: 'warehouse' | 'merchant' | null;
-  /** Hạn người bán phải trả lời của sàn (ISO); Lazada null (commerio-backend#392) */
+  /** Hạn người bán phải trả lời của sàn (ISO); null khi sàn không trả hạn (commerio-backend#392) */
   respondBy: string | null;
 }
 
