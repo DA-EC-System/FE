@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { SetupSuggestion, Shop } from '@/types/shop';
-import { decisionErrors, initialChoices, openOrdersSkippedNote, setupRunning, toDecisions } from './setupDecisions';
+import {
+  creatableUnmatched,
+  createChoice,
+  decisionErrors,
+  initialChoices,
+  openOrdersSkippedNote,
+  setupRunning,
+  takenVariants,
+  toDecisions,
+} from './setupDecisions';
 
 const row = (externalSkuId: string, over: Partial<SetupSuggestion> = {}): SetupSuggestion => ({
   externalSkuId,
@@ -13,6 +22,8 @@ const row = (externalSkuId: string, over: Partial<SetupSuggestion> = {}): SetupS
   sku: `SKU-${externalSkuId}`,
   available: 5,
   platformStock: 5,
+  canCreate: false,
+  cannotCreateReason: 'sku_taken',
   ...over,
 });
 
@@ -73,5 +84,40 @@ describe('Đơn còn mở bỏ qua vì trần môi trường (Shop.setup.openOrd
     expect(openOrdersSkippedNote(setup(0))).toBeNull();
     expect(openOrdersSkippedNote(setup(undefined))).toBeNull();
     expect(openOrdersSkippedNote(null)).toBeNull();
+  });
+});
+
+describe('Tạo SKU kho từ SKU sàn (commerio-backend#500, §18.7.5)', () => {
+  const none = (id: string, over: Partial<SetupSuggestion> = {}) =>
+    row(id, { match: 'none', variantId: null, sku: null, available: null, canCreate: true, cannotCreateReason: null, ...over });
+
+  it('dòng tạo mới gửi variantId null kèm create, dòng khác giữ như cũ', () => {
+    const list = [row('a'), none('b'), none('c')];
+    const c = initialChoices(list);
+    c.b = createChoice();
+    expect(toDecisions(list, c)).toEqual([
+      { externalSkuId: 'a', variantId: 'var-a' },
+      { externalSkuId: 'b', variantId: null, create: true },
+      { externalSkuId: 'c', variantId: null },
+    ]);
+  });
+
+  it('nút tạo hàng loạt chỉ lấy dòng tạo được mà chưa chọn gì', () => {
+    const list = [
+      row('a'),
+      none('b'),
+      none('c', { canCreate: false, cannotCreateReason: 'no_seller_sku' }),
+      none('d'),
+      row('e', { match: 'name', score: 0.5, canCreate: true, cannotCreateReason: null }),
+    ];
+    const c = initialChoices(list);
+    c.d = { variantId: 'var-x', sku: 'X', available: 1, picked: true };
+    expect(creatableUnmatched(list, c).map((s) => s.externalSkuId)).toEqual(['b']);
+  });
+
+  it('dòng tạo mới không chiếm biến thể nào ở ô chọn SKU kho của dòng khác', () => {
+    const c = { a: { variantId: 'var-a', sku: 'A', available: 1, picked: false }, b: createChoice(), c: null };
+    expect([...takenVariants(c, 'c')]).toEqual(['var-a']);
+    expect([...takenVariants(c, 'a')]).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { CheckCircle2, CircleDashed, ClipboardList, Info, Loader2, Lock, XCircle } from 'lucide-react';
+import { CheckCircle2, CircleDashed, ClipboardList, Info, Loader2, Lock, PackagePlus, RefreshCw, XCircle } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { HelpTip } from '@/components/common/HelpTip';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
@@ -46,17 +46,24 @@ import {
   STOCKTAKE_STATUS_TEXT,
 } from './shopSchemas';
 import {
+  CANNOT_CREATE_TEXT,
   NAME_MATCH_SKIPPED_NOTE,
   SETUP_POLL_MAX_MS,
   SETUP_POLL_MS,
+  creatableUnmatched,
+  createChoice,
   decisionErrors,
   initialChoices,
   openOrdersSkippedNote,
   setupRunning,
+  takenVariants,
   toDecisions,
   type RowChoice,
 } from './setupDecisions';
+import { useGroups } from '@/api/catalog.api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
 
 /** Các bước theo v-thiet-lap của Test_UI; bước cuối hiện tiến độ việc nền sau khi gửi (§18.7.7) */
 type SetupStep = 'match' | 'opening' | 'cutoff' | 'run';
@@ -134,6 +141,9 @@ export function ShopSetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [choices, setChoices] = useState<Record<string, RowChoice | null>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  // Nhóm hàng cho SKU kho tạo từ SKU sàn (createGroupId, §18.7.5)
+  const [groupId, setGroupId] = useState('');
+  const [groupError, setGroupError] = useState<string | null>(null);
   // Rẽ nhánh theo năng lực sàn (§18.6.3), không theo mã sàn
   const needDays = shop.data?.capabilities.returnWindow === 'days';
   const returnNote = shop.data
@@ -166,6 +176,8 @@ export function ShopSetupPage() {
 
   const suggestions = preview.data?.suggestions ?? [];
   const chosen = suggestions.filter((s) => choices[s.externalSkuId]);
+  const creating = chosen.filter((s) => choices[s.externalSkuId]!.create).length;
+  const creatable = creatableUnmatched(suggestions, choices);
   // Lệch = dòng đã có biến thể mà số trên sàn khác khả dụng sẽ đẩy (§18.7.5)
   const drifted = chosen.filter((s) => s.platformStock !== choices[s.externalSkuId]!.available);
   const current: SetupStep = finish.isPending || result ? 'run' : PATH[step];
@@ -174,6 +186,12 @@ export function ShopSetupPage() {
     setChoices((c) => ({ ...c, [id]: choice }));
     setRowErrors(({ [id]: _drop, ...rest }) => rest);
   };
+  const createAll = () => {
+    setChoices((c) => ({ ...c, ...Object.fromEntries(creatable.map((s) => [s.externalSkuId, createChoice()])) }));
+    setRowErrors({});
+  };
+  // Có dòng tạo SKU kho thì phải chọn nhóm hàng trước khi sang bước sau
+  const needGroup = creating > 0 && !groupId;
 
   const onSubmit = async (values: SetupForm) => {
     setError(null);
@@ -183,10 +201,16 @@ export function ShopSetupPage() {
       form.setError('returnWindowDays', { message: badDays });
       return;
     }
+    if (needGroup) {
+      setStep(0);
+      setGroupError('Chọn nhóm hàng cho SKU kho tạo mới');
+      return;
+    }
     try {
       const done = await finish.mutateAsync({
         id: shopId,
         decisions: toDecisions(suggestions, choices),
+        ...(creating > 0 ? { createGroupId: groupId } : {}),
         openingStock: values.openingStock,
         // Mốc kéo đơn do BE đặt, không gửi (§18.6.2)
         ...(needDays ? { returnWindowDays: Number(values.returnWindowDays) } : {}),
@@ -195,18 +219,24 @@ export function ShopSetupPage() {
       setResult(done);
       const details = [
         done.matched ? `liên kết ${done.matched} SKU sàn` : null,
+        done.created ? `tạo ${done.created} SKU kho` : null,
         done.stocktakeNumber ? `tạo phiếu kiểm kho ${done.stocktakeNumber}` : null,
       ].filter(Boolean);
       toast.success(`${done.shop.shopName} đã thiết lập xong${details.length ? `: ${details.join(', ')}` : ''}`);
     } catch (e) {
       const fieldErrors = getProblem(e)?.errors;
       const byRow = decisionErrors(suggestions, fieldErrors);
+      if (fieldErrors?.createGroupId) {
+        setStep(0);
+        setGroupError(fieldErrors.createGroupId);
+      }
       if (Object.keys(byRow).length) {
         setStep(0);
         setRowErrors(byRow);
         setError('Có SKU liên kết chưa hợp lệ, xem lỗi ở từng dòng bên dưới.');
         return;
       }
+      if (fieldErrors?.createGroupId) return;
       if (fieldErrors?.returnWindowDays) {
         setStep(2);
         form.setError('returnWindowDays', { message: fieldErrors.returnWindowDays });
@@ -219,10 +249,18 @@ export function ShopSetupPage() {
     }
   };
 
-  const next = () => setStep((s) => s + 1);
+  const next = () => {
+    if (step === 0 && needGroup) {
+      setGroupError('Chọn nhóm hàng cho SKU kho tạo mới');
+      return;
+    }
+    setStep((s) => s + 1);
+  };
 
   return (
     <div className="mx-auto grid max-w-3xl gap-4">
+      {/* Mở từ hướng dẫn thiết lập: thanh quay lại, hoàn tất thì tự về wizard (FE#419) */}
+      <WelcomeReturnBar stepKey="setup_shop" finished={Boolean(result)} />
       <PageHeader
         title={`Thiết lập ${shop.data.shopName}`}
         subtitle={`${platformLabel(shop.data.platform, shop.data.platformName)} · làm một lần sau khi kết nối; xong mới đồng bộ đơn và tồn`}
@@ -249,8 +287,21 @@ export function ShopSetupPage() {
                 <>
                   <StepHeader title="Liên kết SKU sàn" help={STEP_HELP.match}>
                     {preview.data && (
-                      <span className="ms-auto text-sm font-normal text-muted-foreground">
-                        Đã liên kết <b className="font-mono text-foreground">{chosen.length}</b> / {suggestions.length}
+                      <span className="ms-auto flex items-center gap-2 text-sm font-normal text-muted-foreground">
+                        <span>
+                          Đã liên kết <b className="font-mono text-foreground">{chosen.length}</b> / {suggestions.length}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={preview.isFetching}
+                          onClick={() => void preview.refetch()}
+                          aria-label="Tải lại SKU sàn"
+                        >
+                          <RefreshCw className={cn(preview.isFetching && 'animate-spin motion-reduce:animate-none')} />
+                          Tải lại
+                        </Button>
                       </span>
                     )}
                   </StepHeader>
@@ -268,6 +319,19 @@ export function ShopSetupPage() {
                         <AlertMessage severity="info">{NAME_MATCH_SKIPPED_NOTE}</AlertMessage>
                       </div>
                     )}
+                    {(creatable.length > 0 || creating > 0) && (
+                      <CreatePanel
+                        creatable={creatable.length}
+                        creating={creating}
+                        groupId={groupId}
+                        error={groupError}
+                        onCreateAll={createAll}
+                        onGroup={(id) => {
+                          setGroupId(id);
+                          setGroupError(null);
+                        }}
+                      />
+                    )}
                     {preview.data && !suggestions.length && (
                       <p className="text-sm text-muted-foreground">Gian hàng chưa có SKU nào trên sàn.</p>
                     )}
@@ -277,20 +341,14 @@ export function ShopSetupPage() {
                         suggestion={s}
                         choice={choices[s.externalSkuId] ?? null}
                         error={rowErrors[s.externalSkuId]}
-                        taken={
-                          new Set(
-                            Object.entries(choices)
-                              .filter(([id, c]) => id !== s.externalSkuId && c)
-                              .map(([, c]) => c!.variantId),
-                          )
-                        }
+                        taken={takenVariants(choices, s.externalSkuId)}
                         onChoose={(c) => choose(s.externalSkuId, c)}
                       />
                     ))}
                     {Boolean(preview.data?.unmatchedRemote) && (
                       <p className="text-sm text-muted-foreground">
-                        {preview.data!.unmatchedRemote} SKU sàn chưa có gợi ý. Chọn SKU kho ở từng dòng, hoặc liên kết sau ở trang
-                        Listing & giá.
+                        {preview.data!.unmatchedRemote} SKU sàn chưa có gợi ý. Chọn SKU kho, tạo SKU kho ở từng dòng, hoặc liên kết sau ở
+                        trang Listing & giá.
                       </p>
                     )}
                   </CardContent>
@@ -321,8 +379,10 @@ export function ShopSetupPage() {
                             {drifted.map((s) => {
                               const c = choices[s.externalSkuId]!;
                               return (
-                                <tr key={s.externalSkuId} className="border-t" data-drift={c.sku}>
-                                  <td className="px-3 py-2 font-mono">{c.sku}</td>
+                                <tr key={s.externalSkuId} className="border-t" data-drift={c.create ? s.externalSkuId : c.sku}>
+                                  <td className={cn('px-3 py-2', !c.create && 'font-mono')}>
+                                    {c.create ? `${s.title} (SKU kho tạo mới)` : c.sku}
+                                  </td>
                                   <td className="px-3 py-2 text-end tabular-nums">{s.platformStock}</td>
                                   <td className="px-3 py-2 text-end tabular-nums">{c.available}</td>
                                   <td className="px-3 py-2 text-end font-medium tabular-nums" data-testid="after-push">
@@ -498,7 +558,9 @@ function SuggestionRow({
           <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <RemoteStatusBadge suggestion={s} />
             <MatchBadge suggestion={s} />
-            {choice ? (
+            {choice?.create ? (
+              <span data-testid="create-chosen">Tạo SKU kho mới khi hoàn tất, mã SKU là SKU người bán trên sàn</span>
+            ) : choice ? (
               <span>
                 Liên kết với <b className="font-mono text-foreground">{choice.sku}</b>
                 {choice.picked && ' (chọn tay)'} · Có thể bán {choice.available}
@@ -534,6 +596,20 @@ function SuggestionRow({
           >
             {hasSuggestion ? 'Chọn SKU kho khác' : 'Chọn SKU kho'}
           </Button>
+          {s.canCreate && !choice?.create && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label={`Tạo SKU kho cho ${s.title}`}
+              onClick={() => {
+                setPicking(false);
+                onChoose(createChoice());
+              }}
+            >
+              Tạo SKU kho
+            </Button>
+          )}
           {choice && (
             <Button
               type="button"
@@ -562,10 +638,78 @@ function SuggestionRow({
           }}
         />
       )}
+      {!choice && s.cannotCreateReason && CANNOT_CREATE_TEXT[s.cannotCreateReason] && (
+        <p className="text-xs text-muted-foreground" data-testid="cannot-create" data-reason={s.cannotCreateReason}>
+          {CANNOT_CREATE_TEXT[s.cannotCreateReason]}
+        </p>
+      )}
       {error && (
         <p className="text-sm text-destructive" role="alert" data-testid="decision-error">
           {error}
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Tạo SKU kho từ SKU sàn (commerio-backend#500, §18.7.5): nút chọn mọi dòng còn tạo được, và ô nhóm hàng bắt buộc khi
+ * có dòng tạo. BE tạo sản phẩm theo sản phẩm trên sàn, mỗi SKU sàn một SKU kho, giá chuẩn bằng giá trên sàn.
+ */
+function CreatePanel({
+  creatable,
+  creating,
+  groupId,
+  error,
+  onCreateAll,
+  onGroup,
+}: {
+  creatable: number;
+  creating: number;
+  groupId: string;
+  error: string | null;
+  onCreateAll: () => void;
+  onGroup: (id: string) => void;
+}) {
+  const groups = useGroups();
+  return (
+    <div className="mb-1 grid gap-3 rounded-lg border border-dashed p-3.5" data-testid="setup-create">
+      <div className="flex flex-wrap items-center gap-3">
+        <PackagePlus className="size-5 shrink-0 text-primary" aria-hidden />
+        <p className="min-w-0 flex-1 text-sm">
+          <b className="font-medium">Chưa có sản phẩm trong Commerio?</b>{' '}
+          <span className="text-muted-foreground">
+            Tạo SKU kho từ SKU sàn: tên và giá lấy từ sàn, mã SKU kho là SKU người bán.
+          </span>
+        </p>
+        {creatable > 0 && (
+          <Button type="button" size="sm" onClick={onCreateAll}>
+            Tạo SKU kho cho {creatable} SKU chưa khớp
+          </Button>
+        )}
+      </div>
+      {creating > 0 && (
+        <div className="grid gap-1.5 sm:max-w-sm">
+          <Label htmlFor="create-group">Nhóm hàng cho {creating} SKU kho tạo mới</Label>
+          <Select value={groupId} onValueChange={onGroup} disabled={groups.isPending}>
+            <SelectTrigger id="create-group" className="w-full" aria-invalid={Boolean(error)} aria-describedby={error ? 'create-group-error' : undefined}>
+              <SelectValue placeholder={groups.isPending ? 'Đang tải nhóm hàng...' : 'Chọn nhóm hàng'} />
+            </SelectTrigger>
+            <SelectContent>
+              {(groups.data ?? []).map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {groups.isError && <p className="text-sm text-destructive">{problemMessage(groups.error)}</p>}
+          {error && (
+            <p id="create-group-error" className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

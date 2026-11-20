@@ -67,6 +67,7 @@ import {
 } from './shared';
 import { VariantPicker } from './VariantPicker';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
 
 const MANUAL_TYPES: ManualStockDocType[] = ['stocktake', 'write_off', 'to_quarantine'];
 const str = (n: number | undefined) => (n === undefined ? '' : String(n));
@@ -433,6 +434,8 @@ export function StockDocPage() {
 
   return (
     <div>
+      {/* Mở từ hướng dẫn thiết lập: thanh quay lại, ghi sổ xong thì tự về wizard (FE#419) */}
+      {isStocktake && <WelcomeReturnBar stepKey="opening_stock" finished={doc?.status === 'posted'} className="mb-4" />}
       <PageHeader
         title={title}
         subtitle={DOC_TYPE_HELP[type]}

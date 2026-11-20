@@ -486,12 +486,21 @@ export interface SetupSuggestion {
   /** Khả dụng ở Commerio (null khi match = none) và số đang có trên sàn */
   available: number | null;
   platformStock: number;
+  /** Tạo được SKU kho từ SKU sàn này (commerio-backend#500, §18.7.5) */
+  canCreate: boolean;
+  /** Có khi và chỉ khi canCreate = false */
+  cannotCreateReason: CannotCreateReason | null;
 }
+
+/** no_seller_sku: sàn chưa có SKU người bán; sku_too_long: quá 50 ký tự; sku_taken: đã là SKU kho; no_permission: thiếu catalog.product.manage */
+export type CannotCreateReason = 'no_seller_sku' | 'sku_too_long' | 'sku_taken' | 'no_permission';
 
 /** Quyết định cho một SKU sàn: variantId người dùng chọn (có thể khác gợi ý), null là bỏ qua */
 export interface SetupDecision {
   externalSkuId: string;
   variantId: string | null;
+  /** true: tạo SKU kho từ SKU sàn rồi liên kết, kèm variantId null (§18.7.5) */
+  create?: boolean;
 }
 
 export interface ShopSetupPreview {
@@ -516,6 +525,8 @@ export type OpeningStockMode = 'push' | 'stocktake';
 export interface ShopSetupInput {
   /** SKU có trong suggestions mà không có ở đây coi như bỏ qua. Không gửi kèm externalSkuIds cũ */
   decisions: SetupDecision[];
+  /** Nhóm hàng cho SKU kho tạo từ SKU sàn; bắt buộc khi có dòng create */
+  createGroupId?: string;
   openingStock: OpeningStockMode;
   /** Bắt buộc, số nguyên 1–60 khi capabilities.returnWindow = days */
   returnWindowDays?: number | null;
@@ -524,6 +535,8 @@ export interface ShopSetupInput {
 export interface ShopSetupResult {
   shop: Shop;
   matched: number;
+  /** Số SKU kho vừa tạo từ SKU sàn, đã tính trong matched */
+  created: number;
   /** Số phiếu kiểm kê nháp vừa lập (khi chọn stocktake và có SKU lệch) */
   stocktakeNumber: string | null;
 }
