@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { PageSpinner } from '@/components/common/PageSpinner';
@@ -8,8 +8,10 @@ import { authErrorMessage } from '@/features/auth/authErrors';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { MODULE_LABELS, type ModuleKey } from '@/utils/modules';
 import { ForbiddenPage } from '@/components/common/ForbiddenPage';
-import { LandingPage } from '@/features/landing/LandingPage';
 import { ROUTES } from './routes';
+
+/** Trang giới thiệu tách chunk riêng: motion (Spider UI) chỉ tải khi người chưa đăng nhập mở `/` (FE#401) */
+const LandingPage = lazy(() => import('@/features/landing/LandingPage').then((m) => ({ default: m.LandingPage })));
 
 /** Chưa đăng nhập → /login, giữ lại trang đang mở để quay lại. */
 export function RequireAuth() {
@@ -47,7 +49,13 @@ export function RequireGuest() {
  */
 export function HomeRedirect() {
   const { isAuthenticated, account, companyContext } = useAuth();
-  if (!isAuthenticated || !account) return <LandingPage />;
+  if (!isAuthenticated || !account) {
+    return (
+      <Suspense fallback={<PageSpinner />}>
+        <LandingPage />
+      </Suspense>
+    );
+  }
   if (account.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (account.isPlatformAdmin) return <Navigate to={ROUTES.platform.root} replace />;
   if (companyContext) {
@@ -81,8 +89,7 @@ export function RequireCompany() {
   const select = useSelectCompany();
 
   const membership = memberships.find((m) => m.companyId === companyId);
-  const needsSwitch =
-    !account?.isPlatformAdmin && Boolean(membership) && companyContext?.companyId !== companyId;
+  const needsSwitch = !account?.isPlatformAdmin && Boolean(membership) && companyContext?.companyId !== companyId;
 
   // Ghi nhớ công ty đã xin token để không gọi lặp (StrictMode chạy effect hai lần)
   const requested = useRef<string | null>(null);

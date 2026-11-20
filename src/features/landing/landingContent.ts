@@ -1,75 +1,180 @@
 /**
- * Nội dung trang giới thiệu (FE#401, Documents/27 US-CT-14, phương án A: luồng 7 bước làm trục).
- * Chỉ nhắc chức năng đã có route BE trên main (đối chiếu 20/11/2026); nguồn ghi ở comment từng mục.
- * Không nhắc: cổng thanh toán, trợ lý AI, dự báo dòng tiền (BE#233), MISA (BE#232), nhiều kho (US-CT-14 tiêu chí 5).
+ * Nội dung trang giới thiệu (FE#401, Documents/27 US-CT-14). Thành chốt 20/11/2026 phương án B của bản thiết kế HTML
+ * (.claude/issues/landing/design/index.html): hero sáng bất đối xứng, bốn vấn đề dạng bento, thẻ quạt phân hệ, khối
+ * dành cho doanh nghiệp, hỏi đáp.
+ * Định vị theo báo cáo (report/sections/gioi-thieu.tex mục 1.1, 1.3): Commerio là nền tảng cho nhiều doanh nghiệp bán
+ * trên nhiều sàn dùng chung, mỗi công ty dữ liệu riêng; trục nội dung là bốn vấn đề ở mục 1.1. Sàn đang hỗ trợ chỉ ghi
+ * ở hỏi đáp và footer, không làm tiêu đề. Chỉ nhắc chức năng đã có route BE trên main (đối chiếu 20/11/2026). Không
+ * nhắc: cổng thanh toán, trợ lý AI, dự báo dòng tiền (BE#233), MISA (BE#232), nhiều kho (US-CT-14 tiêu chí 5). Không
+ * có lời chứng thực hay số liệu khách hàng; con số duy nhất về thị trường lấy từ báo cáo, có ghi nguồn.
  * Chức năng ra hay vào MVP thì sửa file này trong cùng PR đổi chức năng đó.
  */
+import inventoryShot from '@/assets/landing/mod-inventory.jpg';
+import packagesShot from '@/assets/landing/mod-packages.jpg';
+import settlementsShot from '@/assets/landing/mod-settlements.jpg';
 
-export interface LandingStep {
-  title: string;
-  text: string;
-  who: string;
+export interface LandingShot {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
 }
 
-/** Bảy bước theo Documents/24 mục 1, người làm theo mục 6.6 */
-export const LANDING_STEPS: LandingStep[] = [
-  // purchasing /requests, /requests/:id/:action (25 mục 3)
-  { title: 'Đề nghị nhập', text: 'Kho lập đề nghị, CEO duyệt rồi mới đặt hàng.', who: 'Kho lập · CEO duyệt' },
-  // /goods-receipts, /supplier-returns (25 mục 4.1, 4.3)
-  { title: 'Nhận hàng', text: 'Phiếu nhận ghi số đạt, số lỗi; hàng lỗi trả lại nhà cung cấp.', who: 'Kho' },
-  // catalog /products, /products/:id/variants, /variants/bulk (25 mục 5)
-  { title: 'Hoàn thiện sản phẩm', text: 'Biến thể, SKU, ảnh, thuộc tính theo danh mục sàn.', who: 'Admin' },
-  // channel /shops/:platform/token, /shops/:id/setup, /listings/push, /listings/match, /listings/pending-prices (25 mục 6)
-  { title: 'Lên sàn', text: 'Kết nối gian hàng, ghép SKU, đẩy listing, kiểm giá trước khi đăng.', who: 'Admin' },
-  // /shops/:id/orders/pull, sales /orders (25 mục 8.1, 7.4)
-  { title: 'Nhận đơn', text: 'Đơn từ Lazada, TikTok Shop về một danh sách, tự giữ tồn.', who: 'Hệ thống' },
-  // fulfillment /pick-list, /packages/documents, /packages/:id/ready, /packages/hand-over (25 mục 8.3)
-  { title: 'Đóng gói, giao', text: 'Danh sách lấy hàng, in chứng từ, sẵn sàng giao, bàn giao vận chuyển.', who: 'Kho' },
-  // returns /receive; finance /settlements, /orders/profits (25 mục 9, 10.2, 10.3)
-  { title: 'Trả hàng, tiền', text: 'Nhận hàng hoàn, đối soát tiền sàn trả, xem lãi từng đơn.', who: 'Kho, CEO' },
+/** Ba ý dưới nút ở hero: tính chất của nền tảng (report mục 1.3) */
+export const LANDING_HIGHLIGHTS = [
+  'Dữ liệu mỗi công ty tách riêng',
+  '4 vai trò có sẵn',
+  'Một số tồn cho mọi gian hàng',
 ];
 
-export type LandingFeatureIcon = 'warehouse' | 'store' | 'package' | 'money';
+/** Số liệu thị trường duy nhất trên trang, trích báo cáo mục 1.1 */
+export const LANDING_MARKET_NOTE = '55,4% nhà bán hàng kinh doanh trên từ hai kênh trở lên (khảo sát của Sapo, 2023).';
 
-export interface LandingFeature {
-  icon: LandingFeatureIcon;
-  title: string;
-  text: string;
-}
+const INVENTORY_SHOT: LandingShot = {
+  src: inventoryShot,
+  width: 1640,
+  height: 679,
+  alt: 'Màn Kho hàng: tồn kho, tạm giữ, khoá chờ duyệt theo từng SKU',
+};
+const PACKAGES_SHOT: LandingShot = {
+  src: packagesShot,
+  width: 2096,
+  height: 1060,
+  alt: 'Màn Kiện hàng: các tab theo bước đóng gói và bảng kiện kèm hạn bàn giao',
+};
 
-export const LANDING_FEATURES: LandingFeature[] = [
-  // inventory /stock, /documents, /documents/:id/decide (25 mục 7.1, 7.3)
+/** Bốn vấn đề ở report mục 1.1 và cách Commerio giải; hai thẻ đầu kèm ảnh màn thật */
+export const LANDING_PAINS: { title: string; pain: string; fix: string; shot?: LandingShot }[] = [
+  // inventory /stock, đẩy tồn lên sàn; sales /orders giữ tồn
   {
-    icon: 'warehouse',
-    title: 'Kho',
-    text: 'Tồn theo từng SKU, phiếu kiểm kê, xuất huỷ, chuyển chờ xử lý, phiếu nào cũng cần người duyệt.',
+    title: 'Bán quá số hàng có',
+    pain: 'Sàn cập nhật tồn chậm nên vẫn nhận đơn khi kho đã hết.',
+    fix: 'Một số tồn đẩy lên mọi gian hàng. Đơn về là tự giữ tồn.',
+    shot: INVENTORY_SHOT,
   },
-  // channel /shops, /remote-skus, /listings/match, /listings/sync (25 mục 6)
-  { icon: 'store', title: 'Gian hàng', text: 'Kết nối gian hàng, ghép SKU sàn với biến thể, đẩy và đồng bộ listing.' },
-  // fulfillment /packages/:id/split, /report-lost, /packages/documents (25 mục 8)
-  { icon: 'package', title: 'Đơn và kiện', text: 'Đơn hai sàn một chỗ, tách kiện, đóng gói, in chứng từ, báo mất hàng.' },
-  // finance /ledger, /orders/profits, /skus/profits, /settlements, /configs (25 mục 10.1–10.4)
+  // sales /orders; fulfillment /packages
   {
-    icon: 'money',
-    title: 'Tiền',
-    text: 'Sổ thu chi, lãi theo đơn và theo SKU, đối soát quyết toán sàn, cấu hình phí và thuế có phiên bản.',
+    title: 'Mở nhiều trang để duyệt đơn',
+    pain: 'Mỗi sàn một Seller Center, nhân viên duyệt đơn từng nơi.',
+    fix: 'Một danh sách đơn và kiện cho mọi sàn, đóng gói theo hàng đợi.',
+    shot: PACKAGES_SHOT,
+  },
+  // inventory /stock (cần nhập thêm); purchasing /requests/:id/:action
+  {
+    title: 'Nhập hàng theo cảm tính',
+    pain: 'Không thấy tồn tổng của mọi kênh.',
+    fix: 'Tồn tổng theo SKU, báo hàng cần nhập. Đề nghị nhập có người duyệt.',
+  },
+  // finance /ledger, /orders/profits, /settlements
+  {
+    title: 'Không biết lãi thực',
+    pain: 'Tiền sàn trả gộp nhiều đơn, đã trừ phí, phải khớp bằng tay.',
+    fix: 'Sổ tiền theo đơn, lãi theo đơn và SKU, đối soát tiền sàn trả.',
   },
 ];
 
-export interface LandingRule {
+export interface LandingGroup {
+  id: string;
   title: string;
   text: string;
+  /** Màu nền thẻ: token của Commerio */
+  bg: string;
+  textColor: string;
+  subtitleColor: string;
+  rotation: number;
+  shot: LandingShot;
 }
 
-/** Nguyên tắc ở 25 mục 0, 11; route inventory /documents/:id/decide, report /self-approvals, audit (US-CT-10) */
-export const LANDING_RULES: LandingRule[] = [
+/** Ba thẻ quạt, mỗi thẻ gom hai phân hệ */
+export const LANDING_GROUPS: LandingGroup[] = [
+  // catalog /products, /variants/bulk; inventory /stock, /documents/:id/decide; purchasing /requests, /goods-receipts
   {
-    title: 'Người duyệt khác người lập.',
-    text: 'Đề nghị nhập, phiếu kho, ghép SKU cần người thứ hai bấm duyệt.',
+    id: 'hang-kho',
+    title: 'Hàng & kho',
+    text: 'Sản phẩm nhiều biến thể, mỗi biến thể một SKU. Tồn chỉ đổi qua phiếu nhập, kiểm kê, xuất huỷ, có người lập và người duyệt khác nhau.',
+    bg: 'var(--warning)',
+    textColor: '#1f1600',
+    subtitleColor: 'rgba(31,22,0,0.72)',
+    rotation: -10,
+    shot: INVENTORY_SHOT,
+  },
+  // channel /shops, /listings/push, /listings/match; sales /orders; fulfillment /pick-list, /packages/hand-over; returns /receive
+  {
+    id: 'san-don',
+    title: 'Sàn & đơn',
+    text: 'Kết nối gian hàng trên các sàn, ghép SKU, đẩy listing. Đơn về tự giữ tồn, kho đóng gói theo hàng đợi, quét nhận hàng hoàn.',
+    bg: 'color-mix(in oklab, var(--primary) 22%, #070b14)',
+    textColor: '#ffffff',
+    subtitleColor: 'rgba(255,255,255,0.75)',
+    rotation: 3,
+    shot: PACKAGES_SHOT,
+  },
+  // finance /ledger, /orders/profits, /skus/profits, /settlements, /configs
+  {
+    id: 'tien',
+    title: 'Tiền & đối soát',
+    text: 'Sổ giao dịch ghi doanh thu, phí, thuế theo đơn. Đối soát số sàn trả với số phải thu, xem lãi theo đơn và theo SKU.',
+    bg: 'var(--primary)',
+    textColor: '#ffffff',
+    subtitleColor: 'rgba(255,255,255,0.82)',
+    rotation: 7,
+    shot: {
+      src: settlementsShot,
+      width: 1640,
+      height: 572,
+      alt: 'Màn Đối soát công nợ sàn: số đơn chờ sàn thanh toán và bảng phải thu theo từng đơn',
+    },
+  },
+];
+
+/** Bắt đầu dùng: Documents/24 mục 6 (đăng ký, mời nhân viên, kết nối gian hàng) */
+export const LANDING_ONBOARDING = [
+  { title: 'Đăng ký công ty', text: 'Người đăng ký là CEO. Xác minh email bằng mã gửi về hộp thư.' },
+  { title: 'Mời nhân viên', text: 'Giao vai trò Admin, Sale, Nhân viên kho. Mỗi người chỉ thấy phần việc của mình.' },
+  { title: 'Kết nối gian hàng', text: 'Cấp quyền cho Commerio trên sàn, ghép SKU trên sàn với sản phẩm của bạn.' },
+  { title: 'Bán hàng', text: 'Đơn về một danh sách, tồn cập nhật lên mọi gian hàng.' },
+];
+
+/** Điểm khác biệt (report mục 1.1, 1.3; Documents/25 nguyên tắc người thứ hai) */
+export const LANDING_DIFFS = [
+  {
+    icon: 'scale' as const,
+    title: 'Đối soát có cả TikTok Shop',
+    text: 'So tiền sàn trả với số phải thu theo từng đơn, kể cả TikTok Shop.',
   },
   {
-    title: 'Tồn đi theo thẻ kho.',
-    text: 'Nhận hàng, giữ cho đơn, xuất cho kiện, nhận hàng hoàn đều để lại dấu vết.',
+    icon: 'shield' as const,
+    title: 'Người duyệt khác người lập',
+    text: 'Phiếu kho, đề nghị nhập, giá mới cần người thứ hai duyệt. Mọi thao tác đều ghi nhật ký.',
   },
-  { title: 'Nhật ký thao tác.', text: 'Ai đổi gì, lúc nào, trước và sau, CEO và Admin xem lại được.' },
+  {
+    icon: 'percent' as const,
+    title: 'Phí và thuế theo công ty bạn',
+    text: 'Lãi tính theo phí sàn và thuế do công ty tự khai, lưu theo từng phiên bản cấu hình.',
+  },
+];
+
+/** Hỏi đáp: report/sections/gioi-thieu.tex mục 1.3; Documents/24 mục 6.6; Documents/25 N6, N9 và mục 11 */
+export const LANDING_FAQ = [
+  {
+    q: 'Dữ liệu của công ty tôi có tách riêng với công ty khác không?',
+    a: 'Có. Mỗi công ty tự đăng ký và có sản phẩm, kho, đơn, tiền, tài khoản nhân viên riêng. Người làm cho nhiều công ty chọn công ty khi đăng nhập và chỉ thấy dữ liệu của công ty đã chọn. Người vận hành nền tảng không xem được dữ liệu kinh doanh của công ty.',
+  },
+  {
+    q: 'Kết nối gian hàng trên sàn thế nào?',
+    a: 'Ở màn Gian hàng, bấm Thêm gian hàng rồi đăng nhập tài khoản người bán trên sàn để cấp quyền cho Commerio. Sau đó ghép SKU trên sàn với sản phẩm của bạn.',
+  },
+  { q: 'Commerio đang hỗ trợ sàn nào?', a: 'Lazada và TikTok Shop.' },
+  {
+    q: 'Ai duyệt đề nghị nhập và phiếu kho?',
+    a: 'CEO duyệt đề nghị nhập. Phiếu kho cần duyệt, như kiểm kê hay xuất huỷ, phải do người khác người lập duyệt. Mọi thao tác duyệt đều ghi nhật ký.',
+  },
+  {
+    q: 'Khi nào tồn được đẩy lên sàn?',
+    a: 'Khi số có thể bán thay đổi, ví dụ nhận hàng, có đơn mới hoặc phiếu kiểm kê được duyệt, Commerio đẩy số mới lên các gian hàng đã ghép SKU. Tồn và giá theo Commerio; trạng thái giao hàng theo sàn.',
+  },
+  {
+    q: 'Có cần cài đặt phần mềm không?',
+    a: 'Không. Commerio chạy trên trình duyệt. Đăng ký công ty bằng email và mã số thuế, nhập mã xác minh gửi về email là vào làm việc.',
+  },
 ];
