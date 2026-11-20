@@ -353,7 +353,7 @@ const roles: MockRole[] = [
     companyId: 'cmp-001',
     name: 'Kiểm soát',
     // Xem nhân viên, lời mời nhưng không mời, duyệt, huỷ (US-CT-05 AC 4, US-CT-07: chỉ có quyền xem)
-    permissions: [P.financeView, P.transactionView, P.staffView],
+    permissions: [P.financeView, 'payment.transaction.view', P.staffView],
     version: 1,
     updatedAt: '2026-09-01T00:00:00.000Z',
   },
