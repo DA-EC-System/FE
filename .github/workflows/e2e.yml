@@ -98,7 +98,7 @@ jobs:
       # REGISTRATION_TEST_CODE của BE staging.
       E2E_REGISTRATION_TEST_EMAIL_DOMAIN: ${{ secrets.E2E_REGISTRATION_TEST_EMAIL_DOMAIN }}
       E2E_REGISTRATION_TEST_CODE: ${{ secrets.E2E_REGISTRATION_TEST_CODE }}
-      # Repo public: không ghi trace, ảnh chụp (chứa mã thử) vào artifact playwright-report-be
+      # Không ghi trace, ảnh chụp (chứa mã thử); job cũng không tải báo cáo lên artifact (repo public)
       PW_NO_TRACE: '1'
     steps:
       # Staging không trả lời thì dừng sớm, notify không tag tác giả PR (lỗi môi trường, không phải do PR).
@@ -131,16 +131,9 @@ jobs:
       - run: pnpm exec playwright install-deps chromium
         if: steps.browsers.outputs.cache-hit == 'true'
       # Có PW_BASE_URL nên Playwright không bật Vite, mở thẳng staging.
+      # Không tải báo cáo lên artifact: repo public, báo cáo (error-context, bước fill) chứa mã thử đăng ký
+      # (commerio-backend#459). Log của job thì GitHub tự che giá trị secret; xem lỗi trong log.
       - run: pnpm e2e:be
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: failure()
-        with:
-          name: playwright-report-be
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
-          retention-days: 7
 
   notify:
     needs: [e2e, e2e-be]
@@ -155,13 +148,15 @@ jobs:
             result: ${{ needs.e2e.result }}
             cmd: '`pnpm e2e` (mock)'
             artifact: playwright-report
+            report_hint: Xem báo cáo Playwright ở artifact `playwright-report` của lần chạy (giữ 7 ngày).
             marker: e2e-base
             staging_up: 'true'
           - suite: be
             job: e2e-be
             result: ${{ needs.e2e-be.result }}
             cmd: '`pnpm e2e:be` trên staging'
-            artifact: playwright-report-be
+            artifact: ''
+            report_hint: Xem lỗi trong log của job e2e-be (không tải báo cáo lên vì repo public, báo cáo chứa mã thử đăng ký).
             marker: e2e-be-base
             staging_up: ${{ needs.e2e-be.outputs.staging_up }}
     name: notify (${{ matrix.suite }})
@@ -177,6 +172,7 @@ jobs:
       SUITE_JOB: ${{ matrix.job }}
       SUITE_CMD: ${{ matrix.cmd }}
       ARTIFACT: ${{ matrix.artifact }}
+      REPORT_HINT: ${{ matrix.report_hint }}
       MARKER: ${{ matrix.marker }}
     steps:
       - name: Bộ này xanh hoặc không chạy
@@ -257,6 +253,6 @@ jobs:
           @${author} E2E ${SUITE_CMD} chạy trên \`main\` (\`${head:0:7}\`) đỏ: ${RUN_URL}
           PR này nằm trong các PR đã merge từ lần xanh gần nhất của bộ này (\`${base:0:7}\`): ${list}
           ${note}
-          Xem báo cáo Playwright ở artifact \`${ARTIFACT}\` của lần chạy (giữ 7 ngày). Lỗi do PR này thì mở PR sửa; không phải thì trả lời ở đây để nhóm biết."
+          ${REPORT_HINT} Lỗi do PR này thì mở PR sửa; không phải thì trả lời ở đây để nhóm biết."
             echo "Đã báo #$pr (@$author)" | tee -a "$GITHUB_STEP_SUMMARY"
           done
