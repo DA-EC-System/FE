@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,8 @@ export function RegroupNotice({ productId, platform, shops }: { productId: strin
   const isCeo = Boolean(companyContext?.roles.includes('CEO'));
   const separate = useSeparateProducts(productId);
   const regroup = useRegroupProduct();
+  // Gian hàng đã gửi lệnh gom trong phiên này: việc nền gọi sàn nên có thể quá 15 giây mới xong
+  const [queued, setQueued] = useState<ReadonlySet<string>>(new Set());
   const label = platformLabel(platform);
   const items = (separate.data ?? []).filter((s) => s.platform === platform);
   if (!items.length) return null;
@@ -25,6 +28,7 @@ export function RegroupNotice({ productId, platform, shops }: { productId: strin
   const onRegroup = async (shopId: string) => {
     try {
       await regroup.mutateAsync({ shopId, productId });
+      setQueued((q) => new Set(q).add(shopId));
       toast.success(`Đang gom trên ${label}. Danh sách tự tải lại sau khoảng 15 giây.`);
     } catch (e) {
       toast.error(regroupErrorText(getProblem(e)?.code, label, problemMessage(e)));
@@ -36,6 +40,21 @@ export function RegroupNotice({ productId, platform, shops }: { productId: strin
       {items.map((s) => {
         const shopName = shops.find((x) => x.id === s.shopId)?.shopName;
         const pending = regroup.isPending && regroup.variables?.shopId === s.shopId;
+        if (queued.has(s.shopId)) {
+          return (
+            <AlertMessage key={s.shopId} severity="info">
+              <div className="flex flex-wrap items-center justify-between gap-2" aria-live="polite">
+                <span>
+                  <b>Đang gom trên {label}{shopName ? ` (gian hàng ${shopName})` : ''}…</b> App đang tạo sản phẩm mới rồi gỡ các
+                  sản phẩm lẻ, có thể mất vài phút.
+                </span>
+                <Button type="button" size="sm" variant="outline" disabled={separate.isFetching} onClick={() => void separate.refetch()}>
+                  {separate.isFetching ? 'Đang tải...' : 'Tải lại'}
+                </Button>
+              </div>
+            </AlertMessage>
+          );
+        }
         return (
           <AlertMessage key={s.shopId} severity="info">
             <div className="flex flex-wrap items-center justify-between gap-2">
