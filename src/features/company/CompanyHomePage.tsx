@@ -20,6 +20,7 @@ import { changePercent, compactMoney, signedPercent } from '@/utils/kpi';
 import { MODULE_LABELS, isOptionalModule } from '@/utils/modules';
 import { PERMISSIONS } from '@/utils/permissions';
 import { RevenueChart } from './RevenueChart';
+import { OnboardingCard } from './OnboardingCard';
 import { TaskList } from './TaskList';
 
 const CHART_DAYS = [7, 14, 30] as const;
@@ -91,6 +92,7 @@ export function CompanyHomePage() {
         onTour={startTour}
       />
       <div className="grid gap-4">
+        <OnboardingCard companyId={companyContext.companyId} />
         <div data-guide="home-kpis">
           <KpiStrip label="Chỉ số chính">
             {canReport && (

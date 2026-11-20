@@ -3,20 +3,20 @@ import type { RealtimeMessage } from '@/api/realtime';
 import { groupsOf, packageNotice, belowThresholdText, isLivePath } from './useRealtime';
 
 describe('groupsOf: sự kiện → nhóm query làm mới (Documents/21 §13.2)', () => {
-  it('đơn, kiện, yêu cầu trả, gian hàng', () => {
-    expect(groupsOf('sales.order_created')).toEqual(['sales', 'fulfillment', 'tasks']);
-    expect(groupsOf('sales.order_status_changed')).toEqual(['sales', 'fulfillment', 'tasks']);
-    expect(groupsOf('fulfillment.package_status_changed')).toEqual(['fulfillment', 'sales', 'tasks']);
-    expect(groupsOf('fulfillment.package_delivery_failed')).toEqual(['fulfillment', 'sales', 'tasks']);
-    expect(groupsOf('fulfillment.package_lost')).toEqual(['fulfillment', 'sales', 'tasks']);
-    expect(groupsOf('sales.return_status_changed')).toEqual(['returns', 'sales', 'tasks']);
-    expect(groupsOf('channel.shop_status_changed')).toEqual(['shops', 'tasks']);
+  it('đơn, kiện, yêu cầu trả, gian hàng; nhóm nào làm mới việc cần làm thì làm mới cả checklist thiết lập', () => {
+    expect(groupsOf('sales.order_created')).toEqual(['sales', 'fulfillment', 'tasks', 'onboarding']);
+    expect(groupsOf('sales.order_status_changed')).toEqual(['sales', 'fulfillment', 'tasks', 'onboarding']);
+    expect(groupsOf('fulfillment.package_status_changed')).toEqual(['fulfillment', 'sales', 'tasks', 'onboarding']);
+    expect(groupsOf('fulfillment.package_delivery_failed')).toEqual(['fulfillment', 'sales', 'tasks', 'onboarding']);
+    expect(groupsOf('fulfillment.package_lost')).toEqual(['fulfillment', 'sales', 'tasks', 'onboarding']);
+    expect(groupsOf('sales.return_status_changed')).toEqual(['returns', 'sales', 'tasks', 'onboarding']);
+    expect(groupsOf('channel.shop_status_changed')).toEqual(['shops', 'tasks', 'onboarding']);
     expect(groupsOf('channel.listing_sync_changed')).toEqual(['shops']);
   });
 
   it('tồn, nhập hàng giữ như cũ', () => {
-    expect(groupsOf('inventory.below_threshold')).toEqual(['inventory', 'tasks']);
-    expect(groupsOf('purchasing.request_submitted')).toEqual(['purchasing', 'tasks']);
+    expect(groupsOf('inventory.below_threshold')).toEqual(['inventory', 'tasks', 'onboarding']);
+    expect(groupsOf('purchasing.request_submitted')).toEqual(['purchasing', 'tasks', 'onboarding']);
   });
 
   it('sự kiện đã bỏ hoặc chưa biết thì không làm mới gì', () => {
