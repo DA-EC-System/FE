@@ -138,7 +138,7 @@ pnpm e2e --repeat-each=3                   # bắt test chập chờn trước k
 - Khi chạy E2E, mock không trễ (trình duyệt tự động hoá có `navigator.webdriver`). Test cần thấy trạng thái loading
   thì đặt `window.__commerioMock = { latencyMs: 350 }` bằng `page.addInitScript` trước khi tải trang.
 - Test hỏng thì xem trace: `pnpm exec playwright show-trace test-results/<tên test>/trace.zip`.
-  Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày); job `e2e-be` tải lên artifact `playwright-report-be`.
+  Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày); job `e2e-be` không tải báo cáo lên (repo public, báo cáo chứa mã thử đăng ký của commerio-backend#459), xem lỗi trong log của job.
 
 **Với BE thật** (chạy lần lượt một worker): mỗi file spec tự đăng ký công ty giả mới qua API công khai rồi đăng nhập
 (`e2e/be/congTyGia.ts` cho `be/p4`, `be/p5`), không ghi thẳng DB, không cần seed. Chạy được trên cùng database nhiều lần.
@@ -153,7 +153,7 @@ các thứ đó qua API (đơn chỉ vào từ sàn kết nối OAuth; route `de
 
 Trên CI, job `e2e-be` của `.github/workflows/e2e.yml` chạy `pnpm e2e:be` trên staging lúc 02:00 mỗi đêm (cùng giờ với `pnpm e2e`)
 và khi bấm "Run workflow" trên main (chọn bộ `be` để chỉ chạy bộ này); không chạy trên PR vì staging chỉ có code của main.
-Đỏ thì comment, tag tác giả các PR đã merge từ lần `e2e-be` xanh gần nhất; báo cáo ở artifact `playwright-report-be`.
+Đỏ thì comment, tag tác giả các PR đã merge từ lần `e2e-be` xanh gần nhất; lỗi xem trong log của job `e2e-be`.
 Staging giới hạn 20 lần gọi `/identity/login` và `/identity/register` mỗi 15 phút mỗi IP; một lần chạy đang gọi `/login` 17 lần,
 `/register` 8 lần (be/p1 14 và 5, mỗi file p4, p5/doi-soat, p5/finance-lifecycle một và một), thêm spec thì giữ dưới 18:
 spec mới dùng `taoCongTyGia` một lần trong `beforeAll`, các test trong file dùng chung trang đã đăng nhập.

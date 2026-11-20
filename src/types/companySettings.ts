@@ -91,7 +91,8 @@ export interface CompanyAuditLogDetail extends CompanyAuditLog {
 export interface CompanyProfile {
   id: string;
   name: string;
-  taxCode: string;
+  /** null khi quản trị nền tảng đã gỡ (commerio-backend#459) */
+  taxCode: string | null;
   /** Địa chỉ đăng ký; null khi chưa khai */
   address: string | null;
   /** Tổ chức chịu trách nhiệm hàng hoá; null = theo tên công ty */

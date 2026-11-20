@@ -9,7 +9,7 @@
  */
 
 import type { CompanyStatus } from './company';
-import type { ModuleKey, OptionalModuleKey } from '@/utils/modules';
+import type { ModuleKey } from '@/utils/modules';
 
 export interface Account {
   id: string;
@@ -69,18 +69,37 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
-/** UC-PI-01: người đăng ký thành CEO; mười phân hệ lõi luôn bật. */
+/**
+ * UC-PI-01 bước 1 (Documents/21 mục 2.1, commerio-backend#459): người đăng ký thành CEO. Phân hệ lõi (kể cả Kênh bán)
+ * và Nhập hàng bật sẵn; phân hệ khác bật sau ở Cài đặt. BE gửi mã 6 số qua email.
+ */
 export interface RegisterCompanyRequest {
   company: { name: string; taxCode: string };
   ceo: { fullName: string; email: string; password: string };
-  optionalModules: OptionalModuleKey[];
-  /** Bắt buộc true khi chọn phân hệ assistant: đồng ý gửi dữ liệu tới OpenAI */
-  assistantDataConsent: boolean;
 }
 
-export interface RegisterCompanyResponse {
-  companyId: string;
-  email: string;
+/** 202 của `register` và `register/resend`: như nhau dù email đã có tài khoản hay chưa */
+export interface RegistrationStatus {
+  registrationId: string;
+  /** Mã hết hạn lúc này (ISO 8601), 5 phút sau lần gửi */
+  codeExpiresAt: string;
+  /** Lần đăng ký hết hạn lúc này (ISO 8601), 30 phút sau khi gửi form */
+  registrationExpiresAt: string;
+  /** Số giây chờ trước khi được xin mã lại */
+  resendAfterSeconds: number;
+}
+
+export interface VerifyRegistrationRequest {
+  registrationId: string;
+  code: string;
+}
+
+/** 201 của `register/verify`: phiên đã gắn công ty mới, như `/login` rồi `select-company` */
+export interface VerifyRegistrationResponse {
+  accessToken: string;
+  account: Account;
+  memberships: Membership[];
+  context: CompanyContext;
 }
 
 /** Token mới gắn với công ty đã chọn (UC-PI-03) */

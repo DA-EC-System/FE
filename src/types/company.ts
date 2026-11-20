@@ -11,7 +11,8 @@ export type CompanyStatus = 'active' | 'locked';
 export interface Company {
   id: string;
   name: string;
-  taxCode: string;
+  /** null khi quản trị nền tảng đã gỡ, hoặc mã cũ sai định dạng/trùng (commerio-backend#459) */
+  taxCode: string | null;
   /** Người đăng ký, trở thành CEO (UC-PI-01) */
   ceoName: string;
   ceoEmail: string;

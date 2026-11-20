@@ -7,7 +7,9 @@ import type {
   MeResponse,
   RefreshResponse,
   RegisterCompanyRequest,
-  RegisterCompanyResponse,
+  RegistrationStatus,
+  VerifyRegistrationRequest,
+  VerifyRegistrationResponse,
   SelectCompanyResponse,
 } from '@/types/auth';
 
@@ -21,8 +23,19 @@ export const authApi = {
     const { data } = await apiClient.post<LoginResponse>('/identity/google', payload);
     return data;
   },
-  async registerCompany(payload: RegisterCompanyRequest): Promise<RegisterCompanyResponse> {
-    const { data } = await apiClient.post<RegisterCompanyResponse>('/identity/register', payload);
+  /** Đăng ký bước 1: BE gửi mã qua email (commerio-backend#459) */
+  async registerCompany(payload: RegisterCompanyRequest): Promise<RegistrationStatus> {
+    const { data } = await apiClient.post<RegistrationStatus>('/identity/register', payload);
+    return data;
+  },
+  /** Xin mã mới; mã cũ mất hiệu lực. 429 kèm `Retry-After` khi chưa đủ 60 giây */
+  async resendRegistration(registrationId: string): Promise<RegistrationStatus> {
+    const { data } = await apiClient.post<RegistrationStatus>('/identity/register/resend', { registrationId });
+    return data;
+  },
+  /** Đăng ký bước 2: mã đúng thì BE tạo công ty, trả phiên gắn công ty và đặt cookie refresh */
+  async verifyRegistration(payload: VerifyRegistrationRequest): Promise<VerifyRegistrationResponse> {
+    const { data } = await apiClient.post<VerifyRegistrationResponse>('/identity/register/verify', payload);
     return data;
   },
   async changePassword(payload: ChangePasswordRequest): Promise<void> {

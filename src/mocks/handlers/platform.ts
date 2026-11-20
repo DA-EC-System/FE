@@ -43,7 +43,7 @@ export const platformHandlers = [
       items = items.filter(
         (c) =>
           c.name.toLowerCase().includes(search) ||
-          c.taxCode.includes(search) ||
+          (c.taxCode ?? '').includes(search) ||
           c.ceoEmail.toLowerCase().includes(search),
       );
     }

@@ -102,7 +102,9 @@ function ProfileForm({ profile }: { profile: CompanyProfile }) {
             <dt className="text-muted-foreground">Tên công ty</dt>
             <dd data-testid="company-name">{profile.name}</dd>
             <dt className="text-muted-foreground">Mã số thuế</dt>
-            <dd className="tabular-nums">{profile.taxCode}</dd>
+            <dd className="tabular-nums">
+              {profile.taxCode ?? <span className="text-muted-foreground">Chưa có mã số thuế</span>}
+            </dd>
           </dl>
           <div className="border-t px-4 py-4">
             <FormTextField
