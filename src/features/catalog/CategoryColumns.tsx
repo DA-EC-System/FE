@@ -38,11 +38,13 @@ export function CategoryColumns({ platform, label, selected, trail, onTrail, onS
   const openLevel = usePlatformCategories(platform, openParent ? { parentId: openParent } : {}, trail.length > 0);
   const openName = openLevel.data?.items.find((c) => c.externalId === trail.at(-1))?.name;
 
-  // Cột vừa mở có thể nằm khuất bên phải khung: cuộn khung tới cột cuối
-  useEffect(() => {
+  // Cột vừa mở có thể nằm khuất bên phải khung: cuộn khung tới cột cuối. Gọi khi trail đổi và khi cột cuối tải xong
+  // (mở trang với category đã chọn thì trail có sẵn, các cột còn đang tải nên lúc đầu khung chưa rộng)
+  const scrollToLast = () => {
     const el = root.current;
     if (el && el.scrollWidth > el.clientWidth) el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
-  }, [trail.length]);
+  };
+  useEffect(scrollToLast, [trail.length]);
 
   const focusItem = (col: number, index: number) => {
     const el = root.current?.querySelector<HTMLElement>(`[data-col="${col}"][data-index="${index}"]`);
@@ -109,6 +111,7 @@ export function CategoryColumns({ platform, label, selected, trail, onTrail, onS
             focusItem={focusItem}
             onOpen={(id) => onTrail([...trail.slice(0, col), id])}
             onSelect={onSelect}
+            onLoaded={col === parents.length - 1 ? scrollToLast : undefined}
           />
         ))}
       </div>
@@ -127,14 +130,17 @@ interface ColumnProps {
   focusItem: (col: number, index: number) => boolean;
   onOpen: (id: string) => void;
   onSelect: (category: PlatformCategory) => void;
+  /** Cột cuối: gọi khi có dữ liệu để khung cuộn tới nó */
+  onLoaded?: () => void;
 }
 
-function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pending, focusItem, onOpen, onSelect }: ColumnProps) {
+function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pending, focusItem, onOpen, onSelect, onLoaded }: ColumnProps) {
   const level = usePlatformCategories(platform, parentId ? { parentId } : {});
   const items = level.data?.items;
 
   // Người dùng ấn → trong lúc cột này còn đang tải: chuyển focus khi có dữ liệu
   useEffect(() => {
+    if (items?.length) onLoaded?.();
     if (items?.length && pending.current?.col === col) {
       const at = pending.current;
       pending.current = null;
