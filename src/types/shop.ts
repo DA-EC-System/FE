@@ -382,6 +382,18 @@ export interface RemoteSkuList {
 }
 
 /** `POST /channel/shops/:id/listings/match` (§18.6.5): ghép theo SKU sàn */
+/**
+ * Xem trước khi lưu ghép (Documents/21 §18.3 `listings/match-preview`, commerio-backend#460): số trên sàn lấy từ bản sao
+ * SKU sàn, số của app là số sẽ đẩy. `app.stock` null khi SKU chưa có số tồn (chưa nhập, chưa kiểm kê)
+ */
+export interface ListingMatchPreview {
+  platform: { stock: number; price: string | null; syncedAt: string };
+  app: { stock: number | null; price: string | null };
+  stockWillPush: boolean;
+  stockHeldReason: 'shop_waiting_opening' | 'not_counted' | null;
+  priceWillPush: boolean;
+}
+
 export interface ListingMatchInput {
   externalSkuId: string;
   /** null là "không quản tồn", luôn cần CEO duyệt */

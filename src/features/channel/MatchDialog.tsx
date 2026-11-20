@@ -39,6 +39,8 @@ interface MatchDialogProps {
   error: string | null;
   onSave: (id: string) => void;
   onClose: () => void;
+  /** Phần xem trước của mục đang chọn, hiện dưới danh sách (commerio-backend#460) */
+  renderPreview?: (id: string) => ReactNode;
 }
 
 /** UC-CH-02 bước 4–5: chọn một mục ở phía bên kia để ghép (SKU sàn cho biến thể, hoặc ngược lại) */
@@ -54,6 +56,7 @@ export function MatchDialog({
   error,
   onSave,
   onClose,
+  renderPreview,
 }: MatchDialogProps) {
   const [search, setSearch] = useState('');
   /** Người dùng đã chọn; chưa chọn thì lấy ghép hiện tại hoặc mục gợi ý */
@@ -112,6 +115,7 @@ export function MatchDialog({
             </RadioGroup>
           )}
         </div>
+        {selected && selected !== initialId && renderPreview?.(selected)}
         <DialogFooter>
           <Button variant="outline" disabled={saving} onClick={onClose}>
             Huỷ
