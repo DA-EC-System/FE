@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import { Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useCreateGroup } from '@/api/catalog.api';
+import { getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
+import { cn } from '@/lib/utils';
+import type { ProductGroup } from '@/types/catalog';
+
+interface GroupComboboxProps {
+  value: string;
+  onChange: (groupId: string) => void;
+  groups: ProductGroup[];
+  /** Nhóm hiện tại của sản phẩm khi danh sách chưa có (chưa nạp xong) */
+  fallback?: { id: string; name: string };
+  loading?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  /** Tạo nhóm tại chỗ: cần quyền quản lý sản phẩm hoặc nhóm hàng (Documents/21 §5.2, tạo chỉ gửi `name`) */
+  canCreate?: boolean;
+}
+
+/** Chọn nhóm hàng kiểu seller center: gõ để lọc, không thấy thì "+ Tạo nhóm …" ngay trong danh sách (FE#350) */
+export function GroupCombobox({ value, onChange, groups, fallback, loading, disabled, invalid, canCreate }: GroupComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const create = useCreateGroup();
+  const name = typed.trim();
+  const selected = groups.find((g) => g.id === value) ?? (fallback?.id === value ? fallback : undefined);
+  const canAdd =
+    canCreate && name.length > 0 && name.length <= 60 && !groups.some((g) => g.name.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+
+  const choose = (id: string) => {
+    onChange(id);
+    setTyped('');
+    setOpen(false);
+  };
+
+  const add = async () => {
+    try {
+      const group = await create.mutateAsync({ name });
+      toast.success(`Đã tạo nhóm hàng ${group.name}`);
+      choose(group.id);
+    } catch (e) {
+      const problem = getProblem(e);
+      toast.error(problem?.errors?.name ?? problemMessage(e));
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-label="Nhóm hàng"
+          aria-expanded={open}
+          aria-invalid={invalid || undefined}
+          disabled={disabled || loading}
+          className={cn('w-full justify-between font-normal', !selected && 'text-muted-foreground')}
+        >
+          <span className="truncate">{loading ? 'Đang tải nhóm hàng…' : (selected?.name ?? 'Chọn nhóm hàng')}</span>
+          <ChevronsUpDown className="opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Gõ để tìm hoặc tạo nhóm…" value={typed} onValueChange={setTyped} maxLength={60} />
+          <CommandList>
+            <CommandEmpty>{canCreate ? 'Gõ tên để tạo nhóm mới.' : 'Không thấy nhóm hàng nào.'}</CommandEmpty>
+            {groups.length > 0 && (
+              <CommandGroup>
+                {groups.map((g) => (
+                  <CommandItem key={g.id} value={`${g.name} ${g.id}`} onSelect={() => choose(g.id)}>
+                    <Check className={cn(g.id === value ? 'opacity-100' : 'opacity-0')} />
+                    {g.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {canAdd && (
+              <CommandGroup forceMount>
+                <CommandItem value={`__new__${name}`} onSelect={add} disabled={create.isPending} forceMount>
+                  {create.isPending ? <Loader2 className="animate-spin" /> : <Plus />}
+                  Tạo nhóm “{name}”
+                </CommandItem>
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}

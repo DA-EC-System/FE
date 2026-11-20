@@ -1,0 +1,118 @@
+// Nhóm phân loại kiểu seller center (FE#350 phần 3, Documents/21 §5.2)
+import { describe, expect, it } from 'vitest';
+import type { Attribute, ProductSettings } from '@/types/catalog';
+import {
+  axisErrors,
+  axisServerErrors,
+  draftBody,
+  draftError,
+  draftRows,
+  emptyDraft,
+  valueError,
+  type AxisDraft,
+  type VariantDraft,
+} from './variantDraft';
+
+const attributes = [
+  {
+    id: 'att-mau',
+    name: 'Màu sắc',
+    platformKind: 'color',
+    values: [
+      { id: 'val-den', value: 'Đen', code: 'DEN' },
+      { id: 'val-trang', value: 'Trắng', code: 'TRANG' },
+    ],
+  },
+  { id: 'att-chat', name: 'Chất liệu', platformKind: null, values: [{ id: 'val-cot', value: 'Cotton', code: 'COT' }] },
+] as unknown as Attribute[];
+
+const settings = { skuPattern: 'SP{SEQ:5}-{VAL}', skuNextSeq: 7, suggest: {}, version: 1 } as unknown as ProductSettings;
+const axis = (over: Partial<AxisDraft>): AxisDraft => ({ key: 'k', attributeId: null, name: '', values: [], ...over });
+
+describe('valueError', () => {
+  const mau = axis({ name: 'Màu sắc', values: ['Đen'] });
+  it('chặn rỗng, quá 20 ký tự, trùng không phân biệt hoa thường, quá 50 giá trị', () => {
+    expect(valueError(mau, '  ')).toBe('Nhập giá trị');
+    expect(valueError(mau, 'x'.repeat(21))).toBe('Mỗi giá trị tối đa 20 ký tự');
+    expect(valueError(mau, ' đen ')).toBe('Đã có giá trị đen');
+    expect(valueError(axis({ values: Array.from({ length: 50 }, (_, i) => `v${i}`) }), 'mới')).toBe('Mỗi nhóm tối đa 50 giá trị');
+    expect(valueError(mau, 'Xanh rêu')).toBeNull();
+  });
+});
+
+describe('axisErrors, draftError', () => {
+  it('tên trống, quá 15 ký tự, hai nhóm trùng tên, nhóm chưa có giá trị', () => {
+    const draft: VariantDraft = {
+      axes: [axis({ name: 'Màu', values: ['Đen'] }), axis({ name: ' màu ', values: [] })],
+      excluded: [],
+    };
+    expect(axisErrors(draft)).toEqual([
+      { name: 'Hai nhóm phân loại trùng tên' },
+      { name: 'Hai nhóm phân loại trùng tên', values: 'Thêm ít nhất một giá trị' },
+    ]);
+    expect(axisErrors({ axes: [axis({ name: 'A'.repeat(16), values: ['x'] })], excluded: [] })[0]!.name).toBe(
+      'Tên nhóm phân loại tối đa 15 ký tự',
+    );
+    expect(draftError(draft)).toBe('Sửa lỗi ở nhóm phân loại');
+  });
+
+  it('không có nhóm: một variant mặc định; bỏ tick hết thì báo; quá 100 thì báo', () => {
+    expect(draftError(emptyDraft)).toBeNull();
+    const one: VariantDraft = { axes: [axis({ name: 'Cỡ', values: ['S'] })], excluded: ['s'] };
+    expect(draftError(one)).toBe('Cần ít nhất một variant');
+    const many = (n: number) => Array.from({ length: n }, (_, i) => `v${i}`);
+    expect(draftError({ axes: [axis({ name: 'A', values: many(11) }), axis({ name: 'B', values: many(10) })], excluded: [] })).toBe(
+      'Tối đa 100 variant mỗi lần tạo',
+    );
+  });
+});
+
+describe('draftBody', () => {
+  it('nhóm có sẵn gửi attributeId, giá trị có sẵn kèm id; tên tự đặt gửi name; bỏ tổ hợp đã loại', () => {
+    const draft: VariantDraft = {
+      axes: [
+        axis({ attributeId: 'att-mau', name: 'Màu sắc', values: ['đen', 'Xanh rêu'] }),
+        axis({ name: 'Hoạ tiết', values: ['Kẻ caro'] }),
+      ],
+      excluded: ['xanh rêu|kẻ caro'],
+    };
+    expect(draftBody(draft, attributes)).toEqual({
+      axes: [
+        { attributeId: 'att-mau', values: [{ id: 'val-den', value: 'Đen' }, { value: 'Xanh rêu' }] },
+        { name: 'Hoạ tiết', values: [{ value: 'Kẻ caro' }] },
+      ],
+      variants: [{ options: ['đen', 'Kẻ caro'] }],
+    });
+  });
+
+  it('gõ tay trùng tên thuộc tính có sẵn thì dùng thuộc tính đó', () => {
+    const body = draftBody({ axes: [axis({ name: 'chất liệu', values: ['Cotton'] })], excluded: [] }, attributes);
+    expect(body.axes).toEqual([{ attributeId: 'att-chat', values: [{ id: 'val-cot', value: 'Cotton' }] }]);
+  });
+
+  it('không có nhóm: axes rỗng, một variant options rỗng', () => {
+    expect(draftBody(emptyDraft, attributes)).toEqual({ axes: [], variants: [{ options: [] }] });
+  });
+});
+
+describe('draftRows', () => {
+  it('SKU dự kiến chạy số từ skuNextSeq theo tổ hợp được giữ, mã có sẵn hoặc sinh từ chữ', () => {
+    const draft: VariantDraft = {
+      axes: [axis({ attributeId: 'att-mau', name: 'Màu sắc', values: ['Đen', 'Xanh rêu'] }), axis({ name: 'Cỡ', values: ['S', 'M'] })],
+      excluded: ['đen|m'],
+    };
+    expect(draftRows(draft, attributes, settings).map((r) => r.sku)).toEqual([
+      'SP00007-DEN-S',
+      null,
+      'SP00008-XANHRE-S',
+      'SP00009-XANHRE-M',
+    ]);
+    expect(draftRows(draft, attributes, undefined).every((r) => r.sku === null)).toBe(true);
+  });
+});
+
+it('axisServerErrors: gắn lỗi BE vào nhóm, còn lại là lỗi chung', () => {
+  expect(
+    axisServerErrors({ 'axes.1.values.0.value': 'Quá dài', 'axes.0.name': 'Trùng', variants: 'Trùng tổ hợp', name: 'x' }, 2),
+  ).toEqual({ byAxis: [['Trùng'], ['Quá dài']], general: ['Trùng tổ hợp'] });
+});
