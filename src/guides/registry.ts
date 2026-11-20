@@ -155,18 +155,18 @@ export const GUIDES = {
   'catalog-setup': {
     key: 'catalog-setup',
     version: 1,
-    title: 'Category và thuộc tính',
+    title: 'Nhóm hàng và thuộc tính',
     intro: [
       'Làm trang này trước khi thêm sản phẩm.',
-      'Category quyết định quy tắc sinh mã SKU cho sản phẩm trong đó.',
+      'Nhóm hàng dùng để lọc sản phẩm và đặt gợi ý giá, ngưỡng tồn; mã SKU sinh theo mẫu của công ty.',
       'Thuộc tính phân loại như màu, cỡ dùng để tạo các variant.',
     ],
-    primaryAction: { label: 'Thêm category', target: 'catalog-add' },
+    primaryAction: { label: 'Thêm nhóm hàng', target: 'catalog-add' },
     steps: [
       {
         target: 'catalog-categories',
-        title: 'Tạo category trước',
-        body: 'Mỗi category có một quy tắc SKU (vd AO-{SEQ:4}-{VAL}). Sản phẩm thuộc category nào thì mã SKU sinh theo category đó.',
+        title: 'Nhóm hàng',
+        body: 'Công ty mới có sẵn 12 nhóm. Mỗi sản phẩm thuộc một nhóm; đổi nhóm của sản phẩm được, xoá nhóm phải chuyển hết sản phẩm sang nhóm khác.',
       },
       {
         target: 'catalog-attributes',
@@ -176,8 +176,8 @@ export const GUIDES = {
       {
         target: 'catalog-add',
         title: 'Thêm mới',
-        body: 'Nút này thêm category hoặc thuộc tính, theo tab đang mở.',
-        permission: 'catalog.category.manage',
+        body: 'Nút này thêm nhóm hàng hoặc thuộc tính, theo tab đang mở.',
+        permission: 'catalog.group.manage',
       },
     ],
   },
@@ -195,7 +195,7 @@ export const GUIDES = {
       {
         target: 'products-add',
         title: 'Thêm sản phẩm',
-        body: 'Chọn category, nhập tên rồi chọn thuộc tính phân loại để tạo các variant. Mã SKU tự sinh theo category.',
+        body: 'Chọn nhóm hàng, nhập tên rồi chọn thuộc tính phân loại để tạo các variant. Mã SKU tự sinh theo mẫu của công ty.',
         permission: 'catalog.product.manage',
       },
       {

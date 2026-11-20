@@ -81,11 +81,12 @@ async function luu(): Promise<Response> {
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'anh' });
   page = cty.page;
-  const category = await tao<{ id: string }>('/catalog/categories', { name: 'Áo kiểm thử', skuPattern: 'AOANH-{SEQ:4}' });
+  const group = await tao<{ id: string }>('/catalog/groups', { name: 'Áo kiểm thử' });
   ({ id: productId } = await tao<{ id: string }>('/catalog/products', {
     name: 'Áo kiểm thử có ảnh',
-    categoryId: category.id,
-    variants: [{ attributeValueIds: [] }],
+    groupId: group.id,
+    axes: [],
+    variants: [{ options: [] }],
   }));
 });
 

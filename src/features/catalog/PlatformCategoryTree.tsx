@@ -10,7 +10,7 @@ import type { PlatformCategory } from '@/types/shop';
 import { parentPath } from './platformCategory';
 
 /*
- * Cây category của sàn theo cấp (parentId) và danh sách kết quả tìm, dùng chung cho tab sàn ở Category & thuộc tính
+ * Cây category của sàn theo cấp (parentId) và danh sách kết quả tìm, dùng chung cho tab sàn ở Nhóm hàng & thuộc tính
  * và bước Category của trang đẩy lên sàn (commerio-backend#400, Documents/21 §18.5)
  */
 

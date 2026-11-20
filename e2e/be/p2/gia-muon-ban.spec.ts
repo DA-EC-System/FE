@@ -43,11 +43,12 @@ const o = (nhan: string) => page.getByRole('dialog').getByRole('textbox', { name
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'giamuonban' });
   page = cty.page;
-  const category = await tao<{ id: string }>('/catalog/categories', { name: 'Áo giá muốn bán', skuPattern: 'AOGMB-{SEQ:4}' });
+  const group = await tao<{ id: string }>('/catalog/groups', { name: 'Áo giá muốn bán' });
   ({ id: productId } = await tao<{ id: string }>('/catalog/products', {
     name: 'Áo kiểm thử giá muốn bán',
-    categoryId: category.id,
-    variants: [{ attributeValueIds: [] }],
+    groupId: group.id,
+    axes: [],
+    variants: [{ options: [] }],
   }));
   const p = await chiTiet();
   variantId = p.variants[0]!.id;

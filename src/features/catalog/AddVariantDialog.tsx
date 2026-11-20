@@ -22,13 +22,14 @@ import { useAddVariant } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { renderSku } from '@/utils/sku';
-import type { Attribute, Category, ProductDetail } from '@/types/catalog';
+import type { Attribute, ProductDetail, ProductSettings } from '@/types/catalog';
 import { comboKey, valueIndex } from './shared';
 
 interface AddVariantDialogProps {
   open: boolean;
   product: ProductDetail;
-  category: Category | undefined;
+  /** Mẫu SKU và số thứ tự kế tiếp của công ty */
+  settings: ProductSettings | undefined;
   attributes: Attribute[];
   /** Danh sách thuộc tính đang tải */
   loading?: boolean;
@@ -42,7 +43,7 @@ interface AddVariantDialogProps {
 export function AddVariantDialog({
   open,
   product,
-  category,
+  settings,
   attributes,
   loading,
   onClose,
@@ -78,8 +79,8 @@ export function AddVariantDialog({
 
   const preview = existing
     ? existing.sku
-    : complete && category
-      ? renderSku(category.skuPattern, category.skuNextSeq, ids.map((id) => index.get(id)?.code ?? ''))
+    : complete && settings
+      ? renderSku(settings.skuPattern, settings.skuNextSeq, ids.map((id) => index.get(id)?.code ?? ''))
       : '—';
 
   const submit = async () => {

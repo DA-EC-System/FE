@@ -21,11 +21,12 @@ const tao = async <T>(path: string, data: object): Promise<T> => {
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'kho', optionalModules: ['purchasing'] });
   page = cty.page;
-  const category = await tao<{ id: string }>('/catalog/categories', { name: 'Áo kiểm thử', skuPattern: 'AOKT-{SEQ:4}' });
+  const group = await tao<{ id: string }>('/catalog/groups', { name: 'Áo kiểm thử' });
   const product = await tao<{ variants: { id: string; sku: string }[] }>('/catalog/products', {
     name: 'Áo kiểm thử giả',
-    categoryId: category.id,
-    variants: [{ attributeValueIds: [] }],
+    groupId: group.id,
+    axes: [],
+    variants: [{ options: [] }],
   });
   ({ id: variantId, sku } = product.variants[0]!);
   await tao('/purchasing/suppliers', { name: NCC });

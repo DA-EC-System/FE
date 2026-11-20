@@ -85,9 +85,9 @@ export function toStockLevel(product: MockProduct, variant: MockVariant, canCost
     attributesLabel: variantAttributes(product.companyId, variant.valueIds)
       .map((a) => a.value)
       .join(' / '),
-    category: {
-      id: product.categoryId,
-      name: catalog.categories.find((c) => c.id === product.categoryId)?.name ?? '',
+    group: {
+      id: product.groupId,
+      name: catalog.groups.find((g) => g.id === product.groupId)?.name ?? '',
     },
     onHand: level.onHand,
     reserved: level.reserved,
@@ -620,14 +620,14 @@ export const inventoryHandlers = [
     const url = new URL(request.url);
     const { page, pageSize } = pageParams(url);
     const search = url.searchParams.get('search')?.trim().toLowerCase() ?? '';
-    const categoryId = url.searchParams.get('categoryId');
+    const groupId = url.searchParams.get('groupId');
     const belowMin = url.searchParams.get('belowMin') === 'true';
     const quarantine = url.searchParams.get('quarantine') === 'true';
     const all = sellableVariants(companyId).map(({ product, variant }) => toStockLevel(product, variant, canCost));
     const items = all.filter(
       (l) =>
         (!search || l.productName.toLowerCase().includes(search) || l.sku.toLowerCase().includes(search)) &&
-        (!categoryId || l.category.id === categoryId) &&
+        (!groupId || l.group.id === groupId) &&
         (!belowMin || l.belowMin) &&
         (!quarantine || l.quarantine > 0),
     );

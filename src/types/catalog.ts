@@ -1,24 +1,52 @@
 /**
  * Catalog của công ty đang chọn (UC-CP-01, UC-CP-02; commerio-backend#13, #14).
- * ERD catalog.*: quy tắc SKU nằm trong danh mục (D14, D25); SKU thuộc biến thể (QT-11).
+ * Nhóm hàng phân loại nội bộ, một cấp; mẫu SKU ở cài đặt công ty (Documents/21 §5, FE#350); SKU thuộc biến thể (QT-11).
  * Mọi API lấy công ty từ token; không truyền companyId.
  */
 
-export interface Category {
-  id: string;
-  name: string;
-  /** Vd "AO-{SEQ:4}-{VAL}", xem utils/sku.ts */
-  skuPattern: string;
-  /** Số thứ tự sẽ dùng cho SKU kế tiếp */
-  skuNextSeq: number;
-  productCount: number;
-  version: number;
-  updatedAt: string;
+/**
+ * Cấu hình gợi ý (Documents/21 §17.5): ở nhóm `null` là theo công ty; ở công ty `null` là không gợi ý (riêng
+ * `priceRounding` null là bước 1 đồng)
+ */
+export interface SuggestConfig {
+  marginCoefficient: number | null;
+  priceRounding: number | null;
+  reorderLeadDays: number | null;
+  reorderSafetyQty: number | null;
+  reorderDefaultQty: number | null;
 }
 
-export interface CategoryInput {
+/** Nhóm hàng (Documents/21 §5.2): phân loại nội bộ, một cấp, không ghép sang sàn */
+export interface ProductGroup {
+  id: string;
   name: string;
+  /** Kể cả sản phẩm đã lưu trữ */
+  productCount: number;
+  suggest: SuggestConfig;
+  updatedAt: string;
+  version: number;
+}
+
+/** `suggest` chỉ gửi khi có `catalog.group.manage`; tạo nhanh trong form chỉ gửi `name` */
+export interface ProductGroupInput {
+  name: string;
+  suggest?: SuggestConfig;
+}
+
+/** Cài đặt sản phẩm của công ty (`/catalog/settings`) */
+export interface ProductSettings {
+  /** Vd "SP{SEQ:5}-{VAL}", xem utils/sku.ts */
   skuPattern: string;
+  /** Số {SEQ} cấp cho SKU kế tiếp, chỉ đọc */
+  skuNextSeq: number;
+  suggest: SuggestConfig;
+  version: number;
+}
+
+export interface ProductSettingsInput {
+  skuPattern: string;
+  suggest?: SuggestConfig;
+  version: number;
 }
 
 export interface AttributeValue {
@@ -33,6 +61,8 @@ export interface AttributeValue {
 export interface Attribute {
   id: string;
   name: string;
+  /** Thuộc tính chuẩn sàn (Màu sắc, Kích cỡ), hệ thống tạo khi lập công ty; null là tự đặt */
+  platformKind: 'color' | 'size' | null;
   values: AttributeValue[];
   productCount: number;
   version: number;
@@ -80,12 +110,11 @@ export interface VariantAttribute {
   value: string;
 }
 
-/** Phần còn thiếu theo Documents/21 §17.1; name, category, image tính ở cha, còn lại theo SKU */
-export type VariantMissing = 'name' | 'category' | 'image' | 'price' | 'minQty' | 'weight' | 'dimensions';
+/** Phần còn thiếu theo Documents/21 §17.1; name, image tính ở cha, còn lại theo SKU. Nhóm hàng bắt buộc nên không thiếu */
+export type VariantMissing = 'name' | 'image' | 'price' | 'minQty' | 'weight' | 'dimensions';
 
 export const MISSING_LABELS: Record<VariantMissing, string> = {
   name: 'tên',
-  category: 'category',
   image: 'ảnh',
   price: 'thực nhận mong muốn',
   minQty: 'tồn tối thiểu',
@@ -126,10 +155,10 @@ export interface ProductVariant {
 
 export interface ProductListItem {
   id: string;
-  /** Mã sản phẩm cha, duy nhất trong công ty, sinh theo quy tắc danh mục */
+  /** Mã sản phẩm cha, duy nhất trong công ty, sinh theo mẫu SKU của công ty */
   code: string;
   name: string;
-  category: { id: string; name: string };
+  group: { id: string; name: string };
   /** Số SKU chưa lưu trữ */
   variantCount: number;
   /** Mọi SKU, kể cả đã lưu trữ */
@@ -165,21 +194,33 @@ export interface ProductListParams {
   pageSize?: number;
   /** Tên sản phẩm hoặc SKU */
   search?: string;
-  categoryId?: string;
+  groupId?: string;
   status?: ProductStatus;
   /** Có ít nhất một SKU ở trạng thái này */
   businessStatus?: Exclude<VariantBusinessStatus, 'archived'>;
 }
 
+/**
+ * Trục phân loại (Documents/21 §5.2): có `attributeId` thì dùng thuộc tính đó; chỉ `name` thì BE dùng thuộc tính cùng
+ * tên hoặc tạo mới. Giá trị không có `id` là giá trị mới, tạo cùng giao dịch
+ */
+export interface ProductAxis {
+  attributeId?: string;
+  name?: string;
+  values: { id?: string; value: string }[];
+}
+
 export interface ProductCreateInput {
   name: string;
-  categoryId: string;
+  groupId: string;
   description: string;
   /** Theo thứ tự hiển thị, phần tử đầu là ảnh đại diện */
   imageFileIds: string[];
   sizeChartFileId?: string | null;
-  /** Mỗi biến thể một tổ hợp giá trị; sản phẩm không có thuộc tính thì một biến thể rỗng */
-  variants: { attributeValueIds: string[] }[];
+  /** Tối đa 2 trục */
+  axes: ProductAxis[];
+  /** `options[i]` là một `value` của `axes[i]`; không trục thì một biến thể `options: []` */
+  variants: { options: string[] }[];
 }
 
 export interface ProductUpdateInput {
@@ -188,6 +229,8 @@ export interface ProductUpdateInput {
   imageFileIds: string[];
   /** Bỏ trống thì giữ nguyên, `null` thì gỡ, id thì thay */
   sizeChartFileId?: string | null;
+  /** Gửi để đổi nhóm hàng */
+  groupId?: string;
   version: number;
 }
 
@@ -231,7 +274,7 @@ export interface BulkEditRow {
   sku: string;
   /** "Trắng / L"; rỗng khi sản phẩm một SKU */
   attributesLabel: string;
-  categoryName: string;
+  groupName: string;
   version: number;
   /** Version của ngưỡng tồn (§15), null khi SKU chưa đặt ngưỡng */
   reorderVersion: number | null;
@@ -245,7 +288,7 @@ export interface BulkEditParams {
   page: number;
   pageSize: number;
   search?: string;
-  categoryId?: string;
+  groupId?: string;
   /** Chỉ SKU còn trống ít nhất một ô */
   incomplete?: boolean;
 }

@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useBulkEditRows, useBulkSaveVariants, useCategories } from '@/api/catalog.api';
+import { useBulkEditRows, useBulkSaveVariants, useGroups } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -33,7 +33,7 @@ const FIELD_LABELS: Record<BulkField, string> = {
 };
 const FIELDS = Object.keys(FIELD_LABELS) as BulkField[];
 const FIELD_HELP: Partial<Record<BulkField, string>> = {
-  standardPrice: 'Giá bán lẻ của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số của category.',
+  standardPrice: 'Giá bán lẻ của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số lãi (theo nhóm hàng hoặc công ty).',
   minQty: 'Số có thể bán xuống tới số này thì gợi ý nhập hàng. Gợi ý tính từ tốc độ bán, số ngày nhà cung cấp giao và tồn dự phòng.',
   weightG: 'Dùng tính phí vận chuyển. Gợi ý lấy theo SKU cùng sản phẩm gần nhất.',
 };
@@ -64,7 +64,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
-  const [categoryId, setCategoryId] = useState('');
+  const [groupId, setGroupId] = useState('');
   const [incomplete, setIncomplete] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -76,10 +76,10 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     page,
     pageSize,
     search: debouncedSearch || undefined,
-    categoryId: categoryId || undefined,
+    groupId: groupId || undefined,
     incomplete: incomplete || undefined,
   });
-  const categories = useCategories();
+  const groups = useGroups();
   const save = useBulkSaveVariants();
   const rows = useMemo(() => query.data?.items ?? [], [query.data]);
 
@@ -269,7 +269,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
               <span className="font-medium">{r.productName}</span>
               <span className="text-xs text-muted-foreground">
                 <span className="font-mono">{r.sku}</span>
-                {r.attributesLabel && ` · ${r.attributesLabel}`} · {r.categoryName}
+                {r.attributesLabel && ` · ${r.attributesLabel}`} · {r.groupName}
               </span>
               {r.source && (
                 <span className="text-xs text-muted-foreground" data-testid="bulk-source">
@@ -314,11 +314,11 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         <FilterBar>
           <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm theo tên hoặc SKU..." />
           <FilterSelect
-            loading={categories.isLoading}
-            label="Category"
-            value={categoryId}
-            onChange={withReset(setCategoryId)}
-            options={(categories.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+            loading={groups.isLoading}
+            label="Nhóm hàng"
+            value={groupId}
+            onChange={withReset(setGroupId)}
+            options={(groups.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
           />
           <div className="flex h-9 items-center gap-2">
             <Switch id="bulk-incomplete" checked={incomplete} onCheckedChange={withReset(setIncomplete)} />

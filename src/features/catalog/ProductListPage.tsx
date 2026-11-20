@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCategories, useProducts } from '@/api/catalog.api';
+import { useGroups, useProducts } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -53,7 +53,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
-  const [categoryId, setCategoryId] = useState('');
+  const [groupId, setGroupId] = useState('');
   const [status, setStatus] = useState<ProductStatus>('active');
   const [businessStatus, setBusinessStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -65,12 +65,12 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     page,
     pageSize,
     search: debouncedSearch || undefined,
-    categoryId: categoryId || undefined,
+    groupId: groupId || undefined,
     status,
     businessStatus: status === 'active' && businessStatus ? (businessStatus as ProductListParams['businessStatus']) : undefined,
   });
-  const categoriesQuery = useCategories();
-  const categories = categoriesQuery.data ?? [];
+  const groupsQuery = useGroups();
+  const groups = groupsQuery.data ?? [];
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -108,10 +108,10 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         ),
       },
       {
-        id: 'category',
-        header: 'Category',
+        id: 'group',
+        header: 'Nhóm hàng',
         meta: { className: 'min-w-32' },
-        cell: ({ row }) => row.original.category.name,
+        cell: ({ row }) => row.original.group.name,
       },
       {
         accessorKey: 'variantCount',
@@ -165,7 +165,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     [canManage, companyId],
   );
 
-  const filtered = Boolean(debouncedSearch || categoryId);
+  const filtered = Boolean(debouncedSearch || groupId);
   const empty = filtered
     ? 'Không tìm thấy sản phẩm phù hợp'
     : status === 'archived'
@@ -177,14 +177,14 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       <PageHeader
         title="Sản phẩm"
         subtitle="Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU."
-        help="Mã SKU tự sinh theo quy tắc của category, nên cần tạo category và thuộc tính phân loại trước khi thêm sản phẩm."
+        help="Mỗi sản phẩm thuộc một nhóm hàng; mã SKU tự sinh theo mẫu của công ty. Thuộc tính phân loại tạo ở trang Nhóm hàng & thuộc tính."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">
             {canSetup && (
               <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
                 <Settings2 />
-                Category & thuộc tính
+                Nhóm hàng & thuộc tính
               </Button>
             )}
             {canManage && (
@@ -216,11 +216,11 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
             onChange={withReset(setSearch)}
             placeholder="Tìm theo tên hoặc SKU..."
           />
-          <FilterSelect loading={categoriesQuery.isLoading}
-            label="Category"
-            value={categoryId}
-            onChange={withReset(setCategoryId)}
-            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          <FilterSelect loading={groupsQuery.isLoading}
+            label="Nhóm hàng"
+            value={groupId}
+            onChange={withReset(setGroupId)}
+            options={groups.map((c) => ({ value: c.id, label: c.name }))}
           />
           {/* API không có "tất cả": sản phẩm đang hoạt động và đã lưu trữ xem riêng */}
           <div className="grid gap-1.5">

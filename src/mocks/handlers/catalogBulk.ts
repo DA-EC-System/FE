@@ -67,8 +67,8 @@ function suggestionsOf(
   sold: Map<string, number>,
   canSeeCost: boolean,
 ): Partial<Record<BulkField, BulkSuggestion>> {
-  const rule = ruleOf(p.categoryId);
-  const categoryName = catalog.categories.find((c) => c.id === p.categoryId)?.name ?? '';
+  const rule = ruleOf(p.groupId);
+  const groupName = catalog.groups.find((g) => g.id === p.groupId)?.name ?? '';
   const out: Partial<Record<BulkField, BulkSuggestion>> = {};
   // SKU anh em gần nhất đã có số: đứng trước rồi đứng sau trong sản phẩm
   const siblings = p.variants.filter((x) => x.id !== v.id && !x.archivedAt);
@@ -82,8 +82,8 @@ function suggestionsOf(
       out.standardPrice = {
         value,
         basis: canSeeCost
-          ? `Giá nhập ${vnd(purchase.unitCost)} × ${String(rule.markup).replace('.', ',')} (category ${categoryName}), làm tròn ${vnd(rule.roundTo)}`
-          : `Giá nhập gần nhất × hệ số category ${categoryName}`,
+          ? `Giá nhập ${vnd(purchase.unitCost)} × ${String(rule.markup).replace('.', ',')} (theo nhóm ${groupName}), làm tròn ${vnd(rule.roundTo)}`
+          : `Giá nhập gần nhất × hệ số theo nhóm ${groupName}`,
       };
     } else {
       const sibling = siblings.find((x) => currentOf(p.companyId, x.id).standardPrice !== null);
@@ -126,7 +126,7 @@ function toRow(p: MockProduct, v: MockVariant, sold: Map<string, number>, canSee
     productName: p.name,
     sku: v.sku,
     attributesLabel: variantAttributes(p.companyId, v.valueIds).map((a) => a.value).join(' / '),
-    categoryName: catalog.categories.find((c) => c.id === p.categoryId)?.name ?? '',
+    groupName: catalog.groups.find((g) => g.id === p.groupId)?.name ?? '',
     version: specOf(v.id).version,
     reorderVersion: ruleFor(p.companyId, v.id)?.version ?? null,
     current,
@@ -154,13 +154,13 @@ export const catalogBulkHandlers = [
     const url = new URL(request.url);
     const { page, pageSize } = pageParams(url);
     const search = url.searchParams.get('search')?.trim().toLowerCase();
-    const categoryId = url.searchParams.get('categoryId');
+    const groupId = url.searchParams.get('groupId');
     const incomplete = url.searchParams.get('incomplete') === 'true';
     const sold = soldInWindow(companyId);
     const canSeeCost = permissions.includes(PERMISSIONS.costView);
 
     let rows = companyProducts(companyId)
-      .filter((p) => !p.archivedAt && (!categoryId || p.categoryId === categoryId))
+      .filter((p) => !p.archivedAt && (!groupId || p.groupId === groupId))
       .flatMap((p) => p.variants.filter((v) => !v.archivedAt).map((v) => toRow(p, v, sold, canSeeCost)));
     if (search) {
       rows = rows.filter((r) => r.productName.toLowerCase().includes(search) || r.sku.toLowerCase().includes(search));

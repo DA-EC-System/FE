@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -40,7 +40,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import {
   useAttributes,
-  useCategories,
+  useGroups,
+  useProductSettings,
   useCreateProduct,
   useDeleteProduct,
   useProduct,
@@ -59,10 +60,10 @@ import { priceText } from '@/utils/price';
 import { mainLabel, variantMachine } from '@/lib/machines/product';
 import { MISSING_LABELS, type ProductDetail, type ProductVariant, type VariantPresence } from '@/types/catalog';
 import { ProductImagesField, type ImageItem } from './ProductImagesField';
-import { VariantBuilder, emptyPlan, planCombos, planError, type VariantPlan } from './VariantBuilder';
+import { VariantBuilder, emptyPlan, planBody, planError, type VariantPlan } from './VariantBuilder';
 import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
-import { comboKey, productSchema, sizeChartPatch, type ProductForm } from './shared';
+import { productSchema, sizeChartPatch, type ProductForm } from './shared';
 import { SizeChartField } from './SizeChartField';
 import { HelpTip } from '@/components/common/HelpTip';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
@@ -111,9 +112,10 @@ export function ProductFormPage() {
   const productQuery = useProduct(productId);
   const product = productQuery.data;
   useBreadcrumb(isNew ? 'Thêm sản phẩm' : product?.name);
-  const categoriesQuery = useCategories();
+  const groupsQuery = useGroups();
+  const settingsQuery = useProductSettings();
   const attributesQuery = useAttributes();
-  const categories = categoriesQuery.data ?? [];
+  const groups = groupsQuery.data ?? [];
   const attributes = attributesQuery.data ?? [];
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
@@ -161,14 +163,14 @@ export function ProductFormPage() {
 
   const form = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: '', categoryId: '', description: '' },
+    defaultValues: { name: '', groupId: '', description: '' },
   });
   const { control, reset, setError: setFieldError } = form;
 
   // Nạp form một lần cho mỗi sản phẩm; refetch sau khi thêm biến thể không đè lên chỗ đang sửa
   const loadedId = useRef<string | null>(null);
   const load = (p: ProductDetail) => {
-    reset({ name: p.name, categoryId: p.category.id, description: p.description });
+    reset({ name: p.name, groupId: p.group.id, description: p.description });
     setImages(toImages(p));
     setSizeChart(p.sizeChart ? { fileId: p.sizeChart.fileId, url: p.sizeChart.url } : null);
     setVersion(p.version);
@@ -181,16 +183,13 @@ export function ProductFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
 
-  const categoryId = useWatch({ control, name: 'categoryId' });
-  const category = categories.find((c) => c.id === categoryId);
-
   const backToList = () => navigate(ROUTES.company.catalog(companyId));
 
   /** Lỗi 422 của BE về đúng chỗ (AC-8) */
   const applyFieldErrors = (e: unknown) => {
     const fieldErrors = getProblem(e)?.errors;
     if (!fieldErrors) return false;
-    (['name', 'categoryId', 'description'] as const).forEach((f) => {
+    (['name', 'groupId', 'description'] as const).forEach((f) => {
       if (fieldErrors[f]) setFieldError(f, { message: fieldErrors[f] });
     });
     setImagesError(fieldErrors.images);
@@ -209,14 +208,11 @@ export function ProductFormPage() {
         const problem = planError(plan, attributes);
         setVariantsError(problem);
         if (problem) return;
-        const variants = planCombos(plan, attributes)
-          .filter((c) => !plan.excluded.includes(comboKey(c)))
-          .map((attributeValueIds) => ({ attributeValueIds }));
         const created = await createMut.mutateAsync({
           ...values,
           imageFileIds,
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
-          variants,
+          ...planBody(plan, attributes),
         });
         toast.success(`Đã tạo ${created.name} với ${created.variants.length} variant`);
         navigate(ROUTES.company.catalogProduct(companyId, created.id), { replace: true });
@@ -225,6 +221,7 @@ export function ProductFormPage() {
           id: productId,
           name: values.name,
           description: values.description,
+          groupId: values.groupId,
           imageFileIds,
           ...sizeChartPatch(product?.sizeChart?.fileId ?? null, sizeChart?.fileId ?? null),
           version,
@@ -356,39 +353,35 @@ export function ProductFormPage() {
               />
               <FormField
                 control={control}
-                name="categoryId"
+                name="groupId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Category</FormLabel>
+                    <FormLabel>Nhóm hàng</FormLabel>
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
-                      disabled={!isNew || readOnly || (isNew && categoriesQuery.isLoading)}
+                      disabled={readOnly || groupsQuery.isLoading}
                     >
                       <FormControl>
-                        <SelectTrigger className="w-full" aria-label="Category">
-                          <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải category…' : 'Chọn category'} />
+                        <SelectTrigger className="w-full" aria-label="Nhóm hàng">
+                          <SelectValue placeholder={groupsQuery.isLoading ? 'Đang tải nhóm hàng…' : 'Chọn nhóm hàng'} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
+                        {groups.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>
+                            {g.name}
                           </SelectItem>
                         ))}
-                        {/* Danh mục cũ có thể chưa nạp xong */}
-                        {product && !categories.some((c) => c.id === product.category.id) && (
-                          <SelectItem value={product.category.id}>{product.category.name}</SelectItem>
+                        {/* Nhóm của sản phẩm có thể chưa nạp xong */}
+                        {product && !groups.some((g) => g.id === product.group.id) && (
+                          <SelectItem value={product.group.id}>{product.group.name}</SelectItem>
                         )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
-                    {!form.formState.errors.categoryId && !readOnly && (
-                      <FormDescription>
-                        {isNew
-                          ? 'SKU tự sinh theo quy tắc của category'
-                          : 'Không đổi được vì SKU đã sinh theo category này'}
-                      </FormDescription>
+                    {!form.formState.errors.groupId && !readOnly && (
+                      <FormDescription>Để lọc sản phẩm trong app; mã SKU sinh theo mẫu của công ty</FormDescription>
                     )}
                   </FormItem>
                 )}
@@ -466,7 +459,7 @@ export function ProductFormPage() {
                 <VariantBuilder
                   attributes={attributes}
                   loading={attributesQuery.isLoading}
-                  category={category}
+                  settings={settingsQuery.data}
                   value={plan}
                   onChange={(next) => {
                     setPlan(next);
@@ -591,7 +584,7 @@ export function ProductFormPage() {
           <AddVariantDialog
             open={addOpen}
             product={product}
-            category={categories.find((c) => c.id === product.category.id)}
+            settings={settingsQuery.data}
             attributes={attributes}
             loading={attributesQuery.isLoading}
             onClose={() => setAddOpen(false)}

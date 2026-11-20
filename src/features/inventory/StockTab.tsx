@@ -13,7 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useStock } from '@/api/inventory.api';
-import { useCategories } from '@/api/catalog.api';
+import { useGroups } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useModuleEnabled } from '@/hooks/usePermission';
@@ -48,7 +48,7 @@ export function StockTab() {
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
-  const [categoryId, setCategoryId] = useState('');
+  const [groupId, setGroupId] = useState('');
   const [view, setView] = useState<StockView>('all');
   const belowMin = view === 'belowMin';
   const quarantine = view === 'quarantine';
@@ -69,14 +69,14 @@ export function StockTab() {
     page,
     pageSize,
     search: debouncedSearch || undefined,
-    categoryId: categoryId || undefined,
+    groupId: groupId || undefined,
     belowMin: belowMin || undefined,
     quarantine: quarantine || undefined,
   });
-  const categoriesQuery = useCategories();
-  const categories = categoriesQuery.data ?? [];
+  const groupsQuery = useGroups();
+  const groups = groupsQuery.data ?? [];
   const summary = stockQuery.data?.summary;
-  const filtered = Boolean(debouncedSearch || categoryId || view !== 'all');
+  const filtered = Boolean(debouncedSearch || groupId || view !== 'all');
   const views: { value: StockView; label: string; count?: number }[] = [
     { value: 'all', label: 'Tất cả', count: summary?.variantCount },
     { value: 'belowMin', label: 'Cần nhập thêm', count: summary?.belowMinCount },
@@ -116,10 +116,10 @@ export function StockTab() {
         },
       },
       {
-        id: 'category',
-        header: 'Category',
+        id: 'group',
+        header: 'Nhóm hàng',
         meta: { className: 'w-32' },
-        cell: ({ row }) => row.original.category.name,
+        cell: ({ row }) => row.original.group.name,
       },
       {
         id: 'onHand',
@@ -274,11 +274,11 @@ export function StockTab() {
             onChange={withReset(setSearch)}
             placeholder="Tìm theo tên sản phẩm hoặc SKU"
           />
-          <FilterSelect loading={categoriesQuery.isLoading}
-            label="Category"
-            value={categoryId}
-            onChange={withReset(setCategoryId)}
-            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          <FilterSelect loading={groupsQuery.isLoading}
+            label="Nhóm hàng"
+            value={groupId}
+            onChange={withReset(setGroupId)}
+            options={groups.map((c) => ({ value: c.id, label: c.name }))}
           />
           {!canCost && (
             <Badge variant="outline" className="md:ms-auto md:mb-2">

@@ -14,7 +14,7 @@ export interface StockLevel {
   sku: string;
   /** Giá trị thuộc tính nối bằng " / ", vd "Đỏ / M" */
   attributesLabel: string;
-  category: { id: string; name: string };
+  group: { id: string; name: string };
   onHand: number;
   /** Cho kiện chưa bàn giao */
   reserved: number;
@@ -53,7 +53,7 @@ export interface StockListParams {
   pageSize?: number;
   /** Tên sản phẩm hoặc SKU */
   search?: string;
-  categoryId?: string;
+  groupId?: string;
   /** Chỉ biến thể cần nhập lại */
   belowMin?: boolean;
   /** Chỉ biến thể có hàng chờ xử lý */

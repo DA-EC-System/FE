@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { skuPatternError, valueCode } from '@/utils/sku';
+import { valueCode } from '@/utils/sku';
 import type { Attribute } from '@/types/catalog';
 
 export const MAX_IMAGES = 9;
@@ -10,28 +10,21 @@ export const MIN_IMAGE_SIDE = 330;
 /** Tệp người dùng chọn được: WebP đổi sang JPEG khi nén, không từ chối */
 export const SOURCE_IMAGE_TYPES = [...IMAGE_TYPES, 'image/webp'];
 
-// Không tự đổi chữ hoa: "ao-{SEQ}" phải báo lỗi đúng câu của bảng 9.3 (AC-4)
-export const categorySchema = z.object({
-  name: z.string().trim().min(1, 'Nhập tên category').max(60, 'Tên category tối đa 60 ký tự'),
-  skuPattern: z
-    .string()
-    .trim()
-    .superRefine((value, ctx) => {
-      const message = skuPatternError(value);
-      if (message) ctx.addIssue({ code: 'custom', message });
-    }),
+/** Nhóm hàng (Documents/21 §5.2): tên 1–60 ký tự */
+export const groupSchema = z.object({
+  name: z.string().trim().min(1, 'Nhập tên nhóm hàng').max(60, 'Tên nhóm hàng tối đa 60 ký tự'),
 });
-export type CategoryForm = z.infer<typeof categorySchema>;
+export type GroupForm = z.infer<typeof groupSchema>;
 
 export const VALUE_CODE = /^[A-Z0-9]{1,6}$/;
 
 export const attributeSchema = z.object({
-  name: z.string().trim().min(1, 'Nhập tên thuộc tính').max(40, 'Tên thuộc tính tối đa 40 ký tự'),
+  name: z.string().trim().min(1, 'Nhập tên thuộc tính').max(15, 'Tên thuộc tính tối đa 15 ký tự'),
   values: z
     .array(
       z.object({
         id: z.string().optional(),
-        value: z.string().trim().min(1, 'Nhập giá trị').max(40, 'Tối đa 40 ký tự'),
+        value: z.string().trim().min(1, 'Nhập giá trị').max(20, 'Mỗi giá trị tối đa 20 ký tự'),
         // Bỏ trống thì sinh từ giá trị (V21)
         code: z.string().trim().toUpperCase(),
       }),
@@ -70,7 +63,7 @@ export function effectiveCode(v: { value: string; code?: string }): string {
 
 export const productSchema = z.object({
   name: z.string().trim().min(1, 'Nhập tên sản phẩm').max(200, 'Tên sản phẩm tối đa 200 ký tự'),
-  categoryId: z.string().min(1, 'Chọn category'),
+  groupId: z.string().min(1, 'Chọn nhóm hàng'),
   description: z.string().max(5000, 'Mô tả tối đa 5000 ký tự'),
 });
 export type ProductForm = z.infer<typeof productSchema>;

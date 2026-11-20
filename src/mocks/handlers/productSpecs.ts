@@ -215,7 +215,7 @@ export const productSpecHandlers = [
       return problem(422, 'Sản phẩm chưa có ảnh', { code: 'images_missing', detail: 'Lazada gợi ý theo tên và ảnh đầu của sản phẩm.' });
     }
     if (shop.outage) return problem(503, 'Sàn đang lỗi tạm', { code: 'marketplace_unavailable' });
-    const keyword = SUGGESTION_KEYWORDS[product.categoryId];
+    const keyword = SUGGESTION_KEYWORDS[product.groupId];
     const found = keyword ? searchPlatformCategories(platformCategories[platform], keyword) : [];
     const items = found.slice(0, platform === 'lazada' ? 5 : 1).map((c) => {
       if (platform === 'lazada') return { externalId: c.externalId, path: c.path, permission: null };

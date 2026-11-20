@@ -1,5 +1,5 @@
 /**
- * Catalog của công ty đang làm việc: danh mục, thuộc tính (UC-CP-01), sản phẩm, biến thể,
+ * Catalog của công ty đang làm việc: nhóm hàng, cài đặt sản phẩm, thuộc tính (UC-CP-01), sản phẩm, biến thể,
  * ảnh (UC-CP-02). Hợp đồng theo commerio-backend#13, #14; BE lấy công ty từ token.
  */
 
@@ -18,10 +18,12 @@ import type {
   BulkEditRow,
   BulkSaveResult,
   BulkSaveRow,
-  Category,
-  CategoryInput,
   ProductCreateInput,
   ProductDetail,
+  ProductGroup,
+  ProductGroupInput,
+  ProductSettings,
+  ProductSettingsInput,
   ProductListItem,
   ProductListParams,
   ProductUpdateInput,
@@ -32,7 +34,8 @@ import type {
 
 export const catalogKeys = {
   all: (companyId: string) => ['company', companyId, 'catalog'] as const,
-  categories: (companyId: string) => [...catalogKeys.all(companyId), 'categories'] as const,
+  groups: (companyId: string) => [...catalogKeys.all(companyId), 'groups'] as const,
+  settings: (companyId: string) => [...catalogKeys.all(companyId), 'settings'] as const,
   attributes: (companyId: string) => [...catalogKeys.all(companyId), 'attributes'] as const,
   products: (companyId: string) => [...catalogKeys.all(companyId), 'products'] as const,
   productList: (companyId: string, params: ProductListParams) =>
@@ -47,54 +50,90 @@ function useCompanyId(): string {
   return useAuthStore((s) => s.companyContext?.companyId ?? '');
 }
 
-/** Số sản phẩm của danh mục/thuộc tính và SKU kế tiếp đổi theo sản phẩm → làm mới cả catalog */
+/** Số sản phẩm của nhóm hàng/thuộc tính và SKU kế tiếp đổi theo sản phẩm → làm mới cả catalog */
 function useInvalidateCatalog() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
   return () => qc.invalidateQueries({ queryKey: catalogKeys.all(companyId) });
 }
 
-// ---------- Danh mục và quy tắc SKU (UC-CP-01) ----------
+// ---------- Nhóm hàng và cài đặt sản phẩm (Documents/21 §5.2, FE#350) ----------
 
-export function useCategories() {
+export function useGroups() {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: catalogKeys.categories(companyId),
+    queryKey: catalogKeys.groups(companyId),
     enabled: Boolean(companyId),
     queryFn: async () => {
-      const { data } = await apiClient.get<Category[]>('/catalog/categories');
-      return data;
+      const { data } = await apiClient.get<{ items: ProductGroup[] }>('/catalog/groups');
+      return data.items;
     },
   });
 }
 
-export function useCreateCategory() {
+export function useCreateGroup() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
-    mutationFn: async (input: CategoryInput) => {
-      const { data } = await apiClient.post<Category>('/catalog/categories', input);
+    mutationFn: async (input: ProductGroupInput) => {
+      const { data } = await apiClient.post<ProductGroup>('/catalog/groups', input);
       return data;
     },
     onSuccess: invalidate,
   });
 }
 
-export function useUpdateCategory() {
+export function useUpdateGroup() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
-    mutationFn: async ({ id, ...body }: CategoryInput & { id: string; version: number }) => {
-      const { data } = await apiClient.put<Category>(`/catalog/categories/${id}`, body);
+    mutationFn: async ({ id, ...body }: ProductGroupInput & { id: string; version: number }) => {
+      const { data } = await apiClient.put<ProductGroup>(`/catalog/groups/${id}`, body);
       return data;
     },
     onSuccess: invalidate,
   });
 }
 
-export function useDeleteCategory() {
+export function useDeleteGroup() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
     mutationFn: async ({ id, version }: { id: string; version: number }) => {
-      await apiClient.delete(`/catalog/categories/${id}`, { params: { version } });
+      await apiClient.delete(`/catalog/groups/${id}`, { params: { version } });
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Chuyển sản phẩm sang nhóm khác (kể cả đã lưu trữ); bỏ `productIds` là cả nhóm */
+export function useMoveGroupProducts() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: { id: string; targetGroupId: string; productIds?: string[] }) => {
+      const { data } = await apiClient.post<{ moved: number }>(`/catalog/groups/${id}/move-products`, body);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Mẫu SKU, số thứ tự kế tiếp và gợi ý mặc định của công ty */
+export function useProductSettings() {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: catalogKeys.settings(companyId),
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data } = await apiClient.get<ProductSettings>('/catalog/settings');
+      return data;
+    },
+  });
+}
+
+export function useUpdateProductSettings() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async (input: ProductSettingsInput) => {
+      const { data } = await apiClient.put<ProductSettings>('/catalog/settings', input);
+      return data;
     },
     onSuccess: invalidate,
   });

@@ -81,7 +81,7 @@ export type PurchaseRequestAction =
 export interface NewProductInput {
   parentId: string | null;
   parentName: string | null;
-  categoryId: string;
+  groupId: string;
   optionValues: Record<string, string>;
   name: string;
 }
@@ -93,8 +93,8 @@ export interface PurchaseRequestLine {
   sku: string | null;
   productName: string;
   attributesLabel: string;
-  /** BE cũ chỉ trả `name`, `categoryId`: các trường cha, trục có thể thiếu */
-  newProduct: (Partial<NewProductInput> & { name: string; categoryId: string; categoryName: string }) | null;
+  /** BE cũ chỉ trả `name`, `groupId`: các trường cha, trục có thể thiếu */
+  newProduct: (Partial<NewProductInput> & { name: string; groupId: string; groupName: string }) | null;
   quantity: number;
   /** Giá nhập dự kiến, chốt khi duyệt; null khi người xem không có quyền xem giá */
   unitCost: number | null;

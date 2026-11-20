@@ -1,19 +1,19 @@
 import { http, HttpResponse, delay } from 'msw';
 import { db } from '../db';
 import * as catalog from '../catalogData';
-import type { MockCategory, MockAttribute, MockProduct, MockVariant } from '../catalogData';
+import type { MockAttribute, MockGroup, MockProduct, MockProductSettings, MockVariant } from '../catalogData';
 import { skuPatternError, valueCode } from '@/utils/sku';
 import * as inventory from '../inventoryData';
 import * as purchasing from '../purchasingData';
 import * as channel from '../channelData';
 import * as pricing from '../pricingData';
 import { SPEC_LIMITS, specOf } from '../catalogBulkData';
-import type { Attribute, AttributeInput, BusinessStatusInput, BusinessStatusResult, Category, CategoryInput, ProductCreateInput, ProductDetail, ProductListItem, ProductUpdateInput, ProductVariant, UploadTicket, VariantAttribute, VariantBusinessStatus, VariantMainLabel, VariantMissing, VariantPresence, VariantUpdateInput } from '@/types/catalog';
+import type { Attribute, AttributeInput, BusinessStatusInput, BusinessStatusResult, ProductCreateInput, ProductGroup, ProductGroupInput, ProductSettings, ProductSettingsInput, SuggestConfig, ProductDetail, ProductListItem, ProductUpdateInput, ProductVariant, UploadTicket, VariantAttribute, VariantBusinessStatus, VariantMainLabel, VariantMissing, VariantPresence, VariantUpdateInput } from '@/types/catalog';
 import { BUSINESS_ACTIONS, hidesListings, mainLabel, variantMachine } from '@/lib/machines/product';
 import { PERMISSIONS } from '@/utils/permissions';
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@/utils/files';
 import type { PageResult } from '@/api/types';
-import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requireCompany } from './utils';
+import { API, LATENCY, lag, checkTransition, pageParams, paginate, problem, requireCompany, requireCompanyAny } from './utils';
 import { versionConflict, writeCompanyLog } from './identity';
 import { delistVariant, setListingsHidden } from './channel';
 import { isListingError, onPlatform, presenceFrom } from '@/lib/machines/channel';
@@ -26,16 +26,19 @@ export function companyProducts(companyId: string) {
   return catalog.products.filter((p) => p.companyId === companyId);
 }
 
-export function toCategory(c: MockCategory): Category {
+export function toGroup(g: MockGroup): ProductGroup {
   return {
-    id: c.id,
-    name: c.name,
-    skuPattern: c.skuPattern,
-    skuNextSeq: c.skuNextSeq,
-    productCount: catalog.products.filter((p) => p.categoryId === c.id).length,
-    version: c.version,
-    updatedAt: c.updatedAt,
+    id: g.id,
+    name: g.name,
+    productCount: catalog.products.filter((p) => p.groupId === g.id).length,
+    suggest: { ...g.suggest },
+    updatedAt: g.updatedAt,
+    version: g.version,
   };
+}
+
+export function toSettings(s: MockProductSettings): ProductSettings {
+  return { skuPattern: s.skuPattern, skuNextSeq: s.skuNextSeq, suggest: { ...s.suggest }, version: s.version };
 }
 
 export function usedValueIds(companyId: string) {
@@ -48,6 +51,7 @@ export function toAttribute(a: MockAttribute): Attribute {
   return {
     id: a.id,
     name: a.name,
+    platformKind: a.platformKind,
     values: a.values.map((v) => ({ ...v, inUse: used.has(v.id) })),
     productCount: companyProducts(a.companyId).filter((p) =>
       p.variants.some((v) => v.valueIds.some((id) => ids.has(id))),
@@ -130,12 +134,11 @@ export function productCode(p: MockProduct): string {
   return first.sku.split('-').filter((seg) => !codes.has(seg)).join('-');
 }
 
-/** §17.1: cha thiếu tên, danh mục, ảnh thì mọi SKU con Chờ hoàn thiện; giá muốn bán, ngưỡng tồn, cân nặng, kích thước tính theo SKU */
+/** §17.1: cha thiếu tên, ảnh thì mọi SKU con Chờ hoàn thiện; giá muốn bán, ngưỡng tồn, cân nặng, kích thước tính theo SKU */
 function missingOf(p: MockProduct, v: MockVariant): VariantMissing[] {
   const spec = specOf(v.id);
   const checks: [VariantMissing, boolean][] = [
     ['name', !p.name.trim()],
-    ['category', !p.categoryId],
     ['image', !p.imageFileIds.length],
     ['price', targetOf(p, v) === null],
     ['minQty', !reorderOf(p.companyId, v.id)],
@@ -202,7 +205,7 @@ export function fileUrl(id: string) {
 }
 
 export function toProductItem(p: MockProduct): ProductListItem {
-  const category = catalog.categories.find((c) => c.id === p.categoryId);
+  const group = catalog.groups.find((g) => g.id === p.groupId);
   const variants = p.variants.map((v) => toVariant(p, v));
   const labelCounts: Record<VariantMainLabel, number> = {
     archived: 0, discontinued: 0, paused: 0, live: 0, error: 0, pending: 0, not_listed: 0,
@@ -213,7 +216,7 @@ export function toProductItem(p: MockProduct): ProductListItem {
     id: p.id,
     code: productCode(p),
     name: p.name,
-    category: { id: p.categoryId, name: category?.name ?? '' },
+    group: { id: p.groupId, name: group?.name ?? '' },
     variantCount: current.length,
     variantTotal: variants.length,
     labelCounts,
@@ -243,8 +246,8 @@ export function toProductDetail(p: MockProduct): ProductDetail {
   };
 }
 
-export const categoryEntity = (c: MockCategory) => ({ type: 'product.categories', id: c.id, label: c.name });
-export const categorySnapshot = (c: MockCategory) => ({ name: c.name, skuPattern: c.skuPattern });
+export const groupEntity = (g: MockGroup) => ({ type: 'product.product_groups', id: g.id, label: g.name });
+export const groupSnapshot = (g: MockGroup) => ({ name: g.name, ...g.suggest });
 export const attributeEntity = (a: MockAttribute) => ({ type: 'product.attributes', id: a.id, label: a.name });
 export const attributeSnapshot = (a: MockAttribute) => ({
   name: a.name,
@@ -254,7 +257,7 @@ export const productEntity = (p: MockProduct) => ({ type: 'product.products', id
 export function productSnapshot(p: MockProduct) {
   return {
     name: p.name,
-    category: catalog.categories.find((c) => c.id === p.categoryId)?.name ?? '',
+    group: catalog.groups.find((g) => g.id === p.groupId)?.name ?? '',
     description: p.description,
     images: p.imageFileIds.length,
     sizeChart: Boolean(p.sizeChartFileId),
@@ -286,28 +289,29 @@ export function staleVersion(url: URL, current: number) {
   return v !== null && Number(v) !== current;
 }
 
-export function validateCategory(body: CategoryInput, companyId: string, exceptId?: string) {
+export function validateGroup(body: ProductGroupInput, companyId: string, exceptId?: string) {
   const errors: Record<string, string> = {};
   const name = body.name?.trim() ?? '';
-  if (!name) errors.name = 'Nhập tên danh mục';
-  else if (name.length > 60) errors.name = 'Tên danh mục tối đa 60 ký tự';
-  const patternError = skuPatternError(body.skuPattern ?? '');
-  if (patternError) errors.skuPattern = patternError;
+  if (!name) errors.name = 'Nhập tên nhóm hàng';
+  else if (name.length > 60) errors.name = 'Tên nhóm hàng tối đa 60 ký tự';
   if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
-  if (catalog.categories.some((c) => c.companyId === companyId && c.id !== exceptId && sameText(c.name, name))) {
-    return nameTaken('Đã có category cùng tên');
+  if (catalog.groups.some((g) => g.companyId === companyId && g.id !== exceptId && sameText(g.name, name))) {
+    return nameTaken('Đã có nhóm hàng cùng tên');
   }
   return null;
 }
+
+/** Tạo nhanh nhóm (chỉ tên) cho form sản phẩm, đề nghị nhập; gửi `suggest` thì cần quyền quản lý nhóm (21 §5.2) */
+const QUICK_GROUP = [PERMISSIONS.catalogSetup, PERMISSIONS.productManage, 'purchasing.request.manage'];
 
 export function validateAttribute(body: AttributeInput, companyId: string, exceptId?: string) {
   const errors: Record<string, string> = {};
   const name = body.name?.trim() ?? '';
   if (!name) errors.name = 'Nhập tên thuộc tính';
-  else if (name.length > 40) errors.name = 'Tên thuộc tính tối đa 40 ký tự';
+  else if (name.length > MAX_AXIS_NAME) errors.name = `Tên thuộc tính tối đa ${MAX_AXIS_NAME} ký tự`;
   const values = (body.values ?? []).map((v) => v.value.trim());
   if (!values.length) errors.values = 'Thêm ít nhất một giá trị';
-  else if (values.some((v) => !v || v.length > 40)) errors.values = 'Mỗi giá trị từ 1 đến 40 ký tự';
+  else if (values.some((v) => !v || v.length > MAX_AXIS_VALUE)) errors.values = `Mỗi giá trị từ 1 đến ${MAX_AXIS_VALUE} ký tự`;
   else if (new Set(values.map((v) => v.toLowerCase())).size !== values.length) {
     errors.values = 'Có giá trị bị trùng';
   }
@@ -342,12 +346,89 @@ export function comboAttributes(companyId: string, valueIds: string[]): string[]
 
 export const comboKey = (valueIds: string[]) => [...valueIds].sort().join('|');
 
-/** SKU duy nhất trong công ty: trùng (quy tắc hai danh mục giống nhau) thì lấy số kế tiếp */
-export function nextVariant(category: MockCategory, valueIds: string[]): MockVariant {
-  const taken = new Set(companyProducts(category.companyId).flatMap((p) => p.variants.map((v) => v.sku)));
-  let variant = catalog.makeVariant(category, valueIds, rid('var'));
-  while (taken.has(variant.sku)) variant = catalog.makeVariant(category, valueIds, variant.id);
+/** SKU theo mẫu của công ty, duy nhất trong công ty: trùng SKU cũ thì nhảy số kế tiếp (thiết kế FE#350 D3) */
+export function nextVariant(companyId: string, valueIds: string[]): MockVariant {
+  const settings = catalog.settingsOf(companyId);
+  const taken = new Set(companyProducts(companyId).flatMap((p) => p.variants.map((v) => v.sku)));
+  let variant = catalog.makeVariant(settings, valueIds, rid('var'));
+  while (taken.has(variant.sku)) variant = catalog.makeVariant(settings, valueIds, variant.id);
   return variant;
+}
+
+// Luật trục phân loại (Documents/21 §5.2, Lazada): tên ≤ 15, giá trị ≤ 20, ≤ 50 giá trị mỗi trục, tối đa 2 trục
+export const MAX_AXIS_NAME = 15;
+export const MAX_AXIS_VALUE = 20;
+const MAX_AXIS_VALUES = 50;
+const lowerTrim = (s: string) => s.trim().toLowerCase();
+
+/**
+ * Đọc `axes`, `variants[].options` của `POST /catalog/products`: kiểm luật, rồi trả hàm tạo thuộc tính, giá trị mới (gọi
+ * sau khi mọi kiểm tra khác đã qua, như cùng giao dịch) và trả tổ hợp `valueIds` theo thứ tự trục
+ */
+function readAxes(companyId: string, body: ProductCreateInput, errors: Record<string, string>): (() => string[][]) | null {
+  const axes = body.axes ?? [];
+  const variants = body.variants ?? [];
+  if (axes.length > 2) {
+    errors.axes = 'Sản phẩm tối đa 2 thuộc tính phân loại';
+    return null;
+  }
+  const own = catalog.attributes.filter((a) => a.companyId === companyId);
+  const resolved = axes.map((axis, i) => {
+    const attribute = axis.attributeId
+      ? own.find((a) => a.id === axis.attributeId)
+      : own.find((a) => sameText(a.name, axis.name ?? ''));
+    const name = (axis.name ?? attribute?.name ?? '').trim();
+    if (axis.attributeId && !attribute) errors[`axes.${i}.name`] = 'Thuộc tính không có';
+    else if (!name) errors[`axes.${i}.name`] = 'Nhập tên thuộc tính';
+    else if (name.length > MAX_AXIS_NAME) errors[`axes.${i}.name`] = `Tên thuộc tính tối đa ${MAX_AXIS_NAME} ký tự`;
+    const values = axis.values ?? [];
+    if (!values.length) errors[`axes.${i}.values`] = 'Thêm ít nhất một giá trị';
+    else if (values.length > MAX_AXIS_VALUES) errors[`axes.${i}.values`] = `Mỗi trục tối đa ${MAX_AXIS_VALUES} giá trị`;
+    else if (new Set(values.map((v) => lowerTrim(v.value))).size !== values.length) {
+      errors[`axes.${i}.values`] = 'Có giá trị bị trùng trong trục';
+    }
+    values.forEach((v, j) => {
+      const text = v.value.trim();
+      if (!text) errors[`axes.${i}.values.${j}.value`] = 'Nhập giá trị';
+      else if (text.length > MAX_AXIS_VALUE) errors[`axes.${i}.values.${j}.value`] = `Mỗi giá trị tối đa ${MAX_AXIS_VALUE} ký tự`;
+    });
+    return { attribute, name, values };
+  });
+  const keys = resolved.map((r) => r.attribute?.id ?? `name:${lowerTrim(r.name)}`);
+  if (new Set(keys).size !== keys.length) errors.axes = 'Hai trục phải là hai thuộc tính khác nhau';
+  if (!variants.length) errors.variants = 'Cần ít nhất một biến thể';
+  else if (variants.length > 100) errors.variants = 'Tối đa 100 biến thể mỗi lần tạo';
+  else if (!axes.length && variants.length !== 1) errors.variants = 'Sản phẩm không có thuộc tính phân loại chỉ có một biến thể';
+  const combos = new Set<string>();
+  variants.forEach((v, i) => {
+    const options = v.options ?? [];
+    const ok = options.length === axes.length && options.every((o, k) => resolved[k]!.values.some((x) => lowerTrim(x.value) === lowerTrim(o)));
+    if (!ok) errors[`variants.${i}`] = 'Chọn mỗi thuộc tính một giá trị có trong trục';
+    const key = JSON.stringify(options.map(lowerTrim));
+    if (combos.has(key)) errors.variants = 'Có tổ hợp thuộc tính bị trùng';
+    combos.add(key);
+  });
+  if (Object.keys(errors).length) return null;
+
+  return () => {
+    // Thuộc tính, giá trị mới tạo cùng lúc với sản phẩm; mã giá trị trùng thì thêm hậu tố số (21 §5.2)
+    const attrs = resolved.map((r) => {
+      let attribute = r.attribute;
+      if (!attribute) {
+        attribute = { id: rid('att'), companyId, name: r.name, platformKind: null, values: [], version: 1 };
+        catalog.attributes.push(attribute);
+      }
+      for (const v of r.values) {
+        if (attribute.values.some((x) => (v.id && x.id === v.id) || sameText(x.value, v.value))) continue;
+        const base = valueCode(v.value) || 'V';
+        let code = base;
+        for (let n = 2; attribute.values.some((x) => x.code === code); n++) code = `${base.slice(0, 5)}${n}`;
+        attribute.values.push({ id: rid('val'), value: v.value.trim(), code });
+      }
+      return attribute;
+    });
+    return variants.map((v) => v.options.map((o, k) => attrs[k]!.values.find((x) => sameText(x.value, o))!.id));
+  };
 }
 
 export function validateImages(companyId: string, ids: string[] | undefined, errors: Record<string, string>) {
@@ -391,83 +472,132 @@ export const IMAGE_TYPES = ['image/jpeg', 'image/png'];
 export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 export const catalogHandlers = [
-  // ----- Danh mục -----
-  http.get(`${API}/catalog/categories`, async ({ request }) => {
+  // ----- Nhóm hàng (Documents/21 §5.2, FE#350) -----
+  http.get(`${API}/catalog/groups`, async ({ request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.productView);
     if (!guard.ok) return guard.response;
-    return HttpResponse.json<Category[]>(
-      catalog.categories
-        .filter((c) => c.companyId === guard.value.companyId)
-        .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-        .map(toCategory),
-    );
+    const items = catalog.groups
+      .filter((g) => g.companyId === guard.value.companyId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+      .map(toGroup);
+    return HttpResponse.json<{ items: ProductGroup[] }>({ items });
   }),
 
-  http.post(`${API}/catalog/categories`, async ({ request }) => {
+  http.post(`${API}/catalog/groups`, async ({ request }) => {
     await delay(LATENCY);
-    const guard = requireCompany(request, PERMISSIONS.catalogSetup);
+    const body = (await request.json()) as ProductGroupInput;
+    const guard = body.suggest !== undefined ? requireCompany(request, PERMISSIONS.catalogSetup) : requireCompanyAny(request, QUICK_GROUP);
     if (!guard.ok) return guard.response;
-    const body = (await request.json()) as CategoryInput;
-    const invalid = validateCategory(body, guard.value.companyId);
+    const invalid = validateGroup(body, guard.value.companyId);
     if (invalid) return invalid;
-    const category: MockCategory = {
-      id: rid('cat'),
+    const group: MockGroup = {
+      id: rid('grp'),
       companyId: guard.value.companyId,
       name: body.name.trim(),
-      skuPattern: body.skuPattern.trim(),
-      skuNextSeq: 1,
+      suggest: { ...catalog.NO_SUGGEST, ...body.suggest },
       version: 1,
       updatedAt: db.now(),
     };
-    catalog.categories.push(category);
-    writeCompanyLog(guard.value, 'create', categoryEntity(category), null, categorySnapshot(category));
-    return HttpResponse.json<Category>(toCategory(category), { status: 201 });
+    catalog.groups.push(group);
+    writeCompanyLog(guard.value, 'create', groupEntity(group), null, groupSnapshot(group));
+    return HttpResponse.json<ProductGroup>(toGroup(group), { status: 201 });
   }),
 
-  http.put(`${API}/catalog/categories/:id`, async ({ params, request }) => {
+  http.put(`${API}/catalog/groups/:id`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.catalogSetup);
     if (!guard.ok) return guard.response;
-    const found = findOwned(catalog.categories, params.id, guard.value.companyId, 'danh mục');
+    const found = findOwned(catalog.groups, params.id, guard.value.companyId, 'nhóm hàng');
     if (!found.ok) return found.response;
-    const category = found.value;
-    const body = (await request.json()) as CategoryInput & { version: number };
-    if (body.version !== category.version) {
-      return versionConflict(toCategory(category), 'Danh mục vừa được người khác sửa.');
-    }
-    const invalid = validateCategory(body, guard.value.companyId, category.id);
+    const group = found.value;
+    const body = (await request.json()) as ProductGroupInput & { version: number };
+    if (body.version !== group.version) return versionConflict(toGroup(group), 'Nhóm hàng vừa được người khác sửa.');
+    const invalid = validateGroup(body, guard.value.companyId, group.id);
     if (invalid) return invalid;
-    const before = categorySnapshot(category);
-    // Đổi quy tắc chỉ áp dụng cho SKU sinh sau này; SKU cũ giữ nguyên
-    category.name = body.name.trim();
-    category.skuPattern = body.skuPattern.trim();
-    category.version += 1;
-    category.updatedAt = db.now();
-    writeCompanyLog(guard.value, 'update', categoryEntity(category), before, categorySnapshot(category));
-    return HttpResponse.json<Category>(toCategory(category));
+    const before = groupSnapshot(group);
+    group.name = body.name.trim();
+    // Không gửi suggest thì giữ, gửi thì thay cả năm
+    if (body.suggest) group.suggest = { ...body.suggest };
+    group.version += 1;
+    group.updatedAt = db.now();
+    writeCompanyLog(guard.value, 'update', groupEntity(group), before, groupSnapshot(group));
+    return HttpResponse.json<ProductGroup>(toGroup(group));
   }),
 
-  http.delete(`${API}/catalog/categories/:id`, async ({ params, request }) => {
+  http.delete(`${API}/catalog/groups/:id`, async ({ params, request }) => {
     await delay(LATENCY);
     const guard = requireCompany(request, PERMISSIONS.catalogSetup);
     if (!guard.ok) return guard.response;
-    const found = findOwned(catalog.categories, params.id, guard.value.companyId, 'danh mục');
+    const found = findOwned(catalog.groups, params.id, guard.value.companyId, 'nhóm hàng');
     if (!found.ok) return found.response;
-    const category = found.value;
-    if (staleVersion(new URL(request.url), category.version)) {
-      return versionConflict(toCategory(category), 'Danh mục vừa được người khác sửa.');
+    const group = found.value;
+    if (staleVersion(new URL(request.url), group.version)) {
+      return versionConflict(toGroup(group), 'Nhóm hàng vừa được người khác sửa.');
     }
-    const count = toCategory(category).productCount;
+    const count = toGroup(group).productCount;
     if (count) {
-      return problem(409, 'Danh mục đang được dùng', {
+      return problem(409, 'Nhóm hàng đang được dùng', {
         code: 'in_use',
-        detail: `Không xoá được danh mục ${category.name} vì có ${count} sản phẩm đang dùng.`,
+        detail: `Không xoá được nhóm ${group.name} vì còn ${count} sản phẩm (kể cả đã lưu trữ). Chuyển sản phẩm sang nhóm khác trước.`,
       });
     }
-    catalog.categories.splice(catalog.categories.indexOf(category), 1);
-    writeCompanyLog(guard.value, 'delete', categoryEntity(category), categorySnapshot(category), null);
+    catalog.groups.splice(catalog.groups.indexOf(group), 1);
+    writeCompanyLog(guard.value, 'delete', groupEntity(group), groupSnapshot(group), null);
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post(`${API}/catalog/groups/:id/move-products`, async ({ params, request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.productManage);
+    if (!guard.ok) return guard.response;
+    const companyId = guard.value.companyId;
+    const found = findOwned(catalog.groups, params.id, companyId, 'nhóm hàng');
+    if (!found.ok) return found.response;
+    const source = found.value;
+    const body = (await request.json()) as { targetGroupId?: string; productIds?: string[] };
+    const target = catalog.groups.find((g) => g.id === body.targetGroupId && g.companyId === companyId);
+    if (!target || target.id === source.id) {
+      return problem(422, 'Dữ liệu chưa hợp lệ', { errors: { targetGroupId: 'Chọn nhóm khác nhóm đang xoá' } });
+    }
+    const inSource = companyProducts(companyId).filter((p) => p.groupId === source.id);
+    const picked = body.productIds ? inSource.filter((p) => body.productIds!.includes(p.id)) : inSource;
+    if (body.productIds && picked.length !== new Set(body.productIds).size) {
+      return problem(422, 'Dữ liệu chưa hợp lệ', { errors: { productIds: 'Có sản phẩm không thuộc nhóm này' } });
+    }
+    // Không tăng version của hai nhóm; tăng version sản phẩm, ghi nhật ký từng sản phẩm
+    for (const p of picked) {
+      const before = productSnapshot(p);
+      p.groupId = target.id;
+      p.version += 1;
+      p.updatedAt = db.now();
+      writeCompanyLog(guard.value, 'update', productEntity(p), before, productSnapshot(p));
+    }
+    return HttpResponse.json({ moved: picked.length });
+  }),
+
+  // ----- Cài đặt sản phẩm của công ty -----
+  http.get(`${API}/catalog/settings`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.productView);
+    if (!guard.ok) return guard.response;
+    return HttpResponse.json<ProductSettings>(toSettings(catalog.settingsOf(guard.value.companyId)));
+  }),
+
+  http.put(`${API}/catalog/settings`, async ({ request }) => {
+    await delay(LATENCY);
+    const guard = requireCompany(request, PERMISSIONS.catalogSetup);
+    if (!guard.ok) return guard.response;
+    const settings = catalog.settingsOf(guard.value.companyId);
+    const body = (await request.json()) as ProductSettingsInput;
+    if (body.version !== settings.version) return versionConflict(toSettings(settings), 'Cài đặt vừa được người khác sửa.');
+    const patternError = skuPatternError(body.skuPattern ?? '');
+    if (patternError) return problem(422, 'Dữ liệu chưa hợp lệ', { errors: { skuPattern: patternError } });
+    // Đổi mẫu chỉ áp dụng cho SKU sinh sau này; SKU cũ giữ nguyên
+    settings.skuPattern = body.skuPattern.trim();
+    if (body.suggest) settings.suggest = { ...body.suggest } satisfies SuggestConfig;
+    settings.version += 1;
+    return HttpResponse.json<ProductSettings>(toSettings(settings));
   }),
 
   // ----- Thuộc tính -----
@@ -491,6 +621,7 @@ export const catalogHandlers = [
       id: rid('att'),
       companyId: guard.value.companyId,
       name: body.name.trim(),
+      platformKind: null,
       values: body.values.map((v, i) => ({ id: rid('val'), value: v.value.trim(), code: attributeCodes(body)[i] })),
       version: 1,
     };
@@ -565,12 +696,12 @@ export const catalogHandlers = [
     const url = new URL(request.url);
     const { page, pageSize } = pageParams(url);
     const search = url.searchParams.get('search')?.trim().toLowerCase();
-    const categoryId = url.searchParams.get('categoryId');
+    const groupId = url.searchParams.get('groupId');
     const status = url.searchParams.get('status') ?? 'active';
     let items = companyProducts(guard.value.companyId).filter((p) =>
       status === 'archived' ? p.archivedAt : !p.archivedAt,
     );
-    if (categoryId) items = items.filter((p) => p.categoryId === categoryId);
+    if (groupId) items = items.filter((p) => p.groupId === groupId);
     const businessStatus = url.searchParams.get('businessStatus');
     if (businessStatus) items = items.filter((p) => p.variants.some((v) => v.businessStatus === businessStatus));
     if (search) {
@@ -601,32 +732,19 @@ export const catalogHandlers = [
     const body = (await request.json()) as ProductCreateInput;
     const errors: Record<string, string> = {};
     validateProductText(body, errors);
-    const category = catalog.categories.find((c) => c.id === body.categoryId && c.companyId === companyId);
-    if (!category) errors.categoryId = 'Chọn danh mục';
+    const group = catalog.groups.find((g) => g.id === body.groupId && g.companyId === companyId);
+    if (!group) errors.groupId = 'Chọn nhóm hàng';
     validateImages(companyId, body.imageFileIds, errors);
     validateSizeChart(companyId, body.sizeChartFileId, errors);
-
-    const combos = (body.variants ?? []).map((v) => v.attributeValueIds ?? []);
-    const sets = combos.map((c) => comboAttributes(companyId, c));
-    // §17.4: tối đa 2 trục phân loại (Documents/25 §5.4)
-    if (sets.some((x) => x && x.length > 2)) {
-      return problem(422, 'Quá số trục phân loại', { code: 'too_many_axes' });
-    }
-    if (!combos.length) errors.variants = 'Cần ít nhất một biến thể';
-    else if (combos.length > 100) errors.variants = 'Tối đa 100 biến thể mỗi lần tạo';
-    else if (sets.some((x) => x === null)) errors.variants = 'Biến thể có giá trị không hợp lệ';
-    else if (new Set(sets.map((x) => x!.join('|'))).size > 1) {
-      errors.variants = 'Mọi biến thể phải dùng cùng bộ thuộc tính';
-    } else if (new Set(combos.map(comboKey)).size !== combos.length) {
-      errors.variants = 'Có tổ hợp thuộc tính bị trùng';
-    }
-    if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
+    const commitAxes = readAxes(companyId, body, errors);
+    if (!commitAxes || Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
     if (productNameTaken(companyId, body.name)) return nameTaken('Đã có sản phẩm cùng tên');
+    const combos = commitAxes();
 
     const product: MockProduct = {
       id: rid('prd'),
       companyId,
-      categoryId: category!.id,
+      groupId: group!.id,
       name: body.name.trim(),
       description: body.description ?? '',
       imageFileIds: body.imageFileIds ?? [],
@@ -637,7 +755,7 @@ export const catalogHandlers = [
       version: 1,
     };
     product.variants = combos.map((c) => {
-      const v = nextVariant(category!, c);
+      const v = nextVariant(companyId, c);
       // nextVariant chỉ thấy sản phẩm đã lưu; giữ SKU duy nhất trong cùng lần tạo
       product.variants.push(v);
       return v;
@@ -662,6 +780,9 @@ export const catalogHandlers = [
     validateProductText(body, errors);
     validateImages(guard.value.companyId, body.imageFileIds, errors);
     validateSizeChart(guard.value.companyId, body.sizeChartFileId, errors);
+    if (body.groupId !== undefined && !catalog.groups.some((g) => g.id === body.groupId && g.companyId === guard.value.companyId)) {
+      errors.groupId = 'Chọn nhóm hàng';
+    }
     if (Object.keys(errors).length) return problem(422, 'Dữ liệu chưa hợp lệ', { errors });
     // §17.4: gỡ hết ảnh khi còn SKU có listing chưa gỡ
     const listed = product.variants.some((v) => listingsOf(product.companyId, v.id).length);
@@ -678,6 +799,7 @@ export const catalogHandlers = [
     product.name = body.name.trim();
     product.description = body.description ?? '';
     product.imageFileIds = body.imageFileIds ?? [];
+    if (body.groupId !== undefined) product.groupId = body.groupId;
     // Bỏ trống thì giữ nguyên, null thì gỡ, id thì thay
     if (body.sizeChartFileId !== undefined) product.sizeChartFileId = body.sizeChartFileId;
     product.version += 1;
@@ -820,8 +942,7 @@ export const catalogHandlers = [
         detail: `Tổ hợp này đã có biến thể ${same.sku}.`,
       });
     }
-    const category = catalog.categories.find((c) => c.id === product.categoryId)!;
-    const variant = nextVariant(category, attributeValueIds);
+    const variant = nextVariant(product.companyId, attributeValueIds);
     product.variants.push(variant);
     // Biến thể là bản ghi riêng: không tăng version của sản phẩm để form đang sửa không bị 409
     product.updatedAt = db.now();

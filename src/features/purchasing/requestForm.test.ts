@@ -10,7 +10,7 @@ const line = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
   parentMode: 'new',
   parentId: '',
   parentName: 'Áo polo',
-  categoryId: 'cat-ao',
+  groupId: 'cat-ao',
   options: [],
   quantity: '5',
   unitCost: '100000',
@@ -24,9 +24,9 @@ const errorsOf = (lines: RequestLineDraft[]) => {
 
 describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', () => {
   it('cha mới cần tên và danh mục; cha có sẵn cần chọn cha', () => {
-    expect(errorsOf([line({ parentName: '', categoryId: '' })])).toMatchObject({
+    expect(errorsOf([line({ parentName: '', groupId: '' })])).toMatchObject({
       'lines.0.parentName': 'Nhập tên sản phẩm cha',
-      'lines.0.categoryId': 'Chọn category',
+      'lines.0.groupId': 'Chọn nhóm hàng',
     });
     expect(errorsOf([line({ parentMode: 'existing', parentName: '' })])).toMatchObject({
       'lines.0.parentId': 'Chọn sản phẩm cha',

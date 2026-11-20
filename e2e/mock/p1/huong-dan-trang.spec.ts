@@ -140,12 +140,12 @@ test.describe('Hướng dẫn trang', () => {
     await expect(tour(page).getByText('Bước 1/5', { exact: true })).toBeVisible();
   });
 
-  test('Sản phẩm, Danh mục & thuộc tính, Kho có hướng dẫn riêng (FE#136)', async ({ page }) => {
+  test('Sản phẩm, Nhóm hàng & thuộc tính, Kho có hướng dẫn riêng (FE#136)', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
     await popup(page).getByRole('button', { name: 'Để sau', exact: true }).click();
     const trang: [string, string, string][] = [
       ['Sản phẩm', 'Sản phẩm', 'Thêm sản phẩm'],
-      ['Danh mục & thuộc tính', 'Danh mục và thuộc tính', 'Tạo danh mục trước'],
+      ['Nhóm hàng & thuộc tính', 'Nhóm hàng và thuộc tính', 'Nhóm hàng'],
       ['Kho', 'Kho hàng', 'Tồn kho và phiếu kho'],
     ];
     for (const [muc, tieuDe, buoc1] of trang) {

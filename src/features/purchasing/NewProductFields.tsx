@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useAttributes, useCategories, useProduct, useProducts } from '@/api/catalog.api';
+import { useAttributes, useGroups, useProduct, useProducts } from '@/api/catalog.api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type { ProductListItem } from '@/types/catalog';
@@ -16,7 +16,7 @@ type FieldError = { message?: string } | undefined;
 export interface NewProductErrors {
   parentId?: FieldError;
   parentName?: FieldError;
-  categoryId?: FieldError;
+  groupId?: FieldError;
   options?: (FieldError & { root?: FieldError } & Partial<Record<number, { axis?: FieldError; value?: FieldError }>>) | undefined;
 }
 
@@ -44,7 +44,7 @@ function Err({ error }: { error: FieldError }) {
  * BE chưa nhận cha (`NEW_PRODUCT_PARENT` tắt) thì ẩn "Cha có sẵn": mỗi dòng là một sản phẩm riêng, báo rõ dưới ô.
  */
 export function NewProductFields({ line, name, index, errors, disabled, onChange }: NewProductFieldsProps) {
-  const categoriesQuery = useCategories();
+  const groupsQuery = useGroups();
   const attributesQuery = useAttributes();
   const parentQuery = useProduct(line.parentMode === 'existing' && line.parentId ? line.parentId : undefined);
   // Trục của cha có sẵn lấy theo thuộc tính của SKU đầu tiên
@@ -56,7 +56,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
     const current = line.options.map((o) => o.axis).join('|');
     if (current === parentAxesKey) return;
     onChange({
-      categoryId: parentQuery.data.category.id,
+      groupId: parentQuery.data.group.id,
       options: parentAxes.map((axis) => ({ axis, value: line.options.find((o) => o.axis === axis)?.value ?? '' })),
     });
     // Chỉ chạy khi đổi cha hoặc trục của cha đổi
@@ -83,7 +83,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
               parentMode: v as RequestLineDraft['parentMode'],
               parentId: '',
               parentName: '',
-              categoryId: '',
+              groupId: '',
               options: v === 'new' ? emptyOptions() : [],
             });
           }}
@@ -111,7 +111,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
             selected={line.parentId ? { id: line.parentId, name: line.parentName } : null}
             invalid={Boolean(errors?.parentId)}
             disabled={disabled}
-            onPick={(p) => onChange({ parentId: p.id, parentName: p.name, categoryId: p.category.id, options: [] })}
+            onPick={(p) => onChange({ parentId: p.id, parentName: p.name, groupId: p.group.id, options: [] })}
           />
           <Err error={errors?.parentId} />
           {line.parentId && parentQuery.data && !parentAxes.length && (
@@ -134,22 +134,22 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
           </div>
           <div className="grid gap-1">
             <Select
-              value={line.categoryId}
-              disabled={disabled || categoriesQuery.isLoading}
-              onValueChange={(v) => onChange({ categoryId: v })}
+              value={line.groupId}
+              disabled={disabled || groupsQuery.isLoading}
+              onValueChange={(v) => onChange({ groupId: v })}
             >
-              <SelectTrigger className="h-8 w-full" aria-label={`Category ${name}`} aria-invalid={Boolean(errors?.categoryId)}>
-                <SelectValue placeholder={categoriesQuery.isLoading ? 'Đang tải…' : 'Category'} />
+              <SelectTrigger className="h-8 w-full" aria-label={`Nhóm hàng ${name}`} aria-invalid={Boolean(errors?.groupId)}>
+                <SelectValue placeholder={groupsQuery.isLoading ? 'Đang tải…' : 'Nhóm hàng'} />
               </SelectTrigger>
               <SelectContent>
-                {(categoriesQuery.data ?? []).map((c) => (
+                {(groupsQuery.data ?? []).map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Err error={errors?.categoryId} />
+            <Err error={errors?.groupId} />
           </div>
         </div>
       )}
@@ -360,7 +360,7 @@ function ParentPicker({
               <div className="min-w-0">
                 <p className="font-medium">{p.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {p.code} · {p.category.name}
+                  {p.code} · {p.group.name}
                 </p>
               </div>
               <span className="text-xs whitespace-nowrap text-muted-foreground">{p.variantCount} SKU</span>

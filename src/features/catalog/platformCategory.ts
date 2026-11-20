@@ -1,6 +1,6 @@
 import type { PlatformAttribute, PlatformAttributeInput, SizeChartRule } from '@/types/shop';
 
-/** Sàn có tab ở trang Category & thuộc tính (commerio-backend#400) */
+/** Sàn có tab ở trang Nhóm hàng & thuộc tính (commerio-backend#400) */
 export const PLATFORM_TABS = [
   { platform: 'lazada', label: 'Lazada' },
   { platform: 'tiktok', label: 'TikTok Shop' },
