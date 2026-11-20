@@ -56,15 +56,9 @@ export const PERMISSIONS = {
   deliveryUpdate: 'fulfillment.delivery.update',
   /** Đảo bàn giao: cộng lại tồn thực (sơ đồ D2, CEO) */
   handoverRevert: 'fulfillment.handover.revert',
-  /** Tạo mã QR, link thanh toán cho đơn (UC-PF-01) */
-  paymentLinkCreate: 'payment.link.create',
-  /** Cấu hình khoá cổng thanh toán (UC-PF-11) */
-  gatewayManage: 'payment.gateway.manage',
-  /** Xem giao dịch cổng (UC-PF-03) */
-  transactionView: 'payment.transaction.view',
-  /** Xem hoá đơn, phiếu thu, phiếu chi, COD, hoàn tiền, khoản thu chưa khớp (UC-PF-04..07) */
+  /** Xem sổ tiền, trạng thái tiền, đối soát, cấu hình tiền (Documents/kiem-thu/ma-tran-quyen.md) */
   financeView: 'finance.invoice.view',
-  /** Ghi tiền: xác nhận COD, hoàn tiền, lập/ghi sổ phiếu chi, gán và hoàn khoản thu */
+  /** Nhập bảng kê đối soát TikTok (bản cũ, #30) */
   voucherCreate: 'finance.voucher.create',
   /** Soạn, chạy thử phiên bản cấu hình phí, thuế, ngưỡng lệch (sơ đồ D4.4) */
   financeConfigManage: 'finance.config.manage',
@@ -111,6 +105,9 @@ export function hasAllPermissions(context: CompanyContext | null, permission: st
 export function hasAnyPermission(context: CompanyContext | null, permissions: readonly string[]): boolean {
   return permissions.some((p) => hasPermission(context, p));
 }
+
+/** Trang Nhóm hàng & thuộc tính (FE#350): người quản lý nhóm hàng, hoặc người xem gian hàng cần tab category sàn */
+export const CATALOG_SETUP_ANY = [PERMISSIONS.catalogSetup, PERMISSIONS.shopView] as const;
 
 /** Mọi quyền của phân hệ Mua hàng (sơ đồ A1, A2, B4) */
 export const PURCHASING_PERMISSIONS = [

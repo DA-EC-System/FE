@@ -37,6 +37,7 @@ import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
 import { ProductFormPage } from '@/features/catalog/ProductFormPage';
 import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
+import { ProductSettingsPage } from '@/features/catalog/ProductSettingsPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
 import { PurchasingPage } from '@/features/purchasing/PurchasingPage';
@@ -56,7 +57,7 @@ import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
-import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { CATALOG_SETUP_ANY, FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH, USE_MOCKS } from '@/utils/env';
 
 /** Màn ngoài MVP (Documents/27 mục 8.1): gỡ khỏi menu, URL gõ thẳng hiện câu này trong khung app (FE#249) */
@@ -245,8 +246,16 @@ export const router = createBrowserRouter([
                   {
                     path: 'catalog/setup',
                     element: (
-                      <RequireModule module="catalog" permission={PERMISSIONS.catalogSetup}>
+                      <RequireModule module="catalog" anyPermission={CATALOG_SETUP_ANY}>
                         <CatalogSetupPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'catalog/settings',
+                    element: (
+                      <RequireModule module="catalog" permission={PERMISSIONS.productView}>
+                        <ProductSettingsPage />
                       </RequireModule>
                     ),
                   },

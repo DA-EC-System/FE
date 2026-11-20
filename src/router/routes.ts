@@ -50,6 +50,8 @@ export const ROUTES = {
     catalogProduct: (companyId: string, productId: string, spec?: string) =>
       `/c/${companyId}/catalog/products/${productId}${spec ? `?spec=${encodeURIComponent(spec)}` : ''}`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
+    /** Cài đặt sản phẩm (FE#350): route tạm dưới catalog, menu ở nhóm Quản trị */
+    productSettings: (companyId: string) => `/c/${companyId}/catalog/settings`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,
     inventoryTab: (companyId: string, tab: 'stock' | 'documents') =>
       tab === 'stock' ? `/c/${companyId}/inventory` : `/c/${companyId}/inventory?tab=${tab}`,
