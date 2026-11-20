@@ -42,11 +42,11 @@ function useCompanyId(): string {
 
 // ---------- Hồ sơ công ty (FE#267, commerio-backend#292) ----------
 
-export function useCompanyProfile() {
+export function useCompanyProfile({ enabled = true }: { enabled?: boolean } = {}) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: companySettingsKeys.profile(companyId),
-    enabled: Boolean(companyId),
+    enabled: enabled && Boolean(companyId),
     queryFn: async () => (await apiClient.get<CompanyProfile>('/platform/company')).data,
   });
 }

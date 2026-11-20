@@ -231,6 +231,10 @@ export interface ProductUpdateInput {
   sizeChartFileId?: string | null;
   /** Gửi để đổi nhóm hàng */
   groupId?: string;
+  /** Xuất xứ, mã ISO alpha-2; bỏ trường là giữ, `null` là xoá (Documents/21 §17.2) */
+  originCountry?: string | null;
+  /** Thương hiệu; bỏ trường là giữ, `null` là không thương hiệu */
+  brand?: string | null;
   version: number;
 }
 

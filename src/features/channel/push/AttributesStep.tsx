@@ -1,18 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { problemMessage } from '@/api/problemMessages';
+import { problemCode, problemMessage } from '@/api/problemMessages';
+import { useUpdateProduct } from '@/api/catalog.api';
+import { getProblem } from '@/api/client';
+import { CountryCombobox } from '@/features/catalog/CountryCombobox';
+import { countryName } from '@/features/catalog/countries';
+import { productFactsBody } from '@/features/catalog/shared';
+import type { ProductDetail } from '@/types/catalog';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import type { PlatformAttribute, SpecMissing, SpecValue } from '@/types/shop';
 import { hasCondition } from '@/features/catalog/platformCategory';
 import {
   attributeTab,
+  BRAND_CODES,
+  ORIGIN_CODES,
+  PROFILE_FIELDS,
   conditionMet,
   effectiveValue,
   fieldHint,
@@ -52,6 +65,15 @@ interface AttributesStepProps {
   onFocusRequest: (code: string) => void;
   /** Gian hàng mở trang: route cascade của Lazada cần token gian hàng */
   shopId: string | null;
+  /** Sản phẩm đang đẩy: tab Product info lưu xuất xứ, thương hiệu thẳng vào sản phẩm */
+  product: ProductDetail;
+  /** `product.manage`: sửa xuất xứ, thương hiệu tại chỗ */
+  canEditProduct: boolean;
+  /** `platform.company.manage`: hiện ô tick lưu vào hồ sơ công ty */
+  canEditCompany: boolean;
+  /** Mã attribute công ty đang tick "Lưu cũng vào hồ sơ công ty" */
+  profileSync: Set<string>;
+  onProfileSync: (code: string, checked: boolean) => void;
 }
 
 /** Bước 2: attribute của leaf chia ba tab theo `tier` (Documents/21 §18.5) */
@@ -218,39 +240,114 @@ function CategoryTab({ items, label, draft, missingCodes, ...rest }: TabProps & 
   );
 }
 
-function ProductTab({ items, label, facts, companyId, productId }: TabProps) {
+function ProductTab({ items, label, facts, companyId, productId, product, canEditProduct }: TabProps) {
+  const origin = items.find((a) => ORIGIN_CODES.has(a.code));
+  const brand = items.find((a) => BRAND_CODES.has(a.code));
+  const others = items.filter((a) => a !== origin && a !== brand);
+  const [originCountry, setOriginCountry] = useState(facts.originCountry ?? '');
+  const [brandText, setBrandText] = useState(facts.brand ?? '');
+  // Sản phẩm vừa lưu (hoặc người khác sửa): nạp lại ô theo bản mới
+  useEffect(() => {
+    setOriginCountry(facts.originCountry ?? '');
+    setBrandText(facts.brand ?? '');
+  }, [facts.originCountry, facts.brand]);
+  const update = useUpdateProduct();
+  const dirty = originCountry !== (facts.originCountry ?? '') || brandText.trim() !== (facts.brand ?? '');
+  const brandError = brandText.trim().length > 100 ? 'Thương hiệu tối đa 100 ký tự' : null;
+
+  const save = async () => {
+    try {
+      await update.mutateAsync({ id: product.id, ...productFactsBody(product, { originCountry, brand: brandText }) });
+      toast.success('Đã lưu vào sản phẩm, dùng chung cho mọi sàn.');
+    } catch (e) {
+      toast.error(
+        problemCode(e) === 'version_conflict'
+          ? 'Người khác vừa sửa sản phẩm này. Đã nạp bản mới nhất, chọn lại rồi bấm Lưu.'
+          : (getProblem(e)?.errors?.originCountry ?? getProblem(e)?.errors?.brand ?? problemMessage(e)),
+      );
+    }
+  };
+
+  if (!items.length) {
+    return <p className="text-sm text-muted-foreground">{label} không hỏi thông tin riêng theo sản phẩm ở category này.</p>;
+  }
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">
-        Xuất xứ, thương hiệu lấy từ trang sản phẩm Commerio, dùng chung cho mọi sàn. Muốn đổi thì sửa ở trang sản phẩm.
+        Xuất xứ, thương hiệu là thông tin của sản phẩm, <b className="font-medium text-foreground">dùng chung cho mọi sàn</b>. Lưu ở đây là lưu vào
+        sản phẩm, trang sản phẩm cũng thấy.
       </p>
-      {items.length ? (
-        <div className="grid gap-x-6 gap-y-2 rounded-lg border px-4 py-3 text-sm sm:grid-cols-[max-content_1fr]">
-          {items.map((a) => {
-            const v = productValue(a, facts);
-            return (
-              <div key={a.code} className="contents">
-                <span className="text-muted-foreground">
-                  {a.label} {a.required && <Badge variant="destructive">Bắt buộc</Badge>}
-                </span>
-                <span id={fieldId(a.code)} tabIndex={-1}>
-                  {v ?? (a.code === 'brand' ? <span className="text-muted-foreground">Không thương hiệu (No Brand)</span> : <span className="text-warning-text">Chưa điền</span>)}
-                </span>
-              </div>
-            );
-          })}
+      <div className="grid gap-3 md:grid-cols-2">
+        {origin && (
+          <div className={cn('grid gap-1.5 rounded-lg border p-3', !facts.originCountry && 'border-warning-border')}>
+            <Label htmlFor={fieldId(origin.code)} className="flex flex-wrap items-center gap-1.5">
+              {origin.label} {origin.required && <Badge variant="destructive">Bắt buộc</Badge>}
+            </Label>
+            {canEditProduct ? (
+              <CountryCombobox id={fieldId(origin.code)} value={originCountry} onChange={setOriginCountry} disabled={update.isPending} />
+            ) : (
+              <span id={fieldId(origin.code)} tabIndex={-1} className="text-sm">
+                {facts.originCountry ? countryName(facts.originCountry) : <span className="text-warning-text">Chưa điền</span>}
+              </span>
+            )}
+          </div>
+        )}
+        {brand && (
+          <div className="grid gap-1.5 rounded-lg border p-3">
+            <Label htmlFor={fieldId(brand.code)}>{brand.label}</Label>
+            {canEditProduct ? (
+              <>
+                <Input
+                  id={fieldId(brand.code)}
+                  value={brandText}
+                  onChange={(e) => setBrandText(e.target.value)}
+                  placeholder="Để trống là không thương hiệu (No Brand)"
+                  maxLength={120}
+                  aria-invalid={Boolean(brandError) || undefined}
+                  disabled={update.isPending}
+                />
+                {brandError && <p className="text-xs text-destructive">{brandError}</p>}
+              </>
+            ) : (
+              <span id={fieldId(brand.code)} tabIndex={-1} className="text-sm">
+                {facts.brand ?? <span className="text-muted-foreground">Không thương hiệu (No Brand)</span>}
+              </span>
+            )}
+          </div>
+        )}
+        {others.map((a) => (
+          <div key={a.code} className="grid gap-1.5 rounded-lg border p-3 text-sm">
+            <span className="text-muted-foreground">{a.label}</span>
+            <span id={fieldId(a.code)} tabIndex={-1}>
+              {productValue(a, facts) ?? <span className="text-warning-text">Chưa điền</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+      {canEditProduct ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" size="sm" onClick={save} disabled={!dirty || Boolean(brandError) || update.isPending}>
+            {update.isPending && <Loader2 className="animate-spin" />}
+            Lưu vào sản phẩm
+          </Button>
+          {dirty && <span className="text-xs text-muted-foreground">Chưa lưu. Bước này cần lưu trước khi đẩy.</span>}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">{label} không hỏi thông tin riêng theo sản phẩm ở category này.</p>
+        <p className="text-sm text-muted-foreground">
+          Cần quyền sửa sản phẩm để đổi.{' '}
+          <Link className="font-medium text-primary-text underline" to={ROUTES.company.catalogProduct(companyId, productId)}>
+            Xem trang sản phẩm
+          </Link>
+        </p>
       )}
-      <Link className="justify-self-start text-sm font-medium text-primary-text underline" to={ROUTES.company.catalogProduct(companyId, productId)}>
-        Sửa ở trang sản phẩm
-      </Link>
     </div>
   );
 }
 
-function CompanyTab({ items, label, draft, missingCodes, ...rest }: TabProps & { missingCodes: Set<string> }) {
+function CompanyTab({ items, label, draft, missingCodes, companyId, canEditCompany, profileSync, onProfileSync, ...rest }: TabProps & { missingCodes: Set<string> }) {
+  // Ô mà hồ sơ công ty còn trống (không có mặc định) và Commerio biết trường tương ứng của hồ sơ
+  const blank = items.filter((a) => PROFILE_FIELDS[a.code] && !a.defaultValue);
+  const profileHref = ROUTES.company.companyProfile(companyId);
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">
@@ -259,11 +356,43 @@ function CompanyTab({ items, label, draft, missingCodes, ...rest }: TabProps & {
       {items.length ? (
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((a) => (
-            <FieldCard key={a.code} {...rest} label={label} draft={draft} attribute={a} flagged={missingCodes.has(a.code)} />
+            <FieldCard
+              key={a.code}
+              {...rest}
+              companyId={companyId}
+              canEditCompany={canEditCompany}
+              profileSync={profileSync}
+              onProfileSync={onProfileSync}
+              label={label}
+              draft={draft}
+              attribute={a}
+              flagged={missingCodes.has(a.code)}
+              footer={
+                PROFILE_FIELDS[a.code] && !a.defaultValue && canEditCompany ? (
+                  <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={profileSync.has(a.code)}
+                      onCheckedChange={(v) => onProfileSync(a.code, v === true)}
+                    />
+                    Lưu cũng vào hồ sơ công ty để mọi sản phẩm sau tự điền
+                  </label>
+                ) : undefined
+              }
+            />
           ))}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">{label} không hỏi thông tin công ty ở category này.</p>
+      )}
+      {blank.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Hồ sơ công ty chưa có {blank.map((a) => a.label.toLocaleLowerCase('vi')).join(', ')}.{' '}
+          {canEditCompany ? 'Điền ở ô trên, giữ ô tick để lưu luôn vào hồ sơ.' : 'Giá trị nhập ở đây chỉ lưu cho sản phẩm này; nhờ CEO hoặc Admin điền hồ sơ công ty.'}{' '}
+          <a className="font-medium text-primary-text underline" href={profileHref} target="_blank" rel="noopener noreferrer">
+            Mở hồ sơ công ty
+          </a>
+        </p>
       )}
     </div>
   );
@@ -289,7 +418,13 @@ function FieldCard({
   shopId,
   badge,
   flagged,
-}: Omit<TabProps, 'items' | 'missing'> & { attribute: PlatformAttribute; badge?: React.ReactNode; flagged: boolean }) {
+  footer,
+}: Omit<TabProps, 'items' | 'missing'> & {
+  attribute: PlatformAttribute;
+  badge?: React.ReactNode;
+  flagged: boolean;
+  footer?: React.ReactNode;
+}) {
   const error = errors[`attributes.${a.code}`];
   const value = a.tier === 'company' ? effectiveValue(a, draft.attributes) : (draft.attributes[a.code] ?? null);
   const hint = fieldHint(a);
@@ -310,6 +445,7 @@ function FieldCard({
       />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p className="text-xs text-destructive-text">{error}</p>}
+      {footer}
     </div>
   );
 }
