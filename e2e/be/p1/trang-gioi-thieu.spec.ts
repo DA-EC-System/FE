@@ -7,9 +7,9 @@ const UUID = '[0-9a-f-]{36}';
 test.describe('P1 · Trang giới thiệu (BE thật)', () => {
   test('AC-1, AC-2: chưa đăng nhập mở / thấy trang giới thiệu, hai nút dẫn tới /register và /login', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hàng hoá, kho, đơn và thu chi');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Một số tồn cho mọi gian hàng');
     expect(duongDan(page)).toBe('/');
-    await expect(page.locator('#how li')).toHaveCount(7);
+    await expect(page.locator('#bay-buoc li')).toHaveCount(7);
 
     await page.getByRole('banner').getByRole('link', { name: 'Đăng ký công ty' }).click();
     await expect.poll(() => duongDan(page)).toBe('/register');
@@ -35,7 +35,7 @@ test.describe('P1 · Trang giới thiệu (BE thật)', () => {
     test('AC-3: mở / thì vào thẳng công ty, không thấy trang giới thiệu', async () => {
       await cty.page.goto('/');
       await expect.poll(() => duongDan(cty.page)).toMatch(new RegExp(`^/c/${UUID}`));
-      await expect(cty.page.getByRole('heading', { name: 'Hàng hoá, kho, đơn và thu chi' })).toHaveCount(0);
+      await expect(cty.page.getByRole('heading', { name: 'Một số tồn cho mọi gian hàng' })).toHaveCount(0);
     });
   });
 });
