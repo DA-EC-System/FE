@@ -29,6 +29,8 @@ export interface ReturnListParams {
   search?: string;
   source?: string;
   orderId?: string;
+  /** `respond_by`: hạn trả lời gần nhất trước (commerio-backend#392) */
+  sort?: 'created' | 'respond_by';
 }
 
 export const returnKeys = {

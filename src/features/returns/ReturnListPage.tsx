@@ -24,6 +24,7 @@ import { formatDateTime } from '@/utils/format';
 import type { ReturnRequestSummary, ReturnSource, ReturnStatus } from '@/types/returns';
 import { CLOSE_RESULT_LABELS, RETURN_STATUS, RETURN_TABS } from './shared';
 import { ReceiveReturnDialog } from './ReceiveReturnDialog';
+import { RespondByBadge } from './RespondByBadge';
 import { UnmatchedParcels } from './UnmatchedParcels';
 
 const PAGE_SIZES = [25, 50, 100];
@@ -32,6 +33,7 @@ const SOURCE_OPTIONS: { value: ReturnSource; label: string }[] = [
   { value: 'marketplace', label: 'Từ sàn' },
   { value: 'manual', label: 'Tạo thủ công' },
 ];
+const SORT_OPTIONS: { value: 'respond_by'; label: string }[] = [{ value: 'respond_by', label: 'Hạn trả lời gần nhất' }];
 
 type Tab = (typeof RETURN_TABS)[number]['value'];
 
@@ -47,6 +49,8 @@ export function ReturnListPage() {
   const tab: Tab = RETURN_TABS.some((t) => t.value === tabParam) ? (tabParam as Tab) : 'requested';
   const source = (f.params.get('source') ?? '') as ReturnSource | '';
   const unmatched = tab === 'unmatched';
+  // Hạn trả lời chỉ có ở yêu cầu Chờ phản hồi (commerio-backend#392)
+  const sort = tab === 'requested' && f.params.get('sort') === 'respond_by' ? 'respond_by' : '';
   const [receiving, setReceiving] = useState(false);
   const { startTour } = usePageGuide('returns');
 
@@ -56,6 +60,7 @@ export function ReturnListPage() {
     pageSize: f.pageSize,
     search: f.q || undefined,
     source: source || undefined,
+    sort: sort || undefined,
   });
   const counts = query.data?.counts;
   const items = useMemo(() => query.data?.items ?? [], [query.data]);
@@ -82,10 +87,11 @@ export function ReturnListPage() {
       {
         id: 'status',
         header: 'Trạng thái',
-        meta: { className: 'w-48' },
+        meta: { className: 'w-56' },
         cell: ({ row }) => (
           <div className="grid gap-1">
             <StatusBadge status={row.original.status} statuses={RETURN_STATUS} />
+            <RespondByBadge status={row.original.status} respondBy={row.original.respondBy} />
             {row.original.closeResult && (
               <span className="text-xs text-muted-foreground">{CLOSE_RESULT_LABELS[row.original.closeResult]}</span>
             )}
@@ -151,6 +157,9 @@ export function ReturnListPage() {
             <FilterBar>
               <SearchInput value={f.searchInput} onChange={f.setSearchInput} placeholder="Tìm mã yêu cầu, mã đơn, tên người mua" />
               <FilterSelect label="Nguồn" value={source} onChange={f.setFilter('source')} options={SOURCE_OPTIONS} />
+              {tab === 'requested' && (
+                <FilterSelect label="Xếp theo" value={sort} onChange={f.setFilter('sort')} options={SORT_OPTIONS} allLabel="Mới tạo trước" />
+              )}
             </FilterBar>
             <DataTable
               columns={columns}
