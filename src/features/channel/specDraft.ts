@@ -148,7 +148,7 @@ export function specMissing(
     if (!reason) continue;
     if (a.tier === 'product') {
       if (BRAND_CODES.has(a.code) || productValue(a, facts)) continue;
-      out.push({ code: a.code, label: `${a.label} (điền ở trang sản phẩm)`, reason });
+      out.push({ code: a.code, label: a.label, reason });
       continue;
     }
     if (!isFilled(effectiveValue(a, spec.attributes))) out.push({ code: a.code, label: a.label, reason });

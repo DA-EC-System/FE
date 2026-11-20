@@ -116,9 +116,9 @@ describe('specMissing: cùng luật với missing của BE (AC-7, AC-14, AC-15)'
     expect(specMissing(ATTRS, spec({ attributes: { material: 'm1', collar: 'Tròn' } }), AXES, FACTS)).toEqual([]);
   });
 
-  it('xuất xứ chưa điền ở trang sản phẩm: thiếu kèm lời chỉ chỗ sửa', () => {
+  it('xuất xứ chưa điền: thiếu, nhãn như sàn (sửa ngay ở tab Product info, FE#415)', () => {
     const m = specMissing(ATTRS, spec({ attributes: { material: 'm1', collar: 'x' } }), AXES, { originCountry: null, brand: null });
-    expect(m).toEqual([{ code: '100149', label: 'Quốc gia xuất xứ (điền ở trang sản phẩm)', reason: 'required' }]);
+    expect(m).toEqual([{ code: '100149', label: 'Quốc gia xuất xứ', reason: 'required' }]);
   });
 
   it('công ty: xoá trắng mà không có defaultValue thì thiếu', () => {
