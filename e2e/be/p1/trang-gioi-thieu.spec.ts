@@ -9,7 +9,7 @@ test.describe('P1 · Trang giới thiệu (BE thật)', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Một số tồn cho mọi gian hàng');
     expect(duongDan(page)).toBe('/');
-    await expect(page.locator('#bay-buoc li')).toHaveCount(7);
+    await expect(page.locator('#man-hinh li')).toHaveCount(3);
 
     await page.getByRole('banner').getByRole('link', { name: 'Đăng ký công ty' }).click();
     await expect.poll(() => duongDan(page)).toBe('/register');

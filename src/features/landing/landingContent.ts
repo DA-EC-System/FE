@@ -1,61 +1,55 @@
 /**
- * Nội dung trang giới thiệu (FE#401, Documents/27 US-CT-14). Bản v3 (20/11/2026): phong cách tham khảo odoo.com
- * (hero căn giữa, lưới phân hệ, khối chữ và ảnh xen kẽ), không dùng chữ, ảnh, icon, màu của Odoo.
- * Nội dung theo phương án A: luồng 7 bước. Chỉ nhắc chức năng đã có route BE trên main (đối chiếu 20/11/2026),
- * nguồn ghi ở comment từng mục. Không nhắc: cổng thanh toán, trợ lý AI, dự báo dòng tiền (BE#233), MISA (BE#232),
- * nhiều kho (US-CT-14 tiêu chí 5). Không có lời chứng thực hay số liệu khách hàng.
+ * Nội dung trang giới thiệu (FE#401, Documents/27 US-CT-14). Bản v4 (20/11/2026): bố cục theo trang mẫu Thành chọn
+ * (hero nền tối, thẻ quạt phân hệ, lưới ảnh màn, footer đậm). Chỉ nhắc chức năng đã có route BE trên main (đối chiếu
+ * 20/11/2026), nguồn ghi ở comment từng mục. Không nhắc: cổng thanh toán, trợ lý AI, dự báo dòng tiền (BE#233),
+ * MISA (BE#232), nhiều kho (US-CT-14 tiêu chí 5). Không có lời chứng thực hay số liệu khách hàng: ba con số ở hero là
+ * sự thật về sản phẩm (số sàn, số phân hệ, số bước).
  * Chức năng ra hay vào MVP thì sửa file này trong cùng PR đổi chức năng đó.
  */
 import catalogShot from '@/assets/landing/mod-catalog.jpg';
 import inventoryShot from '@/assets/landing/mod-inventory.jpg';
-
 import packagesShot from '@/assets/landing/mod-packages.jpg';
 import returnsShot from '@/assets/landing/mod-returns.jpg';
 import settlementsShot from '@/assets/landing/mod-settlements.jpg';
 import shopsShot from '@/assets/landing/mod-shops.jpg';
 
-export type LandingTint = 'primary' | 'success' | 'warning' | 'purple' | 'destructive' | 'info';
-export type LandingModuleIcon = 'catalog' | 'inventory' | 'shops' | 'packages' | 'returns' | 'money';
-
-export interface LandingModule {
-  id: string;
-  icon: LandingModuleIcon;
-  tint: LandingTint;
-  /** Tên trên ô lưới phân hệ */
-  name: string;
-  title: string;
-  text: string;
-  points: string[];
-  /** Ảnh màn thật chụp trên staging, dữ liệu thử; tên và ID gian hàng đã làm mờ */
-  shot: { src: string; width: number; height: number; alt: string };
+export interface LandingShot {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
 }
 
-export const LANDING_MODULES: LandingModule[] = [
-  // catalog /products, /products/:id/variants, /variants/bulk (25 mục 5)
+/** Hàng số dưới hero: sự thật về sản phẩm, không phải số liệu khách hàng */
+export const LANDING_FACTS = [
+  { value: '2 sàn', label: 'Lazada và TikTok Shop' },
+  { value: '6 phân hệ', label: 'Từ sản phẩm tới tiền' },
+  { value: '7 bước', label: 'Một vòng đời món hàng' },
+];
+
+export interface LandingGroup {
+  id: string;
+  title: string;
+  text: string;
+  /** Màu nền thẻ: token của Commerio */
+  bg: string;
+  textColor: string;
+  subtitleColor: string;
+  rotation: number;
+  shot: LandingShot;
+}
+
+/** Ba thẻ quạt, mỗi thẻ gom hai phân hệ */
+export const LANDING_GROUPS: LandingGroup[] = [
+  // catalog /products, /variants/bulk; inventory /stock, /documents/:id/decide; purchasing /requests, /goods-receipts
   {
-    id: 'san-pham',
-    icon: 'catalog',
-    tint: 'primary',
-    name: 'Sản phẩm',
-    title: 'Một sản phẩm, nhiều biến thể',
-    text: 'Mỗi màu, mỗi size là một SKU riêng, có ảnh và thuộc tính theo danh mục của sàn.',
-    points: ['Nhóm hàng và thuộc tính dùng chung', 'Sửa giá, thông tin nhiều biến thể một lần'],
-    shot: {
-      src: catalogShot,
-      width: 1640,
-      height: 550,
-      alt: 'Màn Sản phẩm: danh sách sản phẩm kèm nhóm hàng, số variant, trạng thái đăng bán',
-    },
-  },
-  // inventory /stock, /documents, /documents/:id/decide; purchasing /requests, /goods-receipts (25 mục 3, 4, 7)
-  {
-    id: 'kho',
-    icon: 'inventory',
-    tint: 'warning',
-    name: 'Kho',
-    title: 'Tồn kho chỉ đổi qua phiếu',
-    text: 'Đề nghị nhập, phiếu nhận, kiểm kê, xuất huỷ đều có người lập và người duyệt khác nhau.',
-    points: ['Số có thể bán được đẩy lên các sàn', 'Báo SKU cần nhập thêm, tách hàng lỗi chờ kiểm'],
+    id: 'hang-kho',
+    title: 'Hàng & kho',
+    text: 'Sản phẩm nhiều biến thể, mỗi biến thể một SKU. Tồn chỉ đổi qua phiếu nhập, kiểm kê, xuất huỷ, có người lập và người duyệt khác nhau.',
+    bg: 'var(--warning)',
+    textColor: '#1f1600',
+    subtitleColor: 'rgba(31,22,0,0.72)',
+    rotation: -10,
     shot: {
       src: inventoryShot,
       width: 1640,
@@ -63,31 +57,15 @@ export const LANDING_MODULES: LandingModule[] = [
       alt: 'Màn Kho hàng: tồn kho, tạm giữ, khoá chờ duyệt theo từng SKU',
     },
   },
-  // channel /shops, /remote-skus, /listings/push, /listings/match, /listings/pending-prices (25 mục 6)
+  // channel /shops, /listings/push, /listings/match; sales /orders; fulfillment /pick-list, /packages/hand-over; returns /receive
   {
-    id: 'gian-hang',
-    icon: 'shops',
-    tint: 'purple',
-    name: 'Gian hàng',
-    title: 'Lazada và TikTok Shop trong một màn',
-    text: 'Kết nối gian hàng, ghép SKU trên sàn với biến thể, đẩy listing lên sàn.',
-    points: ['Giá mới chờ duyệt trước khi đăng', 'Theo dõi SKU đã liên kết và đơn bảy ngày'],
-    shot: {
-      src: shopsShot,
-      width: 1640,
-      height: 670,
-      alt: 'Màn Gian hàng: gian hàng Lazada đã kết nối, số SKU liên kết, số đơn bảy ngày',
-    },
-  },
-  // sales /orders; fulfillment /pick-list, /packages/:id/split, /packages/documents, /packages/hand-over (25 mục 8)
-  {
-    id: 'don-kien',
-    icon: 'packages',
-    tint: 'success',
-    name: 'Đơn & kiện',
-    title: 'Đơn hai sàn, một hàng đợi đóng gói',
-    text: 'Đơn về tự giữ tồn. Kho lấy hàng theo danh sách, tách kiện, in chứng từ, bàn giao vận chuyển.',
-    points: ['Kiện sắp quá hạn bàn giao hiện chữ đỏ', 'Báo mất hàng ngay trên kiện'],
+    id: 'san-don',
+    title: 'Sàn & đơn',
+    text: 'Kết nối gian hàng Lazada, TikTok Shop, ghép SKU, đẩy listing. Đơn về tự giữ tồn, kho đóng gói theo hàng đợi, quét nhận hàng hoàn.',
+    bg: 'color-mix(in oklab, var(--primary) 22%, #070b14)',
+    textColor: '#ffffff',
+    subtitleColor: 'rgba(255,255,255,0.75)',
+    rotation: 3,
     shot: {
       src: packagesShot,
       width: 2096,
@@ -95,31 +73,15 @@ export const LANDING_MODULES: LandingModule[] = [
       alt: 'Màn Kiện hàng: các tab theo bước đóng gói và bảng kiện kèm hạn bàn giao',
     },
   },
-  // returns /requests, /receive (25 mục 9)
-  {
-    id: 'hang-tra',
-    icon: 'returns',
-    tint: 'destructive',
-    name: 'Hàng trả',
-    title: 'Hàng hoàn về có chỗ của nó',
-    text: 'Yêu cầu trả từ sàn về một danh sách theo trạng thái. Kho quét nhận hàng hoàn tại đây.',
-    points: ['Theo dõi chờ hàng về, đã nhận, chỉ hoàn tiền', 'Hàng lỗi không quay lại số có thể bán'],
-    shot: {
-      src: returnsShot,
-      width: 1640,
-      height: 830,
-      alt: 'Màn Trả hàng/Hoàn tiền: các tab theo trạng thái và yêu cầu trả kèm số tiền hoàn',
-    },
-  },
-  // finance /ledger, /orders/profits, /skus/profits, /settlements, /configs (25 mục 10.1 đến 10.4)
+  // finance /ledger, /orders/profits, /skus/profits, /settlements, /configs
   {
     id: 'tien',
-    icon: 'money',
-    tint: 'info',
-    name: 'Tiền',
-    title: 'Biết lãi từng đơn, khớp tiền sàn trả',
-    text: 'Sổ giao dịch ghi doanh thu, phí, thuế theo đơn và gian hàng. Đối soát số sàn trả với số phải thu.',
-    points: ['Lợi nhuận theo đơn và theo SKU', 'Phí sàn và thuế cấu hình theo phiên bản'],
+    title: 'Tiền & đối soát',
+    text: 'Sổ giao dịch ghi doanh thu, phí, thuế theo đơn. Đối soát số sàn trả với số phải thu, xem lãi theo đơn và theo SKU.',
+    bg: 'var(--primary)',
+    textColor: '#ffffff',
+    subtitleColor: 'rgba(255,255,255,0.82)',
+    rotation: 7,
     shot: {
       src: settlementsShot,
       width: 1640,
@@ -129,18 +91,27 @@ export const LANDING_MODULES: LandingModule[] = [
   },
 ];
 
-export interface LandingStep {
-  title: string;
-  who: string;
-}
-
-/** Bảy bước theo Documents/24 mục 1, người làm theo mục 6.6 */
-export const LANDING_STEPS: LandingStep[] = [
-  { title: 'Đề nghị nhập', who: 'Kho lập, CEO duyệt' },
-  { title: 'Nhận hàng', who: 'Kho' },
-  { title: 'Hoàn thiện sản phẩm', who: 'Admin' },
-  { title: 'Lên sàn', who: 'Admin' },
-  { title: 'Nhận đơn', who: 'Tự động' },
-  { title: 'Đóng gói, bàn giao', who: 'Kho' },
-  { title: 'Hàng hoàn và tiền', who: 'Kho, CEO' },
+/** Lưới ảnh màn thật, chụp trên staging bằng dữ liệu thử; tên và ID gian hàng đã làm mờ */
+export const LANDING_SCREENS: (LandingShot & { name: string })[] = [
+  {
+    name: 'Sản phẩm',
+    src: catalogShot,
+    width: 1640,
+    height: 550,
+    alt: 'Màn Sản phẩm: danh sách sản phẩm kèm nhóm hàng, số variant, trạng thái đăng bán',
+  },
+  {
+    name: 'Gian hàng',
+    src: shopsShot,
+    width: 1640,
+    height: 670,
+    alt: 'Màn Gian hàng: gian hàng Lazada đã kết nối, số SKU liên kết, số đơn bảy ngày',
+  },
+  {
+    name: 'Trả hàng',
+    src: returnsShot,
+    width: 1640,
+    height: 830,
+    alt: 'Màn Trả hàng/Hoàn tiền: các tab theo trạng thái và yêu cầu trả kèm số tiền hoàn',
+  },
 ];
