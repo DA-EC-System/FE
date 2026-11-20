@@ -94,20 +94,28 @@ export interface RemoteProductDrift {
   status: 'live' | 'hidden';
   /** Có dòng do người bán tự đăng trên sàn: chỉ CEO đổi category được */
   platformOwned: boolean;
-  fromPath: string;
+  fromPath: string | null;
+  fromId: string | null;
 }
 
 /**
  * Sản phẩm trên sàn có category khác spec đã lưu. Điều kiện như BE chọn cho `apply-category` (§18.5): listing `live` hoặc
- * `hidden`, có mã sàn. FE chỉ có đường dẫn category của listing, không có id, nên so đường dẫn; listing chưa rõ đường dẫn
- * (`null`, cây chưa đồng bộ) thì bỏ qua, BE vẫn quyết theo id khi gọi
+ * `hidden`, có mã sàn. So `externalCategoryId` của listing với id của spec; listing có id mà chưa có đường dẫn (cây
+ * chưa đồng bộ) vẫn tính là lệch
  */
-export function categoryDrift(rows: { shopId: string; row: ListingRow }[], specPath: string): RemoteProductDrift[] {
+export function categoryDrift(
+  rows: { shopId: string; row: ListingRow }[],
+  spec: { id: string | null; path: string },
+): RemoteProductDrift[] {
   const groups = new Map<string, RemoteProductDrift>();
   for (const { shopId, row } of rows) {
     const l = row.listing;
     if (!l?.externalProductId || (l.status !== 'live' && l.status !== 'hidden')) continue;
-    if (!row.externalCategoryPath || row.externalCategoryPath === specPath) continue;
+    const fromId = row.externalCategoryId ?? null;
+    const fromPath = row.externalCategoryPath ?? null;
+    // So theo id; chỉ khi BE không trả id mới so đường dẫn (đường dẫn null thì không so được)
+    const differs = fromId && spec.id ? fromId !== spec.id : Boolean(fromPath) && fromPath !== spec.path;
+    if (!differs) continue;
     const key = `${shopId}/${l.externalProductId}`;
     const g = groups.get(key) ?? {
       shopId,
@@ -115,7 +123,8 @@ export function categoryDrift(rows: { shopId: string; row: ListingRow }[], specP
       rows: [],
       status: l.status,
       platformOwned: false,
-      fromPath: row.externalCategoryPath,
+      fromPath,
+      fromId,
     };
     g.rows.push(row);
     if (l.status === 'live') g.status = 'live';

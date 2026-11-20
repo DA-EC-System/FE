@@ -95,6 +95,7 @@ const row = (over: {
   product?: string;
   status?: string;
   path?: string | null;
+  id?: string | null;
   source?: 'app' | 'platform';
   change?: 'queued' | 'failed' | 'mismatch' | null;
 }) =>
@@ -103,6 +104,7 @@ const row = (over: {
     row: {
       variantId: `v-${Math.random()}`,
       externalCategoryPath: over.path === undefined ? 'Áo > Áo thun' : over.path,
+      externalCategoryId: over.id === undefined ? 'c-thun' : over.id,
       categoryChange: over.change ? { status: over.change } : null,
       listing: {
         externalProductId: over.product === undefined ? 'p1' : over.product,
@@ -113,6 +115,8 @@ const row = (over: {
     } as unknown as ListingRow,
   }) as { shopId: string; row: ListingRow };
 
+const SPEC = { id: 'c-crop', path: 'Áo > Áo croptop' };
+
 describe('categoryDrift', () => {
   it('gom SKU cùng sản phẩm sàn, chỉ lấy live/hidden có mã sàn và đường dẫn khác spec', () => {
     const drift = categoryDrift(
@@ -122,10 +126,10 @@ describe('categoryDrift', () => {
         row({ product: 'p2', status: 'hidden' }),
         row({ product: 'p3', status: 'delisted' }),
         row({ product: null as unknown as string }),
-        row({ product: 'p4', path: 'Áo > Áo croptop' }),
-        row({ product: 'p5', path: null }),
+        row({ product: 'p4', path: 'Áo > Áo croptop', id: 'c-crop' }),
+        row({ product: 'p5', path: null, id: null }),
       ],
-      'Áo > Áo croptop',
+      SPEC,
     );
     expect(drift.map((d) => d.externalProductId)).toEqual(['p1', 'p2']);
     expect(drift[0]).toMatchObject({ status: 'live', fromPath: 'Áo > Áo thun', platformOwned: false });
@@ -134,12 +138,27 @@ describe('categoryDrift', () => {
   });
 
   it('đánh dấu sản phẩm người bán tự đăng (chỉ CEO đổi được)', () => {
-    const drift = categoryDrift([row({ source: 'platform' })], 'Áo > Áo croptop');
+    const drift = categoryDrift([row({ source: 'platform' })], SPEC);
     expect(drift[0]!.platformOwned).toBe(true);
   });
 
   it('cùng category thì không lệch', () => {
-    expect(categoryDrift([row({})], 'Áo > Áo thun')).toEqual([]);
+    expect(categoryDrift([row({})], { id: 'c-thun', path: 'Áo > Áo thun' })).toEqual([]);
+  });
+
+  it('id khác mà đường dẫn null vẫn là lệch', () => {
+    const drift = categoryDrift([row({ path: null })], SPEC);
+    expect(drift).toHaveLength(1);
+    expect(drift[0]).toMatchObject({ fromPath: null, fromId: 'c-thun' });
+  });
+
+  it('cùng id thì không lệch dù đường dẫn khác chữ', () => {
+    expect(categoryDrift([row({ path: 'Khác > Chữ', id: 'c-crop' })], SPEC)).toEqual([]);
+  });
+
+  it('không có id thì so đường dẫn', () => {
+    expect(categoryDrift([row({ id: null })], SPEC)).toHaveLength(1);
+    expect(categoryDrift([row({ id: null, path: 'Áo > Áo croptop' })], SPEC)).toEqual([]);
   });
 });
 

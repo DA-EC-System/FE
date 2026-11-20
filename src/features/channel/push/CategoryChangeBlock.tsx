@@ -40,6 +40,15 @@ interface Props {
   onConflict: (current: ProductSpecResult) => void;
 }
 
+/** Đường dẫn category trên sàn; chưa có đường dẫn (cây chưa đồng bộ) thì hiện id */
+function RemoteCategory({ path, id, className }: { path: string | null; id: string | null; className?: string }) {
+  return path ? (
+    <CategoryPath path={path} className={className} />
+  ) : (
+    <span className={`font-mono text-xs ${className ?? ''}`}>{id}</span>
+  );
+}
+
 /**
  * Dưới ô category đang chọn: "Trên {sàn} đang ở …", khối đổi category khi category trong Commerio khác trên sàn, và trạng
  * thái lượt đổi (commerio-backend#467, Documents/21 §18.5 `apply-category`)
@@ -78,9 +87,16 @@ export function CategoryChangeBlock({
 
   // Dòng "Trên sàn đang ở": các category khác nhau của listing còn bán trên sàn này
   const onPlatform = rows.filter(({ row }) => row.listing?.externalProductId && row.listing.status !== 'delisted');
-  const paths = [...new Set(onPlatform.map(({ row }) => row.externalCategoryPath).filter((p): p is string => Boolean(p)))];
+  const remotes = [
+    ...new Map(
+      onPlatform
+        .map(({ row }) => ({ path: row.externalCategoryPath ?? null, id: row.externalCategoryId ?? null }))
+        .filter((c) => c.path || c.id)
+        .map((c) => [c.id ?? c.path, c] as const),
+    ).values(),
+  ];
 
-  const drift = categoryDrift(rows, draftPath);
+  const drift = categoryDrift(rows, { id: draftCategoryId, path: draftPath });
   const dirty = !saved.spec || saved.spec.externalCategoryId !== draftCategoryId;
   const changeRows = rows.filter(({ row }) => row.categoryChange);
   const queued = changeRows.filter(({ row }) => row.categoryChange?.status === 'queued');
@@ -124,10 +140,10 @@ export function CategoryChangeBlock({
     <div className="grid gap-3" data-testid="category-change">
       <p className="text-sm text-muted-foreground">
         Trên {label} đang ở:{' '}
-        {paths.length ? (
+        {remotes.length ? (
           <span className="inline-flex flex-col gap-0.5 align-top">
-            {paths.map((p) => (
-              <CategoryPath key={p} path={p} className="text-foreground" />
+            {remotes.map((c) => (
+              <RemoteCategory key={c.id ?? c.path} path={c.path} id={c.id} className="text-foreground" />
             ))}
           </span>
         ) : (
@@ -187,8 +203,8 @@ export function CategoryChangeBlock({
             Trong Commerio: <CategoryPath path={draftPath} />
           </p>
           <p>
-            Trên {label}: <CategoryPath path={drift[0]!.fromPath} />
-            {new Set(drift.map((d) => d.fromPath)).size > 1 && <span className="text-muted-foreground"> (và category khác)</span>}
+            Trên {label}: <RemoteCategory path={drift[0]!.fromPath} id={drift[0]!.fromId} />
+            {new Set(drift.map((d) => d.fromId ?? d.fromPath)).size > 1 && <span className="text-muted-foreground"> (và category khác)</span>}
           </p>
           <div className="mt-2">
             {ceoBlocked ? (

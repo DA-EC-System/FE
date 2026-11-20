@@ -349,6 +349,8 @@ export interface ListingRow {
   listing: ChannelListing | null;
   /** Đường dẫn category của listing trên sàn, tra trong cây đã đồng bộ; null khi chưa rõ (§18.5, commerio-backend#467) */
   externalCategoryPath?: string | null;
+  /** Id category của listing trên sàn; so với `externalCategoryId` của spec để biết lệch (PR #475) */
+  externalCategoryId?: string | null;
   /** Bằng `listing.categoryChange`; null khi chưa có listing */
   categoryChange?: CategoryChange | null;
   /**
