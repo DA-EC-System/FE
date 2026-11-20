@@ -120,7 +120,6 @@ function SettingsFormView({ settings, onConflict }: { settings: ProductSettings;
               control={control}
               name="skuPattern"
               label="Mẫu SKU"
-              className="font-mono"
               disabled={!canEdit}
               hint="{SEQ:n} là số thứ tự, đệm 0 cho đủ n chữ số (bắt buộc đúng một lần); {VAL} là mã các giá trị phân loại nối bằng dấu gạch; chữ cố định gồm A-Z, 0-9, - và _."
               description="Chỉ áp dụng cho SKU sinh sau khi lưu; SKU đã có giữ nguyên."
