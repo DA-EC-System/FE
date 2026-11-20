@@ -618,6 +618,17 @@ export function useProductSpec(productId: string, platform: string, enabled = tr
   });
 }
 
+/** Thông tin sàn của sản phẩm ở nhiều sàn cùng lúc (thanh tab trang sản phẩm, FE#417); cùng cache với `useProductSpec` */
+export function useProductSpecs(productId: string | undefined, platforms: readonly string[], enabled = true) {
+  const companyId = useCompanyId();
+  return useQueries({
+    queries: platforms.map((platform) => ({
+      ...productSpecQuery(companyId, productId ?? '', platform),
+      enabled: Boolean(companyId && productId) && enabled,
+    })),
+  });
+}
+
 /** Lưu thông tin sàn; 409 `version_conflict` mang `current` (kiểu `ProductSpecResult`) để nạp lại */
 export function useSaveProductSpec() {
   const companyId = useCompanyId();

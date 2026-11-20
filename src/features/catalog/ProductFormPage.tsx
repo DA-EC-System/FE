@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -42,7 +42,7 @@ import {
 } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { useStock } from '@/api/inventory.api';
-import { useProductListingRows, useShops } from '@/api/shops.api';
+import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
 import { formatQty } from '@/features/inventory/shared';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
 import type { ProductListingRow } from '@/types/shop';
@@ -74,7 +74,11 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { formatCurrency } from '@/utils/format';
 import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
 import { SkuCode } from '@/components/common/SkuCode';
-import { ProductMarketplaceCard } from './ProductMarketplaceCard';
+import { PlatformTab, PlatformTabLabel } from './PlatformTab';
+import { focusField } from './focusField';
+import { SHARED_TARGETS, tabFromParam, visiblePlatforms, type ProductTabKey, type SharedTarget } from './productTabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { platformLabel } from './platformCategory';
 import { ProductSkuSheet } from './ProductSkuSheet';
 import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
 
@@ -203,6 +207,38 @@ export function ProductFormPage() {
     defaultValues: { name: '', groupId: '', description: '', originCountry: '', brand: '' },
   });
   const { control, reset, setError: setFieldError } = form;
+
+  // FE#417: tab Commerio và một tab mỗi sàn đã có spec hoặc listing; tab đang mở ghi lên `?tab=` để gửi link được
+  const shops = shopsQuery.data?.items ?? [];
+  const specQueries = useProductSpecs(productId, platforms, canShop && !isNew);
+  const tabPlatforms = visiblePlatforms(platforms, (p) => Boolean(specQueries[platforms.indexOf(p)]?.data?.spec), listingRows);
+  const tab: ProductTabKey = tabFromParam(searchParams.get('tab'), tabPlatforms);
+  const setTab = (next: string) =>
+    setSearchParams(
+      (prev) => {
+        const q = new URLSearchParams(prev);
+        if (next === 'commerio') q.delete('tab');
+        else q.set('tab', next);
+        return q;
+      },
+      { replace: true },
+    );
+  // "Dùng chung · sửa ở Commerio": sang tab Commerio rồi cuộn, focus, nháy đúng ô sau khi tab hiện
+  const [jump, setJump] = useState<SharedTarget | null>(null);
+  const jumpTo = (target: SharedTarget) => {
+    setTab('commerio');
+    setJump(target);
+  };
+  useEffect(() => {
+    if (tab !== 'commerio' || !jump) return;
+    const id = SHARED_TARGETS[jump];
+    // Xoá `jump` trong cùng khung hình: xoá ngay thì effect chạy lại và huỷ khung hình trước khi kịp focus
+    const frame = requestAnimationFrame(() => {
+      focusField(id);
+      setJump(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tab, jump]);
 
   // Nạp form một lần cho mỗi sản phẩm; refetch sau khi thêm biến thể không đè lên chỗ đang sửa
   const loadedId = useRef<string | null>(null);
@@ -342,7 +378,6 @@ export function ProductFormPage() {
 
   return (
     <Form {...form}>
-      <form onSubmit={onSubmit} noValidate>
         {back}
         <PageHeader
           title={title}
@@ -363,8 +398,8 @@ export function ProductFormPage() {
                     Xoá hẳn
                   </Button>
                 )}
-                {!readOnly && (
-                  <Button type="submit" disabled={busy || uploading || chartUploading}>
+                {!readOnly && tab === 'commerio' && (
+                  <Button type="submit" form="product-form" disabled={busy || uploading || chartUploading}>
                     {busy ? 'Đang lưu...' : uploading || chartUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
                   </Button>
                 )}
@@ -414,19 +449,62 @@ export function ProductFormPage() {
           </KpiStrip>
         )}
 
+        <Tabs value={tab} onValueChange={setTab} className="gap-4">
+          {!isNew && canShop && platforms.length > 0 && (
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+              <div className="max-w-full overflow-x-auto">
+                <TabsList aria-label="Nơi bán">
+                  <TabsTrigger value="commerio">Commerio (nội bộ)</TabsTrigger>
+                  {product &&
+                    tabPlatforms.map((p) => (
+                      <TabsTrigger key={p} value={p}>
+                        <PlatformTabLabel product={product} platform={p} shops={shops} />
+                      </TabsTrigger>
+                    ))}
+                </TabsList>
+              </div>
+              {product && can(PERMISSIONS.listingManage) && !archived && (
+                <div className="flex flex-wrap gap-2 pb-1.5">
+                  {platforms
+                    .filter((p) => !tabPlatforms.includes(p))
+                    .map((p) => (
+                      <Button key={p} asChild variant="outline" size="sm">
+                        <Link to={ROUTES.company.productPush(companyId, product.id, p)}>
+                          <Plus />
+                          Lên {platformLabel(p)}
+                        </Link>
+                      </Button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+          {!isNew && canShop && !shopsQuery.isLoading && !shopsQuery.isError && !platforms.length && (
+            <p className="text-sm text-muted-foreground">
+              Công ty chưa kết nối gian hàng nào.{' '}
+              <Link to={ROUTES.company.shops(companyId)} className="font-medium text-primary-text underline">
+                Kết nối gian hàng
+              </Link>{' '}
+              để đưa sản phẩm lên sàn.
+            </p>
+          )}
+          <TabsContent value="commerio" forceMount className="data-[state=inactive]:hidden">
+        <form id="product-form" onSubmit={onSubmit} noValidate>
         <div className="grid gap-4">
           <Card>
             <CardHeader>
               <CardTitle>Thông tin cơ bản</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-[2fr_1fr]">
-              <FormTextField
-                control={control}
-                name="name"
-                label="Tên sản phẩm"
-                autoFocus={isNew}
-                readOnly={readOnly}
-              />
+              <div id={SHARED_TARGETS.name} className="rounded-md">
+                <FormTextField
+                  control={control}
+                  name="name"
+                  label="Tên sản phẩm"
+                  autoFocus={isNew}
+                  readOnly={readOnly}
+                />
+              </div>
               <FormField
                 control={control}
                 name="groupId"
@@ -456,7 +534,7 @@ export function ProductFormPage() {
                 control={control}
                 name="description"
                 render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem id={SHARED_TARGETS.description} className="rounded-md md:col-span-2">
                     <FormLabel>Mô tả</FormLabel>
                     <FormControl>
                       <Textarea {...field} rows={3} readOnly={readOnly} />
@@ -465,13 +543,20 @@ export function ProductFormPage() {
                   </FormItem>
                 )}
               />
-              {!isNew && (
-                <>
+            </CardContent>
+          </Card>
+
+          {!isNew && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Thông tin dùng chung cho các sàn</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
                   <FormField
                     control={control}
                     name="originCountry"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem id={SHARED_TARGETS.origin} className="rounded-md">
                         <FormLabel>Xuất xứ</FormLabel>
                         <FormControl>
                           <CountryCombobox value={field.value} onChange={field.onChange} disabled={readOnly} />
@@ -485,7 +570,7 @@ export function ProductFormPage() {
                     control={control}
                     name="brand"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem id={SHARED_TARGETS.brand} className="rounded-md">
                         <FormLabel>Thương hiệu</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="Để trống là không thương hiệu" maxLength={120} readOnly={readOnly} />
@@ -495,21 +580,15 @@ export function ProductFormPage() {
                       </FormItem>
                     )}
                   />
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {product && canShop && (
-            <ProductMarketplaceCard
-              companyId={companyId}
-              productId={product.id}
-              platforms={platforms}
-              rows={listingRows}
-              loading={shopsQuery.isLoading || listingsQuery.isLoading}
-              canManage={can(PERMISSIONS.listingManage) && !archived}
-            />
+                {tabPlatforms.length > 0 && (
+                  <p className="text-xs text-muted-foreground md:col-span-2">
+                    Dùng cho: {tabPlatforms.map(platformLabel).join(' · ')}. Sửa ở đây thì mọi sàn đọc theo.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           )}
+
           {product && canShop && listingsQuery.isError && (
             <AlertMessage severity="warning">
               Không tải được listing của sản phẩm: {problemMessage(listingsQuery.error)}{' '}
@@ -527,7 +606,7 @@ export function ProductFormPage() {
             </AlertMessage>
           )}
 
-          <Card>
+          <Card id={SHARED_TARGETS.images}>
             <CardHeader>
               <CardTitle>Ảnh sản phẩm</CardTitle>
             </CardHeader>
@@ -545,7 +624,7 @@ export function ProductFormPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id={SHARED_TARGETS.sizeChart}>
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-1">
                 Bảng size
@@ -569,7 +648,7 @@ export function ProductFormPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id={SHARED_TARGETS.variants}>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Variant</CardTitle>
               {!isNew && !readOnly && (
@@ -737,6 +816,24 @@ export function ProductFormPage() {
             </CardContent>
           </Card>
         </div>
+        </form>
+          </TabsContent>
+          {product &&
+            tabPlatforms.map((p) => (
+              <TabsContent key={p} value={p} forceMount className="data-[state=inactive]:hidden">
+                <PlatformTab
+                  companyId={companyId}
+                  product={product}
+                  platform={p}
+                  shops={shops}
+                  rows={listingRows}
+                  canEditSpec={can(PERMISSIONS.listingManage) && !archived}
+                  canEditProduct={!readOnly}
+                  onJump={jumpTo}
+                />
+              </TabsContent>
+            ))}
+        </Tabs>
 
         {product && (
           <AddVariantDialog
@@ -771,7 +868,6 @@ export function ProductFormPage() {
             onClose={() => setDeleteOpen(false)}
           />
         )}
-      </form>
       {product && (
         <ProductSkuSheet
           companyId={companyId}
