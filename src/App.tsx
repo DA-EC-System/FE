@@ -6,6 +6,7 @@ import { AppThemeProvider } from '@/theme/ColorModeContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PageSpinner } from '@/components/common/PageSpinner';
 import { useAuth } from '@/hooks/useAuth';
+import { AgentationLoader } from '@/features/agentation/AgentationLoader';
 
 /** Chờ khôi phục phiên bằng cookie refresh xong mới cho router quyết định chuyển trang */
 function SessionGate() {
@@ -35,6 +36,7 @@ export default function App() {
         <SessionGate />
       </QueryClientProvider>
       <Toaster />
+      <AgentationLoader />
     </AppThemeProvider>
   );
 }
