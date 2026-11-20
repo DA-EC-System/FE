@@ -1,19 +1,72 @@
-import { lazy, Suspense } from 'react';
-import { agentationEndpoint, resolveAgentationFlag, safeLocalStorage } from './agentationFlag';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { MessageSquareDashed } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  agentationEndpoint,
+  isAgentationShortcut,
+  readAgentationOn,
+  resolveAgentationFlag,
+  safeStorage,
+  writeAgentationOn,
+} from './agentationFlag';
 
-// Tách chunk riêng: không bật cờ thì trình duyệt không tải gói agentation
+// Tách chunk riêng: trình duyệt chỉ tải gói agentation lần đầu bật
 const Agentation = lazy(() => import('agentation').then((m) => ({ default: m.Agentation })));
 
-// Đọc cờ một lần lúc tải trang; đổi cờ bằng ?agentation=1 hoặc ?agentation=0 rồi tải lại
-const enabled = resolveAgentationFlag(window.location.search, safeLocalStorage(), import.meta.env.DEV);
+// Cờ "được phép dùng" đọc một lần lúc tải trang (?agentation=1 / ?agentation=0)
+const allowed = resolveAgentationFlag(window.location.search, safeStorage('localStorage'), import.meta.env.DEV);
 const endpoint = agentationEndpoint(import.meta.env.VITE_AGENTATION_ENDPOINT);
 
-/** Thanh ghi chú UI cho AI agent; MCP server chạy trên máy người ghi chú: npx agentation-mcp server */
+/** Nút và phím tắt bật/tắt thanh ghi chú UI. Không có cờ thì không render gì, không gắn listener. */
 export function AgentationLoader() {
-  if (!enabled) return null;
+  return allowed ? <AgentationToggle /> : null;
+}
+
+function AgentationToggle() {
+  const [on, setOn] = useState(() => readAgentationOn(safeStorage('sessionStorage')));
+
+  const toggle = useCallback(() => {
+    setOn((prev) => {
+      writeAgentationOn(safeStorage('sessionStorage'), !prev);
+      return !prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isAgentationShortcut(e)) return;
+      e.preventDefault();
+      toggle();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggle]);
+
+  const label = on ? 'Tắt ghi chú UI (Ctrl+Alt+A)' : 'Bật ghi chú UI (Ctrl+Alt+A)';
   return (
-    <Suspense fallback={null}>
-      <Agentation endpoint={endpoint} />
-    </Suspense>
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={on}
+        aria-label={label}
+        title={label}
+        className={cn(
+          'fixed bottom-3 left-3 z-[60] flex size-11 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors',
+          'focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2',
+          on
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border bg-background/80 text-muted-foreground hover:text-foreground backdrop-blur',
+        )}
+      >
+        <MessageSquareDashed className="size-5" aria-hidden />
+      </button>
+      {/* Tắt thì unmount hẳn: component tự gỡ listener, observer của nó */}
+      {on && (
+        <Suspense fallback={null}>
+          <Agentation endpoint={endpoint} />
+        </Suspense>
+      )}
+    </>
   );
 }

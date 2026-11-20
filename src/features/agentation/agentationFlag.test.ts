@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { agentationEndpoint, DEFAULT_AGENTATION_ENDPOINT, resolveAgentationFlag } from './agentationFlag';
+import {
+  agentationEndpoint,
+  DEFAULT_AGENTATION_ENDPOINT,
+  isAgentationShortcut,
+  readAgentationOn,
+  resolveAgentationFlag,
+  writeAgentationOn,
+} from './agentationFlag';
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -54,6 +61,48 @@ describe('resolveAgentationFlag', () => {
     };
     expect(resolveAgentationFlag('?agentation=1', broken, false)).toBe(false);
   });
+});
+
+describe('bật/tắt theo tab', () => {
+  it('mặc định tắt', () => {
+    expect(readAgentationOn(memoryStorage())).toBe(false);
+    expect(readAgentationOn(null)).toBe(false);
+  });
+
+  it('bật rồi tắt: tắt thì xoá khoá', () => {
+    const s = memoryStorage();
+    writeAgentationOn(s, true);
+    expect(readAgentationOn(s)).toBe(true);
+    writeAgentationOn(s, false);
+    expect(readAgentationOn(s)).toBe(false);
+    expect(s.data.size).toBe(0);
+  });
+
+  it('storage ném lỗi thì đọc là tắt, ghi không làm vỡ', () => {
+    const broken = {
+      getItem: () => {
+        throw new Error('SecurityError');
+      },
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: () => {},
+    };
+    expect(readAgentationOn(broken)).toBe(false);
+    expect(() => writeAgentationOn(broken, true)).not.toThrow();
+  });
+});
+
+describe('isAgentationShortcut', () => {
+  const key = { code: 'KeyA', ctrlKey: true, altKey: true, shiftKey: false, metaKey: false, repeat: false };
+  it('Ctrl+Alt+A', () => expect(isAgentationShortcut(key)).toBe(true));
+  it('không nhận phím của Chrome hay của app', () => {
+    expect(isAgentationShortcut({ ...key, altKey: false, shiftKey: true })).toBe(false); // Ctrl+Shift+A: tìm tab
+    expect(isAgentationShortcut({ ...key, ctrlKey: false, shiftKey: true })).toBe(false); // Alt+Shift+A
+    expect(isAgentationShortcut({ ...key, altKey: false })).toBe(false); // Ctrl+A: chọn hết
+    expect(isAgentationShortcut({ ...key, code: 'KeyK', altKey: false })).toBe(false); // Ctrl+K: bảng lệnh
+  });
+  it('giữ phím (repeat) không bật tắt liên tục', () => expect(isAgentationShortcut({ ...key, repeat: true })).toBe(false));
 });
 
 describe('agentationEndpoint', () => {
