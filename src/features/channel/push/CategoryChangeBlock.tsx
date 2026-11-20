@@ -209,18 +209,20 @@ export function CategoryChangeBlock({
           <div className="mt-2">
             {ceoBlocked ? (
               <p className="text-muted-foreground">{CEO_ONLY_CATEGORY}.</p>
+            ) : !canManage ? (
+              <p className="text-muted-foreground">Cần quyền đăng bán để đổi category trên {label}.</p>
             ) : (
               <Button
                 type="button"
+                variant="outline"
                 size="sm"
-                disabled={!canManage || dirty || queued.length > 0 || apply.isPending}
+                disabled={dirty || queued.length > 0 || apply.isPending}
                 onClick={() => setConfirming(true)}
               >
                 {failed.length || mismatch.length ? 'Thử lại: ' : ''}Đổi category trên {label}
               </Button>
             )}
-            {dirty && !ceoBlocked && <p className="mt-1 text-xs text-muted-foreground">Lưu thông tin sàn trước.</p>}
-            {!canManage && !ceoBlocked && <p className="mt-1 text-xs text-muted-foreground">Cần quyền đăng bán để đổi.</p>}
+            {dirty && !ceoBlocked && canManage && <p className="mt-1 text-xs text-muted-foreground">Lưu thông tin sàn trước.</p>}
           </div>
         </div>
       )}
