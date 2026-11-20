@@ -188,6 +188,27 @@ tr.flash td {
   }
 }
 
+/* Ô vừa nhảy tới từ tab sàn của trang sản phẩm (FE#417): viền xanh nháy rồi tắt; giảm chuyển động thì chỉ giữ viền */
+.field-flash {
+  animation: field-flash 1.2s ease-out;
+}
+@keyframes field-flash {
+  0%,
+  40% {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 40%, transparent);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .field-flash {
+    animation: none;
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
 /* Hướng dẫn trang (FE#132): nút "hành động chính" trong pop-up làm nổi phần tử vài giây */
 [data-guide-pulse] {
   border-radius: var(--radius-lg, 8px);
