@@ -38,6 +38,7 @@ import type {
   ShopCallbackResult,
   ShopConnectInput,
   ShopDeleteInput,
+  ProductListingRow,
   ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpeningStocktakeRestart,
@@ -69,6 +70,7 @@ export const shopKeys = {
     [...shopKeys.all(companyId), 'category-suggestions', shopId, productId] as const,
   productSpec: (companyId: string, productId: string, platform: string) =>
     [...shopKeys.all(companyId), 'product-spec', productId, platform] as const,
+  productListings: (companyId: string, productId: string) => [...shopKeys.all(companyId), 'product-listings', productId] as const,
 };
 
 /** `search` (≥ 2 ký tự) hoặc `parentId`; không gửi gì là cấp gốc (Documents/21 §18.5) */
@@ -663,6 +665,22 @@ export function usePlatformCascade(
  * từng gian hàng (cùng khoá với `useShopListings`, dùng chung cache) rồi lọc theo `productId`. `poll` trả số ms hỏi lại
  * hoặc false (theo dõi `categoryChange.queued`, §18.5)
  */
+/**
+ * Listing của sản phẩm ở mọi gian hàng chưa ngắt, mỗi biến thể chưa lưu trữ × gian hàng một dòng (Documents/21 §18.5,
+ * commerio-backend#467). Trang sản phẩm dùng; cùng nhóm khoá `shops` nên thao tác listing làm mới luôn
+ */
+export function useProductListingRows(productId: string | undefined, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.productListings(companyId, productId ?? ''),
+    enabled: Boolean(companyId && productId) && enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ items: ProductListingRow[] }>(`/channel/products/${productId}/listings`);
+      return data.items;
+    },
+  });
+}
+
 export function useProductListings(shopIds: string[], productId: string, poll?: (rows: ListingRow[]) => number | false) {
   const companyId = useCompanyId();
   const results = useQueries({
