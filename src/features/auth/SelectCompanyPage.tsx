@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Building2, Loader2, Lock } from 'lucide-react';
+import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,13 +9,7 @@ import { useAuth, useLogout, useMe } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/api/client';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
-import type { Membership } from '@/types/auth';
-
-function blockedReason(m: Membership): string | null {
-  if (m.companyStatus === 'locked') return 'Công ty đang bị khoá';
-  if (m.status === 'locked') return 'Tài khoản của bạn bị khoá trong công ty này';
-  return null;
-}
+import { blockedReason, companyEntry } from './companyEntry';
 
 /** Một tài khoản có thể thuộc nhiều công ty; mỗi công ty là một phiên làm việc riêng. */
 export function SelectCompanyPage() {
@@ -23,14 +18,15 @@ export function SelectCompanyPage() {
   const logout = useLogout();
   const navigate = useNavigate();
 
-  const usable = useMemo(() => memberships.filter((m) => !blockedReason(m)), [memberships]);
+  const entry = useMemo(() => companyEntry(memberships), [memberships]);
 
-  // Chỉ có một công ty vào được thì đi thẳng, sau khi đã tải lại trạng thái mới nhất
+  // Chỉ còn một công ty vào được thì đi thẳng, sau khi đã tải lại trạng thái mới nhất.
+  // Toast đặt trước navigate, Toaster ở App nên giữ qua đổi trang; id cố định để StrictMode không hiện hai lần.
   useEffect(() => {
-    if (me.isSuccess && usable.length === 1 && memberships.length === 1) {
-      navigate(ROUTES.company.root(usable[0].companyId), { replace: true });
-    }
-  }, [me.isSuccess, usable, memberships.length, navigate]);
+    if (!me.isSuccess || entry.kind !== 'auto') return;
+    if (entry.lockedNotice) toast.warning(entry.lockedNotice, { id: 'locked-companies' });
+    navigate(ROUTES.company.root(entry.companyId), { replace: true });
+  }, [me.isSuccess, entry, navigate]);
 
   if (account?.isPlatformAdmin) return <Navigate to={ROUTES.platform.root} replace />;
 
@@ -65,6 +61,11 @@ export function SelectCompanyPage() {
           </AlertMessage>
         ) : (
           <div className="grid gap-3">
+            {entry.kind === 'all_locked' && (
+              <AlertMessage severity="warning">
+                Không công ty nào vào được lúc này. Dữ liệu vẫn giữ nguyên; liên hệ CEO công ty hoặc quản trị nền tảng.
+              </AlertMessage>
+            )}
             {memberships.map((m) => {
               const reason = blockedReason(m);
               return (
