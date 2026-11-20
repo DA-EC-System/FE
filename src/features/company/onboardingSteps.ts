@@ -5,19 +5,21 @@ export interface OnboardingStep {
   key: OnboardingKey;
   label: string;
   hint: string;
+  /** Chữ trên nút: động từ + đối tượng, đọc riêng vẫn hiểu (không chỉ "Làm") */
+  action: string;
   done: boolean;
   optional: boolean;
   /** Màn làm việc đó (Documents/21 mục 23, cột "FE dẫn tới") */
   to: string;
 }
 
-const TEXT: Record<OnboardingKey, { label: string; hint: string }> = {
-  company_profile: { label: 'Hồ sơ công ty', hint: 'Địa chỉ và người chịu trách nhiệm, in trên chứng từ.' },
-  invite_staff: { label: 'Mời nhân viên', hint: 'Tạo link mời để nhân viên vào làm cùng.' },
-  connect_shop: { label: 'Kết nối gian hàng', hint: 'Nối gian hàng Lazada hoặc TikTok Shop.' },
-  setup_shop: { label: 'Thiết lập gian hàng', hint: 'Ghép SKU trên sàn với sản phẩm và chọn mốc nhận đơn.' },
-  first_product: { label: 'Sản phẩm đầu tiên', hint: 'Tạo sản phẩm và biến thể để bán.' },
-  opening_stock: { label: 'Tồn đầu kỳ', hint: 'Kiểm kê số hàng đang có trong kho.' },
+const TEXT: Record<OnboardingKey, { label: string; hint: string; action: string }> = {
+  company_profile: { label: 'Hồ sơ công ty', hint: 'Địa chỉ và người chịu trách nhiệm, in trên chứng từ.', action: 'Điền hồ sơ' },
+  invite_staff: { label: 'Mời nhân viên', hint: 'Tạo link mời để nhân viên vào làm cùng.', action: 'Mời nhân viên' },
+  connect_shop: { label: 'Kết nối gian hàng', hint: 'Nối gian hàng Lazada hoặc TikTok Shop.', action: 'Kết nối gian hàng' },
+  setup_shop: { label: 'Thiết lập gian hàng', hint: 'Ghép SKU trên sàn với sản phẩm và chọn mốc nhận đơn.', action: 'Thiết lập gian hàng' },
+  first_product: { label: 'Sản phẩm đầu tiên', hint: 'Tạo sản phẩm và biến thể để bán.', action: 'Tạo sản phẩm' },
+  opening_stock: { label: 'Tồn đầu kỳ', hint: 'Kiểm kê số hàng đang có trong kho.', action: 'Kiểm kê tồn đầu' },
 };
 
 function target(item: OnboardingItem, companyId: string): string {
