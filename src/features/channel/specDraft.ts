@@ -13,6 +13,7 @@ import type {
   Shop,
   SpecMissing,
   SpecMissingReason,
+  ResolvedAttribute,
   SpecValue,
 } from '@/types/shop';
 import { shopUsable } from '@/lib/machines/channel';
@@ -96,6 +97,32 @@ export const isFilled = (v: SpecValue | null | undefined): boolean =>
 export const attributeTab = (a: Pick<PlatformAttribute, 'tier'>): AttributeTab => a.tier;
 
 /** Giá trị đang có: nhập trong nháp, không có thì `defaultValue` (hồ sơ công ty, chỉ `tier = 'company'`) */
+/**
+ * Giá trị đang có của từng attribute: ghi đè trong bản nháp đè lên giá trị BE đã tự điền (`resolved`, Documents/21
+ * §18.8.2). Ghi đè đã bỏ ("Về giá trị gốc") không còn trong `overrides` nên rơi về giá trị gốc; giá trị gốc của ô đang
+ * ghi đè thì BE không trả, phải lưu xong mới thấy
+ */
+export function mergedValues(
+  overrides: Record<string, SpecValue>,
+  resolved: Record<string, ResolvedAttribute> | undefined,
+): Record<string, SpecValue> {
+  const out: Record<string, SpecValue> = {};
+  for (const [code, r] of Object.entries(resolved ?? {})) if (r.source !== 'override') out[code] = r.value;
+  for (const [code, v] of Object.entries(overrides)) if (isFilled(v)) out[code] = v;
+  return out;
+}
+
+/** Nguồn của một ô: có ghi đè trong bản nháp là `override`, không thì nguồn BE đã tính; null khi chưa có giá trị */
+export function valueSource(
+  code: string,
+  overrides: Record<string, SpecValue>,
+  resolved: Record<string, ResolvedAttribute> | undefined,
+): ResolvedAttribute['source'] | null {
+  if (isFilled(overrides[code])) return 'override';
+  const r = resolved?.[code];
+  return r && r.source !== 'override' ? r.source : null;
+}
+
 export function effectiveValue(a: PlatformAttribute, attributes: Record<string, SpecValue>): SpecValue | null {
   const v = attributes[a.code];
   if (isFilled(v)) return v;
@@ -147,7 +174,7 @@ export function specMissing(
     const reason = requirementOf(a, spec.attributes);
     if (!reason) continue;
     if (a.tier === 'product') {
-      if (BRAND_CODES.has(a.code) || productValue(a, facts)) continue;
+      if (BRAND_CODES.has(a.code) || productValue(a, facts) || isFilled(spec.attributes[a.code])) continue;
       out.push({ code: a.code, label: a.label, reason });
       continue;
     }
@@ -306,9 +333,9 @@ export function withValue(draft: SpecDraft, valueId: string, optionId: string | 
 }
 
 /**
- * Body của `PUT …/specs/:platform`. Chỉ gửi attribute `tier = 'category'`; `tier = 'company'` khi khác `defaultValue`
- * (trống hoặc trùng thì BE lấy hồ sơ công ty lúc đẩy); bỏ `tier = 'product'` (catalog giữ) và sales attribute (đi qua
- * `axisMap`). `attrs = null` (chưa biết attribute của leaf) thì gửi nguyên giá trị đã nhập để BE tự kiểm
+ * Body của `PUT …/specs/:platform`. `attributes` là toàn bộ tập ghi đè (Documents/21 §18.8.2): khoá không gửi là không ghi
+ * đè, BE bỏ giá trị trùng nguồn gốc. Bỏ `tier = 'company'` trùng `defaultValue` và sales attribute (đi qua `axisMap`).
+ * `attrs = null` (chưa biết attribute của leaf) thì gửi nguyên giá trị đã nhập để BE tự kiểm
  */
 export function specInput(draft: SpecDraft, attrs: PlatformAttribute[] | null, axes: ProductAxis[]): ProductSpecInput {
   if (!draft.externalCategoryId) throw new Error('Chưa chọn category');
@@ -318,7 +345,8 @@ export function specInput(draft: SpecDraft, attrs: PlatformAttribute[] | null, a
     if (!isFilled(value)) continue;
     const a = byCode.get(code);
     if (attrs && !a) continue;
-    if (a && (a.kind === 'sales' || a.tier === 'product')) continue;
+    // Thương hiệu, xuất xứ ghi đè riêng sàn được (Documents/21 §18.8.2); giá trị trùng nguồn gốc thì BE không lưu
+    if (a?.kind === 'sales') continue;
     if (a?.tier === 'company' && value === a.defaultValue) continue;
     attributes[code] = value;
   }

@@ -705,7 +705,14 @@ export interface ProductSpec {
   updatedAt: string;
 }
 
-export type SpecMissingReason = 'required' | 'required_when' | 'axis_unmapped' | 'category_changed' | 'category_removed';
+export type SpecMissingReason =
+  | 'required'
+  | 'required_when'
+  | 'axis_unmapped'
+  | 'sales_required'
+  | 'axis_shape'
+  | 'category_changed'
+  | 'category_removed';
 
 export interface SpecMissing {
   code: string;
@@ -739,11 +746,25 @@ export interface RemoteProductFacts {
 }
 
 /** `spec: null`, `missing: []` khi sản phẩm chưa có thông tin của sàn */
+/** Giá trị đã tính của một attribute và nguồn của nó (Documents/21 §18.8.2) */
+export interface ResolvedAttribute {
+  /** Cùng quy ước với `attributes`: select là id lựa chọn của sàn, nhãn khi tự gõ */
+  value: SpecValue;
+  source: 'override' | 'catalog' | 'company' | 'default';
+  /** Thông số catalog sinh ra giá trị (nguồn `catalog`); null với thương hiệu, xuất xứ và nguồn khác */
+  fieldId: string | null;
+}
+
 export interface ProductSpecResult {
   spec: ProductSpec | null;
   missing: SpecMissing[];
   /** null khi chưa đọc từ sàn; BE cũ chưa trả thì thiếu */
   remote?: RemoteProductFacts | null;
+  /**
+   * Giá trị tự điền của mọi attribute không phải sales, theo thứ tự ghi đè > thông số catalog > hồ sơ công ty > mặc định
+   * sàn. `spec.attributes` chỉ còn phần ghi đè
+   */
+  resolved?: Record<string, ResolvedAttribute>;
 }
 
 /** `version: null` khi tạo mới. Chỉ attribute `tier = 'category'` và `company` khác `defaultValue` được lưu */

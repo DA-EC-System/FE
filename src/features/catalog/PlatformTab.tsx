@@ -21,11 +21,13 @@ import {
   BRAND_CODES,
   ORIGIN_CODES,
   draftFromSpec,
-  effectiveValue,
   fieldHint,
+  isFilled,
+  mergedValues,
   specInput,
   specMissing,
   valueLabel,
+  valueSource,
   withAttribute,
   type SpecDraft,
 } from '@/features/channel/specDraft';
@@ -43,14 +45,15 @@ import type {
   ProductSpecResult,
   RemoteProductFacts,
   RemoteVariantFacts,
+  ResolvedAttribute,
   Shop,
   SpecMissing,
+  SpecValue,
 } from '@/types/shop';
 import { CategoryPath } from './CategoryPath';
 import { focusField } from './focusField';
 import { usePlatformTab } from './usePlatformTab';
 import { RemoteSuggestion } from './RemoteSuggestion';
-import { countryName } from './countries';
 import { platformLabel } from './platformCategory';
 import { platformDrift } from './productOverview';
 import {
@@ -103,11 +106,35 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     // eslint-disable-next-line react-hooks/exhaustive-deps -- theo version của bản đã lưu
   }, [spec?.version, spec?.externalCategoryId]);
   const save = useSaveProductSpec();
+  // Ô đang mở sửa riêng cho sàn mà chưa có giá trị ghi đè ("Chỉ điền cho {sàn}" ở ô trống)
+  const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
+  const resolved = specQuery.data?.resolved;
   const dirty = spec ? JSON.stringify(draft.attributes) !== JSON.stringify(spec.attributes) : false;
-  const draftMissing = spec && attrs ? specMissing(attrs, { ...draft, categoryStatus: spec.categoryStatus }, axes, data.facts) : missing;
-  const missingCodes = new Set(draftMissing.filter((m) => ATTR_REASONS.has(m.reason)).map((m) => m.code));
-  const groups = attrs ? attributeGroups(attrs, draft.attributes) : null;
+  // Giá trị mỗi ô: ghi đè trong nháp > giá trị BE tự điền (Documents/21 §18.8.2)
+  const values = mergedValues(draft.attributes, resolved);
   const otherMissing = missing.filter((m) => !ATTR_REASONS.has(m.reason));
+  // Đang sửa thì tính lại phần attribute ở FE; phần trục, category giữ của BE (cần luật trục của leaf)
+  const draftMissing =
+    dirty && spec && attrs
+      ? [
+          ...specMissing(attrs, { attributes: values, axisMap: draft.axisMap, categoryStatus: spec.categoryStatus }, axes, data.facts).filter(
+            (m) => ATTR_REASONS.has(m.reason),
+          ),
+          ...otherMissing,
+        ]
+      : missing;
+  const missingCodes = new Set(draftMissing.filter((m) => ATTR_REASONS.has(m.reason)).map((m) => m.code));
+  const groups = attrs ? attributeGroups(attrs, values) : null;
+  const extraMissing = otherMissing.filter((m) => m.code !== 'category');
+  const overrideOf = (code: string, value: SpecValue | null) => {
+    setDraft((d) => withAttribute(d, code, value));
+    setEditing((s) => {
+      const next = new Set(s);
+      if (value === null) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
 
   const sharedLabel = canEditProduct ? 'Dùng chung · sửa ở Commerio' : 'Dùng chung · xem ở Commerio';
   const gapOf = (t: SharedTarget) => gaps.find((g) => g.target === t);
@@ -118,6 +145,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     try {
       const saved = await save.mutateAsync({ productId: product.id, platform, input: specInput(draft, attrs, axes) });
       setDraft(draftFromSpec(saved.spec));
+      setEditing(new Set());
       toast.success(saved.missing.length ? `Đã lưu. ${label} còn thiếu ${saved.missing.length} mục.` : `Đã lưu attribute ${label}.`);
     } catch (e) {
       const problem = getProblem(e);
@@ -169,6 +197,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
   const sections = [
     { key: 'basic', title: 'Thông tin cơ bản', miss: (gapOf('images') ? 1 : 0) + (noCategory || otherMissing.some((m) => m.code === 'category') ? 1 : 0) },
     ...(spec ? [{ key: 'attrs', title: 'Attribute', miss: attrMissingCount }] : []),
+    ...(extraMissing.length ? [{ key: 'extra', title: 'Sàn đòi thêm', miss: extraMissing.length }] : []),
     { key: 'detail', title: 'Chi tiết sản phẩm', miss: gapOf('description') ? 1 : 0 },
     { key: 'sales', title: platform === 'lazada' ? 'Giá và tồn kho' : 'Thông tin bán hàng', miss: 0 },
     ...(sizeRule && sizeRule !== 'unsupported' ? [{ key: 'size', title: 'Bảng kích cỡ', miss: gapOf('sizeChart') ? 1 : 0 }] : []),
@@ -302,36 +331,63 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 <Group title="Attribute bắt buộc" note={canEditSpec ? 'sửa và lưu ngay tại đây' : 'chỉ xem: cần quyền quản lý listing để sửa'}>
                   {groups.required.length ? (
                     <div className="grid gap-3 md:grid-cols-2">
-                      {groups.required.map((a) =>
-                        a.tier === 'product' ? (
-                          <ProductAttribute key={a.code} attribute={a} product={product} sharedLabel={sharedLabel} onJump={onJump} flagged={missingCodes.has(a.code)} />
-                        ) : (
-                          <EditableAttribute
-                            fieldSources={spec.fieldSources}
-                            key={a.code}
-                            attribute={a}
-                            draft={draft}
-                            platform={platform}
-                            shopId={data.shop?.id ?? null}
-                            label={label}
-                            canEdit={canEditSpec}
-                            flagged={missingCodes.has(a.code)}
-                            error={errors[`attributes.${a.code}`]}
-                            onChange={(v) => setDraft((d) => withAttribute(d, a.code, v))}
-                          />
-                        ),
-                      )}
+                      {groups.required.map((a) => (
+                        <AttributeRow
+                          key={a.code}
+                          attribute={a}
+                          values={values}
+                          overrides={draft.attributes}
+                          resolved={resolved}
+                          fieldSources={spec.fieldSources}
+                          platform={platform}
+                          externalId={draft.externalCategoryId ?? ''}
+                          shopId={data.shop?.id ?? null}
+                          label={label}
+                          canEdit={canEditSpec}
+                          editing={editing.has(a.code)}
+                          flagged={missingCodes.has(a.code)}
+                          error={errors[`attributes.${a.code}`]}
+                          onChange={(v) => setDraft((d) => withAttribute(d, a.code, v))}
+                          onOverride={(v) => overrideOf(a.code, v)}
+                          onJump={onJump}
+                        />
+                      ))}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Category này không có attribute bắt buộc trên {label}.</p>
                   )}
-                  {canEditSpec && groups.required.some((a) => a.tier !== 'product') && (
+                  <Collapsible>
+                    <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                      <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
+                      Giá trị tự điền lấy từ đâu
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <ol className="grid list-decimal gap-0.5 pt-1 pl-9 text-xs text-muted-foreground">
+                        <li>Bạn sửa riêng cho {label}.</li>
+                        <li>Thông số gốc của sản phẩm (xuất xứ, thương hiệu, thông số của nhóm) qua ánh xạ sang attribute của {label}.</li>
+                        <li>Hồ sơ công ty.</li>
+                        <li>Mặc định của sàn.</li>
+                      </ol>
+                      <p className="pt-1 pl-4 text-xs text-muted-foreground">
+                        Giá trị sửa riêng trùng thông số gốc thì không lưu riêng: sau này thông số gốc đổi, {label} đổi theo.
+                      </p>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  {canEditSpec && (
                     <div className="flex flex-wrap items-center gap-2">
                       <Button type="button" onClick={onSave} disabled={!dirty || save.isPending}>
                         {save.isPending ? 'Đang lưu...' : `Lưu attribute ${label}`}
                       </Button>
                       {dirty && (
-                        <Button type="button" variant="ghost" onClick={() => setDraft(draftFromSpec(spec))} disabled={save.isPending}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setDraft(draftFromSpec(spec));
+                            setEditing(new Set());
+                          }}
+                          disabled={save.isPending}
+                        >
                           Bỏ thay đổi
                         </Button>
                       )}
@@ -344,7 +400,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                   <Group title="Key attributes" note={`điền đủ thì điểm nội dung trên ${label} cao hơn`} action={canEditSpec && <PushLink href={pushHref} />}>
                     <div className="grid gap-3 md:grid-cols-2">
                       {groups.key.map((a) => (
-                        <ReadAttribute key={a.code} attribute={a} values={draft.attributes} label={label} fieldSources={spec.fieldSources} />
+                        <ReadAttribute key={a.code} attribute={a} values={values} label={label} fieldSources={spec.fieldSources} source={valueSource(a.code, draft.attributes, resolved)} />
                       ))}
                     </div>
                   </Group>
@@ -359,7 +415,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                     <CollapsibleContent className="grid gap-3 pt-3">
                       <div className="grid gap-3 md:grid-cols-2">
                         {groups.other.map((a) => (
-                          <ReadAttribute key={a.code} attribute={a} values={draft.attributes} label={label} fieldSources={spec.fieldSources} />
+                          <ReadAttribute key={a.code} attribute={a} values={values} label={label} fieldSources={spec.fieldSources} source={valueSource(a.code, draft.attributes, resolved)} />
                         ))}
                       </div>
                       {canEditSpec && <PushLink href={pushHref} />}
@@ -367,19 +423,19 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                   </Collapsible>
                 )}
 
-                {otherMissing.some((m) => m.reason === 'axis_unmapped') && (
-                  <AlertMessage severity="warning">
-                    Trục phân loại chưa ánh xạ sang {label}:{' '}
-                    {otherMissing.filter((m) => m.reason === 'axis_unmapped').map((m) => m.label).join(', ')}.{' '}
-                    {canEditSpec && (
-                      <Link to={pushHref} className="font-medium underline">
-                        Ánh xạ trên trang đẩy
-                      </Link>
-                    )}
-                  </AlertMessage>
-                )}
               </div>
             )}
+          </Section>
+        )}
+
+        {extraMissing.length > 0 && (
+          <Section id={platformSectionId(platform, 'extra')} title="Sàn đòi thêm" miss={extraMissing.length}>
+            <ExtraMissing
+              items={extraMissing}
+              label={label}
+              pushHref={canEditSpec ? pushHref : null}
+              newProductHref={ROUTES.company.catalogNew(companyId)}
+            />
           </Section>
         )}
 
@@ -520,6 +576,9 @@ function SourceBadge({ source, label, platformName, onJump }: { source: BadgeSou
     );
   }
   if (source === 'company') return <Badge variant="info">Từ hồ sơ công ty</Badge>;
+  if (source === 'override') return <Badge variant="purple">Bạn sửa riêng cho {platformName}</Badge>;
+  if (source === 'catalog') return <Badge variant="primary">{label ?? 'Từ thông số gốc'}</Badge>;
+  if (source === 'default') return <Badge variant="neutral">Mặc định của sàn</Badge>;
   if (source === 'match') return <Badge variant="purple">Đọc từ sàn khi ghép</Badge>;
   if (source === 'platform') return <Badge variant="secondary">Sàn quản lý</Badge>;
   return <Badge variant="outline">Riêng cho {platformName}</Badge>;
@@ -599,88 +658,135 @@ function CategoryNotes({
   );
 }
 
-/** Attribute `tier = 'product'` (xuất xứ, thương hiệu): giá trị của sản phẩm, sửa ở tab Commerio */
-function ProductAttribute({
-  attribute: a,
-  product,
-  sharedLabel,
-  onJump,
-  flagged,
-}: {
-  attribute: PlatformAttribute;
-  product: ProductDetail;
-  sharedLabel: string;
-  onJump: (t: SharedTarget) => void;
-  flagged: boolean;
-}) {
-  const isOrigin = ORIGIN_CODES.has(a.code);
-  const target: SharedTarget = isOrigin ? 'origin' : 'brand';
-  const value = isOrigin ? (product.originCountry ? countryName(product.originCountry) : '') : (product.brand ?? '');
-  const empty = BRAND_CODES.has(a.code) ? 'Không thương hiệu (No Brand)' : 'Chưa điền';
-  return (
-    <ReadField
-      label={a.label}
-      required
-      source="shared"
-      sourceLabel={sharedLabel}
-      onJump={() => onJump(target)}
-      missing={flagged && 'Bắt buộc, chưa điền. Điền ở tab Commerio, mọi sàn dùng chung.'}
-    >
-      {value || <span className="text-muted-foreground">{empty}</span>}
-    </ReadField>
-  );
-}
-
 function ReadAttribute({
   attribute: a,
   values,
   label,
   fieldSources,
+  source,
 }: {
   attribute: PlatformAttribute;
-  values: Record<string, string | string[]>;
+  values: Record<string, SpecValue>;
   label: string;
   fieldSources?: ProductSpec['fieldSources'];
+  source: ResolvedAttribute['source'] | null;
 }) {
-  const text = valueLabel(a, effectiveValue(a, values));
+  const text = valueLabel(a, values[a.code] ?? null);
+  const kind = attributeSource(a, fieldSources, source);
   return (
-    <ReadField label={a.label} source={attributeSource(a, fieldSources)} platformName={label}>
+    <ReadField label={a.label} source={kind} sourceLabel={kind === 'catalog' ? catalogLabel(a.code) : undefined} platformName={label}>
       {text || <span className="text-muted-foreground">Chưa điền</span>}
     </ReadField>
   );
 }
 
-function EditableAttribute({
-  fieldSources,
+/** Tên thông số gốc của thương hiệu, xuất xứ (cột của sản phẩm); thông số của nhóm BE chưa trả tên nên ghi chung */
+const productFieldName = (code: string) => (ORIGIN_CODES.has(code) ? 'Xuất xứ' : BRAND_CODES.has(code) ? 'Thương hiệu' : null);
+const catalogLabel = (code: string) => {
+  const name = productFieldName(code);
+  return name ? `Từ thông số gốc: ${name}` : 'Từ thông số gốc';
+};
+
+/**
+ * Một attribute bắt buộc ở tab sàn (Documents/21 §18.8.2). Ô đã tự điền (thông số gốc, hồ sơ công ty, mặc định sàn) chỉ
+ * xem, kèm "Sửa riêng cho {sàn}"; ô đang sửa riêng có "Về giá trị gốc"; ô chưa có giá trị thì sửa ngay (thương hiệu,
+ * xuất xứ thì mời điền ở tab Commerio trước, vì mọi sàn dùng chung)
+ */
+function AttributeRow({
   attribute: a,
-  draft,
+  values,
+  overrides,
+  resolved,
+  fieldSources,
   platform,
+  externalId,
   shopId,
   label,
   canEdit,
+  editing,
   flagged,
   error,
   onChange,
+  onOverride,
+  onJump,
 }: {
-  fieldSources?: ProductSpec['fieldSources'];
   attribute: PlatformAttribute;
-  draft: SpecDraft;
+  values: Record<string, SpecValue>;
+  overrides: Record<string, SpecValue>;
+  resolved: Record<string, ResolvedAttribute> | undefined;
+  fieldSources?: ProductSpec['fieldSources'];
   platform: Marketplace;
+  externalId: string;
   shopId: string | null;
   label: string;
   canEdit: boolean;
+  /** Người dùng vừa bấm "Sửa riêng" / "Chỉ điền cho" ở ô này */
+  editing: boolean;
   flagged: boolean;
   error?: string;
-  onChange: (v: string | string[] | null) => void;
+  onChange: (v: SpecValue | null) => void;
+  /** Bật sửa riêng với giá trị ban đầu (chuỗi rỗng là ô trống), null là bỏ sửa riêng */
+  onOverride: (v: SpecValue | null) => void;
+  onJump: (t: SharedTarget) => void;
 }) {
-  if (!canEdit) {
+  const value = values[a.code] ?? null;
+  const overridden = isFilled(overrides[a.code]);
+  const source = attributeSource(a, fieldSources, valueSource(a.code, overrides, resolved));
+  const isProduct = a.tier === 'product';
+  const fieldName = productFieldName(a.code);
+  const fieldId = resolved?.[a.code]?.fieldId;
+  const jumpTarget: SharedTarget = ORIGIN_CODES.has(a.code)
+    ? 'origin'
+    : BRAND_CODES.has(a.code)
+      ? 'brand'
+      : fieldId
+        ? `spec:${fieldId}`
+        : 'specs';
+  const showEditor = canEdit && (editing || overridden || (!isFilled(value) && !isProduct));
+  const id = platformFieldId(platform, a.code);
+
+  const link = (text: string, onClick: () => void) => (
+    <button type="button" className="cursor-pointer text-xs font-medium text-primary-text underline-offset-2 hover:underline" onClick={onClick}>
+      {text}
+    </button>
+  );
+  const actions: React.ReactNode[] = [];
+  if (canEdit && (overridden || editing)) {
+    if (resolved?.[a.code] || isProduct) actions.push(<span key="back">{link('Về giá trị gốc', () => onOverride(null))}</span>);
+  } else if (source === 'catalog') {
+    actions.push(<span key="jump">{link('Sửa ở tab Commerio', () => onJump(jumpTarget))}</span>);
+    if (canEdit) actions.push(<span key="own">{link(`Sửa riêng cho ${label}`, () => onOverride(value ?? ''))}</span>);
+  } else if (!isFilled(value) && isProduct) {
+    actions.push(<span key="jump">{link(`Điền ${fieldName ?? a.label} ở tab Commerio`, () => onJump(jumpTarget))}</span>);
+    if (canEdit) actions.push(<span key="own">{link(`Chỉ điền cho ${label}`, () => onOverride(''))}</span>);
+  } else if (canEdit && isFilled(value) && (source === 'company' || source === 'default')) {
+    actions.push(<span key="own">{link(`Sửa riêng cho ${label}`, () => onOverride(value))}</span>);
+  }
+  const actionRow = actions.length > 0 && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{actions}</div>;
+  const missingText = flagged
+    ? isProduct
+      ? `Bắt buộc, chưa điền. Điền ${fieldName ?? a.label} ở tab Commerio để mọi sàn dùng chung, hoặc chỉ điền cho ${label}.`
+      : 'Bắt buộc, chưa điền.'
+    : null;
+
+  if (!showEditor) {
     return (
-      <ReadField label={a.label} required source={attributeSource(a, fieldSources)} platformName={label} missing={flagged && 'Bắt buộc, chưa điền.'}>
-        {valueLabel(a, effectiveValue(a, draft.attributes)) || <span className="text-muted-foreground">Chưa điền</span>}
+      <ReadField
+        label={a.label}
+        required
+        source={source}
+        sourceLabel={source === 'catalog' ? catalogLabel(a.code) : source === 'shared' ? 'Dùng chung · sửa ở Commerio' : undefined}
+        platformName={label}
+        onJump={() => onJump(jumpTarget)}
+        missing={missingText}
+      >
+        <div className="grid gap-1.5" id={id} tabIndex={-1}>
+          <span>{valueLabel(a, value) || <span className="text-muted-foreground">Chưa điền</span>}</span>
+          {actionRow}
+        </div>
       </ReadField>
     );
   }
-  const id = platformFieldId(platform, a.code);
   const hint = fieldHint(a);
   return (
     <div
@@ -695,26 +801,84 @@ function EditableAttribute({
           {a.label}
           <span className="sr-only"> (bắt buộc)</span>
         </span>
-        <SourceBadge source={attributeSource(a, fieldSources)} platformName={label} />
+        {overridden || editing ? (
+          <SourceBadge source={fieldSources?.[a.code] === 'match' && !editing ? 'match' : 'override'} platformName={label} />
+        ) : (
+          <SourceBadge source={source} platformName={label} />
+        )}
       </Label>
       <AttributeField
         attribute={a}
-        value={effectiveValue(a, draft.attributes)}
+        value={overrides[a.code] ?? (overridden || editing ? null : value)}
         onChange={onChange}
         inputId={id}
         invalid={Boolean(error) || flagged}
         platform={platform}
-        externalId={draft.externalCategoryId ?? ''}
+        externalId={externalId}
         shopId={shopId}
       />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      {flagged && !error && <p className="text-xs text-destructive-text">Bắt buộc, chưa điền.</p>}
+      {missingText && !error && <p className="text-xs text-destructive-text">{missingText}</p>}
       {error && (
         <p className="text-xs text-destructive-text" role="alert">
           {error}
         </p>
       )}
+      {actionRow}
     </div>
+  );
+}
+
+/** Mục sàn sẽ từ chối ngoài attribute: trục chưa ánh xạ, sales attribute bắt buộc, bộ trục không hợp (§18.8.6) */
+function ExtraMissing({
+  items,
+  label,
+  pushHref,
+  newProductHref,
+}: {
+  items: SpecMissing[];
+  label: string;
+  /** null khi không có quyền sửa thông tin sàn */
+  pushHref: string | null;
+  newProductHref: string;
+}) {
+  const btn = (to: string, text: string, primary = false) => (
+    <Button key={text} asChild size="sm" variant={primary ? 'default' : 'outline'}>
+      <Link to={to}>{text}</Link>
+    </Button>
+  );
+  return (
+    <ul className="grid gap-2">
+      {items.map((m) => {
+        let title: string;
+        let body: string | null = null;
+        const actions: React.ReactNode[] = [];
+        if (m.reason === 'axis_unmapped') {
+          title = `Trục “${m.label}” chưa ánh xạ sang ${label}`;
+          body = `Chưa có sales attribute của ${label} khớp với trục này, và category này không nhận tên trục tự đặt. Chọn sales attribute cho trục ở bước Variants.`;
+          if (pushHref) actions.push(btn(pushHref, 'Ánh xạ trên trang đẩy', true));
+        } else if (m.reason === 'sales_required') {
+          title = `Category bắt buộc phân loại theo “${m.label}”`;
+          body =
+            'Sản phẩm chưa có trục nào ánh xạ tới sales attribute này. Trục của sản phẩm không thêm được sau khi tạo: chọn category khác, hoặc lập sản phẩm cha mới có trục này.';
+          if (pushHref) actions.push(btn(pushHref, 'Chọn category khác', true));
+          actions.push(btn(newProductHref, 'Lập sản phẩm cha mới'));
+        } else if (m.reason === 'axis_shape') {
+          title = 'Bộ trục của sản phẩm không hợp với category';
+          body = m.label;
+          if (pushHref) actions.push(btn(pushHref, 'Chọn category khác', true));
+        } else {
+          title = m.label;
+        }
+        return (
+          <li key={`${m.reason}-${m.code}`} className="grid gap-1 rounded-lg border border-warning-border bg-warning-soft p-3 text-sm">
+            <p className="font-medium text-warning-text">{title}</p>
+            {body && <p>{body}</p>}
+            {actions.length > 0 && <div className="mt-1 flex flex-wrap gap-2">{actions}</div>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

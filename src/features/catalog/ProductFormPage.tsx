@@ -78,6 +78,7 @@ import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { focusField } from './focusField';
 import {
   SHARED_TARGETS,
+  sharedTargetId,
   productSuggestions,
   tabFromParam,
   visiblePlatforms,
@@ -244,7 +245,7 @@ export function ProductFormPage() {
   };
   useEffect(() => {
     if (tab !== 'commerio' || !jump) return;
-    const id = SHARED_TARGETS[jump];
+    const id = sharedTargetId(jump, (x) => document.getElementById(x) !== null);
     // Xoá `jump` trong cùng khung hình: xoá ngay thì effect chạy lại và huỷ khung hình trước khi kịp focus
     const frame = requestAnimationFrame(() => {
       focusField(id);

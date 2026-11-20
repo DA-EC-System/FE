@@ -4,6 +4,7 @@ import type { ChannelListing, PlatformAttribute, ProductListingRow } from '@/typ
 import {
   attributeGroups,
   attributeSource,
+  sharedTargetId,
   listingsByShop,
   productSuggestions,
   variantSuggestion,
@@ -72,6 +73,23 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
     expect(attributeSource({ tier: 'category', code: 'a' }, { a: 'match' })).toBe('match');
     expect(attributeSource({ tier: 'category', code: 'a' }, { a: 'user' })).toBe('own');
     expect(attributeSource({ tier: 'company', code: 'a' }, { a: 'match' })).toBe('company');
+  });
+
+  it('nhảy tới đúng ô thông số, không có ô thì về card Thông số', () => {
+    expect(sharedTargetId('brand', () => false)).toBe('product-field-brand');
+    expect(sharedTargetId('spec:f1', (id) => id === 'product-field-spec-f1')).toBe('product-field-spec-f1');
+    expect(sharedTargetId('spec:f1', () => false)).toBe('product-field-specs');
+  });
+
+  it('nguồn theo resolved: catalog, công ty, mặc định sàn; ghi đè tách theo fieldSources', () => {
+    const a = { tier: 'category' as const, code: 'a' };
+    expect(attributeSource({ tier: 'product', code: 'p' }, undefined, 'catalog')).toBe('catalog');
+    expect(attributeSource(a, undefined, 'company')).toBe('company');
+    expect(attributeSource(a, { a: 'match' }, 'default')).toBe('default');
+    expect(attributeSource(a, { a: 'user' }, 'override')).toBe('override');
+    expect(attributeSource(a, { a: 'push' }, 'override')).toBe('own');
+    expect(attributeSource(a, { a: 'match' }, 'override')).toBe('match');
+    expect(attributeSource(a, undefined, 'override')).toBe('override');
   });
 
   it('trường dùng chung còn thiếu: ảnh, mô tả, bảng size khi bắt buộc, cân nặng kích thước của SKU chưa lưu trữ', () => {
