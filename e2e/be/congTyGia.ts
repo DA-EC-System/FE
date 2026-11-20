@@ -2,13 +2,15 @@
  * Dựng công ty giả cho spec chạy với BE thật, chỉ qua API công khai (như người dùng tự làm), không ghi thẳng DB:
  * CI chạy trên staging không có quyền vào DB.
  *
- * Staging giới hạn 20 lần gọi /identity/register và /identity/login mỗi 15 phút mỗi IP. Mỗi file spec gọi hàm này một lần
- * trong `beforeAll` (đặt `test.describe.configure({ mode: 'serial' })`): một lần register, một lần login. Cookie refresh xoay
+ * Staging giới hạn 20 lần gọi /identity/register, /identity/register/verify và /identity/login mỗi 15 phút mỗi IP. Mỗi file
+ * spec gọi hàm này một lần trong `beforeAll` (đặt `test.describe.configure({ mode: 'serial' })`): một lần đăng ký (gửi
+ * form, nhập mã thử, `dangKy.ts`), một lần login. Cookie refresh xoay
  * vòng mỗi lần dùng nên không dùng lại storageState giữa các test; các test trong file dùng chung một trang đã đăng nhập.
  * Gọi API thì dùng `token` (access token lấy từ phản hồi select-company của chính lần đăng nhập đó, sống 15 phút).
  */
 import { randomUUID } from 'node:crypto';
 import { type APIRequestContext, type Browser, type Page, expect, request, test } from '@playwright/test';
+import { dangKyCongTyApi, emailThu } from './dangKy';
 
 export interface CongTyGia {
   companyId: string;
@@ -23,28 +25,33 @@ export interface CongTyGia {
   dispose: () => Promise<void>;
 }
 
-/** Đăng ký công ty giả mới, đăng nhập bằng form trên một trang mới, trả trang và access token. */
+/**
+ * Đăng ký công ty giả mới, đăng nhập bằng form trên một trang mới, trả trang và access token. Công ty mới có phân hệ lõi
+ * (kể cả Kênh bán) và Nhập hàng (commerio-backend#459); `batThem` bật thêm phân hệ tuỳ chọn trước khi đăng nhập.
+ */
 export async function taoCongTyGia(
   browser: Browser,
-  opts: { ten: string; optionalModules?: string[] },
+  opts: { ten: string; batThem?: ('inbox' | 'assistant' | 'report')[] },
 ): Promise<CongTyGia> {
   const { baseURL, viewport, storageState } = test.info().project.use;
   const suffix = randomUUID().replaceAll('-', '');
   const taxDigits = [...suffix].map((c) => Number.parseInt(c, 16) % 10).join('');
-  const email = `${opts.ten}-${suffix.slice(0, 16)}@example.test`;
+  const email = emailThu(`${opts.ten}-${suffix.slice(0, 16)}`);
   const password = `Demo!${suffix.slice(0, 12)}aA1`;
 
   const anon = await request.newContext({ baseURL });
-  const register = await anon.post('/api/v1/identity/register', {
-    data: {
-      company: { name: `Công ty giả kiểm thử ${opts.ten} ${suffix.slice(0, 8)}`, taxCode: taxDigits.slice(0, 10) },
-      ceo: { fullName: 'CEO kiểm thử giả', email, password },
-      optionalModules: opts.optionalModules ?? [],
-      assistantDataConsent: false,
-    },
+  const { companyId, accessToken } = await dangKyCongTyApi(anon, {
+    company: { name: `Công ty giả kiểm thử ${opts.ten} ${suffix.slice(0, 8)}`, taxCode: taxDigits.slice(0, 10) },
+    ceo: { fullName: 'CEO kiểm thử giả', email, password },
   });
-  expect(register.status(), await register.text()).toBe(201);
-  const { companyId } = (await register.json()) as { companyId: string };
+  // Bật trước khi đăng nhập bằng form: token của trang lấy lúc select-company đã có quyền của phân hệ vừa bật
+  for (const code of opts.batThem ?? []) {
+    const res = await anon.put(`/api/v1/platform/modules/${code}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: { enabled: true, ...(code === 'assistant' && { aiConsent: true }) },
+    });
+    expect(res.status(), await res.text()).toBe(200);
+  }
   await anon.dispose();
 
   // browser.newPage không tự lấy storageState của config: truyền vào để giữ cờ tắt hướng dẫn lần đầu (FE#132)

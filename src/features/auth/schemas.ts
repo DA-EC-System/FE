@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { OPTIONAL_MODULES } from '@/utils/modules';
 
 export const emailSchema = z.string().trim().toLowerCase().email('Email không hợp lệ');
 
@@ -11,11 +10,16 @@ export const newPasswordSchema = z
   .regex(/[A-Za-z]/, 'Mật khẩu cần có ít nhất một chữ cái')
   .regex(/\d/, 'Mật khẩu cần có ít nhất một chữ số');
 
-/** Mã số thuế doanh nghiệp: 10 số, hoặc 13 số dạng 0123456789-001 (chi nhánh). */
+/**
+ * Mã số thuế như BE (Documents/21 mục 2.1): bỏ khoảng trắng, chấm, gạch; còn 10 số, 12 số (số định danh cá nhân của hộ
+ * kinh doanh) hoặc 13 số (đơn vị phụ thuộc). BE chuẩn hoá và kiểm lại, FE gửi nguyên chữ đã trim.
+ */
 export const taxCodeSchema = z
   .string()
   .trim()
-  .regex(/^\d{10}(-\d{3})?$/, 'Mã số thuế gồm 10 số, hoặc dạng 0123456789-001');
+  .refine((v) => /^(\d{10}|\d{12}|\d{13})$/.test(v.replace(/[\s.-]/g, '')), {
+    message: 'Mã số thuế gồm 10 số, 12 số (số định danh cá nhân) hoặc dạng 0123456789-001',
+  });
 
 export const registerSchema = z
   .object({
@@ -25,7 +29,6 @@ export const registerSchema = z
     email: emailSchema,
     password: newPasswordSchema,
     confirmPassword: z.string(),
-    optionalModules: z.array(z.enum(OPTIONAL_MODULES)),
   })
   .refine((v) => v.password === v.confirmPassword, {
     path: ['confirmPassword'],

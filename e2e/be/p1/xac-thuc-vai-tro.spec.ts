@@ -2,6 +2,7 @@
 // Không dùng mockApi. Mỗi lần chạy tự đăng ký công ty mới nên chạy lại được trên cùng database.
 import { type APIRequestContext, type Page } from '@playwright/test';
 import { chu, chua, duongDan, expect, loi, menu, test, thayChu, toast } from '../../fixtures';
+import { dangKyCongTyApi, emailThu, maThu } from '../dangKy';
 
 const RUN = Date.now().toString().slice(-7);
 const MAT_KHAU = 'matkhau123';
@@ -9,19 +10,14 @@ const UUID = '[0-9a-f-]{36}';
 
 /** Mã số thuế 10 số, khác nhau giữa các công ty trong một lần chạy */
 const maSoThue = (n: number) => `03${RUN}${n}`;
-const emailCeo = (n: number) => `ceo${n}.${RUN}@commerio.test`;
+const emailCeo = (n: number) => emailThu(`ceo${n}.${RUN}`);
 
 const dangKyApi = async (api: APIRequestContext, n: number): Promise<string> =>
   (
-    await (
-      await api.post('/api/v1/identity/register', {
-        data: {
-          company: { name: `Công ty E2E ${RUN}-${n}`, taxCode: maSoThue(n) },
-          ceo: { fullName: `CEO Thử ${n}`, email: emailCeo(n), password: MAT_KHAU },
-          optionalModules: ['report'],
-        },
-      })
-    ).json()
+    await dangKyCongTyApi(api, {
+      company: { name: `Công ty E2E ${RUN}-${n}`, taxCode: maSoThue(n) },
+      ceo: { fullName: `CEO Thử ${n}`, email: emailCeo(n), password: MAT_KHAU },
+    })
   ).companyId;
 
 const dangNhapTay = async (page: Page, email: string, password: string) => {
@@ -61,27 +57,29 @@ test.beforeAll(async ({ playwright }) => {
 });
 
 test.describe('P1-BE · Đăng ký, đăng nhập (commerio-backend#4)', () => {
-  test('đăng ký qua form thì sang /login điền sẵn email, đăng nhập vào thẳng công ty (FE#2 AC-4, AC-9)', async ({ page }) => {
+  test('đăng ký qua form, nhập mã thì vào thẳng công ty mới, không qua đăng nhập (FE#2 AC-4, commerio-backend#459)', async ({ page }) => {
     await page.goto('/register');
     const values = {
       companyName: `Công ty Form ${RUN}`,
       taxCode: maSoThue(9),
       fullName: 'Nguyễn Văn Form',
-      email: `form.${RUN}@commerio.test`,
+      email: emailThu(`form.${RUN}`),
       password: MAT_KHAU,
       confirmPassword: MAT_KHAU,
     };
     for (const [name, value] of Object.entries(values)) await page.locator(`input[name="${name}"]`).fill(value);
     await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
-    await expect.poll(() => duongDan(page)).toBe('/login');
-    await thayChu(page, 'Đăng ký công ty thành công');
-    await expect(page.locator('input[name=email]')).toHaveValue(values.email);
-    await page.locator('input[name=password]').fill(MAT_KHAU);
-    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await thayChu(page, `Mã xác minh đã gửi tới ${values.email}`);
+    // Worker ghi mã thử sau khi nhận việc nền: chờ một nhịp rồi nhập
+    await page.waitForTimeout(2000);
+    await page.locator('input[name=code]').fill(maThu());
+    await page.getByRole('button', { name: 'Xác minh và vào công ty', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(new RegExp(`^/c/${UUID}`));
+    await expect(page.getByTestId('nav-user')).toBeVisible();
   });
 
-  test('email đã có tài khoản thì báo tại ô (FE#2 AC-5)', async ({ page }) => {
+  // Không lộ email nào có tài khoản (Documents/21 mục 2.1): bước 1 như email mới, mọi mã đều sai, thư báo gửi riêng
+  test('email đã có tài khoản: vẫn sang bước nhập mã, mã nào cũng báo sai (FE#2 AC-5, commerio-backend#459)', async ({ page }) => {
     await page.goto('/register');
     const values = {
       companyName: 'Công ty Trùng',
@@ -93,14 +91,19 @@ test.describe('P1-BE · Đăng ký, đăng nhập (commerio-backend#4)', () => {
     };
     for (const [name, value] of Object.entries(values)) await page.locator(`input[name="${name}"]`).fill(value);
     await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
-    await expect(loi(page, 'email')).toHaveText('Email này đã có tài khoản');
+    await thayChu(page, `Mã xác minh đã gửi tới ${values.email}`);
+    await page.waitForTimeout(2000);
+    await page.locator('input[name=code]').fill(maThu());
+    await page.getByRole('button', { name: 'Xác minh và vào công ty', exact: true }).click();
+    await expect(loi(page, 'code')).toContainText('Mã không đúng');
+    await expect.poll(() => duongDan(page)).toBe('/register');
   });
 
   test('sai mật khẩu hay email không tồn tại cùng một câu (FE#2 AC-8)', async ({ page }) => {
     await page.goto('/login');
     await dangNhapTay(page, emailCeo(1), 'saimatkhau1');
     await thayChu(page, 'Email hoặc mật khẩu không đúng', '[role=alert]');
-    await dangNhapTay(page, `khong.co.${RUN}@commerio.test`, MAT_KHAU);
+    await dangNhapTay(page, emailThu(`khong.co.${RUN}`), MAT_KHAU);
     await thayChu(page, 'Email hoặc mật khẩu không đúng', '[role=alert]');
     await expect.poll(() => duongDan(page)).toBe('/login');
   });

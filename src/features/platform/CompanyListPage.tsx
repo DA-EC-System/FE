@@ -139,7 +139,13 @@ export function CompanyListPage() {
         header: 'Tên công ty',
         meta: { className: 'min-w-52 font-medium' },
       },
-      { accessorKey: 'taxCode', header: 'Mã số thuế', meta: { className: 'w-32' } },
+      {
+        accessorKey: 'taxCode',
+        header: 'Mã số thuế',
+        meta: { className: 'w-32' },
+        cell: ({ row }) =>
+          row.original.taxCode ?? <span className="text-muted-foreground">Chưa có mã số thuế</span>,
+      },
       {
         id: 'ceo',
         header: 'CEO',

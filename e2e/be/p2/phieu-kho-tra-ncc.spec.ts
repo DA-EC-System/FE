@@ -19,7 +19,7 @@ const tao = async <T>(path: string, data: object): Promise<T> => {
 };
 
 test.beforeAll(async ({ browser }) => {
-  cty = await taoCongTyGia(browser, { ten: 'kho', optionalModules: ['purchasing'] });
+  cty = await taoCongTyGia(browser, { ten: 'kho' });
   page = cty.page;
   const group = await tao<{ id: string }>('/catalog/groups', { name: 'Áo kiểm thử' });
   const product = await tao<{ variants: { id: string; sku: string }[] }>('/catalog/products', {

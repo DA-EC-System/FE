@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { taoCongTyGia } from '../congTyGia';
 
 test('BE thật: cấu hình nháp → chạy thử → gửi → tự duyệt; danh sách tiền đúng hợp đồng', async ({ browser }) => {
-  const { page, api, companyId, dispose } = await taoCongTyGia(browser, { ten: 'finance', optionalModules: ['channel'] });
+  const { page, api, companyId, dispose } = await taoCongTyGia(browser, { ten: 'finance' });
   await page.goto(`/c/${companyId}/finance/configs`);
   await page.getByRole('button', { name: 'Soạn phiên bản', exact: true }).click();
   const dialog = page.getByRole('dialog');
