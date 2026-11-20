@@ -42,9 +42,9 @@ const lastName = (path: string) => path.split(' > ').at(-1) ?? path;
 /** Bước 1: gợi ý của sàn theo sản phẩm, hoặc tìm/duyệt cây category (Documents/21 §18.5) */
 export function CategoryStep({ platform, label, companyId, shopId, product, draft, pathIds, children, onPick, onSuggestions }: CategoryStepProps) {
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-1 gap-5">
       {draft.externalCategoryId && (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <div className="rounded-lg border border-primary-border bg-accent px-3 py-2.5" aria-live="polite">
             <p className="text-xs text-muted-foreground">Đang chọn</p>
             <p className="text-sm">
@@ -156,12 +156,12 @@ function Suggestions({
     );
   }
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-1 gap-2">
       {heading}
       {!items?.length ? (
         <AlertMessage severity="info">{label} không đoán được category cho sản phẩm này. Tìm category bên dưới.</AlertMessage>
       ) : (
-        <div role="radiogroup" aria-label={`Gợi ý của ${label}`} className="grid gap-1.5">
+        <div role="radiogroup" aria-label={`Gợi ý của ${label}`} className="grid grid-cols-1 gap-1.5">
           {items.map((s, k) => {
             const blocked = permissionBlocked(s.permission);
             const on = draft.externalCategoryId === s.externalId;
@@ -230,7 +230,7 @@ function CategoryBrowser({
     setTrail(columnParents(c.pathIds ?? []).slice(1) as string[]);
   };
   return (
-    <div className="grid gap-2" role="group" aria-label={`Chọn category ${label}`}>
+    <div className="grid grid-cols-1 gap-2" role="group" aria-label={`Chọn category ${label}`}>
       <h3 className="text-sm font-semibold">Hoặc tìm trong cây {label}</h3>
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
