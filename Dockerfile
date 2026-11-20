@@ -12,7 +12,9 @@ ARG VITE_GOOGLE_CLIENT_ID=
 ARG VITE_USE_MOCKS=false
 # Đường dẫn gốc của app: / cho bản chính, /mock/ cho bản mock (Caddy của cụm bỏ tiền tố trước khi chuyển vào).
 ARG BASE_PATH=/
-ENV VITE_USE_MOCKS=$VITE_USE_MOCKS VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID BASE_PATH=$BASE_PATH
+# Endpoint MCP server của agentation (#423); rỗng = http://localhost:4747
+ARG VITE_AGENTATION_ENDPOINT=
+ENV VITE_USE_MOCKS=$VITE_USE_MOCKS VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID BASE_PATH=$BASE_PATH VITE_AGENTATION_ENDPOINT=$VITE_AGENTATION_ENDPOINT
 RUN pnpm build && find dist -name '*.map' -delete
 
 FROM caddy:2.10-alpine

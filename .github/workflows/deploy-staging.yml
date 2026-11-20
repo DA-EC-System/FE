@@ -56,6 +56,7 @@ jobs:
             VITE_GOOGLE_CLIENT_ID=${{ vars.STAGING_GOOGLE_CLIENT_ID }}
             VITE_USE_MOCKS=${{ matrix.mocks }}
             BASE_PATH=${{ matrix.base }}
+            VITE_AGENTATION_ENDPOINT=${{ vars.STAGING_AGENTATION_ENDPOINT }}
           tags: |
             ${{ matrix.image }}:${{ steps.tag.outputs.tag }}
             ${{ matrix.image }}:develop
