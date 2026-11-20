@@ -672,11 +672,32 @@ export interface CategorySuggestion {
   externalId: string;
   path: string;
   permission: CategoryPermission | null;
+  /** Công ty đã có spec ở category này trên sàn (chỉ ở `items`) */
+  usedByCompany?: boolean;
 }
 
-/** Lazada tối đa 5, đúng thứ tự sàn trả; TikTok 1 leaf. `cached` luôn false tới khi có Redis */
+/** Category đọc từ spec của công ty (`group`: sản phẩm cùng nhóm hàng; `recent`: công ty dùng gần đây) */
+export interface UsedCategory extends CategorySuggestion {
+  /** Số sản phẩm đang dùng; `group` không đếm chính sản phẩm đang đẩy */
+  productCount: number;
+}
+
+/** Sàn không gợi ý được: route vẫn 200, `items: []`, còn `group`, `recent` (Documents/21 §18.5, §18.8.5) */
+export interface SuggestError {
+  code: 'product_name_too_short' | 'images_missing' | 'marketplace_unavailable';
+  message: string;
+  min?: number;
+}
+
+/**
+ * `items`: gợi ý của sàn (Lazada tối đa 5, TikTok 1 leaf). `group`, `recent` đọc DB, tối đa 5, BE đã bỏ trùng
+ * (`recent` không trùng `items`, `group`). `cached` luôn false tới khi có Redis
+ */
 export interface CategorySuggestionList {
   items: CategorySuggestion[];
+  group?: UsedCategory[];
+  recent?: UsedCategory[];
+  suggestError?: SuggestError | null;
   cached: boolean;
 }
 
@@ -746,6 +767,16 @@ export interface RemoteProductFacts {
 }
 
 /** `spec: null`, `missing: []` khi sản phẩm chưa có thông tin của sàn */
+/** Luật trục của sàn theo leaf, adapter khai (Documents/21 §18.8.2, §18.8.3) */
+export interface VariantCapabilities {
+  /** Số trục tối đa sàn nhận ở leaf này */
+  maxAxes: number;
+  /** Sàn nhận tên trục tự đặt (`__custom`); không thì chỉ sales attribute của leaf */
+  customAxisName: boolean;
+  /** Mã sales attribute leaf bắt buộc có trục ánh xạ tới */
+  salesRequired: string[];
+}
+
 /** Giá trị đã tính của một attribute và nguồn của nó (Documents/21 §18.8.2) */
 export interface ResolvedAttribute {
   /** Cùng quy ước với `attributes`: select là id lựa chọn của sàn, nhãn khi tự gõ */
@@ -765,6 +796,11 @@ export interface ProductSpecResult {
    * sàn. `spec.attributes` chỉ còn phần ghi đè
    */
   resolved?: Record<string, ResolvedAttribute>;
+  /** Trục ↔ sales attribute, giá trị ↔ lựa chọn chuẩn BE dựng theo `platform_kind` và ánh xạ của công ty */
+  suggestedAxisMap?: Record<string, string>;
+  suggestedValueMap?: Record<string, string>;
+  /** null khi chưa có leaf */
+  variantCapabilities?: VariantCapabilities | null;
 }
 
 /** `version: null` khi tạo mới. Chỉ attribute `tier = 'category'` và `company` khác `defaultValue` được lưu */

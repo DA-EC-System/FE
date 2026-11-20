@@ -11,7 +11,7 @@ import { useProduct } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { useCompanyProfile, useUpdateCompanyProfile } from '@/api/companySettings.api';
 import { problemMessage } from '@/api/problemMessages';
-import { usePlatformCategory, useProductSpec, usePushListings, useSaveProductSpec, useShops } from '@/api/shops.api';
+import { usePlatformCategory, useProductSpec, usePushListings, useSaveProductSpec, useShops, useSpecForCategory } from '@/api/shops.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { useCan } from '@/hooks/usePermission';
@@ -25,7 +25,6 @@ import { platformLabel } from '@/features/catalog/platformCategory';
 import { SPEC_FIX_CODES, pushBlockMessage, splitPushResults } from './listingPush';
 import { isUsable } from './shopSchemas';
 import {
-  defaultAxisMap,
   draftFromSpec,
   firstErrorStep,
   firstStep,
@@ -43,6 +42,7 @@ import {
   withAttribute,
   withAxis,
   withCategory,
+  withSuggestedAxes,
   withValue,
   type PushStep,
   type SpecDraft,
@@ -130,18 +130,28 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
   const sales = useMemo(() => attrs?.filter((a) => a.kind === 'sales') ?? null, [attrs]);
   const axes = useMemo(() => productAxes(product.variants), [product.variants]);
   const facts = { originCountry: product.originCountry ?? null, brand: product.brand ?? null };
+  // Gợi ý trục và luật trục theo leaf đang chọn (kể cả leaf chưa lưu), BE tính theo `platform_kind` (§18.8.3)
+  const forLeaf = useSpecForCategory(product.id, platform, draft.externalCategoryId);
+  const caps = forLeaf.data?.variantCapabilities ?? null;
   const missing = draft.externalCategoryId
-    ? specMissing(attrs, draft, axes, facts)
+    ? specMissing(attrs, draft, axes, facts, caps)
     : [{ code: 'category', label: `Chưa chọn category ${label}`, reason: 'category_changed' as const }];
 
-  // Gợi ý trục ↔ sales attribute, giá trị ↔ giá trị chuẩn khi đã có attribute của leaf (không ghi đè ô đã chọn)
+  // Áp gợi ý trục của BE khi đã có attribute của leaf; giữ trục người dùng đã chọn nếu còn hợp lệ ở leaf
+  const suggestion = forLeaf.data;
   useEffect(() => {
-    if (!sales) return;
-    setDraft((d) => {
-      const axisMap = defaultAxisMap(axes, sales, d.axisMap);
-      return { ...d, axisMap, valueMap: suggestValueMap(axes, axisMap, sales, d.valueMap) };
-    });
-  }, [sales, axes]);
+    if (!sales || !suggestion) return;
+    const codes = new Set(sales.map((a) => a.code));
+    setDraft((d) =>
+      withSuggestedAxes(
+        d,
+        axes,
+        { axisMap: suggestion.suggestedAxisMap ?? {}, valueMap: suggestion.suggestedValueMap ?? {} },
+        codes,
+        suggestion.variantCapabilities?.customAxisName ?? true,
+      ),
+    );
+  }, [sales, axes, suggestion]);
 
   // Quyền category của gian hàng gọi gợi ý (TikTok): khoá ô gian hàng đó ở bước 4
   const blockedShops = useMemo(() => {
@@ -386,10 +396,10 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
             )}
             {step === 2 && (
               <VariantsStep
-                platform={platform}
                 label={label}
                 axes={axes}
                 sales={sales}
+                caps={caps}
                 draft={draft}
                 errors={errors}
                 onAxis={(axis, code) => {
