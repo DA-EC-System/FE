@@ -28,6 +28,7 @@ import {
   specMissing,
   valueLabel,
   valueSource,
+  valuesChanged,
   withAttribute,
   type SpecDraft,
 } from '@/features/channel/specDraft';
@@ -92,6 +93,7 @@ interface Props {
  */
 export function PlatformTab({ companyId, product, platform, shops, rows, canEditSpec, canEditProduct, onJump }: Props) {
   const data = usePlatformTab(product, platform, shops);
+  const resolved = data.specQuery.data?.resolved;
   const { specQuery, spec, leaf, attrs, axes, missing, gaps, noCategory } = data;
   const label = platformLabel(platform);
   const listed = rows.some((r) => r.platform === platform && r.listing && r.listing.status !== 'delisted');
@@ -108,8 +110,8 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
   const save = useSaveProductSpec();
   // Ô đang mở sửa riêng cho sàn mà chưa có giá trị ghi đè ("Chỉ điền cho {sàn}" ở ô trống)
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
-  const resolved = specQuery.data?.resolved;
-  const dirty = spec ? JSON.stringify(draft.attributes) !== JSON.stringify(spec.attributes) : false;
+  // Chỉ bật Lưu khi giá trị hiển thị thật sự khác bản đã lưu ("Sửa riêng" mà giữ nguyên thì chưa đổi)
+  const dirty = spec ? valuesChanged(draft.attributes, spec.attributes, resolved) : false;
   // Giá trị mỗi ô: ghi đè trong nháp > giá trị BE tự điền (Documents/21 §18.8.2)
   const values = mergedValues(draft.attributes, resolved);
   const otherMissing = missing.filter((m) => !ATTR_REASONS.has(m.reason));
@@ -350,6 +352,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                           onChange={(v) => setDraft((d) => withAttribute(d, a.code, v))}
                           onOverride={(v) => overrideOf(a.code, v)}
                           onJump={onJump}
+                          companyProfileHref={ROUTES.company.companyProfile(companyId)}
                         />
                       ))}
                     </div>
@@ -674,8 +677,8 @@ function ReadAttribute({
   const text = valueLabel(a, values[a.code] ?? null);
   const kind = attributeSource(a, fieldSources, source);
   return (
-    <ReadField label={a.label} source={kind} sourceLabel={kind === 'catalog' ? catalogLabel(a.code) : undefined} platformName={label}>
-      {text || <span className="text-muted-foreground">Chưa điền</span>}
+    <ReadField label={a.label} source={text ? kind : undefined} sourceLabel={kind === 'catalog' ? catalogLabel(a.code) : undefined} platformName={label}>
+      {text || <span className="text-muted-foreground">Chưa có giá trị</span>}
     </ReadField>
   );
 }
@@ -709,6 +712,7 @@ function AttributeRow({
   onChange,
   onOverride,
   onJump,
+  companyProfileHref,
 }: {
   attribute: PlatformAttribute;
   values: Record<string, SpecValue>;
@@ -728,9 +732,13 @@ function AttributeRow({
   /** Bật sửa riêng với giá trị ban đầu (chuỗi rỗng là ô trống), null là bỏ sửa riêng */
   onOverride: (v: SpecValue | null) => void;
   onJump: (t: SharedTarget) => void;
+  /** Trang hồ sơ công ty: ô `tier = 'company'` còn trống thì mời điền ở đó */
+  companyProfileHref: string;
 }) {
   const value = values[a.code] ?? null;
   const overridden = isFilled(overrides[a.code]);
+  // Ô chưa có giá trị thì không có nguồn: không gắn nhãn, chỉ báo "Chưa có giá trị" kèm lối đi điền
+  const empty = !isFilled(value) && !overridden && !editing;
   const source = attributeSource(a, fieldSources, valueSource(a.code, overrides, resolved));
   const isProduct = a.tier === 'product';
   const fieldName = productFieldName(a.code);
@@ -761,6 +769,12 @@ function AttributeRow({
     if (canEdit) actions.push(<span key="own">{link(`Chỉ điền cho ${label}`, () => onOverride(''))}</span>);
   } else if (canEdit && isFilled(value) && (source === 'company' || source === 'default')) {
     actions.push(<span key="own">{link(`Sửa riêng cho ${label}`, () => onOverride(value))}</span>);
+  } else if (empty && a.tier === 'company') {
+    actions.push(
+      <Link key="profile" to={companyProfileHref} className="text-xs font-medium text-primary-text underline-offset-2 hover:underline">
+        Điền ở hồ sơ công ty
+      </Link>,
+    );
   }
   const actionRow = actions.length > 0 && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{actions}</div>;
   const missingText = flagged
@@ -774,14 +788,14 @@ function AttributeRow({
       <ReadField
         label={a.label}
         required
-        source={source}
+        source={empty ? undefined : source}
         sourceLabel={source === 'catalog' ? catalogLabel(a.code) : source === 'shared' ? 'Dùng chung · sửa ở Commerio' : undefined}
         platformName={label}
         onJump={() => onJump(jumpTarget)}
         missing={missingText}
       >
         <div className="grid gap-1.5" id={id} tabIndex={-1}>
-          <span>{valueLabel(a, value) || <span className="text-muted-foreground">Chưa điền</span>}</span>
+          <span>{valueLabel(a, value) || <span className="text-muted-foreground">Chưa có giá trị</span>}</span>
           {actionRow}
         </div>
       </ReadField>
@@ -804,7 +818,7 @@ function AttributeRow({
         {overridden || editing ? (
           <SourceBadge source={fieldSources?.[a.code] === 'match' && !editing ? 'match' : 'override'} platformName={label} />
         ) : (
-          <SourceBadge source={source} platformName={label} />
+          !empty && <SourceBadge source={source} platformName={label} />
         )}
       </Label>
       <AttributeField

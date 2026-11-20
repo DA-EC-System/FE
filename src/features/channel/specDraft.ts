@@ -113,6 +113,24 @@ export function mergedValues(
   return out;
 }
 
+/**
+ * Nháp có đổi giá trị hiển thị so với bản đã lưu không: so giá trị gộp (ghi đè > `resolved`) từng ô, không so tập ghi đè.
+ * "Sửa riêng" rồi giữ nguyên giá trị gốc thì chưa đổi gì; multiselect không phân biệt thứ tự
+ */
+export function valuesChanged(
+  draftOverrides: Record<string, SpecValue>,
+  savedOverrides: Record<string, SpecValue>,
+  resolved: Record<string, ResolvedAttribute> | undefined,
+): boolean {
+  // Giá trị hiển thị của bản đã lưu: ghi đè đã lưu, không có thì giá trị gốc BE tính
+  const saved = mergedValues(savedOverrides, resolved);
+  const now = mergedValues(draftOverrides, resolved);
+  const norm = (v: SpecValue | undefined) => (v === undefined ? '' : Array.isArray(v) ? [...v].sort().join('\u0000') : v.trim());
+  const codes = new Set([...Object.keys(saved), ...Object.keys(now)]);
+  for (const c of codes) if (norm(saved[c]) !== norm(now[c])) return true;
+  return false;
+}
+
 /** Nguồn của một ô: có ghi đè trong bản nháp là `override`, không thì nguồn BE đã tính; null khi chưa có giá trị */
 export function valueSource(
   code: string,
