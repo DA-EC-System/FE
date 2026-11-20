@@ -36,8 +36,8 @@ export function validateNewProducts(
   companyId: string,
   raw: { index: number; input: Partial<NewProductInput> }[],
   errors: Errors,
-): Map<number, NewProductInput> {
-  const out = new Map<number, NewProductInput>();
+): Map<number, NewProductInput & { name: string }> {
+  const out = new Map<number, NewProductInput & { name: string }>();
   const groups = new Map<string, { index: number; axes: string[]; values: Record<string, string> }[]>();
   for (const { index, input } of raw) {
     const path = `lines.${index}.newProduct`;
@@ -53,7 +53,7 @@ export function validateNewProducts(
       errors[`${path}.optionValues`] = 'Trục phân loại không có trong thuộc tính của công ty';
     }
     let groupId = String(input.groupId ?? '');
-    let parentName = String(input.parentName ?? input.name ?? '').trim();
+    let parentName = String(input.parentName ?? '').trim();
     let key: string;
     if (input.parentId) {
       const parent = catalog.products.find((p) => p.id === input.parentId && p.companyId === companyId && !p.archivedAt);
@@ -81,7 +81,7 @@ export function validateNewProducts(
       }
       key = `new:${norm(parentName)}`;
     }
-    const name = String(input.name ?? '').trim() || [parentName, ...axes.map((a) => values[a])].join(' ');
+    const name = [parentName, ...axes.map((a) => values[a])].join(' ');
     out.set(index, {
       parentId: input.parentId ?? null,
       parentName: input.parentId ? null : parentName,
@@ -152,7 +152,7 @@ export function createNewProducts(req: MockPurchaseRequest, at: string) {
       product = {
         id: rid('prd'),
         companyId: req.companyId,
-        groupId: np.groupId,
+        groupId: np.groupId ?? '',
         name: parentName,
         description: `Tạo từ đơn đặt hàng nhập ${req.number}`,
         imageFileIds: [],
