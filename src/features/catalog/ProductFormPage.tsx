@@ -45,6 +45,8 @@ import { useStock } from '@/api/inventory.api';
 import { useProductListingRows, useShops } from '@/api/shops.api';
 import { formatQty } from '@/features/inventory/shared';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
+import type { ProductListingRow } from '@/types/shop';
+import { STOCK_STATE } from '@/features/inventory/shared';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
@@ -144,6 +146,19 @@ export function ProductFormPage() {
   const listed = useMemo(() => listingsByVariant(listingRows), [listingRows]);
   const levels = useMemo(() => new Map((stockQuery.data?.items ?? []).map((l) => [l.variantId, l])), [stockQuery.data]);
   const [skuVariantId, setSkuVariantId] = useState<string | null>(null);
+  const [skuTab, setSkuTab] = useState<'stock' | 'shops'>('stock');
+  const openSku = (id: string, tab: 'stock' | 'shops') => {
+    setSkuTab(tab);
+    setSkuVariantId(id);
+  };
+  const retry = (refetch: () => unknown) => (
+    <>
+      Không tải được.{' '}
+      <button type="button" className="cursor-pointer font-medium underline underline-offset-2" onClick={() => refetch()}>
+        Thử lại
+      </button>
+    </>
+  );
 
   const [images, setImages] = useState<ImageItem[]>([]);
   const [imagesError, setImagesError] = useState<string | undefined>();
@@ -378,6 +393,7 @@ export function ProductFormPage() {
                 help="Cộng số có thể bán của mọi SKU: tồn thực trừ đang giữ cho đơn và khoá chờ duyệt. Đây là số đẩy lên sàn."
                 value={formatQty(totalAvailable([...levels.values()]))}
                 loading={stockQuery.isLoading}
+                error={stockQuery.isError ? retry(stockQuery.refetch) : undefined}
               />
             )}
             {canShop && (
@@ -386,6 +402,7 @@ export function ProductFormPage() {
                 help="Số gian hàng có ít nhất một SKU của sản phẩm đang hoạt động trên sàn."
                 value={sellingShopCount(listingRows)}
                 loading={listingsQuery.isLoading}
+                error={listingsQuery.isError ? retry(listingsQuery.refetch) : undefined}
               />
             )}
           </KpiStrip>
@@ -549,17 +566,10 @@ export function ProductFormPage() {
                           <TableHead>SKU</TableHead>
                           <TableHead>Thuộc tính phân loại</TableHead>
                           <TableHead>Trạng thái</TableHead>
-                          {canStock && (
-                            <TableHead className="text-right" title="Tồn thực · đang giữ · có thể bán">
-                              Tồn (thực · giữ · bán được)
-                            </TableHead>
-                          )}
+                          {canStock && <TableHead className="text-right">Có thể bán</TableHead>}
                           {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
                           <TableHead className="text-right">Giá bán lẻ</TableHead>
-                          <TableHead className="text-right">Thực nhận mong muốn</TableHead>
-                          <TableHead>Cân nặng · kích thước</TableHead>
                           <TableHead>Thông tin</TableHead>
-                          <TableHead>Trên sàn</TableHead>
                           {canManage && <TableHead className="w-24" />}
                         </TableRow>
                       </TableHeader>
@@ -574,7 +584,7 @@ export function ProductFormPage() {
                               <SkuCode
                                 code={v.sku}
                                 hint={canStock || canShop ? 'Xem tồn kho và listing' : undefined}
-                                onClick={canStock || canShop ? () => setSkuVariantId(v.id) : undefined}
+                                onClick={canStock || canShop ? () => openSku(v.id, canStock ? 'stock' : 'shops') : undefined}
                                 className={cn(v.businessStatus === 'archived' && 'line-through')}
                               />
                             </TableCell>
@@ -596,6 +606,17 @@ export function ProductFormPage() {
                                   )}
                                 </span>
                               )}
+                              {v.businessStatus !== 'archived' && (
+                                <div className="mt-1" data-testid="variant-shops">
+                                  {canShop && listed.get(v.id)?.length ? (
+                                    <ShopSummary rows={listed.get(v.id)!} onOpen={() => openSku(v.id, 'shops')} />
+                                  ) : v.presence !== undefined && v.listingCount ? (
+                                    <span className="text-[12.5px] text-muted-foreground">
+                                      {PRESENCE_LABELS[v.presence]} · {v.listingCount} gian hàng
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
                             </TableCell>
                             {canStock && (
                               <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-stock">
@@ -605,9 +626,14 @@ export function ProductFormPage() {
                                   if (!l) return <span className="text-muted-foreground">—</span>;
                                   return (
                                     <>
-                                      {formatQty(l.onHand)} · {formatQty(l.reserved)} ·{' '}
-                                      <span className={cn('font-semibold', l.state !== 'in_stock' && 'text-destructive')}>
-                                        {formatQty(l.available)}
+                                      <span className="inline-flex items-center gap-1.5">
+                                        {l.state !== 'in_stock' && (
+                                          <Badge variant={STOCK_STATE[l.state].variant}>{STOCK_STATE[l.state].label}</Badge>
+                                        )}
+                                        <span className="font-semibold">{formatQty(l.available)}</span>
+                                      </span>
+                                      <span className="block text-[12.5px] text-muted-foreground">
+                                        Thực {formatQty(l.onHand)} · Giữ {formatQty(l.reserved)}
                                       </span>
                                     </>
                                   );
@@ -619,14 +645,11 @@ export function ProductFormPage() {
                                 {levels.get(v.id)?.avgCost == null ? '—' : formatCurrency(levels.get(v.id)!.avgCost!)}
                               </TableCell>
                             )}
-                            <TableCell className="text-right whitespace-nowrap" data-testid="variant-price">
-                              {priceText(v.standardPrice)}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap" data-testid="variant-target-price">
-                              {priceText(v.targetNetPrice)}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap" data-testid="variant-spec">
-                              {specText(v)}
+                            <TableCell className="text-right whitespace-nowrap tabular-nums">
+                              <span data-testid="variant-price">{priceText(v.standardPrice)}</span>
+                              <span className="block text-[12.5px] text-muted-foreground" data-testid="variant-target-price">
+                                Thực nhận {priceText(v.targetNetPrice)}
+                              </span>
                             </TableCell>
                             <TableCell data-testid="variant-readiness">
                               {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
@@ -640,29 +663,6 @@ export function ProductFormPage() {
                               )}
                               {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
                                 <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {missingText(v)}</div>
-                              )}
-                            </TableCell>
-                            <TableCell data-testid="variant-shops">
-                              {v.businessStatus === 'archived' ? null : canShop && listed.get(v.id)?.length ? (
-                                <span className="flex flex-wrap gap-1">
-                                  {listed.get(v.id)!.map((r) => (
-                                    <Badge
-                                      key={r.shopId}
-                                      variant={LISTING_STATUS_VARIANTS[r.listing!.status]}
-                                      title={`${r.shopName}: ${LISTING_STATUS_LABELS[r.listing!.status]}`}
-                                    >
-                                      {r.shopName} · {LISTING_STATUS_LABELS[r.listing!.status]}
-                                    </Badge>
-                                  ))}
-                                </span>
-                              ) : v.presence === undefined ? (
-                                NOT_COMPUTED
-                              ) : (
-                                <span className="whitespace-nowrap">
-                                  {v.listingCount
-                                    ? `${PRESENCE_LABELS[v.presence]} · ${v.listingCount} gian hàng`
-                                    : PRESENCE_LABELS[v.presence]}
-                                </span>
                               )}
                             </TableCell>
                             {canManage && (
@@ -739,6 +739,8 @@ export function ProductFormPage() {
           companyId={companyId}
           variant={product.variants.find((v) => v.id === skuVariantId) ?? null}
           rows={listingRows.filter((r) => r.variantId === skuVariantId)}
+          tab={skuTab}
+          specText={(v) => specText(v)}
           canStock={canStock}
           canShop={canShop}
           canCost={canCost}
@@ -757,5 +759,39 @@ export function ProductFormPage() {
         />
       )}
     </Form>
+  );
+}
+
+/**
+ * Tóm tắt listing của SKU trong cột Trạng thái (audit FE#405): số gian hàng, mỗi gian hàng một chấm màu kèm tên trạng thái
+ * cho trình đọc màn hình, và số listing cần xem bằng chữ; bấm mở tab Gian hàng của ngăn SKU
+ */
+function ShopSummary({ rows, onOpen }: { rows: ProductListingRow[]; onOpen: () => void }) {
+  const issues = rows.filter((r) => ['push_failed', 'rejected', 'platform_hold'].includes(r.listing!.status)).length;
+  const dot: Record<string, string> = {
+    success: 'bg-success',
+    warning: 'bg-warning',
+    destructive: 'bg-destructive',
+    info: 'bg-info',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-[12.5px] text-muted-foreground hover:text-primary-text focus-visible:outline-2 focus-visible:outline-ring"
+      aria-label={`Listing trên ${rows.length} gian hàng: ${rows.map((r) => `${r.shopName} ${LISTING_STATUS_LABELS[r.listing!.status]}`).join(', ')}`}
+    >
+      <span className="inline-flex gap-0.5" aria-hidden>
+        {rows.map((r) => (
+          <span
+            key={r.shopId}
+            className={cn('size-2 rounded-full border', dot[LISTING_STATUS_VARIANTS[r.listing!.status]] ?? 'bg-muted')}
+            title={`${r.shopName}: ${LISTING_STATUS_LABELS[r.listing!.status]}`}
+          />
+        ))}
+      </span>
+      {rows.length} gian hàng
+      {issues > 0 && <span className="font-medium text-destructive">· {issues} lỗi</span>}
+    </button>
   );
 }

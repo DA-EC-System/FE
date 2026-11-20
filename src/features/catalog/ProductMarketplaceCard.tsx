@@ -121,7 +121,7 @@ function PlatformRow({
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="outline">{SOURCE_LABELS[spec.source]}</Badge>
             {missing.length ? (
-              <Badge variant="warning" title={missing.map((m) => m.label).join(', ')}>
+              <Badge variant="warning">
                 Thiếu {missing.length} attribute
               </Badge>
             ) : (
@@ -130,6 +130,16 @@ function PlatformRow({
             {spec.categoryStatus === 'changed' && <Badge variant="warning">Category đã đổi trên sàn</Badge>}
             {spec.categoryStatus === 'removed' && <Badge variant="destructive">Category đã bị sàn xoá</Badge>}
           </div>
+          {missing.length > 0 && (
+            <p className="text-[12.5px] text-muted-foreground">Thiếu: {missing.map((m) => m.label).join(', ')}</p>
+          )}
+          {spec.categoryStatus !== 'ok' && (
+            <p className="text-[12.5px] text-muted-foreground">
+              {spec.categoryStatus === 'changed'
+                ? 'Sàn đã đổi thông tin của category này. Bấm Sửa category để kiểm lại attribute trước lần đẩy sau.'
+                : 'Category này không còn trên sàn. Bấm Sửa category để chọn category mới trước khi đẩy hoặc cập nhật nội dung.'}
+            </p>
+          )}
           {drift.map((d) => (
             <p key={`${d.shopId}/${d.externalProductId}`} className="flex flex-wrap items-start gap-1 text-sm">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />

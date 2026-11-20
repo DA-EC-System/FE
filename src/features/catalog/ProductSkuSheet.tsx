@@ -21,6 +21,10 @@ interface Props {
   variant: ProductVariant | null;
   /** Mọi dòng của SKU này ở các gian hàng (kể cả chưa lên sàn) */
   rows: ProductListingRow[];
+  /** Tab mở sẵn: bấm mã SKU mở Tồn kho, bấm tóm tắt gian hàng mở Gian hàng */
+  tab: 'stock' | 'shops';
+  /** "200 g · 300×250×20 mm" (cột đã chuyển từ bảng sang ngăn này, audit FE#405) */
+  specText: (v: ProductVariant) => string;
   canStock: boolean;
   canShop: boolean;
   canCost: boolean;
@@ -31,9 +35,9 @@ interface Props {
  * Chi tiết một SKU ở trang sản phẩm (Documents/27 US-SP-11 tiêu chí 8, commerio-backend#467): tab Tồn kho dùng lại thân
  * chi tiết tồn của trang Tồn kho; tab Gian hàng là listing của SKU ở từng gian hàng. Tab nào thiếu quyền thì không hiện
  */
-export function ProductSkuSheet({ companyId, variant, rows, canStock, canShop, canCost, onClose }: Props) {
+export function ProductSkuSheet({ companyId, variant, rows, tab, specText, canStock, canShop, canCost, onClose }: Props) {
   const label = variant?.attributes.map((a) => a.value).join(' / ');
-  const first = canStock ? 'stock' : 'shops';
+  const first = tab === 'shops' && canShop ? 'shops' : canStock ? 'stock' : 'shops';
   return (
     <Sheet open={Boolean(variant)} onOpenChange={(next) => !next && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
@@ -42,7 +46,19 @@ export function ProductSkuSheet({ companyId, variant, rows, canStock, canShop, c
           <SheetDescription>{label || 'Mặc định'}</SheetDescription>
         </SheetHeader>
         {variant && (
-          <Tabs key={variant.id} defaultValue={first} className="px-4 pb-6">
+          <dl className="mx-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-md border p-3 text-sm" data-testid="sku-info">
+            <dt className="text-muted-foreground">Giá bán lẻ</dt>
+            <dd className="text-right tabular-nums">{priceText(variant.standardPrice)}</dd>
+            <dt className="text-muted-foreground">Thực nhận mong muốn</dt>
+            <dd className="text-right tabular-nums">{priceText(variant.targetNetPrice)}</dd>
+            <dt className="text-muted-foreground">Cân nặng · kích thước</dt>
+            <dd className="text-right tabular-nums" data-testid="variant-spec">
+              {specText(variant)}
+            </dd>
+          </dl>
+        )}
+        {variant && (
+          <Tabs key={`${variant.id}-${first}`} defaultValue={first} className="px-4 pb-6">
             <TabsList>
               {canStock && <TabsTrigger value="stock">Tồn kho</TabsTrigger>}
               {canShop && <TabsTrigger value="shops">Gian hàng</TabsTrigger>}
