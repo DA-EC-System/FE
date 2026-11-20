@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { MoneyInput } from '@/components/common/MoneyInput';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,11 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { priceText } from '@/utils/price';
+import { formatMoneyInput, parseMoney, priceText } from '@/utils/price';
 import type { ListingRow } from '@/types/shop';
-import { PRICE_SOURCE_LABEL, parsePriceInput } from './listingPrice';
+import { PRICE_SOURCE_LABEL } from './listingPrice';
 
 interface PriceOverrideDialogProps {
   row: ListingRow | null;
@@ -38,19 +38,27 @@ export function PriceOverrideDialog({ row, saving, fieldError, error, onSave, on
   const variantId = row?.variantId;
   useEffect(() => {
     if (!row) return;
-    setText(row.price === null ? '' : String(row.price));
+    setText(formatMoneyInput(row.price));
     setInputError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variantId]);
 
   const submit = () => {
-    const parsed = parsePriceInput(text);
-    if ('error' in parsed) {
+    const parsed = parseMoney(text);
+    if (!parsed.ok) {
       setInputError(parsed.error);
       return;
     }
+    if (parsed.value === null) {
+      setInputError('Nhập giá bán');
+      return;
+    }
+    if (parsed.value <= 0) {
+      setInputError('Giá phải lớn hơn 0');
+      return;
+    }
     setInputError(null);
-    onSave(parsed.price);
+    onSave(parsed.value);
   };
 
   const shownError = inputError ?? fieldError;
@@ -81,14 +89,12 @@ export function PriceOverrideDialog({ row, saving, fieldError, error, onSave, on
         )}
         <div className="grid gap-1.5">
           <Label htmlFor="price-override">Giá bán (đồng)</Label>
-          <Input
+          <MoneyInput
             id="price-override"
-            inputMode="numeric"
-            autoComplete="off"
             value={text}
             aria-invalid={shownError ? true : undefined}
             aria-describedby={shownError ? 'price-override-error' : undefined}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
             onKeyDown={(e) => e.key === 'Enter' && !saving && submit()}
           />
           {shownError && (

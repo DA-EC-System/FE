@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, FilePlus2, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { MoneyInput } from '@/components/common/MoneyInput';
 import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
@@ -624,13 +625,7 @@ function RefundDialog({
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
         <div className="grid gap-1.5">
           <Label htmlFor="refund-amount">Số tiền NCC hoàn (VNĐ)</Label>
-          <Input
-            id="refund-amount"
-            inputMode="numeric"
-            value={text}
-            aria-invalid={Boolean(fieldError)}
-            onChange={(e) => setText(e.target.value)}
-          />
+          <MoneyInput id="refund-amount" value={text} aria-invalid={Boolean(fieldError)} onChange={setText} />
           {fieldError && <p className="text-sm text-destructive">{fieldError}</p>}
         </div>
         <DialogFooter>

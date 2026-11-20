@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowLeft, PackagePlus, Plus, Save, Trash2, Undo2, X } from 'lucide-react';
@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { MoneyInput } from '@/components/common/MoneyInput';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
@@ -45,6 +46,7 @@ import { purchaseRequestMachine, type PurchaseRequestRecord } from '@/lib/machin
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency, formatDateTime } from '@/utils/format';
+import { formatMoneyInput, parseMoney } from '@/utils/price';
 import { cn } from '@/lib/utils';
 import type { Transition } from '@/lib/stateMachine';
 import type {
@@ -112,7 +114,7 @@ const toForm = (req: PurchaseRequest): RequestFormInput => ({
       isNew: l.variantId === null,
       ...(l.variantId === null && l.newProduct ? newProductDraft(l.newProduct) : {}),
       quantity: String(l.quantity),
-      unitCost: l.unitCost === null ? '' : String(l.unitCost),
+      unitCost: formatMoneyInput(l.unitCost),
     }),
   ),
 });
@@ -257,7 +259,7 @@ export function PurchaseRequestPage() {
             productName: l.productName,
             attributesLabel: l.attributesLabel,
             quantity: String(l.quantity),
-            unitCost: l.unitCost === null ? '' : String(l.unitCost),
+            unitCost: formatMoneyInput(l.unitCost),
           }),
         ),
       },
@@ -450,8 +452,8 @@ export function PurchaseRequestPage() {
   const confirmText = confirm ? ACTION_CONFIRM[confirm] : undefined;
   const total = lines.reduce((s, l) => {
     const q = Number(l.quantity);
-    const c = Number(l.unitCost.replace(/[\s.,]/g, ''));
-    return Number.isFinite(q) && Number.isFinite(c) ? s + q * c : s;
+    const c = parseMoney(l.unitCost);
+    return Number.isFinite(q) && c.ok && c.value !== null ? s + q * c.value : s;
   }, 0);
   const colCount = 2 + (showCost ? 1 : 0) + (showProgress ? 3 : 0) + (editable || canExclude ? 1 : 0);
   const title = req ? `Đơn đặt hàng nhập ${req.number}` : fromReturnId ? 'Tạo đơn đặt hàng đổi' : 'Tạo đơn đặt hàng nhập';
@@ -463,13 +465,33 @@ export function PurchaseRequestPage() {
     const err = errors.lines?.[i]?.[key];
     return (
       <div className="grid gap-1">
-        <Input
-          {...register(`lines.${i}.${key}`)}
-          aria-label={`${label} ${name}`}
-          inputMode="numeric"
-          aria-invalid={Boolean(err)}
-          className="h-8 text-right"
-        />
+        {key === 'unitCost' ? (
+          // Ô tiền dùng chung (FE#385): phân cách nghìn khi gõ, chuỗi mơ hồ báo lỗi khi lưu
+          <Controller
+            control={control}
+            name={`lines.${i}.unitCost`}
+            render={({ field }) => (
+              <MoneyInput
+                ref={field.ref}
+                name={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                aria-label={`${label} ${name}`}
+                aria-invalid={Boolean(err)}
+                className="h-8"
+              />
+            )}
+          />
+        ) : (
+          <Input
+            {...register(`lines.${i}.${key}`)}
+            aria-label={`${label} ${name}`}
+            inputMode="numeric"
+            aria-invalid={Boolean(err)}
+            className="h-8 text-right"
+          />
+        )}
         {hint && !err && <p className="text-xs text-muted-foreground">{hint}</p>}
         {err && <p className="text-start text-xs text-destructive">{err.message}</p>}
       </div>
