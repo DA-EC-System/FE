@@ -98,6 +98,8 @@ jobs:
       # REGISTRATION_TEST_CODE của BE staging.
       E2E_REGISTRATION_TEST_EMAIL_DOMAIN: ${{ secrets.E2E_REGISTRATION_TEST_EMAIL_DOMAIN }}
       E2E_REGISTRATION_TEST_CODE: ${{ secrets.E2E_REGISTRATION_TEST_CODE }}
+      # Repo public: không ghi trace, ảnh chụp (chứa mã thử) vào artifact playwright-report-be
+      PW_NO_TRACE: '1'
     steps:
       # Staging không trả lời thì dừng sớm, notify không tag tác giả PR (lỗi môi trường, không phải do PR).
       - id: staging

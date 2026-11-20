@@ -3,6 +3,9 @@
  * Spec không đọc được hộp thư nên dùng mã thử của staging: email thuộc miền `E2E_REGISTRATION_TEST_EMAIL_DOMAIN` nhận mã
  * cố định `E2E_REGISTRATION_TEST_CODE` (cùng giá trị với `REGISTRATION_TEST_EMAIL_DOMAIN`, `REGISTRATION_TEST_CODE` của BE
  * staging). Hai biến đặt ở `.env.e2e.local` khi chạy trên máy, ở secret của repo khi chạy CI; không ghi giá trị vào code.
+ *
+ * Repo public: trace, ảnh chụp trong artifact CI ai cũng tải được và có chứa mã thử, nên job e2e-be đặt `PW_NO_TRACE=1`
+ * (playwright.config.ts). Không in mã ra log, thông báo lỗi.
  */
 import { type APIRequestContext, expect } from '@playwright/test';
 

@@ -190,8 +190,10 @@ test.describe('P1-BE · Phiên, cookie, Bearer (FE#1 AC-13)', () => {
 });
 
 test.describe('P1-BE · Đổi mật khẩu (commerio-backend#4)', () => {
-  test('mật khẩu hiện tại sai thì báo tại ô; đổi xong mật khẩu cũ hết dùng được (FE#2 AC-14, AC-15)', async ({ page, request }) => {
-    await dangKyApi(request, 2);
+  test('mật khẩu hiện tại sai thì báo tại ô; đổi xong mật khẩu cũ hết dùng được (FE#2 AC-14, AC-15)', async ({ page, playwright }) => {
+    const api = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
+    await dangKyApi(api, 2);
+    await api.dispose();
     await dangNhap(page, emailCeo(2));
     await page.getByTestId('nav-user').click();
     await page.getByRole('menuitem', { name: 'Đổi mật khẩu', exact: true }).click();
