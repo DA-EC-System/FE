@@ -135,9 +135,10 @@ export function productFactsBody(
  */
 export function productPatchBody(
   p: Pick<ProductDetail, 'name' | 'description' | 'images' | 'originCountry' | 'brand' | 'version'>,
-  patch: { originCountry?: string; brand?: string; description?: string },
+  patch: { originCountry?: string; brand?: string; description?: string; imageAttributeId?: string | null },
 ): ProductUpdateInput {
   return {
+    ...('imageAttributeId' in patch && { imageAttributeId: patch.imageAttributeId ?? null }),
     name: p.name,
     description: patch.description ?? p.description,
     imageFileIds: [...p.images].sort((a, b) => a.position - b.position).map((i) => i.fileId),

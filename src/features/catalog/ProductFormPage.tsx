@@ -90,6 +90,7 @@ import { countryName } from './countries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { platformLabel } from './platformCategory';
 import { ProductSkuSheet } from './ProductSkuSheet';
+import { VariantImagesCard } from './VariantImagesCard';
 import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
@@ -684,6 +685,8 @@ export function ProductFormPage() {
               />
             </CardContent>
           </Card>
+
+          {product && <VariantImagesCard product={product} readOnly={readOnly} onSaved={(p) => setVersion(p.version)} />}
 
           <Card id={SHARED_TARGETS.sizeChart}>
             <CardHeader>
