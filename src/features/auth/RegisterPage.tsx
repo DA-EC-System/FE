@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm, type UseFormSetError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
@@ -30,13 +30,46 @@ const RESTART: Record<string, string> = {
   otp_send_limit: 'Đã gửi đủ 5 mã cho lần đăng ký này. Bấm Đăng ký để bắt đầu lại.',
 };
 
-const codeSchema = z.object({ code: z.string().trim().regex(/^\d{6}$/, 'Mã gồm 6 chữ số') });
+const codeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Mã gồm 6 chữ số'),
+});
 type CodeForm = z.infer<typeof codeSchema>;
 
 type Step = { kind: 'form' } | { kind: 'code'; email: string; status: RegistrationStatus };
 
-const sentNotice = (email: string) =>
-  `Đã gửi mã xác minh tới ${email}. Mã có hạn 5 phút, kiểm tra cả thư rác.`;
+const SENT_NOTICE = 'Đã gửi mã. Không thấy thư thì kiểm tra cả thư rác.';
+const RESENT_NOTICE = 'Đã gửi mã mới, mã cũ không dùng được nữa.';
+
+/** Giờ hết hạn của mã, dạng 14:05 */
+const clock = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+/** Nhãn ô bắt buộc: thêm dấu * (màn đọc đã biết qua `required` của ô) */
+const req = (label: string): ReactNode => (
+  <>
+    {label}{' '}
+    <span aria-hidden className="text-destructive">
+      *
+    </span>
+  </>
+);
+
+/** Chỉ báo hai bước: thanh hai đoạn + chữ "Bước n/2" */
+function StepIndicator({ current }: { current: 1 | 2 }) {
+  return (
+    <div className="mb-5">
+      <p className="text-sm font-medium text-muted-foreground">
+        Bước {current}/2 · {current === 1 ? 'Thông tin đăng ký' : 'Xác minh email'}
+      </p>
+      <div aria-hidden className="mt-2 grid grid-cols-2 gap-1.5">
+        <span className="h-1 rounded-full bg-primary" />
+        <span className={current === 2 ? 'h-1 rounded-full bg-primary' : 'h-1 rounded-full bg-muted'} />
+      </div>
+    </div>
+  );
+}
 
 /**
  * UC-PI-01 — Đăng ký công ty (commerio-backend#459): gửi form, nhập mã 6 số gửi qua email, rồi vào thẳng công ty mới.
@@ -90,14 +123,18 @@ export function RegisterPage() {
         onSuccess: (status) => {
           setStep({ kind: 'code', email: v.email, status });
           cooldown.start(status.resendAfterSeconds);
-          setNotice(sentNotice(v.email));
+          setNotice(SENT_NOTICE);
         },
         onError: showFormErrors,
       },
     );
   });
 
-  const onVerify = (current: Extract<Step, { kind: 'code' }>, code: string, setFieldError: UseFormSetError<CodeForm>) => {
+  const onVerify = (
+    current: Extract<Step, { kind: 'code' }>,
+    code: string,
+    setFieldError: UseFormSetError<CodeForm>,
+  ) => {
     setError(null);
     verify.mutate(
       { registrationId: current.status.registrationId, code },
@@ -125,7 +162,7 @@ export function RegisterPage() {
       onSuccess: (status) => {
         setStep({ ...current, status });
         cooldown.start(status.resendAfterSeconds);
-        setNotice(sentNotice(current.email));
+        setNotice(RESENT_NOTICE);
       },
       onError: (e) => {
         const problem = getProblem(e);
@@ -147,9 +184,10 @@ export function RegisterPage() {
       subtitle={
         step.kind === 'form'
           ? 'Người đăng ký sẽ là CEO của công ty trên Commerio.'
-          : 'Nhập mã 6 số để tạo công ty và vào làm việc ngay.'
+          : `Nhập mã 6 số gửi tới ${step.email} để tạo công ty và vào làm việc ngay.`
       }
     >
+      <StepIndicator current={step.kind === 'form' ? 1 : 2} />
       {error && (
         <AlertMessage severity="error" className="mb-4" onClose={() => setError(null)}>
           {error}
@@ -165,18 +203,32 @@ export function RegisterPage() {
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="grid gap-6">
             <section className="grid gap-4">
-              <h2 className="font-bold">Thông tin công ty</h2>
-              <FormTextField control={form.control} name="companyName" label="Tên công ty" autoFocus />
-              <FormTextField control={form.control} name="taxCode" label="Mã số thuế" inputMode="numeric" />
+              <h2 className="text-lg font-semibold">Thông tin công ty</h2>
+              <FormTextField control={form.control} name="companyName" label={req('Tên công ty')} required autoFocus />
+              <FormTextField
+                control={form.control}
+                name="taxCode"
+                label={req('Mã số thuế')}
+                required
+                inputMode="numeric"
+                description="10 số, 12 số (hộ kinh doanh) hoặc 13 số dạng 0123456789-001"
+              />
             </section>
 
             <section className="grid gap-4">
-              <h2 className="font-bold">Tài khoản CEO</h2>
-              <FormTextField control={form.control} name="fullName" label="Họ tên" autoComplete="name" />
+              <h2 className="text-lg font-semibold">Tài khoản CEO</h2>
+              <FormTextField
+                control={form.control}
+                name="fullName"
+                label={req('Họ tên')}
+                required
+                autoComplete="name"
+              />
               <FormTextField
                 control={form.control}
                 name="email"
-                label="Email"
+                label={req('Email')}
+                required
                 type="email"
                 autoComplete="email"
                 description="Dùng để đăng nhập. Mã xác minh gửi tới email này."
@@ -185,7 +237,8 @@ export function RegisterPage() {
                 <FormTextField
                   control={form.control}
                   name="password"
-                  label="Mật khẩu"
+                  label={req('Mật khẩu')}
+                  required
                   password
                   autoComplete="new-password"
                   description="Tối thiểu 8 ký tự, có chữ và số."
@@ -193,7 +246,8 @@ export function RegisterPage() {
                 <FormTextField
                   control={form.control}
                   name="confirmPassword"
-                  label="Nhập lại mật khẩu"
+                  label={req('Nhập lại mật khẩu')}
+                  required
                   password
                   autoComplete="new-password"
                 />
@@ -216,7 +270,7 @@ export function RegisterPage() {
       {step.kind === 'code' && (
         <CodeStep
           key={step.status.registrationId}
-          email={step.email}
+          codeExpiresAt={step.status.codeExpiresAt}
           busy={busy}
           verifying={verify.isPending}
           cooldown={cooldown.left}
@@ -230,7 +284,7 @@ export function RegisterPage() {
 }
 
 function CodeStep({
-  email,
+  codeExpiresAt,
   busy,
   verifying,
   cooldown,
@@ -238,7 +292,7 @@ function CodeStep({
   onResend,
   onEdit,
 }: {
-  email: string;
+  codeExpiresAt: string;
   busy: boolean;
   verifying: boolean;
   cooldown: number;
@@ -254,7 +308,9 @@ function CodeStep({
         <FormTextField
           control={form.control}
           name="code"
-          label={`Mã xác minh đã gửi tới ${email}`}
+          label={req('Mã xác minh')}
+          required
+          description={`Mã có hạn 5 phút, dùng được tới ${clock(codeExpiresAt)}.`}
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}
