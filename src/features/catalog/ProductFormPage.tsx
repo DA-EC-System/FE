@@ -68,9 +68,10 @@ import { HelpTip } from '@/components/common/HelpTip';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { formatCurrency } from '@/utils/format';
+import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
+import { SkuCode } from '@/components/common/SkuCode';
 import { ProductMarketplaceCard } from './ProductMarketplaceCard';
 import { ProductSkuSheet } from './ProductSkuSheet';
-import { ProductSummary } from './ProductSummary';
 import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
@@ -363,20 +364,31 @@ export function ProductFormPage() {
         )}
 
         {product && (
-          <ProductSummary
-            tiles={[
-              { label: 'Nhóm hàng', value: product.group.name },
-              { label: 'SKU theo trạng thái', value: businessSummary(product.variants) },
-              {
-                label: 'Tổng có thể bán',
-                value: !canStock ? undefined : stockQuery.isLoading ? null : formatQty(totalAvailable([...levels.values()])),
-              },
-              {
-                label: 'Gian hàng đang bán',
-                value: !canShop ? undefined : listingsQuery.isLoading ? null : String(sellingShopCount(listingRows)),
-              },
-            ]}
-          />
+          <KpiStrip label="Tóm tắt sản phẩm" className="mb-4">
+            <Kpi label="Nhóm hàng" value={<span className="text-lg">{product.group.name}</span>} />
+            <Kpi
+              label="SKU theo trạng thái"
+              value={product.variants.length}
+              unit="SKU"
+              detail={businessSummary(product.variants)}
+            />
+            {canStock && (
+              <Kpi
+                label="Tổng có thể bán"
+                help="Cộng số có thể bán của mọi SKU: tồn thực trừ đang giữ cho đơn và khoá chờ duyệt. Đây là số đẩy lên sàn."
+                value={formatQty(totalAvailable([...levels.values()]))}
+                loading={stockQuery.isLoading}
+              />
+            )}
+            {canShop && (
+              <Kpi
+                label="Gian hàng đang bán"
+                help="Số gian hàng có ít nhất một SKU của sản phẩm đang hoạt động trên sàn."
+                value={sellingShopCount(listingRows)}
+                loading={listingsQuery.isLoading}
+              />
+            )}
+          </KpiStrip>
         )}
 
         <div className="grid gap-4">
@@ -444,10 +456,20 @@ export function ProductFormPage() {
             />
           )}
           {product && canShop && listingsQuery.isError && (
-            <AlertMessage severity="warning">Không tải được listing của sản phẩm: {problemMessage(listingsQuery.error)}</AlertMessage>
+            <AlertMessage severity="warning">
+              Không tải được listing của sản phẩm: {problemMessage(listingsQuery.error)}{' '}
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => listingsQuery.refetch()}>
+                Thử lại
+              </Button>
+            </AlertMessage>
           )}
           {product && canStock && stockQuery.isError && (
-            <AlertMessage severity="warning">Không tải được tồn kho của sản phẩm: {problemMessage(stockQuery.error)}</AlertMessage>
+            <AlertMessage severity="warning">
+              Không tải được tồn kho của sản phẩm: {problemMessage(stockQuery.error)}{' '}
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => stockQuery.refetch()}>
+                Thử lại
+              </Button>
+            </AlertMessage>
           )}
 
           <Card>
@@ -548,19 +570,13 @@ export function ProductFormPage() {
                             data-row-id={v.id}
                             className={cn(v.businessStatus === 'archived' && 'text-muted-foreground')}
                           >
-                            <TableCell className={cn('font-mono', v.businessStatus === 'archived' && 'line-through')}>
-                              {canStock || canShop ? (
-                                <button
-                                  type="button"
-                                  className="cursor-pointer text-left text-primary hover:underline focus-visible:underline focus-visible:outline-none"
-                                  title="Xem tồn kho và listing của SKU"
-                                  onClick={() => setSkuVariantId(v.id)}
-                                >
-                                  {v.sku}
-                                </button>
-                              ) : (
-                                v.sku
-                              )}
+                            <TableCell className="whitespace-nowrap">
+                              <SkuCode
+                                code={v.sku}
+                                hint={canStock || canShop ? 'Xem tồn kho và listing' : undefined}
+                                onClick={canStock || canShop ? () => setSkuVariantId(v.id) : undefined}
+                                className={cn(v.businessStatus === 'archived' && 'line-through')}
+                              />
                             </TableCell>
                             <TableCell>
                               {v.attributes.map((a) => `${a.attributeName}: ${a.value}`).join(', ') ||
@@ -585,7 +601,7 @@ export function ProductFormPage() {
                               <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-stock">
                                 {(() => {
                                   const l = levels.get(v.id);
-                                  if (stockQuery.isLoading) return <span className="text-muted-foreground">…</span>;
+                                  if (stockQuery.isLoading) return <Skeleton className="ms-auto h-4 w-20" />;
                                   if (!l) return <span className="text-muted-foreground">—</span>;
                                   return (
                                     <>

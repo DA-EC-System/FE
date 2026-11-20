@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { Store } from 'lucide-react';
+import { EmptyState } from '@/components/common/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,7 +38,7 @@ export function ProductSkuSheet({ companyId, variant, rows, canStock, canShop, c
     <Sheet open={Boolean(variant)} onOpenChange={(next) => !next && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle className="font-mono">{variant?.sku ?? ''}</SheetTitle>
+          <SheetTitle className="font-mono text-base">{variant?.sku ?? ''}</SheetTitle>
           <SheetDescription>{label || 'Mặc định'}</SheetDescription>
         </SheetHeader>
         {variant && (
@@ -66,7 +68,7 @@ export function ProductSkuSheet({ companyId, variant, rows, canStock, canShop, c
 }
 
 function ShopListings({ companyId, rows }: { companyId: string; rows: ProductListingRow[] }) {
-  if (!rows.length) return <p className="text-sm text-muted-foreground">Công ty chưa có gian hàng nào đang kết nối.</p>;
+  if (!rows.length) return <EmptyState compact icon={Store} title="Công ty chưa có gian hàng nào đang kết nối" />;
   return (
     <Table data-testid="sku-listings">
       <TableHeader>

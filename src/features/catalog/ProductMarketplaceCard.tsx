@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, RotateCw } from 'lucide-react';
+import { AlertTriangle, RotateCw, Store } from 'lucide-react';
+import { EmptyState } from '@/components/common/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,12 +41,17 @@ export function ProductMarketplaceCard({ companyId, productId, platforms, rows, 
         {loading ? (
           <Skeleton className="h-16 w-full" />
         ) : !platforms.length ? (
-          <p className="text-sm text-muted-foreground">
-            Công ty chưa kết nối gian hàng nào.{' '}
-            <Link to={ROUTES.company.shops(companyId)} className="text-primary hover:underline">
-              Kết nối gian hàng
-            </Link>
-          </p>
+          <EmptyState
+            compact
+            icon={Store}
+            title="Công ty chưa kết nối gian hàng nào"
+            description="Kết nối gian hàng để chọn category và đưa sản phẩm lên sàn."
+            action={
+              <Button asChild variant="outline" size="sm">
+                <Link to={ROUTES.company.shops(companyId)}>Kết nối gian hàng</Link>
+              </Button>
+            }
+          />
         ) : (
           platforms.map((p) => (
             <PlatformRow
