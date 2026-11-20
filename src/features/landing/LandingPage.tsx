@@ -1,35 +1,45 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Percent, Scale, ShieldCheck, X } from 'lucide-react';
+import { ArrowRight, Percent, Plus, Scale, ShieldCheck } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
+import heroShot from '@/assets/landing/hero-kien.jpg';
+import inventoryShot from '@/assets/landing/mod-inventory.jpg';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FanCards, type FanCardItem } from '@/components/ui/fan-cards';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import {
   LANDING_DIFFS,
-  LANDING_FACTS,
+  LANDING_FAQ,
   LANDING_GROUPS,
+  LANDING_HIGHLIGHTS,
   LANDING_MARKET_NOTE,
   LANDING_ONBOARDING,
   LANDING_PAINS,
-  LANDING_SCREENS,
 } from './landingContent';
-import './landing.css';
 
 /**
- * Trang giới thiệu ở `/` cho người chưa đăng nhập (FE#401, Documents/27 US-CT-14), bản v4.
- * Bố cục theo trang mẫu Thành chọn: thanh trên cố định, hero nền tối có khói trôi và tiêu đề hiện từng chữ, hàng ba
- * con số, khối phân hệ dạng thẻ quạt (Spider UI Fan Cards), lưới ba ảnh màn thật, footer xanh đậm.
- * Màu lấy token của Commerio; nền tối của hero và footer pha từ `--primary`. Trang được lazy-load (router/guards.tsx).
+ * Trang giới thiệu ở `/` cho người chưa đăng nhập (FE#401, Documents/27 US-CT-14).
+ * Phương án B Thành chốt 20/11/2026 (bản thiết kế .claude/issues/landing/design/index.html): hero sáng bất đối xứng có
+ * hai ảnh màn thật chồng lệch, bốn vấn đề dạng bento (tách vấn đề và giải pháp bằng kiểu chữ, không dùng icon), thẻ
+ * quạt phân hệ (Spider UI Fan Cards), khối dành cho doanh nghiệp, hỏi đáp. Màu lấy token của Commerio.
+ * Trang được lazy-load (router/guards.tsx) để `motion` không vào bundle chung.
  */
 
 const CONTAINER = 'mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8';
-/** Xanh đậm pha từ màu chính, dùng cho hero và footer ở cả hai chế độ màu */
-const DEEP = 'bg-[color-mix(in_oklab,var(--primary)_22%,#070b14)]';
-const ACCENT_ON_DARK = 'text-[color-mix(in_oklab,var(--primary)_55%,white)]';
 const EASE = [0.22, 1, 0.36, 1] as const;
+const SHOT_SHADOW = 'shadow-[0_24px_60px_-20px_rgba(15,23,42,0.4)]';
+
+const NAV = [
+  { href: '#van-de', label: 'Vấn đề' },
+  { href: '#phan-he', label: 'Phân hệ' },
+  { href: '#doanh-nghiep', label: 'Doanh nghiệp' },
+  { href: '#hoi-dap', label: 'Hỏi đáp' },
+];
+
+const DIFF_ICONS = { scale: Scale, shield: ShieldCheck, percent: Percent };
 
 /** Tiêu đề hiện dần từng chữ; trình đọc màn hình đọc câu nguyên vẹn */
 function RevealWords({ text }: { text: string }) {
@@ -43,7 +53,7 @@ function RevealWords({ text }: { text: string }) {
             className="inline-block whitespace-pre"
             initial={{ opacity: 0, y: '0.35em', filter: 'blur(8px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.55, delay: 0.1 + i * 0.045, ease: EASE }}
+            transition={{ duration: 0.55, delay: 0.1 + i * 0.05, ease: EASE }}
           >
             {word}{' '}
           </motion.span>
@@ -71,44 +81,13 @@ function FadeUp({
       className={className}
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
+      viewport={{ once: true, margin: '-60px' }}
       transition={{ duration: 0.6, delay, ease: EASE }}
     >
       {children}
     </Comp>
   );
 }
-
-const FAN_CARDS: FanCardItem[] = LANDING_GROUPS.map((g, i) => ({
-  id: g.id,
-  title: g.title,
-  subtitle: g.text,
-  bg: g.bg,
-  textColor: g.textColor,
-  subtitleColor: g.subtitleColor,
-  defaultRotation: g.rotation,
-  stackIndex: i + 1,
-  content: (
-    <img
-      src={g.shot.src}
-      width={g.shot.width}
-      height={g.shot.height}
-      alt={g.shot.alt}
-      loading="lazy"
-      decoding="async"
-      className="h-full max-h-56 w-full rounded-xl object-cover object-left-top shadow-md ring-1 ring-black/10"
-    />
-  ),
-}));
-
-const NAV = [
-  { href: '#van-de', label: 'Vấn đề' },
-  { href: '#phan-he', label: 'Phân hệ' },
-  { href: '#doanh-nghiep', label: 'Doanh nghiệp' },
-  { href: '#man-hinh', label: 'Màn hình' },
-];
-
-const DIFF_ICONS = { scale: Scale, shield: ShieldCheck, percent: Percent };
 
 /** Nhãn nhỏ + tiêu đề + phụ đề của một khối */
 function SectionHead({
@@ -135,20 +114,34 @@ function SectionHead({
   );
 }
 
-/** Đã cuộn qua phần đầu hero chưa: thanh trên trong suốt trên nền tối, có nền sáng khi cuộn xuống */
-function useScrolled(offset = 24) {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > offset);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [offset]);
-  return scrolled;
+/** Nhãn chữ nhỏ đứng trước dòng giải pháp, thay cho icon */
+function SolutionLabel() {
+  return <span className="mb-1 block text-[11px] font-bold tracking-[0.12em] text-primary uppercase">Commerio</span>;
 }
 
+const FAN_CARDS: FanCardItem[] = LANDING_GROUPS.map((g, i) => ({
+  id: g.id,
+  title: g.title,
+  subtitle: g.text,
+  bg: g.bg,
+  textColor: g.textColor,
+  subtitleColor: g.subtitleColor,
+  defaultRotation: g.rotation,
+  stackIndex: i + 1,
+  content: (
+    <img
+      src={g.shot.src}
+      width={g.shot.width}
+      height={g.shot.height}
+      alt={g.shot.alt}
+      loading="lazy"
+      decoding="async"
+      className="h-full max-h-56 w-full rounded-xl object-cover object-left-top shadow-md ring-1 ring-black/10"
+    />
+  ),
+}));
+
 export function LandingPage() {
-  const scrolled = useScrolled();
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-dvh bg-background text-foreground">
@@ -159,12 +152,7 @@ export function LandingPage() {
           Bỏ qua tới nội dung chính
         </a>
 
-        <header
-          className={cn(
-            'fixed inset-x-0 top-0 z-50 border-b transition-colors duration-300',
-            scrolled ? 'bg-card/90 text-foreground backdrop-blur-md' : 'border-transparent bg-transparent text-white',
-          )}
-        >
+        <header className="fixed inset-x-0 top-0 z-50 border-b bg-card/90 backdrop-blur-md">
           <div className={cn(CONTAINER, 'flex h-16 items-center gap-2 md:h-[72px]')}>
             <Link
               to={ROUTES.home}
@@ -179,20 +167,13 @@ export function LandingPage() {
                 <a
                   key={n.href}
                   href={n.href}
-                  className={cn(
-                    'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    scrolled ? 'text-foreground-2 hover:text-primary' : 'text-white/80 hover:text-white',
-                  )}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-foreground-2 transition-colors hover:text-primary"
                 >
                   {n.label}
                 </a>
               ))}
             </nav>
-            <Button
-              asChild
-              variant="ghost"
-              className={cn('h-10 px-3 font-medium', !scrolled && 'text-white hover:bg-white/10 hover:text-white')}
-            >
+            <Button asChild variant="ghost" className="h-10 px-3 font-medium">
               <Link to={ROUTES.login}>Đăng nhập</Link>
             </Button>
             <Button asChild className="h-10 px-4 font-semibold">
@@ -202,31 +183,34 @@ export function LandingPage() {
         </header>
 
         <main id="landing-main">
-          <section className={cn('relative isolate overflow-hidden pt-28 pb-20 text-white md:pt-40 md:pb-28', DEEP)}>
-            <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
-              <div className="landing-smoke" />
-              <div className="landing-smoke landing-smoke--slow" />
-              <div className="absolute inset-0 bg-linear-to-r from-[#070b14]/80 via-[#070b14]/30 to-transparent" />
-            </div>
-            <div className={CONTAINER}>
-              <div className="max-w-[720px]">
-                <h1 className="text-[40px] leading-[1.05] font-extrabold tracking-[-0.03em] text-balance sm:text-6xl">
+          <section className="relative overflow-hidden bg-card pt-28 pb-16 md:pt-36 md:pb-24">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-40 right-[-20%] size-[720px] rounded-full bg-accent opacity-70 blur-3xl"
+            />
+            <div className={cn(CONTAINER, 'relative grid items-center gap-12 lg:grid-cols-12')}>
+              <div className="lg:col-span-6">
+                <p className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-[13px] font-medium text-foreground-2">
+                  <span aria-hidden className="size-1.5 rounded-full bg-success" />
+                  Nền tảng cho doanh nghiệp bán trên nhiều sàn
+                </p>
+                <h1 className="mt-5 text-[40px] leading-[1.05] font-extrabold tracking-[-0.03em] text-balance sm:text-6xl">
                   <RevealWords text="Quản lý bán hàng đa sàn cho doanh nghiệp" />
                 </h1>
                 <motion.p
-                  className="mt-6 max-w-[600px] text-lg leading-relaxed text-white/80"
+                  className="mt-6 max-w-[560px] text-lg leading-relaxed text-foreground-2"
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.7, ease: EASE }}
+                  transition={{ duration: 0.6, delay: 0.6, ease: EASE }}
                 >
-                  Mỗi sàn một trang quản lý riêng nên tồn, đơn và tiền nằm rải rác. Commerio gom về một chỗ: một số tồn
-                  cho mọi gian hàng, một danh sách đơn, tồn tổng để nhập hàng có căn cứ và lãi thực theo từng đơn.
+                  Tồn, đơn và tiền của mọi gian hàng ở một chỗ. Không bán quá số hàng có, không mở nhiều trang duyệt
+                  đơn, nhập hàng theo tồn tổng và biết lãi thực từng đơn.
                 </motion.p>
                 <motion.div
                   className="mt-9 flex flex-wrap gap-3"
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.85, ease: EASE }}
+                  transition={{ duration: 0.6, delay: 0.75, ease: EASE }}
                 >
                   <Button asChild size="lg" className="h-12 px-6 text-base font-semibold">
                     <Link to={ROUTES.register}>
@@ -234,41 +218,46 @@ export function LandingPage() {
                       <ArrowRight aria-hidden />
                     </Link>
                   </Button>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="outline"
-                    className="h-12 border-white/25 bg-white/10 px-6 text-base font-semibold text-white hover:bg-white/20 hover:text-white"
-                  >
-                    <Link to={ROUTES.login}>Đăng nhập</Link>
+                  <Button asChild size="lg" variant="outline" className="h-12 px-6 text-base font-semibold">
+                    <a href="#van-de">Xem cách hoạt động</a>
                   </Button>
                 </motion.div>
-                <motion.dl
-                  className="mt-12 grid grid-cols-3 gap-4 border-t border-white/15 pt-7"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.8, delay: 1.05 }}
-                >
-                  {LANDING_FACTS.map((f, i) => (
-                    <div key={f.value}>
-                      <dt className="sr-only">{f.label}</dt>
-                      <dd>
-                        <span
-                          className={cn(
-                            'block text-lg leading-tight font-bold sm:text-3xl',
-                            i === 1 ? 'text-white' : ACCENT_ON_DARK,
-                          )}
-                        >
-                          {f.value}
-                        </span>
-                        <span aria-hidden className="mt-1 block text-[13px] text-white/65">
-                          {f.label}
-                        </span>
-                      </dd>
-                    </div>
+                <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-foreground-2">
+                  {LANDING_HIGHLIGHTS.map((h) => (
+                    <li key={h} className="flex items-center gap-2">
+                      <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                      {h}
+                    </li>
                   ))}
-                </motion.dl>
+                </ul>
               </div>
+              <motion.div
+                className="relative h-[300px] sm:h-[420px] lg:col-span-6 lg:h-[480px]"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3, ease: EASE }}
+              >
+                <img
+                  src={inventoryShot}
+                  width={1640}
+                  height={679}
+                  alt="Màn Kho hàng của Commerio: tồn theo từng SKU"
+                  fetchPriority="high"
+                  className={cn('absolute top-0 right-0 w-[88%] rounded-xl border bg-card', SHOT_SHADOW)}
+                />
+                <img
+                  src={heroShot}
+                  width={1640}
+                  height={584}
+                  alt="Màn Kiện hàng của Commerio: hàng đợi đóng gói của mọi sàn"
+                  fetchPriority="high"
+                  className={cn('absolute bottom-0 left-0 w-[78%] rounded-xl border bg-card', SHOT_SHADOW)}
+                />
+                <div className="absolute top-[42%] right-[4%] rounded-xl bg-foreground px-4 py-3 text-background shadow-xl">
+                  <p className="text-[11px] tracking-wide uppercase opacity-70">Tồn có thể bán</p>
+                  <p className="text-lg font-bold">Đẩy lên mọi gian hàng</p>
+                </div>
+              </motion.div>
             </div>
           </section>
 
@@ -280,30 +269,33 @@ export function LandingPage() {
                 title="Bán trên nhiều sàn, dữ liệu nằm ở nhiều nơi"
                 lead={LANDING_MARKET_NOTE}
               />
-              <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <ul className="mt-14 grid gap-4 lg:grid-cols-2">
                 {LANDING_PAINS.map((p, i) => (
                   <FadeUp
                     key={p.title}
                     as="li"
-                    delay={i * 0.08}
-                    className="flex flex-col rounded-2xl bg-card p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                    delay={(i % 2) * 0.08}
+                    className="overflow-hidden rounded-2xl bg-card ring-1 ring-black/5 dark:ring-white/10"
                   >
-                    <span className="text-sm font-bold text-primary">0{i + 1}</span>
-                    <h3 className="mt-2 text-lg leading-snug font-semibold">{p.title}</h3>
-                    <p className="mt-3 flex gap-2 text-sm leading-relaxed text-muted-foreground">
-                      <X className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
-                      <span>
-                        <span className="sr-only">Vấn đề: </span>
-                        {p.pain}
-                      </span>
-                    </p>
-                    <p className="mt-auto flex gap-2 border-t pt-4 text-sm leading-relaxed font-medium">
-                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-                      <span>
-                        <span className="sr-only">Commerio: </span>
+                    <div className="p-6 sm:p-8">
+                      <h3 className="text-2xl leading-snug font-bold">{p.title}</h3>
+                      <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{p.pain}</p>
+                      <p className="mt-5 text-[15px] leading-relaxed font-semibold">
+                        <SolutionLabel />
                         {p.fix}
-                      </span>
-                    </p>
+                      </p>
+                    </div>
+                    {p.shot && (
+                      <img
+                        src={p.shot.src}
+                        width={p.shot.width}
+                        height={p.shot.height}
+                        alt={p.shot.alt}
+                        loading="lazy"
+                        decoding="async"
+                        className="ml-6 -mb-1 aspect-[2.4/1] w-[calc(100%-1.5rem)] rounded-tl-xl border-t border-l object-cover object-left-top sm:ml-8 sm:w-[calc(100%-2rem)]"
+                      />
+                    )}
                   </FadeUp>
                 ))}
               </ul>
@@ -365,7 +357,6 @@ export function LandingPage() {
                   </Link>
                 </Button>
               </div>
-
               <ul className="mt-20 grid gap-4 md:grid-cols-3">
                 {LANDING_DIFFS.map((d, i) => {
                   const Icon = DIFF_ICONS[d.icon];
@@ -388,77 +379,74 @@ export function LandingPage() {
             </div>
           </section>
 
-          <section id="man-hinh" aria-labelledby="man-hinh-title" className="scroll-mt-20 bg-card py-20">
-            <div className={CONTAINER}>
-              <FadeUp className="flex flex-wrap items-end justify-between gap-6">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-bold tracking-[0.14em] text-primary uppercase">Màn hình</p>
-                  <h2
-                    id="man-hinh-title"
-                    className="mt-3 text-3xl leading-tight font-bold tracking-[-0.02em] sm:text-[40px]"
-                  >
-                    Màn hình trên bản chạy thử
-                  </h2>
-                  <p className="mt-3 text-[17px] leading-relaxed text-foreground-2">
-                    Chụp từ bản chạy thử với dữ liệu thử. Tên gian hàng đã làm mờ.
-                  </p>
-                </div>
-                <Link
-                  to={ROUTES.register}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary-active"
+          <section id="hoi-dap" aria-labelledby="hoi-dap-title" className="scroll-mt-20 bg-card py-24">
+            <div className={cn(CONTAINER, 'grid gap-10 lg:grid-cols-[1fr_1.6fr] lg:gap-16')}>
+              <FadeUp>
+                <p className="text-xs font-bold tracking-[0.14em] text-primary uppercase">Hỏi đáp</p>
+                <h2
+                  id="hoi-dap-title"
+                  className="mt-3 text-3xl leading-tight font-bold tracking-[-0.02em] text-balance sm:text-[40px]"
                 >
-                  Đăng ký công ty
-                  <ArrowRight className="size-4" aria-hidden />
-                </Link>
+                  Câu hỏi thường gặp
+                </h2>
+                <p className="mt-4 text-[17px] leading-relaxed text-foreground-2">
+                  Chưa thấy câu bạn cần? Đăng ký công ty để dùng thử với dữ liệu của bạn.
+                </p>
+                <Button asChild size="lg" className="mt-6 h-11 px-5 font-semibold">
+                  <Link to={ROUTES.register}>
+                    Đăng ký công ty
+                    <ArrowRight aria-hidden />
+                  </Link>
+                </Button>
               </FadeUp>
-              <ul className="mt-12 grid gap-4 md:grid-cols-3">
-                {LANDING_SCREENS.map((s, i) => (
-                  <FadeUp key={s.name} as="li" delay={i * 0.08}>
-                    <figure className="group">
-                      <div className="relative aspect-[2/1] overflow-hidden rounded-xl border bg-background">
-                        <img
-                          src={s.src}
-                          width={s.width}
-                          height={s.height}
-                          alt={s.alt}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover object-left-top transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
-                        />
-                      </div>
-                      <figcaption className="mt-3 text-sm font-medium">{s.name}</figcaption>
-                    </figure>
-                  </FadeUp>
+              <div className="divide-y border-y">
+                {LANDING_FAQ.map((f, i) => (
+                  <Collapsible key={f.q} defaultOpen={i === 0} className="group py-5">
+                    <h3>
+                      <CollapsibleTrigger className="flex w-full cursor-pointer items-start justify-between gap-6 rounded-md text-left text-[17px] font-semibold focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none">
+                        <span>{f.q}</span>
+                        <span
+                          aria-hidden
+                          className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full border transition-transform duration-200 group-data-[state=open]:rotate-45 motion-reduce:transition-none"
+                        >
+                          <Plus className="size-4" />
+                        </span>
+                      </CollapsibleTrigger>
+                    </h3>
+                    <CollapsibleContent className="pr-12 text-[15px] leading-relaxed text-foreground-2">
+                      <p className="mt-3">{f.a}</p>
+                    </CollapsibleContent>
+                  </Collapsible>
                 ))}
-              </ul>
+              </div>
             </div>
           </section>
         </main>
 
-        <footer className={cn(DEEP, 'pt-16 pb-10 text-white/70')}>
+        <footer className="border-t bg-card pt-16 pb-10">
           <div className={cn(CONTAINER, 'grid gap-10 sm:grid-cols-2 lg:grid-cols-4')}>
             <div>
-              <span className="flex items-center gap-2 text-white">
+              <span className="flex items-center gap-2">
                 <BrandLogo size={30} />
                 <span className="text-lg font-bold">Commerio</span>
               </span>
-              <p className="mt-4 max-w-xs text-sm leading-relaxed">
+              <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
                 Nền tảng quản lý bán hàng đa sàn cho doanh nghiệp bán lẻ: hàng, kho, đơn và tiền của mỗi công ty ở một
                 chỗ.
               </p>
             </div>
             <FooterCol title="Trên trang">
               {NAV.map((n) => (
-                <a key={n.href} href={n.href} className="hover:text-white">
+                <a key={n.href} href={n.href} className="hover:text-foreground">
                   {n.label}
                 </a>
               ))}
             </FooterCol>
             <FooterCol title="Tài khoản">
-              <Link to={ROUTES.login} className="hover:text-white">
+              <Link to={ROUTES.login} className="hover:text-foreground">
                 Đăng nhập
               </Link>
-              <Link to={ROUTES.register} className="hover:text-white">
+              <Link to={ROUTES.register} className="hover:text-foreground">
                 Đăng ký công ty
               </Link>
             </FooterCol>
@@ -470,7 +458,7 @@ export function LandingPage() {
           <div
             className={cn(
               CONTAINER,
-              'mt-12 flex flex-wrap justify-between gap-2 border-t border-white/10 pt-6 text-xs',
+              'mt-12 flex flex-wrap justify-between gap-2 border-t pt-6 text-xs text-muted-foreground',
             )}
           >
             <span>© 2026 Commerio</span>
@@ -485,8 +473,8 @@ export function LandingPage() {
 function FooterCol({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-bold tracking-[0.12em] text-white uppercase">{title}</p>
-      <div className="mt-4 flex flex-col gap-2.5 text-sm">{children}</div>
+      <p className="text-xs font-bold tracking-[0.12em] uppercase">{title}</p>
+      <div className="mt-4 flex flex-col gap-2.5 text-sm text-muted-foreground">{children}</div>
     </div>
   );
 }

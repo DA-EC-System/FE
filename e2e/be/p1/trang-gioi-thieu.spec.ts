@@ -5,16 +5,18 @@ import { type CongTyGia, taoCongTyGia } from '../congTyGia';
 const UUID = '[0-9a-f-]{36}';
 
 test.describe('P1 · Trang giới thiệu (BE thật)', () => {
-  test('AC-1, AC-2: chưa đăng nhập mở / thấy trang giới thiệu, hai nút dẫn tới /register và /login', async ({ page }) => {
+  test('AC-1, AC-2: chưa đăng nhập mở / thấy trang giới thiệu, hai nút dẫn tới /register và /login', async ({
+    page,
+  }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Quản lý bán hàng đa sàn cho doanh nghiệp');
     expect(duongDan(page)).toBe('/');
-    await expect(page.locator('#man-hinh li')).toHaveCount(3);
+    await expect(page.locator('#hoi-dap [data-slot="collapsible-trigger"]')).toHaveCount(6);
 
     await page.getByRole('banner').getByRole('link', { name: 'Đăng ký công ty' }).click();
     await expect.poll(() => duongDan(page)).toBe('/register');
     await page.goBack();
-    await page.getByRole('main').getByRole('link', { name: 'Đăng nhập' }).click();
+    await page.getByRole('banner').getByRole('link', { name: 'Đăng nhập' }).click();
     await expect.poll(() => duongDan(page)).toBe('/login');
   });
 
