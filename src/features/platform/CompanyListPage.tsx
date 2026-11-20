@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Lock, LockOpen } from 'lucide-react';
+import { Eraser, Lock, LockOpen } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { TapTooltip } from '@/components/common/TapTooltip';
@@ -13,7 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LockCompanyDialog } from './LockCompanyDialog';
-import { useLockCompany, usePlatformCompanies, useUnlockCompany } from '@/api/platform.api';
+import { ReleaseTaxCodeDialog } from './ReleaseTaxCodeDialog';
+import { useLockCompany, usePlatformCompanies, useReleaseTaxCode, useUnlockCompany } from '@/api/platform.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -78,6 +79,9 @@ export function CompanyListPage() {
   const [locking, setLocking] = useState<Company | null>(null);
   const [lockFieldError, setLockFieldError] = useState<string>();
   const [unlocking, setUnlocking] = useState<Company | null>(null);
+  const releaseMut = useReleaseTaxCode();
+  const [releasing, setReleasing] = useState<Company | null>(null);
+  const [releaseFieldError, setReleaseFieldError] = useState<string>();
 
   // 409 version_conflict: phiên khác vừa đổi — báo trạng thái hiện tại theo current (AC-16);
   // danh sách tự tải lại ở onSettled của mutation
@@ -114,6 +118,32 @@ export function CompanyListPage() {
           }
           reportError(error, locking.name);
           setLocking(null);
+        },
+      },
+    );
+  };
+
+  // commerio-backend#459: gỡ mã số thuế công ty đang giữ mã của doanh nghiệp khác
+  const handleRelease = (reason: string) => {
+    if (!releasing) return;
+    const target = releasing;
+    setReleaseFieldError(undefined);
+    releaseMut.mutate(
+      { id: target.id, reason, version: target.version },
+      {
+        onSuccess: (company) => {
+          toast.success(`Đã gỡ mã số thuế của ${company.name}`);
+          setReleasing(null);
+        },
+        onError: (error) => {
+          const problem = getProblem(error);
+          if (problem?.status === 422 && problem.errors?.reason) {
+            setReleaseFieldError(problem.errors.reason);
+            return;
+          }
+          if (problemCode(error) === 'invalid_transition') toast.warning(`${target.name} hiện không có mã số thuế để gỡ`);
+          else reportError(error, target.name);
+          setReleasing(null);
         },
       },
     );
@@ -201,9 +231,22 @@ export function CompanyListPage() {
       {
         id: 'actions',
         header: () => <span className="sr-only">Thao tác</span>,
-        meta: { className: 'w-32' },
+        meta: { className: 'w-56' },
         cell: ({ row: { original: c } }) => (
-          <div className="flex" data-guide="platform-lock">
+          <div className="flex justify-end" data-guide="platform-lock">
+            {c.taxCode && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setReleaseFieldError(undefined);
+                  setReleasing(c);
+                }}
+              >
+                <Eraser />
+                Gỡ mã số thuế
+              </Button>
+            )}
             {c.status === 'active' ? (
               <Button
                 size="sm"
@@ -235,7 +278,7 @@ export function CompanyListPage() {
       <PageHeader
         title="Công ty"
         subtitle="Công ty tự đăng ký dùng Commerio."
-        help="Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái, khoá hoặc mở khoá công ty; không xem đơn, sản phẩm hay doanh thu của công ty. Khoá phải ghi lý do, lý do lưu vào Nhật ký thao tác nền tảng."
+        help="Quản trị nền tảng chỉ xem thông tin đăng ký và trạng thái, khoá hoặc mở khoá công ty, gỡ mã số thuế khi công ty giữ mã của doanh nghiệp khác; không xem đơn, sản phẩm hay doanh thu của công ty. Khoá phải ghi lý do, lý do lưu vào Nhật ký thao tác nền tảng."
         onTour={startTour}
       />
 
@@ -283,6 +326,14 @@ export function CompanyListPage() {
         serverError={lockFieldError}
         onSubmit={handleLock}
         onClose={() => setLocking(null)}
+      />
+
+      <ReleaseTaxCodeDialog
+        company={releasing}
+        loading={releaseMut.isPending}
+        serverError={releaseFieldError}
+        onSubmit={handleRelease}
+        onClose={() => setReleasing(null)}
       />
 
       {/* Mở khoá không hỏi lý do, chỉ xác nhận (AC-14) */}

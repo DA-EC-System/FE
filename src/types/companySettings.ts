@@ -106,6 +106,8 @@ export interface CompanyProfile {
 
 /** Ô không gửi thì giữ nguyên; null = theo tên, địa chỉ công ty */
 export interface UpdateCompanyProfileInput {
+  /** Chỉ khi công ty đang không có mã số thuế (commerio-backend#459) */
+  taxCode?: string;
   address?: string | null;
   responsibleName?: string | null;
   responsibleAddress?: string | null;

@@ -250,7 +250,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
         help="Thông tin sàn (category, attribute, mapping variant) lưu theo sản phẩm và sàn, dùng chung cho mọi gian hàng cùng sàn. Lưu xong mới đẩy."
       />
 
-      <div className="grid items-start gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Card className="gap-0 py-0">
           <nav aria-label="Các bước" className="flex flex-wrap gap-1.5 border-b px-4 py-3">
             {STEPS.map((step_, k) => {

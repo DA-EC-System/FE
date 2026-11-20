@@ -40,7 +40,7 @@ export function ProductSkuSheet({ companyId, variant, rows, tab, specText, canSt
   const first = tab === 'shops' && canShop ? 'shops' : canStock ? 'stock' : 'shops';
   return (
     <Sheet open={Boolean(variant)} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle className="font-mono text-base">{variant?.sku ?? ''}</SheetTitle>
           <SheetDescription>{label || 'Mặc định'}</SheetDescription>
@@ -92,7 +92,7 @@ function ShopListings({ companyId, rows }: { companyId: string; rows: ProductLis
           <TableHead>Gian hàng</TableHead>
           <TableHead>Trạng thái</TableHead>
           <TableHead className="text-right">Giá</TableHead>
-          <TableHead className="text-right">Tồn trên sàn</TableHead>
+          <TableHead className="text-right whitespace-nowrap">Tồn trên sàn</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -102,7 +102,7 @@ function ShopListings({ companyId, rows }: { companyId: string; rows: ProductLis
           return (
             <TableRow key={r.shopId}>
               <TableCell>
-                <Link to={ROUTES.company.shop(companyId, r.shopId)} className="font-medium text-primary hover:underline">
+                <Link to={ROUTES.company.shop(companyId, r.shopId)} className="font-medium break-all text-primary hover:underline">
                   {r.shopName}
                 </Link>
                 <span className="block text-xs text-muted-foreground">{platformLabel(r.platform)}</span>

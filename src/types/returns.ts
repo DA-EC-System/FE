@@ -53,6 +53,8 @@ export interface ReturnRequestSummary {
   closeResult: ReturnCloseResult | null;
   /** Trạng thái gốc trên sàn (REQUESTED, JUDGING...) */
   rawMarketplaceStatus: string | null;
+  /** Hạn người bán phải trả lời của sàn (ISO); null khi không chờ người bán hay sàn không có hạn (commerio-backend#392) */
+  respondBy: string | null;
   totalQty: number;
   refundAmount: number;
   createdAt: string;
@@ -77,6 +79,8 @@ export interface ReturnPlatformInfo {
   /** Khách đang khiếu nại lên sàn */
   disputeInProgress: boolean;
   returnTo: 'warehouse' | 'merchant' | null;
+  /** Hạn người bán phải trả lời của sàn (ISO); null khi sàn không trả hạn (commerio-backend#392) */
+  respondBy: string | null;
 }
 
 export interface ReturnRequest extends ReturnRequestSummary {

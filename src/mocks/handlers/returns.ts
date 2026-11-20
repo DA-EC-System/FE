@@ -75,6 +75,7 @@ function toSummary(r: MockReturnRequest): ReturnRequestSummary {
     status: r.status,
     closeResult: r.closeResult,
     rawMarketplaceStatus: r.rawMarketplaceStatus,
+    respondBy: null,
     totalQty: totalQty(r),
     refundAmount: refundOf(r),
     createdAt: r.createdAt,
@@ -168,6 +169,7 @@ function platformOf(r: MockReturnRequest): ReturnRequest['platform'] {
     ofcStatus: last.ofcStatus,
     disputeInProgress: r.disputeInProgress,
     returnTo: 'warehouse',
+    respondBy: null,
   };
 }
 
