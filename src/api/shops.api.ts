@@ -18,6 +18,7 @@ import type {
   OutsideChangeAction,
   MappingDecision,
   ListingMatchInput,
+  ListingMatchPreview,
   ListingRow,
   Marketplace,
   ListingSyncResult,
@@ -340,6 +341,23 @@ export function useRefreshRemoteSkus() {
       return data;
     },
     onSuccess: (data, shopId) => queryClient.setQueryData(shopKeys.remoteSkus(companyId, shopId), data),
+  });
+}
+
+/** Xem trước số sẽ đẩy khi chọn một cặp trong hộp ghép (§18.3, commerio-backend#460); không gọi sàn, không ghi */
+export function useMatchPreview(shopId: string, pair: { externalSkuId: string; variantId: string } | null) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: [...shopKeys.all(companyId), 'match-preview', shopId, pair?.externalSkuId, pair?.variantId] as const,
+    enabled: Boolean(companyId && shopId && pair),
+    retry: false,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListingMatchPreview>(`/channel/shops/${shopId}/listings/match-preview`, {
+        params: pair!,
+      });
+      return data;
+    },
   });
 }
 

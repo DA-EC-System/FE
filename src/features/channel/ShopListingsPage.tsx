@@ -65,6 +65,7 @@ import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
+import { MatchPreviewPanel } from './MatchPreviewPanel';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
@@ -1333,6 +1334,18 @@ export function ShopListingsPage() {
         error={matchError}
         onSave={saveMatch}
         onClose={() => setMatching(null)}
+        renderPreview={(id) =>
+          !matching || id === UNMANAGED ? null : (
+            <MatchPreviewPanel
+              shopId={shopId}
+              pair={
+                matching.from === 'variant'
+                  ? { externalSkuId: id, variantId: matching.row.variantId }
+                  : { externalSkuId: matching.externalSkuId, variantId: id }
+              }
+            />
+          )
+        }
       />
       <PriceOverrideDialog
         row={pricing}
