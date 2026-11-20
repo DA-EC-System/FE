@@ -111,11 +111,12 @@ export interface VariantAttribute {
 }
 
 /** Phần còn thiếu theo Documents/21 §17.1; name, image tính ở cha, còn lại theo SKU. Nhóm hàng bắt buộc nên không thiếu */
-export type VariantMissing = 'name' | 'image' | 'price' | 'minQty' | 'weight' | 'dimensions';
+export type VariantMissing = 'name' | 'image' | 'variantImages' | 'price' | 'minQty' | 'weight' | 'dimensions';
 
 export const MISSING_LABELS: Record<VariantMissing, string> = {
   name: 'tên',
   image: 'ảnh',
+  variantImages: 'ảnh phân loại',
   price: 'thực nhận mong muốn',
   minQty: 'tồn tối thiểu',
   weight: 'cân nặng',
@@ -187,6 +188,10 @@ export interface ProductDetail extends ProductListItem {
   originCountry?: string | null;
   brand?: string | null;
   variants: ProductVariant[];
+  /** Thuộc tính gắn ảnh phân loại (một trục của sản phẩm), null là chưa chọn (Documents/21 §17.2, commerio-backend#340) */
+  imageAttributeId?: string | null;
+  /** Ảnh theo giá trị của thuộc tính gắn ảnh; `url` rỗng khi máy chủ chưa cấu hình link ảnh */
+  attributeValueImages?: { attributeValueId: string; fileId: string; url: string }[];
 }
 
 export interface ProductListParams {
@@ -235,6 +240,8 @@ export interface ProductUpdateInput {
   originCountry?: string | null;
   /** Thương hiệu; bỏ trường là giữ, `null` là không thương hiệu */
   brand?: string | null;
+  /** Bỏ trường là giữ, `null` là bỏ chọn; đổi hoặc bỏ thì BE gỡ mọi ảnh phân loại của thuộc tính cũ */
+  imageAttributeId?: string | null;
   version: number;
 }
 

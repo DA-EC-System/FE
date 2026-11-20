@@ -269,6 +269,40 @@ export function useUpdateProduct() {
   });
 }
 
+/**
+ * Đặt hoặc thay ảnh của một giá trị phân loại (PUT …/attribute-value-images/:attributeValueId, §17.2). Không nhận
+ * `version`, không tăng `version` sản phẩm; trả ProductDetail mới
+ */
+export function useSetValueImage() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ productId, attributeValueId, fileId }: { productId: string; attributeValueId: string; fileId: string }) => {
+      const { data } = await apiClient.put<ProductDetail>(
+        `/catalog/products/${productId}/attribute-value-images/${attributeValueId}`,
+        { fileId },
+      );
+      return withVariantDefaults(data);
+    },
+    onSuccess: (p) => qc.setQueryData(catalogKeys.product(companyId, p.id), p),
+  });
+}
+
+/** Gỡ ảnh của một giá trị phân loại, không xoá tệp */
+export function useRemoveValueImage() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ productId, attributeValueId }: { productId: string; attributeValueId: string }) => {
+      const { data } = await apiClient.delete<ProductDetail>(
+        `/catalog/products/${productId}/attribute-value-images/${attributeValueId}`,
+      );
+      return withVariantDefaults(data);
+    },
+    onSuccess: (p) => qc.setQueryData(catalogKeys.product(companyId, p.id), p),
+  });
+}
+
 export function useAddVariant() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
