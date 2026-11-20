@@ -134,7 +134,7 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
       />
 
       {!disabled && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[12.5px] text-muted-foreground">
           {types.every((t) => t.startsWith('image/')) ? 'Ảnh' : 'Tệp'} {typesLabel(types)}, tối đa 10 MB mỗi tệp, {MAX_ATTACHMENTS} tệp.
         </p>
       )}
