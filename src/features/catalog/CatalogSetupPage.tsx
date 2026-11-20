@@ -21,6 +21,8 @@ import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import type { Attribute, ProductGroup } from '@/types/catalog';
 import { GroupFormDialog } from './GroupFormDialog';
+import { DeleteGroupDialog } from './DeleteGroupDialog';
+import { SUGGEST_KEYS } from './suggest';
 import { AttributeFormDialog } from './AttributeFormDialog';
 import { PlatformCategoryTab } from './PlatformCategoryTab';
 import { PLATFORM_TABS, isPlatformTab } from './platformCategory';
@@ -60,6 +62,8 @@ export function CatalogSetupPage() {
   const [groupForm, setGroupForm] = useState<{ item: ProductGroup | null } | null>(null);
   const [attributeForm, setAttributeForm] = useState<{ item: Attribute | null } | null>(null);
   const [deleting, setDeleting] = useState<Deleting | null>(null);
+  // Nhóm còn sản phẩm: chuyển hết sang nhóm khác rồi xoá
+  const [moving, setMoving] = useState<ProductGroup | null>(null);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -70,7 +74,11 @@ export function CatalogSetupPage() {
       toast.success(`Đã xoá ${name}`);
     } catch (e) {
       const code = problemCode(e);
-      if (code === 'in_use') {
+      if (code === 'in_use' && deleting.kind === 'group') {
+        // Có người vừa thêm sản phẩm vào nhóm: nạp lại số sản phẩm, lần bấm sau mở pop-up chuyển
+        void groupsQuery.refetch();
+        toast.warning(`${name} vừa có sản phẩm mới. Bấm Xoá lại để chuyển sản phẩm sang nhóm khác.`);
+      } else if (code === 'in_use') {
         // V25: kể cả khi chỉ còn sản phẩm đã lưu trữ
         toast.warning(`Không thể xoá ${name} vì đang được sử dụng.`);
       } else if (code === 'version_conflict') {
@@ -89,6 +97,15 @@ export function CatalogSetupPage() {
     () => [
       { accessorKey: 'name', header: 'Nhóm hàng', meta: { className: 'min-w-40 font-medium' } },
       { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
+      {
+        id: 'suggest',
+        header: 'Gợi ý',
+        meta: { className: 'w-36 whitespace-nowrap' },
+        cell: ({ row }) => {
+          const own = SUGGEST_KEYS.filter((k) => row.original.suggest[k] !== null).length;
+          return own ? <Badge variant="secondary">Riêng {own}/5 ô</Badge> : <span className="text-muted-foreground">Theo công ty</span>;
+        },
+      },
       {
         id: 'updatedAt',
         header: 'Cập nhật',
@@ -109,8 +126,11 @@ export function CatalogSetupPage() {
                   <RowAction
                     label="Xoá"
                     destructive
-                    reason={inUseReason(row.original.productCount)}
-                    onClick={() => setDeleting({ kind: 'group', item: row.original })}
+                    onClick={() =>
+                      row.original.productCount > 0
+                        ? setMoving(row.original)
+                        : setDeleting({ kind: 'group', item: row.original })
+                    }
                   >
                     <Trash2 />
                   </RowAction>
@@ -186,7 +206,7 @@ export function CatalogSetupPage() {
       <PageHeader
         title="Nhóm hàng & thuộc tính"
         subtitle="Nhóm hàng để lọc sản phẩm trong app; thuộc tính phân loại để tạo variant."
-        help="Công ty mới có sẵn 12 nhóm hàng. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
+        help="Công ty mới có sẵn 12 nhóm hàng. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Mỗi nhóm đặt được gợi ý giá, gợi ý nhập lại riêng, để trống thì theo Cài đặt sản phẩm. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
         onTour={startTour}
         action={
           canManage && source === 'commerio' ? (
@@ -267,6 +287,15 @@ export function CatalogSetupPage() {
         group={groupForm?.item ?? null}
         onClose={() => setGroupForm(null)}
         onDone={done}
+      />
+      <DeleteGroupDialog
+        group={moving}
+        groups={groupsQuery.data ?? []}
+        onClose={() => setMoving(null)}
+        onDone={(message) => {
+          setMoving(null);
+          toast.success(message);
+        }}
       />
       <AttributeFormDialog
         open={Boolean(attributeForm)}

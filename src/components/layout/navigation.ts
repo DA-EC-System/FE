@@ -9,6 +9,7 @@ import {
   Puzzle,
   ScrollText,
   ServerCrash,
+  Settings2,
   ShieldCheck,
   ShoppingCart,
   FlaskConical,
@@ -25,7 +26,7 @@ import {
 import { matchPath } from 'react-router-dom';
 import { docRefPath, ROUTES } from '@/router/routes';
 import type { TaskItem } from '@/types/tasks';
-import { FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { CATALOG_SETUP_ANY, FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
 import { USE_MOCKS } from '@/utils/env';
 
@@ -106,7 +107,7 @@ export function companyNav(companyId: string): NavSection[] {
           label: 'Nhóm hàng & thuộc tính',
           icon: SlidersHorizontal,
           module: 'catalog',
-          permission: PERMISSIONS.catalogSetup,
+          anyPermission: CATALOG_SETUP_ANY,
         },
         {
           to: ROUTES.company.inventory(companyId),
@@ -203,6 +204,13 @@ export function companyNav(companyId: string): NavSection[] {
           icon: Puzzle,
           module: 'platform',
           permission: PERMISSIONS.moduleManage,
+        },
+        {
+          to: ROUTES.company.productSettings(companyId),
+          label: 'Cài đặt sản phẩm',
+          icon: Settings2,
+          module: 'catalog',
+          permission: PERMISSIONS.catalogSetup,
         },
         {
           to: ROUTES.company.companyProfile(companyId),

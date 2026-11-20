@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { valueCode } from '@/utils/sku';
 import type { Attribute } from '@/types/catalog';
+import { suggestFormSchema } from './suggest';
 
 export const MAX_IMAGES = 9;
 /** Ảnh gửi lên kho: JPG, PNG, tối đa 1 MB, cạnh ngắn từ 330 px cho khớp yêu cầu của sàn (FE#205) */
@@ -10,9 +11,10 @@ export const MIN_IMAGE_SIDE = 330;
 /** Tệp người dùng chọn được: WebP đổi sang JPEG khi nén, không từ chối */
 export const SOURCE_IMAGE_TYPES = [...IMAGE_TYPES, 'image/webp'];
 
-/** Nhóm hàng (Documents/21 §5.2): tên 1–60 ký tự */
+/** Nhóm hàng (Documents/21 §5.2): tên 1–60 ký tự, năm ô gợi ý ghi đè công ty (trống là theo công ty) */
 export const groupSchema = z.object({
   name: z.string().trim().min(1, 'Nhập tên nhóm hàng').max(60, 'Tên nhóm hàng tối đa 60 ký tự'),
+  suggest: suggestFormSchema,
 });
 export type GroupForm = z.infer<typeof groupSchema>;
 
