@@ -1,5 +1,14 @@
-import type { ProductDetail, ProductVariant } from '@/types/catalog';
-import type { Marketplace, PlatformAttribute, ProductListingRow, SizeChartRule, SpecValue } from '@/types/shop';
+import type { ProductDetail, ProductVariant, VariantUpdateInput } from '@/types/catalog';
+import type {
+  Marketplace,
+  PlatformAttribute,
+  ProductListingRow,
+  ProductSpec,
+  RemoteProductFacts,
+  RemoteVariantFacts,
+  SizeChartRule,
+  SpecValue,
+} from '@/types/shop';
 import { conditionMet, effectiveValue, isFilled } from '@/features/channel/specDraft';
 
 /**
@@ -63,11 +72,18 @@ export function attributeGroups(attrs: readonly PlatformAttribute[], values: Rec
   return out;
 }
 
-/** Nguồn của một ô ở tab sàn (F1; "Đọc từ sàn khi ghép" theo từng ô cần `fieldSources` của #497) */
-export type FieldSource = 'shared' | 'own' | 'company';
+/** Nguồn của một ô ở tab sàn */
+export type FieldSource = 'shared' | 'own' | 'company' | 'match';
 
-export const attributeSource = (a: Pick<PlatformAttribute, 'tier'>): FieldSource =>
-  a.tier === 'product' ? 'shared' : a.tier === 'company' ? 'company' : 'own';
+/**
+ * Nguồn theo tier, và theo `fieldSources` của spec (commerio-backend#497): attribute sàn đọc lúc ghép mà người dùng chưa
+ * sửa là "Đọc từ sàn khi ghép". Attribute công ty, sản phẩm giữ nhãn theo tier vì giá trị lấy từ hồ sơ, catalog
+ */
+export const attributeSource = (
+  a: Pick<PlatformAttribute, 'tier' | 'code'>,
+  fieldSources?: ProductSpec['fieldSources'],
+): FieldSource =>
+  a.tier === 'product' ? 'shared' : a.tier === 'company' ? 'company' : fieldSources?.[a.code] === 'match' ? 'match' : 'own';
 
 export interface SharedGap {
   target: SharedTarget;
@@ -112,4 +128,40 @@ export function listingsByShop(rows: readonly ProductListingRow[], platform: Mar
     out.set(r.shopId, shop);
   }
   return [...out.values()];
+}
+
+export type ProductFactField = 'originCountry' | 'brand' | 'description';
+
+/**
+ * Trường sản phẩm mà sàn đang ghi khác giá trị đã lưu (dòng "Sàn đang ghi … [Dùng giá trị này]"). Bỏ khi sàn không có giá
+ * trị: `brand` null là sàn ghi "No Brand", không gợi ý xoá thương hiệu đang có
+ */
+export function productSuggestions(
+  product: Pick<ProductDetail, 'originCountry' | 'brand' | 'description'>,
+  remote: Pick<RemoteProductFacts, 'originCountry' | 'brand' | 'description'>,
+): Partial<Record<ProductFactField, string>> {
+  const out: Partial<Record<ProductFactField, string>> = {};
+  const origin = remote.originCountry?.trim().toUpperCase();
+  if (origin && origin !== (product.originCountry ?? '').toUpperCase()) out.originCountry = origin;
+  const brand = remote.brand?.trim();
+  if (brand && brand !== (product.brand ?? '').trim()) out.brand = brand;
+  const description = remote.description?.trim();
+  if (description && description !== product.description.trim()) out.description = description;
+  return out;
+}
+
+const SHIPPING = ['weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
+
+/** Cân nặng, kích thước sàn đang ghi khác SKU: patch các ô sàn có số và khác; null khi không có gì để đổi */
+export function variantSuggestion(
+  variant: Pick<ProductVariant, (typeof SHIPPING)[number]>,
+  remote: RemoteVariantFacts | undefined,
+): Omit<VariantUpdateInput, 'version'> | null {
+  if (!remote) return null;
+  const patch: Omit<VariantUpdateInput, 'version'> = {};
+  for (const f of SHIPPING) {
+    const v = remote[f];
+    if (v !== null && v !== variant[f]) patch[f] = v;
+  }
+  return Object.keys(patch).length ? patch : null;
 }

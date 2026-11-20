@@ -12,7 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSaveProductSpec } from '@/api/shops.api';
-import { problemMessage } from '@/api/problemMessages';
+import { useInvalidateCatalog, useUpdateVariant } from '@/api/catalog.api';
+import { problemCode, problemMessage } from '@/api/problemMessages';
 import { getProblem } from '@/api/client';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
 import { AttributeField } from '@/features/channel/push/AttributeField';
@@ -33,11 +34,22 @@ import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import { priceText } from '@/utils/price';
-import type { ProductDetail } from '@/types/catalog';
-import type { Marketplace, PlatformAttribute, ProductListingRow, ProductSpecResult, Shop, SpecMissing } from '@/types/shop';
+import type { ProductDetail, VariantUpdateInput } from '@/types/catalog';
+import type {
+  Marketplace,
+  PlatformAttribute,
+  ProductListingRow,
+  ProductSpec,
+  ProductSpecResult,
+  RemoteProductFacts,
+  RemoteVariantFacts,
+  Shop,
+  SpecMissing,
+} from '@/types/shop';
 import { CategoryPath } from './CategoryPath';
 import { focusField } from './focusField';
 import { usePlatformTab } from './usePlatformTab';
+import { RemoteSuggestion } from './RemoteSuggestion';
 import { countryName } from './countries';
 import { platformLabel } from './platformCategory';
 import { platformDrift } from './productOverview';
@@ -48,6 +60,7 @@ import {
   platformFieldId,
   platformSectionId,
   variantsMissingShipping,
+  variantSuggestion,
   type FieldSource,
   type SharedGap,
   type SharedTarget,
@@ -294,6 +307,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                           <ProductAttribute key={a.code} attribute={a} product={product} sharedLabel={sharedLabel} onJump={onJump} flagged={missingCodes.has(a.code)} />
                         ) : (
                           <EditableAttribute
+                            fieldSources={spec.fieldSources}
                             key={a.code}
                             attribute={a}
                             draft={draft}
@@ -330,7 +344,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                   <Group title="Key attributes" note={`điền đủ thì điểm nội dung trên ${label} cao hơn`} action={canEditSpec && <PushLink href={pushHref} />}>
                     <div className="grid gap-3 md:grid-cols-2">
                       {groups.key.map((a) => (
-                        <ReadAttribute key={a.code} attribute={a} values={draft.attributes} label={label} />
+                        <ReadAttribute key={a.code} attribute={a} values={draft.attributes} label={label} fieldSources={spec.fieldSources} />
                       ))}
                     </div>
                   </Group>
@@ -345,7 +359,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                     <CollapsibleContent className="grid gap-3 pt-3">
                       <div className="grid gap-3 md:grid-cols-2">
                         {groups.other.map((a) => (
-                          <ReadAttribute key={a.code} attribute={a} values={draft.attributes} label={label} />
+                          <ReadAttribute key={a.code} attribute={a} values={draft.attributes} label={label} fieldSources={spec.fieldSources} />
                         ))}
                       </div>
                       {canEditSpec && <PushLink href={pushHref} />}
@@ -417,7 +431,15 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
         )}
 
         <Section id={platformSectionId(platform, 'ship')} title="Vận chuyển" miss={gapOf('variants') ? 1 : 0}>
-          <ShippingTable product={product} gap={gapOf('variants')} sharedLabel={sharedLabel} onJump={() => onJump('variants')} />
+          <ShippingTable
+            product={product}
+            gap={gapOf('variants')}
+            sharedLabel={sharedLabel}
+            onJump={() => onJump('variants')}
+            remote={specQuery.data?.remote ?? null}
+            platformName={label}
+            canEdit={canEditProduct}
+          />
           <ReadField label="Cách giao hàng" source="platform">
             <span className="text-muted-foreground">
               {platform === 'lazada' ? 'Lazada tự thêm tuỳ chọn giao hàng; Commerio giữ nguyên giá trị đang có.' : 'Theo mặc định của sàn. Commerio không sửa.'}
@@ -481,7 +503,7 @@ function PushLink({ href }: { href: string }) {
   );
 }
 
-type BadgeSource = FieldSource | 'match' | 'platform';
+type BadgeSource = FieldSource | 'platform';
 
 /** Nhãn nguồn của một ô; ô dùng chung là nút sang tab Commerio */
 function SourceBadge({ source, label, platformName, onJump }: { source: BadgeSource; label?: string; platformName?: string; onJump?: () => void }) {
@@ -609,16 +631,27 @@ function ProductAttribute({
   );
 }
 
-function ReadAttribute({ attribute: a, values, label }: { attribute: PlatformAttribute; values: Record<string, string | string[]>; label: string }) {
+function ReadAttribute({
+  attribute: a,
+  values,
+  label,
+  fieldSources,
+}: {
+  attribute: PlatformAttribute;
+  values: Record<string, string | string[]>;
+  label: string;
+  fieldSources?: ProductSpec['fieldSources'];
+}) {
   const text = valueLabel(a, effectiveValue(a, values));
   return (
-    <ReadField label={a.label} source={attributeSource(a)} platformName={label}>
+    <ReadField label={a.label} source={attributeSource(a, fieldSources)} platformName={label}>
       {text || <span className="text-muted-foreground">Chưa điền</span>}
     </ReadField>
   );
 }
 
 function EditableAttribute({
+  fieldSources,
   attribute: a,
   draft,
   platform,
@@ -629,6 +662,7 @@ function EditableAttribute({
   error,
   onChange,
 }: {
+  fieldSources?: ProductSpec['fieldSources'];
   attribute: PlatformAttribute;
   draft: SpecDraft;
   platform: Marketplace;
@@ -641,7 +675,7 @@ function EditableAttribute({
 }) {
   if (!canEdit) {
     return (
-      <ReadField label={a.label} required source={attributeSource(a)} platformName={label} missing={flagged && 'Bắt buộc, chưa điền.'}>
+      <ReadField label={a.label} required source={attributeSource(a, fieldSources)} platformName={label} missing={flagged && 'Bắt buộc, chưa điền.'}>
         {valueLabel(a, effectiveValue(a, draft.attributes)) || <span className="text-muted-foreground">Chưa điền</span>}
       </ReadField>
     );
@@ -661,7 +695,7 @@ function EditableAttribute({
           {a.label}
           <span className="sr-only"> (bắt buộc)</span>
         </span>
-        <SourceBadge source={attributeSource(a)} platformName={label} />
+        <SourceBadge source={attributeSource(a, fieldSources)} platformName={label} />
       </Label>
       <AttributeField
         attribute={a}
@@ -760,14 +794,48 @@ function ShippingTable({
   gap,
   sharedLabel,
   onJump,
+  remote,
+  platformName,
+  canEdit,
 }: {
   product: ProductDetail;
   gap: SharedGap | undefined;
   sharedLabel: string;
   onJump: () => void;
+  /** Bản sàn đang ghi (commerio-backend#497): hiện "{sàn} đang ghi … [Dùng giá trị này]" khi khác SKU */
+  remote: RemoteProductFacts | null;
+  platformName: string;
+  canEdit: boolean;
 }) {
   const lacking = new Set(variantsMissingShipping(product.variants).map((v) => v.id));
   const variants = product.variants.filter((v) => v.businessStatus !== 'archived');
+  const update = useUpdateVariant();
+  const reload = useInvalidateCatalog();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const shippingText = (f: Pick<RemoteVariantFacts, 'weightG' | 'lengthMm' | 'widthMm' | 'heightMm'>) =>
+    `${f.weightG === null ? '— g' : `${f.weightG.toLocaleString('vi-VN')} g`} · ${
+      f.lengthMm === null || f.widthMm === null || f.heightMm === null ? '— mm' : `${f.lengthMm}×${f.widthMm}×${f.heightMm} mm`
+    }`;
+
+  /** Ghi số sàn vào SKU khi người dùng bấm; gửi kèm version của SKU, lệch thì tải lại và báo như hộp Thông tin SKU */
+  const use = async (variantId: string, version: number, patch: Omit<VariantUpdateInput, 'version'>) => {
+    setBusyId(variantId);
+    try {
+      const saved = await update.mutateAsync({ productId: product.id, variantId, version, ...patch });
+      const sku = saved.variants.find((v) => v.id === variantId)?.sku ?? '';
+      toast.success(`Đã lấy cân nặng, kích thước của ${platformName} cho ${sku}`);
+    } catch (e) {
+      if (problemCode(e) === 'version_conflict') {
+        void reload();
+        toast.warning('Người khác vừa sửa SKU này. Đã tải số mới nhất, xem lại rồi bấm lại.');
+      } else {
+        toast.error(problemMessage(e));
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <ReadField
       label="Cân nặng và kích thước kiện"
@@ -777,17 +845,30 @@ function ShippingTable({
       onJump={onJump}
       missing={gap && `${lacking.size} SKU chưa có cân nặng hoặc kích thước. Sửa ở bảng Variant của tab Commerio.`}
     >
-      <ul className="grid gap-1">
-        {variants.map((v) => (
-          <li key={v.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            <span className="font-mono text-xs">{v.sku}</span>
-            <span className="tabular-nums">
-              {v.weightG === null ? '— g' : `${v.weightG.toLocaleString('vi-VN')} g`} ·{' '}
-              {v.lengthMm === null || v.widthMm === null || v.heightMm === null ? '— mm' : `${v.lengthMm}×${v.widthMm}×${v.heightMm} mm`}
-            </span>
-            {lacking.has(v.id) && <Badge variant="warning">Thiếu</Badge>}
-          </li>
-        ))}
+      <ul className="grid gap-2">
+        {variants.map((v) => {
+          const rv = remote?.variants.find((x) => x.variantId === v.id);
+          const patch = variantSuggestion(v, rv);
+          return (
+            <li key={v.id} className="grid gap-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                <span className="font-mono text-xs">{v.sku}</span>
+                <span className="tabular-nums">{shippingText(v)}</span>
+                {lacking.has(v.id) && <Badge variant="warning">Thiếu</Badge>}
+              </div>
+              {remote && rv && patch && (
+                <RemoteSuggestion
+                  platformName={platformName}
+                  shopName={remote.shopName}
+                  readAt={remote.readAt}
+                  value={shippingText(rv)}
+                  onUse={canEdit ? () => use(v.id, v.version, patch) : null}
+                  busy={busyId === v.id}
+                />
+              )}
+            </li>
+          );
+        })}
       </ul>
     </ReadField>
   );

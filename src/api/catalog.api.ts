@@ -51,7 +51,8 @@ function useCompanyId(): string {
 }
 
 /** Số sản phẩm của nhóm hàng/thuộc tính và SKU kế tiếp đổi theo sản phẩm → làm mới cả catalog */
-function useInvalidateCatalog() {
+/** Tải lại mọi dữ liệu catalog của công ty (vd. sau 409 `version_conflict` để có bản mới nhất) */
+export function useInvalidateCatalog() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
   return () => qc.invalidateQueries({ queryKey: catalogKeys.all(companyId) });

@@ -64,7 +64,7 @@ import { GroupCombobox } from './GroupCombobox';
 import { axisServerErrors, draftBody, draftError, emptyDraft, type VariantDraft } from './variantDraft';
 import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
-import { productSchema, sizeChartPatch, type ProductForm } from './shared';
+import { productPatchBody, productSchema, sizeChartPatch, type ProductForm } from './shared';
 import { Input } from '@/components/ui/input';
 import { CountryCombobox } from './CountryCombobox';
 import { SizeChartField } from './SizeChartField';
@@ -76,7 +76,17 @@ import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
 import { SkuCode } from '@/components/common/SkuCode';
 import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { focusField } from './focusField';
-import { SHARED_TARGETS, tabFromParam, visiblePlatforms, type ProductTabKey, type SharedTarget } from './productTabs';
+import {
+  SHARED_TARGETS,
+  productSuggestions,
+  tabFromParam,
+  visiblePlatforms,
+  type ProductFactField,
+  type ProductTabKey,
+  type SharedTarget,
+} from './productTabs';
+import { RemoteSuggestion } from './RemoteSuggestion';
+import { countryName } from './countries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { platformLabel } from './platformCategory';
 import { ProductSkuSheet } from './ProductSkuSheet';
@@ -109,6 +119,8 @@ function specText(v: ProductVariant) {
       : `${v.lengthMm}×${v.widthMm}×${v.heightMm} mm`;
   return [weight, dims].filter(Boolean).join(' · ') || '—';
 }
+
+const FACT_LABELS: Record<ProductFactField, string> = { originCountry: 'xuất xứ', brand: 'thương hiệu', description: 'mô tả' };
 
 const toImages = (p: ProductDetail): ImageItem[] =>
   [...p.images].sort((a, b) => a.position - b.position).map((i) => ({ fileId: i.fileId, url: i.url }));
@@ -255,6 +267,52 @@ export function ProductFormPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
+
+  // FE#417 F2: giá trị sàn đang ghi (`remote` của spec, commerio-backend#497) khác bản đã lưu. Chỉ ghi khi người dùng bấm
+  // "Dùng giá trị này"; ghi riêng trường đó kèm version, các ô khác đang sửa dở giữ nguyên
+  const remotes = platforms.flatMap((p, i) => {
+    const remote = specQueries[i]?.data?.remote;
+    return remote ? [{ platform: p, remote }] : [];
+  });
+  const [applying, setApplying] = useState<string | null>(null);
+  const applyRemote = async (field: ProductFactField, value: string, key: string) => {
+    if (!product) return;
+    setApplying(key);
+    try {
+      const saved = await updateMut.mutateAsync({ id: product.id, ...productPatchBody(product, { [field]: value }) });
+      setVersion(saved.version);
+      form.resetField(field, { defaultValue: value });
+      toast.success(`Đã lưu ${FACT_LABELS[field]} theo giá trị trên sàn`);
+    } catch (e) {
+      if (problemCode(e) === 'version_conflict') {
+        void productQuery.refetch();
+        toast.warning('Người khác vừa sửa sản phẩm này. Đã tải bản mới nhất, xem lại rồi bấm lại.');
+      } else {
+        toast.error(problemMessage(e));
+      }
+    } finally {
+      setApplying(null);
+    }
+  };
+  const remoteLines = (field: ProductFactField, current: string, show: (v: string) => string = (v) => v) =>
+    product
+      ? remotes.flatMap(({ platform, remote }) => {
+          const value = productSuggestions(product, remote)[field];
+          if (!value || current.trim() === value) return [];
+          const key = `${field}-${platform}`;
+          return [
+            <RemoteSuggestion
+              key={key}
+              platformName={platformLabel(platform)}
+              shopName={remote.shopName}
+              readAt={remote.readAt}
+              value={show(value)}
+              onUse={readOnly ? null : () => applyRemote(field, value, key)}
+              busy={applying === key}
+            />,
+          ];
+        })
+      : null;
 
   const backToList = () => navigate(ROUTES.company.catalog(companyId));
 
@@ -540,6 +598,7 @@ export function ProductFormPage() {
                       <Textarea {...field} rows={3} readOnly={readOnly} />
                     </FormControl>
                     <FormMessage />
+                    {remoteLines('description', field.value)}
                   </FormItem>
                 )}
               />
@@ -563,6 +622,7 @@ export function ProductFormPage() {
                         </FormControl>
                         <FormDescription>Dùng chung cho mọi sàn; TikTok bắt buộc ở nhiều category</FormDescription>
                         <FormMessage />
+                        {remoteLines('originCountry', field.value, countryName)}
                       </FormItem>
                     )}
                   />
@@ -577,6 +637,7 @@ export function ProductFormPage() {
                         </FormControl>
                         <FormDescription>Lazada nhận "No Brand" khi để trống</FormDescription>
                         <FormMessage />
+                        {remoteLines('brand', field.value)}
                       </FormItem>
                     )}
                   />
