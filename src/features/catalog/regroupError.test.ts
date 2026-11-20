@@ -7,6 +7,8 @@ describe('Câu lỗi gom thành một sản phẩm (Documents/21 §18.8.4)', () 
     expect(regroupErrorText('shop_not_connected', 'Lazada', 'x')).toContain('Kết nối lại');
     expect(regroupErrorText('invalid_transition', 'Lazada', 'x')).toContain('Xử lý xong');
     expect(regroupErrorText('push_blocked', 'TikTok Shop', 'x')).toContain('TikTok Shop');
+    expect(regroupErrorText('marketplace_unsupported', 'Lazada', 'x')).toContain('Gom tay');
+    expect(regroupErrorText('shop_awaiting_stocktake', 'Lazada', 'Câu chung')).toBe('Câu chung');
     expect(regroupErrorText(undefined, 'Lazada', 'Lỗi chung')).toBe('Lỗi chung');
   });
 });

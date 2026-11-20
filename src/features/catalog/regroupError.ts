@@ -8,6 +8,9 @@ export function regroupErrorText(code: string | undefined, platform: string, fal
       return `Các SKU đã nằm chung một sản phẩm trên ${platform}, không cần gom.`;
     case 'invalid_transition':
       return 'Có SKU đang đẩy lên sàn, đang có thay đổi ngoài app hoặc đang chờ duyệt ghép. Xử lý xong rồi gom lại.';
+    case 'marketplace_unsupported':
+      return `${platform} chưa cho xoá sản phẩm qua API nên app chưa gom được. Gom tay trên trang người bán của ${platform}.`;
+    // shop_awaiting_stocktake, shop_awaiting_allocation: dùng câu chung của problemMessage như route đẩy
     case 'push_blocked':
       return `Sản phẩm còn thiếu thông tin ${platform} bắt buộc. Điền đủ ở tab này rồi gom lại.`;
     default:
