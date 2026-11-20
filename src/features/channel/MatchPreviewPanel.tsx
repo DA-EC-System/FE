@@ -53,7 +53,9 @@ export function MatchPreviewPanel({ shopId, pair }: MatchPreviewPanelProps) {
   const stockAfter = held ? data.platform.stock : data.app.stock;
   const priceAfter = data.priceWillPush ? data.app.price : data.platform.price;
   const stockChanges = stockAfter !== data.platform.stock;
-  const priceChanges = data.priceWillPush && data.platform.price !== null && Number(priceAfter) !== Number(data.platform.price);
+  // Chưa đọc được giá trên sàn mà app sẽ đẩy giá cũng là số sẽ đổi
+  const priceChanges =
+    data.priceWillPush && priceAfter !== null && (data.platform.price === null || Number(priceAfter) !== Number(data.platform.price));
   // Vàng chỉ khi số trên sàn sẽ đổi hay còn thiếu giá; khớp thì xanh; app giữ nguyên tồn thì xanh dương
   const severity = stockChanges || price ? 'warning' : held ? 'info' : 'success';
   /** Ô "Sau khi lưu": khác số trên sàn thì đậm kèm "→", không chỉ dựa vào màu */
