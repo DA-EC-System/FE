@@ -112,6 +112,9 @@ export function hasAnyPermission(context: CompanyContext | null, permissions: re
   return permissions.some((p) => hasPermission(context, p));
 }
 
+/** Trang Nhóm hàng & thuộc tính (FE#350): người quản lý nhóm hàng, hoặc người xem gian hàng cần tab category sàn */
+export const CATALOG_SETUP_ANY = [PERMISSIONS.catalogSetup, PERMISSIONS.shopView] as const;
+
 /** Mọi quyền của phân hệ Mua hàng (sơ đồ A1, A2, B4) */
 export const PURCHASING_PERMISSIONS = [
   PERMISSIONS.purchaseRequestManage,
