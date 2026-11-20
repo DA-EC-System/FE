@@ -9,6 +9,7 @@ import {
   productAxes,
   profilePatch,
   mergedValues,
+  valuesChanged,
   specInput,
   valueSource,
   specMissing,
@@ -360,5 +361,19 @@ describe('Giá trị tự điền (resolved, Documents/21 §18.8.2)', () => {
     expect(valueSource('100149', {}, resolved)).toBe('catalog');
     expect(valueSource('material', {}, resolved)).toBeNull();
     expect(valueSource('x', { x: '' }, resolved)).toBeNull();
+  });
+});
+
+describe('Nút Lưu chỉ bật khi giá trị thật sự đổi', () => {
+  const resolved = {
+    org: { value: 'Jastech', source: 'company' as const, fieldId: null },
+    mat: { value: 'm9', source: 'override' as const, fieldId: null },
+    tags: { value: ['a', 'b'], source: 'catalog' as const, fieldId: 'f1' },
+  };
+  it('Sửa riêng mà giữ nguyên giá trị gốc thì chưa đổi; đổi giá trị, bỏ ghi đè đã lưu thì có đổi', () => {
+    expect(valuesChanged({ mat: 'm9', org: 'Jastech' }, { mat: 'm9' }, resolved)).toBe(false);
+    expect(valuesChanged({ mat: 'm9', tags: ['b', 'a'] }, { mat: 'm9' }, resolved)).toBe(false);
+    expect(valuesChanged({ mat: 'm9', org: 'Khác' }, { mat: 'm9' }, resolved)).toBe(true);
+    expect(valuesChanged({}, { mat: 'm9' }, resolved)).toBe(true);
   });
 });
