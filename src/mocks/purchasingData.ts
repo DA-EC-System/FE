@@ -33,7 +33,7 @@ export interface MockPurchaseRequestLine {
   id: string;
   /** null khi là sản phẩm mới chưa duyệt; duyệt xong sinh biến thể */
   variantId: string | null;
-  newProduct: NewProductInput | null;
+  newProduct: (NewProductInput & { name: string }) | null;
   quantity: number;
   unitCost: number;
   excluded: boolean;
