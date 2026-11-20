@@ -54,6 +54,8 @@ export interface StockListParams {
   /** Tên sản phẩm hoặc SKU */
   search?: string;
   groupId?: string;
+  /** Chỉ SKU của sản phẩm này (trang sản phẩm, commerio-backend#467) */
+  productId?: string;
   /** Chỉ biến thể cần nhập lại */
   belowMin?: boolean;
   /** Chỉ biến thể có hàng chờ xử lý */

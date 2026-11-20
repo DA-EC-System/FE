@@ -8,6 +8,7 @@ import { authErrorMessage } from '@/features/auth/authErrors';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { MODULE_LABELS, type ModuleKey } from '@/utils/modules';
 import { ForbiddenPage } from '@/components/common/ForbiddenPage';
+import { LandingPage } from '@/features/landing/LandingPage';
 import { ROUTES } from './routes';
 
 /** Chưa đăng nhập → /login, giữ lại trang đang mở để quay lại. */
@@ -40,10 +41,13 @@ export function RequireGuest() {
   return <Outlet />;
 }
 
-/** `/` → không gian phù hợp với tài khoản. */
+/**
+ * `/` → chưa đăng nhập thì trang giới thiệu (FE#401, Documents/27 US-CT-14); đã đăng nhập thì không gian phù hợp
+ * với tài khoản. Link sâu khi chưa đăng nhập vẫn qua `RequireAuth` về `/login`.
+ */
 export function HomeRedirect() {
   const { isAuthenticated, account, companyContext } = useAuth();
-  if (!isAuthenticated || !account) return <Navigate to={ROUTES.login} replace />;
+  if (!isAuthenticated || !account) return <LandingPage />;
   if (account.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (account.isPlatformAdmin) return <Navigate to={ROUTES.platform.root} replace />;
   if (companyContext) {

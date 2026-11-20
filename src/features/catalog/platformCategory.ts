@@ -1,4 +1,4 @@
-import type { PlatformAttribute, PlatformAttributeInput, SizeChartRule } from '@/types/shop';
+import type { ListingRow, PlatformAttribute, PlatformAttributeInput, SizeChartRule } from '@/types/shop';
 
 /** Sàn có tab ở trang Nhóm hàng & thuộc tính (commerio-backend#400) */
 export const PLATFORM_TABS = [
@@ -74,3 +74,99 @@ export const SIZE_CHART_LABELS: Record<SizeChartRule, string> = {
 
 /** Cha của category: đường dẫn bỏ phần cuối */
 export const parentPath = (path: string) => path.split(' > ').slice(0, -1).join(' > ');
+
+/** Các cấp của đường dẫn "A > B > C" */
+export const pathSegments = (path: string) => path.split(' > ').filter(Boolean);
+
+/**
+ * Cột cần mở để thấy category có `pathIds` (gốc → chính nó): cột gốc (`null`) rồi mỗi tổ tiên; category cấp cuối không
+ * mở thêm cột. Bộ chọn dạng cột mở sẵn nhánh đang chọn (commerio-backend#467)
+ */
+export const columnParents = (pathIds: readonly string[]): (string | null)[] => [null, ...pathIds.slice(0, -1)];
+
+
+/** Một sản phẩm trên sàn của một gian hàng, gom các dòng listing (SKU) của nó */
+export interface RemoteProductDrift {
+  shopId: string;
+  externalProductId: string;
+  rows: ListingRow[];
+  /** Một trong các dòng đang `live` hay `hidden` (để hiện "đang bán" hay "đang ẩn") */
+  status: 'live' | 'hidden';
+  /** Có dòng do người bán tự đăng trên sàn: chỉ CEO đổi category được */
+  platformOwned: boolean;
+  fromPath: string | null;
+  fromId: string | null;
+}
+
+/**
+ * Sản phẩm trên sàn có category khác spec đã lưu. Điều kiện như BE chọn cho `apply-category` (§18.5): listing `live` hoặc
+ * `hidden`, có mã sàn. So `externalCategoryId` của listing với id của spec; listing có id mà chưa có đường dẫn (cây
+ * chưa đồng bộ) vẫn tính là lệch
+ */
+export function categoryDrift(
+  rows: { shopId: string; row: ListingRow }[],
+  spec: { id: string | null; path: string },
+): RemoteProductDrift[] {
+  const groups = new Map<string, RemoteProductDrift>();
+  for (const { shopId, row } of rows) {
+    const l = row.listing;
+    if (!l?.externalProductId || (l.status !== 'live' && l.status !== 'hidden')) continue;
+    const fromId = row.externalCategoryId ?? null;
+    const fromPath = row.externalCategoryPath ?? null;
+    // So theo id; chỉ khi BE không trả id mới so đường dẫn (đường dẫn null thì không so được)
+    const differs = fromId && spec.id ? fromId !== spec.id : Boolean(fromPath) && fromPath !== spec.path;
+    if (!differs) continue;
+    const key = `${shopId}/${l.externalProductId}`;
+    const g = groups.get(key) ?? {
+      shopId,
+      externalProductId: l.externalProductId,
+      rows: [],
+      status: l.status,
+      platformOwned: false,
+      fromPath,
+      fromId,
+    };
+    g.rows.push(row);
+    if (l.status === 'live') g.status = 'live';
+    if (l.contentSource === 'platform') g.platformOwned = true;
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
+
+/** Đang theo dõi `categoryChange.queued` như `pushing`: hỏi lại mỗi 5 giây, tối đa 30 phút (§18.5) */
+export const CATEGORY_POLL_MS = 5000;
+export const CATEGORY_POLL_MAX_MS = 30 * 60 * 1000;
+
+export function categoryPollDelay(rows: ListingRow[], startedAt: number, now: number): number | false {
+  if (!rows.some((r) => r.categoryChange?.status === 'queued')) return false;
+  return now - startedAt < CATEGORY_POLL_MAX_MS ? CATEGORY_POLL_MS : false;
+}
+
+export const CEO_ONLY_CATEGORY = 'Chỉ CEO đổi được category của sản phẩm người bán tự đăng trên sàn';
+
+/** Câu cho mã lỗi của `apply-category`; mã lạ trả null để dùng câu chung */
+export function applyCategoryError(code: string | undefined, label: string): string | null {
+  switch (code) {
+    case 'category_unmapped':
+      return 'Chưa lưu thông tin sàn của sản phẩm. Lưu rồi thử lại.';
+    case 'spec_incomplete':
+      return 'Thông tin sàn còn thiếu hoặc category đã đổi. Điền đủ các bước rồi lưu lại.';
+    case 'version_conflict':
+      return `Người khác vừa sửa thông tin ${label} của sản phẩm. Đã nạp bản mới nhất, kiểm tra rồi bấm lại.`;
+    case 'category_in_sync':
+      return `Sản phẩm trên ${label} đã ở đúng category này.`;
+    case 'size_chart_missing':
+      return 'Category mới bắt buộc bảng size. Thêm bảng size ở trang sản phẩm rồi thử lại.';
+    case 'category_change_in_progress':
+      return 'Sản phẩm đang đổi category, chờ lượt này xong rồi thử lại.';
+    case 'shared_remote_product':
+      return `Sản phẩm trên ${label} có SKU của sản phẩm khác, Commerio chưa đổi category được. Sửa trên Seller Center.`;
+    case 'forbidden':
+      return CEO_ONLY_CATEGORY;
+    case 'marketplace_unsupported':
+      return `Commerio chưa đổi category trên ${label} được.`;
+    default:
+      return null;
+  }
+}

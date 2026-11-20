@@ -27,9 +27,11 @@ interface KpiProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   /** Chuỗi số vẽ sparkline góc phải */
   spark?: number[];
   loading?: boolean;
+  /** Không tải được số: ô hiện "—" và nội dung này (câu lỗi, nút Thử lại) thay cho số 0 dễ hiểu nhầm */
+  error?: ReactNode;
 }
 
-export function Kpi({ label, help, value, unit, detail, spark, loading, className, ...rest }: KpiProps) {
+export function Kpi({ label, help, value, unit, detail, spark, loading, error, className, ...rest }: KpiProps) {
   return (
     <div
       className={cn('relative -mt-px -ms-px min-w-[160px] flex-1 basis-[200px] border-s border-t px-[18px] py-4', className)}
@@ -42,13 +44,21 @@ export function Kpi({ label, help, value, unit, detail, spark, loading, classNam
       </div>
       {loading ? (
         <Skeleton className="mt-1.5 h-7 w-24" />
+      ) : error ? (
+        <div className="mt-1 text-2xl leading-tight font-semibold text-muted-foreground">—</div>
       ) : (
         <div className="mt-1 text-2xl leading-tight font-semibold tracking-tight [font-variant-numeric:tabular-nums]">
           {value}
           {unit && <small className="ms-0.5 text-[15px] font-medium text-muted-foreground">{unit}</small>}
         </div>
       )}
-      {detail && <div className="mt-1 text-[12.5px] text-muted-foreground">{detail}</div>}
+      {error ? (
+        <div className="mt-1 text-[12.5px] text-destructive" role="alert">
+          {error}
+        </div>
+      ) : (
+        detail && <div className="mt-1 text-[12.5px] text-muted-foreground">{detail}</div>
+      )}
     </div>
   );
 }

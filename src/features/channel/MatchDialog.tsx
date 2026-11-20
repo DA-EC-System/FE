@@ -39,6 +39,8 @@ interface MatchDialogProps {
   error: string | null;
   onSave: (id: string) => void;
   onClose: () => void;
+  /** Phần xem trước của mục đang chọn, hiện dưới danh sách (commerio-backend#460) */
+  renderPreview?: (id: string) => ReactNode;
 }
 
 /** UC-CH-02 bước 4–5: chọn một mục ở phía bên kia để ghép (SKU sàn cho biến thể, hoặc ngược lại) */
@@ -54,6 +56,7 @@ export function MatchDialog({
   error,
   onSave,
   onClose,
+  renderPreview,
 }: MatchDialogProps) {
   const [search, setSearch] = useState('');
   /** Người dùng đã chọn; chưa chọn thì lấy ghép hiện tại hoặc mục gợi ý */
@@ -73,16 +76,19 @@ export function MatchDialog({
       .filter((o) => !q || o.title.toLowerCase().includes(q) || o.subtitle.toLowerCase().includes(q));
   }, [options, search]);
 
+  // Có bảng xem trước thì danh sách thấp lại để nút Lưu vẫn trong màn 375, 768
+  const previewing = Boolean(renderPreview && selected && selected !== initialId);
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !saving && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <SearchInput value={search} onChange={setSearch} placeholder={searchLabel} className="md:w-full" />
         {error && <AlertMessage severity="error">{error}</AlertMessage>}
-        <div className="max-h-80 overflow-y-auto rounded-md border">
+        <div className={cn('overflow-y-auto rounded-md border', previewing ? 'max-h-40 sm:max-h-48' : 'max-h-80')}>
           {shown.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">{empty}</p>
           ) : (
@@ -112,6 +118,7 @@ export function MatchDialog({
             </RadioGroup>
           )}
         </div>
+        {selected && selected !== initialId && renderPreview?.(selected)}
         <DialogFooter>
           <Button variant="outline" disabled={saving} onClick={onClose}>
             Huỷ

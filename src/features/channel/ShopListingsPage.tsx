@@ -65,6 +65,7 @@ import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
+import { MatchPreviewPanel } from './MatchPreviewPanel';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
@@ -115,6 +116,7 @@ const LISTING_TABS: { value: ListingTab; label: string }[] = [
   { value: 'stale', label: 'Chờ đồng bộ giá' },
   { value: 'failed', label: 'Đăng lỗi' },
   { value: 'held', label: 'Không hiển thị' },
+  { value: 'category', label: 'Đổi category chưa xong' },
 ];
 
 const FAILED_STATUSES: ListingStatus[] = ['push_failed', 'rejected'];
@@ -143,6 +145,8 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
       return Boolean(status && FAILED_STATUSES.includes(status));
     case 'held':
       return Boolean(status && HELD_STATUSES.includes(status));
+    case 'category':
+      return r.categoryChange?.status === 'failed' || r.categoryChange?.status === 'mismatch';
   }
 }
 
@@ -1330,6 +1334,18 @@ export function ShopListingsPage() {
         error={matchError}
         onSave={saveMatch}
         onClose={() => setMatching(null)}
+        renderPreview={(id) =>
+          !matching || id === UNMANAGED ? null : (
+            <MatchPreviewPanel
+              shopId={shopId}
+              pair={
+                matching.from === 'variant'
+                  ? { externalSkuId: id, variantId: matching.row.variantId }
+                  : { externalSkuId: matching.externalSkuId, variantId: id }
+              }
+            />
+          )
+        }
       />
       <PriceOverrideDialog
         row={pricing}

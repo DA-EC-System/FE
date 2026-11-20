@@ -18,6 +18,9 @@ export function missingReturnWindow(shop: Shop) {
   return shop.status === 'active' && shop.capabilities.returnWindow === 'days' && shop.returnWindowDays == null;
 }
 
+/** Có listing đổi category trên sàn lỗi hoặc lệch: điều kiện thứ sáu của Cần xử lý (§18.7.2, commerio-backend#467) */
+export const hasCategoryChangeIssue = (shop: Shop) => (shop.categoryChangeIssues ?? 0) > 0;
+
 /**
  * Cần người dùng làm gì đó: mất quyền, chưa thiết lập, uỷ quyền sắp hết hạn, hoặc chưa nhập số ngày hạn trả
  * (nhãn, không phải trạng thái; §18.7.2)
@@ -27,7 +30,8 @@ export function needsAction(shop: Shop) {
     shop.status === 'needs_reauth' ||
     shop.status === 'connecting' ||
     (shop.status === 'active' && shop.tokenExpiringSoon) ||
-    missingReturnWindow(shop)
+    missingReturnWindow(shop) ||
+    hasCategoryChangeIssue(shop)
   );
 }
 
