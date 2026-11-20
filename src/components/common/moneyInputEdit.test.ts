@@ -54,6 +54,20 @@ describe('editMoneyInput (FE#385)', () => {
     expect(type('150', 3, 'a')).toEqual({ text: '150a', caret: 4 });
   });
 
+  it('số quá dài không bị làm tròn khi hiển thị', () => {
+    let s = { text: '', caret: 0 };
+    for (const ch of '12345678901234567') s = type(s.text, s.caret, ch);
+    expect(s.text).toBe('12.345.678.901.234.567');
+  });
+
+  it('chọn hết rồi gõ một chữ số thì thay toàn bộ', () => {
+    expect(editMoneyInput('1.500.000', '7', 1, 'insertText')).toEqual({ text: '7', caret: 1 });
+  });
+
+  it('gõ chữ cái vào chuỗi chuẩn thì giữ nguyên để báo lỗi khi lưu', () => {
+    expect(type('1.500.000', 3, 'x')).toEqual({ text: '1.5x00.000', caret: 4 });
+  });
+
   it('gõ tay có dấu chấm: định dạng lại khi chuỗi thành hợp lệ', () => {
     let s = { text: '1.500', caret: 5 };
     for (const ch of '.000') s = type(s.text, s.caret, ch);

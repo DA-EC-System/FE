@@ -9,10 +9,8 @@ export interface MoneyEdit {
 /** Chữ đang ở dạng chuẩn do ô tự định dạng ("" hoặc "1.500.000") */
 const isCanonical = (text: string) => text === '' || (/^[\d.]+$/.test(text) && formatDigits(text.replace(/\./g, '')) === text);
 
-const formatDigits = (digits: string) => {
-  const trimmed = digits.replace(/^0+(?=\d)/, '');
-  return trimmed === '' ? '' : formatMoneyInput(Number(trimmed));
-};
+/** Nhóm 3 chữ số ngay trên chuỗi, không qua Number: số quá dài không bị làm tròn lặng lẽ (parseMoney chặn khi lưu) */
+const formatDigits = (digits: string) => digits.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 /** Vị trí ngay sau chữ số thứ `count` trong `text` (đếm từ trái) */
 const caretAfterDigits = (text: string, count: number) => {
