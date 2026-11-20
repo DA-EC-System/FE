@@ -1,5 +1,5 @@
 import { renderSku, valueCode } from '@/utils/sku';
-import type { Attribute, ProductAxis, ProductSettings } from '@/types/catalog';
+import type { Attribute, ProductAxis, ProductSettings, VariantFacts } from '@/types/catalog';
 import { cartesian } from './shared';
 
 /**
@@ -27,6 +27,66 @@ export interface VariantDraft {
   axes: AxisDraft[];
   /** Tổ hợp bỏ tick, khoá `comboId` */
   excluded: string[];
+  /** Giá, cân nặng, kích thước gõ ngay khi tạo, khoá `comboId`, giữ nguyên chữ người dùng gõ (Documents/21 §5.5) */
+  facts?: Record<string, FactsDraft>;
+  /** `key` của trục gắn ảnh phân loại (một trục duy nhất, Documents/21 §5.5 `imageAxis`) */
+  imageAxisKey?: string | null;
+  /** Ảnh theo giá trị của trục gắn ảnh, khoá `fold(giá trị)` */
+  axisImages?: Record<string, { fileId: string; url: string }>;
+}
+
+/** Khoá ảnh của một giá trị trục */
+export const imageKey = (value: string) => fold(value);
+
+export const FACT_KEYS = ['standardPrice', 'targetNetPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
+export type FactKey = (typeof FACT_KEYS)[number];
+export type FactsDraft = Partial<Record<FactKey, string>>;
+
+/** Trần như PATCH …/variants/:variantId (§17.2, commerio-backend#434): 50 kg, cạnh 2 m */
+const FACT_MAX: Record<FactKey, [number, string]> = {
+  standardPrice: [1_000_000_000, 'Giá quá lớn'],
+  targetNetPrice: [1_000_000_000, 'Giá quá lớn'],
+  weightG: [50_000, 'Quá 50 kg, kiểm tra lại đơn vị gram'],
+  lengthMm: [2000, 'Quá 2 m, kiểm tra lại đơn vị mm'],
+  widthMm: [2000, 'Quá 2 m, kiểm tra lại đơn vị mm'],
+  heightMm: [2000, 'Quá 2 m, kiểm tra lại đơn vị mm'],
+};
+
+/** Một ô số: trống là chưa có; bỏ dấu chấm, phẩy, khoảng trắng phân cách nghìn; phải là số nguyên dương */
+export function parseFact(key: FactKey, raw: string | undefined): { value: number | null; error?: string } {
+  const text = (raw ?? '').trim().replace(/[.,\s]/g, '');
+  if (!text) return { value: null };
+  if (!/^\d+$/.test(text) || Number(text) <= 0) return { value: null, error: 'Số nguyên dương' };
+  const [max, tooBig] = FACT_MAX[key];
+  if (Number(text) > max) return { value: null, error: tooBig };
+  return { value: Number(text) };
+}
+
+/** Số của một variant và lỗi theo ô; kích thước phải đủ ba cạnh hoặc bỏ trống cả ba */
+export function factsOf(draft: FactsDraft | undefined): { facts: VariantFacts; errors: Partial<Record<FactKey, string>> } {
+  const facts: VariantFacts = {};
+  const errors: Partial<Record<FactKey, string>> = {};
+  for (const k of FACT_KEYS) {
+    const { value, error } = parseFact(k, draft?.[k]);
+    if (error) errors[k] = error;
+    else if (value !== null) facts[k] = value;
+  }
+  const sides = ['lengthMm', 'widthMm', 'heightMm'] as const;
+  const filled = sides.filter((k) => draft?.[k]?.trim());
+  if (filled.length && filled.length < 3) for (const k of sides) if (!draft?.[k]?.trim()) errors[k] = 'Nhập đủ ba cạnh';
+  return { facts, errors };
+}
+
+/** Điền một lần cho mọi variant: chỉ điền ô đang trống của các tổ hợp được giữ, không ghi đè */
+export function fillFacts(draft: VariantDraft, values: FactsDraft): VariantDraft {
+  const facts = { ...draft.facts };
+  for (const options of includedCombos(draft)) {
+    const id = comboId(options);
+    const row = { ...facts[id] };
+    for (const k of FACT_KEYS) if (values[k]?.trim() && !row[k]?.trim()) row[k] = values[k];
+    facts[id] = row;
+  }
+  return { ...draft, facts };
 }
 
 export const emptyDraft: VariantDraft = { axes: [], excluded: [] };
@@ -80,6 +140,9 @@ export function draftError(draft: VariantDraft): string | null {
   const count = includedCombos(draft).length;
   if (!count) return 'Cần ít nhất một variant';
   if (count > MAX_VARIANTS) return `Tối đa ${MAX_VARIANTS} variant mỗi lần tạo`;
+  if (includedCombos(draft).some((c) => Object.keys(factsOf(draft.facts?.[comboId(c)]).errors).length)) {
+    return 'Sửa ô giá, cân nặng, kích thước đang báo lỗi';
+  }
   return null;
 }
 
@@ -87,16 +150,31 @@ export function draftError(draft: VariantDraft): string | null {
  * Body `axes`, `variants` của `POST /catalog/products`: nhóm khớp thuộc tính có sẵn gửi `attributeId`, giá trị có sẵn
  * kèm `id`; còn lại gửi `name`, `value` để BE tạo cùng lúc với sản phẩm
  */
-export function draftBody(draft: VariantDraft, attributes: Attribute[]): { axes: ProductAxis[]; variants: { options: string[] }[] } {
-  const axes = draft.axes.map((axis): ProductAxis => {
+export function draftBody(
+  draft: VariantDraft,
+  attributes: Attribute[],
+): { axes: ProductAxis[]; imageAxis?: 0 | 1; variants: ({ options: string[] } & VariantFacts)[] } {
+  const imageAxis = draft.axes.findIndex((a) => a.key === draft.imageAxisKey);
+  const axes = draft.axes.map((axis, i): ProductAxis => {
     const attribute = axisAttribute(axis, attributes);
     const values = axis.values.map((v) => {
       const found = attribute?.values.find((x) => sameText(x.value, v));
-      return found ? { id: found.id, value: found.value } : { value: v.trim() };
+      const imageFileId = i === imageAxis ? draft.axisImages?.[imageKey(v)]?.fileId : undefined;
+      return {
+        ...(found ? { id: found.id, value: found.value } : { value: v.trim() }),
+        ...(imageFileId && { imageFileId }),
+      };
     });
     return attribute ? { attributeId: attribute.id, values } : { name: axis.name.trim(), values };
   });
-  return { axes, variants: includedCombos(draft).map((options) => ({ options: options.map((o) => o.trim()) })) };
+  return {
+    axes,
+    ...(imageAxis >= 0 && { imageAxis: imageAxis as 0 | 1 }),
+    variants: includedCombos(draft).map((options) => ({
+      options: options.map((o) => o.trim()),
+      ...factsOf(draft.facts?.[comboId(options)]).facts,
+    })),
+  };
 }
 
 export interface DraftRow {

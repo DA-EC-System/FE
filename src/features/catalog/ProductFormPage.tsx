@@ -37,6 +37,7 @@ import {
   useProductSettings,
   useCreateProduct,
   useDeleteProduct,
+  useGroupTemplate,
   useProduct,
   useUpdateProduct,
 } from '@/api/catalog.api';
@@ -93,6 +94,17 @@ import { platformLabel } from './platformCategory';
 import { ProductSkuSheet } from './ProductSkuSheet';
 import { VariantImagesCard } from './VariantImagesCard';
 import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
+import { ProductSpecsCard } from './specs/ProductSpecsCard';
+import {
+  draftsFromProduct,
+  isEmptySpec,
+  specErrorsByField,
+  specInputs,
+  viewFromProduct,
+  viewFromTemplate,
+  type SpecDrafts,
+  type SpecFieldView,
+} from './specs/specValues';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
   live: 'Đang bán',
@@ -186,6 +198,7 @@ export function ProductFormPage() {
   const [sizeChart, setSizeChart] = useState<ImageItem | null>(null);
   const [sizeChartError, setSizeChartError] = useState<string | undefined>();
   const [chartUploading, setChartUploading] = useState(false);
+  const [axisUploading, setAxisUploading] = useState(false);
   const [draft, setDraft] = useState<VariantDraft>(emptyDraft);
   const [variantsError, setVariantsError] = useState<string | null>(null);
   const [axisErrorsFromServer, setAxisErrorsFromServer] = useState<string[][]>([]);
@@ -193,6 +206,10 @@ export function ProductFormPage() {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Thông số theo mẫu nhóm (Documents/21 §5.5): giá trị đang gõ, bản đã lưu để chỉ gửi ô đã đổi, lỗi BE theo thông số
+  const [specDrafts, setSpecDrafts] = useState<SpecDrafts>({});
+  const [specInitial, setSpecInitial] = useState<SpecDrafts>({});
+  const [specErrors, setSpecErrors] = useState<Record<string, string>>({});
   // `?spec=` mở luôn hộp Thông tin SKU (FE#326: nút Sửa cân nặng ở lỗi đẩy của trang gian hàng)
   // Cùng điều kiện với nút bút chì: có quyền, sản phẩm và biến thể chưa lưu trữ. Đóng hộp thì xoá `spec` khỏi URL để F5/Back
   // không mở lại
@@ -254,6 +271,49 @@ export function ProductFormPage() {
     return () => cancelAnimationFrame(frame);
   }, [tab, jump]);
 
+  // Mẫu nhóm: form tạo đọc theo nhóm đang chọn; trang sửa chỉ đọc khi đổi sang nhóm khác (ngoài ra BE trả sẵn `specs`)
+  const groupId = form.watch('groupId');
+  const groupChanged = Boolean(product && groupId && groupId !== product.group.id);
+  const templateQuery = useGroupTemplate(isNew || groupChanged ? groupId || undefined : undefined);
+  const template = templateQuery.data;
+  // Thông tin vẽ của mọi thông số đã gặp, để giá trị của nhóm cũ vẫn hiện ở "Thông số khác" khi đổi nhóm
+  const seenViews = useRef(new Map<string, SpecFieldView>());
+  const templateViews = useMemo(() => {
+    const views =
+      isNew || groupChanged
+        ? (template?.fields.map(viewFromTemplate) ?? [])
+        : (product?.specs ?? []).filter((s) => s.inTemplate).map(viewFromProduct);
+    return views;
+  }, [isNew, groupChanged, template, product]);
+  for (const v of [...templateViews, ...(product?.specs ?? []).map(viewFromProduct)]) seenViews.current.set(v.fieldId, v);
+  const otherViews = [...seenViews.current.values()]
+    .filter((v) => !templateViews.some((t) => t.fieldId === v.fieldId))
+    .filter((v) => !isEmptySpec(specDrafts[v.fieldId]) || !isEmptySpec(specInitial[v.fieldId]))
+    .map((v) => ({ ...v, inTemplate: false }));
+  const allSpecViews = [...templateViews, ...otherViews];
+  const setSpec = (fieldId: string, next: SpecDrafts[string]) => {
+    setSpecDrafts((prev) => ({ ...prev, [fieldId]: next }));
+    setSpecErrors((prev) => {
+      if (!prev[fieldId]) return prev;
+      const { [fieldId]: _gone, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  // Form tạo: chọn nhóm thì chọn sẵn trục chuẩn của mẫu, khi người dùng chưa gõ giá trị trục nào
+  useEffect(() => {
+    if (!isNew || !template) return;
+    setDraft((prev) =>
+      prev.axes.some((a) => a.values.length)
+        ? prev
+        : {
+            ...prev,
+            excluded: [],
+            axes: template.axes.map((a) => ({ key: `tpl-${a.attributeId}`, attributeId: a.attributeId, name: a.name, values: [] })),
+          },
+    );
+  }, [isNew, template]);
+
   // Nạp form một lần cho mỗi sản phẩm; refetch sau khi thêm biến thể không đè lên chỗ đang sửa
   const loadedId = useRef<string | null>(null);
   const load = (p: ProductDetail) => {
@@ -261,6 +321,10 @@ export function ProductFormPage() {
     setImages(toImages(p));
     setSizeChart(p.sizeChart ? { fileId: p.sizeChart.fileId, url: p.sizeChart.url } : null);
     setVersion(p.version);
+    const specs = draftsFromProduct(p.specs ?? []);
+    setSpecDrafts(specs);
+    setSpecInitial(specs);
+    setSpecErrors({});
   };
   useEffect(() => {
     if (product && loadedId.current !== product.id) {
@@ -327,6 +391,7 @@ export function ProductFormPage() {
     });
     setImagesError(fieldErrors.images);
     setSizeChartError(fieldErrors.sizeChart);
+    setSpecErrors(specErrorsByField(fieldErrors, sentSpecs.current));
     // Lỗi trục phân loại theo nhóm (`axes.i.*`), lỗi `axes`/`variants` hiện dưới bảng
     const { byAxis, general } = axisServerErrors(fieldErrors, draft.axes.length);
     setAxisErrorsFromServer(byAxis);
@@ -334,11 +399,17 @@ export function ProductFormPage() {
     return true;
   };
 
+  /** Mảng `specs` vừa gửi, để ghép lỗi `specs.<i>` về đúng thông số */
+  const sentSpecs = useRef<ReturnType<typeof specInputs>>([]);
+
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     setImagesError(undefined);
     setSizeChartError(undefined);
+    setSpecErrors({});
     const imageFileIds = images.map((i) => i.fileId);
+    const specs = isNew ? specInputs(allSpecViews, specDrafts) : specInputs(allSpecViews, specDrafts, specInitial);
+    sentSpecs.current = specs;
     try {
       if (isNew) {
         setSubmitted(true);
@@ -346,10 +417,13 @@ export function ProductFormPage() {
         const problem = draftError(draft);
         setVariantsError(problem);
         if (problem) return;
-        // Tạo sản phẩm chưa nhận xuất xứ, thương hiệu (CreateProductBody): điền sau khi tạo
-        const { originCountry: _origin, brand: _brand, ...createValues } = values;
+        // Xuất xứ, thương hiệu, thông số, giá và cân nặng từng variant điền ngay lúc tạo (Documents/21 §5.5)
+        const { originCountry, brand, ...createValues } = values;
         const created = await createMut.mutateAsync({
           ...createValues,
+          ...(originCountry && { originCountry }),
+          ...(brand.trim() && { brand: brand.trim() }),
+          ...(specs.length && { specs }),
           imageFileIds,
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
           ...draftBody(draft, attributes),
@@ -366,6 +440,7 @@ export function ProductFormPage() {
           brand: values.brand.trim() || null,
           imageFileIds,
           ...sizeChartPatch(product?.sizeChart?.fileId ?? null, sizeChart?.fileId ?? null),
+          ...(specs.length && { specs }),
           version,
         });
         load(saved);
@@ -459,8 +534,8 @@ export function ProductFormPage() {
                   </Button>
                 )}
                 {!readOnly && tab === 'commerio' && (
-                  <Button type="submit" form="product-form" disabled={busy || uploading || chartUploading}>
-                    {busy ? 'Đang lưu...' : uploading || chartUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
+                  <Button type="submit" form="product-form" disabled={busy || uploading || chartUploading || axisUploading}>
+                    {busy ? 'Đang lưu...' : uploading || chartUploading || axisUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
                   </Button>
                 )}
               </div>
@@ -607,7 +682,6 @@ export function ProductFormPage() {
             </CardContent>
           </Card>
 
-          {!isNew && (
             <Card>
               <CardHeader>
                 <CardTitle>Thông tin dùng chung cho các sàn</CardTitle>
@@ -650,7 +724,18 @@ export function ProductFormPage() {
                 )}
               </CardContent>
             </Card>
-          )}
+
+          <ProductSpecsCard
+            groupName={groups.find((g) => g.id === groupId)?.name ?? (groupId ? (product?.group.name ?? null) : null)}
+            templateViews={templateViews}
+            otherViews={otherViews}
+            drafts={specDrafts}
+            onChange={setSpec}
+            errors={specErrors}
+            readOnly={readOnly}
+            loading={(isNew || groupChanged) && templateQuery.isLoading}
+            templateLink={can(PERMISSIONS.catalogSetup) ? ROUTES.company.catalogSetup(companyId) : null}
+          />
 
           {product && canShop && listingsQuery.isError && (
             <AlertMessage severity="warning">
@@ -738,6 +823,8 @@ export function ProductFormPage() {
                   error={variantsError}
                   serverAxisErrors={axisErrorsFromServer}
                   submitted={submitted}
+                  withFacts
+                  onImagesBusyChange={setAxisUploading}
                 />
               ) : (
                 <div className="grid gap-2">

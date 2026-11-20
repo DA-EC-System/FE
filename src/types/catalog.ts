@@ -23,14 +23,27 @@ export interface ProductGroup {
   /** Kể cả sản phẩm đã lưu trữ */
   productCount: number;
   suggest: SuggestConfig;
+  /** Trục phân loại chuẩn của mẫu nhóm, 0–2 theo thứ tự (Documents/21 §5.5) */
+  axes?: GroupAxis[];
+  /** Số thông số trong mẫu và số thông số bắt buộc */
+  specFieldCount?: number;
+  requiredCount?: number;
   updatedAt: string;
   version: number;
+}
+
+export interface GroupAxis {
+  attributeId: string;
+  name: string;
+  platformKind: PlatformKind | null;
 }
 
 /** `suggest` chỉ gửi khi có `catalog.group.manage`; tạo nhanh trong form chỉ gửi `name` */
 export interface ProductGroupInput {
   name: string;
   suggest?: SuggestConfig;
+  /** Chép mẫu thông số và trục chuẩn của nhóm khác (một lần, không thành cha con); PUT thay mẫu đang có (§5.2, §5.5) */
+  copyTemplateFromGroupId?: string;
 }
 
 /** Cài đặt sản phẩm của công ty (`/catalog/settings`) */
@@ -49,6 +62,9 @@ export interface ProductSettingsInput {
   version: number;
 }
 
+/** Loại thuộc tính chuẩn sàn; adapter ghép sang sales attribute theo loại (Documents/21 §18.8.3) */
+export type PlatformKind = 'color' | 'size' | 'volume' | 'flavor';
+
 export interface AttributeValue {
   id: string;
   value: string;
@@ -61,8 +77,8 @@ export interface AttributeValue {
 export interface Attribute {
   id: string;
   name: string;
-  /** Thuộc tính chuẩn sàn (Màu sắc, Kích cỡ), hệ thống tạo khi lập công ty; null là tự đặt */
-  platformKind: 'color' | 'size' | null;
+  /** Thuộc tính chuẩn sàn (Màu sắc, Kích cỡ, Dung tích, Hương vị), hệ thống tạo khi lập công ty; null là tự đặt */
+  platformKind: PlatformKind | null;
   values: AttributeValue[];
   productCount: number;
   version: number;
@@ -111,7 +127,7 @@ export interface VariantAttribute {
 }
 
 /** Phần còn thiếu theo Documents/21 §17.1; name, image tính ở cha, còn lại theo SKU. Nhóm hàng bắt buộc nên không thiếu */
-export type VariantMissing = 'name' | 'image' | 'variantImages' | 'price' | 'minQty' | 'weight' | 'dimensions';
+export type VariantMissing = 'name' | 'image' | 'variantImages' | 'price' | 'minQty' | 'weight' | 'dimensions' | 'specs';
 
 export const MISSING_LABELS: Record<VariantMissing, string> = {
   name: 'tên',
@@ -121,6 +137,7 @@ export const MISSING_LABELS: Record<VariantMissing, string> = {
   minQty: 'tồn tối thiểu',
   weight: 'cân nặng',
   dimensions: 'kích thước đóng gói',
+  specs: 'thông số bắt buộc',
 };
 
 export interface ProductVariant {
@@ -192,6 +209,10 @@ export interface ProductDetail extends ProductListItem {
   imageAttributeId?: string | null;
   /** Ảnh theo giá trị của thuộc tính gắn ảnh; `url` rỗng khi máy chủ chưa cấu hình link ảnh */
   attributeValueImages?: { attributeValueId: string; fileId: string; url: string }[];
+  /** Thông số của mẫu nhóm hiện tại (theo thứ tự mẫu), rồi thông số ngoài mẫu đang có giá trị (Documents/21 §5.5) */
+  specs?: ProductSpecValue[];
+  /** Thông số `required` của mẫu đang trống */
+  missingSpecFieldIds?: string[];
 }
 
 export interface ProductListParams {
@@ -212,7 +233,8 @@ export interface ProductListParams {
 export interface ProductAxis {
   attributeId?: string;
   name?: string;
-  values: { id?: string; value: string }[];
+  /** `imageFileId` chỉ ở trục `imageAxis` khi tạo (Documents/21 §5.5) */
+  values: { id?: string; value: string; imageFileId?: string }[];
 }
 
 export interface ProductCreateInput {
@@ -224,8 +246,24 @@ export interface ProductCreateInput {
   sizeChartFileId?: string | null;
   /** Tối đa 2 trục */
   axes: ProductAxis[];
-  /** `options[i]` là một `value` của `axes[i]`; không trục thì một biến thể `options: []` */
-  variants: { options: string[] }[];
+  /** `options[i]` là một `value` của `axes[i]`; không trục thì một biến thể `options: []`. Giá, cân nặng, kích thước tuỳ chọn */
+  variants: ({ options: string[] } & VariantFacts)[];
+  specs?: SpecInput[];
+  /** Chỉ số trục trong `axes` làm thuộc tính gắn ảnh */
+  imageAxis?: 0 | 1;
+  /** Xuất xứ ISO alpha-2, thương hiệu: điền ngay lúc tạo (Documents/21 §5.5) */
+  originCountry?: string | null;
+  brand?: string | null;
+}
+
+/** Giá, cân nặng, kích thước gói của một SKU; luật như PATCH …/variants/:variantId (§17.2) */
+export interface VariantFacts {
+  standardPrice?: number | null;
+  targetNetPrice?: number | null;
+  weightG?: number | null;
+  lengthMm?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
 }
 
 export interface ProductUpdateInput {
@@ -242,6 +280,8 @@ export interface ProductUpdateInput {
   brand?: string | null;
   /** Bỏ trường là giữ, `null` là bỏ chọn; đổi hoặc bỏ thì BE gỡ mọi ảnh phân loại của thuộc tính cũ */
   imageAttributeId?: string | null;
+  /** Thay giá trị của từng `fieldId` gửi lên; `optionIds: []` hoặc `value: ''` là xoá */
+  specs?: SpecInput[];
   version: number;
 }
 
@@ -326,4 +366,97 @@ export interface VariantUpdateInput {
   lengthMm?: number | null;
   widthMm?: number | null;
   heightMm?: number | null;
+}
+
+// ---------- Thông số sản phẩm theo nhóm hàng (Documents/21 §5.5) ----------
+
+export type SpecInputKind = 'select' | 'multiselect' | 'text' | 'number' | 'date';
+
+export interface SpecOption {
+  id: string;
+  value: string;
+}
+
+/** Thông số trong thư viện của công ty */
+export interface SpecField {
+  id: string;
+  code: string;
+  name: string;
+  input: SpecInputKind;
+  unit: string | null;
+  /** select/multiselect nhận giá trị ngoài danh sách (tạo lựa chọn mới) */
+  allowCustom: boolean;
+  options: (SpecOption & { position: number; inUse: boolean })[];
+  groupCount: number;
+  productCount: number;
+  updatedAt: string;
+  version: number;
+}
+
+export interface SpecFieldCreateInput {
+  code?: string;
+  name: string;
+  input: SpecInputKind;
+  unit?: string | null;
+  allowCustom: boolean;
+  options?: { value: string }[];
+}
+
+/** Không đổi được `code`, `input`; lựa chọn cũ vắng mặt là xoá, thứ tự mảng là `position` */
+export interface SpecFieldUpdateInput {
+  name: string;
+  unit?: string | null;
+  allowCustom: boolean;
+  options?: { id?: string; value: string }[];
+  version: number;
+}
+
+export interface GroupTemplateField {
+  fieldId: string;
+  code: string;
+  name: string;
+  input: SpecInputKind;
+  unit: string | null;
+  allowCustom: boolean;
+  required: boolean;
+  options: SpecOption[];
+}
+
+/** Mẫu nhóm hàng; `version` là của nhóm */
+export interface GroupTemplate {
+  groupId: string;
+  axes: (GroupAxis & { values: SpecOption[] })[];
+  fields: GroupTemplateField[];
+  version: number;
+}
+
+export interface GroupTemplateInput {
+  /** 0–2, khác nhau */
+  axisAttributeIds: string[];
+  /** Thứ tự mảng là thứ tự hiển thị */
+  fields: { fieldId: string; required: boolean }[];
+  version: number;
+}
+
+/** Giá trị gửi lên: select đúng một trong optionIds/newValues; multiselect cộng lại 1–20; text/number/date dùng value */
+export interface SpecInput {
+  fieldId: string;
+  optionIds?: string[];
+  newValues?: string[];
+  value?: string;
+}
+
+export interface ProductSpecValue {
+  fieldId: string;
+  code: string;
+  name: string;
+  input: SpecInputKind;
+  unit: string | null;
+  allowCustom: boolean;
+  required: boolean;
+  /** false: thông số ngoài mẫu nhóm hiện tại, hiện ở "Thông số khác" */
+  inTemplate: boolean;
+  selected: SpecOption[];
+  choices: SpecOption[];
+  value: string | null;
 }

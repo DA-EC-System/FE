@@ -18,6 +18,8 @@ import type {
   BulkEditRow,
   BulkSaveResult,
   BulkSaveRow,
+  GroupTemplate,
+  GroupTemplateInput,
   ProductCreateInput,
   ProductDetail,
   ProductGroup,
@@ -28,6 +30,9 @@ import type {
   ProductListParams,
   ProductUpdateInput,
   ProductVariant,
+  SpecField,
+  SpecFieldCreateInput,
+  SpecFieldUpdateInput,
   UploadTicket,
   VariantUpdateInput,
 } from '@/types/catalog';
@@ -42,6 +47,8 @@ export const catalogKeys = {
     [...catalogKeys.products(companyId), 'list', params] as const,
   product: (companyId: string, id: string) =>
     [...catalogKeys.products(companyId), 'detail', id] as const,
+  specFields: (companyId: string) => [...catalogKeys.all(companyId), 'spec-fields'] as const,
+  template: (companyId: string, groupId: string) => [...catalogKeys.groups(companyId), 'template', groupId] as const,
   bulkEdit: (companyId: string, params: BulkEditParams) =>
     [...catalogKeys.all(companyId), 'bulk-edit', params] as const,
 };
@@ -226,6 +233,8 @@ export function withVariantDefaults(p: ProductDetail): ProductDetail {
       listingCount: v.listingCount ?? 0,
       archiveBlockers: v.archiveBlockers ?? [],
     })),
+    specs: p.specs ?? [],
+    missingSpecFieldIds: p.missingSpecFieldIds ?? [],
   };
 }
 
@@ -426,5 +435,76 @@ export function useBulkSaveVariants() {
       qc.invalidateQueries({ queryKey: catalogKeys.all(companyId) });
       qc.invalidateQueries({ queryKey: ['company', companyId, 'inventory'] });
     },
+  });
+}
+
+// ---------- Thư viện thông số và mẫu nhóm hàng (Documents/21 §5.5) ----------
+
+export function useSpecFields(options: { enabled?: boolean } = {}) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: catalogKeys.specFields(companyId),
+    enabled: Boolean(companyId) && (options.enabled ?? true),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ items: SpecField[] }>('/catalog/spec-fields');
+      return data.items;
+    },
+  });
+}
+
+export function useCreateSpecField() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async (input: SpecFieldCreateInput) => {
+      const { data } = await apiClient.post<SpecField>('/catalog/spec-fields', input);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateSpecField() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: SpecFieldUpdateInput & { id: string }) => {
+      const { data } = await apiClient.put<SpecField>(`/catalog/spec-fields/${id}`, body);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** 409 `in_use` kèm `groupCount`, `productCount` khi còn mẫu nhóm hoặc sản phẩm dùng */
+export function useDeleteSpecField() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ id, version }: { id: string; version: number }) => {
+      await apiClient.delete(`/catalog/spec-fields/${id}`, { params: { version } });
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Mẫu của nhóm: trục chuẩn và thông số; form tạo sản phẩm gọi khi chọn nhóm */
+export function useGroupTemplate(groupId: string | undefined) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: catalogKeys.template(companyId, groupId ?? ''),
+    enabled: Boolean(companyId && groupId),
+    queryFn: async () => {
+      const { data } = await apiClient.get<GroupTemplate>(`/catalog/groups/${groupId}/template`);
+      return data;
+    },
+  });
+}
+
+export function useUpdateGroupTemplate() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ groupId, ...body }: GroupTemplateInput & { groupId: string }) => {
+      const { data } = await apiClient.put<GroupTemplate>(`/catalog/groups/${groupId}/template`, body);
+      return data;
+    },
+    onSuccess: invalidate,
   });
 }

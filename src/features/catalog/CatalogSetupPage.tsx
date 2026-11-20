@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Link2, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -26,9 +26,18 @@ import { SUGGEST_KEYS } from './suggest';
 import { AttributeFormDialog } from './AttributeFormDialog';
 import { PlatformCategoryTab } from './PlatformCategoryTab';
 import { PLATFORM_TABS, isPlatformTab } from './platformCategory';
+import { SpecFieldsTab } from './specs/SpecFieldsTab';
+import { GroupTemplateDialog } from './specs/GroupTemplateDialog';
+import { AxisMappingDialog, AxisMappingLine } from './specs/AxisMappingDialog';
 
 type Deleting = { kind: 'group'; item: ProductGroup } | { kind: 'attribute'; item: Attribute };
-type TabKey = 'groups' | 'attributes';
+type TabKey = 'groups' | 'specs' | 'attributes';
+
+const ADD_LABELS: Record<TabKey, string> = {
+  groups: 'Thêm nhóm hàng',
+  specs: 'Thêm thông số',
+  attributes: 'Thêm thuộc tính phân loại',
+};
 
 /**
  * UC-CP-01: nhóm hàng (FE#350, Documents/21 §5.2), thuộc tính và giá trị.
@@ -62,6 +71,9 @@ export function CatalogSetupPage() {
   const [groupForm, setGroupForm] = useState<{ item: ProductGroup | null } | null>(null);
   const [attributeForm, setAttributeForm] = useState<{ item: Attribute | null } | null>(null);
   const [deleting, setDeleting] = useState<Deleting | null>(null);
+  const [templateOf, setTemplateOf] = useState<ProductGroup | null>(null);
+  const [creatingSpec, setCreatingSpec] = useState(false);
+  const [axisOf, setAxisOf] = useState<Attribute | null>(null);
   // Nhóm còn sản phẩm: chuyển hết sang nhóm khác rồi xoá
   const [moving, setMoving] = useState<ProductGroup | null>(null);
 
@@ -98,6 +110,37 @@ export function CatalogSetupPage() {
       { accessorKey: 'name', header: 'Nhóm hàng', meta: { className: 'min-w-40 font-medium' } },
       { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
       {
+        id: 'axes',
+        header: 'Trục phân loại chuẩn',
+        meta: { className: 'min-w-40' },
+        cell: ({ row }) =>
+          row.original.axes?.length ? (
+            row.original.axes.map((a) => a.name).join(', ')
+          ) : (
+            <span className="text-muted-foreground">Chưa đặt</span>
+          ),
+      },
+      {
+        id: 'template',
+        header: 'Mẫu thông số',
+        meta: { className: 'w-40 whitespace-nowrap' },
+        cell: ({ row }) => {
+          const n = row.original.specFieldCount ?? 0;
+          const label = n ? `${n} thông số · ${row.original.requiredCount ?? 0} bắt buộc` : 'Chưa có mẫu';
+          return canManage ? (
+            <button
+              type="button"
+              className="min-h-6 cursor-pointer text-primary-text hover:underline"
+              onClick={() => setTemplateOf(row.original)}
+            >
+              {label}
+            </button>
+          ) : (
+            <span className={n ? undefined : 'text-muted-foreground'}>{label}</span>
+          );
+        },
+      },
+      {
         id: 'suggest',
         header: 'Gợi ý',
         meta: { className: 'w-36 whitespace-nowrap' },
@@ -117,9 +160,12 @@ export function CatalogSetupPage() {
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-24 text-right' },
+              meta: { className: 'w-32 text-right' },
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
+                  <RowAction label="Sửa mẫu thông số" onClick={() => setTemplateOf(row.original)}>
+                    <ListChecks />
+                  </RowAction>
                   <RowAction label="Sửa" onClick={() => setGroupForm({ item: row.original })}>
                     <Pencil />
                   </RowAction>
@@ -166,14 +212,40 @@ export function CatalogSetupPage() {
         ),
       },
       { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
+      ...(showPlatforms
+        ? [
+            {
+              id: 'axisMapping',
+              header: 'Trục trên sàn',
+              meta: { className: 'min-w-52' },
+              cell: ({ row }) => (
+                <button
+                  type="button"
+                  className="grid w-full cursor-pointer gap-1 rounded-md text-left hover:bg-muted"
+                  aria-label={`Ghép ${row.original.name} sang phân loại của sàn`}
+                  onClick={() => setAxisOf(row.original)}
+                >
+                  {PLATFORM_TABS.map((t) => (
+                    <AxisMappingLine key={t.platform} attribute={row.original} platform={t.platform} label={t.label} />
+                  ))}
+                </button>
+              ),
+            } satisfies ColumnDef<Attribute>,
+          ]
+        : []),
       ...(canManage
         ? [
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-24 text-right' },
+              meta: { className: 'w-32 text-right' },
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
+                  {showPlatforms && (
+                    <RowAction label="Ghép sang sàn" onClick={() => setAxisOf(row.original)}>
+                      <Link2 />
+                    </RowAction>
+                  )}
                   <RowAction label="Sửa" onClick={() => setAttributeForm({ item: row.original })}>
                     <Pencil />
                   </RowAction>
@@ -191,10 +263,10 @@ export function CatalogSetupPage() {
           ]
         : []),
     ],
-    [canManage],
+    [canManage, showPlatforms],
   );
 
-  const query = tab === 'groups' ? groupsQuery : attributesQuery;
+  const query = tab === 'attributes' ? attributesQuery : groupsQuery;
   const done = (message: string) => {
     setGroupForm(null);
     setAttributeForm(null);
@@ -205,19 +277,23 @@ export function CatalogSetupPage() {
     <div>
       <PageHeader
         title="Nhóm hàng & thuộc tính"
-        subtitle="Nhóm hàng để lọc sản phẩm trong app; thuộc tính phân loại để tạo variant."
-        help="Công ty mới có sẵn 12 nhóm hàng. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Mỗi nhóm đặt được gợi ý giá, gợi ý nhập lại riêng, để trống thì theo Cài đặt sản phẩm. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
+        subtitle="Nhóm hàng và mẫu thông số để dựng form sản phẩm; thuộc tính phân loại để tạo variant."
+        help="Công ty mới có sẵn 12 nhóm hàng, mỗi nhóm có mẫu thông số và trục phân loại chuẩn. Thông số (chất liệu, công dụng…) định nghĩa một lần ở tab Thông số, nhóm nào cần thì thêm vào mẫu. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Mỗi nhóm đặt được gợi ý giá, gợi ý nhập lại riêng, để trống thì theo Cài đặt sản phẩm. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
         onTour={startTour}
         action={
           canManage && source === 'commerio' ? (
             <Button
               data-guide="catalog-add"
               onClick={() =>
-                tab === 'groups' ? setGroupForm({ item: null }) : setAttributeForm({ item: null })
+                tab === 'groups'
+                  ? setGroupForm({ item: null })
+                  : tab === 'specs'
+                    ? setCreatingSpec(true)
+                    : setAttributeForm({ item: null })
               }
             >
               <Plus />
-              {tab === 'groups' ? 'Thêm nhóm hàng' : 'Thêm thuộc tính phân loại'}
+              {ADD_LABELS[tab]}
             </Button>
           ) : null
         }
@@ -246,6 +322,7 @@ export function CatalogSetupPage() {
               <TabsTrigger value="groups" data-guide="catalog-categories">
                 Nhóm hàng
               </TabsTrigger>
+              <TabsTrigger value="specs">Thông số</TabsTrigger>
               <TabsTrigger value="attributes" data-guide="catalog-attributes">
                 Thuộc tính phân loại
               </TabsTrigger>
@@ -260,6 +337,9 @@ export function CatalogSetupPage() {
                   empty="Chưa có nhóm hàng"
                 />
               </Card>
+            </TabsContent>
+            <TabsContent value="specs">
+              <SpecFieldsTab canManage={canManage} showMapping={showPlatforms} creating={creatingSpec} onCloseCreate={() => setCreatingSpec(false)} />
             </TabsContent>
             <TabsContent value="attributes">
               <Card className="py-0">
@@ -287,6 +367,15 @@ export function CatalogSetupPage() {
         group={groupForm?.item ?? null}
         onClose={() => setGroupForm(null)}
         onDone={done}
+      />
+      <AxisMappingDialog attribute={axisOf} canEdit={canManage} onClose={() => setAxisOf(null)} />
+      <GroupTemplateDialog
+        group={templateOf}
+        onClose={() => setTemplateOf(null)}
+        onDone={(message) => {
+          setTemplateOf(null);
+          toast.success(message);
+        }}
       />
       <DeleteGroupDialog
         group={moving}

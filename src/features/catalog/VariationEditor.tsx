@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type KeyboardEvent } from 'react';
+import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check, ChevronsUpDown, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -16,13 +16,29 @@ import {
   MAX_AXIS_VALUE,
   MAX_VARIANTS,
   axisAttribute,
+  FACT_KEYS,
   axisErrors,
   draftRows,
+  factsOf,
+  fillFacts,
   sameText,
   valueError,
   type AxisDraft,
+  type FactKey,
+  type FactsDraft,
   type VariantDraft,
 } from './variantDraft';
+import { AxisImagesField } from './AxisImagesField';
+
+const FACT_LABELS: Record<FactKey, string> = {
+  standardPrice: 'Giá bán lẻ',
+  targetNetPrice: 'Thực nhận mong muốn',
+  weightG: 'Cân nặng',
+  lengthMm: 'Dài',
+  widthMm: 'Rộng',
+  heightMm: 'Cao',
+};
+const SIDES = ['lengthMm', 'widthMm', 'heightMm'] as const;
 
 /** Bảng xem trước chỉ vẽ chừng này dòng; quá thì đằng nào cũng không tạo được */
 const MAX_ROWS_SHOWN = MAX_VARIANTS + 20;
@@ -39,6 +55,10 @@ interface VariationEditorProps {
   /** Đã bấm Tạo: hiện mọi lỗi theo nhóm, không đợi rời ô */
   submitted?: boolean;
   loading?: boolean;
+  /** Thêm cột giá, cân nặng, kích thước gói vào bảng tổ hợp (form tạo, Documents/21 §5.5) */
+  withFacts?: boolean;
+  /** Có thì hiện khối ảnh theo phân loại; báo đang tải để form chặn nút Tạo */
+  onImagesBusyChange?: (busy: boolean) => void;
 }
 
 let nextKey = 0;
@@ -58,7 +78,12 @@ export function VariationEditor({
   serverAxisErrors,
   submitted,
   loading,
+  withFacts,
+  onImagesBusyChange,
 }: VariationEditorProps) {
+  const [bulk, setBulk] = useState<FactsDraft>({});
+  const setFact = (id: string, key: FactKey, text: string) =>
+    onChange({ ...value, facts: { ...value.facts, [id]: { ...value.facts?.[id], [key]: text } } });
   const [touched, setTouched] = useState<string[]>([]);
   const errors = axisErrors(value);
   const rows = useMemo(() => draftRows(value, attributes, settings), [value, attributes, settings]);
@@ -67,7 +92,7 @@ export function VariationEditor({
   const shownError = tooMany ?? error;
 
   // Đổi nhóm thì tổ hợp đổi: bỏ danh sách tổ hợp đã loại cho chắc
-  const setAxes = (axes: AxisDraft[]) => onChange({ axes, excluded: [] });
+  const setAxes = (axes: AxisDraft[]) => onChange({ ...value, axes, excluded: [] });
   const updateAxis = (key: string, patch: Partial<AxisDraft>) =>
     setAxes(value.axes.map((a) => (a.key === key ? { ...a, ...patch } : a)));
   const touch = (key: string) => setTouched((t) => (t.includes(key) ? t : [...t, key]));
@@ -123,6 +148,8 @@ export function VariationEditor({
         )}
       </div>
 
+      {onImagesBusyChange && <AxisImagesField value={value} onChange={onChange} onBusyChange={onImagesBusyChange} />}
+
       <div className="overflow-x-auto rounded-md border">
         <Table data-testid="variant-plan">
           <TableHeader>
@@ -130,9 +157,44 @@ export function VariationEditor({
               <TableHead className="w-10" />
               <TableHead>Variant</TableHead>
               <TableHead>SKU dự kiến</TableHead>
+              {withFacts && (
+                <>
+                  <TableHead>Giá bán lẻ (đ)</TableHead>
+                  <TableHead>Thực nhận mong muốn (đ)</TableHead>
+                  <TableHead>Cân nặng (g)</TableHead>
+                  <TableHead>Dài × rộng × cao gói (mm)</TableHead>
+                </>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
+            {withFacts && includedCount > 1 && (
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableCell />
+                <TableCell colSpan={2} className="text-sm text-muted-foreground">
+                  Điền một lần cho mọi variant
+                </TableCell>
+                <FactCells
+                  values={bulk}
+                  label="mọi variant"
+                  onChange={(k, t) => setBulk((b) => ({ ...b, [k]: t }))}
+                  after={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!FACT_KEYS.some((k) => bulk[k]?.trim())}
+                      onClick={() => {
+                        onChange(fillFacts(value, bulk));
+                        setBulk({});
+                      }}
+                    >
+                      Áp dụng
+                    </Button>
+                  }
+                />
+              </TableRow>
+            )}
             {rows.slice(0, MAX_ROWS_SHOWN).map((r) => {
               const label = r.options.join(' / ') || 'Mặc định';
               return (
@@ -147,6 +209,17 @@ export function VariationEditor({
                   </TableCell>
                   <TableCell>{label}</TableCell>
                   <TableCell className="font-mono">{r.sku ?? (r.included ? 'Đang tải mẫu SKU…' : '—')}</TableCell>
+                  {withFacts &&
+                    (r.included ? (
+                      <FactCells
+                        values={value.facts?.[r.id] ?? {}}
+                        errors={submitted ? factsOf(value.facts?.[r.id]).errors : undefined}
+                        label={label}
+                        onChange={(k, t) => setFact(r.id, k, t)}
+                      />
+                    ) : (
+                      <TableCell colSpan={4} />
+                    ))}
                 </TableRow>
               );
             })}
@@ -162,8 +235,55 @@ export function VariationEditor({
         Sẽ tạo <Badge variant="secondary">{includedCount}</Badge> variant. SKU thật cấp khi lưu, có thể lệch bản xem trước
         nếu có người vừa tạo sản phẩm khác hoặc mã giá trị mới bị trùng.
       </p>
+      {withFacts && (
+        <p className="text-xs text-muted-foreground">
+          Ô trống vẫn tạo được; sản phẩm chưa &lsquo;Sẵn sàng&rsquo; tới khi đủ thực nhận mong muốn, cân nặng và kích thước gói.
+        </p>
+      )}
       {shownError && <AlertMessage severity="error">{shownError}</AlertMessage>}
     </div>
+  );
+}
+
+/** Bốn ô giá, thực nhận, cân nặng, kích thước của một dòng; lỗi hiện ngay dưới ô */
+function FactCells({
+  values,
+  errors,
+  label,
+  onChange,
+  after,
+}: {
+  values: FactsDraft;
+  errors?: Partial<Record<FactKey, string>>;
+  label: string;
+  onChange: (key: FactKey, text: string) => void;
+  after?: ReactNode;
+}) {
+  const cell = (k: FactKey, width: string) => (
+    <div key={k}>
+      <Input
+        value={values[k] ?? ''}
+        inputMode="numeric"
+        className={cn('h-8', width)}
+        aria-label={`${FACT_LABELS[k]} ${label}`}
+        aria-invalid={Boolean(errors?.[k])}
+        onChange={(e) => onChange(k, e.target.value)}
+      />
+      {errors?.[k] && <p className="mt-0.5 text-xs text-destructive">{errors[k]}</p>}
+    </div>
+  );
+  return (
+    <>
+      <TableCell>{cell('standardPrice', 'w-28')}</TableCell>
+      <TableCell>{cell('targetNetPrice', 'w-28')}</TableCell>
+      <TableCell>{cell('weightG', 'w-20')}</TableCell>
+      <TableCell>
+        <div className="flex items-start gap-1">
+          {SIDES.map((k) => cell(k, 'w-16'))}
+          {after}
+        </div>
+      </TableCell>
+    </>
   );
 }
 

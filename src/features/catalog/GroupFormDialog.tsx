@@ -13,7 +13,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form';
-import { useCreateGroup, useProductSettings, useUpdateGroup } from '@/api/catalog.api';
+import { useCreateGroup, useGroups, useProductSettings, useUpdateGroup } from '@/api/catalog.api';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -40,6 +42,10 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
   const company = useProductSettings().data?.suggest;
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
+  // Chép mẫu thông số và trục chuẩn từ nhóm khác (Documents/21 §5.2): một lần, không thành cha con
+  const [copyFrom, setCopyFrom] = useState('');
+  const sources = (useGroups().data ?? []).filter((g) => g.id !== group?.id && (g.specFieldCount ?? 0) + (g.axes?.length ?? 0) > 0);
+  const replacing = Boolean(copyFrom && group && (group.specFieldCount ?? 0) + (group.axes?.length ?? 0) > 0);
 
   const form = useForm<GroupForm>({
     resolver: zodResolver(groupSchema),
@@ -51,6 +57,7 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
     if (open) {
       reset({ name: group?.name ?? '', suggest: toSuggestForm(group?.suggest) });
       setVersion(group?.version ?? 0);
+      setCopyFrom('');
       setError(null);
     }
   }, [open, group, reset]);
@@ -58,7 +65,11 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
-      const body = { name: values.name, suggest: fromSuggestForm(values.suggest) };
+      const body = {
+        name: values.name,
+        suggest: fromSuggestForm(values.suggest),
+        ...(copyFrom && { copyTemplateFromGroupId: copyFrom }),
+      };
       if (group) {
         await updateMut.mutateAsync({ id: group.id, version, ...body });
         onDone(`Đã cập nhật nhóm hàng ${values.name}`);
@@ -83,6 +94,7 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
       const suggestErrors = suggestFieldErrors(fields);
       suggestErrors.forEach(([key, message]) => setFieldError(`suggest.${key}`, { message }));
       if (fields.name) setFieldError('name', { message: fields.name });
+      else if (fields.copyTemplateFromGroupId) setError(fields.copyTemplateFromGroupId);
       else if (!suggestErrors.length) setError(problemMessage(e));
     }
   });
@@ -107,6 +119,29 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="grid gap-4">
             <FormTextField control={control} name="name" label="Tên nhóm hàng" autoFocus />
+            {sources.length > 0 && (
+              <div className="grid gap-2">
+                <Label htmlFor="copy-template">Chép mẫu thông số từ nhóm</Label>
+                <Select value={copyFrom || 'none'} onValueChange={(v) => setCopyFrom(v === 'none' ? '' : v)} disabled={busy}>
+                  <SelectTrigger id="copy-template" className="w-full sm:w-80">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Không chép</SelectItem>
+                    {sources.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} · {g.specFieldCount ?? 0} thông số
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className={replacing ? 'text-sm text-warning-text' : 'text-sm text-muted-foreground'}>
+                  {replacing
+                    ? `Mẫu và trục chuẩn đang có của ${group?.name} sẽ bị thay bằng bản chép. Sản phẩm đã có không đổi.`
+                    : 'Chép thông số, cờ bắt buộc, thứ tự và trục chuẩn một lần; sửa nhóm nguồn sau đó không ảnh hưởng nhóm này.'}
+                </p>
+              </div>
+            )}
             <fieldset className="grid gap-3">
               <legend className="mb-1 text-sm font-medium">Gợi ý giá và nhập lại</legend>
               <p className="text-sm text-muted-foreground">Để trống ô nào thì ô đó theo Cài đặt sản phẩm của công ty.</p>
