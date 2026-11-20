@@ -128,3 +128,21 @@ export function productFactsBody(
     version: p.version,
   };
 }
+
+/**
+ * Body `PUT /catalog/products/:id` chỉ đổi một số trường (nút "Dùng giá trị này" theo sàn, FE#417): các trường khác gửi lại
+ * giá trị đã lưu của sản phẩm, kèm `version` để lệch thì BE trả 409; bỏ `sizeChartFileId` là giữ bảng size
+ */
+export function productPatchBody(
+  p: Pick<ProductDetail, 'name' | 'description' | 'images' | 'originCountry' | 'brand' | 'version'>,
+  patch: { originCountry?: string; brand?: string; description?: string },
+): ProductUpdateInput {
+  return {
+    name: p.name,
+    description: patch.description ?? p.description,
+    imageFileIds: [...p.images].sort((a, b) => a.position - b.position).map((i) => i.fileId),
+    originCountry: patch.originCountry ?? p.originCountry ?? null,
+    brand: patch.brand ?? p.brand ?? null,
+    version: p.version,
+  };
+}

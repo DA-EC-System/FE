@@ -683,6 +683,11 @@ export interface ProductSpec {
   valueMap: Record<string, string>;
   /** `push`: lưu ở trang đẩy; `match`: đọc từ sàn lúc ghép SKU */
   source: 'push' | 'match';
+  /**
+   * Nguồn của từng attribute trong `attributes` (Documents/21 §18.5, commerio-backend#497): đẩy, đọc từ sàn khi ghép,
+   * người dùng sửa. BE cũ chưa trả thì thiếu
+   */
+  fieldSources?: Record<string, 'push' | 'match' | 'user'>;
   version: number;
   updatedAt: string;
 }
@@ -695,10 +700,37 @@ export interface SpecMissing {
   reason: SpecMissingReason;
 }
 
+/** Cân nặng, kích thước sàn đang ghi của một SKU đã ghép (chỉ SKU sàn có số) */
+export interface RemoteVariantFacts {
+  variantId: string;
+  weightG: number | null;
+  lengthMm: number | null;
+  widthMm: number | null;
+  heightMm: number | null;
+}
+
+/**
+ * Bản sàn đang ghi ở lần đọc gần nhất khi ghép SKU (Documents/21 §18.5, commerio-backend#497). `brand` null là sàn ghi
+ * "No Brand" hoặc không có; `description` chữ trơn đã bỏ HTML; `shopId` null khi gian hàng đã xoá
+ */
+export interface RemoteProductFacts {
+  shopId: string | null;
+  shopName: string;
+  readAt: string;
+  originCountry: string | null;
+  brand: string | null;
+  description: string | null;
+  sizeChartUrl: string | null;
+  imageUrls: string[];
+  variants: RemoteVariantFacts[];
+}
+
 /** `spec: null`, `missing: []` khi sản phẩm chưa có thông tin của sàn */
 export interface ProductSpecResult {
   spec: ProductSpec | null;
   missing: SpecMissing[];
+  /** null khi chưa đọc từ sàn; BE cũ chưa trả thì thiếu */
+  remote?: RemoteProductFacts | null;
 }
 
 /** `version: null` khi tạo mới. Chỉ attribute `tier = 'category'` và `company` khác `defaultValue` được lưu */

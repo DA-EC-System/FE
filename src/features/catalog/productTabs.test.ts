@@ -5,6 +5,8 @@ import {
   attributeGroups,
   attributeSource,
   listingsByShop,
+  productSuggestions,
+  variantSuggestion,
   sharedGaps,
   tabFromParam,
   visiblePlatforms,
@@ -64,9 +66,12 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
   });
 
   it('nguồn ô theo tier: product dùng chung, company từ hồ sơ, category riêng của sàn', () => {
-    expect(attributeSource({ tier: 'product' })).toBe('shared');
-    expect(attributeSource({ tier: 'company' })).toBe('company');
-    expect(attributeSource({ tier: 'category' })).toBe('own');
+    expect(attributeSource({ tier: 'product', code: 'p' })).toBe('shared');
+    expect(attributeSource({ tier: 'company', code: 'c' })).toBe('company');
+    expect(attributeSource({ tier: 'category', code: 'a' })).toBe('own');
+    expect(attributeSource({ tier: 'category', code: 'a' }, { a: 'match' })).toBe('match');
+    expect(attributeSource({ tier: 'category', code: 'a' }, { a: 'user' })).toBe('own');
+    expect(attributeSource({ tier: 'company', code: 'a' }, { a: 'match' })).toBe('company');
   });
 
   it('trường dùng chung còn thiếu: ảnh, mô tả, bảng size khi bắt buộc, cân nặng kích thước của SKU chưa lưu trữ', () => {
@@ -89,5 +94,22 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
       ['s1', 2],
       ['s2', 1],
     ]);
+  });
+
+  it('gợi ý giá trị sàn: chỉ trường sàn có giá trị và khác bản đã lưu; brand null (No Brand) không gợi ý', () => {
+    const product = { originCountry: null, brand: 'Jastech', description: 'Áo thun' };
+    expect(productSuggestions(product, { originCountry: 'vn', brand: null, description: ' Áo thun ' })).toEqual({ originCountry: 'VN' });
+    expect(productSuggestions(product, { originCountry: null, brand: 'Khác', description: 'Mô tả sàn' })).toEqual({
+      brand: 'Khác',
+      description: 'Mô tả sàn',
+    });
+    expect(productSuggestions({ ...product, originCountry: 'VN' }, { originCountry: 'VN', brand: 'Jastech', description: '' })).toEqual({});
+  });
+
+  it('gợi ý cân nặng, kích thước SKU: chỉ ô sàn có số và khác', () => {
+    const v = { weightG: 200, lengthMm: null, widthMm: 10, heightMm: 10 };
+    expect(variantSuggestion(v, undefined)).toBeNull();
+    expect(variantSuggestion(v, { variantId: 'v', weightG: 200, lengthMm: 300, widthMm: null, heightMm: 10 })).toEqual({ lengthMm: 300 });
+    expect(variantSuggestion(v, { variantId: 'v', weightG: 200, lengthMm: null, widthMm: 10, heightMm: 10 })).toBeNull();
   });
 });
