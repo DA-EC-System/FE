@@ -28,7 +28,7 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDate, formatDateTime } from '@/utils/format';
 import type { Shop } from '@/types/shop';
-import { missingReturnWindow, needsAction, shopPage, shopPlatformOptions, type ShopSegment } from './shopList';
+import { hasCategoryChangeIssue, missingReturnWindow, needsAction, shopPage, shopPlatformOptions, type ShopSegment } from './shopList';
 import { RETURN_WINDOW_EDIT } from './ReturnWindowPanel';
 import { authorizationDeadline, platformLabel, STATUS_META } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
@@ -79,6 +79,16 @@ function StatusLine({ shop, companyId }: { shop: Shop; companyId: string }) {
           data-testid="shop-missing-return-window"
         >
           Chưa đặt hạn trả hàng
+        </Link>
+      )}
+      {hasCategoryChangeIssue(shop) && (
+        <Link
+          to={`${ROUTES.company.shop(companyId, shop.id)}?tab=category`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs text-warning underline underline-offset-2"
+          data-testid="shop-category-change-issues"
+        >
+          Đổi category trên sàn chưa xong ({shop.categoryChangeIssues})
         </Link>
       )}
       {shop.pendingJobs > 0 && (

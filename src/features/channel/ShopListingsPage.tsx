@@ -115,6 +115,7 @@ const LISTING_TABS: { value: ListingTab; label: string }[] = [
   { value: 'stale', label: 'Chờ đồng bộ giá' },
   { value: 'failed', label: 'Đăng lỗi' },
   { value: 'held', label: 'Không hiển thị' },
+  { value: 'category', label: 'Đổi category chưa xong' },
 ];
 
 const FAILED_STATUSES: ListingStatus[] = ['push_failed', 'rejected'];
@@ -143,6 +144,8 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
       return Boolean(status && FAILED_STATUSES.includes(status));
     case 'held':
       return Boolean(status && HELD_STATUSES.includes(status));
+    case 'category':
+      return r.categoryChange?.status === 'failed' || r.categoryChange?.status === 'mismatch';
   }
 }
 

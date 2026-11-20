@@ -79,6 +79,8 @@ export interface Shop {
   setup: ShopSetupProgress | null;
   /** Số ngày đổi trả đặt ở thiết lập; null khi sàn tự báo hạn (capabilities.returnWindow = platform_status) */
   returnWindowDays: number | null;
+  /** Số listing có `categoryChange` failed hoặc mismatch (BE chưa trả thì vắng): điều kiện thứ sáu của Cần xử lý (§18.7.2, commerio-backend#467) */
+  categoryChangeIssues?: number;
   /**
    * Phiếu kiểm kê đầu kỳ; khác null là gian hàng còn chờ kiểm kê, trang gian hàng hiện banner dẫn tới phiếu (§18.6.2).
    * Phiếu rejected, cancelled giữ tới khi lập lại phiếu (§18.6.11)
@@ -234,6 +236,20 @@ export interface PendingRevision {
   at: string;
 }
 
+/**
+ * Đổi category trên sàn (`apply-category`, §18.5, commerio-backend#467): `queued` đã xếp việc; `failed` sàn từ chối;
+ * `mismatch` sàn nhận nhưng đọc lại lệch SKU, giá, ảnh. Sàn nhận và không lệch thì listing về null
+ */
+export interface CategoryChange {
+  status: 'queued' | 'failed' | 'mismatch';
+  toCategoryId: string;
+  toCategoryPath: string | null;
+  code: string | null;
+  message: string | null;
+  attempts: number;
+  at: string;
+}
+
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
 
@@ -274,6 +290,10 @@ export interface ChannelListing {
   outsideChange: OutsideChange | null;
   /** Bản sửa nội dung đang chờ sàn duyệt hoặc bị từ chối; null khi không có (§18.3) */
   pendingRevision: PendingRevision | null;
+  /** Ai làm chủ tên, mô tả, ảnh trên sàn: `platform` là người bán tự đăng rồi ghép (§18.3) */
+  contentSource?: 'app' | 'platform';
+  /** Lượt đổi category trên sàn chưa xong hoặc lỗi; null khi không có (§18.5, commerio-backend#467) */
+  categoryChange?: CategoryChange | null;
   stockSync: SyncState;
   priceSync: SyncState;
   stockSyncError: SyncError | null;
@@ -327,6 +347,12 @@ export interface ListingRow {
   /** Tổng phí và thuế của gian hàng trên 50% */
   feeWarning: 'over_50' | null;
   listing: ChannelListing | null;
+  /** Đường dẫn category của listing trên sàn, tra trong cây đã đồng bộ; null khi chưa rõ (§18.5, commerio-backend#467) */
+  externalCategoryPath?: string | null;
+  /** Id category của listing trên sàn; so với `externalCategoryId` của spec để biết lệch (PR #475) */
+  externalCategoryId?: string | null;
+  /** Bằng `listing.categoryChange`; null khi chưa có listing */
+  categoryChange?: CategoryChange | null;
   /**
    * Thông tin sàn (spec) của sản phẩm với sàn của gian hàng: `missing` chưa có, `incomplete` còn thiếu (Documents/21
    * §18.5, thêm 19/11/2026). FE dùng để hiện Bổ sung thông tin sàn và quyết định Đẩy sản phẩm mới
@@ -547,6 +573,8 @@ export interface PlatformCategory {
   name: string;
   /** Cả đường dẫn, vd "Thời trang nam > Áo > Áo thun" */
   path: string;
+  /** `externalId` từ gốc tới chính category, cùng thứ tự với `path` (commerio-backend#467) */
+  pathIds?: string[];
   isLeaf: boolean;
   status: 'active' | 'removed';
 }
@@ -674,4 +702,21 @@ export interface CascadeOption {
 export interface CascadeOptionList {
   prop: { id: string; label: string; required: boolean } | null;
   items: CascadeOption[];
+}
+
+/** Một sản phẩm trên sàn sẽ đổi category; `code = shop_not_connected` là không xếp việc (§18.5 `apply-category`) */
+export interface ApplyCategoryItem {
+  shopId: string;
+  shopName: string;
+  externalProductId: string;
+  listingIds: string[];
+  fromCategoryId: string;
+  fromCategoryPath: string | null;
+  toCategoryId: string;
+  toCategoryPath: string | null;
+  code: 'shop_not_connected' | null;
+}
+
+export interface ApplyCategoryResult {
+  items: ApplyCategoryItem[];
 }
