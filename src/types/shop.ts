@@ -362,6 +362,13 @@ export interface ListingRow {
 
 export type SpecStatus = 'complete' | 'incomplete' | 'missing';
 
+/** Listing của một biến thể ở một gian hàng, cho trang sản phẩm (Documents/21 §18.5 `GET /channel/products/:productId/listings`, commerio-backend#467) */
+export interface ProductListingRow extends ListingRow {
+  shopId: string;
+  shopName: string;
+  platform: Marketplace;
+}
+
 /** SKU đang có trên sàn, BE lấy từ API của sàn (§18.3 `remote-skus`) */
 export interface RemoteSku {
   externalProductId: string;

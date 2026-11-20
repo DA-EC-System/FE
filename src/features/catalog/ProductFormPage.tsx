@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +41,10 @@ import {
   useUpdateProduct,
 } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
+import { useStock } from '@/api/inventory.api';
+import { useProductListingRows, useShops } from '@/api/shops.api';
+import { formatQty } from '@/features/inventory/shared';
+import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +67,11 @@ import { SizeChartField } from './SizeChartField';
 import { HelpTip } from '@/components/common/HelpTip';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { formatCurrency } from '@/utils/format';
+import { ProductMarketplaceCard } from './ProductMarketplaceCard';
+import { ProductSkuSheet } from './ProductSkuSheet';
+import { ProductSummary } from './ProductSummary';
+import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
 
 const PRESENCE_LABELS: Record<VariantPresence, string> = {
   live: 'Đang bán',
@@ -121,6 +130,19 @@ export function ProductFormPage() {
   const archived = product?.status === 'archived';
   const canManage = can(PERMISSIONS.productManage);
   const readOnly = !canManage || archived;
+
+  // US-SP-11 (commerio-backend#467): sàn, listing, tồn theo quyền; thiếu quyền thì không gọi API để khỏi 403
+  const canShop = can(PERMISSIONS.shopView);
+  const canStock = can(PERMISSIONS.stockView);
+  const canCost = can(PERMISSIONS.costView);
+  const shopsQuery = useShops({ enabled: canShop && !isNew });
+  const listingsQuery = useProductListingRows(productId, canShop);
+  const stockQuery = useStock({ productId, pageSize: 100 }, { enabled: canStock && !isNew });
+  const platforms = activePlatforms(shopsQuery.data?.items ?? []);
+  const listingRows = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
+  const listed = useMemo(() => listingsByVariant(listingRows), [listingRows]);
+  const levels = useMemo(() => new Map((stockQuery.data?.items ?? []).map((l) => [l.variantId, l])), [stockQuery.data]);
+  const [skuVariantId, setSkuVariantId] = useState<string | null>(null);
 
   const [images, setImages] = useState<ImageItem[]>([]);
   const [imagesError, setImagesError] = useState<string | undefined>();
@@ -340,6 +362,23 @@ export function ProductFormPage() {
           </AlertMessage>
         )}
 
+        {product && (
+          <ProductSummary
+            tiles={[
+              { label: 'Nhóm hàng', value: product.group.name },
+              { label: 'SKU theo trạng thái', value: businessSummary(product.variants) },
+              {
+                label: 'Tổng có thể bán',
+                value: !canStock ? undefined : stockQuery.isLoading ? null : formatQty(totalAvailable([...levels.values()])),
+              },
+              {
+                label: 'Gian hàng đang bán',
+                value: !canShop ? undefined : listingsQuery.isLoading ? null : String(sellingShopCount(listingRows)),
+              },
+            ]}
+          />
+        )}
+
         <div className="grid gap-4">
           <Card>
             <CardHeader>
@@ -393,6 +432,23 @@ export function ProductFormPage() {
               />
             </CardContent>
           </Card>
+
+          {product && canShop && (
+            <ProductMarketplaceCard
+              companyId={companyId}
+              productId={product.id}
+              platforms={platforms}
+              rows={listingRows}
+              loading={shopsQuery.isLoading || listingsQuery.isLoading}
+              canManage={can(PERMISSIONS.listingManage) && !archived}
+            />
+          )}
+          {product && canShop && listingsQuery.isError && (
+            <AlertMessage severity="warning">Không tải được listing của sản phẩm: {problemMessage(listingsQuery.error)}</AlertMessage>
+          )}
+          {product && canStock && stockQuery.isError && (
+            <AlertMessage severity="warning">Không tải được tồn kho của sản phẩm: {problemMessage(stockQuery.error)}</AlertMessage>
+          )}
 
           <Card>
             <CardHeader>
@@ -471,6 +527,12 @@ export function ProductFormPage() {
                           <TableHead>SKU</TableHead>
                           <TableHead>Thuộc tính phân loại</TableHead>
                           <TableHead>Trạng thái</TableHead>
+                          {canStock && (
+                            <TableHead className="text-right" title="Tồn thực · đang giữ · có thể bán">
+                              Tồn (thực · giữ · bán được)
+                            </TableHead>
+                          )}
+                          {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
                           <TableHead className="text-right">Giá bán lẻ</TableHead>
                           <TableHead className="text-right">Thực nhận mong muốn</TableHead>
                           <TableHead>Cân nặng · kích thước</TableHead>
@@ -487,7 +549,18 @@ export function ProductFormPage() {
                             className={cn(v.businessStatus === 'archived' && 'text-muted-foreground')}
                           >
                             <TableCell className={cn('font-mono', v.businessStatus === 'archived' && 'line-through')}>
-                              {v.sku}
+                              {canStock || canShop ? (
+                                <button
+                                  type="button"
+                                  className="cursor-pointer text-left text-primary hover:underline focus-visible:underline focus-visible:outline-none"
+                                  title="Xem tồn kho và listing của SKU"
+                                  onClick={() => setSkuVariantId(v.id)}
+                                >
+                                  {v.sku}
+                                </button>
+                              ) : (
+                                v.sku
+                              )}
                             </TableCell>
                             <TableCell>
                               {v.attributes.map((a) => `${a.attributeName}: ${a.value}`).join(', ') ||
@@ -508,6 +581,28 @@ export function ProductFormPage() {
                                 </span>
                               )}
                             </TableCell>
+                            {canStock && (
+                              <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-stock">
+                                {(() => {
+                                  const l = levels.get(v.id);
+                                  if (stockQuery.isLoading) return <span className="text-muted-foreground">…</span>;
+                                  if (!l) return <span className="text-muted-foreground">—</span>;
+                                  return (
+                                    <>
+                                      {formatQty(l.onHand)} · {formatQty(l.reserved)} ·{' '}
+                                      <span className={cn('font-semibold', l.state !== 'in_stock' && 'text-destructive')}>
+                                        {formatQty(l.available)}
+                                      </span>
+                                    </>
+                                  );
+                                })()}
+                              </TableCell>
+                            )}
+                            {canStock && canCost && (
+                              <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-cost">
+                                {levels.get(v.id)?.avgCost == null ? '—' : formatCurrency(levels.get(v.id)!.avgCost!)}
+                              </TableCell>
+                            )}
                             <TableCell className="text-right whitespace-nowrap" data-testid="variant-price">
                               {priceText(v.standardPrice)}
                             </TableCell>
@@ -531,14 +626,28 @@ export function ProductFormPage() {
                                 <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {missingText(v)}</div>
                               )}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {v.businessStatus === 'archived'
-                                ? null
-                                : v.presence === undefined
-                                  ? NOT_COMPUTED
-                                  : v.listingCount
-                                  ? `${PRESENCE_LABELS[v.presence]} · ${v.listingCount} gian hàng`
-                                  : PRESENCE_LABELS[v.presence]}
+                            <TableCell data-testid="variant-shops">
+                              {v.businessStatus === 'archived' ? null : canShop && listed.get(v.id)?.length ? (
+                                <span className="flex flex-wrap gap-1">
+                                  {listed.get(v.id)!.map((r) => (
+                                    <Badge
+                                      key={r.shopId}
+                                      variant={LISTING_STATUS_VARIANTS[r.listing!.status]}
+                                      title={`${r.shopName}: ${LISTING_STATUS_LABELS[r.listing!.status]}`}
+                                    >
+                                      {r.shopName} · {LISTING_STATUS_LABELS[r.listing!.status]}
+                                    </Badge>
+                                  ))}
+                                </span>
+                              ) : v.presence === undefined ? (
+                                NOT_COMPUTED
+                              ) : (
+                                <span className="whitespace-nowrap">
+                                  {v.listingCount
+                                    ? `${PRESENCE_LABELS[v.presence]} · ${v.listingCount} gian hàng`
+                                    : PRESENCE_LABELS[v.presence]}
+                                </span>
+                              )}
                             </TableCell>
                             {canManage && (
                               <TableCell className="text-right whitespace-nowrap">
@@ -609,6 +718,17 @@ export function ProductFormPage() {
           />
         )}
       </form>
+      {product && (
+        <ProductSkuSheet
+          companyId={companyId}
+          variant={product.variants.find((v) => v.id === skuVariantId) ?? null}
+          rows={listingRows.filter((r) => r.variantId === skuVariantId)}
+          canStock={canStock}
+          canShop={canShop}
+          canCost={canCost}
+          onClose={() => setSkuVariantId(null)}
+        />
+      )}
       {product && (
         <VariantSpecDialog
           productId={product.id}
