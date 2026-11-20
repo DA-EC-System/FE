@@ -7,14 +7,14 @@ const UUID = '[0-9a-f-]{36}';
 test.describe('P1 · Trang giới thiệu (BE thật)', () => {
   test('AC-1, AC-2: chưa đăng nhập mở / thấy trang giới thiệu, hai nút dẫn tới /register và /login', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Một chỗ cho hàng, kho, đơn và tiền');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hàng hoá, kho, đơn và thu chi');
     expect(duongDan(page)).toBe('/');
-    await expect(page.locator('#luong li')).toHaveCount(7);
+    await expect(page.locator('#how li')).toHaveCount(7);
 
     await page.getByRole('banner').getByRole('link', { name: 'Đăng ký công ty' }).click();
     await expect.poll(() => duongDan(page)).toBe('/register');
     await page.goBack();
-    await page.getByRole('link', { name: 'Tôi đã có tài khoản' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Đăng nhập' }).click();
     await expect.poll(() => duongDan(page)).toBe('/login');
   });
 
@@ -35,7 +35,7 @@ test.describe('P1 · Trang giới thiệu (BE thật)', () => {
     test('AC-3: mở / thì vào thẳng công ty, không thấy trang giới thiệu', async () => {
       await cty.page.goto('/');
       await expect.poll(() => duongDan(cty.page)).toMatch(new RegExp(`^/c/${UUID}`));
-      await expect(cty.page.getByRole('heading', { name: 'Một chỗ cho hàng, kho, đơn và tiền' })).toHaveCount(0);
+      await expect(cty.page.getByRole('heading', { name: 'Hàng hoá, kho, đơn và thu chi' })).toHaveCount(0);
     });
   });
 });
