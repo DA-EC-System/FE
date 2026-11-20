@@ -38,7 +38,7 @@ import type {
   ShopCallbackResult,
   ShopConnectInput,
   ShopDeleteInput,
-  ProductListingRow,
+  ProductListingsResponse,
   ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpeningStocktakeRestart,
@@ -699,14 +699,42 @@ export function usePlatformCascade(
  * Listing của sản phẩm ở mọi gian hàng chưa ngắt, mỗi biến thể chưa lưu trữ × gian hàng một dòng (Documents/21 §18.5,
  * commerio-backend#467). Trang sản phẩm dùng; cùng nhóm khoá `shops` nên thao tác listing làm mới luôn
  */
-export function useProductListingRows(productId: string | undefined, enabled = true) {
-  const companyId = useCompanyId();
-  return useQuery({
+function productListingsQuery(companyId: string, productId: string | undefined, enabled: boolean) {
+  return {
     queryKey: shopKeys.productListings(companyId, productId ?? ''),
     enabled: Boolean(companyId && productId) && enabled,
     queryFn: async () => {
-      const { data } = await apiClient.get<{ items: ProductListingRow[] }>(`/channel/products/${productId}/listings`);
-      return data.items;
+      const { data } = await apiClient.get<ProductListingsResponse>(`/channel/products/${productId}/listings`);
+      return data;
+    },
+  };
+}
+
+export function useProductListingRows(productId: string | undefined, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({ ...productListingsQuery(companyId, productId, enabled), select: (d) => d.items });
+}
+
+/** Gian hàng có SKU của sản phẩm đang là nhiều sản phẩm riêng trên sàn (§18.8.4); chung cache với danh sách listing */
+export function useSeparateProducts(productId: string | undefined, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({ ...productListingsQuery(companyId, productId, enabled), select: (d) => d.separateProducts ?? [] });
+}
+
+/**
+ * Gom các sản phẩm sàn lẻ của sản phẩm thành một sản phẩm nhiều phân loại (Documents/21 §18.8.4, commerio-backend#295).
+ * Chỉ CEO. 202 `{ queued: true }`; việc nền tạo sản phẩm mới rồi gỡ sản phẩm lẻ, FE tải lại danh sách sau khoảng 15 giây
+ */
+export function useRegroupProduct() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ shopId, productId }: { shopId: string; productId: string }) => {
+      const { data } = await apiClient.post<{ queued: true }>(`/channel/shops/${shopId}/products/${productId}/regroup`, {});
+      return data;
+    },
+    onSuccess: () => {
+      void invalidate();
+      setTimeout(() => void invalidate(), 15_000);
     },
   });
 }

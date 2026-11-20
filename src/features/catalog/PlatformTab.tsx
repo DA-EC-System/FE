@@ -55,6 +55,7 @@ import { CategoryPath } from './CategoryPath';
 import { focusField } from './focusField';
 import { usePlatformTab } from './usePlatformTab';
 import { RemoteSuggestion } from './RemoteSuggestion';
+import { RegroupNotice } from './RegroupNotice';
 import { platformLabel } from './platformCategory';
 import { platformDrift } from './productOverview';
 import {
@@ -460,6 +461,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
         </Section>
 
         <Section id={platformSectionId(platform, 'sales')} title={sections.find((s) => s.key === 'sales')!.title} perShop>
+          <RegroupNotice productId={product.id} platform={platform} shops={shops} />
           <SalesTable companyId={companyId} platform={platform} rows={rows} />
         </Section>
 
