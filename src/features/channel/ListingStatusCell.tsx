@@ -35,7 +35,8 @@ const CATEGORY_CHANGE_LABELS: Record<CategoryChange['status'], string> = {
 function categoryChangeHint(c: CategoryChange) {
   const to = c.toCategoryPath ? ` sang ${c.toCategoryPath}` : '';
   if (c.status === 'queued') return `Đang gửi lên sàn đổi category${to}.`;
-  return `${c.message ?? 'Sàn không nhận bản đổi category.'} · ${formatDateTime(c.at)}`;
+  // Câu lỗi đã hiện ngay dưới nhãn (khi có), gợi ý chỉ nói đổi sang đâu và lúc nào
+  return `${c.message ? `Đổi category${to}` : 'Sàn không nhận bản đổi category.'} · ${formatDateTime(c.at)}`;
 }
 
 /** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */

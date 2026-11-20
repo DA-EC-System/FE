@@ -33,6 +33,16 @@ export function CategoryColumns({ platform, label, selected, trail, onTrail, onS
   const pending = useRef<PendingFocus | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const parents: (string | null)[] = [null, ...trail];
+  // Tên nhánh đang mở cho nút quay lại trên điện thoại: đọc từ cột chứa nó (cùng khoá truy vấn với cột đó, không gọi thêm)
+  const openParent = trail.length >= 2 ? trail[trail.length - 2]! : null;
+  const openLevel = usePlatformCategories(platform, openParent ? { parentId: openParent } : {}, trail.length > 0);
+  const openName = openLevel.data?.items.find((c) => c.externalId === trail.at(-1))?.name;
+
+  // Cột vừa mở có thể nằm khuất bên phải khung: cuộn khung tới cột cuối
+  useEffect(() => {
+    const el = root.current;
+    if (el && el.scrollWidth > el.clientWidth) el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+  }, [trail.length]);
 
   const focusItem = (col: number, index: number) => {
     const el = root.current?.querySelector<HTMLElement>(`[data-col="${col}"][data-index="${index}"]`);
@@ -74,7 +84,8 @@ export function CategoryColumns({ platform, label, selected, trail, onTrail, onS
     <div>
       {trail.length > 0 && (
         <Button type="button" variant="ghost" size="sm" className="mb-1 sm:hidden" onClick={() => onTrail(trail.slice(0, -1))}>
-          <ChevronLeft className="size-4" /> Quay lại cấp trên
+          <ChevronLeft className="size-4" aria-hidden /> {openName ?? 'Quay lại cấp trên'}
+          {openName && <span className="sr-only"> (quay lại cấp trên)</span>}
         </Button>
       )}
       <div
@@ -148,12 +159,10 @@ function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pen
   if (level.isError) {
     return (
       <div className={frame} aria-label={`Cấp ${col + 1}`}>
-        <p className="p-2 text-sm text-destructive-text">
-          {problemMessage(level.error)}{' '}
-          <button type="button" className="underline" onClick={() => void level.refetch()}>
-            Thử lại
-          </button>
-        </p>
+        <p className="p-2 text-sm text-destructive-text">{problemMessage(level.error)}</p>
+        <Button type="button" variant="outline" size="sm" className="mx-2" onClick={() => void level.refetch()}>
+          Thử lại
+        </Button>
       </div>
     );
   }
@@ -181,7 +190,7 @@ function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pen
             key={c.externalId}
             type="button"
             role="option"
-            aria-selected={isSelected || isOpen}
+            aria-selected={isSelected}
             data-col={col}
             data-index={index}
             data-id={c.externalId}

@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
-import type { ProductSpecResult, Shop, SizeChartRule } from '@/types/shop';
+import type { ListingRow, ProductSpecResult, Shop, SizeChartRule } from '@/types/shop';
 import { CategoryPath } from '@/features/catalog/CategoryPath';
 import {
   applyCategoryError,
@@ -39,6 +39,18 @@ interface Props {
   sizeChartRule: SizeChartRule | null;
   /** Nạp lại bản nháp khi BE báo `version_conflict` */
   onConflict: (current: ProductSpecResult) => void;
+}
+
+/** Gom dòng listing theo (gian hàng, sản phẩm sàn), giữ dòng đầu và số SKU */
+function byRemoteProduct<T extends { shopId: string; row: ListingRow }>(items: T[]) {
+  const groups = new Map<string, T & { key: string; skus: number }>();
+  for (const it of items) {
+    const key = `${it.shopId}/${it.row.listing?.externalProductId ?? it.row.variantId}`;
+    const g = groups.get(key);
+    if (g) g.skus += 1;
+    else groups.set(key, { ...it, key, skus: 1 });
+  }
+  return [...groups.values()];
 }
 
 /** Đường dẫn category trên sàn; chưa có đường dẫn (cây chưa đồng bộ) thì hiện id */
@@ -105,11 +117,20 @@ export function CategoryChangeBlock({
   const mismatch = changeRows.filter(({ row }) => row.categoryChange?.status === 'mismatch');
   const auditing = onPlatform.filter(({ row }) => row.listing?.pendingRevision?.status === 'auditing');
   const revisionFailed = onPlatform.filter(({ row }) => row.listing?.pendingRevision?.status === 'failed');
+  // Lượt đổi chạy theo sản phẩm trên sàn: mọi SKU cùng (gian hàng, sản phẩm sàn) mang cùng lỗi, mỗi sản phẩm một thông báo
+  const failedGroups = byRemoteProduct(failed);
+  const mismatchGroups = byRemoteProduct(mismatch);
+  const revisionFailedGroups = byRemoteProduct(revisionFailed);
   const queuedProducts = new Set(queued.map(({ shopId, row }) => `${shopId}/${row.listing?.externalProductId}`)).size;
 
   const platformOwned = drift.some((d) => d.platformOwned);
   const ceoBlocked = platformOwned && !isCeo;
   const shopName = (id: string) => shops.find((s) => s.id === id)?.shopName ?? '';
+  const sellerCenter = SELLER_CENTER[platform] && (
+    <a className="font-medium underline" href={SELLER_CENTER[platform]} target="_blank" rel="noreferrer">
+      Mở Seller Center
+    </a>
+  );
 
   const confirm = async () => {
     if (!saved.spec) return;
@@ -163,23 +184,21 @@ export function CategoryChangeBlock({
           {label} đang duyệt bản sửa mới; bản cũ vẫn bán.
         </AlertMessage>
       )}
-      {failed.map(({ shopId, row }) => (
-        <AlertMessage key={row.variantId} severity="error">
-          {shopName(shopId)}: {row.categoryChange?.message ?? 'Sàn không nhận bản đổi category.'}
+      {failedGroups.map(({ key, shopId, row, skus }) => (
+        <AlertMessage key={key} severity="error">
+          {shopName(shopId)}
+          {skus > 1 ? ` (${skus} SKU)` : ''}: {row.categoryChange?.message ?? 'Sàn không nhận bản đổi category.'} {sellerCenter}
         </AlertMessage>
       ))}
-      {mismatch.map(({ shopId, row }) => (
-        <AlertMessage key={row.variantId} severity="warning">
-          {shopName(shopId)}: {row.categoryChange?.message ?? 'Sau khi đổi category, sản phẩm trên sàn lệch với Commerio.'}{' '}
-          {SELLER_CENTER[platform] && (
-            <a className="font-medium underline" href={SELLER_CENTER[platform]} target="_blank" rel="noreferrer">
-              Mở Seller Center
-            </a>
-          )}
+      {mismatchGroups.map(({ key, shopId, row, skus }) => (
+        <AlertMessage key={key} severity="warning">
+          {shopName(shopId)}
+          {skus > 1 ? ` (${skus} SKU)` : ''}:{' '}
+          {row.categoryChange?.message ?? 'Sau khi đổi category, sản phẩm trên sàn lệch với Commerio.'} {sellerCenter}
         </AlertMessage>
       ))}
-      {revisionFailed.map(({ shopId, row }) => (
-        <AlertMessage key={`rev-${row.variantId}`} severity="error">
+      {revisionFailedGroups.map(({ key, shopId, row }) => (
+        <AlertMessage key={`rev-${key}`} severity="error">
           {shopName(shopId)}: {label} không duyệt bản sửa
           {row.listing?.pendingRevision?.rejectReason ? `: ${row.listing.pendingRevision.rejectReason}` : '.'}
         </AlertMessage>
@@ -195,7 +214,8 @@ export function CategoryChangeBlock({
       )}
 
       {showWarning && (
-        <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm" data-testid="category-drift">
+        <AlertMessage severity="warning">
+          <div data-testid="category-drift">
           <p className="font-semibold">
             Category trong Commerio khác trên {label} ở {drift.length} sản phẩm.
           </p>
@@ -219,12 +239,13 @@ export function CategoryChangeBlock({
                 disabled={dirty || queued.length > 0 || apply.isPending}
                 onClick={() => setConfirming(true)}
               >
-                {failed.length || mismatch.length ? 'Thử lại: ' : ''}Đổi category trên {label}
+                {failed.length || mismatch.length ? `Gửi lại category lên ${label}` : `Đổi category trên ${label}`}
               </Button>
             )}
             {dirty && !ceoBlocked && canManage && <p className="mt-1 text-xs text-muted-foreground">Lưu thông tin sàn trước.</p>}
           </div>
-        </div>
+          </div>
+        </AlertMessage>
       )}
 
       <ConfirmDialog
@@ -242,8 +263,8 @@ export function CategoryChangeBlock({
             <ul className="list-disc pl-5">
               {drift.map((d) => (
                 <li key={`${d.shopId}/${d.externalProductId}`}>
-                  {shopName(d.shopId)} · <span className="font-mono text-xs">{d.externalProductId}</span> (
-                  {d.status === 'live' ? 'đang bán' : 'đang ẩn'})
+                  {shopName(d.shopId)} · {d.rows[0]?.productName}
+                  {d.rows.length > 1 ? ` (${d.rows.length} SKU)` : ''} · {d.status === 'live' ? 'đang bán' : 'đang ẩn'}
                 </li>
               ))}
             </ul>

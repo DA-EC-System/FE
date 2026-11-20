@@ -69,7 +69,6 @@ export function CategoryStep({ platform, label, companyId, shopId, product, draf
         platform={platform}
         label={label}
         selected={draft.externalCategoryId}
-        selectedPath={draft.categoryPath}
         pathIds={pathIds}
         onPick={onPick}
       />
@@ -205,14 +204,12 @@ function CategoryBrowser({
   platform,
   label,
   selected,
-  selectedPath,
   pathIds,
   onPick,
 }: {
   platform: string;
   label: string;
   selected: string | null;
-  selectedPath: string;
   pathIds: string[] | null;
   onPick: (c: PlatformCategory) => void;
 }) {
@@ -260,19 +257,8 @@ function CategoryBrowser({
       ) : (
         <CategoryColumns platform={platform} label={label} selected={selected} trail={trail} onTrail={setTrail} onSelect={onPick} />
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span>
-          {selected ? (
-            <>
-              <span className="text-muted-foreground">Đang chọn: </span>
-              <CategoryPath path={selectedPath} />
-            </>
-          ) : (
-            <span className="text-muted-foreground">Chưa chọn category cấp cuối.</span>
-          )}
-        </span>
-        {selected && <span className="font-mono text-xs text-muted-foreground">{selected}</span>}
-      </div>
+      {/* Đã chọn thì thẻ "Đang chọn" ở đầu bước đã hiện đường dẫn, không lặp lại ở đây */}
+      {!selected && <p className="text-sm text-muted-foreground">Chưa chọn category cấp cuối.</p>}
       {query && (
         <Button type="button" variant="link" size="sm" className="h-auto justify-self-start p-0" onClick={() => setQuery('')}>
           Xoá ô tìm
