@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { HelpTip } from '@/components/common/HelpTip';
 import { AttachmentField, type AttachmentItem } from '@/components/common/AttachmentField';
+import { EVIDENCE_IMAGE_TYPES } from '@/utils/files';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -154,6 +155,7 @@ export function PlatformRejectDialog({ request, open, onClose }: PlatformRejectD
                 onBusyChange={setUploading}
                 disabled={loading}
                 error={attachmentError}
+                types={EVIDENCE_IMAGE_TYPES}
               />
             </div>
             <DialogFooter>

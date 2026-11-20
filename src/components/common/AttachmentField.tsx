@@ -4,7 +4,7 @@ import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { uploadFile } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
-import { ATTACHMENT_TYPES, MAX_ATTACHMENTS, attachmentFileError } from '@/utils/files';
+import { ATTACHMENT_TYPES, MAX_ATTACHMENTS, attachmentFileError, typesLabel } from '@/utils/files';
 
 export interface AttachmentItem {
   fileId: string;
@@ -21,13 +21,15 @@ interface AttachmentFieldProps {
   onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
   error?: string;
+  /** Kiểu tệp nhận; mặc định mọi kiểu đính kèm. Ảnh gửi lên sàn chỉ JPG, PNG (`EVIDENCE_IMAGE_TYPES`). */
+  types?: readonly string[];
 }
 
 /**
  * Đính kèm chứng từ: ảnh hàng lỗi, biên bản giao nhận, mã khiếu nại sàn (FE#55).
  * Cùng cách tải lên với ảnh sản phẩm (catalog/ProductImagesField): xin vé rồi PUT thẳng lên kho.
  */
-export function AttachmentField({ value, onChange, onBusyChange, disabled, error }: AttachmentFieldProps) {
+export function AttachmentField({ value, onChange, onBusyChange, disabled, error, types = ATTACHMENT_TYPES }: AttachmentFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
   const [problems, setProblems] = useState<string[]>([]);
@@ -39,7 +41,7 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
     if (!list?.length) return;
     const found: string[] = [];
     const valid = Array.from(list).filter((f) => {
-      const message = attachmentFileError(f);
+      const message = attachmentFileError(f, types);
       if (message) found.push(message);
       return !message;
     });
@@ -123,7 +125,7 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
         type="file"
         hidden
         multiple
-        accept={ATTACHMENT_TYPES.join(',')}
+        accept={types.join(',')}
         data-testid="attachment-input"
         onChange={(e) => {
           void pick(e.target.files);
@@ -133,7 +135,7 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
 
       {!disabled && (
         <p className="text-xs text-muted-foreground">
-          Ảnh JPG, PNG, WebP hoặc PDF, tối đa 10 MB mỗi tệp, {MAX_ATTACHMENTS} tệp.
+          {types.every((t) => t.startsWith('image/')) ? 'Ảnh' : 'Tệp'} {typesLabel(types)}, tối đa 10 MB mỗi tệp, {MAX_ATTACHMENTS} tệp.
         </p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
