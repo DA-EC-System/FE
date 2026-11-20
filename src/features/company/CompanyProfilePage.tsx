@@ -13,14 +13,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCompanyProfile, useUpdateCompanyProfile } from '@/api/companySettings.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import type { CompanyProfile } from '@/types/companySettings';
+import { taxCodeSchema } from '@/features/auth/schemas';
 import { PROFILE_MAX, toProfileBody, toProfileForm, type CompanyProfileForm } from './companyProfile';
 
 const text = z.string().max(PROFILE_MAX, `Tối đa ${PROFILE_MAX} ký tự`);
-const schema = z.object({ address: text, responsibleName: text, responsibleAddress: text });
+const schema = z.object({
+  // Để trống thì không gửi; có nhập thì kiểm như lúc đăng ký (commerio-backend#459)
+  taxCode: z.union([z.literal(''), taxCodeSchema]),
+  address: text,
+  responsibleName: text,
+  responsibleAddress: text,
+});
 
 const PAGE_HELP = (
   <>
-    Tên và mã số thuế lấy từ lúc đăng ký công ty, không sửa ở đây. Tổ chức chịu trách nhiệm hàng hoá được điền sẵn vào
+    Tên và mã số thuế lấy từ lúc đăng ký công ty, không sửa ở đây. Mã số thuế bị quản trị Commerio gỡ (công ty giữ mã
+    của doanh nghiệp khác) thì CEO, Admin nhập mã đúng ở đây. Tổ chức chịu trách nhiệm hàng hoá được điền sẵn vào
     thuộc tính sàn (TikTok) khi ghép danh mục và khi đăng sản phẩm. Để trống thì dùng tên, địa chỉ của công ty.
   </>
 );
@@ -77,7 +85,7 @@ function ProfileForm({ profile }: { profile: CompanyProfile }) {
         }
         const fields = problem?.errors ?? {};
         let hasField = false;
-        for (const k of ['address', 'responsibleName', 'responsibleAddress'] as const) {
+        for (const k of ['taxCode', 'address', 'responsibleName', 'responsibleAddress'] as const) {
           if (fields[k]) {
             setFieldError(k, { message: fields[k] });
             hasField = true;
@@ -106,6 +114,18 @@ function ProfileForm({ profile }: { profile: CompanyProfile }) {
               {profile.taxCode ?? <span className="text-muted-foreground">Chưa có mã số thuế</span>}
             </dd>
           </dl>
+          {profile.taxCode === null && (
+            <div className="border-t px-4 py-4">
+              <FormTextField
+                control={control}
+                name="taxCode"
+                label="Nhập mã số thuế"
+                placeholder="0123456789"
+                inputMode="numeric"
+                description="Nhập một lần, lưu xong không tự sửa được. Không nhận mã đã bị quản trị Commerio gỡ khỏi công ty."
+              />
+            </div>
+          )}
           <div className="border-t px-4 py-4">
             <FormTextField
               control={control}

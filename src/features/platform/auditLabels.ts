@@ -7,4 +7,5 @@ export const AUDIT_ACTION_LABELS: Record<
   'company.registered': { label: 'Đăng ký mới', variant: 'info' },
   'company.locked': { label: 'Khoá công ty', variant: 'destructive' },
   'company.unlocked': { label: 'Mở khoá công ty', variant: 'success' },
+  'company.tax_code_released': { label: 'Gỡ mã số thuế', variant: 'destructive' },
 };

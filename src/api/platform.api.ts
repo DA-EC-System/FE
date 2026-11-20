@@ -98,6 +98,21 @@ export function useLockCompany() {
   });
 }
 
+/**
+ * Gỡ mã số thuế (commerio-backend#459, Documents/21 mục 2.1): công ty giữ mã không phải của mình. Lỗi 409
+ * `invalid_transition` (đã không có mã) hoặc `version_conflict` kèm `current`; danh sách tải lại ở onSettled.
+ */
+export function useReleaseTaxCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: LockCompanyInput & { id: string }) => {
+      const { data } = await apiClient.post<Company>(`/platform/companies/${id}/release-tax-code`, input);
+      return data;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: platformKeys.all }),
+  });
+}
+
 export function useUnlockCompany() {
   const qc = useQueryClient();
   return useMutation({

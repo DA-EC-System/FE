@@ -6,7 +6,9 @@
 export type PlatformAuditAction =
   | 'company.registered'
   | 'company.locked'
-  | 'company.unlocked';
+  | 'company.unlocked'
+  /** Quản trị nền tảng gỡ mã số thuế của công ty, kèm lý do (commerio-backend#459) */
+  | 'company.tax_code_released';
 
 export interface PlatformAuditLog {
   id: string;
