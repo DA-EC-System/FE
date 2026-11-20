@@ -69,7 +69,7 @@ test.describe('P1-BE · Đăng ký, đăng nhập (commerio-backend#4)', () => {
     };
     for (const [name, value] of Object.entries(values)) await page.locator(`input[name="${name}"]`).fill(value);
     await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
-    await thayChu(page, `Mã xác minh đã gửi tới ${values.email}`);
+    await thayChu(page, `Nhập mã 6 số gửi tới ${values.email}`);
     // Worker ghi mã thử sau khi nhận việc nền: chờ một nhịp rồi nhập
     await page.waitForTimeout(2000);
     await page.locator('input[name=code]').fill(maThu());
@@ -91,7 +91,7 @@ test.describe('P1-BE · Đăng ký, đăng nhập (commerio-backend#4)', () => {
     };
     for (const [name, value] of Object.entries(values)) await page.locator(`input[name="${name}"]`).fill(value);
     await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
-    await thayChu(page, `Mã xác minh đã gửi tới ${values.email}`);
+    await thayChu(page, `Nhập mã 6 số gửi tới ${values.email}`);
     await page.waitForTimeout(2000);
     await page.locator('input[name=code]').fill(maThu());
     await page.getByRole('button', { name: 'Xác minh và vào công ty', exact: true }).click();
