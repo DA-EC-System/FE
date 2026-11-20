@@ -5,6 +5,7 @@
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
+import axios from 'axios';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -83,14 +84,22 @@ export function useSaveSpecMapping(platform: string) {
   });
 }
 
+/**
+ * `null`: máy chủ chưa có ghép trục cho sàn này (404, commerio-backend#512 chưa lên), hiện "chưa hỗ trợ" thay vì lỗi tải
+ */
 export function useAxisMappings(platform: string, enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: keys.axis(companyId, platform),
     enabled: Boolean(companyId) && enabled,
-    queryFn: async () => {
-      const { data } = await apiClient.get<{ items: AxisMapping[] }>(`/channel/platforms/${platform}/axis-mappings`);
-      return data.items;
+    queryFn: async (): Promise<AxisMapping[] | null> => {
+      try {
+        const { data } = await apiClient.get<{ items: AxisMapping[] }>(`/channel/platforms/${platform}/axis-mappings`);
+        return data.items;
+      } catch (e) {
+        if (axios.isAxiosError(e) && e.response?.status === 404) return null;
+        throw e;
+      }
     },
   });
 }

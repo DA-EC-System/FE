@@ -27,6 +27,8 @@ export function AxisMappingLine({ attribute, platform, label }: { attribute: Att
       <span className="w-20 shrink-0 text-xs text-muted-foreground">{label}</span>
       {query.isLoading ? (
         <span className="text-muted-foreground">…</span>
+      ) : query.data === null ? (
+        <span className="text-xs text-muted-foreground">Chưa hỗ trợ</span>
       ) : codes.length ? (
         <Badge variant="secondary">{codes[0].attributeLabel}</Badge>
       ) : row?.defaultCodes.length ? (
@@ -127,6 +129,19 @@ function PlatformAxis({
 
   if (query.isLoading) return <Skeleton className="mt-3 h-24 w-full" />;
   if (query.isError) return <AlertMessage severity="error" className="mt-3">{problemMessage(query.error)}</AlertMessage>;
+  if (query.data === null)
+    return (
+      <div className="mt-3 grid gap-4">
+        <AlertMessage severity="info">
+          Máy chủ chưa hỗ trợ ghép phân loại sang {platformName}. Mở lại sau khi bản cập nhật lên.
+        </AlertMessage>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Đóng
+          </Button>
+        </DialogFooter>
+      </div>
+    );
 
   return (
     <div className="mt-3 grid gap-4">
