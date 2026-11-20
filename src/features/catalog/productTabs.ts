@@ -31,7 +31,17 @@ export const SHARED_TARGETS = {
   /** Card "Thông số của nhóm" ở tab Commerio (thông số gốc ánh xạ sang attribute sàn) */
   specs: 'product-field-specs',
 } as const;
-export type SharedTarget = keyof typeof SHARED_TARGETS;
+export type SharedTarget = keyof typeof SHARED_TARGETS | `spec:${string}`;
+
+/**
+ * id phần tử cần focus khi nhảy sang tab Commerio. `spec:<fieldId>` là đúng ô thông số của nhóm
+ * (`product-field-spec-<fieldId>`), không có ô đó thì về card "Thông số của nhóm"
+ */
+export function sharedTargetId(t: SharedTarget, exists: (id: string) => boolean): string {
+  if (!t.startsWith('spec:')) return SHARED_TARGETS[t as keyof typeof SHARED_TARGETS];
+  const id = `product-field-spec-${t.slice('spec:'.length)}`;
+  return exists(id) ? id : SHARED_TARGETS.specs;
+}
 
 /** id ô attribute ở tab sàn; khác id của trang đẩy để hai trang không đụng nhau */
 export const platformFieldId = (platform: string, code: string) => `ptab-${platform}-${code.replace(/\W/g, '_')}`;

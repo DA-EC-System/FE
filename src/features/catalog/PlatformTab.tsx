@@ -734,7 +734,14 @@ function AttributeRow({
   const source = attributeSource(a, fieldSources, valueSource(a.code, overrides, resolved));
   const isProduct = a.tier === 'product';
   const fieldName = productFieldName(a.code);
-  const jumpTarget: SharedTarget = ORIGIN_CODES.has(a.code) ? 'origin' : BRAND_CODES.has(a.code) ? 'brand' : 'specs';
+  const fieldId = resolved?.[a.code]?.fieldId;
+  const jumpTarget: SharedTarget = ORIGIN_CODES.has(a.code)
+    ? 'origin'
+    : BRAND_CODES.has(a.code)
+      ? 'brand'
+      : fieldId
+        ? `spec:${fieldId}`
+        : 'specs';
   const showEditor = canEdit && (editing || overridden || (!isFilled(value) && !isProduct));
   const id = platformFieldId(platform, a.code);
 
