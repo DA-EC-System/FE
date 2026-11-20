@@ -8,9 +8,10 @@
  */
 import catalogShot from '@/assets/landing/mod-catalog.jpg';
 import inventoryShot from '@/assets/landing/mod-inventory.jpg';
-import ledgerShot from '@/assets/landing/mod-ledger.jpg';
+
 import packagesShot from '@/assets/landing/mod-packages.jpg';
 import returnsShot from '@/assets/landing/mod-returns.jpg';
+import settlementsShot from '@/assets/landing/mod-settlements.jpg';
 import shopsShot from '@/assets/landing/mod-shops.jpg';
 
 export type LandingTint = 'primary' | 'success' | 'warning' | 'purple' | 'destructive' | 'info';
@@ -120,10 +121,10 @@ export const LANDING_MODULES: LandingModule[] = [
     text: 'Sổ giao dịch ghi doanh thu, phí, thuế theo đơn và gian hàng. Đối soát số sàn trả với số phải thu.',
     points: ['Lợi nhuận theo đơn và theo SKU', 'Phí sàn và thuế cấu hình theo phiên bản'],
     shot: {
-      src: ledgerShot,
+      src: settlementsShot,
       width: 1640,
-      height: 450,
-      alt: 'Màn Sổ giao dịch: phải thu sàn, số dư tại sàn, đã rút về ngân hàng',
+      height: 572,
+      alt: 'Màn Đối soát công nợ sàn: số đơn chờ sàn thanh toán và bảng phải thu theo từng đơn',
     },
   },
 ];
