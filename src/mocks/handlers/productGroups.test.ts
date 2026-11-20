@@ -1,8 +1,7 @@
 // Nhóm hàng, cài đặt sản phẩm, tạo sản phẩm với trục phân loại (FE#350, Documents/21 §5.2)
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupServer } from 'msw/node';
-import { planBody } from '@/features/catalog/VariantBuilder';
-import type { Attribute, ProductDetail, ProductGroup } from '@/types/catalog';
+import type { ProductDetail, ProductGroup } from '@/types/catalog';
 import { attributes, groups, productSettings, products } from '../catalogData';
 import { catalogHandlers } from './catalog';
 
@@ -37,26 +36,6 @@ const call = (path: string, method = 'GET', body?: unknown) =>
 
 const create = (body: Record<string, unknown>) =>
   call('/catalog/products', 'POST', { description: '', imageFileIds: [], groupId: 'cat-ao', ...body });
-
-describe('planBody: kế hoạch chọn thuộc tính có sẵn → axes, variants', () => {
-  const attrs = [
-    { id: 'a1', name: 'Màu sắc', values: [{ id: 'd', value: 'Đen' }, { id: 't', value: 'Trắng' }] },
-    { id: 'a2', name: 'Kích cỡ', values: [{ id: 'm', value: 'M' }, { id: 'l', value: 'L' }] },
-  ] as unknown as Attribute[];
-
-  it('giữ thứ tự thuộc tính và giá trị như danh sách, bỏ tổ hợp đã loại', () => {
-    const body = planBody({ attributeIds: ['a2', 'a1'], values: { a1: ['t', 'd'], a2: ['m'] }, excluded: ['m|t'] }, attrs);
-    expect(body.axes).toEqual([
-      { attributeId: 'a1', values: [{ id: 'd', value: 'Đen' }, { id: 't', value: 'Trắng' }] },
-      { attributeId: 'a2', values: [{ id: 'm', value: 'M' }] },
-    ]);
-    expect(body.variants).toEqual([{ options: ['Đen', 'M'] }]);
-  });
-
-  it('không chọn thuộc tính: không trục, một biến thể rỗng', () => {
-    expect(planBody({ attributeIds: [], values: {}, excluded: [] }, attrs)).toEqual({ axes: [], variants: [{ options: [] }] });
-  });
-});
 
 describe('Nhóm hàng', () => {
   it('GET trả { items } kèm productCount, suggest', async () => {

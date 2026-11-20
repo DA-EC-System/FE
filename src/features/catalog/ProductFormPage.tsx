@@ -21,13 +21,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -60,7 +53,9 @@ import { priceText } from '@/utils/price';
 import { mainLabel, variantMachine } from '@/lib/machines/product';
 import { MISSING_LABELS, type ProductDetail, type ProductVariant, type VariantPresence } from '@/types/catalog';
 import { ProductImagesField, type ImageItem } from './ProductImagesField';
-import { VariantBuilder, emptyPlan, planBody, planError, type VariantPlan } from './VariantBuilder';
+import { VariationEditor } from './VariationEditor';
+import { GroupCombobox } from './GroupCombobox';
+import { axisServerErrors, draftBody, draftError, emptyDraft, type VariantDraft } from './variantDraft';
 import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
 import { productSchema, sizeChartPatch, type ProductForm } from './shared';
@@ -133,8 +128,10 @@ export function ProductFormPage() {
   const [sizeChart, setSizeChart] = useState<ImageItem | null>(null);
   const [sizeChartError, setSizeChartError] = useState<string | undefined>();
   const [chartUploading, setChartUploading] = useState(false);
-  const [plan, setPlan] = useState<VariantPlan>(emptyPlan);
+  const [draft, setDraft] = useState<VariantDraft>(emptyDraft);
   const [variantsError, setVariantsError] = useState<string | null>(null);
+  const [axisErrorsFromServer, setAxisErrorsFromServer] = useState<string[][]>([]);
+  const [submitted, setSubmitted] = useState(false);
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -194,7 +191,10 @@ export function ProductFormPage() {
     });
     setImagesError(fieldErrors.images);
     setSizeChartError(fieldErrors.sizeChart);
-    setVariantsError(fieldErrors.variants ?? null);
+    // Lỗi trục phân loại theo nhóm (`axes.i.*`), lỗi `axes`/`variants` hiện dưới bảng
+    const { byAxis, general } = axisServerErrors(fieldErrors, draft.axes.length);
+    setAxisErrorsFromServer(byAxis);
+    setVariantsError(general[0] ?? null);
     return true;
   };
 
@@ -205,14 +205,16 @@ export function ProductFormPage() {
     const imageFileIds = images.map((i) => i.fileId);
     try {
       if (isNew) {
-        const problem = planError(plan, attributes);
+        setSubmitted(true);
+        setAxisErrorsFromServer([]);
+        const problem = draftError(draft);
         setVariantsError(problem);
         if (problem) return;
         const created = await createMut.mutateAsync({
           ...values,
           imageFileIds,
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
-          ...planBody(plan, attributes),
+          ...draftBody(draft, attributes),
         });
         toast.success(`Đã tạo ${created.name} với ${created.variants.length} variant`);
         navigate(ROUTES.company.catalogProduct(companyId, created.id), { replace: true });
@@ -357,28 +359,18 @@ export function ProductFormPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nhóm hàng</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={readOnly || groupsQuery.isLoading}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full" aria-label="Nhóm hàng">
-                          <SelectValue placeholder={groupsQuery.isLoading ? 'Đang tải nhóm hàng…' : 'Chọn nhóm hàng'} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {groups.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>
-                            {g.name}
-                          </SelectItem>
-                        ))}
-                        {/* Nhóm của sản phẩm có thể chưa nạp xong */}
-                        {product && !groups.some((g) => g.id === product.group.id) && (
-                          <SelectItem value={product.group.id}>{product.group.name}</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <GroupCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                        groups={groups}
+                        fallback={product?.group}
+                        loading={groupsQuery.isLoading}
+                        disabled={readOnly}
+                        invalid={Boolean(form.formState.errors.groupId)}
+                        canCreate={can(PERMISSIONS.productManage) || can(PERMISSIONS.catalogSetup)}
+                      />
+                    </FormControl>
                     <FormMessage />
                     {!form.formState.errors.groupId && !readOnly && (
                       <FormDescription>Để lọc sản phẩm trong app; mã SKU sinh theo mẫu của công ty</FormDescription>
@@ -456,16 +448,19 @@ export function ProductFormPage() {
             </CardHeader>
             <CardContent>
               {isNew ? (
-                <VariantBuilder
+                <VariationEditor
                   attributes={attributes}
                   loading={attributesQuery.isLoading}
                   settings={settingsQuery.data}
-                  value={plan}
+                  value={draft}
                   onChange={(next) => {
-                    setPlan(next);
+                    setDraft(next);
                     setVariantsError(null);
+                    setAxisErrorsFromServer([]);
                   }}
                   error={variantsError}
+                  serverAxisErrors={axisErrorsFromServer}
+                  submitted={submitted}
                 />
               ) : (
                 <div className="grid gap-2">
