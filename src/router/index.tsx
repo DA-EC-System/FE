@@ -26,6 +26,7 @@ import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
 import { CompanyProfilePage } from '@/features/company/CompanyProfilePage';
 import { DeadJobsPage } from '@/features/company/DeadJobsPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
+import { WelcomePage } from '@/features/company/WelcomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
 import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
@@ -126,6 +127,8 @@ export const router = createBrowserRouter([
             path: '/c/:companyId',
             element: <RequireCompany />,
             children: [
+              // Hướng dẫn thiết lập ban đầu: trang riêng, không có thanh bên (FE#419)
+              { path: 'welcome', element: <WelcomePage /> },
               {
                 element: <CompanyLayout />,
                 children: [

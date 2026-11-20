@@ -139,7 +139,8 @@ export function RegisterPage() {
     verify.mutate(
       { registrationId: current.status.registrationId, code },
       {
-        onSuccess: (res) => navigate(ROUTES.company.root(res.context.companyId), { replace: true }),
+        // Đăng ký xong vào thẳng hướng dẫn thiết lập (US-CT-12 ca 1, FE#419)
+        onSuccess: (res) => navigate(ROUTES.company.welcome(res.context.companyId), { replace: true }),
         onError: (e) => {
           const problem = getProblem(e);
           const restart = problem?.code ? RESTART[problem.code] : undefined;

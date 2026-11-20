@@ -17,6 +17,7 @@ import { OAUTH_COMPANY_KEY, OAUTH_TARGET_KEY, readConnectTarget, useStartConnect
 import { ConnectSteps, ResultScreen } from './ConnectOutcome';
 import { NO_COMPANY_SCREEN, failureFromError, failureScreen, type ConnectFailure } from './connectFailure';
 import { ConnectedScreen } from './ConnectedScreen';
+import { fromWelcome } from '@/features/company/welcomeFlow';
 
 /**
  * redirect_uri cố định của sàn (/channel/:platform/callback): chuyển vào khu của công ty đã bắt đầu
@@ -98,10 +99,11 @@ export function ShopOAuthCallbackPage() {
     }
     callback
       .mutateAsync({ platform, state, params: Object.fromEntries([...params].filter(([key]) => key !== 'state')) })
-      // Hiện màn kết quả, người dùng chọn thiết lập ngay hay để sau (§18.4)
-      .then(setConnected)
+      // Hiện màn kết quả, người dùng chọn thiết lập ngay hay để sau (§18.4). Nối từ hướng dẫn thiết lập thì về thẳng
+      // wizard, bước Thiết lập gian hàng (US-CT-12 ca 3, FE#419)
+      .then((r) => (fromWelcome(companyId) ? navigate(ROUTES.company.welcome(companyId), { replace: true }) : setConnected(r)))
       .catch((e) => setFailure(failureFromError(e)));
-  }, [companyId, platform, params, callback]);
+  }, [companyId, platform, params, callback, navigate]);
 
   const shops = ROUTES.company.shops(companyId);
 

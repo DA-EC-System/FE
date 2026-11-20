@@ -56,7 +56,8 @@ export function CompanyProfilePage() {
   );
 }
 
-function ProfileForm({ profile }: { profile: CompanyProfile }) {
+/** Form hồ sơ; wizard `/welcome` nhúng lại ở bước Hồ sơ công ty (FE#419) và đọc lại tiến độ qua `onSaved` */
+export function ProfileForm({ profile, onSaved }: { profile: CompanyProfile; onSaved?: () => void }) {
   const update = useUpdateCompanyProfile();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<CompanyProfileForm>({ resolver: zodResolver(schema), defaultValues: toProfileForm(profile) });
@@ -75,6 +76,7 @@ function ProfileForm({ profile }: { profile: CompanyProfile }) {
       onSuccess: (saved) => {
         reset(toProfileForm(saved));
         toast.success('Đã lưu hồ sơ công ty');
+        onSaved?.();
       },
       onError: (e) => {
         const problem = getProblem(e);

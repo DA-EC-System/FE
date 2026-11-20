@@ -8,11 +8,13 @@ import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
 import type { Onboarding } from '@/types/onboarding';
 
-export function useOnboarding() {
+/** `refetchOnWindowFocus`: wizard `/welcome` đọc lại khi người dùng làm xong việc ở tab khác rồi quay về */
+export function useOnboarding(options: { refetchOnWindowFocus?: boolean } = {}) {
   const companyId = useAuthStore((s) => s.companyContext?.companyId ?? '');
   return useQuery({
     queryKey: ['company', companyId, 'onboarding'],
     enabled: Boolean(companyId),
+    refetchOnWindowFocus: options.refetchOnWindowFocus ?? false,
     queryFn: async () => (await apiClient.get<Onboarding>('/onboarding')).data,
   });
 }

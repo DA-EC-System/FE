@@ -20,6 +20,7 @@ const TEXT: Record<OnboardingKey, { label: string; hint: string; action: string 
   setup_shop: { label: 'Thiết lập gian hàng', hint: 'Ghép SKU trên sàn với sản phẩm và chọn mốc nhận đơn.', action: 'Thiết lập gian hàng' },
   first_product: { label: 'Sản phẩm đầu tiên', hint: 'Tạo sản phẩm và biến thể để bán.', action: 'Tạo sản phẩm' },
   opening_stock: { label: 'Tồn đầu kỳ', hint: 'Kiểm kê số hàng đang có trong kho.', action: 'Kiểm kê tồn đầu' },
+  enable_report: { label: 'Bật Báo cáo', hint: 'Xem doanh thu, thực nhận ở Tổng quan.', action: 'Bật Báo cáo' },
 };
 
 function target(item: OnboardingItem, companyId: string): string {
@@ -39,6 +40,8 @@ function target(item: OnboardingItem, companyId: string): string {
       return item.ref?.type === 'stock_document'
         ? c.inventoryDoc(companyId, item.ref.id)
         : c.inventoryDocNew(companyId, 'stocktake');
+    case 'enable_report':
+      return c.modules(companyId);
   }
 }
 
@@ -49,6 +52,18 @@ export function onboardingSteps(data: Onboarding, companyId: string): Onboarding
     .map((i) => ({ key: i.key, ...TEXT[i.key], done: i.done, optional: i.optional, to: target(i, companyId) }));
 }
 
-/** Ẩn thẻ khi không có mục nào cho người xem, hoặc mọi mục bắt buộc đã xong (US-CT-13 ca 5, 6) */
+/** Còn mục bắt buộc chưa xong: hiện dải "Tiếp tục thiết lập" ở Tổng quan (US-CT-13 ca 4, 5, 6) */
 export const showOnboarding = (data: Onboarding | undefined): data is Onboarding =>
-  !!data && data.items.length > 0 && data.done < data.total;
+  !!data && data.total > 0 && data.done < data.total;
+
+/** Các bước của wizard `/welcome`: mục bắt buộc theo thứ tự BE trả (người thiếu quyền đã bị BE bỏ) */
+export const requiredSteps = (steps: OnboardingStep[]) => steps.filter((s) => !s.optional);
+
+/** Việc tuỳ chọn ở bảng "Việc nên làm thêm" và trang "Sẵn sàng bán" */
+export const optionalSteps = (steps: OnboardingStep[]) => steps.filter((s) => s.optional);
+
+/** Bước wizard mở ra: bước bắt buộc đầu tiên chưa xong; xong hết thì bằng số bước (trang "Sẵn sàng bán") */
+export function firstPendingIndex(steps: OnboardingStep[]): number {
+  const i = steps.findIndex((s) => !s.done);
+  return i === -1 ? steps.length : i;
+}

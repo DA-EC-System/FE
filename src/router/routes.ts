@@ -26,6 +26,8 @@ export const ROUTES = {
   },
   company: {
     root: (companyId: string) => `/c/${companyId}`,
+    /** Hướng dẫn thiết lập ban đầu (US-CT-12, Documents/21 mục 23) */
+    welcome: (companyId: string) => `/c/${companyId}/welcome`,
     shops: (companyId: string) => `/c/${companyId}/channel/shops`,
     shop: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}`,
     shopSetup: (companyId: string, shopId: string) => `/c/${companyId}/channel/shops/${shopId}/setup`,

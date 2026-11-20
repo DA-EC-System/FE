@@ -609,7 +609,7 @@ function setupSuggestions(shop: MockShop): Pick<ShopSetupPreview, 'suggestions' 
     }
     if (bySku) {
       const v = bySku.variant;
-      suggestions.push({ ...base, match: 'sku', score: null, variantId: v.id, sku: v.sku, available: availableFor(shop.companyId, v.id) });
+      suggestions.push({ ...base, match: 'sku', score: null, variantId: v.id, sku: v.sku, available: availableFor(shop.companyId, v.id), canCreate: false, cannotCreateReason: 'sku_taken' });
     } else if (best) {
       suggestions.push({
         ...base,
@@ -618,9 +618,12 @@ function setupSuggestions(shop: MockShop): Pick<ShopSetupPreview, 'suggestions' 
         variantId: best.id,
         sku: best.sku,
         available: availableFor(shop.companyId, best.id),
+        // Mock không làm tạo SKU kho (#500): chỉ đủ trường cho typecheck
+        canCreate: false,
+        cannotCreateReason: 'no_permission',
       });
     } else {
-      suggestions.push({ ...base, match: 'none', score: null, variantId: null, sku: null, available: null });
+      suggestions.push({ ...base, match: 'none', score: null, variantId: null, sku: null, available: null, canCreate: false, cannotCreateReason: 'no_permission' });
     }
   }
   return { suggestions, unmatchedRemote: suggestions.filter((x) => x.match === 'none').length };
@@ -1672,7 +1675,7 @@ export const shopHandlers = [
       orderCutoffAt: shop.orderCutoffAt,
       stocktake: doc?.number ?? null,
     });
-    const result: ShopSetupResult = { shop: toShop(shop), matched: picked.length, stocktakeNumber: doc?.number ?? null };
+    const result: ShopSetupResult = { shop: toShop(shop), matched: picked.length, created: 0, stocktakeNumber: doc?.number ?? null };
     return HttpResponse.json<ShopSetupResult>(result);
   }),
 

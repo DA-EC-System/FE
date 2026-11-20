@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Onboarding, OnboardingItem, OnboardingKey } from '@/types/onboarding';
-import { onboardingSteps, showOnboarding } from './onboardingSteps';
+import { firstPendingIndex, onboardingSteps, optionalSteps, requiredSteps, showOnboarding } from './onboardingSteps';
 
 const C = 'c1';
 const item = (key: OnboardingKey, opts: Partial<OnboardingItem> = {}): OnboardingItem => ({
@@ -61,5 +61,43 @@ describe('showOnboarding', () => {
     expect(showOnboarding({ items: [], done: 0, total: 0 })).toBe(false);
     expect(showOnboarding({ items: [item('invite_staff')], done: 0, total: 0 })).toBe(false);
     expect(showOnboarding(undefined)).toBe(false);
+  });
+});
+
+describe('wizard /welcome (US-CT-12, FE#419)', () => {
+  const ORDER: OnboardingKey[] = ['company_profile', 'connect_shop', 'setup_shop', 'opening_stock', 'first_product', 'invite_staff', 'enable_report'];
+  const OPT = new Set<OnboardingKey>(['first_product', 'invite_staff', 'enable_report']);
+  const data = (doneKeys: OnboardingKey[]): Onboarding => ({
+    items: ORDER.map((k) => item(k, { optional: OPT.has(k), done: doneKeys.includes(k) })),
+    done: doneKeys.filter((k) => !OPT.has(k)).length,
+    total: 4,
+  });
+
+  it('bước wizard là bốn mục bắt buộc theo thứ tự BE, việc tuỳ chọn tách riêng', () => {
+    const steps = onboardingSteps(data([]), C);
+    expect(requiredSteps(steps).map((s) => s.key)).toEqual(['company_profile', 'connect_shop', 'setup_shop', 'opening_stock']);
+    expect(optionalSteps(steps).map((s) => s.key)).toEqual(['first_product', 'invite_staff', 'enable_report']);
+  });
+
+  it('Bật Báo cáo dẫn tới trang Tính năng', () => {
+    expect(onboardingSteps(data([]), C).find((s) => s.key === 'enable_report')?.to).toBe('/c/c1/admin/modules');
+  });
+
+  it('mở lại thì đứng ở bước bắt buộc đầu tiên chưa xong, kể cả khi bước sau đã xong', () => {
+    expect(firstPendingIndex(requiredSteps(onboardingSteps(data([]), C)))).toBe(0);
+    expect(firstPendingIndex(requiredSteps(onboardingSteps(data(['company_profile', 'connect_shop']), C)))).toBe(2);
+    expect(firstPendingIndex(requiredSteps(onboardingSteps(data(['company_profile', 'setup_shop']), C)))).toBe(1);
+  });
+
+  it('xong hết bước bắt buộc thì ra trang Sẵn sàng bán (chỉ số bằng số bước), dải ở Tổng quan ẩn', () => {
+    const all = data(['company_profile', 'connect_shop', 'setup_shop', 'opening_stock']);
+    expect(firstPendingIndex(requiredSteps(onboardingSteps(all, C)))).toBe(4);
+    expect(showOnboarding(all)).toBe(false);
+  });
+
+  it('người chỉ thấy mục tuỳ chọn thì không có bước wizard nào', () => {
+    const onlyOptional: Onboarding = { items: [item('invite_staff', { optional: true })], done: 0, total: 0 };
+    expect(requiredSteps(onboardingSteps(onlyOptional, C))).toEqual([]);
+    expect(showOnboarding(onlyOptional)).toBe(false);
   });
 });

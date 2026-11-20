@@ -1,12 +1,14 @@
 /** Checklist thiết lập ban đầu (commerio-backend#461, Documents/21 mục 23). BE tính lại mỗi lần gọi, không lưu cờ. */
 
+/** Bốn mục bắt buộc theo thứ tự làm (các bước của `/welcome`), rồi ba mục tuỳ chọn (commerio-backend#501) */
 export type OnboardingKey =
   | 'company_profile'
-  | 'invite_staff'
   | 'connect_shop'
   | 'setup_shop'
+  | 'opening_stock'
   | 'first_product'
-  | 'opening_stock';
+  | 'invite_staff'
+  | 'enable_report';
 
 export interface OnboardingItem {
   key: OnboardingKey;
