@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Banknote, FileText, ListChecks, Package, Store, TrendingUp, Warehouse, type LucideIcon } from 'lucide-react';
+import kienScreenshot from '@/assets/landing-kien.jpg';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/router/routes';
@@ -111,6 +112,18 @@ export function LandingPage() {
                 </li>
               ))}
             </ul>
+            <figure className="mt-10">
+              <img
+                src={kienScreenshot}
+                width={1920}
+                height={960}
+                alt="Màn Kiện hàng của Commerio: các tab chờ đóng gói, đã đóng gói, chờ lấy hàng, đang vận chuyển, và bảng kiện kèm hạn bàn giao"
+                className="h-auto w-full rounded-xl border shadow-card"
+              />
+              <figcaption className="mt-2 text-sm text-muted-foreground">
+                Màn Kiện hàng trên bản thử, dữ liệu thử. Tên gian hàng đã làm mờ.
+              </figcaption>
+            </figure>
           </div>
         </section>
 
@@ -182,7 +195,7 @@ export function LandingPage() {
                 Đăng ký bằng email và mã số thuế, nhập mã OTP gửi qua email, rồi vào thẳng công ty của bạn.
               </p>
               <div className="flex flex-wrap justify-center gap-3">
-                <Button asChild size="lg" variant="outline" className="h-11 border-white bg-white px-5 font-semibold text-primary hover:bg-accent">
+                <Button asChild size="lg" variant="outline" className="h-11 border-transparent bg-card px-5 font-semibold text-primary hover:bg-accent">
                   <Link to={ROUTES.register}>Đăng ký công ty</Link>
                 </Button>
                 <Button
