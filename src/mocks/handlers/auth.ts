@@ -1,6 +1,6 @@
 import { http, HttpResponse, delay } from 'msw';
 import { CEO_ROLE_ID, db, passwords } from '../db';
-import type { ChangePasswordRequest, GoogleLoginRequest, LoginRequest, MeResponse, RegisterCompanyRequest, RegisterCompanyResponse, SelectCompanyResponse } from '@/types/auth';
+import type { ChangePasswordRequest, GoogleLoginRequest, LoginRequest, MeResponse, RegisterCompanyRequest, SelectCompanyResponse } from '@/types/auth';
 import { API, LATENCY, lag, REFRESH_COOKIE, buildContext, clearRefreshCookie, loginPayload, makeToken, membershipsOf, passwordChangeRequired, problem, readCookie, readRefresh, readToken, revokedRefresh, setRefreshCookie, writePlatformLog } from './utils';
 
 // ---------- Auth ----------
@@ -42,12 +42,6 @@ export const authHandlers = [
         errors: { 'ceo.email': 'Email này đã có tài khoản' },
       });
     }
-    if (body.optionalModules.includes('assistant') && !body.assistantDataConsent) {
-      return problem(422, 'Dữ liệu gửi lên không hợp lệ', {
-        code: 'validation_failed',
-        errors: { assistantDataConsent: 'Cần đồng ý gửi dữ liệu tới OpenAI để bật Trợ lý AI' },
-      });
-    }
     const seq = String(db.companies.length + 1).padStart(3, '0');
     const companyId = `cmp-${seq}-${Date.now().toString(36)}`;
     const accountId = `acc-${Date.now().toString(36)}`;
@@ -57,7 +51,7 @@ export const authHandlers = [
       taxCode: body.company.taxCode.trim(),
       ceoName: body.ceo.fullName.trim(),
       ceoEmail: email,
-      optionalModules: body.optionalModules,
+      optionalModules: ['purchasing'],
       status: 'active',
       createdAt: db.now(),
       version: 1,
@@ -79,8 +73,8 @@ export const authHandlers = [
     });
     passwords[email] = body.ceo.password;
     writePlatformLog('company.registered', companyId, email);
-    const payload: RegisterCompanyResponse = { companyId, email };
-    return HttpResponse.json(payload, { status: 201 });
+    // Mock chưa có bước nhập mã (#459, không làm thêm mock): chỉ giữ cho typecheck qua.
+    return HttpResponse.json({ companyId, email }, { status: 201 });
   }),
 
   // UC-PI-04

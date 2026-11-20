@@ -49,6 +49,25 @@ export function useRegisterCompany() {
   return useMutation({ mutationFn: authApi.registerCompany });
 }
 
+export function useResendRegistration() {
+  return useMutation({ mutationFn: authApi.resendRegistration });
+}
+
+/** Mã đúng: BE tạo công ty và trả phiên đã gắn công ty đó, vào thẳng công ty (không qua đăng nhập, chọn công ty). */
+export function useVerifyRegistration() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const setCompany = useAuthStore((s) => s.setCompany);
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.verifyRegistration,
+    onSuccess: (res) => {
+      qc.clear();
+      setSession(res.accessToken, res.account, res.memberships);
+      setCompany(res.accessToken, res.context);
+    },
+  });
+}
+
 /**
  * UC-PI-04. Đổi xong thì bỏ cờ bắt đổi mật khẩu để mở lại các chức năng khác. Access token cũ
  * vẫn mang cờ đó nên BE còn trả 403 `password_change_required`: xin token mới trước khi bỏ cờ.

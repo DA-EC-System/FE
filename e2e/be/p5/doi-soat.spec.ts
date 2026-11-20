@@ -19,7 +19,7 @@ const CAN_GIAN_HANG =
   'Cần gian hàng và bảng kê: gian hàng chỉ tạo qua OAuth sàn thật, /finance/settlements/dev/import không gắn ở staging';
 
 test.beforeAll(async ({ browser }) => {
-  s = await taoCongTyGia(browser, { ten: 'doi-soat', optionalModules: ['channel', 'report'] });
+  s = await taoCongTyGia(browser, { ten: 'doi-soat', batThem: ['report'] });
 });
 test.afterAll(async () => {
   await s?.dispose();

@@ -39,8 +39,6 @@ const DEMO_ACCOUNTS = [
 
 interface LoginLocationState {
   from?: Location;
-  /** Vừa đăng ký công ty xong (UC-PI-01) */
-  registeredEmail?: string;
   /** Vừa nộp yêu cầu tham gia qua link mời, chờ Admin duyệt (US-CT-06) */
   joinedEmail?: string;
 }
@@ -62,11 +60,11 @@ export function LoginPage() {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
 
-  const { from, registeredEmail, joinedEmail } = (location.state as LoginLocationState | null) ?? {};
+  const { from, joinedEmail } = (location.state as LoginLocationState | null) ?? {};
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: registeredEmail ?? joinedEmail ?? '', password: '' },
+    defaultValues: { email: joinedEmail ?? '', password: '' },
   });
 
   // Đăng nhập xong store đổi ngay → render lại và chuyển trang tại đây
@@ -88,11 +86,6 @@ export function LoginPage() {
 
   return (
     <AuthShell title="Đăng nhập" subtitle="Chào mừng trở lại! Đăng nhập để tiếp tục làm việc.">
-      {registeredEmail && !error && (
-        <AlertMessage severity="success" className="mb-4">
-          Đăng ký công ty thành công. Đăng nhập bằng {registeredEmail} để bắt đầu.
-        </AlertMessage>
-      )}
       {joinedEmail && !error && (
         <AlertMessage severity="info" className="mb-4">
           Đã gửi yêu cầu tham gia. Khi Admin công ty duyệt, đăng nhập bằng {joinedEmail}.
@@ -112,7 +105,7 @@ export function LoginPage() {
             label="Email"
             type="email"
             autoComplete="email"
-            autoFocus={!registeredEmail && !joinedEmail}
+            autoFocus={!joinedEmail}
           />
           <FormTextField
             control={form.control}
@@ -120,7 +113,7 @@ export function LoginPage() {
             label="Mật khẩu"
             password
             autoComplete="current-password"
-            autoFocus={Boolean(registeredEmail || joinedEmail)}
+            autoFocus={Boolean(joinedEmail)}
           />
           <Button
             type="submit"
