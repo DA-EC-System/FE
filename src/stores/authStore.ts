@@ -94,6 +94,11 @@ export function shouldReloadOnAuthMessage(
   return accountId !== current;
 }
 
+/** Đăng xuất ở tab khác thì về `/login`: `/` khi chưa đăng nhập là trang giới thiệu (FE#401), không hợp với người đang làm */
+export const reloadPathOnAuthMessage = (accountId: string | null): string => (accountId === null ? 'login' : '');
+
 channel?.addEventListener('message', (e: MessageEvent<{ accountId: string | null }>) => {
-  if (shouldReloadOnAuthMessage(e.data.accountId, useAuthStore.getState())) window.location.assign(appPath(''));
+  if (shouldReloadOnAuthMessage(e.data.accountId, useAuthStore.getState())) {
+    window.location.assign(appPath(reloadPathOnAuthMessage(e.data.accountId)));
+  }
 });
