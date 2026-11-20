@@ -135,7 +135,7 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
                     ))}
                   </SelectContent>
                 </Select>
-                <p className={replacing ? 'text-sm text-warning' : 'text-sm text-muted-foreground'}>
+                <p className={replacing ? 'text-sm text-warning-text' : 'text-sm text-muted-foreground'}>
                   {replacing
                     ? `Mẫu và trục chuẩn đang có của ${group?.name} sẽ bị thay bằng bản chép. Sản phẩm đã có không đổi.`
                     : 'Chép thông số, cờ bắt buộc, thứ tự và trục chuẩn một lần; sửa nhóm nguồn sau đó không ảnh hưởng nhóm này.'}
