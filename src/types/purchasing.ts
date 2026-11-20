@@ -74,16 +74,20 @@ export type PurchaseRequestAction =
  * Dòng sản phẩm mới (Documents/21, 25 §3.2, §5.4; commerio-backend#243): chưa có SKU, duyệt xong mỗi dòng sinh một SKU.
  * `parentId` là sản phẩm cha có sẵn (giá trị phân loại theo trục của cha đó); `parentId = null` thì `parentName` là
  * cha mới, các dòng cùng `parentName` gộp một cha, trục lấy từ các dòng (tối đa 2, 422 `too_many_axes`).
- * `optionValues` là tên trục → giá trị.
- * `name` là tên hiển thị (tên cha + giá trị phân loại): BE chưa làm phần cha, trục (chờ commerio-backend#204) vẫn đọc
- * `name`; BE mới bỏ qua trường này.
+ * `optionValues` là tên trục → giá trị (tên trục ≤ 15 ký tự, giá trị ≤ 20), thứ tự khoá là thứ tự trục. `groupId` chỉ
+ * cần cho cha mới, cha có sẵn gửi null. BE nhận `.strict()` (commerio-backend#243).
  */
 export interface NewProductInput {
   parentId: string | null;
   parentName: string | null;
-  groupId: string;
+  groupId: string | null;
   optionValues: Record<string, string>;
+}
+
+/** Dòng sản phẩm mới BE trả: `name` là tên hiển thị (tên cha + giá trị phân loại); sau duyệt `parentId` là cha của SKU */
+export interface NewProductView extends NewProductInput {
   name: string;
+  groupName: string;
 }
 
 export interface PurchaseRequestLine {
@@ -93,8 +97,7 @@ export interface PurchaseRequestLine {
   sku: string | null;
   productName: string;
   attributesLabel: string;
-  /** BE cũ chỉ trả `name`, `groupId`: các trường cha, trục có thể thiếu */
-  newProduct: (Partial<NewProductInput> & { name: string; groupId: string; groupName: string }) | null;
+  newProduct: NewProductView | null;
   quantity: number;
   /** Giá nhập dự kiến, chốt khi duyệt; null khi người xem không có quyền xem giá */
   unitCost: number | null;
