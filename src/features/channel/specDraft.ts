@@ -15,6 +15,7 @@ import type {
   SpecMissingReason,
   ResolvedAttribute,
   SpecValue,
+  VariantCapabilities,
 } from '@/types/shop';
 import { shopUsable } from '@/lib/machines/channel';
 
@@ -166,6 +167,8 @@ export function specMissing(
   spec: Pick<SpecDraft, 'attributes' | 'axisMap'> & { categoryStatus?: ProductSpec['categoryStatus'] },
   axes: Pick<ProductAxis, 'attributeId' | 'name'>[],
   facts: ProductFacts,
+  /** Luật trục của leaf (Documents/21 §18.8.3); null khi BE chưa trả: chỉ kiểm trục chưa ánh xạ */
+  caps: VariantCapabilities | null = null,
 ): SpecMissing[] {
   const out: SpecMissing[] = [];
   if (spec.categoryStatus === 'changed') out.push({ code: 'category', label: 'Category trên sàn đã đổi', reason: 'category_changed' });
@@ -181,7 +184,19 @@ export function specMissing(
     if (!isFilled(effectiveValue(a, spec.attributes))) out.push({ code: a.code, label: a.label, reason });
   }
   for (const axis of axes) {
-    if (!spec.axisMap[axis.attributeId]) out.push({ code: axis.attributeId, label: axis.name, reason: 'axis_unmapped' });
+    const code = spec.axisMap[axis.attributeId];
+    if (!code || (code === CUSTOM_AXIS && caps && !caps.customAxisName)) {
+      out.push({ code: axis.attributeId, label: axis.name, reason: 'axis_unmapped' });
+    }
+  }
+  if (caps) {
+    if (axes.length > caps.maxAxes) {
+      out.push({ code: 'axes', label: `Sản phẩm có ${axes.length} trục, category này nhận tối đa ${caps.maxAxes}`, reason: 'axis_shape' });
+    }
+    const mapped = new Set(axes.map((x) => spec.axisMap[x.attributeId]));
+    for (const code of caps.salesRequired) {
+      if (!mapped.has(code)) out.push({ code, label: (attrs ?? []).find((a) => a.code === code)?.label ?? code, reason: 'sales_required' });
+    }
   }
   return out;
 }
@@ -217,7 +232,37 @@ export function firstErrorStep(errors: Record<string, string>): PushStep {
 /** Một dòng `missing` sửa ở bước nào */
 export function stepOfMissing(reason: SpecMissingReason): PushStep {
   if (reason === 'category_changed' || reason === 'category_removed') return 0;
-  return reason === 'axis_unmapped' ? 2 : 1;
+  return reason === 'axis_unmapped' || reason === 'sales_required' || reason === 'axis_shape' ? 2 : 1;
+}
+
+/**
+ * Áp gợi ý trục của BE (`suggestedAxisMap`, `suggestedValueMap` theo leaf đang chọn, Documents/21 §18.8.3) vào bản nháp.
+ * Giữ trục người dùng đã chọn nếu còn hợp lệ ở leaf (là sales attribute của leaf, hoặc tên tự đặt khi sàn nhận); giá
+ * trị chỉ điền ô trống của trục đang trỏ đúng mã BE gợi ý
+ */
+export function withSuggestedAxes(
+  draft: SpecDraft,
+  axes: ProductAxis[],
+  suggested: { axisMap: Record<string, string>; valueMap: Record<string, string> },
+  salesCodes: ReadonlySet<string>,
+  customAxisName: boolean,
+): SpecDraft {
+  const axisMap = { ...draft.axisMap };
+  const valueMap = { ...draft.valueMap };
+  for (const axis of axes) {
+    const current = axisMap[axis.attributeId];
+    const valid = current && (salesCodes.has(current) || (current === CUSTOM_AXIS && customAxisName));
+    const want = suggested.axisMap[axis.attributeId];
+    if (!valid && want) {
+      axisMap[axis.attributeId] = want;
+      for (const v of axis.values) delete valueMap[v.id];
+    }
+    if (axisMap[axis.attributeId] !== want) continue;
+    for (const v of axis.values) {
+      if (!valueMap[v.id] && suggested.valueMap[v.id]) valueMap[v.id] = suggested.valueMap[v.id];
+    }
+  }
+  return { ...draft, axisMap, valueMap };
 }
 
 /** Nút đi kèm một mục còn thiếu ở bước 4: về một bước của trang, hoặc sang trang gian hàng */
@@ -359,28 +404,6 @@ export function specInput(draft: SpecDraft, attrs: PlatformAttribute[] | null, a
     valueMap: Object.fromEntries(Object.entries(draft.valueMap).filter(([k]) => valueIds.has(k))),
     version: draft.version,
   };
-}
-
-const COLOR = /mau|color/;
-const SIZE = /kich|size/;
-
-/** Đoán sales attribute cho trục chưa ánh xạ theo tên (Màu ↔ Màu sắc/color_family, Kích cỡ ↔ size); không khớp thì custom */
-export function defaultAxisMap(
-  axes: ProductAxis[],
-  sales: Pick<PlatformAttribute, 'code' | 'label'>[],
-  current: Record<string, string>,
-): Record<string, string> {
-  const out = { ...current };
-  const used = new Set(Object.values(current));
-  for (const axis of axes) {
-    if (out[axis.attributeId]) continue;
-    const name = fold(axis.name);
-    const re = COLOR.test(name) ? COLOR : SIZE.test(name) ? SIZE : null;
-    const hit = re ? sales.find((s) => !used.has(s.code) && re.test(fold(`${s.label} ${s.code}`))) : undefined;
-    out[axis.attributeId] = hit?.code ?? CUSTOM_AXIS;
-    if (hit) used.add(hit.code);
-  }
-  return out;
 }
 
 /**

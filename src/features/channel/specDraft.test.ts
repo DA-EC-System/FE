@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { PlatformAttribute, ProductSpec } from '@/types/shop';
 import {
   CUSTOM_AXIS,
-  defaultAxisMap,
   draftFromSpec,
   firstErrorStep,
   firstStep,
@@ -16,6 +15,7 @@ import {
   stepOfError,
   stepOfMissing,
   suggestValueMap,
+  withSuggestedAxes,
   valueLabel,
   withAttribute,
   withAxis,
@@ -183,10 +183,27 @@ describe('Bản nháp và body PUT', () => {
 });
 
 describe('Ánh xạ trục và giá trị (FE-3)', () => {
-  it('đoán theo tên: Màu ↔ Màu sắc, Kích cỡ ↔ size; giữ ánh xạ đã có; không khớp thì custom', () => {
-    expect(defaultAxisMap(AXES, [COLOR, SIZE], {})).toEqual({ 'att-mau': 'color_family', 'att-size': 'size' });
-    expect(defaultAxisMap(AXES, [COLOR, SIZE], { 'att-size': CUSTOM_AXIS })).toEqual({ 'att-mau': 'color_family', 'att-size': CUSTOM_AXIS });
-    expect(defaultAxisMap([{ attributeId: 'x', name: 'Chất liệu', values: [] }], [COLOR], {})).toEqual({ x: CUSTOM_AXIS });
+  it('áp gợi ý trục của BE: điền trục trống, thay trục không hợp lệ ở leaf, giữ trục người dùng đã chọn', () => {
+    const d = { ...draftFromSpec(null), externalCategoryId: '1' };
+    const sug = { axisMap: { 'att-mau': 'color_family', 'att-size': 'size' }, valueMap: { 'val-den': 'Đen', 'val-m': 'Int:M' } };
+    const codes = new Set(['color_family', 'size']);
+    expect(withSuggestedAxes(d, AXES, sug, codes, true)).toMatchObject({ axisMap: sug.axisMap, valueMap: sug.valueMap });
+    // trục đã chọn hợp lệ thì giữ, không điền giá trị theo gợi ý của mã khác
+    const kept = withSuggestedAxes({ ...d, axisMap: { 'att-size': CUSTOM_AXIS } }, AXES, sug, codes, true);
+    expect(kept.axisMap['att-size']).toBe(CUSTOM_AXIS);
+    expect(kept.valueMap['val-m']).toBeUndefined();
+    // sàn không nhận tên tự đặt, hoặc mã cũ không có ở leaf mới: thay bằng gợi ý, bỏ giá trị cũ của trục
+    expect(withSuggestedAxes({ ...d, axisMap: { 'att-size': CUSTOM_AXIS } }, AXES, sug, codes, false).axisMap['att-size']).toBe('size');
+    const moved = withSuggestedAxes({ ...d, axisMap: { 'att-mau': 'old' }, valueMap: { 'val-den': 'x' } }, AXES, sug, codes, true);
+    expect(moved).toMatchObject({ axisMap: { 'att-mau': 'color_family' }, valueMap: { 'val-den': 'Đen' } });
+  });
+
+  it('thiếu theo năng lực trục: tên tự đặt bị cấm, vượt số trục, thiếu sales attribute bắt buộc', () => {
+    const facts = { originCountry: 'VN', brand: null };
+    const spec = { attributes: {}, axisMap: { 'att-mau': CUSTOM_AXIS, 'att-size': 'size' } };
+    const caps = { maxAxes: 1, customAxisName: false, salesRequired: ['color_family'] };
+    expect(specMissing([], spec, AXES, facts, caps).map((m) => m.reason)).toEqual(['axis_unmapped', 'axis_shape', 'sales_required']);
+    expect(specMissing([], spec, AXES, facts, { maxAxes: 2, customAxisName: true, salesRequired: [] })).toEqual([]);
   });
 
   it('giá trị: trùng nhãn; kích cỡ so phần sau ":" và ưu tiên INT; không khớp để trống', () => {

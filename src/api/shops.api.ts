@@ -618,6 +618,25 @@ export function useProductSpec(productId: string, platform: string, enabled = tr
   });
 }
 
+/**
+ * Gợi ý trục và luật trục theo một leaf chưa lưu (`GET …/specs/:platform?categoryId=`, Documents/21 §18.8.3): BE tính
+ * `suggestedAxisMap`, `suggestedValueMap`, `variantCapabilities` theo leaf truyền vào, không lưu gì
+ */
+export function useSpecForCategory(productId: string, platform: string, categoryId: string | null) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: [...shopKeys.productSpec(companyId, productId, platform), 'category', categoryId ?? ''],
+    enabled: Boolean(companyId && productId && platform && categoryId),
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await apiClient.get<ProductSpecResult>(`/channel/products/${productId}/specs/${platform}`, {
+        params: { categoryId },
+      });
+      return data;
+    },
+  });
+}
+
 /** Thông tin sàn của sản phẩm ở nhiều sàn cùng lúc (thanh tab trang sản phẩm, FE#417); cùng cache với `useProductSpec` */
 export function useProductSpecs(productId: string | undefined, platforms: readonly string[], enabled = true) {
   const companyId = useCompanyId();
