@@ -8,7 +8,6 @@ import { useAttributes, useGroups, useProduct, useProducts } from '@/api/catalog
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type { ProductListItem } from '@/types/catalog';
-import { NEW_PRODUCT_PARENT } from '@/utils/env';
 import { MAX_AXES, type NewProductOption, type RequestLineDraft } from './shared';
 
 type FieldError = { message?: string } | undefined;
@@ -41,7 +40,6 @@ function Err({ error }: { error: FieldError }) {
 /**
  * Ô nhập của dòng sản phẩm mới (BE#243, Documents/21): chọn cha có sẵn (giá trị theo trục của cha) hoặc cha mới
  * (tên, danh mục, tối đa 2 trục chọn từ thuộc tính của công ty). Các dòng cùng tên cha mới gộp một cha khi duyệt.
- * BE chưa nhận cha (`NEW_PRODUCT_PARENT` tắt) thì ẩn "Cha có sẵn": mỗi dòng là một sản phẩm riêng, báo rõ dưới ô.
  */
 export function NewProductFields({ line, name, index, errors, disabled, onChange }: NewProductFieldsProps) {
   const groupsQuery = useGroups();
@@ -72,36 +70,34 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
 
   return (
     <div className="grid gap-2" data-testid={`new-product-${index}`}>
-      {NEW_PRODUCT_PARENT && (
-        <RadioGroup
-          className="flex gap-4"
-          value={line.parentMode}
-          disabled={disabled}
-          onValueChange={(v) => {
-            if (v === line.parentMode) return;
-            onChange({
-              parentMode: v as RequestLineDraft['parentMode'],
-              parentId: '',
-              parentName: '',
-              groupId: '',
-              options: v === 'new' ? emptyOptions() : [],
-            });
-          }}
-          aria-label={`Sản phẩm cha của ${name}`}
-        >
-          {(
-            [
-              ['existing', 'Cha có sẵn'],
-              ['new', 'Cha mới'],
-            ] as const
-          ).map(([value, text]) => (
-            <label key={value} className="flex items-center gap-1.5 text-sm">
-              <RadioGroupItem value={value} aria-label={`${text} ${name}`} />
-              {text}
-            </label>
-          ))}
-        </RadioGroup>
-      )}
+      <RadioGroup
+        className="flex gap-4"
+        value={line.parentMode}
+        disabled={disabled}
+        onValueChange={(v) => {
+          if (v === line.parentMode) return;
+          onChange({
+            parentMode: v as RequestLineDraft['parentMode'],
+            parentId: '',
+            parentName: '',
+            groupId: '',
+            options: v === 'new' ? emptyOptions() : [],
+          });
+        }}
+        aria-label={`Sản phẩm cha của ${name}`}
+      >
+        {(
+          [
+            ['existing', 'Cha có sẵn'],
+            ['new', 'Cha mới'],
+          ] as const
+        ).map(([value, text]) => (
+          <label key={value} className="flex items-center gap-1.5 text-sm">
+            <RadioGroupItem value={value} aria-label={`${text} ${name}`} />
+            {text}
+          </label>
+        ))}
+      </RadioGroup>
 
       {line.parentMode === 'existing' ? (
         <div className="grid gap-1">
@@ -123,8 +119,8 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
           <div className="grid gap-1">
             <Input
               value={line.parentName}
-              placeholder={NEW_PRODUCT_PARENT ? 'Tên sản phẩm cha' : 'Tên sản phẩm'}
-              aria-label={`${NEW_PRODUCT_PARENT ? 'Tên sản phẩm cha' : 'Tên sản phẩm'} ${name}`}
+              placeholder="Tên sản phẩm cha"
+              aria-label={`Tên sản phẩm cha ${name}`}
               aria-invalid={Boolean(errors?.parentName)}
               disabled={disabled}
               className="h-8"
@@ -204,12 +200,6 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
         </div>
       )}
       <Err error={groupError} />
-      {!NEW_PRODUCT_PARENT && (
-        <p className="text-xs text-muted-foreground" data-testid={`new-product-note-${index}`}>
-          Mỗi dòng tạo một sản phẩm riêng một SKU, tên gồm tên sản phẩm và phân loại (ví dụ "Áo thun Đỏ"). Chưa thêm SKU
-          vào sản phẩm có sẵn hay gộp nhiều dòng vào một sản phẩm được.
-        </p>
-      )}
     </div>
   );
 }

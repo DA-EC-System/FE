@@ -38,7 +38,6 @@ import { getErrorMessage, getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
-import { NEW_PRODUCT_PARENT } from '@/utils/env';
 import { NewProductFields, type NewProductErrors } from './NewProductFields';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -64,7 +63,6 @@ import {
   filledOptions,
   formatQty,
   optionsLabel,
-  newProductName,
   requestFormSchema,
   type RequestFormInput,
   type RequestFormOutput,
@@ -94,12 +92,12 @@ const emptyLine = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
   ...patch,
 });
 
-/** Dòng sản phẩm mới đã lưu → ô nhập; BE cũ chỉ có `name` thì coi là cha mới không trục */
+/** Dòng sản phẩm mới đã lưu → ô nhập */
 const newProductDraft = (np: NonNullable<PurchaseRequest['lines'][number]['newProduct']>): Partial<RequestLineDraft> => {
-  const options = Object.entries(np.optionValues ?? {}).map(([axis, value]) => ({ axis, value }));
-  if (np.parentId) return { parentMode: 'existing', parentId: np.parentId, parentName: np.parentName ?? np.name, groupId: np.groupId, options };
+  const options = Object.entries(np.optionValues).map(([axis, value]) => ({ axis, value }));
+  if (np.parentId) return { parentMode: 'existing', parentId: np.parentId, parentName: np.parentName ?? np.name, groupId: np.groupId ?? '', options };
   while (options.length < MAX_AXES) options.push({ axis: '', value: '' });
-  return { parentMode: 'new', parentId: '', parentName: np.parentName ?? np.name, groupId: np.groupId, options };
+  return { parentMode: 'new', parentId: '', parentName: np.parentName ?? np.name, groupId: np.groupId ?? '', options };
 };
 
 const toForm = (req: PurchaseRequest): RequestFormInput => ({
@@ -129,10 +127,8 @@ const toLineInputs = (values: RequestFormOutput): PurchaseRequestLineInput[] =>
       newProduct: {
         parentId: existing ? l.parentId : null,
         parentName: existing ? null : l.parentName,
-        groupId: l.groupId,
+        groupId: existing ? null : l.groupId,
         optionValues: Object.fromEntries(options.map((o) => [o.axis, o.value])),
-        // BE `main` chưa nhận cha, trục (commerio-backend#243): mỗi dòng tạo một sản phẩm theo tên này
-        name: newProductName(l),
       },
       quantity: l.quantity,
       unitCost: l.unitCost,
@@ -144,7 +140,6 @@ const LINE_ERROR_FIELDS: Record<string, string> = {
   variantId: 'variantId',
   quantity: 'quantity',
   unitCost: 'unitCost',
-  'newProduct.name': 'parentName',
   'newProduct.parentName': 'parentName',
   'newProduct.parentId': 'parentId',
   'newProduct.groupId': 'groupId',
@@ -323,7 +318,8 @@ export function PurchaseRequestPage() {
     let placed = 0;
     for (const [path, message] of Object.entries(fieldErrors)) {
       const m = /^lines\.(\d+)\.(.+)$/.exec(path);
-      const key = m ? LINE_ERROR_FIELDS[m[2]!] : undefined;
+      // Lỗi theo từng trục (`newProduct.optionValues.<tên trục>`: tên trục, giá trị quá dài) gắn vào ô phân loại
+      const key = m ? (LINE_ERROR_FIELDS[m[2]!] ?? (m[2]!.startsWith('newProduct.optionValues.') ? 'options' : undefined)) : undefined;
       if (m && key) {
         setError(`lines.${Number(m[1])}.${key as 'quantity'}`, { message });
         placed++;
@@ -761,10 +757,10 @@ export function PurchaseRequestPage() {
                               <p className="text-xs text-muted-foreground">
                                 {np && !line?.variantId
                                   ? [
-                                      optionsLabel(np.optionValues ?? {}),
+                                      optionsLabel(np.optionValues),
                                       np.parentId
                                         ? 'Cha có sẵn'
-                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Nhóm hàng ${np.groupName}`,
+                                        : `Cha mới · Nhóm hàng ${np.groupName}`,
                                     ]
                                       .filter(Boolean)
                                       .join(' · ')

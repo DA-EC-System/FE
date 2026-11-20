@@ -19,9 +19,3 @@ export const GOOGLE_CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID ??
 /** Nút "Đối soát ngay" (FE#13 AC-S4): BE chưa có `POST /finance/settlements/run` nên chỉ hiện với mock, hoặc khi bật cờ */
 export const SETTLEMENT_RUN: boolean = USE_MOCKS || import.meta.env.VITE_SETTLEMENT_RUN === 'true';
 
-/**
- * Dòng sản phẩm mới của đề nghị nhập thuộc một sản phẩm cha (cha có sẵn, gộp dòng cùng cha mới): BE `main` chưa nhận
- * `parentId/parentName/optionValues` (commerio-backend#243) nên chỉ bật với mock, hoặc khi bật cờ. Tắt thì mỗi dòng là
- * một sản phẩm riêng một SKU, tên ghép tên sản phẩm và giá trị phân loại.
- */
-export const NEW_PRODUCT_PARENT: boolean = USE_MOCKS || import.meta.env.VITE_NEW_PRODUCT_PARENT === 'true';
