@@ -37,6 +37,7 @@ import { formatDateTime } from '@/utils/format';
 import type { ReturnAction, ReturnRequest } from '@/types/returns';
 import { ACTION_MESSAGES, CLOSE_RESULT_LABELS, RETURN_STATUS } from './shared';
 import { PlatformRejectDialog } from './PlatformRejectDialog';
+import { RespondByBadge } from './RespondByBadge';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 
 /** Thao tác của bảng chuyển → lệnh gửi API (receive đi qua quét nhận) */
@@ -169,6 +170,7 @@ export function ReturnDetailPage() {
         {r.closeResult && <Badge variant="outline">{CLOSE_RESULT_LABELS[r.closeResult]}</Badge>}
         {r.rawMarketplaceStatus && <Badge variant="outline">Sàn: {r.rawMarketplaceStatus}</Badge>}
         {r.platform?.disputeInProgress && <Badge variant="outline">Khách đang khiếu nại trên sàn</Badge>}
+        <RespondByBadge status={r.status} respondBy={r.platform?.respondBy} />
         <HelpTip
           topic="Trạng thái yêu cầu"
           content={

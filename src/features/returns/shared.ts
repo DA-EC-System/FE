@@ -3,6 +3,23 @@ import type { StatusMeta } from '@/components/common/StatusBadge';
 import { MAX_QTY, qtyText } from '@/features/inventory/shared';
 import type { ReturnAction, ReturnCloseResult, ReturnStatus, UnmatchedStatus } from '@/types/returns';
 
+const DAY_MS = 24 * 3600 * 1000;
+
+/**
+ * Hạn người bán phải trả lời yêu cầu trả (commerio-backend#392): chỉ có nghĩa khi yêu cầu còn Chờ phản hồi. `urgent` khi còn
+ * dưới 24 giờ, `overdue` khi đã qua hạn (sàn có thể tự quyết thay người bán).
+ */
+export function respondByState(
+  status: ReturnStatus,
+  respondBy: string | null | undefined,
+  now: number = Date.now(),
+): { at: string; urgent: boolean; overdue: boolean } | null {
+  if (status !== 'requested' || !respondBy) return null;
+  const left = new Date(respondBy).getTime() - now;
+  if (Number.isNaN(left)) return null;
+  return { at: respondBy, urgent: left > 0 && left < DAY_MS, overdue: left <= 0 };
+}
+
 export const RETURN_STATUS: Record<ReturnStatus, StatusMeta> = {
   requested: { label: 'Chờ phản hồi', variant: 'warning', hint: 'Người mua vừa gửi yêu cầu. Chấp nhận trả hàng, chỉ hoàn tiền hoặc từ chối trước hạn của sàn.' },
   awaiting_return: { label: 'Chờ hàng hoàn về', variant: 'info', hint: 'Đã chấp nhận, chờ hàng hoàn về kho để quét nhận.' },
