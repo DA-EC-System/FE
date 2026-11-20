@@ -28,6 +28,7 @@ import {
   type FactsDraft,
   type VariantDraft,
 } from './variantDraft';
+import { AxisImagesField } from './AxisImagesField';
 
 const FACT_LABELS: Record<FactKey, string> = {
   standardPrice: 'Giá bán lẻ',
@@ -56,6 +57,8 @@ interface VariationEditorProps {
   loading?: boolean;
   /** Thêm cột giá, cân nặng, kích thước gói vào bảng tổ hợp (form tạo, Documents/21 §5.5) */
   withFacts?: boolean;
+  /** Có thì hiện khối ảnh theo phân loại; báo đang tải để form chặn nút Tạo */
+  onImagesBusyChange?: (busy: boolean) => void;
 }
 
 let nextKey = 0;
@@ -76,6 +79,7 @@ export function VariationEditor({
   submitted,
   loading,
   withFacts,
+  onImagesBusyChange,
 }: VariationEditorProps) {
   const [bulk, setBulk] = useState<FactsDraft>({});
   const setFact = (id: string, key: FactKey, text: string) =>
@@ -143,6 +147,8 @@ export function VariationEditor({
           <span className="ml-2 text-xs text-muted-foreground">Đã đủ {MAX_AXES} nhóm phân loại.</span>
         )}
       </div>
+
+      {onImagesBusyChange && <AxisImagesField value={value} onChange={onChange} onBusyChange={onImagesBusyChange} />}
 
       <div className="overflow-x-auto rounded-md border">
         <Table data-testid="variant-plan">

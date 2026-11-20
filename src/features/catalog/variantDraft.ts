@@ -29,7 +29,14 @@ export interface VariantDraft {
   excluded: string[];
   /** Giá, cân nặng, kích thước gõ ngay khi tạo, khoá `comboId`, giữ nguyên chữ người dùng gõ (Documents/21 §5.5) */
   facts?: Record<string, FactsDraft>;
+  /** `key` của trục gắn ảnh phân loại (một trục duy nhất, Documents/21 §5.5 `imageAxis`) */
+  imageAxisKey?: string | null;
+  /** Ảnh theo giá trị của trục gắn ảnh, khoá `fold(giá trị)` */
+  axisImages?: Record<string, { fileId: string; url: string }>;
 }
+
+/** Khoá ảnh của một giá trị trục */
+export const imageKey = (value: string) => fold(value);
 
 export const FACT_KEYS = ['standardPrice', 'targetNetPrice', 'weightG', 'lengthMm', 'widthMm', 'heightMm'] as const;
 export type FactKey = (typeof FACT_KEYS)[number];
@@ -146,17 +153,23 @@ export function draftError(draft: VariantDraft): string | null {
 export function draftBody(
   draft: VariantDraft,
   attributes: Attribute[],
-): { axes: ProductAxis[]; variants: ({ options: string[] } & VariantFacts)[] } {
-  const axes = draft.axes.map((axis): ProductAxis => {
+): { axes: ProductAxis[]; imageAxis?: 0 | 1; variants: ({ options: string[] } & VariantFacts)[] } {
+  const imageAxis = draft.axes.findIndex((a) => a.key === draft.imageAxisKey);
+  const axes = draft.axes.map((axis, i): ProductAxis => {
     const attribute = axisAttribute(axis, attributes);
     const values = axis.values.map((v) => {
       const found = attribute?.values.find((x) => sameText(x.value, v));
-      return found ? { id: found.id, value: found.value } : { value: v.trim() };
+      const imageFileId = i === imageAxis ? draft.axisImages?.[imageKey(v)]?.fileId : undefined;
+      return {
+        ...(found ? { id: found.id, value: found.value } : { value: v.trim() }),
+        ...(imageFileId && { imageFileId }),
+      };
     });
     return attribute ? { attributeId: attribute.id, values } : { name: axis.name.trim(), values };
   });
   return {
     axes,
+    ...(imageAxis >= 0 && { imageAxis: imageAxis as 0 | 1 }),
     variants: includedCombos(draft).map((options) => ({
       options: options.map((o) => o.trim()),
       ...factsOf(draft.facts?.[comboId(options)]).facts,

@@ -10,6 +10,7 @@ import {
   emptyDraft,
   factsOf,
   fillFacts,
+  imageKey,
   parseFact,
   valueError,
   type AxisDraft,
@@ -151,5 +152,28 @@ describe('giá, cân nặng, kích thước khi tạo (Documents/21 §5.5)', () 
     const ok = { ...two, facts: { 'đen': { targetNetPrice: '80.000' } } };
     expect(draftError(ok)).toBeNull();
     expect(draftBody(ok, attributes).variants).toEqual([{ options: ['Đen'], targetNetPrice: 80000 }, { options: ['Trắng'] }]);
+  });
+});
+
+describe('ảnh phân loại khi tạo (Documents/21 §5.5 imageAxis)', () => {
+  const draft: VariantDraft = {
+    axes: [
+      axis({ key: 'a', attributeId: 'att-chat', name: 'Chất liệu', values: ['Cotton'] }),
+      axis({ key: 'b', attributeId: 'att-mau', name: 'Màu sắc', values: ['Đen', 'Đỏ'] }),
+    ],
+    excluded: [],
+    imageAxisKey: 'b',
+    axisImages: { [imageKey('Đen')]: { fileId: 'file-den', url: 'blob:x' } },
+  };
+
+  it('gửi imageAxis theo vị trí trục và imageFileId cho giá trị có ảnh, giá trị chưa có ảnh vẫn tạo được', () => {
+    const body = draftBody(draft, attributes);
+    expect(body.imageAxis).toBe(1);
+    expect(body.axes[1]!.values).toEqual([{ id: 'val-den', value: 'Đen', imageFileId: 'file-den' }, { value: 'Đỏ' }]);
+    expect(body.axes[0]!.values).toEqual([{ id: 'val-cot', value: 'Cotton' }]);
+  });
+
+  it('không chọn trục gắn ảnh thì không gửi imageAxis', () => {
+    expect(draftBody({ ...draft, imageAxisKey: null }, attributes).imageAxis).toBeUndefined();
   });
 });

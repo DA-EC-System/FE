@@ -197,6 +197,7 @@ export function ProductFormPage() {
   const [sizeChart, setSizeChart] = useState<ImageItem | null>(null);
   const [sizeChartError, setSizeChartError] = useState<string | undefined>();
   const [chartUploading, setChartUploading] = useState(false);
+  const [axisUploading, setAxisUploading] = useState(false);
   const [draft, setDraft] = useState<VariantDraft>(emptyDraft);
   const [variantsError, setVariantsError] = useState<string | null>(null);
   const [axisErrorsFromServer, setAxisErrorsFromServer] = useState<string[][]>([]);
@@ -532,8 +533,8 @@ export function ProductFormPage() {
                   </Button>
                 )}
                 {!readOnly && tab === 'commerio' && (
-                  <Button type="submit" form="product-form" disabled={busy || uploading || chartUploading}>
-                    {busy ? 'Đang lưu...' : uploading || chartUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
+                  <Button type="submit" form="product-form" disabled={busy || uploading || chartUploading || axisUploading}>
+                    {busy ? 'Đang lưu...' : uploading || chartUploading || axisUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
                   </Button>
                 )}
               </div>
@@ -822,6 +823,7 @@ export function ProductFormPage() {
                   serverAxisErrors={axisErrorsFromServer}
                   submitted={submitted}
                   withFacts
+                  onImagesBusyChange={setAxisUploading}
                 />
               ) : (
                 <div className="grid gap-2">
