@@ -65,6 +65,8 @@ import { axisServerErrors, draftBody, draftError, emptyDraft, type VariantDraft 
 import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
 import { productSchema, sizeChartPatch, type ProductForm } from './shared';
+import { Input } from '@/components/ui/input';
+import { CountryCombobox } from './CountryCombobox';
 import { SizeChartField } from './SizeChartField';
 import { HelpTip } from '@/components/common/HelpTip';
 import { BusinessActionMenu, MAIN_LABEL_META, useBusinessAction, type ActionChoice } from './businessStatus';
@@ -198,14 +200,14 @@ export function ProductFormPage() {
 
   const form = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: '', groupId: '', description: '' },
+    defaultValues: { name: '', groupId: '', description: '', originCountry: '', brand: '' },
   });
   const { control, reset, setError: setFieldError } = form;
 
   // Nạp form một lần cho mỗi sản phẩm; refetch sau khi thêm biến thể không đè lên chỗ đang sửa
   const loadedId = useRef<string | null>(null);
   const load = (p: ProductDetail) => {
-    reset({ name: p.name, groupId: p.group.id, description: p.description });
+    reset({ name: p.name, groupId: p.group.id, description: p.description, originCountry: p.originCountry ?? '', brand: p.brand ?? '' });
     setImages(toImages(p));
     setSizeChart(p.sizeChart ? { fileId: p.sizeChart.fileId, url: p.sizeChart.url } : null);
     setVersion(p.version);
@@ -224,7 +226,7 @@ export function ProductFormPage() {
   const applyFieldErrors = (e: unknown) => {
     const fieldErrors = getProblem(e)?.errors;
     if (!fieldErrors) return false;
-    (['name', 'groupId', 'description'] as const).forEach((f) => {
+    (['name', 'groupId', 'description', 'originCountry', 'brand'] as const).forEach((f) => {
       if (fieldErrors[f]) setFieldError(f, { message: fieldErrors[f] });
     });
     setImagesError(fieldErrors.images);
@@ -248,8 +250,10 @@ export function ProductFormPage() {
         const problem = draftError(draft);
         setVariantsError(problem);
         if (problem) return;
+        // Tạo sản phẩm chưa nhận xuất xứ, thương hiệu (CreateProductBody): điền sau khi tạo
+        const { originCountry: _origin, brand: _brand, ...createValues } = values;
         const created = await createMut.mutateAsync({
-          ...values,
+          ...createValues,
           imageFileIds,
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
           ...draftBody(draft, attributes),
@@ -262,6 +266,8 @@ export function ProductFormPage() {
           name: values.name,
           description: values.description,
           groupId: values.groupId,
+          originCountry: values.originCountry || null,
+          brand: values.brand.trim() || null,
           imageFileIds,
           ...sizeChartPatch(product?.sizeChart?.fileId ?? null, sizeChart?.fileId ?? null),
           version,
@@ -459,6 +465,38 @@ export function ProductFormPage() {
                   </FormItem>
                 )}
               />
+              {!isNew && (
+                <>
+                  <FormField
+                    control={control}
+                    name="originCountry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Xuất xứ</FormLabel>
+                        <FormControl>
+                          <CountryCombobox value={field.value} onChange={field.onChange} disabled={readOnly} />
+                        </FormControl>
+                        <FormDescription>Dùng chung cho mọi sàn; TikTok bắt buộc ở nhiều category</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={control}
+                    name="brand"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Thương hiệu</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Để trống là không thương hiệu" maxLength={120} readOnly={readOnly} />
+                        </FormControl>
+                        <FormDescription>Lazada nhận "No Brand" khi để trống</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
 

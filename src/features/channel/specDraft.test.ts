@@ -8,6 +8,7 @@ import {
   firstStep,
   permissionBlocked,
   productAxes,
+  profilePatch,
   specInput,
   specMissing,
   stepOfError,
@@ -305,5 +306,19 @@ describe('pushReadiness (bước 4 chỉ ghi Sẵn sàng khi đẩy được th�
   it('chế độ chỉ lưu không cần gian hàng nhưng vẫn cần attribute đã tải', () => {
     expect(pushReadiness({ ...base, fillOnly: true, shops: [], selected: new Set() }).ready).toBe(true);
     expect(keys({ fillOnly: true, shops: [], attributes: 'failed' })).toEqual(['attributes']);
+  });
+});
+
+describe('profilePatch', () => {
+  it('chỉ ghi trường có giá trị của ô đang tick', () => {
+    expect(profilePatch(['101490', '101489'], { '101490': ' 12 Lê Lợi, Q1 ', '101489': '' }, 5)).toEqual({
+      responsibleAddress: '12 Lê Lợi, Q1',
+      version: 5,
+    });
+  });
+
+  it('không có gì để ghi thì null; mã lạ bỏ qua', () => {
+    expect(profilePatch(['101490'], {}, 1)).toBeNull();
+    expect(profilePatch(['100149'], { '100149': 'VN' }, 1)).toBeNull();
   });
 });

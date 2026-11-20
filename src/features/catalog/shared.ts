@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { valueCode } from '@/utils/sku';
-import type { Attribute } from '@/types/catalog';
+import type { Attribute, ProductDetail, ProductUpdateInput } from '@/types/catalog';
 import { suggestFormSchema } from './suggest';
 
 export const MAX_IMAGES = 9;
@@ -67,6 +67,9 @@ export const productSchema = z.object({
   name: z.string().trim().min(1, 'Nhập tên sản phẩm').max(200, 'Tên sản phẩm tối đa 200 ký tự'),
   groupId: z.string().min(1, 'Chọn nhóm hàng'),
   description: z.string().max(5000, 'Mô tả tối đa 5000 ký tự'),
+  /** Mã ISO alpha-2, rỗng là chưa chọn (Documents/21 §17.2; chỉ sửa được khi đã tạo sản phẩm) */
+  originCountry: z.string(),
+  brand: z.string().trim().max(100, 'Thương hiệu tối đa 100 ký tự'),
 });
 export type ProductForm = z.infer<typeof productSchema>;
 
@@ -106,4 +109,22 @@ export function imageFileError(file: File): string | null {
 export function sizeChartPatch(initial: string | null, current: string | null): { sizeChartFileId?: string | null } {
   if (initial === current) return {};
   return { sizeChartFileId: current };
+}
+
+/**
+ * Body `PUT /catalog/products/:id` chỉ đổi xuất xứ, thương hiệu (trang đẩy, commerio-backend#467): PUT đòi đủ tên, mô tả,
+ * ảnh nên gửi lại giá trị đang có; bỏ `sizeChartFileId` là giữ bảng size. Ô trống gửi `null`
+ */
+export function productFactsBody(
+  p: Pick<ProductDetail, 'name' | 'description' | 'images' | 'version'>,
+  facts: { originCountry: string; brand: string },
+): ProductUpdateInput {
+  return {
+    name: p.name,
+    description: p.description,
+    imageFileIds: [...p.images].sort((a, b) => a.position - b.position).map((i) => i.fileId),
+    originCountry: facts.originCountry.trim() || null,
+    brand: facts.brand.trim() || null,
+    version: p.version,
+  };
 }

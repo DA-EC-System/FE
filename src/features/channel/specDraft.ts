@@ -60,9 +60,35 @@ export const fold = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().trim();
 
 /** Mã attribute xuất xứ của từng sàn: lấy từ `originCountry` của sản phẩm */
-const ORIGIN_CODES = new Set(['100149', 'country_origin_hb']);
+export const ORIGIN_CODES = new Set(['100149', 'country_origin_hb']);
 /** Lazada `brand` trống thì BE gửi "No Brand" nên không bao giờ thiếu (plan A1, A15) */
-const BRAND_CODES = new Set(['brand']);
+export const BRAND_CODES = new Set(['brand']);
+/**
+ * Attribute `tier = 'company'` lấy mặc định từ trường nào của hồ sơ công ty (BE `RESPONSIBLE_ATTRS` ở
+ * `tiktok-categories.ts`: `101489` tên, `101490` địa chỉ). Ô tick "Lưu cũng vào hồ sơ công ty" ghi vào trường này
+ */
+export const PROFILE_FIELDS: Readonly<Record<string, 'responsibleName' | 'responsibleAddress'>> = {
+  '101489': 'responsibleName',
+  '101490': 'responsibleAddress',
+};
+
+/** Body `PUT /platform/company` từ các ô tick: chỉ trường có giá trị, kèm version hồ sơ; không có gì thì null */
+export function profilePatch(
+  codes: Iterable<string>,
+  attributes: Record<string, SpecValue>,
+  version: number,
+): { responsibleName?: string; responsibleAddress?: string; version: number } | null {
+  const out: { responsibleName?: string; responsibleAddress?: string; version: number } = { version };
+  let any = false;
+  for (const code of codes) {
+    const field = PROFILE_FIELDS[code];
+    const v = attributes[code];
+    if (!field || typeof v !== 'string' || !v.trim()) continue;
+    out[field] = v.trim();
+    any = true;
+  }
+  return any ? out : null;
+}
 
 export const isFilled = (v: SpecValue | null | undefined): boolean =>
   Array.isArray(v) ? v.length > 0 : typeof v === 'string' && v.trim() !== '';

@@ -9,10 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useProduct } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
+import { useCompanyProfile, useUpdateCompanyProfile } from '@/api/companySettings.api';
 import { problemMessage } from '@/api/problemMessages';
 import { usePlatformCategory, useProductSpec, usePushListings, useSaveProductSpec, useShops } from '@/api/shops.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { useCan } from '@/hooks/usePermission';
+import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import type { ProductDetail } from '@/types/catalog';
@@ -29,6 +32,8 @@ import {
   permissionBlocked,
   PERMISSION_LABELS,
   productAxes,
+  PROFILE_FIELDS,
+  profilePatch,
   pushReadiness,
   specInput,
   specMissing,
@@ -168,6 +173,35 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
 
   const save = useSaveProductSpec();
   const push = usePushListings();
+  const can = useCan();
+  const canEditProduct = can(PERMISSIONS.productManage);
+  const canEditCompany = can(PERMISSIONS.companyManage);
+  const profile = useCompanyProfile({ enabled: canEditCompany });
+  const updateProfile = useUpdateCompanyProfile();
+  // Ô công ty mà hồ sơ còn trống: mặc định tick "Lưu cũng vào hồ sơ công ty" (chỉ hiện khi hồ sơ trống nên không ghi đè gì)
+  const blankProfileCodes = useMemo(
+    () => (attrs ?? []).filter((a) => a.tier === 'company' && PROFILE_FIELDS[a.code] && !a.defaultValue).map((a) => a.code),
+    [attrs],
+  );
+  const [profileSync, setProfileSync] = useState<Set<string>>(new Set());
+  useEffect(() => setProfileSync(new Set(blankProfileCodes)), [blankProfileCodes]);
+
+  /** Sau khi lưu spec: ghi các ô đang tick vào hồ sơ công ty; lỗi chỉ báo, không chặn đẩy */
+  const syncProfile = async () => {
+    if (!canEditCompany || !profile.data) return;
+    const body = profilePatch(
+      blankProfileCodes.filter((c) => profileSync.has(c)),
+      draft.attributes,
+      profile.data.version,
+    );
+    if (!body) return;
+    try {
+      await updateProfile.mutateAsync(body);
+      toast.success('Đã lưu vào hồ sơ công ty, sản phẩm sau tự điền.');
+    } catch (e) {
+      toast.warning(`Chưa lưu được vào hồ sơ công ty: ${problemMessage(e)}. Sản phẩm này vẫn dùng giá trị vừa nhập.`);
+    }
+  };
 
   const submit = async () => {
     if (busy || !draft.externalCategoryId) return;
@@ -196,6 +230,7 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
         }
         return;
       }
+      await syncProfile();
       setSaved(saved);
       setDraft(draftFromSpec(saved.spec));
       if (fillOnly) {
@@ -334,6 +369,18 @@ function PushWizard({ platform, product, initial, shops, shopParam, fillOnly }: 
                 focus={focus}
                 onFocused={() => setFocus(null)}
                 onFocusRequest={setFocus}
+                product={product}
+                canEditProduct={canEditProduct}
+                canEditCompany={canEditCompany}
+                profileSync={profileSync}
+                onProfileSync={(code, checked) =>
+                  setProfileSync((prev) => {
+                    const next = new Set(prev);
+                    if (checked) next.add(code);
+                    else next.delete(code);
+                    return next;
+                  })
+                }
                 shopId={suggestShop?.id ?? null}
               />
             )}
