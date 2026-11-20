@@ -20,9 +20,10 @@ import {
   CEO_ONLY_CATEGORY,
 } from '@/features/catalog/platformCategory';
 
-/** Chỉ TikTok đổi được category của sản phẩm đã đăng; Lazada tới PR hai của commerio-backend#467 */
-const APPLY_PLATFORMS = new Set(['tiktok']);
-const SELLER_CENTER: Record<string, string> = { tiktok: 'https://seller-vn.tiktok.com/' };
+const SELLER_CENTER: Record<string, string> = {
+  tiktok: 'https://seller-vn.tiktok.com/',
+  lazada: 'https://sellercenter.lazada.vn/',
+};
 
 interface Props {
   platform: string;
@@ -106,7 +107,6 @@ export function CategoryChangeBlock({
   const revisionFailed = onPlatform.filter(({ row }) => row.listing?.pendingRevision?.status === 'failed');
   const queuedProducts = new Set(queued.map(({ shopId, row }) => `${shopId}/${row.listing?.externalProductId}`)).size;
 
-  const canApplyHere = APPLY_PLATFORMS.has(platform);
   const platformOwned = drift.some((d) => d.platformOwned);
   const ceoBlocked = platformOwned && !isCeo;
   const shopName = (id: string) => shops.find((s) => s.id === id)?.shopName ?? '';
@@ -135,7 +135,7 @@ export function CategoryChangeBlock({
   if (isLoading && !rows.length) return null;
   if (!onPlatform.length) return null;
 
-  const showWarning = drift.length > 0 && canApplyHere;
+  const showWarning = drift.length > 0;
   return (
     <div className="grid gap-3" data-testid="category-change">
       <p className="text-sm text-muted-foreground">

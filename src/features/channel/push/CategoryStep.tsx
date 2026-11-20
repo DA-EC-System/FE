@@ -39,9 +39,6 @@ interface CategoryStepProps {
 
 const lastName = (path: string) => path.split(' > ').at(-1) ?? path;
 
-const LAZADA_NOTE =
-  'Lưu xong, category mới lên Lazada khi đẩy lại SKU do Commerio tạo. SKU người bán tự đăng thì Commerio chưa đổi được category trên Lazada (đang làm), tạm sửa trên Seller Center.';
-
 /** Bước 1: gợi ý của sàn theo sản phẩm, hoặc tìm/duyệt cây category (Documents/21 §18.5) */
 export function CategoryStep({ platform, label, companyId, shopId, product, draft, pathIds, children, onPick, onSuggestions }: CategoryStepProps) {
   return (
@@ -76,7 +73,6 @@ export function CategoryStep({ platform, label, companyId, shopId, product, draf
         pathIds={pathIds}
         onPick={onPick}
       />
-      {platform === 'lazada' && <AlertMessage severity="info">{LAZADA_NOTE}</AlertMessage>}
     </div>
   );
 }
