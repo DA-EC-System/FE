@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Link2, Pencil, Trash2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
@@ -12,24 +12,66 @@ import { useDeleteSpecField, useSpecFields } from '@/api/catalog.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import type { SpecField } from '@/types/catalog';
+import { useSpecMappings } from '@/api/channelSpecMappings.api';
+import { PLATFORM_TABS } from '../platformCategory';
 import { SpecFieldDialog } from './SpecFieldDialog';
+import { SpecMappingDialog } from './SpecMappingDialog';
 import { SPEC_INPUT_LABELS } from './specLabels';
 
 const MAX_CHIPS = 4;
 
+/** Một dòng mỗi sàn trong ô "Ánh xạ sàn": mã ưu tiên nhất, hoặc gợi ý chưa lưu, hoặc chưa ánh xạ */
+function MappingCell({ fieldId }: { fieldId: string }) {
+  return (
+    <div className="grid gap-1">
+      {PLATFORM_TABS.map((t) => (
+        <PlatformMappingLine key={t.platform} platform={t.platform} label={t.label} fieldId={fieldId} />
+      ))}
+    </div>
+  );
+}
+
+function PlatformMappingLine({ platform, label, fieldId }: { platform: string; label: string; fieldId: string }) {
+  const query = useSpecMappings(platform);
+  const row = query.data?.find((m) => m.fieldId === fieldId);
+  const codes = [...(row?.codes ?? [])].sort((a, b) => a.priority - b.priority);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-sm">
+      <span className="w-20 shrink-0 text-xs text-muted-foreground">{label}</span>
+      {query.isLoading ? (
+        <span className="text-muted-foreground">…</span>
+      ) : query.isError ? (
+        <span className="text-xs text-muted-foreground">Không tải được</span>
+      ) : codes.length ? (
+        <>
+          <Badge variant="secondary">{codes[0].attributeLabel}</Badge>
+          {codes.length > 1 && <span className="text-xs text-muted-foreground">+{codes.length - 1} mã</span>}
+        </>
+      ) : row?.suggestions.length ? (
+        <span className="text-xs text-foreground-2">Có gợi ý, chưa lưu</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">Chưa ánh xạ</span>
+      )}
+    </div>
+  );
+}
+
 interface SpecFieldsTabProps {
   canManage: boolean;
+  /** Công ty bật kênh bán và người dùng xem được gian hàng: hiện cột và hộp ánh xạ sàn */
+  showMapping: boolean;
   /** Mở hộp thêm thông số (nút ở đầu trang) */
   creating: boolean;
   onCloseCreate: () => void;
 }
 
 /** Thư viện thông số của công ty (Documents/21 §5.5) */
-export function SpecFieldsTab({ canManage, creating, onCloseCreate }: SpecFieldsTabProps) {
+export function SpecFieldsTab({ canManage, showMapping, creating, onCloseCreate }: SpecFieldsTabProps) {
   const query = useSpecFields();
   const deleteMut = useDeleteSpecField();
   const [editing, setEditing] = useState<SpecField | null>(null);
   const [deleting, setDeleting] = useState<SpecField | null>(null);
+  const [mapping, setMapping] = useState<SpecField | null>(null);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -105,14 +147,38 @@ export function SpecFieldsTab({ canManage, creating, onCloseCreate }: SpecFields
       },
       { accessorKey: 'groupCount', header: 'Nhóm dùng', meta: { className: 'w-24 text-right tabular-nums' } },
       { accessorKey: 'productCount', header: 'Sản phẩm dùng', meta: { className: 'w-28 text-right tabular-nums' } },
+      ...(showMapping
+        ? [
+            {
+              id: 'mapping',
+              header: 'Ánh xạ sàn',
+              meta: { className: 'min-w-52' },
+              cell: ({ row }) => (
+                <button
+                  type="button"
+                  className="w-full cursor-pointer rounded-md text-left hover:bg-muted"
+                  aria-label={`Ánh xạ ${row.original.name} sang sàn`}
+                  onClick={() => setMapping(row.original)}
+                >
+                  <MappingCell fieldId={row.original.id} />
+                </button>
+              ),
+            } satisfies ColumnDef<SpecField>,
+          ]
+        : []),
       ...(canManage
         ? [
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-24 text-right' },
+              meta: { className: 'w-32 text-right' },
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
+                  {showMapping && (
+                    <RowAction label="Ánh xạ sàn" onClick={() => setMapping(row.original)}>
+                      <Link2 />
+                    </RowAction>
+                  )}
                   <RowAction label="Sửa" onClick={() => setEditing(row.original)}>
                     <Pencil />
                   </RowAction>
@@ -134,7 +200,7 @@ export function SpecFieldsTab({ canManage, creating, onCloseCreate }: SpecFields
           ]
         : []),
     ],
-    [canManage],
+    [canManage, showMapping],
   );
 
   return (
@@ -167,6 +233,7 @@ export function SpecFieldsTab({ canManage, creating, onCloseCreate }: SpecFields
           toast.success(message);
         }}
       />
+      <SpecMappingDialog field={mapping} canEdit={canManage} onClose={() => setMapping(null)} />
       <ConfirmDialog
         open={Boolean(deleting)}
         title="Xoá thông số?"

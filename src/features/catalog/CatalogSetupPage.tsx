@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Link2, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -28,6 +28,7 @@ import { PlatformCategoryTab } from './PlatformCategoryTab';
 import { PLATFORM_TABS, isPlatformTab } from './platformCategory';
 import { SpecFieldsTab } from './specs/SpecFieldsTab';
 import { GroupTemplateDialog } from './specs/GroupTemplateDialog';
+import { AxisMappingDialog, AxisMappingLine } from './specs/AxisMappingDialog';
 
 type Deleting = { kind: 'group'; item: ProductGroup } | { kind: 'attribute'; item: Attribute };
 type TabKey = 'groups' | 'specs' | 'attributes';
@@ -72,6 +73,7 @@ export function CatalogSetupPage() {
   const [deleting, setDeleting] = useState<Deleting | null>(null);
   const [templateOf, setTemplateOf] = useState<ProductGroup | null>(null);
   const [creatingSpec, setCreatingSpec] = useState(false);
+  const [axisOf, setAxisOf] = useState<Attribute | null>(null);
   // Nhóm còn sản phẩm: chuyển hết sang nhóm khác rồi xoá
   const [moving, setMoving] = useState<ProductGroup | null>(null);
 
@@ -210,14 +212,40 @@ export function CatalogSetupPage() {
         ),
       },
       { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
+      ...(showPlatforms
+        ? [
+            {
+              id: 'axisMapping',
+              header: 'Trục trên sàn',
+              meta: { className: 'min-w-52' },
+              cell: ({ row }) => (
+                <button
+                  type="button"
+                  className="grid w-full cursor-pointer gap-1 rounded-md text-left hover:bg-muted"
+                  aria-label={`Ghép ${row.original.name} sang phân loại của sàn`}
+                  onClick={() => setAxisOf(row.original)}
+                >
+                  {PLATFORM_TABS.map((t) => (
+                    <AxisMappingLine key={t.platform} attribute={row.original} platform={t.platform} label={t.label} />
+                  ))}
+                </button>
+              ),
+            } satisfies ColumnDef<Attribute>,
+          ]
+        : []),
       ...(canManage
         ? [
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-24 text-right' },
+              meta: { className: 'w-32 text-right' },
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
+                  {showPlatforms && (
+                    <RowAction label="Ghép sang sàn" onClick={() => setAxisOf(row.original)}>
+                      <Link2 />
+                    </RowAction>
+                  )}
                   <RowAction label="Sửa" onClick={() => setAttributeForm({ item: row.original })}>
                     <Pencil />
                   </RowAction>
@@ -235,7 +263,7 @@ export function CatalogSetupPage() {
           ]
         : []),
     ],
-    [canManage],
+    [canManage, showPlatforms],
   );
 
   const query = tab === 'attributes' ? attributesQuery : groupsQuery;
@@ -311,7 +339,7 @@ export function CatalogSetupPage() {
               </Card>
             </TabsContent>
             <TabsContent value="specs">
-              <SpecFieldsTab canManage={canManage} creating={creatingSpec} onCloseCreate={() => setCreatingSpec(false)} />
+              <SpecFieldsTab canManage={canManage} showMapping={showPlatforms} creating={creatingSpec} onCloseCreate={() => setCreatingSpec(false)} />
             </TabsContent>
             <TabsContent value="attributes">
               <Card className="py-0">
@@ -340,6 +368,7 @@ export function CatalogSetupPage() {
         onClose={() => setGroupForm(null)}
         onDone={done}
       />
+      <AxisMappingDialog attribute={axisOf} canEdit={canManage} onClose={() => setAxisOf(null)} />
       <GroupTemplateDialog
         group={templateOf}
         onClose={() => setTemplateOf(null)}
