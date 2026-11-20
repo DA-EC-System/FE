@@ -608,7 +608,7 @@ export function useSaveProductSpec() {
     },
     onSuccess: (data, { productId, platform }) => {
       qc.setQueryData(shopKeys.productSpec(companyId, productId, platform), data);
-      // Danh sách "sản phẩm đang dùng" của leaf ở trang Danh mục & thuộc tính đổi theo
+      // Danh sách "sản phẩm đang dùng" của leaf ở trang Nhóm hàng & thuộc tính đổi theo
       void qc.invalidateQueries({ queryKey: shopKeys.platformCategories(companyId, platform) });
     },
   });

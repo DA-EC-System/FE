@@ -7,7 +7,7 @@ const tuBe = (variant: Record<string, unknown>) =>
   ({
     id: 'p1',
     name: 'Áo',
-    category: { id: 'c1', name: 'Áo' },
+    group: { id: 'c1', name: 'Áo' },
     variantCount: 1,
     thumbnailUrl: null,
     status: 'active',

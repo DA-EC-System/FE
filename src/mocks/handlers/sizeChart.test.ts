@@ -82,11 +82,12 @@ describe('Ảnh bảng kích cỡ trong sản phẩm', () => {
     addFile('fil-sc3');
     const res = await call('/catalog/products', 'POST', {
       name: 'Giày thể thao FE261',
-      categoryId: 'cat-quan',
+      groupId: 'cat-quan',
       description: '',
       imageFileIds: [],
       sizeChartFileId: 'fil-sc3',
-      variants: [{ attributeValueIds: [] }],
+      axes: [],
+      variants: [{ options: [] }],
     });
     expect(res.status).toBe(201);
     expect((await res.json()).sizeChart).toMatchObject({ fileId: 'fil-sc3' });

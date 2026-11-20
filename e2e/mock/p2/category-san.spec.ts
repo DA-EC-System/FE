@@ -1,10 +1,10 @@
-// P2 · Category và attribute của sàn trên trang Danh mục & thuộc tính (commerio-backend#400, Documents/21 §18.5)
+// P2 · Category và attribute của sàn trên trang Nhóm hàng & thuộc tính (commerio-backend#400, Documents/21 §18.5)
 import { chua, dangNhap, expect, menu, test, toast } from '../../fixtures';
 
-test.describe('P2 · Tab Lazada, TikTok của Danh mục & thuộc tính', () => {
+test.describe('P2 · Tab Lazada, TikTok của Nhóm hàng & thuộc tính', () => {
   test.beforeEach(async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await menu(page, 'Danh mục & thuộc tính');
+    await menu(page, 'Nhóm hàng & thuộc tính');
   });
 
   test('Lazada: tìm không dấu, xem attribute và sản phẩm đang dùng, đồng bộ ngay hai lần', async ({ page }) => {
@@ -12,7 +12,7 @@ test.describe('P2 · Tab Lazada, TikTok của Danh mục & thuộc tính', () =>
     await expect(page).toHaveURL(/tab=lazada/);
     const tree = page.getByRole('tree', { name: 'Cây category Lazada' });
     await expect(chua(tree, 'Thiết bị thể thao & hoạt động ngoài trời')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Thêm danh mục', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thêm nhóm hàng', exact: true })).toHaveCount(0);
 
     await page.getByRole('searchbox', { name: 'Tìm category Lazada' }).fill('ao phong');
     await chua(tree, 'Áo phông & Áo ba lỗ', 'button').click();

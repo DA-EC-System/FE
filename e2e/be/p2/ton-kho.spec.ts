@@ -21,11 +21,11 @@ const goi = async <T>(method: 'post' | 'put', path: string, data: object, status
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'tonkho', optionalModules: ['purchasing'] });
   page = cty.page;
-  const category = await goi<{ id: string }>('post', '/catalog/categories', { name: 'Áo tồn giả', skuPattern: 'AOTK-{SEQ:4}' }, 201);
+  const group = await goi<{ id: string }>('post', '/catalog/groups', { name: 'Áo tồn giả' }, 201);
   const product = await goi<{ variants: { id: string; sku: string }[] }>(
     'post',
     '/catalog/products',
-    { name: 'Áo tồn kho giả', categoryId: category.id, variants: [{ attributeValueIds: [] }] },
+    { name: 'Áo tồn kho giả', groupId: group.id, axes: [], variants: [{ options: [] }] },
     201,
   );
   ({ id: variantId, sku } = product.variants[0]!);

@@ -32,7 +32,7 @@ const MENU: Record<string, string[]> = {
   ceo: [
     'Tổng quan: Tổng quan',
     'Nhập hàng: Mua hàng',
-    'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
+    'Sản phẩm và kho: Sản phẩm | Nhóm hàng & thuộc tính | Kho',
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Kiện hàng | Yêu cầu trả',
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',
@@ -41,7 +41,7 @@ const MENU: Record<string, string[]> = {
   ],
   admin: [
     'Tổng quan: Tổng quan',
-    'Sản phẩm và kho: Sản phẩm | Danh mục & thuộc tính | Kho',
+    'Sản phẩm và kho: Sản phẩm | Nhóm hàng & thuộc tính | Kho',
     'Bán trên sàn: Kênh bán',
     'Đơn hàng: Đơn hàng | Yêu cầu trả', // Admin có sales.return.view theo ma trận (FE#152)
     'Tài chính: Sổ tiền | Đối soát sàn | Giá chờ xác nhận | Cấu hình phí và thuế',

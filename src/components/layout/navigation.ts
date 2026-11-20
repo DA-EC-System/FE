@@ -103,7 +103,7 @@ export function companyNav(companyId: string): NavSection[] {
         },
         {
           to: ROUTES.company.catalogSetup(companyId),
-          label: 'Category & thuộc tính',
+          label: 'Nhóm hàng & thuộc tính',
           icon: SlidersHorizontal,
           module: 'catalog',
           permission: PERMISSIONS.catalogSetup,
@@ -261,7 +261,7 @@ function matchLength(item: NavItem, pathname: string) {
 }
 
 /**
- * Mục khớp dài nhất cùng nhóm của nó: ở /catalog/setup chỉ sáng "Category & thuộc tính", không sáng cả "Sản phẩm".
+ * Mục khớp dài nhất cùng nhóm của nó: ở /catalog/setup chỉ sáng "Nhóm hàng & thuộc tính", không sáng cả "Sản phẩm".
  * Dùng cho mục đang chọn trên sidebar, breadcrumb trên Header và đếm việc chờ theo mục.
  */
 export function findActiveNav(sections: NavSection[], pathname: string): ActiveNav | null {

@@ -87,7 +87,7 @@ const emptyLine = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
   parentMode: 'existing',
   parentId: '',
   parentName: '',
-  categoryId: '',
+  groupId: '',
   options: [],
   quantity: '',
   unitCost: '',
@@ -97,9 +97,9 @@ const emptyLine = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
 /** Dòng sản phẩm mới đã lưu → ô nhập; BE cũ chỉ có `name` thì coi là cha mới không trục */
 const newProductDraft = (np: NonNullable<PurchaseRequest['lines'][number]['newProduct']>): Partial<RequestLineDraft> => {
   const options = Object.entries(np.optionValues ?? {}).map(([axis, value]) => ({ axis, value }));
-  if (np.parentId) return { parentMode: 'existing', parentId: np.parentId, parentName: np.parentName ?? np.name, categoryId: np.categoryId, options };
+  if (np.parentId) return { parentMode: 'existing', parentId: np.parentId, parentName: np.parentName ?? np.name, groupId: np.groupId, options };
   while (options.length < MAX_AXES) options.push({ axis: '', value: '' });
-  return { parentMode: 'new', parentId: '', parentName: np.parentName ?? np.name, categoryId: np.categoryId, options };
+  return { parentMode: 'new', parentId: '', parentName: np.parentName ?? np.name, groupId: np.groupId, options };
 };
 
 const toForm = (req: PurchaseRequest): RequestFormInput => ({
@@ -129,7 +129,7 @@ const toLineInputs = (values: RequestFormOutput): PurchaseRequestLineInput[] =>
       newProduct: {
         parentId: existing ? l.parentId : null,
         parentName: existing ? null : l.parentName,
-        categoryId: l.categoryId,
+        groupId: l.groupId,
         optionValues: Object.fromEntries(options.map((o) => [o.axis, o.value])),
         // BE `main` chưa nhận cha, trục (commerio-backend#243): mỗi dòng tạo một sản phẩm theo tên này
         name: newProductName(l),
@@ -147,7 +147,7 @@ const LINE_ERROR_FIELDS: Record<string, string> = {
   'newProduct.name': 'parentName',
   'newProduct.parentName': 'parentName',
   'newProduct.parentId': 'parentId',
-  'newProduct.categoryId': 'categoryId',
+  'newProduct.groupId': 'groupId',
   'newProduct.optionValues': 'options',
 };
 
@@ -764,7 +764,7 @@ export function PurchaseRequestPage() {
                                       optionsLabel(np.optionValues ?? {}),
                                       np.parentId
                                         ? 'Cha có sẵn'
-                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Category ${np.categoryName}`,
+                                        : `${NEW_PRODUCT_PARENT ? 'Cha mới' : 'Sản phẩm riêng'} · Nhóm hàng ${np.groupName}`,
                                     ]
                                       .filter(Boolean)
                                       .join(' · ')

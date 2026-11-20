@@ -52,7 +52,7 @@ export function validateNewProducts(
     else if (axes.some((a) => !catalog.attributes.some((x) => x.companyId === companyId && x.name === a))) {
       errors[`${path}.optionValues`] = 'Trục phân loại không có trong thuộc tính của công ty';
     }
-    let categoryId = String(input.categoryId ?? '');
+    let groupId = String(input.groupId ?? '');
     let parentName = String(input.parentName ?? input.name ?? '').trim();
     let key: string;
     if (input.parentId) {
@@ -61,7 +61,7 @@ export function validateNewProducts(
         errors[`${path}.parentId`] = 'Chọn sản phẩm cha';
         continue;
       }
-      categoryId = parent.categoryId;
+      groupId = parent.groupId;
       parentName = parent.name;
       const parentAxes = axesOf(parent);
       if (parentAxes.join('|') !== axes.join('|') && !errors[`${path}.optionValues`]) {
@@ -76,8 +76,8 @@ export function validateNewProducts(
       else if (catalog.products.some((p) => p.companyId === companyId && !p.archivedAt && norm(p.name) === norm(parentName))) {
         errors[`${path}.parentName`] = 'Tên đã có sản phẩm, chọn Cha có sẵn';
       }
-      if (!catalog.categories.some((c) => c.id === categoryId && c.companyId === companyId)) {
-        errors[`${path}.categoryId`] = 'Chọn danh mục';
+      if (!catalog.groups.some((g) => g.id === groupId && g.companyId === companyId)) {
+        errors[`${path}.groupId`] = 'Chọn nhóm hàng';
       }
       key = `new:${norm(parentName)}`;
     }
@@ -85,7 +85,7 @@ export function validateNewProducts(
     out.set(index, {
       parentId: input.parentId ?? null,
       parentName: input.parentId ? null : parentName,
-      categoryId,
+      groupId,
       optionValues: values,
       name: name.slice(0, 120),
     });
@@ -148,12 +148,11 @@ export function createNewProducts(req: MockPurchaseRequest, at: string) {
     let product = np.parentId
       ? catalog.products.find((p) => p.id === np.parentId)
       : (created.get(key) ?? undefined);
-    const category = catalog.categories.find((c) => c.id === (product?.categoryId ?? np.categoryId))!;
     if (!product) {
       product = {
         id: rid('prd'),
         companyId: req.companyId,
-        categoryId: category.id,
+        groupId: np.groupId,
         name: parentName,
         description: `Tạo từ đơn đặt hàng nhập ${req.number}`,
         imageFileIds: [],
@@ -167,7 +166,7 @@ export function createNewProducts(req: MockPurchaseRequest, at: string) {
     }
     const axes = np.parentId ? axesOf(product) : Object.keys(np.optionValues ?? {}).sort();
     const valueIds = axes.map((axis) => valueIdOf(req.companyId, axis, np.optionValues?.[axis] ?? ''));
-    const variant = nextVariant(category, valueIds);
+    const variant = nextVariant(req.companyId, valueIds);
     product.variants.push(variant);
     product.updatedAt = at;
     product.version += 1;

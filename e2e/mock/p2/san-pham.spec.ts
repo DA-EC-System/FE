@@ -1,4 +1,4 @@
-// P2 · Sản phẩm, danh mục, thuộc tính (UC-CP-01, 02; FE#5, commerio-backend#12, #14)
+// P2 · Sản phẩm, nhóm hàng, thuộc tính (UC-CP-01, 02; FE#5, FE#350, commerio-backend#12, #14, #447)
 import { type Locator, type Page } from '@playwright/test';
 import { chon, chu, chua, dangNhap, duongDan, expect, menu, mockApi, test, thayChu, toast } from '../../fixtures';
 
@@ -33,7 +33,7 @@ test.describe('P2 · Sản phẩm', () => {
     await expect(page.locator('tbody')).toContainText('Không tìm thấy sản phẩm phù hợp');
   });
 
-  test('tạo sản phẩm có biến thể, SKU cấp theo quy tắc danh mục', async ({ page }) => {
+  test('tạo sản phẩm có biến thể, SKU cấp theo mẫu của công ty', async ({ page }) => {
     await page.getByRole('button', { name: 'Thêm sản phẩm', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/new$/);
 
@@ -41,7 +41,7 @@ test.describe('P2 · Sản phẩm', () => {
     await page.getByRole('button', { name: 'Tạo sản phẩm', exact: true }).click();
     await expect(loiTen(page)).not.toBeEmpty();
 
-    await chon(page, 'Danh mục', 'Áo');
+    await chon(page, 'Nhóm hàng', 'Áo');
     const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await thuocTinh.getByRole('button', { name: 'Kích cỡ', exact: true }).click();
@@ -64,11 +64,11 @@ test.describe('P2 · Sản phẩm', () => {
     await toast(page, 'Đã tạo Áo sơ mi Oxford với 3 biến thể');
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/prd-/);
     await expect(page.locator('[data-testid=variants] tbody tr td:first-child')).toHaveText(
-      ['AO-0013-DEN-S', 'AO-0014-TRANG-S', 'AO-0015-TRANG-M'],
+      ['SP00001-DEN-S', 'SP00002-TRANG-S', 'SP00003-TRANG-M'],
       { useInnerText: true },
     );
-    // Đã tạo thì không đổi được danh mục (SKU đã cấp theo danh mục)
-    await expect(page.getByRole('combobox', { name: 'Danh mục', exact: true })).toBeDisabled();
+    // Nhóm hàng không quyết định SKU nên đổi được sau khi tạo
+    await expect(page.getByRole('combobox', { name: 'Nhóm hàng', exact: true })).toBeEnabled();
   });
 
   test('sửa sản phẩm bị người khác sửa trước thì nạp bản mới nhất', async ({ page }) => {
@@ -132,20 +132,16 @@ test.describe('P2 · Sản phẩm', () => {
     await expect(dong.getByTestId('variant-status')).toContainText('Đang bán');
   });
 
-  test('danh mục: quy tắc SKU sai báo ngay, tên trùng báo tại ô', async ({ page }) => {
-    await page.getByRole('button', { name: 'Danh mục & thuộc tính', exact: true }).click();
-    await page.getByRole('button', { name: 'Thêm danh mục', exact: true }).click();
+  test('nhóm hàng: tên trùng báo tại ô, tạo xong hiện trong bảng', async ({ page }) => {
+    await page.getByRole('button', { name: 'Nhóm hàng & thuộc tính', exact: true }).click();
+    await page.getByRole('button', { name: 'Thêm nhóm hàng', exact: true }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.locator('input[name=skuPattern]').fill('AO-{VAL}');
-    await expect(dialog.getByTestId('sku-preview')).toContainText('Quy tắc phải có đúng một {SEQ} để SKU không trùng');
-    await dialog.locator('input[name=skuPattern]').fill('TX-{SEQ:4}-{VAL}');
-    await expect(dialog.getByTestId('sku-preview')).toContainText('TX-0001-DEN-XL');
     await dialog.locator('input[name=name]').fill('áo');
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-    await expect(loiTen(dialog)).toHaveText('Đã có danh mục cùng tên');
+    await expect(loiTen(dialog)).toHaveText('Đã có nhóm hàng cùng tên');
     await dialog.locator('input[name=name]').fill('Túi xách');
     await dialog.getByRole('button', { name: 'Lưu', exact: true }).click();
-    await toast(page, 'Đã tạo danh mục Túi xách');
-    await expect(chua(page, 'Túi xách', 'tbody tr')).toContainText('TX-{SEQ:4}-{VAL}');
+    await toast(page, 'Đã tạo nhóm hàng Túi xách');
+    await expect(chua(page, 'Túi xách', 'tbody tr')).toContainText('0');
   });
 });

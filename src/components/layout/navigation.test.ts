@@ -18,7 +18,7 @@ const task = (id: string, ref: TaskItem['ref'], severity: TaskItem['severity'] =
 
 describe('findActiveNav', () => {
   it('chọn mục khớp dài nhất kèm nhóm', () => {
-    expect(findActiveNav(nav, `/c/${C}/catalog/setup`)?.item.label).toBe('Category & thuộc tính');
+    expect(findActiveNav(nav, `/c/${C}/catalog/setup`)?.item.label).toBe('Nhóm hàng & thuộc tính');
     const order = findActiveNav(nav, `/c/${C}/sales/orders/ord-1`);
     expect(order?.item.label).toBe('Đơn hàng');
     expect(order?.section.title).toBe('Đơn hàng');

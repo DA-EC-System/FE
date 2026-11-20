@@ -201,7 +201,7 @@ function lineView(companyId: string, l: MockPurchaseRequestLine, showCost: boole
     productName: label?.productName || l.newProduct?.parentName || l.newProduct?.name || '',
     attributesLabel: label?.attributesLabel ?? '',
     newProduct: l.newProduct
-      ? { ...l.newProduct, categoryName: catalog.categories.find((c) => c.id === l.newProduct!.categoryId)?.name ?? '' }
+      ? { ...l.newProduct, groupName: catalog.groups.find((g) => g.id === l.newProduct!.groupId)?.name ?? '' }
       : null,
     quantity: l.quantity,
     unitCost: showCost ? l.unitCost : null,

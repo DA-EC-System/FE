@@ -13,11 +13,11 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { renderSku } from '@/utils/sku';
-import type { Attribute, Category } from '@/types/catalog';
+import type { Attribute, ProductAxis, ProductSettings } from '@/types/catalog';
 import { cartesian, comboKey, valueIndex } from './shared';
 
 export const MAX_VARIANTS = 100;
-/** Tối đa 2 trục phân loại như TikTok Shop, Shopee (Documents/25 §5.4, §17.4 too_many_axes) */
+/** Tối đa 2 trục phân loại theo Lazada `VARIATION_SIZE_LIMIT` (Documents/25 §5.4) */
 export const MAX_AXES = 2;
 
 /** Thuộc tính đã chọn, giá trị đã chọn của từng thuộc tính, tổ hợp bị bỏ */
@@ -38,6 +38,23 @@ export function planCombos(plan: VariantPlan, attributes: Attribute[]): string[]
   );
 }
 
+/**
+ * Body `axes`, `variants` của `POST /catalog/products` (Documents/21 §5.2) từ kế hoạch chọn thuộc tính có sẵn: mỗi
+ * thuộc tính đã chọn là một trục gửi `attributeId` và giá trị kèm `id`; `options` là chữ của giá trị theo thứ tự trục
+ */
+export function planBody(plan: VariantPlan, attributes: Attribute[]): { axes: ProductAxis[]; variants: { options: string[] }[] } {
+  const order = attributes.filter((a) => plan.attributeIds.includes(a.id));
+  const axes = order.map((a) => ({
+    attributeId: a.id,
+    values: a.values.filter((x) => plan.values[a.id]?.includes(x.id)).map((x) => ({ id: x.id, value: x.value })),
+  }));
+  const text = new Map(order.flatMap((a) => a.values.map((x) => [x.id, x.value] as const)));
+  const variants = planCombos(plan, attributes)
+    .filter((c) => !plan.excluded.includes(comboKey(c)))
+    .map((c) => ({ options: c.map((id) => text.get(id) ?? '') }));
+  return { axes, variants };
+}
+
 /** Lỗi của kế hoạch biến thể, null nếu tạo được */
 export function planError(plan: VariantPlan, attributes: Attribute[]): string | null {
   if (plan.attributeIds.length > MAX_AXES) return `Tối đa ${MAX_AXES} thuộc tính phân loại`;
@@ -54,7 +71,8 @@ const MAX_ROWS_SHOWN = MAX_VARIANTS + 20;
 
 interface VariantBuilderProps {
   attributes: Attribute[];
-  category: Category | undefined;
+  /** Mẫu SKU và số thứ tự kế tiếp của công ty (`GET /catalog/settings`) */
+  settings: ProductSettings | undefined;
   value: VariantPlan;
   onChange: (plan: VariantPlan) => void;
   /** Lỗi khi bấm Lưu hoặc errors.variants từ BE */
@@ -64,7 +82,7 @@ interface VariantBuilderProps {
 }
 
 /** UC-CP-02: chọn thuộc tính và giá trị → sinh tổ hợp biến thể, xem trước SKU (QT-11) */
-export function VariantBuilder({ attributes, category, value, onChange, error, loading }: VariantBuilderProps) {
+export function VariantBuilder({ attributes, settings, value, onChange, error, loading }: VariantBuilderProps) {
   const index = useMemo(() => valueIndex(attributes), [attributes]);
   const combos = useMemo(() => planCombos(value, attributes), [value, attributes]);
 
@@ -101,13 +119,13 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
     });
 
   // SKU dự kiến: số thứ tự chạy theo các tổ hợp được giữ từ skuNextSeq, giống BE sinh tuần tự (AC-7)
-  let seq = category?.skuNextSeq ?? 1;
+  let seq = settings?.skuNextSeq ?? 1;
   const rows = combos.map((combo) => {
     const key = comboKey(combo);
     const included = !value.excluded.includes(key);
     const labels = combo.map((id) => index.get(id)?.value ?? '');
     const codes = combo.map((id) => index.get(id)?.code ?? '');
-    const sku = included && category ? renderSku(category.skuPattern, seq++, codes) : null;
+    const sku = included && settings ? renderSku(settings.skuPattern, seq++, codes) : null;
     return { key, included, labels, sku };
   });
   const includedCount = rows.filter((r) => r.included).length;
@@ -139,7 +157,7 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
             Đang tải thuộc tính phân loại…
           </p>
         ) : (
-          !attributes.length && <p className="text-sm text-muted-foreground">Chưa có thuộc tính phân loại nào. Tạo ở trang Category &amp; thuộc tính.</p>
+          !attributes.length && <p className="text-sm text-muted-foreground">Chưa có thuộc tính phân loại nào. Tạo ở trang Nhóm hàng &amp; thuộc tính.</p>
         )}
       </div>
       {axesFull && attributes.length > MAX_AXES && (
@@ -192,7 +210,7 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
                   </TableCell>
                   <TableCell>{label}</TableCell>
                   <TableCell className="font-mono">
-                    {r.sku ?? (r.included ? 'Chọn category để xem SKU' : '—')}
+                    {r.sku ?? (r.included ? 'Đang tải mẫu SKU…' : '—')}
                   </TableCell>
                 </TableRow>
               );
@@ -207,7 +225,7 @@ export function VariantBuilder({ attributes, category, value, onChange, error, l
       )}
       <p className="text-xs text-muted-foreground">
         Sẽ tạo <Badge variant="secondary">{includedCount}</Badge> variant. SKU thật cấp khi lưu, có thể lệch bản xem trước nếu có
-        người vừa tạo sản phẩm cùng category.
+        người vừa tạo sản phẩm khác.
       </p>
       {shownError && <AlertMessage severity="error">{shownError}</AlertMessage>}
     </div>

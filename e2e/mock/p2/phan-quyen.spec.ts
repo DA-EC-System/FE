@@ -16,7 +16,7 @@ test.describe('P2 · Phân quyền', () => {
     await dangNhap(page, 'sale@commerio.vn', 'sale');
     await coMenu(page, 'Sản phẩm');
     await khongCoMenu(page, 'Bảng giá');
-    await khongCoMenu(page, 'Danh mục & thuộc tính');
+    await khongCoMenu(page, 'Nhóm hàng & thuộc tính');
     await khongCoMenu(page, 'Kho');
 
     await menu(page, 'Sản phẩm');
@@ -32,7 +32,7 @@ test.describe('P2 · Phân quyền', () => {
     await page.goto('/c/cmp-001/inventory');
     await thayChu(page, KHONG_CO_QUYEN);
     await page.goto('/c/cmp-001/catalog/setup');
-    await expect(page.getByRole('button', { name: 'Thêm danh mục', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Thêm nhóm hàng', exact: true })).toHaveCount(0);
   });
 
   test('Nhân viên kho: lập phiếu, không thấy giá vốn, không đặt ngưỡng, không vào Sổ tiền', async ({ page }) => {
@@ -68,7 +68,7 @@ test.describe('P2 · Phân quyền', () => {
 
   test('CEO: thấy giá vốn và đủ thao tác', async ({ page }) => {
     await dangNhap(page, 'ceo@commerio.vn', 'ceo');
-    await coMenu(page, 'Danh mục & thuộc tính');
+    await coMenu(page, 'Nhóm hàng & thuộc tính');
     await menu(page, 'Kho');
     await expect(page.locator('thead')).toContainText('Giá vốn BQ');
     await expect(page.locator('thead')).toContainText('Giá trị tồn');

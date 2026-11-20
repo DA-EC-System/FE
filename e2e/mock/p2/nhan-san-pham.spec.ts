@@ -47,7 +47,7 @@ test.describe('P2 · Nhãn sản phẩm (FE#260)', () => {
   test('sản phẩm mới tạo, mọi SKU Chờ hoàn thiện thì xoá hẳn được', async ({ page }) => {
     await page.getByRole('button', { name: 'Thêm sản phẩm', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(/\/catalog\/products\/new$/);
-    await chon(page, 'Danh mục', 'Áo');
+    await chon(page, 'Nhóm hàng', 'Áo');
     const thuocTinh = page.getByRole('group', { name: 'Thuộc tính', exact: true });
     await thuocTinh.getByRole('button', { name: 'Màu sắc', exact: true }).click();
     await page.getByRole('group', { name: 'Màu sắc', exact: true }).getByRole('button', { name: 'Đen', exact: true }).click();

@@ -23,7 +23,7 @@ import type { PlatformAttribute } from '@/types/shop';
 import { SIZE_CHART_LABELS, groupAttributes, hasCondition, inputSummary, parentPath, platformLabel } from './platformCategory';
 import { SearchResults, TreeLevel } from './PlatformCategoryTree';
 
-/** Tab Lazada, TikTok của trang Category & thuộc tính: cây category và attribute của sàn, chỉ đọc (Documents/21 §18.5) */
+/** Tab Lazada, TikTok của trang Nhóm hàng & thuộc tính: cây category và attribute của sàn, chỉ đọc (Documents/21 §18.5) */
 export function PlatformCategoryTab({ platform }: { platform: string }) {
   const can = useCan();
   const label = platformLabel(platform);

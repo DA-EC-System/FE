@@ -103,7 +103,7 @@ export interface RequestLineDraft {
   parentId: string;
   /** Tên cha mới, hoặc tên của cha có sẵn đã chọn (để hiển thị và ghép tên) */
   parentName: string;
-  categoryId: string;
+  groupId: string;
   options: NewProductOption[];
   quantity: string;
   unitCost: string;
@@ -132,7 +132,7 @@ const requestLineSchema = z
     parentMode: z.enum(['existing', 'new']),
     parentId: z.string(),
     parentName: z.string().trim().max(120, 'Tối đa 120 ký tự'),
-    categoryId: z.string(),
+    groupId: z.string(),
     options: z.array(optionSchema).max(MAX_AXES),
     quantity: qtyText(1, MAX_QTY),
     unitCost: moneySchema({ label: 'Giá nhập', max: MAX_COST }),
@@ -143,7 +143,7 @@ const requestLineSchema = z
       if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm cha' });
     } else {
       if (!l.parentName) ctx.addIssue({ code: 'custom', path: ['parentName'], message: 'Nhập tên sản phẩm cha' });
-      if (!l.categoryId) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Chọn category' });
+      if (!l.groupId) ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Chọn nhóm hàng' });
     }
     const seen = new Set<string>();
     l.options.forEach((o, k) => {

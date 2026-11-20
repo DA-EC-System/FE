@@ -43,7 +43,7 @@ export const categoryRules: Record<string, MockCategoryRule> = {
   'cat-pk': { markup: 1.6, roundTo: 1000, leadDays: 10, safetyStock: 2 },
 };
 
-export const ruleOf = (categoryId: string) => categoryRules[categoryId] ?? DEFAULT_RULE;
+export const ruleOf = (groupId: string) => categoryRules[groupId] ?? DEFAULT_RULE;
 
 /** Giới hạn BE kiểm khi lưu, FE không chặn trước để thấy lỗi theo dòng */
 export const SPEC_LIMITS = { weightG: 50000, sizeMm: 2000, maxRows: 200 } as const;

@@ -120,7 +120,7 @@ test.describe('P2 · Mua hàng', () => {
         await them();
         const dongMoi = page.getByTestId(`new-product-${i}`);
         await dongMoi.getByLabel(/^Tên sản phẩm cha/).fill('Áo len');
-        await chon(dongMoi, `Danh mục Áo len`, 'Áo');
+        await chon(dongMoi, `Nhóm hàng Áo len`, 'Áo');
         await chon(dongMoi, `Trục phân loại 1 Áo len`, 'Màu sắc');
         await dongMoi.getByLabel(/^Màu sắc/).fill('Kem');
       }
@@ -155,7 +155,7 @@ test.describe('P2 · Mua hàng', () => {
       // Gửi duyệt thì chỉ xem: hiện phân loại và loại cha
       await thaoTac(page, 'Gửi duyệt');
       await expect(page.getByTestId('request-status')).toContainText('Chờ duyệt');
-      await expect(bang).toContainText('Màu sắc: Kem · Cha mới · Danh mục Áo');
+      await expect(bang).toContainText('Màu sắc: Kem · Cha mới · Nhóm hàng Áo');
       await expect(bang).toContainText('Kích cỡ: XXL · Cha có sẵn');
 
       // CEO tự duyệt: sinh một sản phẩm "Áo len" hai SKU và thêm SKU vào Quần kaki
