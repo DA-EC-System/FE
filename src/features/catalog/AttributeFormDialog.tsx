@@ -192,7 +192,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
                       />
                       <div className="pt-0.5">
                         <RowAction
-                          label="Xoá giá trị"
+                          label={`Xoá giá trị ${i + 1}`}
                           destructive
                           reason={
                             locked

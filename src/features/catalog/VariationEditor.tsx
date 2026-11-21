@@ -373,7 +373,7 @@ function AxisCard({
           {nameError ? (
             <p className="text-sm text-destructive">{nameError}</p>
           ) : attribute && allowed && !allowed.ids.includes(attribute.id) ? (
-            <p className="text-xs text-warning-foreground" role="status">
+            <p className="text-xs text-warning-text" role="status">
               Thuộc tính này không thuộc danh mục {allowed.groupName}. Vẫn lưu được; sàn có thể không nhận lúc đăng.
             </p>
           ) : (
@@ -503,7 +503,7 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
       {a.name}
       {a.platformKind && (
         <Badge variant="outline" className="ml-auto">
-          Chuẩn sàn
+          Mặc định
         </Badge>
       )}
     </CommandItem>

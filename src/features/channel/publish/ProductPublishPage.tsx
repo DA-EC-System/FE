@@ -117,7 +117,8 @@ function PublishFlow({
               k < step && 'border-success-border text-success-text',
             )}
           >
-            {k < step && <Check className="size-3.5" />}
+            {k < step && <Check className="size-3.5" aria-hidden />}
+            {k < step && <span className="sr-only"> (đã qua)</span>}
             {k + 1}. {name}
           </button>
         ))}

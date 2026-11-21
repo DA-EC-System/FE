@@ -252,18 +252,18 @@ export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: Spec
                           )}
                         />
                         <div className="flex">
-                          <RowAction label="Lên trên" reason={i === 0 ? 'Đã ở đầu' : null} onClick={() => move(i, i - 1)}>
+                          <RowAction label={`Đưa lựa chọn ${i + 1} lên trên`} reason={i === 0 ? 'Đã ở đầu' : null} onClick={() => move(i, i - 1)}>
                             <ArrowUp />
                           </RowAction>
                           <RowAction
-                            label="Xuống dưới"
+                            label={`Đưa lựa chọn ${i + 1} xuống dưới`}
                             reason={i === fields.length - 1 ? 'Đã ở cuối' : null}
                             onClick={() => move(i, i + 1)}
                           >
                             <ArrowDown />
                           </RowAction>
                           <RowAction
-                            label="Xoá lựa chọn"
+                            label={`Xoá lựa chọn ${i + 1}`}
                             destructive
                             reason={locked ? 'Đang có sản phẩm dùng, không xoá được' : null}
                             onClick={() => remove(i)}

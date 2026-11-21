@@ -94,7 +94,7 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
               <CommandGroup forceMount>
                 <CommandItem value={`__new__${name}`} onSelect={add} disabled={create.isPending} forceMount>
                   {create.isPending ? <Loader2 className="animate-spin" /> : <Plus />}
-                  Tạo nhóm “{name}”
+                  {create.isPending ? `Đang tạo danh mục “${name}”…` : `Tạo danh mục “${name}”`}
                 </CommandItem>
               </CommandGroup>
             )}

@@ -256,9 +256,9 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                     {v.onPlatform && v.r.listing ? (
                       <Badge variant="outline">{LISTING_STATUS_LABELS[v.r.listing.status]}</Badge>
                     ) : v.blocker ? (
-                      <span className="text-sm text-destructive-text">✗ {v.blocker}</span>
+                      <span className="text-sm text-destructive-text">Chưa đăng: {v.blocker}</span>
                     ) : (
-                      <span className="text-sm text-success-text">✓ Sẽ đăng</span>
+                      <span className="text-sm text-success-text">Sẽ đăng</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -296,7 +296,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
       <div className="flex flex-wrap items-center justify-end gap-3">
         <Button type="button" onClick={() => void publish()} disabled={busy || !toPublish.length}>
           {busy && <Loader2 className="animate-spin" />}
-          {toPublish.length ? `Đăng ${toPublish.length} SKU lên ${shopsToPublish.length} gian hàng` : 'Không có SKU nào đăng được'}
+          {busy ? 'Đang đăng…' : toPublish.length ? `Đăng ${toPublish.length} SKU lên ${shopsToPublish.length} gian hàng` : 'Không có SKU nào đăng được'}
         </Button>
       </div>
 

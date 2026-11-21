@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
+import { Eye, ImageIcon, Pencil, Plus, Settings2, TableProperties } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -105,7 +106,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
                 <AvatarImage src={row.original.thumbnailUrl} alt="" className="object-cover" />
               )}
               <AvatarFallback className="rounded-md">
-                <span className="text-xs text-muted-foreground">{row.original.name.trim().charAt(0).toUpperCase()}</span>
+                <ImageIcon className="size-4 text-muted-foreground" />
               </AvatarFallback>
             </Avatar>
             <span className="grid min-w-0">
@@ -156,9 +157,9 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
           const editable = canManage && p.status === 'active';
           return (
             <div className="flex justify-end gap-1">
-              <RowTextAction label={`${editable ? 'Sửa' : 'Xem'} ${p.name}`} onClick={() => open(p.id)}>
-                {editable ? 'Sửa' : 'Xem'}
-              </RowTextAction>
+              <RowAction label={`${editable ? 'Sửa' : 'Xem'} ${p.name}`} onClick={() => open(p.id)}>
+                {editable ? <Pencil /> : <Eye />}
+              </RowAction>
               {canManage && (
                 <BusinessActionMenu
                   label={`Đổi trạng thái ${p.name}`}
@@ -193,16 +194,19 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
           <div className="flex flex-wrap gap-2">
             {canSetup && (
               <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
+                <Settings2 />
                 Danh mục sản phẩm
               </Button>
             )}
             {canManage && (
               <Button variant="outline" onClick={onBulk}>
+                <TableProperties />
                 Sửa hàng loạt
               </Button>
             )}
             {canManage && (
               <Button onClick={() => navigate(ROUTES.company.catalogNew(companyId))} data-guide="products-add">
+                <Plus />
                 Thêm sản phẩm
               </Button>
             )}

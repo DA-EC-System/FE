@@ -328,7 +328,7 @@ function ProductTab({ items, label, facts, companyId, productId, product, canEdi
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" size="sm" onClick={save} disabled={!dirty || Boolean(brandError) || update.isPending}>
             {update.isPending && <Loader2 className="animate-spin" />}
-            Lưu vào sản phẩm
+            {update.isPending ? 'Đang lưu…' : 'Lưu vào sản phẩm'}
           </Button>
           {dirty && <span className="text-xs text-muted-foreground">Chưa lưu. Cần lưu trước khi đăng.</span>}
         </div>

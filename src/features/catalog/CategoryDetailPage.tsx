@@ -163,7 +163,7 @@ export function CategoryDetailPage() {
         key={row.fieldId}
         className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-1.5 ${locked ? 'bg-muted/50' : ''} ${active ? 'border-primary' : ''}`}
       >
-        {locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Mặc định của hệ thống" />}
+        {locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Mặc định của hệ thống, không bỏ được" />}
         <button
           type="button"
           className="min-h-6 min-w-0 flex-1 cursor-pointer text-left"
@@ -196,21 +196,21 @@ export function CategoryDetailPage() {
             </label>
             <span className="flex">
               <RowAction
-                label="Lên trên"
+                label={`Đưa ${name} lên trên`}
                 reason={i === 0 ? 'Đã ở đầu' : busy ? 'Đang lưu' : null}
                 onClick={() => void save({ fields: move(ownFields, i, i - 1) }, 'Đã đổi thứ tự')}
               >
                 <ArrowUp />
               </RowAction>
               <RowAction
-                label="Xuống dưới"
+                label={`Đưa ${name} xuống dưới`}
                 reason={i === ownFields.length - 1 ? 'Đã ở cuối' : busy ? 'Đang lưu' : null}
                 onClick={() => void save({ fields: move(ownFields, i, i + 1) }, 'Đã đổi thứ tự')}
               >
                 <ArrowDown />
               </RowAction>
               <RowAction
-                label="Bỏ khỏi danh mục"
+                label={`Bỏ ${name} khỏi danh mục`}
                 destructive
                 reason={busy ? 'Đang lưu' : null}
                 onClick={() => {
@@ -279,7 +279,7 @@ export function CategoryDetailPage() {
             <CardContent className="grid gap-4">
               {platform || !editable ? (
                 <p className="flex flex-wrap items-center gap-1.5">
-                  {platform && <Lock className="size-3.5 text-muted-foreground" aria-hidden />}
+                  {platform && <Lock className="size-3.5 text-muted-foreground" aria-label="Hệ thống đặt, không đổi được" />}
                   {template.axes.length ? (
                     template.axes.map((a) => (
                       <Badge key={a.attributeId} variant="secondary">
@@ -331,7 +331,7 @@ export function CategoryDetailPage() {
                   <ul className="flex flex-wrap gap-1">
                     {lockedAllowed.map((a) => (
                       <li key={a.attributeId}>
-                        <Badge variant="outline">
+                        <Badge variant="outline" title="Mặc định của hệ thống, không bỏ được">
                           <Lock className="size-3" aria-hidden />
                           {a.name}
                         </Badge>
@@ -560,7 +560,7 @@ function BackLink({ companyId }: { companyId: string }) {
   return (
     <Link to={ROUTES.company.catalogSetup(companyId)} className="inline-flex w-fit items-center gap-1 text-sm text-primary-text hover:underline">
       <ArrowLeft className="size-4" aria-hidden />
-      Danh mục sản phẩm
+      Về Danh mục sản phẩm
     </Link>
   );
 }

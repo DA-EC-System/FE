@@ -171,13 +171,13 @@ export function CatalogSetupPage() {
         meta: { className: 'w-32 text-right' },
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
-            <RowAction label={canManage ? 'Mở để sửa' : 'Xem'} onClick={() => navigate(detailHref(row.original))}>
+            <RowAction label={`Mở ${row.original.name}`} onClick={() => navigate(detailHref(row.original))}>
               <Pencil />
             </RowAction>
             {canManage &&
               (isPlatform(row.original) ? (
                 <RowAction
-                  label={row.original.hidden ? 'Hiện lại danh mục' : 'Ẩn danh mục (không bán)'}
+                  label={`${row.original.hidden ? 'Hiện lại' : 'Ẩn'} ${row.original.name}`}
                   reason={hideMut.isPending ? 'Đang lưu' : null}
                   onClick={() => void toggleHidden(row.original)}
                 >
@@ -185,7 +185,7 @@ export function CatalogSetupPage() {
                 </RowAction>
               ) : (
                 <RowAction
-                  label="Xoá"
+                  label={`Xoá ${row.original.name}`}
                   destructive
                   onClick={() =>
                     row.original.productCount > 0 ? setMoving(row.original) : setDeleting({ kind: 'group', item: row.original })
@@ -259,21 +259,21 @@ export function CatalogSetupPage() {
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
                   {showPlatforms && (
-                    <RowAction label="Ánh xạ sang sàn" onClick={() => setAxisOf(row.original)}>
+                    <RowAction label={`Ánh xạ ${row.original.name} sang sàn`} onClick={() => setAxisOf(row.original)}>
                       <Link2 />
                     </RowAction>
                   )}
                   {isPlatform(row.original) ? (
-                    <RowAction label="Giá trị tự thêm của công ty" onClick={() => setValuesOf(row.original)}>
+                    <RowAction label={`Giá trị tự thêm của ${row.original.name}`} onClick={() => setValuesOf(row.original)}>
                       <Plus />
                     </RowAction>
                   ) : (
                     <>
-                      <RowAction label="Sửa" onClick={() => setAttributeForm(row.original)}>
+                      <RowAction label={`Sửa ${row.original.name}`} onClick={() => setAttributeForm(row.original)}>
                         <Pencil />
                       </RowAction>
                       <RowAction
-                        label="Xoá"
+                        label={`Xoá ${row.original.name}`}
                         destructive
                         reason={
                           row.original.productCount > 0

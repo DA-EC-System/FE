@@ -246,7 +246,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
       <footer className="flex flex-wrap items-center gap-3 border-t px-4 py-3">
         <Button type="button" onClick={() => void d.save()} disabled={!d.draft.externalCategoryId || d.saving || (!d.dirty && Boolean(d.saved.spec))}>
           {d.saving && <Loader2 className="animate-spin" />}
-          Lưu thông tin {d.label}
+          {d.saving ? 'Đang lưu…' : `Lưu thông tin ${d.label}`}
         </Button>
         {d.dirty && <span className="text-sm text-muted-foreground">Chưa lưu. Lưu xong mới đăng được.</span>}
       </footer>

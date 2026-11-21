@@ -185,13 +185,13 @@ function PlatformMapping({
               <span className="font-mono text-xs text-muted-foreground">{c.attributeCode}</span>
               {codesEditable && (
                 <span className="ml-auto flex">
-                  <RowAction label="Ưu tiên hơn" reason={i === 0 ? 'Đã ưu tiên nhất' : null} onClick={() => move(i, i - 1)}>
+                  <RowAction label={`Ưu tiên ${c.attributeCode} hơn`} reason={i === 0 ? 'Đã ưu tiên nhất' : null} onClick={() => move(i, i - 1)}>
                     <ArrowUp />
                   </RowAction>
-                  <RowAction label="Ưu tiên kém hơn" reason={i === codes.length - 1 ? 'Đã ở cuối' : null} onClick={() => move(i, i + 1)}>
+                  <RowAction label={`Ưu tiên ${c.attributeCode} kém hơn`} reason={i === codes.length - 1 ? 'Đã ở cuối' : null} onClick={() => move(i, i + 1)}>
                     <ArrowDown />
                   </RowAction>
-                  <RowAction label="Bỏ mã này" destructive onClick={() => setCodes((prev) => prev.filter((_, j) => j !== i))}>
+                  <RowAction label={`Bỏ mã ${c.attributeCode}`} destructive onClick={() => setCodes((prev) => prev.filter((_, j) => j !== i))}>
                     <Trash2 />
                   </RowAction>
                 </span>
