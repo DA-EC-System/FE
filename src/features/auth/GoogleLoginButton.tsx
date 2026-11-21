@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { BlockedReason } from '@/components/common/BlockedReason';
 import { useGoogleLogin } from '@/hooks/useAuth';
 import { authErrorMessage } from './authErrors';
-import { GOOGLE_CLIENT_ID, USE_MOCKS } from '@/utils/env';
+import { GOOGLE_CLIENT_ID } from '@/utils/env';
 
 interface GoogleLoginButtonProps {
   onError: (message: string) => void;
@@ -81,13 +71,12 @@ function loadGis(): Promise<GoogleIdApi> {
  * Nút "Đăng nhập bằng Google" (UC-PI-03, nhánh mở rộng). Google chỉ xác thực email;
  * BE tìm tài khoản theo email, không tự tạo tài khoản mới (docs/21 A6, V4, V11).
  *
- * - Chạy mock: hộp thoại giả lập bước chọn tài khoản Google, credential chính là email.
- * - Backend thật: nút của Google Identity Services trả ID token, gửi lên `POST /identity/google`.
- *   Chưa đặt `VITE_GOOGLE_CLIENT_ID` thì khoá nút.
+ * Nút của Google Identity Services trả ID token, gửi lên `POST /identity/google`. Chưa đặt `VITE_GOOGLE_CLIENT_ID`
+ * thì khoá nút, kèm lý do.
  */
 export function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
-  if (!USE_MOCKS && GOOGLE_CLIENT_ID) return <GisButton onError={onError} />;
-  return <MockGoogleButton onError={onError} />;
+  if (GOOGLE_CLIENT_ID) return <GisButton onError={onError} />;
+  return <DisabledGoogleButton />;
 }
 
 function GisButton({ onError }: GoogleLoginButtonProps) {
@@ -144,74 +133,15 @@ function GisButton({ onError }: GoogleLoginButtonProps) {
   );
 }
 
-function MockGoogleButton({ onError }: GoogleLoginButtonProps) {
-  const google = useGoogleLogin();
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
-
-  const submit = () => {
-    setOpen(false);
-    google.mutate(email.trim().toLowerCase(), { onError: (e) => onError(authErrorMessage(e)) });
-  };
-
-  const button = (
-    <Button
-      type="button"
-      variant="outline"
-      size="lg"
-      className="w-full"
-      disabled={!USE_MOCKS || google.isPending}
-      onClick={() => setOpen(true)}
-    >
-      <GoogleIcon />
-      {google.isPending ? 'Đang đăng nhập...' : 'Đăng nhập bằng Google'}
-    </Button>
-  );
-
-  if (!USE_MOCKS) {
-    return (
-      <BlockedReason reason="Đăng nhập bằng Google chưa được bật">
-        <span className="block" tabIndex={0}>
-          {button}
-        </span>
-      </BlockedReason>
-    );
-  }
-
+function DisabledGoogleButton() {
   return (
-    <>
-      {button}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Giả lập Google</DialogTitle>
-            <DialogDescription>
-              Nhập email Google trả về. Thử email chưa có tài khoản để xem trường hợp bị từ chối.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="google-email">Email Google</Label>
-            <Input
-              id="google-email"
-              type="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && email.trim()) submit();
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Huỷ
-            </Button>
-            <Button disabled={!email.trim()} onClick={submit}>
-              Tiếp tục
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <BlockedReason reason="Đăng nhập bằng Google chưa được bật">
+      <span className="block" tabIndex={0}>
+        <Button type="button" variant="outline" size="lg" className="w-full" disabled>
+          <GoogleIcon />
+          Đăng nhập bằng Google
+        </Button>
+      </span>
+    </BlockedReason>
   );
 }

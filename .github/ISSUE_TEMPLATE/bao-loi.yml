@@ -1,5 +1,5 @@
 name: Báo lỗi giao diện
-description: Lỗi màn hình, nút, hiển thị, mock MSW. Lỗi API hoặc dữ liệu mở ở commerio-backend.
+description: Lỗi màn hình, nút, hiển thị. Lỗi API hoặc dữ liệu mở ở commerio-backend.
 title: "[S?][Màn hình] "
 labels: ["bug"]
 body:
@@ -25,8 +25,8 @@ body:
     attributes:
       label: Bản FE
       options:
-        - Bản gọi backend thật (staging hoặc máy)
-        - Bản mock MSW (pnpm dev có mock)
+        - Staging
+        - Máy dev (pnpm dev, BE ở máy)
     validations:
       required: true
   - type: input

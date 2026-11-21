@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'public/mockServiceWorker.js', 'playwright-report', 'test-results'] },
+  { ignores: ['dist', 'playwright-report', 'test-results'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -43,8 +43,8 @@ export default tseslint.config(
     },
   },
   {
-    // E2E, MSW, cấu hình chạy ngoài React
-    files: ['e2e/**/*.ts', 'src/mocks/**/*.ts', '*.config.{ts,mjs,js}'],
+    // E2E, cấu hình chạy ngoài React
+    files: ['e2e/**/*.ts', 'scripts/**/*.{ts,mjs,js}', '*.config.{ts,mjs,js}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { 'react-refresh/only-export-components': 'off' },
   },

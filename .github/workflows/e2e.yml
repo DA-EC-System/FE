@@ -1,88 +1,34 @@
-# E2E Playwright, hai bộ chạy song song, không chặn nhau. Tách khỏi CI vì chạy lâu.
-#   - job `e2e`: `pnpm e2e` trên mock MSW (Vite dev, mock bật), project `mock` (e2e/mock), khoảng 12 phút.
-#   - job `e2e-be`: `pnpm e2e:be` trên staging (https://116-118-6-7.sslip.io, BE thật), project `be` (e2e/be).
-#     Staging chạy code của main (merge vào main là deploy), nên chỉ chạy trên main, không chạy trên PR.
-#     Mỗi file spec tự đăng ký công ty giả mới qua API công khai (e2e/be/congTyGia.ts), không ghi DB. Test cần đơn sàn, gian
-#     hàng, bảng kê để test.fixme (ghi lý do trong spec); be/p3 bỏ qua vì không đặt E2E_SAN_BE207 (spec đó ngắt thật gian hàng Lazada).
-#     Staging giới hạn 20 lần gọi /identity/login và /identity/register mỗi 15 phút mỗi IP: một lần chạy gọi /login 18 lần,
-#     /register 9 lần (mỗi test p1 đỏ thêm một lần: Playwright mở worker mới, chạy lại beforeAll; be/p2 phiếu kho, trả NCC thêm
-#     một login, một register). Đã sát trần: thêm spec mới thì gộp vào file có sẵn, không thêm lần đăng nhập.
-# Khi nào chạy:
-#   - mỗi đêm 02:00 giờ Việt Nam trên main: cả hai bộ;
-#   - bấm "Run workflow" (workflow_dispatch), chọn bộ (all, mock, be); bộ `be` chỉ chạy khi chọn nhánh main;
-#   - PR có nhãn `e2e` (gắn khi PR đụng nhiều trang, muốn chạy trước khi merge): chỉ bộ mock.
-# Đỏ thì comment và tag tác giả (job `notify`, một lượt cho mỗi bộ đỏ):
-#   - chạy trên PR: comment vào chính PR đó;
-#   - chạy đêm hoặc bấm tay trên main: comment vào mọi PR đã merge từ lần xanh gần nhất của đúng bộ đó trên main,
-#     mỗi PR một lần cho mỗi chuỗi đỏ (dấu <!-- e2e-base:<sha> --> cho mock, <!-- e2e-be-base:<sha> --> cho be,
-#     chống comment lặp các đêm sau). Bộ be đỏ có thể do backend đổi: comment ghi rõ, không tag được tác giả PR backend.
+# E2E Playwright với BE thật: job `e2e-be` chạy `pnpm e2e:be` trên staging (https://116-118-6-7.sslip.io), project `be`
+# (e2e/be). FE không còn mock (Thành chốt 20/11/2026): bộ e2e/mock và MSW đã gỡ. Tách khỏi CI vì chạy lâu.
+#   Staging chạy code của main (merge vào main là deploy), nên chỉ chạy trên main, không chạy trên PR.
+#   Mỗi file spec tự đăng ký công ty giả mới qua API công khai (e2e/be/congTyGia.ts), không ghi DB; cuối lượt xoá hết
+#   (e2e/be/soCongTyThu.ts). Test cần đơn sàn, gian hàng, bảng kê để test.fixme (ghi lý do trong spec); be/p3 bỏ qua vì
+#   không đặt E2E_SAN_BE207 (spec đó ngắt thật gian hàng Lazada).
+#   Staging giới hạn 20 lần gọi /identity/login và /identity/register mỗi 15 phút mỗi IP: một lần chạy gọi /login 18 lần,
+#   /register 9 lần (mỗi test p1 đỏ thêm một lần: Playwright mở worker mới, chạy lại beforeAll; be/p2 phiếu kho, trả NCC thêm
+#   một login, một register). Đã sát trần: thêm spec mới thì gộp vào file có sẵn, không thêm lần đăng nhập.
+# Khi nào chạy: mỗi đêm 02:00 giờ Việt Nam trên main, hoặc bấm "Run workflow" trên main.
+# Đỏ thì job `notify` comment vào mọi PR đã merge từ lần xanh gần nhất trên main, mỗi PR một lần cho mỗi chuỗi đỏ
+# (dấu <!-- e2e-be-base:<sha> -->, chống comment lặp các đêm sau). Có thể đỏ do backend đổi: comment ghi rõ, không tag được
+# tác giả PR backend.
 name: E2E
 
 on:
   schedule:
     - cron: '0 19 * * *' # 19:00 UTC = 02:00 giờ Việt Nam
   workflow_dispatch:
-    inputs:
-      suite:
-        description: 'Bộ E2E: all (cả hai), mock (pnpm e2e), be (pnpm e2e:be trên staging, chỉ nhánh main)'
-        type: choice
-        options: [all, mock, be]
-        default: all
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
 
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  e2e:
-    if: >-
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'e2e')) ||
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.suite != 'be')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 11.1.3
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # Trình duyệt phải khớp đúng phiên bản @playwright/test (ghim trong package.json): cache theo phiên bản đó.
-      - id: playwright
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: browsers
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: pnpm exec playwright install --with-deps chromium
-        if: steps.browsers.outputs.cache-hit != 'true'
-      - run: pnpm exec playwright install-deps chromium
-        if: steps.browsers.outputs.cache-hit == 'true'
-      # Playwright tự bật Vite (playwright.config.ts, webServer) và tắt khi xong.
-      - run: pnpm e2e
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: failure()
-        with:
-          name: playwright-report
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
   e2e-be:
     if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite != 'mock'))
+      github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # Dùng chung DB staging: hai lần chạy không bao giờ chồng nhau, lần sau xếp hàng chờ.
     concurrency:
@@ -141,21 +87,13 @@ jobs:
         run: node e2e/be/soCongTyThu.ts
 
   notify:
-    needs: [e2e, e2e-be]
-    if: always() && (needs.e2e.result == 'failure' || needs.e2e-be.result == 'failure')
+    needs: [e2e-be]
+    if: always() && needs.e2e-be.result == 'failure'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - suite: mock
-            job: e2e
-            result: ${{ needs.e2e.result }}
-            cmd: '`pnpm e2e` (mock)'
-            artifact: playwright-report
-            report_hint: Xem báo cáo Playwright ở artifact `playwright-report` của lần chạy (giữ 7 ngày).
-            marker: e2e-base
-            staging_up: 'true'
           - suite: be
             job: e2e-be
             result: ${{ needs.e2e-be.result }}
@@ -190,32 +128,16 @@ jobs:
         run: |
           echo "E2E ${SUITE_CMD} đỏ vì staging không trả lời, không tag ai: ${RUN_URL}" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # Chỉ bộ mock chạy trên PR.
-      - name: Comment vào PR của chính lần chạy
-        if: matrix.result == 'failure' && github.event_name == 'pull_request'
-        env:
-          PR: ${{ github.event.pull_request.number }}
-          AUTHOR: ${{ github.event.pull_request.user.login }}
-          SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          marker="<!-- e2e-pr:${SHA} -->"
-          if gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[].body' | grep -qF "$marker"; then
-            echo "Đã comment cho commit này"; exit 0
-          fi
-          gh pr comment "$PR" -R "$REPO" --body "$marker
-          @${AUTHOR} E2E (${SUITE_CMD}) trên commit \`${SHA:0:7}\` của PR này đỏ: ${RUN_URL}
-          Báo cáo Playwright ở artifact \`${ARTIFACT}\` của lần chạy (giữ 7 ngày)."
-
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        if: matrix.result == 'failure' && matrix.staging_up != 'false' && github.event_name != 'pull_request'
+        if: matrix.result == 'failure' && matrix.staging_up != 'false'
         with:
           fetch-depth: 0
 
       - name: Comment vào các PR đã merge từ lần xanh gần nhất của bộ này
-        if: matrix.result == 'failure' && matrix.staging_up != 'false' && github.event_name != 'pull_request'
+        if: matrix.result == 'failure' && matrix.staging_up != 'false'
         run: |
           head="$GITHUB_SHA"
-          # Lần xanh gần nhất của đúng job này trên main (không lấy kết luận cả workflow: bộ kia đỏ thì cả run đỏ).
+          # Lần xanh gần nhất của job này trên main.
           base=""
           for id in $(gh run list -R "$REPO" --workflow e2e.yml --branch main --limit 50 \
               --json databaseId,event --jq '.[] | select(.event != "pull_request") | .databaseId'); do

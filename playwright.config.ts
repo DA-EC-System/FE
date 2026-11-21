@@ -2,11 +2,10 @@ import { defineConfig } from '@playwright/test';
 
 /**
  * E2E nghiệm thu theo phase (FE#18–22, FE#69).
- * - `mock`: Vite dev + MSW, dữ liệu trong bộ nhớ trang nên mỗi test có bộ dữ liệu riêng, chạy song song.
- * - `be`: gọi BE thật (Vite với VITE_USE_MOCKS=false), dùng chung DB, test sau dựa vào trạng thái test trước:
- *   chạy lần lượt một worker. Mỗi file tự đăng ký công ty giả qua API công khai (`e2e/be/congTyGia.ts`).
- * Playwright tự bật Vite; trên máy, nếu cổng 5173 đã có server thì dùng luôn server đó (nhóm `mock` cần server
- * bật mock). Đổi địa chỉ bằng PW_BASE_URL, vd chạy trên staging; khi đó không bật Vite.
+ * FE không còn mock (Thành chốt 20/11/2026), chỉ còn project `be`: gọi BE thật, dùng chung DB, test sau dựa vào trạng
+ * thái test trước nên chạy lần lượt một worker. Mỗi file tự đăng ký công ty giả qua API công khai (`e2e/be/congTyGia.ts`).
+ * Playwright tự bật Vite; trên máy, nếu cổng 5173 đã có server thì dùng luôn server đó. Đổi địa chỉ bằng PW_BASE_URL,
+ * vd chạy trên staging; khi đó không bật Vite.
  */
 const baseURL = process.env.PW_BASE_URL ?? 'http://127.0.0.1:5173';
 
@@ -32,16 +31,12 @@ export default defineConfig({
     : {
         command: 'pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort',
         url: baseURL,
-        // Biến môi trường thắng `.env.local`: máy dev hay đặt VITE_USE_MOCKS=false để gọi BE thật.
-        // Chạy nhóm `be` thì đặt VITE_USE_MOCKS=false trước lệnh.
-        env: { VITE_USE_MOCKS: process.env.VITE_USE_MOCKS ?? 'true' },
         reuseExistingServer: !process.env.CI,
         // Hiện log Vite trong CI: Vite tối ưu lại dependency thì nạp lại mọi trang đang mở, làm test đứt giữa chừng
         stdout: 'pipe',
         timeout: 120_000,
       },
   projects: [
-    { name: 'mock', testDir: 'e2e/mock', fullyParallel: true },
     { name: 'be', testDir: 'e2e/be', fullyParallel: false, workers: 1, teardown: 'be-don' },
     // Dọn công ty thử còn trong sổ sau project `be` (e2e/be/soCongTyThu.ts, Documents/21 mục 2.2)
     { name: 'be-don', testDir: 'e2e/be', testMatch: /don-cuoi-luot\.teardown\.ts/ },

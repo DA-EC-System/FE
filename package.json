@@ -10,11 +10,9 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "lint": "eslint . --report-unused-disable-directives",
-    "e2e": "playwright test --project=mock",
-    "e2e:ui": "playwright test --project=mock --ui",
+    "e2e:ui": "playwright test --project=be --ui",
     "e2e:be": "playwright test --project=be",
-    "e2e:report": "playwright show-report",
-    "quyen:sinh": "node scripts/sinh-quyen-mock.mjs"
+    "e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -67,7 +65,6 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
-    "msw": "^2.6.4",
     "tailwindcss": "^4.2.2",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.6.3",
@@ -75,15 +72,9 @@
     "vite": "^5.4.10",
     "vitest": "^3.2.4"
   },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
-  },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild",
-      "msw"
+      "esbuild"
     ]
   }
 }

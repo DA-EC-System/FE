@@ -21,7 +21,7 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
   - *Tồn kho*: tồn thực, đang giữ cho đơn, khả dụng của từng biến thể; tìm theo tên hoặc SKU, lọc danh mục, lọc dưới ngưỡng (bấm thẻ "Dưới ngưỡng tồn" cũng lọc). Bấm biểu tượng lịch sử để xem biến động theo chứng từ. CEO và Admin đặt ngưỡng ngay trên dòng. Giá vốn bình quân và giá trị tồn chỉ hiện với CEO.
   - *Phiếu nhập/xuất*: lập phiếu nháp, thêm biến thể bằng ô tìm, sửa số lượng (và giá nhập với phiếu nhập), rồi ghi sổ; tồn chỉ đổi khi ghi sổ. Phiếu xuất tay bắt buộc ghi lý do và không vượt số khả dụng. Phiếu đã ghi sổ hoặc đã huỷ chỉ xem.
   - *Nhập hoàn* (Nhân viên kho, CEO): đơn giao không thành công; nhập số thực nhận, khác số đã xuất thì ghi lý do. Mỗi đơn nhập hoàn một lần.
-- **Mock API bằng MSW** — 5 công ty (1 bị khoá), 6 gian hàng, 5 tài khoản; lỗi trả theo Problem Details (RFC 9457).
+- **Gọi backend thật** — FE không còn mock (Thành chốt 20/11/2026); lỗi API theo Problem Details (RFC 9457).
 
 ## Stack
 
@@ -35,7 +35,6 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 | State client | Zustand (auth) |
 | Form | react-hook-form + zod 4 |
 | HTTP | axios (interceptor JWT, 401 redirect) |
-| Mock API | MSW v2 |
 
 ## Yêu cầu môi trường
 
@@ -48,47 +47,23 @@ Frontend cho hệ thống **Commerio** (Hệ thống Thương mại Điện tử
 # cài dependencies
 pnpm install
 
-# (Một số máy cần) cấp quyền chạy build scripts cho esbuild + msw
-# pnpm approve-builds   # → chọn esbuild và msw
+# (Một số máy cần) cấp quyền chạy build scripts cho esbuild
+# pnpm approve-builds   # → chọn esbuild
 
-# chạy dev server
+# chạy dev server (gọi BE ở cổng 3000 qua proxy /api, xem mục Tích hợp backend)
 pnpm dev
 # → mở http://localhost:5173
 ```
 
-> Nếu `pnpm install` báo `ERR_PNPM_IGNORED_BUILDS` cho esbuild/msw, tạo file
+> Nếu `pnpm install` báo `ERR_PNPM_IGNORED_BUILDS` cho esbuild, tạo file
 > `pnpm-workspace.yaml` ở thư mục gốc với nội dung:
 >
 > ```yaml
 > onlyBuiltDependencies:
 >   - esbuild
->   - msw
 > ```
 >
 > Rồi chạy lại `pnpm install`.
-
-### Tài khoản demo (mock)
-
-| Email | Mật khẩu | Trường hợp thử |
-|---|---|---|
-| `platform@commerio.vn` | `platform` | Quản trị nền tảng: chỉ vào `/platform`, mở `/c/...` sẽ nhận 403 |
-| `ceo@commerio.vn` | `ceo` | CEO của Công ty ABC (bật/tắt phân hệ, xem nhật ký), Admin của Minh Phát (chưa bật Kênh bán) — thử đổi công ty |
-| `admin@commerio.vn` | `admin` | Admin của Công ty ABC: quản lý nhân viên và vai trò, sản phẩm, danh mục và thuộc tính, xem tồn và đặt ngưỡng, xem nhật ký; không gán được vai trò kho/tài chính (quyền Admin không có), không bật/tắt phân hệ |
-| `sale@commerio.vn` | `sale` | Sale của Công ty ABC: xem gian hàng, không kết nối/sửa/ngắt |
-| `kho@commerio.vn` | `kho` | Nhân viên kho: một công ty dùng được, một công ty bị khoá, một nơi tài khoản bị khoá |
-| `moi@commerio.vn` | `moi12345` | Mới được mời: đăng nhập xong bị bắt đổi mật khẩu |
-
-Nút **Đăng nhập bằng Google** khi chạy mock mở hộp thoại giả lập: nhập email của một tài khoản ở trên để vào, nhập email khác để xem trường hợp "chưa có tài khoản". Với backend thật, nút tạm khoá đến khi chốt cách làm với BE#7.
-
-Ở **Quản trị → Nhân viên**, thêm nhân viên bằng email mới thì mock in mật khẩu thư mời ra console của trình duyệt (`[mock] Thư mời gửi ...`) để thử đăng nhập lần đầu.
-
-Ở **Quản trị → Phân hệ** của Công ty ABC, Kênh bán (đã có gian hàng) và Hộp thư chung được đánh dấu là đã có dữ liệu nên không tắt được; Báo cáo tắt được.
-
-Ở **Hàng hoá → Sản phẩm** của Công ty ABC, "Áo thun basic cổ tròn" đang có đơn hàng chưa hoàn tất nên không xoá được; "Thắt lưng da bò" không có thuộc tính nên chỉ có một biến thể. Sale chỉ xem, không tạo hay sửa.
-
-Ở **Hàng hoá → Bảng giá**, "Giá Shopee" gắn với gian hàng đang kết nối nên không xoá được; muốn xoá thì ngắt gian hàng trước. Bảng giá chuẩn còn 2 biến thể chưa có giá.
-
-Ở **Hàng hoá → Kho** của Công ty ABC, có 2 biến thể dưới ngưỡng, một phiếu nhập nháp `PN-000003` để thử sửa và ghi sổ, và 2 đơn giao không thành công chờ nhập hoàn. Đăng nhập `kho@commerio.vn` để lập phiếu (không thấy giá vốn), `admin@commerio.vn` để đặt ngưỡng (không lập phiếu), `ceo@commerio.vn` để xem giá vốn.
 
 ### Quy tắc SKU
 
@@ -98,10 +73,6 @@ Quy tắc của danh mục gồm chữ cố định (A-Z, 0-9, `-`, `_`) và hai
 - `{VAL}` (tuỳ chọn): mã giá trị thuộc tính của biến thể nối bằng `-`. Mã là giá trị bỏ dấu, viết hoa, chỉ giữ chữ và số, tối đa 6 ký tự (`Xanh navy` → `XANHNA`).
 
 Ví dụ `AO-{SEQ:4}-{VAL}` sinh `AO-0012-DEN-XL`. FE chỉ xem trước bằng `src/utils/sku.ts`; SKU thật do BE sinh và giữ duy nhất trong công ty.
-
-Dữ liệu mock nằm trong bộ nhớ: công ty đăng ký mới, mật khẩu đã đổi, nhân viên, vai trò, phân hệ, sản phẩm, ảnh và nhật ký vừa tạo sẽ mất khi tải lại trang.
-
-Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 
 ## Scripts
 
@@ -113,46 +84,35 @@ Bấm vào từng thẻ tài khoản ở trang login để tự động điền.
 | `pnpm typecheck` | Chỉ chạy TypeScript check, không build |
 | `pnpm lint` | ESLint |
 | `pnpm test` | Unit test (Vitest) |
-| `pnpm e2e` | E2E Playwright trên mock (project `mock`) |
-| `pnpm e2e:ui` | Như trên, mở giao diện Playwright để chạy từng test, xem từng bước |
 | `pnpm e2e:be` | E2E với BE thật (project `be`), xem mục dưới |
+| `pnpm e2e:ui` | Như trên, mở giao diện Playwright để chạy từng test, xem từng bước |
 | `pnpm e2e:report` | Mở báo cáo HTML của lần chạy gần nhất |
 
 ## Kiểm thử E2E (Playwright, FE#69)
 
-Spec nằm trong `e2e/`: `mock/p1` … `mock/p5` chạy trên MSW, `be/p1`, `be/p4`, `be/p5` chạy với BE thật;
-hàm dùng chung (đăng nhập, menu, toast, chọn Select, giả lập phản hồi BE) ở `e2e/fixtures.ts`.
-Cấu hình ở `playwright.config.ts`.
+Spec nằm trong `e2e/be/` và chạy với BE thật; FE không còn mock nên không còn bộ chạy trên MSW. Hàm dùng chung (menu, toast,
+chọn Select) ở `e2e/fixtures.ts`. Cấu hình ở `playwright.config.ts`.
 
-Lần đầu tải trình duyệt: `pnpm exec playwright install chromium`. Sau đó:
+Lần đầu tải trình duyệt: `pnpm exec playwright install chromium`.
 
-```bash
-pnpm e2e                                   # mọi spec mock, song song
-pnpm e2e e2e/mock/p4/tai-chinh.spec.ts     # một file
-pnpm e2e -g "tạo đơn"                      # theo tên test
-pnpm e2e --repeat-each=3                   # bắt test chập chờn trước khi mở PR
-```
-
-- Playwright tự bật Vite ở `127.0.0.1:5173` với `VITE_USE_MOCKS=true` (thắng `.env.local`) và tắt khi xong.
-  Đang có server ở cổng 5173 thì dùng luôn server đó, nên server đó phải bật mock.
-- Khi chạy E2E, mock không trễ (trình duyệt tự động hoá có `navigator.webdriver`). Test cần thấy trạng thái loading
-  thì đặt `window.__commerioMock = { latencyMs: 350 }` bằng `page.addInitScript` trước khi tải trang.
-- Test hỏng thì xem trace: `pnpm exec playwright show-trace test-results/<tên test>/trace.zip`.
-  Trên CI, job `e2e` tải lên `playwright-report/` và `test-results/` khi hỏng (giữ 7 ngày); job `e2e-be` không tải báo cáo lên (repo public, báo cáo chứa mã thử đăng ký của commerio-backend#459), xem lỗi trong log của job.
+- Playwright tự bật Vite ở `127.0.0.1:5173` và tắt khi xong; đang có server ở cổng 5173 thì dùng luôn server đó.
+- Test hỏng thì xem trace: `pnpm exec playwright show-trace test-results/<tên test>/trace.zip`. Job `e2e-be` trên CI không
+  ghi trace, không tải báo cáo lên (repo public, báo cáo chứa mã thử đăng ký của commerio-backend#459), xem lỗi trong log.
 
 **Với BE thật** (chạy lần lượt một worker): mỗi file spec tự đăng ký công ty giả mới qua API công khai rồi đăng nhập
-(`e2e/be/congTyGia.ts` cho `be/p4`, `be/p5`), không ghi thẳng DB, không cần seed. Chạy được trên cùng database nhiều lần.
+(`e2e/be/congTyGia.ts`), không ghi thẳng DB, không cần seed; cuối lượt xoá hết công ty thử (`e2e/be/soCongTyThu.ts`).
+Chạy được trên cùng database nhiều lần. Cần `E2E_REGISTRATION_TEST_EMAIL_DOMAIN`, `E2E_REGISTRATION_TEST_CODE` (xem `.env.example`).
 
 1. BE chạy ở cổng 3000 (đã `npm run db:migrate`).
-2. `VITE_USE_MOCKS=false pnpm e2e:be` (PowerShell: `$env:VITE_USE_MOCKS='false'; pnpm e2e:be`).
+2. `pnpm e2e:be`.
 
 Chạy trên staging thì không bật Vite: `PW_BASE_URL=https://116-118-6-7.sslip.io pnpm e2e:be` (lọc thư mục thì ghi đường dẫn
 ngay sau lệnh, vd `pnpm e2e:be e2e/be/p1`).
 Test cần đơn bán, gian hàng, bảng kê hay tài khoản thứ hai để `test.fixme`, ghi lý do trong spec: công ty mới không tạo được
 các thứ đó qua API (đơn chỉ vào từ sàn kết nối OAuth; route `dev/*` không gắn khi `NODE_ENV=production`).
 
-Trên CI, job `e2e-be` của `.github/workflows/e2e.yml` chạy `pnpm e2e:be` trên staging lúc 02:00 mỗi đêm (cùng giờ với `pnpm e2e`)
-và khi bấm "Run workflow" trên main (chọn bộ `be` để chỉ chạy bộ này); không chạy trên PR vì staging chỉ có code của main.
+Trên CI, job `e2e-be` của `.github/workflows/e2e.yml` chạy `pnpm e2e:be` trên staging lúc 02:00 mỗi đêm
+và khi bấm "Run workflow" trên main; không chạy trên PR vì staging chỉ có code của main.
 Đỏ thì comment, tag tác giả các PR đã merge từ lần `e2e-be` xanh gần nhất; lỗi xem trong log của job `e2e-be`.
 Staging giới hạn 20 lần gọi `/identity/login` và `/identity/register` mỗi 15 phút mỗi IP; một lần chạy đang gọi `/login` 17 lần,
 `/register` 8 lần (be/p1 14 và 5, mỗi file p4, p5/doi-soat, p5/finance-lifecycle một và một), thêm spec thì giữ dưới 18:
@@ -178,7 +138,6 @@ src/
 │  └─ channel/  # ShopListPage, ShopFormDialog, shopSchemas
 ├─ hooks/       # useAuth, usePermission, useDebounce, useIsMobile
 ├─ lib/         # cn() gộp class Tailwind
-├─ mocks/       # MSW handlers + in-memory db (catalogData: danh mục, thuộc tính, sản phẩm, file; pricingData: bảng giá; inventoryData: phiếu kho, tồn, đơn hoàn)
 ├─ router/      # createBrowserRouter + guards
 ├─ stores/      # zustand (phiên + công ty đang chọn)
 ├─ styles/      # index.css (Tailwind), theme.css (biến màu shadcn lấy từ tokens)
@@ -189,26 +148,17 @@ src/
 
 ## Tích hợp backend thật
 
-Khi chạy `pnpm dev`, mock (MSW) mặc định bật kể cả khi chưa có `.env`. Khi backend sẵn sàng:
+FE luôn gọi backend thật. Chạy BE ở cổng 3000; `pnpm dev` chuyển `/api` sang đó (`vite.config.ts`).
 
-1. Sửa `.env`:
-   ```
-   VITE_API_BASE_URL=/api/v1
-   VITE_USE_MOCKS=false
-   ```
-   Để trống `VITE_API_BASE_URL` thì mặc định là `/api/v1`. FE và API chạy cùng domain
+1. `.env`: để trống `VITE_API_BASE_URL` thì mặc định là `/api/v1`. FE và API chạy cùng domain
    (Caddy phục vụ FE ở `/`, API ở `/api`) để cookie refresh `SameSite=Strict` dùng được (docs/21 V38).
-2. Backend cần expose các endpoint đúng shape mà MSW handlers đang mô phỏng
-   (xem `src/mocks/handlers.ts`), theo hợp đồng `Documents/21-hop-dong-api-fe-be.md`.
+2. Endpoint và kiểu dữ liệu theo hợp đồng `Documents/21-hop-dong-api-fe-be.md`.
 3. Đăng nhập theo docs/21 A1–A3:
    - `POST /identity/login` trả access token trong body (sống 15 phút) và đặt refresh token
      vào cookie HttpOnly. FE chỉ giữ access token trong bộ nhớ, không ghi localStorage.
    - Mở hoặc tải lại trang: FE gọi `POST /identity/refresh` (gửi kèm cookie), rồi `GET /identity/me`.
    - Gặp 401 giữa chừng: FE làm mới token một lần rồi gọi lại request; làm mới thất bại thì về `/login`.
    - Đăng xuất gọi `POST /identity/logout` để BE thu hồi refresh token và xoá cookie.
-
-   Khi chạy mock, có thể rút ngắn thời hạn token để thử tự làm mới, bằng cách chạy trong console
-   trước khi đăng nhập: `__commerioMock.accessTtlMs = 5000`.
 
 ## Lưu ý so với đề bài
 
@@ -224,7 +174,6 @@ tới khi chuyển xong, sau đó gỡ MUI. Component mới viết bằng shadcn
 
 - Module Sales (đơn hàng, lịch sử trạng thái, hồ sơ khách).
 - Module Fulfillment, Finance, Payment, Inbox, Assistant, Report.
-- Kết nối backend thật, bỏ MSW.
 
 ## Bộ màu thương hiệu
 

@@ -1,6 +1,6 @@
 /**
- * Hàm dùng chung cho E2E. Dữ liệu mock nằm trong bộ nhớ trang nên mỗi lần
- * `page.goto` là một bộ dữ liệu mới: mỗi test tự đăng nhập, không phụ thuộc test trước.
+ * Hàm dùng chung cho E2E chạy BE thật (`e2e/be`). FE không còn mock (Thành chốt 20/11/2026): mỗi file spec tự đăng ký
+ * công ty giả qua API công khai (`e2e/be/congTyGia.ts`).
  *
  * Quy ước khi viết spec:
  * - Tên vai trò, nhãn là chuỗi thì so khớp nguyên chuỗi: `getByRole('button', { name: 'Lưu', exact: true })`.
@@ -11,21 +11,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export { expect, test } from '@playwright/test';
 
-type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 type Scope = Page | Locator;
-
-interface MswBridge {
-  worker: { use: (...handlers: unknown[]) => void };
-  http: Record<Method, (path: string, resolver: () => Response, options?: { once?: boolean }) => unknown>;
-  HttpResponse: { json: (body: unknown, init?: ResponseInit) => Response };
-  fire: (
-    companyId: string,
-    type: string,
-    shopId?: string,
-    params?: Record<string, string>,
-  ) => { ok: true; entry: { message: string } } | { ok: false; message: string };
-  emit: (companyId: string, type: string, payload: Record<string, unknown>) => void;
-}
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -59,22 +45,6 @@ export const moiPhanTu = async (els: Locator, check: (text: string) => void) =>
     for (const t of texts) check(t);
   }).toPass();
 
-/** Đăng nhập; tài khoản nhiều công ty thì chọn công ty có tên chứa `congTy` */
-export async function dangNhap(page: Page, email: string, password: string, congTy = 'Thời trang ABC') {
-  await page.goto('/login');
-  await page.locator('input[name=email]').fill(email);
-  await page.locator('input[name=password]').fill(password);
-  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect.poll(() => duongDan(page)).toMatch(/^\/(c\/|select-company)/);
-  // Tài khoản một công ty cũng đi qua /select-company rồi tự chuyển: chỉ bấm khi trang chọn công ty còn hiện.
-  // Bỏ nút của thanh bên (bộ chuyển công ty cũng chứa tên công ty).
-  const nut = page.locator('button:not([data-sidebar])', { hasText: chu(congTy) }).first();
-  await expect(async () => {
-    if (duongDan(page) === '/select-company') await nut.click({ timeout: 1000 });
-    expect(duongDan(page)).toMatch(/^\/c\/cmp-/);
-  }).toPass();
-}
-
 /** Bấm mục trên thanh bên theo đúng chữ */
 export const menu = (page: Page, label: string) =>
   page.locator('[data-sidebar="menu-button"]', { hasText: new RegExp(`^\\s*${label}\\s*$`) }).first().click();
@@ -94,52 +64,4 @@ export async function chon(scope: Scope, label: string, option: string | RegExp)
   const page = 'page' in scope ? scope.page() : scope;
   await scope.getByRole('combobox', { name: label, exact: true }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
-}
-
-/** Lần gọi kế tiếp tới `/api/v1<path>` trả về `status` + `body` (+ `headers`, vd. `Retry-After`) (chỉ khi chạy MSW) */
-export async function mockApi(
-  page: Page,
-  method: Method,
-  path: string,
-  status: number,
-  body: unknown,
-  headers: Record<string, string> = {},
-) {
-  await page.evaluate(
-    ({ method, path, status, body, headers }) => {
-      const bridge = (window as unknown as { __msw?: MswBridge }).__msw;
-      if (!bridge) throw new Error('Cần chạy Vite dev với MSW (VITE_USE_MOCKS) để giả lập phản hồi BE');
-      const { worker, http, HttpResponse } = bridge;
-      worker.use(http[method](`*/api/v1${path}`, () => HttpResponse.json(body, { status, headers }), { once: true }));
-    },
-    { method, path, status, body, headers },
-  );
-}
-
-/** Sàn giả lập phát sự kiện thẳng vào mock, không qua trang sàn giả lập; trả câu kết quả (FE#81) */
-/** Phát thẳng một sự kiện realtime (Documents/21 §13.2) với đúng payload BE, không đổi dữ liệu mock (FE#287) */
-export async function phatRealtime(page: Page, type: string, payload: Record<string, unknown>) {
-  const companyId = duongDan(page).split('/')[2] ?? '';
-  await page.evaluate(
-    ({ companyId, type, payload }) => {
-      const bridge = (window as unknown as { __msw?: MswBridge }).__msw;
-      if (!bridge) throw new Error('Cần chạy Vite dev với MSW (VITE_USE_MOCKS) để giả lập phản hồi BE');
-      bridge.emit(companyId, type, payload);
-    },
-    { companyId, type, payload },
-  );
-}
-
-export async function phatSuKienSan(page: Page, type: string, shopId?: string, params: Record<string, string> = {}) {
-  const companyId = duongDan(page).split('/')[2] ?? '';
-  return page.evaluate(
-    ({ companyId, type, shopId, params }) => {
-      const bridge = (window as unknown as { __msw?: MswBridge }).__msw;
-      if (!bridge) throw new Error('Cần chạy Vite dev với MSW (VITE_USE_MOCKS) để giả lập phản hồi BE');
-      const result = bridge.fire(companyId, type, shopId, params);
-      if (!result.ok) throw new Error(result.message);
-      return result.entry.message;
-    },
-    { companyId, type, shopId, params },
-  );
 }

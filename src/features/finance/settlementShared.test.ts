@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { settlementLines } from '@/mocks/settlementData';
 import {
   DISCREPANCY_REASON_LABELS,
   FEE_KEYS,
@@ -74,13 +73,5 @@ describe('phép kiểm công thức (AC-S2)', () => {
     );
     expect(c.holds).toBe(true);
     expect(c.revenueGap?.replace(/\s/g, ' ')).toBe('Doanh thu sàn 170.000 ₫, tổng đơn 180.000 ₫, lệch 10.000 ₫');
-  });
-
-  it('dữ liệu mock khớp đúng luật: chỉ dòng sai công thức là lệch công thức', () => {
-    for (const l of settlementLines) {
-      const feeTotal = Object.values(l.fees).reduce((a, b) => a + b, 0);
-      const c = formulaCheck({ ...l, feeTotal, orderTotal: null });
-      expect(c.holds, l.id).toBe(l.discrepancyReason !== 'formula_mismatch');
-    }
   });
 });

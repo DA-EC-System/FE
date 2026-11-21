@@ -7,14 +7,13 @@ RUN npm install -g pnpm@11.1.3
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-# Mặc định gọi backend thật qua /api cùng origin. VITE_USE_MOCKS=true: bật MSW, dữ liệu giả, không gọi backend.
+# Gọi backend thật qua /api cùng origin.
 ARG VITE_GOOGLE_CLIENT_ID=
-ARG VITE_USE_MOCKS=false
-# Đường dẫn gốc của app: / cho bản chính, /mock/ cho bản mock (Caddy của cụm bỏ tiền tố trước khi chuyển vào).
+# Đường dẫn gốc của app (Vite base), mặc định /.
 ARG BASE_PATH=/
 # Endpoint MCP server của agentation (#423); rỗng = http://localhost:4747
 ARG VITE_AGENTATION_ENDPOINT=
-ENV VITE_USE_MOCKS=$VITE_USE_MOCKS VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID BASE_PATH=$BASE_PATH VITE_AGENTATION_ENDPOINT=$VITE_AGENTATION_ENDPOINT
+ENV VITE_API_BASE_URL= VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID BASE_PATH=$BASE_PATH VITE_AGENTATION_ENDPOINT=$VITE_AGENTATION_ENDPOINT
 RUN pnpm build && find dist -name '*.map' -delete
 
 FROM caddy:2.10-alpine

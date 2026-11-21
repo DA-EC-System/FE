@@ -55,11 +55,10 @@ import { ReturnDetailPage } from '@/features/returns/ReturnDetailPage';
 import { LedgerPage } from '@/features/finance/LedgerPage';
 import { SettlementsPage } from '@/features/finance/SettlementsPage';
 import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
-import { MarketplaceSimulatorPage } from '@/features/dev/MarketplaceSimulatorPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
 import { CATALOG_SETUP_ANY, FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
-import { BASE_PATH, USE_MOCKS } from '@/utils/env';
+import { BASE_PATH } from '@/utils/env';
 
 /** Màn ngoài MVP (Documents/27 mục 8.1): gỡ khỏi menu, URL gõ thẳng hiện câu này trong khung app (FE#249) */
 const OUT_OF_SCOPE = {
@@ -397,18 +396,6 @@ export const router = createBrowserRouter([
                     ),
                   },
                   { path: 'reports', element: OUT_OF_SCOPE.reports },
-                  ...(USE_MOCKS
-                    ? [
-                        {
-                          path: 'dev/marketplace',
-                          element: (
-                            <RequireModule module="channel" permission={PERMISSIONS.shopView}>
-                              <MarketplaceSimulatorPage />
-                            </RequireModule>
-                          ),
-                        },
-                      ]
-                    : []),
                 ],
               },
             ],

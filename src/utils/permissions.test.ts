@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { CompanyContext } from '@/types/auth';
-import { db } from '@/mocks/db';
 import { FINANCE_VIEW_ANY, PERMISSIONS, canViewFinance, hasAnyPermission } from './permissions';
 
 const contextOf = (permissions: string[]): CompanyContext => ({
@@ -10,8 +9,6 @@ const contextOf = (permissions: string[]): CompanyContext => ({
   permissions,
   enabledModules: ['finance', 'channel'],
 });
-
-const roleNamed = (name: string) => db.roles.find((r) => r.name === name)!;
 
 /** Quyền tiền của vai trò dựng sẵn ở BE (src/modules/core/access/domain/catalog.ts, BUILTIN_ROLES) */
 const BACKEND_FINANCE: Record<string, string[]> = {
@@ -53,26 +50,14 @@ describe('canViewFinance', () => {
   });
 });
 
-describe('quyền tiền của vai trò mock khớp BE', () => {
-  it.each(Object.entries(BACKEND_FINANCE))('%s', (name, expected) => {
-    const actual = roleNamed(name).permissions.filter((p) => p.startsWith('finance.'));
-    expect(actual.sort()).toEqual([...expected].sort());
-  });
-
-  it('không còn mã finance.ledger.* (BE không có)', () => {
-    for (const role of db.roles) expect(role.permissions.some((p) => p.startsWith('finance.ledger.'))).toBe(false);
-  });
-});
-
 describe('ai mở được sổ tiền, đối soát', () => {
   it.each([
     ['CEO', true, true],
     ['Admin', true, true],
     ['Sale', false, false],
     ['Nhân viên kho', false, false],
-    ['Kế toán', true, true],
   ])('%s: sổ tiền %s, đối soát %s', (name, ledger, settlements) => {
-    const c = contextOf(roleNamed(name).permissions);
+    const c = contextOf(BACKEND_FINANCE[name]!);
     expect(canOpenLedger(c)).toBe(ledger);
     expect(canOpenSettlements(c)).toBe(settlements);
   });

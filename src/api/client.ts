@@ -121,7 +121,7 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const code = error.response?.data?.code;
     const config = error.config as RetriableConfig | undefined;
-    // Bỏ tiền tố BASE_PATH (staging /mock/) để so với route của app
+    // Bỏ tiền tố BASE_PATH để so với route của app
     const path = '/' + window.location.pathname.slice(BASE_PATH.length);
     if (status === 401) {
       const url = config?.url ?? '';
@@ -188,9 +188,9 @@ export function getErrorMessage(error: unknown): string {
       const message = data.detail ?? data.title ?? data.message;
       if (message) return message;
     }
-    // Không phải Problem Details: thường là gọi nhầm địa chỉ hoặc mock chưa bật
+    // Không phải Problem Details: thường là gọi nhầm địa chỉ
     if (error.response.status === 404) {
-      return 'Không tìm thấy API (404). Kiểm tra VITE_API_BASE_URL, hoặc bật mock bằng VITE_USE_MOCKS=true.';
+      return 'Không tìm thấy API (404). Kiểm tra VITE_API_BASE_URL.';
     }
     return `Máy chủ trả lỗi ${error.response.status}.`;
   }
