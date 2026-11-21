@@ -9,8 +9,9 @@ describe('splitByScope', () => {
     expect(out.company.map((r) => r.id)).toEqual(['b']);
   });
 
-  it('dòng thiếu scope (BE cũ) tính là của công ty', () => {
+  it('dòng thiếu scope tính là chuẩn nền tảng (chỉ đọc)', () => {
     const old: { id: string; scope?: 'platform' | 'company' } = { id: 'x' };
-    expect(splitByScope([old]).company).toHaveLength(1);
+    expect(splitByScope([old]).platform).toHaveLength(1);
+    expect(splitByScope([old]).company).toHaveLength(0);
   });
 });

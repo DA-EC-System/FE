@@ -19,12 +19,12 @@ export interface SuggestConfig {
 /** Nhóm hàng (Documents/21 §5.2): phân loại nội bộ, một cấp, không ghép sang sàn */
 /**
  * Tầng của dòng dữ liệu (dữ liệu chung, Documents/21 §5.6): `platform` là chuẩn nền tảng dùng chung mọi công ty, công ty
- * chỉ đọc và thêm được phần riêng; `company` là của công ty. Thiếu (BE cũ) coi như `company`
+ * chỉ đọc và thêm được phần riêng; `company` là của công ty. Thiếu thì coi như `platform` (chỉ đọc), để thiếu dữ liệu không mở nút sửa rồi bị 403
  */
 export type DataScope = 'platform' | 'company';
 
-/** Dòng chuẩn nền tảng: công ty không sửa, không xoá */
-export const isPlatform = (row: { scope?: DataScope }) => row.scope === 'platform';
+/** Dòng chuẩn nền tảng, hoặc thiếu `scope`: công ty không sửa, không xoá */
+export const isPlatform = (row: { scope?: DataScope }) => row.scope !== 'company';
 
 export interface ProductGroup {
   id: string;

@@ -108,7 +108,7 @@ function PlatformMapping({
   }, [row]);
 
   const withOptions = hasOptions(field.input);
-  // BE cũ chưa trả `editable`: suy theo tầng của thông số
+  // Thiếu `editable`: suy theo tầng của thông số (thiếu `scope` là chuẩn, chỉ đọc)
   const codesEditable = canEdit && (row?.editable ?? !isPlatform(field));
   const optionEditable = (optionId: string) =>
     canEdit && (codesEditable || field.options.find((o) => o.id === optionId)?.scope === 'company');
