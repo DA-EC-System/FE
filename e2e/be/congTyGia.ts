@@ -79,14 +79,14 @@ export async function taoCongTyGia(
     token,
     api,
     // Xoá công ty thử (commerio-backend#523). Token hết hạn thì làm mới bằng cookie refresh của trang (không tính vào giới
-    // hạn đăng nhập) rồi thử lại; vẫn không được thì để việc nền mỗi đêm dọn.
+    // hạn đăng nhập) rồi thử lại; vẫn không được thì bước dọn cuối lượt xoá (`soCongTyThu.ts`).
     dispose: async () => {
       try {
         if (!(await xoaCongTyThu(api, token))) {
           const refreshed = await page.request.post('/api/v1/identity/refresh');
           if (refreshed.ok()) {
             const { accessToken: fresh } = (await refreshed.json()) as { accessToken: string };
-            if (!(await xoaCongTyThu(api, fresh))) console.warn(`Chưa xoá được công ty thử ${companyId}: việc nền đêm sẽ dọn`);
+            await xoaCongTyThu(api, fresh);
           }
         }
       } finally {

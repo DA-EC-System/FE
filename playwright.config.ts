@@ -42,6 +42,8 @@ export default defineConfig({
       },
   projects: [
     { name: 'mock', testDir: 'e2e/mock', fullyParallel: true },
-    { name: 'be', testDir: 'e2e/be', fullyParallel: false, workers: 1 },
+    { name: 'be', testDir: 'e2e/be', fullyParallel: false, workers: 1, teardown: 'be-don' },
+    // Dọn công ty thử còn trong sổ sau project `be` (e2e/be/soCongTyThu.ts, Documents/21 mục 2.2)
+    { name: 'be-don', testDir: 'e2e/be', testMatch: /don-cuoi-luot\.teardown\.ts/ },
   ],
 });

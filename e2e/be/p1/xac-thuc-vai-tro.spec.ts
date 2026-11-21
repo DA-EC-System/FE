@@ -3,6 +3,7 @@
 import { type APIRequestContext, type Page } from '@playwright/test';
 import { chu, chua, duongDan, expect, loi, menu, test, thayChu, toast } from '../../fixtures';
 import { dangKyCongTyApi, emailThu, maThu, xoaCongTyThu } from '../dangKy';
+import { doiMatKhauTrongSo } from '../soCongTyThu';
 
 const RUN = Date.now().toString().slice(-7);
 const MAT_KHAU = 'matkhau123';
@@ -58,7 +59,7 @@ test.beforeAll(async ({ playwright }) => {
   congTy1 = String(await dangKyApi(api, 1));
   await api.dispose();
 });
-// Công ty 2 đổi mật khẩu nên token cũ 401: bỏ qua, việc nền đêm dọn (không đăng nhập lại vì giới hạn 20 lần/15 phút)
+// Công ty 2 đổi mật khẩu nên token cũ 401: bước dọn cuối lượt đăng nhập bằng mật khẩu mới rồi xoá
 test.afterAll(async ({ playwright }) => {
   const api = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
   for (const token of daDangKy) await xoaCongTyThu(api, token);
@@ -216,6 +217,7 @@ test.describe('P1-BE · Đổi mật khẩu (commerio-backend#4)', () => {
     await expect(loi(page, 'currentPassword')).toHaveText('Mật khẩu hiện tại không đúng');
     await doi(MAT_KHAU, 'matkhau999');
     await thayChu(page, 'Đã đổi mật khẩu. Lần đăng nhập sau dùng mật khẩu mới.');
+    doiMatKhauTrongSo(emailCeo(2), 'matkhau999');
     await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
     await expect.poll(() => duongDan(page)).toMatch(new RegExp(`^/c/${UUID}`));
     expect(await thuDangNhap(page, emailCeo(2), MAT_KHAU)).toBe(401);
