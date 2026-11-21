@@ -89,6 +89,8 @@ export interface NewProductInput {
 export interface NewProductView extends NewProductInput {
   name: string;
   groupName: string;
+  /** Bản soạn trước của cha mới (Documents/21 §16.3); dòng thêm vào cha có sẵn: null */
+  draftId: string | null;
 }
 
 export interface PurchaseRequestLine {
@@ -149,6 +151,8 @@ export interface PurchaseRequest extends PurchaseRequestSummary {
   supplierOrderCode: string | null;
   /** Còn phiếu nhận đang kiểm: chặn đóng thiếu */
   countingReceipts: number;
+  /** Bản soạn trước của các cha mới trên đề nghị (Documents/21 §16.3) */
+  productDrafts: ProductDraftSummary[];
   statusHistory: StatusChange<PurchaseRequestStatus>[];
 }
 
@@ -379,4 +383,84 @@ export interface SupplierReturnListParams {
   pageSize?: number;
   search?: string;
   status?: SupplierReturnStatus;
+}
+
+// ---------- Bản soạn trước sản phẩm mới (Documents/21 §16.3 "Bản soạn trước", 29 bước 1) ----------
+
+/** Giá, cân nặng, kích thước gói, ngưỡng tồn của biến thể; null là chưa đặt (ở `variants`: dùng `variantDefaults`) */
+export interface VariantFacts {
+  standardPrice: number | null;
+  targetNetPrice: number | null;
+  weightG: number | null;
+  lengthMm: number | null;
+  widthMm: number | null;
+  heightMm: number | null;
+  minQty: number | null;
+}
+
+export type VariantFactKey = keyof VariantFacts;
+
+/** Không có giá nhập, số lượng: người có `catalog.product.manage` mà không có quyền nhập hàng vẫn mở được */
+export interface ProductDraftSummary {
+  id: string;
+  requestId: string;
+  requestNumber: string;
+  requestStatus: PurchaseRequestStatus;
+  supplierName: string;
+  expectedDeliveryDate: string | null;
+  parentName: string;
+  groupId: string | null;
+  groupName: string;
+  /** Như độ hoàn thiện 17.1, tính trên bản soạn; khoá như `VariantMissing` */
+  readiness: { missing: string[] };
+  /** Có khi nhập kho đã tạo sản phẩm; từ đó phần sản phẩm chỉ đọc */
+  productId: string | null;
+  version: number;
+}
+
+/** Giá trị thuộc tính sản phẩm đã soạn, cùng dạng `SpecInput` gửi lên */
+export interface DraftSpecValue {
+  fieldId: string;
+  optionIds?: string[];
+  newValues?: string[];
+  value?: string;
+}
+
+export interface ProductDraft extends ProductDraftSummary {
+  description: string;
+  brand: string | null;
+  originCountry: string | null;
+  images: { fileId: string; url: string }[];
+  sizeChart: { fileId: string; url: string } | null;
+  specs: DraftSpecValue[];
+  /** Tên thuộc tính biến thể gắn ảnh */
+  imageAxis: string | null;
+  optionImages: { axis: string; value: string; fileId: string; url: string }[];
+  variantDefaults: VariantFacts;
+  /** Mọi tổ hợp của cha mới trên đề nghị; `variantId` có khi tổ hợp đó đã nhập kho */
+  variants: ({ optionValues: Record<string, string>; variantId: string | null } & VariantFacts)[];
+}
+
+export type VariantFactsInput = Partial<Record<VariantFactKey, number | null>>;
+
+/** PUT: trường vắng giữ nguyên. Sản phẩm đã tạo thì chỉ gửi `variants` của tổ hợp chưa có SKU */
+export interface ProductDraftInput {
+  description?: string;
+  brand?: string | null;
+  originCountry?: string | null;
+  imageFileIds?: string[];
+  sizeChartFileId?: string | null;
+  specs?: DraftSpecValue[];
+  imageAxis?: string | null;
+  optionImages?: { axis: string; value: string; fileId: string }[];
+  variantDefaults?: VariantFactsInput;
+  variants?: ({ optionValues: Record<string, string> } & VariantFactsInput)[];
+  version: number;
+}
+
+export interface ProductDraftListParams {
+  /** Mặc định true: chỉ bản chưa tạo sản phẩm */
+  pending?: boolean;
+  page?: number;
+  pageSize?: number;
 }

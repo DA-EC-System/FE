@@ -87,7 +87,8 @@ export function AxisImagesField({ value, onChange, onBusyChange }: AxisImagesFie
   );
 }
 
-function ValueImage({
+/** Một ô ảnh của một giá trị thuộc tính biến thể; dùng lại ở trang soạn trước sản phẩm mới (purchasing) */
+export function ValueImage({
   label,
   image,
   onChange,

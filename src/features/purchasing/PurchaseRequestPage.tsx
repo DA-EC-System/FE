@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { NewProductDraftsCard } from './NewProductDraftsCard';
+import { droppedDrafts } from './productDraft';
 import { MoneyInput } from '@/components/common/MoneyInput';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
@@ -223,6 +225,8 @@ export function PurchaseRequestPage() {
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<{ severity: 'warning' | 'error'; msg: string } | null>(null);
   const [confirm, setConfirm] = useState<PurchaseRequestAction | null>(null);
+  /** Hỏi trước khi lưu làm mất bản soạn trước (đổi tên sản phẩm mới, Documents/21 §16.3) */
+  const [dropAsk, setDropAsk] = useState<{ text: string; resolve: (ok: boolean) => void } | null>(null);
   const [reasonFor, setReasonFor] = useState<RequestTransition | null>(null);
   const [excludeFor, setExcludeFor] = useState<string | null>(null);
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -363,6 +367,15 @@ export function PurchaseRequestPage() {
         return created;
       }
       if (!isDirty && req) return { ...req, version };
+      const { dropped, renamedTo } = droppedDrafts(req?.productDrafts ?? [], toLineInputs(values));
+      if (dropped.length) {
+        const names = dropped.map((d) => `«${d.parentName}»`).join(', ');
+        const why = renamedTo ? `vì tên đổi thành «${renamedTo}»` : 'vì không còn dòng sản phẩm mới nào mang tên này';
+        const ok = await new Promise<boolean>((resolve) =>
+          setDropAsk({ text: `Bản soạn trước của ${names} (ảnh, mô tả, thuộc tính) sẽ bị xoá ${why}.`, resolve }),
+        );
+        if (!ok) return null;
+      }
       const saved = await saveMut.mutateAsync({
         id: requestId,
         supplierId: values.supplierId,
@@ -842,6 +855,7 @@ export function PurchaseRequestPage() {
             )}
           </CardContent>
         </Card>
+        {req && <NewProductDraftsCard request={req} companyId={companyId} />}
       </DetailGrid>
 
       <SecondPersonDialog
@@ -932,6 +946,22 @@ export function PurchaseRequestPage() {
           }}
         />
       )}
+      <ConfirmDialog
+        open={Boolean(dropAsk)}
+        title="Đổi tên sản phẩm mới?"
+        message={dropAsk?.text ?? ''}
+        confirmLabel="Đổi tên, xoá bản soạn"
+        cancelLabel="Giữ tên cũ"
+        destructive
+        onConfirm={() => {
+          dropAsk?.resolve(true);
+          setDropAsk(null);
+        }}
+        onClose={() => {
+          dropAsk?.resolve(false);
+          setDropAsk(null);
+        }}
+      />
       <ConfirmDialog
         open={blocker.state === 'blocked'}
         title="Rời trang khi chưa lưu?"

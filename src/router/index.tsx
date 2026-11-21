@@ -45,6 +45,7 @@ import { StockDocPage } from '@/features/inventory/StockDocPage';
 import { PurchasingPage } from '@/features/purchasing/PurchasingPage';
 import { PurchaseRequestPage } from '@/features/purchasing/PurchaseRequestPage';
 import { GoodsReceiptPage } from '@/features/purchasing/GoodsReceiptPage';
+import { ProductDraftPage } from '@/features/purchasing/ProductDraftPage';
 import { SupplierReturnPage } from '@/features/purchasing/SupplierReturnPage';
 import { OrderListPage } from '@/features/sales/OrderListPage';
 import { OrderDetailPage } from '@/features/sales/OrderDetailPage';
@@ -58,7 +59,7 @@ import { SettlementsPage } from '@/features/finance/SettlementsPage';
 import { SettlementDetailPage } from '@/features/finance/SettlementDetailPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
-import { CATALOG_SETUP_ANY, FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
+import { CATALOG_SETUP_ANY, DRAFT_PERMISSIONS, FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import { BASE_PATH } from '@/utils/env';
 
 /** Màn ngoài MVP (Documents/27 mục 8.1): gỡ khỏi menu, URL gõ thẳng hiện câu này trong khung app (FE#249) */
@@ -312,6 +313,15 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="purchasing" anyPermission={PURCHASING_PERMISSIONS}>
                         <GoodsReceiptPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    // Xem đề nghị hoặc quản lý sản phẩm (Admin không có quyền nhập hàng vẫn soạn được, Documents/21 §16.3)
+                    path: 'purchasing/product-drafts/:draftId',
+                    element: (
+                      <RequireModule module="catalog" anyPermission={DRAFT_PERMISSIONS}>
+                        <ProductDraftPage />
                       </RequireModule>
                     ),
                   },

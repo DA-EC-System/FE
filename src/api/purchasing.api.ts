@@ -17,6 +17,10 @@ import type {
   GoodsReceiptListParams,
   GoodsReceiptSummary,
   GoodsReceiptUpdateInput,
+  ProductDraft,
+  ProductDraftInput,
+  ProductDraftListParams,
+  ProductDraftSummary,
   PurchaseRequest,
   PurchaseRequestAction,
   PurchaseRequestInput,
@@ -49,6 +53,9 @@ export const purchasingKeys = {
   returns: (companyId: string, params: SupplierReturnListParams) =>
     [...purchasingKeys.all(companyId), 'returns', params] as const,
   return: (companyId: string, id: string) => [...purchasingKeys.all(companyId), 'return', id] as const,
+  drafts: (companyId: string, params: ProductDraftListParams) =>
+    [...purchasingKeys.all(companyId), 'product-drafts', params] as const,
+  draft: (companyId: string, id: string) => [...purchasingKeys.all(companyId), 'product-draft', id] as const,
 };
 
 function useCompanyId(): string {
@@ -322,5 +329,50 @@ export function useSupplierReturnAction() {
       return data;
     },
     onSuccess: invalidate,
+  });
+}
+
+// ---------- Bản soạn trước sản phẩm mới (Documents/21 §16.3) ----------
+
+/** Hàng mới sắp về cần soạn: xem đề nghị hoặc `catalog.product.manage` */
+export function useProductDrafts(params: ProductDraftListParams, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: purchasingKeys.drafts(companyId, params),
+    enabled: Boolean(companyId) && enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResult<ProductDraftSummary>>('/purchasing/product-drafts', { params });
+      return data;
+    },
+  });
+}
+
+export function useProductDraft(id: string | undefined) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: purchasingKeys.draft(companyId, id ?? ''),
+    enabled: Boolean(companyId && id),
+    queryFn: async () => {
+      const { data } = await apiClient.get<ProductDraft>(`/purchasing/product-drafts/${id}`);
+      return data;
+    },
+  });
+}
+
+/** Lưu bản soạn; làm mới đề nghị (khối Sản phẩm mới) và danh sách cần soạn */
+export function useSaveProductDraft() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: ProductDraftInput & { id: string }) => {
+      const { data } = await apiClient.put<ProductDraft>(`/purchasing/product-drafts/${id}`, body);
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(purchasingKeys.draft(companyId, data.id), data);
+      void qc.invalidateQueries({ queryKey: purchasingKeys.request(companyId, data.requestId) });
+      void qc.invalidateQueries({ queryKey: [...purchasingKeys.all(companyId), 'product-drafts'] });
+    },
   });
 }
