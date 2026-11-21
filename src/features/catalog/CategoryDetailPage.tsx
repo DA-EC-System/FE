@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Lock, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
-import { RowAction } from '@/components/common/RowAction';
+import { RowTextAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -162,7 +161,6 @@ export function CategoryDetailPage() {
         key={row.fieldId}
         className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-1.5 ${locked ? 'bg-muted/50' : ''} ${active ? 'border-primary' : ''}`}
       >
-        {locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Mặc định của hệ thống" />}
         <button
           type="button"
           className="min-h-6 min-w-0 flex-1 cursor-pointer text-left"
@@ -171,6 +169,7 @@ export function CategoryDetailPage() {
         >
           <span className="font-medium">{name}</span>
           {f && <span className="ml-2 text-xs text-muted-foreground">{SPEC_INPUT_LABELS[f.input]}</span>}
+          {locked && <span className="ml-2 text-xs text-muted-foreground">Không bỏ được</span>}
         </button>
         {locked || !editable ? (
           row.required ? (
@@ -194,22 +193,22 @@ export function CategoryDetailPage() {
               Bắt buộc
             </label>
             <span className="flex">
-              <RowAction
-                label="Lên trên"
+              <RowTextAction
+                label={`Đưa ${name} lên trên`}
                 reason={i === 0 ? 'Đã ở đầu' : busy ? 'Đang lưu' : null}
                 onClick={() => void save({ fields: move(ownFields, i, i - 1) }, 'Đã đổi thứ tự')}
               >
-                <ArrowUp />
-              </RowAction>
-              <RowAction
-                label="Xuống dưới"
+                Lên
+              </RowTextAction>
+              <RowTextAction
+                label={`Đưa ${name} xuống dưới`}
                 reason={i === ownFields.length - 1 ? 'Đã ở cuối' : busy ? 'Đang lưu' : null}
                 onClick={() => void save({ fields: move(ownFields, i, i + 1) }, 'Đã đổi thứ tự')}
               >
-                <ArrowDown />
-              </RowAction>
-              <RowAction
-                label="Bỏ khỏi danh mục"
+                Xuống
+              </RowTextAction>
+              <RowTextAction
+                label={`Bỏ ${name} khỏi danh mục`}
                 destructive
                 reason={busy ? 'Đang lưu' : null}
                 onClick={() => {
@@ -217,8 +216,8 @@ export function CategoryDetailPage() {
                   void save({ fields: ownFields.filter((_, j) => j !== i) }, `Đã bỏ ${name} khỏi ${group.name}`);
                 }}
               >
-                <Trash2 />
-              </RowAction>
+                Bỏ
+              </RowTextAction>
             </span>
           </>
         )}
@@ -246,12 +245,10 @@ export function CategoryDetailPage() {
         {editable && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setSuggestOpen(true)}>
-              <Settings2 />
               {platform ? 'Gợi ý giá, ngưỡng tồn' : 'Tên, gợi ý giá, ngưỡng tồn'}
             </Button>
             {platform && (
               <Button variant="outline" onClick={() => void toggleHidden()} disabled={hideMut.isPending}>
-                {group.hidden ? <Eye /> : <EyeOff />}
                 {group.hidden ? 'Hiện lại' : 'Ẩn danh mục'}
               </Button>
             )}
@@ -278,13 +275,15 @@ export function CategoryDetailPage() {
             <CardContent className="grid gap-4">
               {platform || !editable ? (
                 <p className="flex flex-wrap items-center gap-1.5">
-                  {platform && <Lock className="size-3.5 text-muted-foreground" aria-hidden />}
                   {template.axes.length ? (
-                    template.axes.map((a) => (
-                      <Badge key={a.attributeId} variant="secondary">
-                        {a.name}
-                      </Badge>
-                    ))
+                    <>
+                      {template.axes.map((a) => (
+                        <Badge key={a.attributeId} variant="secondary">
+                          {a.name}
+                        </Badge>
+                      ))}
+                      {platform && <span className="text-xs text-muted-foreground">Hệ thống đặt, không đổi được</span>}
+                    </>
                   ) : (
                     <span className="text-muted-foreground">Không có biến thể</span>
                   )}
@@ -330,8 +329,7 @@ export function CategoryDetailPage() {
                   <ul className="flex flex-wrap gap-1">
                     {lockedAllowed.map((a) => (
                       <li key={a.attributeId}>
-                        <Badge variant="outline">
-                          <Lock className="size-3" aria-hidden />
+                        <Badge variant="outline" title="Mặc định của hệ thống, không bỏ được">
                           {a.name}
                         </Badge>
                       </li>
@@ -345,12 +343,12 @@ export function CategoryDetailPage() {
                             {editable && !axisIds.includes(id) && (
                               <button
                                 type="button"
-                                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted disabled:opacity-50"
+                                className="min-h-6 cursor-pointer rounded-sm px-1.5 text-destructive hover:bg-muted disabled:opacity-50"
                                 aria-label={`Bỏ ${a?.name ?? ''} khỏi danh sách`}
                                 disabled={busy}
                                 onClick={() => void save({ allowed: ownAllowedIds.filter((x) => x !== id) }, `Đã bỏ ${a?.name ?? ''}`)}
                               >
-                                <X className="size-3.5" />
+                                Bỏ
                               </button>
                             )}
                           </Badge>
@@ -438,7 +436,6 @@ export function CategoryDetailPage() {
                       </>
                     )}
                     <Button variant="outline" size="sm" onClick={() => setCreatingField(true)} disabled={busy}>
-                      <Plus />
                       Tạo thuộc tính mới
                     </Button>
                   </div>
@@ -558,8 +555,7 @@ function move<T>(list: T[], from: number, to: number) {
 function BackLink({ companyId }: { companyId: string }) {
   return (
     <Link to={ROUTES.company.catalogSetup(companyId)} className="inline-flex w-fit items-center gap-1 text-sm text-primary-text hover:underline">
-      <ArrowLeft className="size-4" aria-hidden />
-      Danh mục sản phẩm
+      Về Danh mục sản phẩm
     </Link>
   );
 }
