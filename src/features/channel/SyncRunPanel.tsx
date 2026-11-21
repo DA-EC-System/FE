@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, X } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { SyncRun } from '@/types/shop';
-import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunHeadline } from './syncRun';
+import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunErrorFix, syncRunHeadline } from './syncRun';
 
 const SHOWN_ERRORS = 20;
 
@@ -35,6 +35,7 @@ export function SyncRunPanel({
   const tone = active ? 'info' : run.status === 'failed' || run.failed ? 'warning' : 'success';
   const Icon = active ? Loader2 : tone === 'success' ? CheckCircle2 : AlertTriangle;
   const shown = run.errors.slice(0, SHOWN_ERRORS);
+  const runFix = syncRunErrorFix(run, companyId);
 
   return (
     <section
@@ -51,6 +52,16 @@ export function SyncRunPanel({
       <Icon className={cn('mt-0.5 size-4 shrink-0', active && 'animate-spin motion-reduce:animate-none')} aria-hidden />
       <div className="grid min-w-0 flex-1 gap-1.5 text-sm">
         <p className="font-medium">{syncRunHeadline(run)}</p>
+        {runFix && (
+          <div>
+            <Button asChild variant="outline" size="sm" className="h-7">
+              <Link to={runFix.href}>
+                {runFix.label}
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          </div>
+        )}
         {active && <p className="text-xs text-muted-foreground">Có thể rời trang; quay lại vẫn thấy kết quả.</p>}
         {shown.length > 0 && (
           <ul className="grid gap-1.5">

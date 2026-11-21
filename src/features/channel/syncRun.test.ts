@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncRun } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
-import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunHeadline } from './syncRun';
+import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunErrorFix, syncRunHeadline } from './syncRun';
 
 const AT = '2026-11-21T13:15:00.000Z';
 const run = (over: Partial<SyncRun> = {}): SyncRun => ({
@@ -57,5 +57,16 @@ describe('dòng lỗi: tên và nút tới chỗ sửa', () => {
     expect(syncErrorFix({ fix: 'stocktake', productId: null, variantId: null }, 'c1')?.href).toBe('/c/c1/inventory/documents/new?type=stocktake');
     expect(syncErrorFix({ fix: 'platform', productId: null, variantId: null }, 'c1')?.href).toBeNull();
     expect(syncErrorFix({ fix: null, productId: null, variantId: null }, 'c1')).toBeNull();
+  });
+});
+
+describe('syncRunErrorFix (lỗi cả lượt)', () => {
+  it('mất uỷ quyền, gian hàng ngắt: kết nối lại; lỗi khác hoặc lượt chưa lỗi: không có nút', () => {
+    expect(syncRunErrorFix(run({ status: 'failed', error: { code: 'marketplace_unauthorized', message: '' } }), 'c1')).toEqual({
+      label: 'Kết nối lại gian hàng',
+      href: '/c/c1/channel/shops',
+    });
+    expect(syncRunErrorFix(run({ status: 'failed', error: { code: 'run_stale', message: '' } }), 'c1')).toBeNull();
+    expect(syncRunErrorFix(run(), 'c1')).toBeNull();
   });
 });

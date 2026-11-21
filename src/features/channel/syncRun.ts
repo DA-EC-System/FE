@@ -53,3 +53,11 @@ export function syncErrorFix(
       return null;
   }
 }
+
+/** Lỗi cả lượt do mất uỷ quyền hay gian hàng ngắt (Documents/21 §18.5 `error`): nút kết nối lại gian hàng */
+export function syncRunErrorFix(run: Pick<SyncRun, 'status' | 'error'>, companyId: string): { label: string; href: string } | null {
+  if (run.status !== 'failed' || !run.error) return null;
+  return run.error.code === 'marketplace_unauthorized' || run.error.code === 'shop_not_connected'
+    ? { label: 'Kết nối lại gian hàng', href: ROUTES.company.shops(companyId) }
+    : null;
+}
