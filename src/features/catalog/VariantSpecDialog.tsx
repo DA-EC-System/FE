@@ -14,13 +14,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form';
-import { useUpdateVariant } from '@/api/catalog.api';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useBulkEditRows, useBulkSaveVariants, useUpdateVariant } from '@/api/catalog.api';
+import { useCan } from '@/hooks/usePermission';
+import { PERMISSIONS } from '@/utils/permissions';
 import { getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { priceTextSchema } from '@/utils/price';
 import type { ProductDetail, ProductVariant, VariantUpdateInput } from '@/types/catalog';
 import { copyFieldsText, siblingToCopy } from './siblingCopy';
+import { parseMinQty } from './completion';
 
 /** Ô số nguyên dương, trống là chưa có (null) */
 const positiveInt = (max: number, tooBig: string) =>
@@ -82,6 +87,17 @@ interface VariantSpecDialogProps {
 /** FE#154, FE#260 (D7, D9): giá chuẩn, giá muốn bán, cân nặng, kích thước gói là cột của SKU; gọi PATCH §17.2 */
 export function VariantSpecDialog({ productId, variant, siblings = [], onClose, onDone }: VariantSpecDialogProps) {
   const updateMut = useUpdateVariant();
+  const bulkSave = useBulkSaveVariants();
+  const canReorder = useCan()(PERMISSIONS.reorderManage);
+  // Ngưỡng tồn riêng của biến thể (KB2 2.9; Documents/21 §17.5): lưu qua sửa hàng loạt một dòng, cần `reorderVersion`
+  // chỉ có ở bảng sửa hàng loạt
+  const [minQtyText, setMinQtyText] = useState('');
+  const [minQtyError, setMinQtyError] = useState<string | null>(null);
+  const reorderRows = useBulkEditRows(
+    { page: 1, pageSize: 20, search: variant?.sku ?? '' },
+    { enabled: Boolean(variant) && canReorder },
+  );
+  const reorderRow = reorderRows.data?.items.find((r) => r.variantId === variant?.id);
   const [error, setError] = useState<string | null>(null);
   // Version gửi kèm; đổi khi 409 nạp bản mới
   const [version, setVersion] = useState(0);
@@ -98,6 +114,8 @@ export function VariantSpecDialog({ productId, variant, siblings = [], onClose, 
       reset(toForm(variant));
       setVersion(variant.version);
       setError(null);
+      setMinQtyText(variant.minQty?.toString() ?? '');
+      setMinQtyError(null);
     }
     // Chỉ nạp khi mở hộp cho SKU khác; refetch nền không đè chỗ đang gõ
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,12 +128,35 @@ export function VariantSpecDialog({ productId, variant, siblings = [], onClose, 
     // Chỉ gửi ô đã đổi
     const input: VariantUpdateInput = { version };
     for (const f of FIELDS) if (values[f] !== variant[f]) input[f] = values[f];
-    if (Object.keys(input).length === 1) {
+    const minQty = minQtyText.trim() === '' ? null : parseMinQty(minQtyText);
+    if (canReorder && minQtyText.trim() !== '' && minQty === null) {
+      setMinQtyError('Ngưỡng tồn là số nguyên từ 0');
+      return;
+    }
+    const minChanged = canReorder && minQty !== variant.minQty;
+    if (Object.keys(input).length === 1 && !minChanged) {
       onClose();
       return;
     }
     try {
-      await updateMut.mutateAsync({ productId, variantId: variant.id, ...input });
+      let skuVersion = version;
+      if (Object.keys(input).length > 1) {
+        const saved = await updateMut.mutateAsync({ productId, variantId: variant.id, ...input });
+        skuVersion = saved.variants.find((v) => v.id === variant.id)?.version ?? version + 1;
+      }
+      if (minChanged) {
+        const result = await bulkSave.mutateAsync([
+          { variantId: variant.id, version: skuVersion, reorderVersion: reorderRow?.reorderVersion ?? null, minQty },
+        ]);
+        const failed = result.failed[0];
+        if (failed) {
+          // Giá, cân nặng đã lưu ở bước trên; giữ version mới để lần lưu sau không vấp xung đột
+          setVersion(skuVersion);
+          setMinQtyError(failed.errors?.minQty ?? failed.message);
+          void reorderRows.refetch();
+          return;
+        }
+      }
       onDone(`Đã lưu thông tin ${variant.sku}`);
     } catch (e) {
       const latest = conflictCurrent<ProductDetail>(e)?.variants.find((v) => v.id === variant.id);
@@ -132,7 +173,7 @@ export function VariantSpecDialog({ productId, variant, siblings = [], onClose, 
     }
   });
 
-  const busy = updateMut.isPending;
+  const busy = updateMut.isPending || bulkSave.isPending;
   // Gợi ý theo số đã lưu của SKU này; bấm chép thì điền ô trống, vẫn phải bấm Lưu (Documents/25 §5.3)
   const copy = variant ? siblingToCopy(variant, siblings) : null;
   const [copied, setCopied] = useState<string | null>(null);
@@ -196,6 +237,29 @@ export function VariantSpecDialog({ productId, variant, siblings = [], onClose, 
                 <FormTextField control={control} name="heightMm" label="Cao" inputMode="numeric" />
               </div>
             </fieldset>
+            <div className="grid gap-1.5">
+              <Label htmlFor="variant-min-qty">Ngưỡng tồn</Label>
+              <Input
+                id="variant-min-qty"
+                inputMode="numeric"
+                value={minQtyText}
+                disabled={!canReorder || busy || (Boolean(variant) && reorderRows.isLoading)}
+                aria-invalid={Boolean(minQtyError)}
+                onChange={(e) => {
+                  setMinQtyText(e.target.value);
+                  setMinQtyError(null);
+                }}
+              />
+              {minQtyError ? (
+                <p className="text-sm text-destructive">{minQtyError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {canReorder
+                    ? 'Riêng biến thể này: tồn có thể bán xuống dưới số này thì app nhắc nhập thêm. Để trống là bỏ ngưỡng.'
+                    : 'Cần quyền chỉnh ngưỡng tồn để sửa ô này.'}
+                </p>
+              )}
+            </div>
             {error && <AlertMessage severity="warning">{error}</AlertMessage>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={busy}>

@@ -337,7 +337,7 @@ export interface UploadTicket {
 // ---------- Sửa hàng loạt SKU (FE#155, BE#242; hợp đồng đề xuất cho Documents/21 §17) ----------
 
 /** Các ô sửa được trong bảng sửa hàng loạt */
-export type BulkField = 'standardPrice' | 'minQty' | 'weightG' | 'lengthMm' | 'widthMm' | 'heightMm';
+export type BulkField = 'standardPrice' | 'targetNetPrice' | 'minQty' | 'weightG' | 'lengthMm' | 'widthMm' | 'heightMm';
 
 /** BE tính gợi ý, không tự ghi. `basis` nói vì sao ra số này để người dùng kiểm */
 export interface BulkSuggestion {

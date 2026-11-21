@@ -25,6 +25,7 @@ import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow } from '@/type
 
 const FIELD_LABELS: Record<BulkField, string> = {
   standardPrice: 'Giá chuẩn',
+  targetNetPrice: 'Giá muốn thực nhận',
   minQty: 'Ngưỡng tồn',
   weightG: 'Khối lượng (g)',
   lengthMm: 'Dài (mm)',
@@ -34,6 +35,8 @@ const FIELD_LABELS: Record<BulkField, string> = {
 const FIELDS = Object.keys(FIELD_LABELS) as BulkField[];
 const FIELD_HELP: Partial<Record<BulkField, string>> = {
   standardPrice: 'Giá chuẩn của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số lãi (theo danh mục sản phẩm hoặc công ty).',
+  targetNetPrice:
+    'Số tiền muốn nhận về mỗi món sau phí sàn (VND); giá niêm yết từng sàn tính ngược từ số này. Gợi ý: giá nhập gần nhất × hệ số lãi, hoặc theo SKU cùng sản phẩm.',
   minQty: 'Số có thể bán xuống tới số này thì gợi ý nhập hàng. Gợi ý tính từ tốc độ bán, số ngày nhà cung cấp giao và tồn dự phòng.',
   weightG: 'Dùng tính phí vận chuyển. Gợi ý lấy theo SKU cùng sản phẩm gần nhất.',
 };
@@ -47,7 +50,7 @@ interface Draft {
 type RowError = BulkSaveResult['failed'][number];
 
 const showNumber = (field: BulkField, n: number) =>
-  field === 'standardPrice' ? formatCurrency(n) : n.toLocaleString('vi-VN');
+  field === 'standardPrice' || field === 'targetNetPrice' ? formatCurrency(n) : n.toLocaleString('vi-VN');
 
 /** "" là xoá giá trị; còn lại phải là số nguyên dương. Cho gõ dấu chấm ngăn nghìn */
 function parseCell(raw: string): { ok: true; value: number | null } | { ok: false } {
@@ -139,7 +142,9 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
   };
 
   const selectedRows = rows.filter((r) => selected.has(r.variantId));
-  const selectedSuggestions = selectedRows.reduce((n, r) => n + acceptable(r).length, 0);
+  // Chưa chọn dòng nào thì áp cho mọi SKU trên trang (KB2 2.10: nút từng mờ khi chưa chọn)
+  const suggestTargets = selected.size ? selectedRows : rows;
+  const selectedSuggestions = suggestTargets.reduce((n, r) => n + acceptable(r).length, 0);
 
   const submit = async () => {
     const payload: BulkSaveRow[] = Object.entries(drafts).map(([variantId, d]) => {
@@ -211,7 +216,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     const fieldColumn = (field: BulkField): ColumnDef<BulkEditRow> => ({
       id: field,
       header: FIELD_LABELS[field],
-      meta: { className: field === 'standardPrice' ? 'min-w-36' : 'min-w-28', numeric: true, help: FIELD_HELP[field] },
+      meta: { className: field === 'standardPrice' || field === 'targetNetPrice' ? 'min-w-36' : 'min-w-28', numeric: true, help: FIELD_HELP[field] },
       cell: ({ row }) => (
         <BulkCell
           row={row.original}
@@ -331,12 +336,13 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
               variant="outline"
               disabled={selectedSuggestions === 0}
               onClick={() => {
-                acceptSuggestions(selectedRows);
+                acceptSuggestions(suggestTargets);
                 toast.success(`Đã áp dụng ${selectedSuggestions} gợi ý, bấm Lưu để ghi`);
               }}
             >
               <Sparkles />
-              Áp dụng gợi ý cho SKU đã chọn{selectedSuggestions > 0 && ` (${selectedSuggestions})`}
+              {selected.size ? 'Áp dụng gợi ý cho SKU đã chọn' : 'Áp dụng mọi gợi ý trên trang'}
+              {selectedSuggestions > 0 && ` (${selectedSuggestions})`}
             </Button>
           </div>
         </FilterBar>
