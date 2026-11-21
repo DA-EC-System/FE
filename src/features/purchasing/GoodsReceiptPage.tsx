@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -133,7 +133,7 @@ export function GoodsReceiptPage() {
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [attachmentsDirty, setAttachmentsDirty] = useState(false);
   const [version, setVersion] = useState(0);
-  const [notice, setNotice] = useState<{ severity: 'warning' | 'error'; msg: string } | null>(null);
+  const [notice, setNotice] = useState<{ severity: 'warning' | 'error'; msg: ReactNode } | null>(null);
   const [confirm, setConfirm] = useState<GoodsReceiptAction | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -198,10 +198,40 @@ export function GoodsReceiptPage() {
         placed++;
       }
     }
+    const rowIdx = Object.keys(rowErrs).map(Number).sort((a, b) => a - b);
+    // Tên sản phẩm mới trùng sản phẩm khác (409, Documents/21 §16.3): báo một lần, kèm link tới sản phẩm trùng tên và ai
+    // sửa được; dòng chỉ gạch đỏ kèm nhãn ngắn (kiểm người bán KB2 2.3)
+    if (problem?.code === 'new_product_name_taken' && rowIdx.length) {
+      const names = [...new Set(rowIdx.map((i) => receipt?.lines[i]?.productName).filter((n): n is string => Boolean(n)))];
+      setRowErrors(Object.fromEntries(rowIdx.map((i) => [i, 'Trùng tên sản phẩm khác'])));
+      setNotice({
+        severity: 'error',
+        msg: (
+          <>
+            Tên {names.map((n) => `«${n}»`).join(', ')} đã là tên của một sản phẩm khác trong danh sách sản phẩm (dòng{' '}
+            {rowIdx.map((i) => i + 1).join(', ')}). Người quản lý sản phẩm đổi tên sản phẩm đó, rồi bấm Nhập kho lại. Phiếu vẫn
+            Đang kiểm.{' '}
+            {names.map((n) => (
+              <Link
+                key={n}
+                to={`${ROUTES.company.catalog(companyId)}?${new URLSearchParams({ search: n })}`}
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Xem sản phẩm tên «{n}»
+              </Link>
+            ))}
+          </>
+        ),
+      });
+      return;
+    }
     setRowErrors(rowErrs);
-    const rowMsgs = Object.entries(rowErrs).map(([i, m]) => `Dòng ${Number(i) + 1}: ${m}`);
-    if (rowMsgs.length) {
-      setNotice({ severity: 'error', msg: `${rowMsgs.join(' ')} Phiếu vẫn Đang kiểm.` });
+    if (rowIdx.length) {
+      // Cùng một câu cho nhiều dòng thì gộp, không lặp lại
+      const byMsg = new Map<string, number[]>();
+      for (const i of rowIdx) byMsg.set(rowErrs[i]!, [...(byMsg.get(rowErrs[i]!) ?? []), i + 1]);
+      const text = [...byMsg].map(([m, rows]) => `Dòng ${rows.join(', ')}: ${m}`).join(' ');
+      setNotice({ severity: 'error', msg: `${text} Phiếu vẫn Đang kiểm.` });
       return;
     }
     setNotice({

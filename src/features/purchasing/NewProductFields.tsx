@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useAttributes, useGroups, useProduct, useProducts } from '@/api/catalog.api';
+import { useAttributes, useGroups, useGroupTemplate, useProduct, useProducts } from '@/api/catalog.api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type { ProductListItem } from '@/types/catalog';
-import { MAX_AXES, type NewProductOption, type RequestLineDraft } from './shared';
+import { MAX_AXES, axisChoices, type NewProductOption, type RequestLineDraft } from './shared';
 
 type FieldError = { message?: string } | undefined;
 
@@ -48,6 +48,29 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
   // Trục của cha có sẵn lấy theo thuộc tính của SKU đầu tiên
   const parentAxes = parentQuery.data?.variants[0]?.attributes.map((a) => a.attributeName) ?? [];
   const parentAxesKey = parentAxes.join('|');
+  // Sản phẩm mới: mẫu danh mục cho thuộc tính biến thể gợi ý và danh sách được phép (Documents/21 §5.7, KB2 2.1)
+  const templateQuery = useGroupTemplate(line.parentMode === 'new' && line.groupId ? line.groupId : undefined);
+  const template = templateQuery.data;
+  const groupName = groupsQuery.data?.find((g) => g.id === line.groupId)?.name ?? '';
+  const choices = axisChoices(attributesQuery.data ?? [], template?.allowedAttributes);
+
+  // Chọn danh mục mà chưa chọn thuộc tính nào: điền sẵn thuộc tính biến thể mặc định của danh mục
+  useEffect(() => {
+    if (line.parentMode !== 'new' || !template || template.groupId !== line.groupId) return;
+    if (line.options.some((o) => o.axis)) return;
+    const axes = template.axes.slice(0, MAX_AXES).map((a) => a.name);
+    if (!axes.length) return;
+    onChange({ options: Array.from({ length: MAX_AXES }, (_, k) => ({ axis: axes[k] ?? '', value: line.options[k]?.value ?? '' })) });
+    // Chỉ chạy khi mẫu của danh mục vừa chọn về
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [line.parentMode, template?.groupId, line.groupId]);
+
+  /** Giá trị gợi ý của một thuộc tính: giá trị chuẩn của danh mục, rồi giá trị công ty đã dùng */
+  const valueSuggestions = (axis: string) => {
+    const fromTemplate = template?.axes.find((a) => a.name === axis)?.values.map((v) => v.value) ?? [];
+    const fromCompany = attributesQuery.data?.find((a) => a.name === axis)?.values.map((v) => v.value) ?? [];
+    return [...new Set([...fromTemplate, ...fromCompany])];
+  };
 
   useEffect(() => {
     if (line.parentMode !== 'existing' || !parentQuery.data) return;
@@ -172,11 +195,24 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NO_AXIS}>Không dùng</SelectItem>
-                        {(attributesQuery.data ?? []).map((a) => (
-                          <SelectItem key={a.id} value={a.name} disabled={usedAxes.has(a.name) && o.axis !== a.name}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
+                        <SelectGroup>
+                          {choices.others.length > 0 && <SelectLabel>Hợp với {groupName || 'danh mục'}</SelectLabel>}
+                          {choices.fits.map((a) => (
+                            <SelectItem key={a.id} value={a.name} disabled={usedAxes.has(a.name) && o.axis !== a.name}>
+                              {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        {choices.others.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Ngoài danh mục</SelectLabel>
+                            {choices.others.map((a) => (
+                              <SelectItem key={a.id} value={a.name} disabled={usedAxes.has(a.name) && o.axis !== a.name}>
+                                {a.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
                       </SelectContent>
                     </Select>
                   ) : (
@@ -185,7 +221,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
                   <AxisValueInput
                     axis={o.axis}
                     value={o.value}
-                    suggestions={attributesQuery.data?.find((a) => a.name === o.axis)?.values.map((v) => v.value) ?? []}
+                    suggestions={valueSuggestions(o.axis)}
                     label={`${o.axis || `Giá trị ${k + 1}`} ${name}`}
                     listId={`axis-${index}-${k}`}
                     invalid={Boolean(err?.value)}
@@ -194,6 +230,13 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
                   />
                 </div>
                 <Err error={err?.axis ?? err?.value} />
+                {line.parentMode === 'new' &&
+                  o.axis &&
+                  choices.others.some((a) => a.name === o.axis) && (
+                    <p className="text-xs text-warning-text">
+                      Thuộc tính này không thuộc danh mục {groupName}. Vẫn lưu được; sàn có thể không nhận lúc đăng.
+                    </p>
+                  )}
               </div>
             );
           })}

@@ -384,3 +384,40 @@ export const refundSchema = moneySchema({ label: 'Số tiền hoàn', min: 1, ma
  */
 export const hasActiveSupplier = (suppliers: readonly { active: boolean }[] | undefined): boolean | undefined =>
   suppliers === undefined ? undefined : suppliers.some((s) => s.active);
+
+/**
+ * Phần sản phẩm mới của dòng kế tiếp: chép sản phẩm (có sẵn hoặc tên mới), danh mục, thuộc tính biến thể của dòng sản
+ * phẩm mới gần nhất, để trống giá trị; người dùng chỉ gõ giá trị, số lượng, giá (kiểm người bán KB2 2.1). Chưa có dòng
+ * sản phẩm mới nào thì dòng trống với đủ ô thuộc tính của sản phẩm mới.
+ */
+export function newLineFromPrevious(
+  lines: readonly Pick<RequestLineDraft, 'isNew' | 'variantId' | 'parentMode' | 'parentId' | 'parentName' | 'groupId' | 'options'>[],
+): Pick<RequestLineDraft, 'isNew' | 'parentMode' | 'parentId' | 'parentName' | 'groupId' | 'options'> {
+  const prev = [...lines].reverse().find((l) => l.isNew && !l.variantId);
+  if (!prev) return { isNew: true, parentMode: 'new', parentId: '', parentName: '', groupId: '', options: Array.from({ length: MAX_AXES }, () => ({ axis: '', value: '' })) };
+  return {
+    isNew: true,
+    parentMode: prev.parentMode,
+    parentId: prev.parentId,
+    parentName: prev.parentName,
+    groupId: prev.groupId,
+    options: prev.options.map((o) => ({ axis: o.axis, value: '' })),
+  };
+}
+
+/**
+ * Ô chọn thuộc tính biến thể của dòng sản phẩm mới, theo danh mục (Documents/21 §5.7 `allowedAttributes`, chốt
+ * 21/11/2026 mục 5): thuộc tính hợp danh mục lên đầu, còn lại xếp dưới nhóm "Ngoài danh mục". Danh mục chưa giới hạn
+ * (danh sách rỗng) thì một nhóm.
+ */
+export function axisChoices(
+  attributes: readonly { id: string; name: string }[],
+  allowed: readonly { attributeId: string }[] | undefined,
+): { fits: { id: string; name: string }[]; others: { id: string; name: string }[] } {
+  if (!allowed?.length) return { fits: [...attributes], others: [] };
+  const ids = allowed.map((a) => a.attributeId);
+  return {
+    fits: ids.flatMap((id) => attributes.filter((a) => a.id === id)),
+    others: attributes.filter((a) => !ids.includes(a.id)),
+  };
+}

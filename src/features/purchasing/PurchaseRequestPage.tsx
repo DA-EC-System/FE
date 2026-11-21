@@ -62,6 +62,7 @@ import {
   MAX_AXES,
   filledOptions,
   formatQty,
+  newLineFromPrevious,
   optionsLabel,
   requestFormSchema,
   type RequestFormInput,
@@ -688,7 +689,7 @@ export function PurchaseRequestPage() {
                     }
                   />
                 </div>
-                <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true, parentMode: 'new', options: Array.from({ length: MAX_AXES }, () => ({ axis: '', value: '' })) }))}>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine(newLineFromPrevious(lines)))}>
                   <Plus />
                   Thêm sản phẩm mới
                 </Button>
