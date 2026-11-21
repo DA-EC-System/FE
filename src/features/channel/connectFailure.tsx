@@ -2,6 +2,7 @@ import { ArrowLeftRight, Building2, LockKeyhole, Timer, UserRoundX, X } from 'lu
 import { getProblem } from '@/api/client';
 import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { companyMismatchMessage, isCompanyRef, isShopRef, problemSummary, type CompanyRef } from '@/api/problemMessages';
+import { platformInfo } from '@/lib/platforms';
 import { platformLabel } from './shopSchemas';
 import { CompanyBox, ShopBox, type ResultScreenProps, type ShopRef } from './ConnectOutcome';
 
@@ -16,8 +17,6 @@ export type ConnectFailure =
   | { kind: 'company_mismatch'; expected?: CompanyRef; actual?: CompanyRef }
   | { kind: 'error'; message: string; platformMessage?: string };
 
-/** Nơi người dùng bấm uỷ quyền ngoài Commerio (§18.6.3): chỉ để hiện chữ, không rẽ nhánh luồng */
-const AUTHORIZE_PORTAL: Record<string, string> = { tiktok: 'Partner Center' };
 
 /**
  * Lỗi của callback hay dán token thành tình huống để chọn màn kết quả (§18.4). `via = 'token'` khi lỗi đến từ dán token:
@@ -83,7 +82,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
         tone: 'warn',
         icon: Timer,
         title: 'Hãy bắt đầu kết nối từ Commerio',
-        description: `Hãy bấm Kết nối ${name} trong Commerio, không uỷ quyền từ ${AUTHORIZE_PORTAL[failure.platform] ?? 'trang của sàn'}.`,
+        description: `Hãy bấm Kết nối ${name} trong Commerio, không uỷ quyền từ ${platformInfo(failure.platform)?.authorizePortal ?? 'trang của sàn'}.`,
       };
     }
     case 'state_invalid':

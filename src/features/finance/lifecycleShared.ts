@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import type { ConfigKind, ConfigStatus, CreateFinanceConfig, FinanceConfig } from '@/types/finance';
 import type { SettlementStatus } from '@/types/settlement';
+import { feeNamesText } from '@/lib/platforms';
 
 export const PAYMENT_STATES: Record<SettlementStatus, StatusMeta> = {
   none: { label: 'Chưa phát sinh', variant: 'outline', hint: 'Chưa có kiện nào giao thành công nên chưa phát sinh khoản phải thu.' },
@@ -30,8 +31,8 @@ export const PAYLOAD_HINTS: Record<string, string> = {
   resolveLimit: 'Chênh lệch vượt số này thì cần CEO duyệt trước khi xử lý.',
   milestones: 'Doanh thu luỹ kế trong năm vượt ngưỡng thì đổi cách tính thuế. Nhiều ngưỡng thì cách nhau bằng dấu phẩy, vd 500000000, 3000000000.',
   regime: 'Hộ, cá nhân kinh doanh: sàn khấu trừ, nộp thay thuế GTGT và TNCN theo tỷ lệ % trên doanh thu. Doanh nghiệp: sàn không khấu trừ, doanh nghiệp tự kê khai thuế GTGT.',
-  fixedPct: 'Lazada ghi Phí cố định, TikTok Shop ghi Phí hoa hồng nền tảng. Hạch toán vào chi phí bán hàng.',
-  transactionPct: 'Lazada ghi Phí thanh toán, TikTok Shop ghi Phí giao dịch. Hạch toán vào chi phí bán hàng.',
+  fixedPct: `${feeNamesText('fixedPct')}Hạch toán vào chi phí bán hàng.`,
+  transactionPct: `${feeNamesText('transactionPct')}Hạch toán vào chi phí bán hàng.`,
   servicePct: 'Các phí dịch vụ khác trên sao kê của sàn (vd phí hạ tầng, phí xử lý đơn). Hạch toán vào chi phí bán hàng.',
   optionalPct: 'Phí các chương trình gian hàng tham gia (vd Freeship Extra, Voucher Xtra, hoa hồng tiếp thị liên kết). Hạch toán vào chi phí bán hàng.',
   returnFee: 'Phí sàn thu cho mỗi kiện hàng hoàn về; khác với khoản hoàn trả giá trị sản phẩm cho người mua.',

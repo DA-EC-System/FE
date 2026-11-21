@@ -29,7 +29,7 @@ const PAGE_HELP = (
   <>
     Tên và mã số thuế lấy từ lúc đăng ký công ty, không sửa ở đây. Mã số thuế bị quản trị Commerio gỡ (công ty giữ mã
     của doanh nghiệp khác) thì CEO, Admin nhập mã đúng ở đây. Tổ chức chịu trách nhiệm hàng hoá được điền sẵn vào
-    thuộc tính sàn (TikTok) khi ghép danh mục và khi đăng sản phẩm. Để trống thì dùng tên, địa chỉ của công ty.
+    thông tin sàn yêu cầu khi đăng sản phẩm. Để trống thì dùng tên, địa chỉ của công ty.
   </>
 );
 

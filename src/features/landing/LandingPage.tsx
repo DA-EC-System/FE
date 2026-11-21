@@ -19,6 +19,7 @@ import {
   LANDING_ONBOARDING,
   LANDING_PAINS,
 } from './landingContent';
+import { SUPPORTED_PLATFORMS } from '@/lib/platforms';
 
 /**
  * Trang giới thiệu ở `/` cho người chưa đăng nhập (FE#401, Documents/27 US-CT-14).
@@ -451,8 +452,9 @@ export function LandingPage() {
               </Link>
             </FooterCol>
             <FooterCol title="Sàn đang hỗ trợ">
-              <span>Lazada</span>
-              <span>TikTok Shop</span>
+              {SUPPORTED_PLATFORMS.map((p) => (
+                <span key={p.code}>{p.label}</span>
+              ))}
             </FooterCol>
           </div>
           <div

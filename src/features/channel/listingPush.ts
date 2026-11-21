@@ -108,6 +108,7 @@ export function outsideChangeHint(oc: OutsideChange): string {
  * Sàn sửa được nội dung listing đang bán (§18.3, commerio-backend#293). BE mới làm TikTok, sàn khác trả 422
  * `marketplace_unsupported`; capabilities chưa có cờ riêng nên FE theo mã sàn
  */
+// eslint-disable-next-line no-restricted-syntax -- chờ capability từ BE (audit nhieu-san bước 3), không thêm chỗ mới
 const CONTENT_UPDATE_PLATFORMS = ['tiktok'];
 
 /** Nút Sửa nội dung: listing đang bán của sàn có hỗ trợ; bản sửa đang duyệt hay bị từ chối vẫn gửi lại được */
@@ -139,11 +140,11 @@ const PLATFORM_MESSAGE_CODES = new Set(['marketplace_rejected', 'marketplace_una
 const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) => string }[] = [
   {
     pattern: /12052051|product (name|title)`?[^.;]*(\b25\b[^;]*\b255\b|must be within 25\b)/i,
-    text: () => 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.',
+    text: () => 'Sàn yêu cầu tên sản phẩm dài 25–255 ký tự. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.',
   },
   {
     pattern: /size_chart(_image)?`? is required/i,
-    text: () => 'Category TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.',
+    text: () => 'Category này trên sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.',
   },
   {
     pattern: /^12052104:/,
@@ -161,7 +162,7 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
   },
   {
     pattern: /Category attribute "([^"]+)" is mandatory/i,
-    text: (m) => `Category Lazada bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.`,
+    text: (m) => `Category trên sàn bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.`,
   },
 ];
 

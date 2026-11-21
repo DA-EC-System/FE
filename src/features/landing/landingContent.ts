@@ -12,6 +12,7 @@
 import inventoryShot from '@/assets/landing/mod-inventory.jpg';
 import packagesShot from '@/assets/landing/mod-packages.jpg';
 import settlementsShot from '@/assets/landing/mod-settlements.jpg';
+import { supportedPlatformNames } from '@/lib/platforms';
 
 export interface LandingShot {
   src: string;
@@ -139,8 +140,8 @@ export const LANDING_ONBOARDING = [
 export const LANDING_DIFFS = [
   {
     icon: 'scale' as const,
-    title: 'Đối soát có cả TikTok Shop',
-    text: 'So tiền sàn trả với số phải thu theo từng đơn, kể cả TikTok Shop.',
+    title: 'Đối soát mọi sàn',
+    text: 'So tiền sàn trả với số phải thu theo từng đơn, trên mọi gian hàng đã kết nối.',
   },
   {
     icon: 'shield' as const,
@@ -164,7 +165,7 @@ export const LANDING_FAQ = [
     q: 'Kết nối gian hàng trên sàn thế nào?',
     a: 'Ở màn Gian hàng, bấm Thêm gian hàng rồi đăng nhập tài khoản người bán trên sàn để cấp quyền cho Commerio. Sau đó ghép SKU trên sàn với sản phẩm của bạn.',
   },
-  { q: 'Commerio đang hỗ trợ sàn nào?', a: 'Lazada và TikTok Shop.' },
+  { q: 'Commerio đang hỗ trợ sàn nào?', a: `${supportedPlatformNames()}.` },
   {
     q: 'Ai duyệt đề nghị nhập và phiếu kho?',
     a: 'CEO duyệt đề nghị nhập. Phiếu kho cần duyệt, như kiểm kê hay xuất huỷ, phải do người khác người lập duyệt. Mọi thao tác duyệt đều ghi nhật ký.',

@@ -21,6 +21,7 @@ import { ProfileForm } from './CompanyProfilePage';
 import { OptionalTodoList } from './OnboardingCard';
 import { firstPendingIndex, onboardingSteps, optionalSteps, requiredSteps, type OnboardingStep } from './onboardingSteps';
 import { clearWelcome, markWelcome } from './welcomeFlow';
+import { supportedPlatformNames } from '@/lib/platforms';
 
 type WizardKey = Extract<OnboardingKey, 'company_profile' | 'connect_shop' | 'setup_shop' | 'opening_stock'>;
 
@@ -32,7 +33,7 @@ const WIZARD_TEXT: Record<WizardKey, { sub: string; lead: string; blocked: strin
     blocked: 'Lưu địa chỉ đăng ký để sang bước tiếp.',
   },
   connect_shop: {
-    sub: 'Lazada hoặc TikTok Shop',
+    sub: supportedPlatformNames('hoặc'),
     lead: 'Chọn sàn rồi đăng nhập tài khoản người bán trên trang của sàn để cho phép Commerio đọc sản phẩm, đơn, cập nhật tồn và giá.',
     blocked: 'Kết nối một gian hàng để sang bước tiếp.',
   },

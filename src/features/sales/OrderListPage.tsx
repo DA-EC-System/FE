@@ -266,7 +266,7 @@ export function OrderListPage() {
     <div>
       <PageHeader
         title="Đơn hàng"
-        subtitle="Đơn từ các gian hàng Lazada và TikTok Shop."
+        subtitle="Đơn từ mọi gian hàng của công ty trên các sàn."
         help="Số trên mỗi tab đếm theo bộ lọc đang chọn. Cột Trạng thái cho biết đơn đang ở bước nào (đơn nhiều kiện thì lấy kiện chậm nhất); rê chuột vào nhãn để xem giải thích."
         onTour={startTour}
         action={

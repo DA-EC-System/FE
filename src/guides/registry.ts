@@ -158,7 +158,7 @@ export const GUIDES = {
     title: 'Nhóm hàng và thuộc tính',
     intro: [
       'Làm trang này trước khi thêm sản phẩm.',
-      'Nhóm hàng dùng để lọc sản phẩm và đặt gợi ý giá, ngưỡng tồn; mã SKU sinh theo mẫu của công ty.',
+      'Nhóm hàng dùng để lọc sản phẩm và đặt gợi ý giá, ngưỡng tồn; mã SKU tạo theo mẫu ở Cài đặt sản phẩm.',
       'Thuộc tính phân loại như màu, cỡ dùng để tạo các variant.',
     ],
     primaryAction: { label: 'Thêm nhóm hàng', target: 'catalog-add' },
@@ -195,7 +195,7 @@ export const GUIDES = {
       {
         target: 'products-add',
         title: 'Thêm sản phẩm',
-        body: 'Chọn nhóm hàng, nhập tên rồi chọn thuộc tính phân loại để tạo các variant. Mã SKU tự sinh theo mẫu của công ty.',
+        body: 'Chọn nhóm hàng, nhập tên rồi chọn thuộc tính phân loại để tạo các variant. Mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm.',
         permission: 'catalog.product.manage',
       },
       {
@@ -458,7 +458,7 @@ export const GUIDES = {
     version: 1,
     title: 'Đơn hàng',
     intro: [
-      'Đơn từ mọi gian hàng Lazada, TikTok Shop nằm chung một danh sách.',
+      'Đơn từ mọi gian hàng trên các sàn nằm chung một danh sách.',
       'Tab lọc theo trạng thái, số trên tab đếm theo bộ lọc đang chọn.',
     ],
     primaryAction: { label: 'Xem danh sách', target: 'order-list' },

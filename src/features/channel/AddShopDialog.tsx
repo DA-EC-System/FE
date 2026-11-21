@@ -15,18 +15,13 @@ import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import type { ShopCallbackResult, ShopConnectMethod, ShopPlatform } from '@/types/shop';
 import { capabilitySummary } from './shopSchemas';
+import { platformInfo } from '@/lib/platforms';
 import { useStartConnect } from './useStartConnect';
 import { ShopTokenForm } from './ShopTokenForm';
 import { ConnectedScreen } from './ConnectedScreen';
 import { ResultScreen } from './ConnectOutcome';
 import { failureScreen, type ConnectFailure } from './connectFailure';
 
-const PLATFORM_HINTS: Record<string, string | undefined> = {
-  tiktok: 'Đăng nhập TikTok Shop Seller Center để uỷ quyền.',
-  shopee: 'Đăng nhập Shopee Open Platform để uỷ quyền.',
-  lazada: 'Đăng nhập Lazada Seller Center để uỷ quyền.',
-  mock: 'Sàn mô phỏng để thử luồng kết nối, không cần tài khoản sàn.',
-};
 
 const lockedReason = (p: ShopPlatform) => p.reason || 'Commerio chưa hỗ trợ kết nối sàn này.';
 
@@ -172,7 +167,7 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
                   ) : (
                     platforms.map((p) => {
                       const active = selected?.platform === p.platform;
-                      const hint = PLATFORM_HINTS[p.platform];
+                      const hint = platformInfo(p.platform)?.connectHint;
                       return (
                         <button
                           key={p.platform}
