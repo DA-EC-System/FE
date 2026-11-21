@@ -1,6 +1,5 @@
 import { Fragment } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { CircleHelp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useGuideStore } from '@/guides/guideStore';
@@ -120,14 +119,14 @@ export function Header({ active, sections }: { active: ActiveNav | null; section
         {guideKey && (
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             data-guide="guide-help"
             aria-label="Hướng dẫn trang này"
             title="Hướng dẫn trang này"
-            className="text-foreground-2 hover:bg-fill"
+            className="h-8 px-2 text-foreground-2 hover:bg-fill"
             onClick={() => openIntro(guideKey)}
           >
-            <CircleHelp className="size-[18px]" />
+            Hướng dẫn
           </Button>
         )}
       </div>
