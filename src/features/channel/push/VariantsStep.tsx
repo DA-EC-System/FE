@@ -21,34 +21,34 @@ interface VariantsStepProps {
   onValue: (valueId: string, optionId: string | null) => void;
 }
 
-/** Bước 3: mỗi trục phân loại ↔ sales attribute của sàn (hoặc tên tự đặt); mỗi giá trị ↔ giá trị chuẩn hoặc để trống */
+/** Thuộc tính biến thể: mỗi thuộc tính biến thể của sản phẩm ↔ sales attribute của sàn (hoặc tên tự đặt); mỗi giá trị ↔ giá trị chuẩn hoặc để trống */
 export function VariantsStep({ label, axes, sales, caps, draft, errors, onAxis, onValue }: VariantsStepProps) {
   if (!axes.length) {
-    return <AlertMessage severity="info">Sản phẩm không có variant: đẩy lên một SKU, không gửi sales attribute.</AlertMessage>;
+    return <AlertMessage severity="info">Sản phẩm không có biến thể: đăng một SKU, không gửi thuộc tính biến thể.</AlertMessage>;
   }
   const list = sales ?? [];
   return (
     <div className="grid gap-4">
       <AlertMessage severity={caps && axes.length > caps.maxAxes ? 'warning' : 'info'}>
-        Mỗi trục phân loại của Commerio ánh xạ sang một sales attribute của {label}; Commerio đã chọn sẵn theo loại thuộc tính và
-        ánh xạ của công ty. Giá trị khớp lựa chọn chuẩn thì sản phẩm hiện đúng trong bộ lọc của sàn.
+        Mỗi thuộc tính biến thể của sản phẩm khớp với một thuộc tính biến thể của {label}; Commerio đã chọn sẵn theo loại thuộc
+        tính và ánh xạ của công ty. Giá trị khớp lựa chọn chuẩn thì sản phẩm hiện đúng trong bộ lọc của sàn.
         {caps && (
           <>
             {' '}
-            Category này nhận tối đa <b>{caps.maxAxes}</b> trục
-            {caps.customAxisName ? ', nhận cả tên trục tự đặt.' : ', chỉ nhận sales attribute của category, không nhận tên tự đặt.'}
-            {axes.length > caps.maxAxes && ` Sản phẩm có ${axes.length} trục nên chưa đẩy được lên category này.`}
+            Category này nhận tối đa <b>{caps.maxAxes}</b> thuộc tính biến thể
+            {caps.customAxisName ? ', nhận cả tên tự đặt.' : ', chỉ nhận thuộc tính biến thể có sẵn của category, không nhận tên tự đặt.'}
+            {axes.length > caps.maxAxes && ` Sản phẩm có ${axes.length} thuộc tính biến thể nên chưa đăng được vào category này.`}
           </>
         )}
       </AlertMessage>
       {caps?.salesRequired.some((c) => !axes.some((x) => draft.axisMap[x.attributeId] === c)) && (
         <AlertMessage severity="warning">
-          {label} bắt buộc category này có trục{' '}
+          {label} bắt buộc category này có thuộc tính biến thể{' '}
           {caps.salesRequired
             .filter((c) => !axes.some((x) => draft.axisMap[x.attributeId] === c))
             .map((c) => list.find((s) => s.code === c)?.label ?? c)
             .join(', ')}
-          . Chọn một trục của sản phẩm ánh xạ sang sales attribute này.
+          . Chọn một thuộc tính biến thể của sản phẩm khớp với thuộc tính này.
         </AlertMessage>
       )}
       {axes.map((axis) => {
@@ -58,11 +58,11 @@ export function VariantsStep({ label, axes, sales, caps, draft, errors, onAxis, 
         return (
           <section key={axis.attributeId} className="rounded-lg border">
             <h3 className="border-b bg-table-head px-4 py-2 text-sm font-semibold">
-              Thuộc tính phân loại “{axis.name}” <span className="font-normal text-muted-foreground">· {axis.values.length} giá trị</span>
+              Thuộc tính biến thể “{axis.name}” <span className="font-normal text-muted-foreground">· {axis.values.length} giá trị</span>
             </h3>
             <div className="grid gap-3 p-4">
               <div className="grid max-w-md gap-1.5">
-                <Label htmlFor={axisFieldId(axis.attributeId)}>Ánh xạ sang sales attribute của {label}</Label>
+                <Label htmlFor={axisFieldId(axis.attributeId)}>Khớp với thuộc tính biến thể của {label}</Label>
                 <Select value={code || undefined} onValueChange={(v) => onAxis(axis, v)}>
                   <SelectTrigger id={axisFieldId(axis.attributeId)} className="w-full" aria-invalid={Boolean(axisError) || undefined}>
                     <SelectValue placeholder="Chọn…" />
@@ -85,7 +85,7 @@ export function VariantsStep({ label, axes, sales, caps, draft, errors, onAxis, 
                 ) : (
                   code === CUSTOM_AXIS &&
                   caps?.customAxisName === false && (
-                    <p className="text-xs text-destructive-text">{label} không nhận tên trục tự đặt ở category này. Chọn một sales attribute.</p>
+                    <p className="text-xs text-destructive-text">{label} không nhận tên tự đặt ở category này. Chọn một thuộc tính có sẵn.</p>
                   )
                 )}
               </div>

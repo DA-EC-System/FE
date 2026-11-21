@@ -39,9 +39,9 @@ import { fieldId } from './fieldIds';
 
 
 const TAB_TITLES: Record<AttributeTab, string> = {
-  category: 'Category attributes',
-  product: 'Product info',
-  company: 'Company info',
+  category: 'Attribute của category',
+  product: 'Thông tin sản phẩm',
+  company: 'Thông tin công ty',
 };
 
 interface AttributesStepProps {
@@ -330,7 +330,7 @@ function ProductTab({ items, label, facts, companyId, productId, product, canEdi
             {update.isPending && <Loader2 className="animate-spin" />}
             Lưu vào sản phẩm
           </Button>
-          {dirty && <span className="text-xs text-muted-foreground">Chưa lưu. Bước này cần lưu trước khi đẩy.</span>}
+          {dirty && <span className="text-xs text-muted-foreground">Chưa lưu. Cần lưu trước khi đăng.</span>}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">

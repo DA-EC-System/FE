@@ -112,7 +112,7 @@ function Suggestions({
     </Link>
   );
   const groupCount = new Map((group ?? []).map((g) => [g.externalId, g.productCount]));
-  const fallback = `chọn từ category nhóm ${groupName} đã dùng hoặc tìm trong cây bên dưới.`;
+  const fallback = `chọn từ category danh mục ${groupName} đã dùng hoặc tìm trong cây bên dưới.`;
 
   let sourceOne: ReactNode;
   if (!shopId) {
@@ -149,7 +149,7 @@ function Suggestions({
   } else if (!items?.length) {
     sourceOne = (
       <AlertMessage severity="info">
-        {label} không đoán được category cho sản phẩm này. Xem category các sản phẩm cùng nhóm bên dưới, hoặc tìm trong cây.
+        {label} không đoán được category cho sản phẩm này. Xem category các sản phẩm cùng danh mục bên dưới, hoặc tìm trong cây.
       </AlertMessage>
     );
   } else {
@@ -194,28 +194,28 @@ function Suggestions({
       </section>
       {/* Luôn hiện đủ ba nguồn để số thứ tự không nhảy; nguồn 2 đọc chung lời gọi gợi ý nên theo trạng thái của nó */}
       <section aria-labelledby="cat-src-2" className="grid grid-cols-1 gap-2">
-          <SourceHeading id="cat-src-2" step="2 / 3 · theo nhóm hàng">
-            Sản phẩm cùng nhóm {groupName} đã dùng trên {label}
+          <SourceHeading id="cat-src-2" step="2 / 3 · theo danh mục sản phẩm">
+            Sản phẩm cùng danh mục {groupName} đã dùng trên {label}
           </SourceHeading>
           {!shopId ? (
             <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              Kết nối gian hàng {label} để xem category các sản phẩm nhóm {groupName} đã dùng.
+              Kết nối gian hàng {label} để xem category các sản phẩm danh mục {groupName} đã dùng.
             </p>
           ) : q.isLoading ? (
             <Skeleton className="h-14 w-full" aria-busy />
           ) : !data ? (
-            <p className="text-sm text-muted-foreground">Chưa đọc được category nhóm {groupName} đã dùng. Bấm Thử lại ở trên.</p>
+            <p className="text-sm text-muted-foreground">Chưa đọc được category danh mục {groupName} đã dùng. Bấm Thử lại ở trên.</p>
           ) : !group?.length ? (
             <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              Chưa có sản phẩm nào khác trong nhóm {groupName} lên {label}. Category bạn chọn lần này sẽ thành gợi ý cho các sản
-              phẩm sau của nhóm.
+              Chưa có sản phẩm nào khác trong danh mục {groupName} lên {label}. Category bạn chọn lần này sẽ thành gợi ý cho các sản
+              phẩm sau của danh mục.
             </p>
           ) : !restGroup.length ? (
             <p className="text-sm text-muted-foreground">
-              Category nhóm {groupName} đã dùng trùng với gợi ý của {label} ở trên.
+              Category danh mục {groupName} đã dùng trùng với gợi ý của {label} ở trên.
             </p>
           ) : (
-            <div role="radiogroup" aria-label={`Category nhóm ${groupName} đã dùng`} className="grid grid-cols-1 gap-1.5">
+            <div role="radiogroup" aria-label={`Category danh mục ${groupName} đã dùng`} className="grid grid-cols-1 gap-1.5">
               {restGroup.map((c) => (
                 <CategoryCard
                   key={c.externalId}

@@ -27,6 +27,8 @@ import type {
   PlatformCategorySyncResult,
   ProductSpecInput,
   ProductSpecResult,
+  PriceQuoteItem,
+  PriceQuoteRow,
   PushListingsInput,
   PushResult,
   RemoteSkuList,
@@ -498,16 +500,31 @@ export const PUSH_BATCH = 20;
 export function usePushListings() {
   const invalidate = useInvalidateShops();
   return useMutation({
-    mutationFn: async ({ shopId, variantIds }: PushListingsInput & { shopId: string }) => {
+    mutationFn: async ({ shopId, variantIds, listPrices }: PushListingsInput & { shopId: string }) => {
       const results: PushResult[] = [];
       for (let i = 0; i < variantIds.length; i += PUSH_BATCH) {
-        const body: PushListingsInput = { variantIds: variantIds.slice(i, i + PUSH_BATCH) };
+        const ids = variantIds.slice(i, i + PUSH_BATCH);
+        const prices = listPrices && Object.fromEntries(ids.filter((id) => id in listPrices).map((id) => [id, listPrices[id]!]));
+        const body: PushListingsInput = { variantIds: ids, ...(prices && Object.keys(prices).length ? { listPrices: prices } : {}) };
         const { data } = await apiClient.post<{ results: PushResult[] }>(`/channel/shops/${shopId}/listings/push`, body);
         results.push(...data.results);
       }
       return results;
     },
     onSettled: invalidate,
+  });
+}
+
+/**
+ * Tính thử giá niêm yết, thực nhận, cờ dưới giá thấp nhất cho giá người bán gõ thử (Documents/21 §18.9 R1). Không ghi
+ * gì nên không làm mới cache; số mặc định đã có ở `GET /channel/products/:productId/listings`
+ */
+export function usePriceQuote() {
+  return useMutation({
+    mutationFn: async ({ productId, items }: { productId: string; items: PriceQuoteItem[] }) => {
+      const { data } = await apiClient.post<{ items: PriceQuoteRow[] }>(`/channel/products/${productId}/price-quote`, { items });
+      return data.items;
+    },
   });
 }
 
@@ -710,9 +727,19 @@ function productListingsQuery(companyId: string, productId: string | undefined, 
   };
 }
 
-export function useProductListingRows(productId: string | undefined, enabled = true) {
+/** `poll`: trả số ms hỏi lại theo các dòng hiện có, hoặc false (màn Đăng sản phẩm theo dõi dòng đang đẩy) */
+export function useProductListingRows(
+  productId: string | undefined,
+  enabled = true,
+  poll?: (rows: ProductListingsResponse['items']) => number | false,
+) {
   const companyId = useCompanyId();
-  return useQuery({ ...productListingsQuery(companyId, productId, enabled), select: (d) => d.items });
+  return useQuery({
+    ...productListingsQuery(companyId, productId, enabled),
+    select: (d) => d.items,
+    refetchInterval: poll ? (query) => poll(query.state.data?.items ?? []) : false,
+    refetchIntervalInBackground: false,
+  });
 }
 
 /** Gian hàng có SKU của sản phẩm đang là nhiều sản phẩm riêng trên sàn (§18.8.4); chung cache với danh sách listing */

@@ -35,16 +35,22 @@ export const ROUTES = {
     pendingPrices: (companyId: string, shopId?: string) =>
       `/c/${companyId}/channel/pending-prices${shopId ? `?shopId=${encodeURIComponent(shopId)}` : ''}`,
     /**
-     * Trang 4 bước đẩy sản phẩm lên sàn (commerio-backend#400); shop: gian hàng mở trang; fill: chỉ bổ sung thông tin sàn
-     * cho sản phẩm đã có trên sàn (bước cuối là Lưu, không đẩy)
+     * Đăng sản phẩm lên nhiều gian hàng (Documents/29 bước 4, Documents/21 §18.9). shops: gian hàng chọn sẵn; platform: mở
+     * thẳng bước "Bổ sung theo sàn" ở sàn đó
      */
-    productPush: (companyId: string, productId: string, platform: string, shopId?: string, fill?: boolean) => {
+    productPublish: (companyId: string, productId: string, opts: { shops?: string[]; platform?: string } = {}) => {
       const q = new URLSearchParams();
-      if (shopId) q.set('shop', shopId);
-      if (fill) q.set('mode', 'fill');
+      if (opts.shops?.length) q.set('shops', opts.shops.join(','));
+      if (opts.platform) q.set('platform', opts.platform);
       const qs = q.toString();
-      return `/c/${companyId}/channel/products/${productId}/push/${platform}${qs ? `?${qs}` : ''}`;
+      return `/c/${companyId}/catalog/products/${productId}/publish${qs ? `?${qs}` : ''}`;
     },
+    /**
+     * Lối cũ (trang đẩy từng sàn): giờ mở màn Đăng sản phẩm ở bước bổ sung của sàn đó. Tham số thứ năm (chỉ bổ sung) giữ
+     * cho chỗ gọi cũ, màn mới không phân biệt: bổ sung rồi lưu là đủ, không bắt đăng
+     */
+    productPush: (companyId: string, productId: string, platform: string, shopId?: string, _fill?: boolean) =>
+      `/c/${companyId}/catalog/products/${productId}/publish?${new URLSearchParams({ platform, ...(shopId ? { shops: shopId } : {}) })}`,
     shopOAuthCallback: (companyId: string, platform: string) => `/c/${companyId}/channel/shops/oauth-callback/${platform}`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
