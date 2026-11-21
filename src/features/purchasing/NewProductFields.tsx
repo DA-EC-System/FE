@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -280,7 +279,6 @@ function ParentPicker({
     <Popover open={open && !disabled} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
         <div className="relative">
-          <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id={id}
             role="combobox"
@@ -289,7 +287,7 @@ function ParentPicker({
             aria-controls={`${id}-list`}
             aria-invalid={invalid}
             autoComplete="off"
-            className="h-8 ps-8"
+            className="h-8"
             placeholder={selected?.name || 'Tìm sản phẩm cha theo tên hoặc mã'}
             value={open ? input : (selected?.name ?? input)}
             disabled={disabled}
@@ -327,7 +325,6 @@ function ParentPicker({
         <ul id={`${id}-list`} role="listbox" className="max-h-64 overflow-y-auto">
           {query.isFetching && !options.length && (
             <li className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
               Đang tìm...
             </li>
           )}
