@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
+import { Plus } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
@@ -159,6 +160,7 @@ export function RequestsTab() {
               data-guide="purchasing-new"
               onClick={openNewRequest}
             >
+              <Plus />
               Tạo đơn đặt hàng nhập
             </Button>
           )}

@@ -2,6 +2,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Check,
+  CloudOff,
+  ImageIcon,
+  Link2,
+  PencilLine,
+  PlugZap,
+  Power,
+  RefreshCw,
+  RotateCcw,
+  Upload,
+  X,
+} from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { useOrder } from '@/api/sales.api';
 import { type ListingTab, readShopListingParams, resolveMatchTarget, writeShopListingParams } from './shopListingParams';
@@ -10,7 +25,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, SearchInput } from '@/components/common/FilterBar';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -373,16 +388,12 @@ export function ShopListingsPage() {
   const decideActions = (listingId: string | null, version: number | null, label: string, p: PendingMapping | null) =>
     canDecide && p && listingId && version !== null ? (
       <>
-        <RowTextAction label="Duyệt liên kết" onClick={() => openDecide('approve', listingId, version, label, p)}>
-          Duyệt
-        </RowTextAction>
-        <RowTextAction
-          label="Từ chối liên kết"
-          destructive
-          onClick={() => openDecide('reject', listingId, version, label, p)}
-        >
-          Từ chối
-        </RowTextAction>
+        <RowAction label="Duyệt liên kết" onClick={() => openDecide('approve', listingId, version, label, p)}>
+          <Check />
+        </RowAction>
+        <RowAction label="Từ chối liên kết" destructive onClick={() => openDecide('reject', listingId, version, label, p)}>
+          <X />
+        </RowAction>
       </>
     ) : null;
 
@@ -777,7 +788,9 @@ export function ShopListingsPage() {
             <div className="flex items-center gap-3">
               <Avatar className="size-9 rounded-md">
                 {r.thumbnailUrl && <AvatarImage src={r.thumbnailUrl} alt={r.productName} className="object-cover" />}
-                <AvatarFallback className="rounded-md text-xs text-muted-foreground">Ảnh</AvatarFallback>
+                <AvatarFallback className="rounded-md">
+                  <ImageIcon className="size-4 text-muted-foreground" />
+                </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate font-medium">{r.productName}</p>
@@ -843,6 +856,7 @@ export function ShopListingsPage() {
                   aria-label={`Sửa giá ${r.listing?.sellerSku || r.sku}`}
                   onClick={() => openPrice(r)}
                 >
+                  <PencilLine className="size-3" />
                   Sửa giá
                 </Button>
               )}
@@ -895,7 +909,7 @@ export function ShopListingsPage() {
       cols.push({
         id: 'actions',
         header: '',
-        meta: { className: 'min-w-72 text-right' },
+        meta: { className: 'w-40 text-right' },
         cell: ({ row }) => {
           const r = row.original;
           const status = r.listing?.status;
@@ -908,68 +922,68 @@ export function ShopListingsPage() {
                   : 'Giá và tồn tự cập nhật mỗi 15 phút; CEO hoặc Admin bấm Đồng bộ để cập nhật ngay.'
                 : null;
           return (
-            <div className="flex flex-wrap justify-end gap-1" data-guide={canMatch ? 'listings-match' : undefined}>
+            <div className="flex justify-end gap-1" data-guide={canMatch ? 'listings-match' : undefined}>
               {r.listing &&
                 decideActions(r.listing.id, r.listing.version, r.listing.sellerSku || r.sku, r.listing.pendingMapping)}
               {canMatch && (
-                <RowTextAction
+                <RowAction
                   label={r.listing && !isDelisted(r) ? 'Đổi liên kết' : 'Liên kết'}
                   reason={matchBlock(r)}
                   onClick={() => (r.listing && !isDelisted(r) ? openRemap(r) : openMatch({ from: 'variant', row: r }))}
                 >
-                  {r.listing && !isDelisted(r) ? 'Đổi liên kết' : 'Liên kết'}
-                </RowTextAction>
+                  <Link2 />
+                </RowAction>
               )}
               {!canManage ? null : status && REPUSH_STATUSES.includes(status) ? (
-                <RowTextAction
+                <RowAction
                   label="Đăng lại"
                   reason={pushMut.isPending ? 'Đang đăng...' : null}
                   onClick={() => requestPush([r])}
                 >
-                  Đăng lại
-                </RowTextAction>
+                  <RotateCcw />
+                </RowAction>
               ) : (
-                <RowTextAction
+                <RowAction
                   label={r.listing ? 'Đăng bán' : 'Đăng sản phẩm mới'}
                   reason={pushMut.isPending ? 'Đang đăng...' : busy}
                   onClick={() => (r.listing ? requestPush([r]) : requestNewPush(r))}
                 >
-                  {r.listing ? 'Đăng bán' : 'Đăng mới'}
-                </RowTextAction>
+                  <Upload />
+                </RowAction>
               )}
               {canDecideOutside && r.listing?.outsideChange && (
                 <>
-                  <RowTextAction
+                  <RowAction
                     label="Bật lại, dùng giá Commerio"
                     reason={outsideMut.isPending ? 'Đang gửi...' : null}
                     onClick={() => setDecidingOutside({ row: r, action: 'restore' })}
                   >
-                    Bật lại
-                  </RowTextAction>
+                    <Power />
+                  </RowAction>
                   {r.listing.outsideChange.kind === 'price_changed' && (
-                    <RowTextAction
+                    <RowAction
                       label="Dùng giá trên sàn"
                       reason={outsideMut.isPending ? 'Đang gửi...' : null}
                       onClick={() => setDecidingOutside({ row: r, action: 'accept-price' })}
                     >
-                      Dùng giá sàn
-                    </RowTextAction>
+                      <BadgeCheck />
+                    </RowAction>
                   )}
                 </>
               )}
               {canManage && canUpdateContent(shop?.platform, r.listing) && (
-                <RowTextAction
+                <RowAction
                   label="Cập nhật thông tin lên sàn"
                   reason={contentMut.isPending ? 'Đang gửi...' : null}
                   onClick={() => setUpdatingContent(r)}
                 >
-                  Cập nhật
-                </RowTextAction>
+                  <PencilLine />
+                </RowAction>
               )}
               {canManage && status && canDelist(status) && (
-                <RowTextAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
-                  Gỡ
-                </RowTextAction>
+                <RowAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
+                  <CloudOff />
+                </RowAction>
               )}
             </div>
           );
@@ -1029,7 +1043,7 @@ export function ShopListingsPage() {
                   <div className="flex justify-end gap-1">
                     {decideActions(r.listingId, r.listingVersion, r.sellerSku || r.externalSkuId, r.pendingMapping)}
                     {canMatch && !r.matchedVariantId && !r.mode && (
-                      <RowTextAction
+                      <RowAction
                         label="Liên kết SKU kho"
                         reason={r.pendingMapping ? 'Đang chờ CEO duyệt liên kết' : null}
                         onClick={() =>
@@ -1042,8 +1056,8 @@ export function ShopListingsPage() {
                           })
                         }
                       >
-                        Liên kết
-                      </RowTextAction>
+                        <Link2 />
+                      </RowAction>
                     )}
                   </div>
                 );
@@ -1063,6 +1077,7 @@ export function ShopListingsPage() {
       <div className="grid justify-items-start gap-4">
         <AlertMessage severity="error">{problemMessage(shopQuery.error)}</AlertMessage>
         <Button variant="outline" onClick={backToList}>
+          <ArrowLeft />
           Về danh sách gian hàng
         </Button>
       </div>
@@ -1092,14 +1107,17 @@ export function ShopListingsPage() {
             )}
             {backToOrder && (
               <Button variant="outline" onClick={backToOrder} data-testid="back-to-order">
+                <ArrowLeft />
                 {fromLabel ? `Đơn ${fromLabel}` : 'Về đơn'}
               </Button>
             )}
             <Button variant="outline" onClick={backToList}>
+              <ArrowLeft />
               Danh sách gian hàng
             </Button>
             {usable && can(PERMISSIONS.shopSync) && (
               <Button variant="outline" disabled={syncMut.isPending} onClick={() => void sync()}>
+                <RefreshCw className={syncMut.isPending ? 'animate-spin motion-reduce:animate-none' : undefined} />
                 {syncMut.isPending ? 'Đang đồng bộ...' : 'Đồng bộ'}
               </Button>
             )}
@@ -1109,6 +1127,7 @@ export function ShopListingsPage() {
                 onClick={() => requestPush(selectedRows)}
                 data-guide="listings-push"
               >
+                <Upload />
                 {pushMut.isPending
                   ? 'Đang đăng...'
                   : selectedRows.length
@@ -1134,6 +1153,7 @@ export function ShopListingsPage() {
               disabled={connector.pending}
               onClick={() => connector.start({ platform: shop.platform, shopId: shop.id })}
             >
+              <PlugZap />
               Kết nối lại
             </Button>
           )}
@@ -1197,6 +1217,7 @@ export function ShopListingsPage() {
                   </p>
                 )}
                 <Button size="sm" variant="outline" disabled={refreshing} onClick={refreshRemote}>
+                  <RefreshCw className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
                   {refreshing ? 'Đang tải SKU từ sàn…' : 'Tải SKU từ sàn'}
                 </Button>
               </>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { ArrowLeft, Check, Loader2, Save, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -298,6 +299,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         help="Ô có nhãn gợi ý chỉ được lưu khi bạn bấm áp dụng. Dòng lỗi giữ nguyên số đã gõ, các dòng khác vẫn lưu."
         action={
           <Button variant="outline" onClick={onExit}>
+            <ArrowLeft />
             Về danh sách
           </Button>
         }
@@ -333,6 +335,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
                 toast.success(`Đã áp dụng ${selectedSuggestions} gợi ý, bấm Lưu để ghi`);
               }}
             >
+              <Sparkles />
               Áp dụng gợi ý cho SKU đã chọn{selectedSuggestions > 0 && ` (${selectedSuggestions})`}
             </Button>
           </div>
@@ -374,7 +377,8 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
             Bỏ thay đổi
           </Button>
           <Button disabled={!dirty || invalid || save.isPending} onClick={submit}>
-            {save.isPending ? 'Đang lưu…' : `Lưu ${dirty ? `${dirtyIds.length} SKU` : ''}`}
+            {save.isPending ? <Loader2 className="animate-spin" /> : <Save />}
+            Lưu {dirty ? `${dirtyIds.length} SKU` : ''}
           </Button>
         </div>
       </div>
@@ -445,7 +449,7 @@ function BulkCell({
         >
           <span className="font-medium">gợi ý</span>
           <span className="tabular-nums">{showNumber(field, suggestion.value)}</span>
-          <span className="text-primary-text">Dùng</span>
+          <Check className="size-3" />
         </button>
       )}
       {(bad || error) && <span className="text-xs text-destructive-text">{bad ? 'Nhập số lớn hơn 0' : error}</span>}

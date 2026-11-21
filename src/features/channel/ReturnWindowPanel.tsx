@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Pencil } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -148,6 +149,7 @@ function ReturnWindowEditor({ shop }: { shop: Shop }) {
           </p>
           {canEdit && !editing && (
             <Button size="sm" variant="outline" className="mt-2" onClick={open}>
+              <Pencil />
               Nhập số ngày
             </Button>
           )}
@@ -166,6 +168,7 @@ function ReturnWindowEditor({ shop }: { shop: Shop }) {
         </span>
         {canEdit && !editing && (
           <Button size="sm" variant="ghost" onClick={open} aria-label="Sửa hạn trả hàng">
+            <Pencil />
             Sửa
           </Button>
         )}

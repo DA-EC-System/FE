@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ArrowLeft } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -158,6 +159,7 @@ export function ReturnDetailPage() {
         subtitle={`Đơn ${r.order.code}`}
         action={
           <Button variant="outline" onClick={back}>
+            <ArrowLeft />
             Về danh sách
           </Button>
         }

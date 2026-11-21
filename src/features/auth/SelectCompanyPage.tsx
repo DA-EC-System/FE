@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Building2, Loader2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -52,7 +53,7 @@ export function SelectCompanyPage() {
 
         {me.isPending && memberships.length === 0 ? (
           <div className="grid place-items-center py-12">
-            <span className="text-sm text-muted-foreground" role="status">Đang tải…</span>
+            <Loader2 className="size-8 animate-spin text-primary" aria-label="Đang tải" />
           </div>
         ) : memberships.length === 0 ? (
           <AlertMessage severity="info">
@@ -80,6 +81,11 @@ export function SelectCompanyPage() {
                       : 'hover:border-primary hover:bg-accent',
                   )}
                 >
+                  {reason ? (
+                    <Lock className="size-6 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Building2 className="size-6 shrink-0 text-primary" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{m.companyName}</div>
                     <div className="mt-1 flex flex-wrap gap-1">

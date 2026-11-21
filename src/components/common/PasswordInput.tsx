@@ -1,4 +1,5 @@
 import { useState, type ComponentProps } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -16,19 +17,19 @@ export function PasswordInput({ className, disabled, ...props }: PasswordInputPr
       <Input
         type={visible ? 'text' : 'password'}
         disabled={disabled}
-        className="pe-14"
+        className="pe-10"
         {...props}
       />
       <Button
         type="button"
-        size="sm"
+        size="icon"
         variant="ghost"
         disabled={disabled}
-        className="absolute end-1 top-1/2 h-7 -translate-y-1/2 px-2 text-xs text-muted-foreground"
+        className="absolute end-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
       >
-        {visible ? 'Ẩn' : 'Hiện'}
+        {visible ? <EyeOff /> : <Eye />}
       </Button>
     </div>
   );

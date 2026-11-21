@@ -1,3 +1,4 @@
+import { Check, RefreshCw, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ShopCallbackResult } from '@/types/shop';
@@ -48,6 +49,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
       <ResultScreen
         outcome="multiple"
         tone="ok"
+        icon={Store}
         title={`Một lần uỷ quyền, ${shops.length} gian hàng`}
         description="Tài khoản sàn vừa uỷ quyền quản lý nhiều gian hàng. Gian hàng mới cần thiết lập lần đầu trước khi đồng bộ đơn."
         actions={later}
@@ -90,6 +92,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
       <ResultScreen
         outcome="connected"
         tone="ok"
+        icon={Check}
         title={`Đã kết nối ${name}`}
         description="Gian hàng chưa đồng bộ đơn, tồn cho đến khi xong thiết lập lần đầu: liên kết SKU, tồn đầu kỳ và ngày bắt đầu đồng bộ đơn."
         facts={[
@@ -123,6 +126,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
       <ResultScreen
         outcome="reconnected"
         tone="ok"
+        icon={RefreshCw}
         title={`Đã kết nối lại ${name}`}
         description={
           caughtUp.length
@@ -144,6 +148,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
     <ResultScreen
       outcome="already_connected"
       tone="neutral"
+      icon={Store}
       title={`${name} đã có trong Commerio`}
       description={
         shop.status === 'connecting'

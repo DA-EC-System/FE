@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { CheckCircle2, CircleDashed, ClipboardList, Info, Loader2, Lock, PackagePlus, RefreshCw, XCircle } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { HelpTip } from '@/components/common/HelpTip';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
@@ -298,7 +299,8 @@ export function ShopSetupPage() {
                           onClick={() => void preview.refetch()}
                           aria-label="Tải lại SKU sàn"
                         >
-                          {preview.isFetching ? 'Đang tải…' : 'Tải lại'}
+                          <RefreshCw className={cn(preview.isFetching && 'animate-spin motion-reduce:animate-none')} />
+                          Tải lại
                         </Button>
                       </span>
                     )}
@@ -435,7 +437,8 @@ export function ShopSetupPage() {
                       )}
                     />
                     {openingStock === 'stocktake' && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <ClipboardList className="mt-0.5 size-4 shrink-0" aria-hidden />
                         Sẽ tạo phiếu kiểm kho nháp cho các SKU lệch, giao cho kho. Trong lúc chờ phiếu hoàn thành, Commerio chưa đồng bộ tồn.
                       </p>
                     )}
@@ -457,7 +460,8 @@ export function ShopSetupPage() {
                         </b>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
                       {openingStock === 'stocktake'
                         ? 'Chọn kiểm kho trước khi đồng bộ thì thời điểm đồng bộ đơn dời tới lúc phiếu kiểm kho hoàn thành.'
                         : 'Đơn đặt trước thời điểm này không đồng bộ về Commerio. Đơn đồng bộ sau thời điểm này sẽ tạm giữ hàng theo tồn hiện có.'}
@@ -480,7 +484,8 @@ export function ShopSetupPage() {
                       />
                     )}
                     {returnNote && (
-                      <p className="text-sm text-muted-foreground" data-testid="return-window-note">
+                      <p className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="return-window-note">
+                        <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
                         {returnNote}
                       </p>
                     )}
@@ -670,6 +675,7 @@ function CreatePanel({
   return (
     <div className="mb-1 grid gap-3 rounded-lg border border-dashed p-3.5" data-testid="setup-create">
       <div className="flex flex-wrap items-center gap-3">
+        <PackagePlus className="size-5 shrink-0 text-primary" aria-hidden />
         <p className="min-w-0 flex-1 text-sm">
           <b className="font-medium">Chưa có sản phẩm trong Commerio?</b>{' '}
           <span className="text-muted-foreground">
@@ -780,16 +786,16 @@ function lowerFirst(text: string): string {
 }
 
 function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Shop; companyId: string }) {
-  const statusText =
+  const Icon =
     step.status === 'done'
-      ? 'Xong'
+      ? CheckCircle2
       : step.status === 'running'
-        ? 'Đang chạy…'
+        ? Loader2
         : step.status === 'failed'
-          ? 'Lỗi'
+          ? XCircle
           : step.status === 'blocked'
-            ? 'Bị chặn'
-            : 'Chờ';
+            ? Lock
+            : CircleDashed;
   const blockedBy =
     step.blockedBy && step.blockedBy in SETUP_STEP_LABEL
       ? `Chờ bước ${lowerFirst(SETUP_STEP_LABEL[step.blockedBy as ShopSetupStepKey])} xong`
@@ -800,17 +806,16 @@ function ProgressRow({ step, shop, companyId }: { step: ShopSetupStep; shop: Sho
   const skippedNote = step.key === 'open_orders' ? openOrdersSkippedNote(shop.setup) : null;
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2.5" data-step={step.key} data-step-status={step.status}>
-      <span
+      <Icon
         className={cn(
-          'w-20 shrink-0 text-xs font-medium',
-          step.status === 'running' && 'text-primary',
+          'size-4 shrink-0',
+          step.status === 'running' && 'animate-spin text-primary',
           step.status === 'done' && 'text-success',
           step.status === 'failed' && 'text-destructive',
           (step.status === 'pending' || step.status === 'blocked') && 'text-muted-foreground',
         )}
-      >
-        {statusText}
-      </span>
+        aria-hidden
+      />
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="font-medium">{SETUP_STEP_LABEL[step.key] ?? step.key}</span>
         {blockedBy && <span className="text-xs text-muted-foreground">{blockedBy}</span>}

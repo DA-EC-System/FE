@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { MoreHorizontal } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { Badge } from '@/components/ui/badge';
@@ -120,12 +121,12 @@ export function BusinessActionMenu({ label, choices, onSelect }: {
         <Button
           type="button"
           variant="ghost"
-          size="sm"
-          className="h-8 px-2"
+          size="icon"
+          className="size-8"
           aria-label={label}
           onClick={(e) => e.stopPropagation()}
         >
-          Thao tác
+          <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>

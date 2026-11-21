@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, Percent, Plus, Scale, ShieldCheck } from 'lucide-react';
 import { MotionConfig, motion } from 'motion/react';
 import heroShot from '@/assets/landing/hero-kien.jpg';
 import inventoryShot from '@/assets/landing/mod-inventory.jpg';
@@ -39,6 +40,7 @@ const NAV = [
   { href: '#hoi-dap', label: 'Hỏi đáp' },
 ];
 
+const DIFF_ICONS = { scale: Scale, shield: ShieldCheck, percent: Percent };
 
 /** Tiêu đề hiện dần từng chữ; trình đọc màn hình đọc câu nguyên vẹn */
 function RevealWords({ text }: { text: string }) {
@@ -214,6 +216,7 @@ export function LandingPage() {
                   <Button asChild size="lg" className="h-12 px-6 text-base font-semibold">
                     <Link to={ROUTES.register}>
                       Đăng ký công ty
+                      <ArrowRight aria-hidden />
                     </Link>
                   </Button>
                   <Button asChild size="lg" variant="outline" className="h-12 px-6 text-base font-semibold">
@@ -351,11 +354,13 @@ export function LandingPage() {
                 <Button asChild size="lg" className="h-12 px-6 text-base font-semibold">
                   <Link to={ROUTES.register}>
                     Đăng ký công ty
+                    <ArrowRight aria-hidden />
                   </Link>
                 </Button>
               </div>
               <ul className="mt-20 grid gap-4 md:grid-cols-3">
                 {LANDING_DIFFS.map((d, i) => {
+                  const Icon = DIFF_ICONS[d.icon];
                   return (
                     <FadeUp
                       key={d.title}
@@ -363,7 +368,10 @@ export function LandingPage() {
                       delay={i * 0.08}
                       className="rounded-2xl bg-card p-6 shadow-sm ring-1 ring-black/5 dark:ring-white/10"
                     >
-                      <h3 className="text-lg font-semibold">{d.title}</h3>
+                      <span className="grid size-11 place-items-center rounded-xl bg-accent text-accent-foreground">
+                        <Icon className="size-5" aria-hidden />
+                      </span>
+                      <h3 className="mt-4 text-lg font-semibold">{d.title}</h3>
                       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{d.text}</p>
                     </FadeUp>
                   );
@@ -388,6 +396,7 @@ export function LandingPage() {
                 <Button asChild size="lg" className="mt-6 h-11 px-5 font-semibold">
                   <Link to={ROUTES.register}>
                     Đăng ký công ty
+                    <ArrowRight aria-hidden />
                   </Link>
                 </Button>
               </FadeUp>
@@ -399,10 +408,9 @@ export function LandingPage() {
                         <span>{f.q}</span>
                         <span
                           aria-hidden
-                          className="mt-0.5 shrink-0 text-sm font-medium text-muted-foreground"
+                          className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full border transition-transform duration-200 group-data-[state=open]:rotate-45 motion-reduce:transition-none"
                         >
-                          <span className="group-data-[state=open]:hidden">Mở</span>
-                          <span className="hidden group-data-[state=open]:inline">Thu gọn</span>
+                          <Plus className="size-4" />
                         </span>
                       </CollapsibleTrigger>
                     </h3>

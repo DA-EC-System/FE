@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -126,6 +127,7 @@ export function PageError({
     <div className="grid justify-items-start gap-4">
       <AlertMessage severity={severity}>{message}</AlertMessage>
       <Button variant="outline" onClick={onBack}>
+        <ArrowLeft />
         {backLabel}
       </Button>
     </div>
@@ -135,7 +137,7 @@ export function PageError({
 export function PageLoading() {
   return (
     <div className="flex justify-center py-16">
-      <span className="text-sm text-muted-foreground" role="status">Đang tải…</span>
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
@@ -59,6 +60,7 @@ export function SearchCombobox<T>({
       <Popover open={open && !disabled} onOpenChange={setOpen}>
         <PopoverAnchor asChild>
           <div className="relative">
+            <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id={id}
               role="combobox"
@@ -66,6 +68,7 @@ export function SearchCombobox<T>({
               aria-controls={listId}
               aria-invalid={invalid}
               autoComplete="off"
+              className="ps-8"
               placeholder={placeholder}
               value={input}
               disabled={disabled}
@@ -106,6 +109,7 @@ export function SearchCombobox<T>({
           <ul id={listId} role="listbox" className="max-h-72 overflow-y-auto">
             {fetching && !options.length && (
               <li className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
                 Đang tìm...
               </li>
             )}

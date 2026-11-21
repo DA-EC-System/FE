@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PageSpinner } from '@/components/common/PageSpinner';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -60,6 +61,7 @@ export function SettlementDetailPage() {
         action={
           <>
             <Button variant="outline" onClick={() => navigate(ROUTES.company.settlements(companyId))}>
+              <ArrowLeft />
               Về danh sách
             </Button>
             {canCeo && <Button variant="outline" onClick={() => setAction('ceo-approve')}>CEO duyệt chênh lệch</Button>}

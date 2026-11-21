@@ -3,6 +3,7 @@ import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { ArrowLeft, Save } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { AttachmentField, type AttachmentItem } from '@/components/common/AttachmentField';
@@ -275,10 +276,12 @@ export function GoodsReceiptPage() {
         action={
           <div className="flex flex-wrap gap-2" data-guide="gr-actions">
             <Button variant="outline" onClick={backToList}>
+              <ArrowLeft />
               Danh sách
             </Button>
             {editable && (
               <Button variant="outline" disabled={busy || !dirty} onClick={onSave}>
+                <Save />
                 Lưu
               </Button>
             )}

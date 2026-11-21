@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CircleHelp, Search } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -73,6 +74,7 @@ export function CommandPalette({ sections }: { sections: NavSection[] }) {
 
   const item = (c: PaletteCommand) => (
     <CommandItem key={c.id} value={c.id} onSelect={() => run(c)} data-command={c.id}>
+      <c.icon />
       <span className="truncate">
         <Highlight text={c.label} query={query} />
       </span>
@@ -90,6 +92,7 @@ export function CommandPalette({ sections }: { sections: NavSection[] }) {
         onClick={() => setOpen(true)}
         className="ms-auto flex h-8 min-w-0 items-center gap-2 rounded-md border border-input bg-card ps-2.5 pe-2 text-sm text-muted-foreground transition-colors hover:border-primary max-sm:flex-1 sm:min-w-60"
       >
+        <Search aria-hidden className="size-4 shrink-0" />
         <span className="truncate max-sm:hidden">Tìm trang, thao tác</span>
         <span className="truncate sm:hidden">Tìm kiếm</span>
         <kbd className="ms-auto rounded border bg-fill px-1.5 font-sans text-xs max-sm:hidden">{SHORTCUT}</kbd>
@@ -116,6 +119,7 @@ export function CommandPalette({ sections }: { sections: NavSection[] }) {
                     openIntro(guideKey);
                   }}
                 >
+                  <CircleHelp />
                   <Highlight text={guideLabel} query={query} />
                 </CommandItem>
               </CommandGroup>

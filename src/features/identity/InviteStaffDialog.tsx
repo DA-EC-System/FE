@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Check, Copy } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,6 +129,7 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
                 className="font-mono text-xs"
               />
               <Button type="button" variant={copied ? 'outline' : 'default'} onClick={copy}>
+                {copied ? <Check /> : <Copy />}
                 {copied ? 'Đã sao chép' : 'Sao chép'}
               </Button>
             </div>

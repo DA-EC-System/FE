@@ -3,6 +3,7 @@ import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { ArrowLeft, FilePlus2, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { MoneyInput } from '@/components/common/MoneyInput';
@@ -10,7 +11,7 @@ import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Button } from '@/components/ui/button';
@@ -294,15 +295,18 @@ export function SupplierReturnPage() {
         action={
           <div className="flex flex-wrap gap-2" data-guide="sr-actions">
             <Button variant="outline" onClick={backToList}>
+              <ArrowLeft />
               Danh sách
             </Button>
             {editable && (
               <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
+                <Save />
                 Lưu nháp
               </Button>
             )}
             {canReplace && ret && (
               <Button data-guide="sr-replace" onClick={() => navigate(ROUTES.company.purchaseRequestNew(companyId, ret.id))}>
+                <FilePlus2 />
                 Tạo đơn đặt hàng đổi
               </Button>
             )}
@@ -507,9 +511,9 @@ export function SupplierReturnPage() {
                         )}
                         {editable && (
                           <TableCell>
-                            <RowTextAction label="Xoá dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
-                              Xoá
-                            </RowTextAction>
+                            <RowAction label="Xoá dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                              <Trash2 />
+                            </RowAction>
                           </TableCell>
                         )}
                       </TableRow>

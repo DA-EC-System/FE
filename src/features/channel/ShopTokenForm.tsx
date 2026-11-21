@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ArrowLeft, KeyRound } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { FormTextField } from '@/components/common/FormTextField';
@@ -116,9 +117,11 @@ export function ShopTokenForm({
         />
         <div className="flex justify-between gap-2">
           <Button type="button" variant="ghost" disabled={connect.isPending} onClick={onBack}>
+            <ArrowLeft />
             {backLabel}
           </Button>
           <Button type="submit" disabled={connect.isPending}>
+            <KeyRound />
             {connect.isPending ? 'Đang kết nối...' : 'Kết nối'}
           </Button>
         </div>

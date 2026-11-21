@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { Eraser, Lock, LockOpen } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { TapTooltip } from '@/components/common/TapTooltip';
@@ -242,6 +243,7 @@ export function CompanyListPage() {
                   setReleasing(c);
                 }}
               >
+                <Eraser />
                 Gỡ mã số thuế
               </Button>
             )}
@@ -255,10 +257,12 @@ export function CompanyListPage() {
                   setLocking(c);
                 }}
               >
+                <Lock />
                 Khoá
               </Button>
             ) : (
               <Button size="sm" variant="ghost" onClick={() => setUnlocking(c)}>
+                <LockOpen />
                 Mở khoá
               </Button>
             )}
