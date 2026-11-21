@@ -128,6 +128,14 @@ export function CatalogSetupPage() {
                 Đã ẩn
               </Badge>
             )}
+            {Boolean(row.original.splitInto?.length) && (
+              <Badge variant="outline" title={`Đã tách thành ${row.original.splitInto?.map((s) => s.name).join(', ')}`}>
+                Đã tách
+              </Badge>
+            )}
+            {row.original.renamedFrom && (
+              <span className="text-xs text-muted-foreground">Tên cũ: {row.original.renamedFrom}</span>
+            )}
           </span>
         ),
       },

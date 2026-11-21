@@ -492,6 +492,8 @@ export function ProductFormPage() {
   const saveDisabled = busy || imagesBusy;
   const saveLabel = busy ? 'Đang lưu...' : imagesBusy ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu';
   const fromIncomplete = searchParams.get('from') === 'incomplete';
+  // Danh mục mặc định đã tách (Documents/21 §5.7): gợi ý người dùng tự chọn danh mục hẹp hơn
+  const currentGroup = groups.find((g) => g.id === groupId);
   const saveAndNext = () => {
     nextAfterSave.current = true;
     void onSubmit().finally(() => {
@@ -561,6 +563,12 @@ export function ProductFormPage() {
           }
         />
 
+        {currentGroup?.splitInto?.length ? (
+          <AlertMessage severity="info" className="mb-4">
+            Danh mục {currentGroup.renamedFrom ?? currentGroup.name} đã tách thành{' '}
+            {currentGroup.splitInto.map((s) => s.name).join(', ')}. Chọn danh mục phù hợp hơn ở ô Danh mục sản phẩm rồi Lưu.
+          </AlertMessage>
+        ) : null}
         {archived && (
           <AlertMessage severity="info" className="mb-4">
             Sản phẩm đã lưu trữ nên chỉ xem được; Khôi phục từng SKU để bán tiếp. SKU của sản phẩm không cấp lại cho sản phẩm khác.
@@ -800,7 +808,8 @@ export function ProductFormPage() {
                   submitted={submitted}
                   withFacts
                   allowed={
-                    template?.allowedAttributes
+                    // Danh sách rỗng: danh mục chưa giới hạn, hiện mọi thuộc tính, không cảnh báo (Documents#230)
+                    template?.allowedAttributes?.length
                       ? {
                           ids: template.allowedAttributes.map((a) => a.attributeId),
                           groupName: groups.find((g) => g.id === groupId)?.name ?? '',
