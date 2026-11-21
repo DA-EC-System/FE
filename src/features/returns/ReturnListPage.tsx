@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ScanLine } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
@@ -119,7 +118,6 @@ export function ReturnListPage() {
         action={
           canReceive ? (
             <Button data-guide="return-receive" onClick={() => setReceiving(true)}>
-              <ScanLine />
               Quét nhận hàng hoàn
             </Button>
           ) : undefined

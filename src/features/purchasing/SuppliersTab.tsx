@@ -3,11 +3,10 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Pencil, Plus } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { DateFilter, FilterBar, SearchInput } from '@/components/common/FilterBar';
-import { RowAction } from '@/components/common/RowAction';
+import { RowTextAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -106,11 +105,11 @@ export function SuppliersTab() {
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-12 text-right' },
+              meta: { className: 'w-20 whitespace-nowrap text-right' },
               cell: ({ row }) => (
-                <RowAction label="Sửa nhà cung cấp" onClick={() => setEditing(row.original)}>
-                  <Pencil />
-                </RowAction>
+                <RowTextAction label="Sửa nhà cung cấp" onClick={() => setEditing(row.original)}>
+                  Sửa
+                </RowTextAction>
               ),
             },
           ] satisfies ColumnDef<Row>[])
@@ -138,7 +137,6 @@ export function SuppliersTab() {
           <DateFilter label="Đến ngày" value={to} onChange={setTo} min={from || undefined} />
           {canManage && (
             <Button className="md:ms-auto" onClick={() => setEditing('new')}>
-              <Plus />
               Thêm nhà cung cấp
             </Button>
           )}

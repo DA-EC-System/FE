@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Ban } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
-import { RowAction } from '@/components/common/RowAction';
+import { RowTextAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useInvitations, useRevokeInvitation } from '@/api/identity.api';
@@ -135,18 +134,18 @@ export function CreatedLinks({ canManage }: CreatedLinksProps) {
             {
               id: 'actions',
               header: () => <span className="sr-only">Hành động</span>,
-              meta: { className: 'w-16' },
+              meta: { className: 'w-24 whitespace-nowrap' },
               cell: ({ row: { original: inv } }) => {
                 const busy = revoke.isPending && revoke.variables?.id === inv.id;
                 return (
-                  <RowAction
+                  <RowTextAction
                     label="Huỷ link"
                     destructive
                     reason={busy ? 'Đang xử lý' : null}
                     onClick={() => setRevoking(inv)}
                   >
-                    <Ban />
-                  </RowAction>
+                    Huỷ
+                  </RowTextAction>
                 );
               },
             } satisfies ColumnDef<Invitation>,

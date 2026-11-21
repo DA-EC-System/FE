@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -12,8 +11,6 @@ const VARIANT = {
   info: 'info',
 } as const;
 
-const ICON = { error: CircleAlert, success: CircleCheck, warning: TriangleAlert, info: Info };
-
 interface AlertMessageProps {
   severity: Severity;
   children: ReactNode;
@@ -22,25 +19,23 @@ interface AlertMessageProps {
   className?: string;
 }
 
-/** Thông báo một dòng kèm icon theo mức độ, kiểu .note của Test_UI (thay cho Alert severity của MUI) */
+/** Thông báo một dòng theo mức độ, kiểu .note của Test_UI (thay cho Alert severity của MUI) */
 export function AlertMessage({ severity, children, onClose, className }: AlertMessageProps) {
-  const Icon = ICON[severity];
   return (
     <Alert
       variant={VARIANT[severity]}
       role={severity === 'error' ? 'alert' : 'status'}
       className={cn(onClose && 'relative pe-10', className)}
     >
-      <Icon />
       <AlertDescription>{children}</AlertDescription>
       {onClose && (
         <button
           type="button"
           onClick={onClose}
           aria-label="Đóng"
-          className="absolute end-2 top-1.5 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="absolute end-2 top-1.5 rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <X className="size-4" />
+          Đóng
         </button>
       )}
     </Alert>

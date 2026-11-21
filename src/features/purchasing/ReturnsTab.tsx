@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
@@ -113,7 +112,6 @@ export function ReturnsTab() {
           />
           {canManage && (
             <Button className="md:ms-auto" onClick={() => navigate(ROUTES.company.supplierReturnNew(companyId))}>
-              <Plus />
               Tạo phiếu trả hàng
             </Button>
           )}

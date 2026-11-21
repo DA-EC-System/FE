@@ -1,4 +1,3 @@
-import { ImageIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -8,7 +7,7 @@ export function LineThumb({ src, alt, className }: { src?: string | null; alt: s
     <Avatar className={cn('size-10 shrink-0 rounded-md', className)}>
       {src && <AvatarImage src={src} alt={alt} className="object-cover" />}
       <AvatarFallback className="rounded-md">
-        <ImageIcon className="size-4 text-muted-foreground" />
+        <span className="text-center text-[10px] leading-tight text-muted-foreground">Chưa có ảnh</span>
       </AvatarFallback>
     </Avatar>
   );

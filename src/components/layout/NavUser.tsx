@@ -1,5 +1,4 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronsUpDown, KeyRound, LogOut, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -80,7 +79,6 @@ export function NavUser() {
                 <span className="truncate text-[13px] font-medium">{account?.fullName}</span>
                 <span className="truncate text-xs text-muted-foreground">{role}</span>
               </span>
-              <ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -110,16 +108,13 @@ export function NavUser() {
             <DropdownMenuItem
               onClick={() => navigate(ROUTES.changePassword, { state: { from: location } })}
             >
-              <KeyRound />
               Đổi mật khẩu
             </DropdownMenuItem>
             <DropdownMenuItem onClick={resetGuides}>
-              <RotateCcw />
               Bật lại tất cả hướng dẫn
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => void logout()}>
-              <LogOut />
               Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>

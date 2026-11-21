@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ShieldCheck, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -239,7 +238,6 @@ export function MockOAuthPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="size-5 text-primary" />
             {platformLabel(platform) ?? platform} · Uỷ quyền ứng dụng
           </CardTitle>
           <CardDescription>
@@ -271,11 +269,9 @@ export function MockOAuthPage() {
         </CardContent>
         <CardFooter className="justify-end gap-2">
           <Button variant="outline" disabled={!target} onClick={() => finish(denyParams)}>
-            <X />
             Từ chối
           </Button>
           <Button disabled={!target} onClick={approve}>
-            <Check />
             Đồng ý
           </Button>
         </CardFooter>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, PackageCheck, Printer, Scissors } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -264,7 +263,6 @@ export function PackageDetailPage() {
         subtitle={`Đơn hàng ${p.order.code}`}
         action={
           <Button variant="outline" onClick={back}>
-            <ArrowLeft />
             {backTo?.label ?? 'Về danh sách kiện'}
           </Button>
         }
@@ -319,8 +317,6 @@ export function PackageDetailPage() {
                 disabled={loading}
                 onClick={() => onAction(a)}
               >
-                {a === 'pack' && <PackageCheck />}
-                {a === 'mark_ready' && reporting && <Loader2 className="animate-spin" />}
                 {a === 'mark_ready' && reporting ? 'Đang báo sàn…' : PACKAGE_ACTION_LABELS[a]}
               </Button>
             ))}
@@ -341,13 +337,11 @@ export function PackageDetailPage() {
             )}
             {splittable && (
               <Button variant="outline" disabled={loading} onClick={() => setSplitting(true)}>
-                <Scissors />
                 Tách kiện
               </Button>
             )}
             {printable && (
               <Button variant="outline" disabled={printDocs.isPending} onClick={print}>
-                <Printer />
                 {printDocs.isPending ? 'Đang lấy phiếu giao hàng...' : 'In phiếu giao hàng'}
               </Button>
             )}

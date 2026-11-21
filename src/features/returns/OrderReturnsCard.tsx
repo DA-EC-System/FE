@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Undo2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Money } from '@/components/common/Money';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -51,7 +50,6 @@ export function OrderReturnsCard({ order, companyId }: { order: Order; companyId
         <CardTitle className="text-base">Trả hàng/Hoàn tiền ({items.length})</CardTitle>
         {canCreate && hasReturnable && (
           <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
-            <Undo2 />
             Tạo yêu cầu trả hàng
           </Button>
         )}

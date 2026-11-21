@@ -1,4 +1,3 @@
-import { ChevronDown, ChevronRight, Dot } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Badge } from '@/components/ui/badge';
@@ -60,11 +59,9 @@ export function TreeLevel({ platform, parentId, depth, open, selected, onToggle,
               )}
               style={indent}
             >
-              <span className="flex size-4 flex-none items-center justify-center text-muted-foreground">
-                {c.isLeaf ? <Dot className="size-5 text-primary" /> : isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-              </span>
               <span className="truncate">{c.name}</span>
               <RemovedBadge category={c} />
+              {!c.isLeaf && <span className="ml-auto flex-none pl-2 text-xs text-muted-foreground">{isOpen ? 'Thu gọn' : 'Mở'}</span>}
             </button>
             {!c.isLeaf && isOpen && (
               <TreeLevel

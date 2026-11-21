@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
@@ -7,7 +6,7 @@ interface CopyButtonProps {
   value: string;
   /** Nhãn cho trình đọc màn hình, vd "Sao chép số tài khoản" */
   label: string;
-  /** Có chữ thì hiện nút có chữ, không thì nút biểu tượng */
+  /** Có chữ thì hiện nút có chữ, không thì nút chữ “Sao chép” */
   text?: string;
 }
 
@@ -24,15 +23,13 @@ export function CopyButton({ value, label, text }: CopyButtonProps) {
       toast.error('Không sao chép được. Hãy chọn và sao chép thủ công.');
     }
   };
-  const icon = copied ? <Check /> : <Copy />;
   return text ? (
     <Button type="button" variant="outline" size="sm" onClick={copy} aria-label={label}>
-      {icon}
-      {text}
+      {copied ? 'Đã chép' : text}
     </Button>
   ) : (
-    <Button type="button" variant="ghost" size="icon" className="size-7" onClick={copy} aria-label={label}>
-      {icon}
+    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={copy} aria-label={label}>
+      {copied ? 'Đã chép' : 'Sao chép'}
     </Button>
   );
 }

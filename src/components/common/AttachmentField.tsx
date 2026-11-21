@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { FileText, Loader2, Paperclip, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { uploadFile } from '@/api/catalog.api';
@@ -75,7 +74,6 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
                 <img src={a.url} alt={a.name} className="size-full object-cover" />
               ) : (
                 <span className="flex size-full flex-col items-center justify-center gap-1 p-1 text-center text-xs">
-                  <FileText className="size-6" />
                   <span className="line-clamp-2 break-all">{a.name}</span>
                 </span>
               )}
@@ -84,12 +82,12 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
               <Button
                 type="button"
                 variant="secondary"
-                size="icon"
+                size="sm"
                 aria-label={`Bỏ ${a.name}`}
-                className="absolute top-1 right-1 size-6"
+                className="absolute top-1 right-1 h-6 px-1.5 text-xs"
                 onClick={() => onChange(value.filter((x) => x.fileId !== a.fileId))}
               >
-                <X />
+                Bỏ
               </Button>
             )}
           </li>
@@ -104,15 +102,9 @@ export function AttachmentField({ value, onChange, onBusyChange, disabled, error
               disabled={uploading > 0}
             >
               {uploading > 0 ? (
-                <>
-                  <Loader2 className="size-6 animate-spin" />
-                  Đang tải {uploading} tệp
-                </>
+                <>Đang tải {uploading} tệp…</>
               ) : (
-                <>
-                  <Paperclip className="size-6" />
-                  Đính kèm
-                </>
+                <>Đính kèm</>
               )}
             </Button>
           </li>

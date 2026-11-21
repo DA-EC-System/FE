@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAttributeCatalog, type CatalogAttribute } from '@/api/channelSpecMappings.api';
 
@@ -22,13 +21,11 @@ export function AttributeCodePicker({ platform, platformName, kind, exclude, onP
   return (
     <div className="grid gap-1.5">
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={`Tìm attribute ${platformName} theo tên hoặc mã`}
           aria-label={`Tìm attribute ${platformName}`}
-          className="pl-8"
         />
       </div>
       {typed && (
@@ -50,7 +47,6 @@ export function AttributeCodePicker({ platform, platformName, kind, exclude, onP
                   setSearch('');
                 }}
               >
-                <Plus className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>
                 <span className="font-mono text-xs text-muted-foreground">{a.code}</span>
               </button>

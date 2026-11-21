@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Moon, Sun } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -54,8 +53,8 @@ function writeCollapsed(groups: Set<string>) {
 
 /** Mục đang chọn nền --accent chữ xanh, cao 40px bo 8px (`.nav` của Test_UI) */
 const NAV_BUTTON =
-  'h-10 gap-2.5 rounded-lg px-4 text-sm text-sidebar-foreground transition-colors ease-ant hover:bg-fill hover:text-sidebar-foreground active:bg-fill [&>svg]:text-muted-foreground ' +
-  'data-[active=true]:bg-accent data-[active=true]:font-normal data-[active=true]:text-primary-text data-[active=true]:[&>svg]:text-primary-text';
+  'h-10 gap-2.5 rounded-lg px-4 text-sm text-sidebar-foreground transition-colors ease-ant hover:bg-fill hover:text-sidebar-foreground active:bg-fill ' +
+  'data-[active=true]:bg-accent data-[active=true]:font-normal data-[active=true]:text-primary-text';
 
 export function AppSidebar({ sections, activeTo, counts, brand }: AppSidebarProps) {
   const { state, isMobile } = useSidebar();
@@ -85,7 +84,7 @@ export function AppSidebar({ sections, activeTo, counts, brand }: AppSidebarProp
   }, [activeTo]);
 
   return (
-    <Sidebar collapsible="icon" className="border-sidebar-border">
+    <Sidebar collapsible="offcanvas" className="border-sidebar-border">
       <SidebarHeader className="px-2 pt-3 pb-2">{brand}</SidebarHeader>
       <SidebarContent className="gap-0 px-2" data-guide="sidebar-nav">
         {sections.map((section) => {
@@ -109,10 +108,9 @@ export function AppSidebar({ sections, activeTo, counts, brand }: AppSidebarProp
                 >
                   <CollapsibleTrigger>
                     <span className="truncate">{section.title}</span>
-                    <ChevronDown
-                      aria-hidden
-                      className={cn('ms-auto size-3! transition-transform ease-ant', !open && '-rotate-90')}
-                    />
+                    <span aria-hidden className="ms-auto text-xs">
+                      {open ? 'Thu gọn' : 'Mở'}
+                    </span>
                   </CollapsibleTrigger>
                 </SidebarGroupLabel>
                 <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none">
@@ -144,13 +142,11 @@ export function AppSidebar({ sections, activeTo, counts, brand }: AppSidebarProp
 function NavLinkItem({ item, isActive, count }: { item: NavItem; isActive: boolean; count?: NavCount }) {
   const { setOpenMobile } = useSidebar();
   const countId = useId();
-  const Icon = item.icon;
 
   if (item.disabled) {
     return (
       <SidebarMenuItem>
         <SidebarMenuButton disabled tooltip={`${item.label} (sắp ra mắt)`} className={NAV_BUTTON}>
-          <Icon />
           <span>{item.label}</span>
           <Badge variant="secondary" className="ms-auto px-1.5 py-0 text-[10px]">
             Soon
@@ -174,7 +170,6 @@ function NavLinkItem({ item, isActive, count }: { item: NavItem; isActive: boole
           aria-current={isActive ? 'page' : undefined}
           aria-describedby={count ? countId : undefined}
         >
-          <Icon />
           <span>{item.label}</span>
         </Link>
       </SidebarMenuButton>
@@ -202,7 +197,6 @@ function ThemeToggle() {
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton onClick={toggle} tooltip={label} className={NAV_BUTTON}>
-          {mode === 'dark' ? <Sun /> : <Moon />}
           <span>{label}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>

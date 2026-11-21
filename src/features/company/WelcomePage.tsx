@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, CircleCheck, ExternalLink, Lock, Store, TriangleAlert } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Badge } from '@/components/ui/badge';
@@ -153,7 +152,6 @@ export function WelcomePage() {
         <footer className="sticky bottom-0 border-t bg-card">
           <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
             <Button variant="outline" disabled={cur === 0} onClick={() => setIndex(cur - 1)}>
-              <ArrowLeft />
               Quay lại
             </Button>
             <span className="ms-auto text-sm text-muted-foreground" data-testid="welcome-why" aria-live="polite">
@@ -167,12 +165,10 @@ export function WelcomePage() {
                 }}
               >
                 Vào Tổng quan
-                <ArrowRight />
               </Button>
             ) : (
               <Button disabled={!step?.done} onClick={() => setIndex(cur + 1)}>
                 Tiếp
-                <ArrowRight />
               </Button>
             )}
           </div>
@@ -214,10 +210,16 @@ function Stepper({ steps, cur, done, onPick }: { steps: OnboardingStep[]; cur: n
                     state === 'cur' && 'border-primary bg-primary text-primary-foreground',
                   )}
                 >
-                  {state === 'done' ? <Check className="size-3.5" aria-label="Đã xong" /> : locked ? <Lock className="size-3.5" aria-hidden /> : i + 1}
+                  {i + 1}
                 </span>
                 <span className="grid gap-0.5">
-                  <span className="text-sm font-medium">{s.label}</span>
+                  <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium">
+                    {s.label}
+                    {/* Trạng thái bằng chữ, không chỉ bằng màu (cố vấn chốt 22/11/2026) */}
+                    <span className={cn('text-xs font-normal', state === 'done' ? 'text-success-text' : 'text-muted-foreground')}>
+                      {state === 'done' ? 'Xong' : 'Chưa xong'}
+                    </span>
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {locked ? `Làm xong bước ${cur + 1} trước` : WIZARD_TEXT[s.key as WizardKey].sub}
                   </span>
@@ -310,7 +312,6 @@ function StepBody({
         <>
           {!step.done && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
               Trong lúc chờ phiếu ghi sổ, Commerio chưa cập nhật tồn lên sàn và chưa giữ hàng cho đơn. Sàn giữ số đang có.
             </div>
           )}
@@ -356,9 +357,6 @@ function ConnectStep({ companyId }: { companyId: string }) {
               onClick={() => connect(p)}
               className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:border-primary hover:bg-accent disabled:cursor-wait disabled:opacity-60"
             >
-              <span className="grid size-10 shrink-0 place-items-center rounded-md bg-fill">
-                <Store className="size-5" aria-hidden />
-              </span>
               <span className="grid gap-0.5">
                 <b className="font-semibold">{p.name}</b>
                 <span className="text-sm text-muted-foreground">
@@ -392,7 +390,6 @@ function LinkOut({ title, detail, to, action }: { title: string; detail: ReactNo
       <Button asChild>
         <Link to={to}>
           {action}
-          <ExternalLink />
         </Link>
       </Button>
     </div>
@@ -405,7 +402,6 @@ function ReadyScreen({ optional, total }: { optional: OnboardingStep[]; total: n
     <div className="grid gap-4">
       <div className="grid justify-items-start gap-2">
         <Badge variant="success">
-          <CircleCheck className="size-3.5" aria-hidden />
           Đã xong {total}/{total} bước bắt buộc
         </Badge>
         <h1 className="text-xl font-semibold">Sẵn sàng bán</h1>

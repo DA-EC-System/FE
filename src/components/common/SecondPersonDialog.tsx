@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { ShieldCheck, TriangleAlert } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
@@ -52,7 +51,6 @@ export function SecondPersonDialog({
         <div className="grid gap-3 text-sm" data-testid="second-person-dialog">
           {selfApproval ? (
             <p className="flex gap-2 rounded-md bg-warning-soft px-3 py-2 text-warning" data-testid="self-approval">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
               <span>
                 Bạn đang duyệt chứng từ do chính mình lập. Được phép vì bạn là CEO hoặc công ty chỉ có một người;
                 nhật ký sẽ ghi là tự duyệt.
@@ -60,7 +58,6 @@ export function SecondPersonDialog({
             </p>
           ) : (
             <p className="flex gap-2 text-foreground">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
               <span>
                 {ownerLabel}: <b>{createdByName}</b>. Bạn duyệt với tư cách người kiểm tra độc lập.
               </span>

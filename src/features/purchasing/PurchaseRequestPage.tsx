@@ -3,7 +3,6 @@ import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, PackagePlus, Plus, Save, Trash2, Undo2, X } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
@@ -12,7 +11,7 @@ import { MoneyInput } from '@/components/common/MoneyInput';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
-import { RowAction } from '@/components/common/RowAction';
+import { RowTextAction } from '@/components/common/RowAction';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
 import { Badge } from '@/components/ui/badge';
@@ -511,18 +510,15 @@ export function PurchaseRequestPage() {
         action={
           <div className="flex flex-wrap gap-2" data-guide="pr-actions">
             <Button variant="outline" onClick={backToList}>
-              <ArrowLeft />
               Danh sách
             </Button>
             {editable && (
               <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
-                <Save />
                 Lưu nháp
               </Button>
             )}
             {canCreateReceipt && (
               <Button variant="outline" disabled={busy} onClick={() => setReceiving(true)}>
-                <PackagePlus />
                 Tạo phiếu nhập kho
               </Button>
             )}
@@ -684,7 +680,6 @@ export function PurchaseRequestPage() {
                   />
                 </div>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => append(emptyLine({ isNew: true, parentMode: 'new', options: Array.from({ length: MAX_AXES }, () => ({ axis: '', value: '' })) }))}>
-                  <Plus />
                   Thêm sản phẩm mới
                 </Button>
               </div>
@@ -811,20 +806,20 @@ export function PurchaseRequestPage() {
                         {(editable || canExclude) && (
                           <TableCell>
                             {editable && (
-                              <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
-                                <Trash2 />
-                              </RowAction>
+                              <RowTextAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                                Bỏ
+                              </RowTextAction>
                             )}
                             {canExclude && line && (
-                              <RowAction
+                              <RowTextAction
                                 label={line.excluded ? 'Duyệt lại dòng' : 'Không duyệt dòng'}
                                 destructive={!line.excluded}
                                 reason={busy ? 'Đang lưu' : null}
                                 // Loại dòng bắt buộc lý do (BE#243); lấy lại thì không cần
                                 onClick={() => (line.excluded ? void onExclude(line.id, false) : setExcludeFor(line.id))}
                               >
-                                {line.excluded ? <Undo2 /> : <X />}
-                              </RowAction>
+                                {line.excluded ? 'Duyệt lại' : 'Loại'}
+                              </RowTextAction>
                             )}
                           </TableCell>
                         )}

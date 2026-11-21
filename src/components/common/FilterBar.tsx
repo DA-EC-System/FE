@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -30,14 +29,12 @@ interface SearchInputProps {
 export function SearchInput({ value, onChange, placeholder, className }: SearchInputProps) {
   return (
     <div className={cn('relative md:w-72', className)}>
-      <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="ps-8"
       />
     </div>
   );
@@ -79,7 +76,6 @@ export function FilterSelect({
         <SelectTrigger className="w-full md:min-w-40" aria-label={label} aria-busy={loading || undefined}>
           {loading ? (
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
               Đang tải…
             </span>
           ) : (

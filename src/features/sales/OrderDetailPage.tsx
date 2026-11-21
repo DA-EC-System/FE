@@ -6,7 +6,6 @@ import { PackageShipping } from '@/features/fulfillment/PackageShipping';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Link2, Pencil, Truck, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -100,7 +99,6 @@ export function OrderDetailPage() {
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ms-2" onClick={() => navigate(ROUTES.company.orders(companyId))}>
-      <ArrowLeft />
       Đơn hàng
     </Button>
   );
@@ -199,19 +197,16 @@ export function OrderDetailPage() {
             <div className="flex flex-wrap gap-2">
               {canPlatformCancel && (
                 <Button variant="outline" onClick={() => setDialog('platform-cancel')}>
-                  <XCircle />
                   Huỷ đơn
                 </Button>
               )}
               {canCancel && (
                 <Button variant="outline" onClick={() => setDialog('cancel')}>
-                  <XCircle />
                   Huỷ đơn
                 </Button>
               )}
               {canConfirm && (
                 <Button onClick={confirm} disabled={confirmMut.isPending}>
-                  <CheckCircle2 />
                   {confirmMut.isPending ? 'Đang xác nhận...' : 'Xác nhận đơn'}
                 </Button>
               )}
@@ -364,13 +359,13 @@ export function OrderDetailPage() {
                   {order.invoiceNumber ?? '—'}
                   {canEditInvoice && (
                     <Button
-                      size="icon"
+                      size="sm"
                       variant="ghost"
-                      className="size-7"
+                      className="h-7 px-2"
                       aria-label="Sửa số hoá đơn"
                       onClick={() => setDialog('invoice')}
                     >
-                      <Pencil />
+                      Sửa
                     </Button>
                   )}
                 </span>
@@ -422,7 +417,6 @@ export function OrderDetailPage() {
                                     }
                                     onClick={() => lineMatch.open(l)}
                                   >
-                                    <Link2 />
                                     Liên kết SKU
                                   </Button>
                                 )}
@@ -600,7 +594,6 @@ export function OrderDetailPage() {
                           <div className="flex justify-end gap-2">
                             {delivery && (
                               <Button size="sm" onClick={() => setDelivering(p)}>
-                                <Truck />
                                 Cập nhật giao hàng
                               </Button>
                             )}

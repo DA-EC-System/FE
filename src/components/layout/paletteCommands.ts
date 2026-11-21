@@ -1,4 +1,3 @@
-import { ClipboardPlus, PackagePlus, Store, type LucideIcon } from 'lucide-react';
 import { ROUTES } from '@/router/routes';
 import type { CompanyContext } from '@/types/auth';
 import { PERMISSIONS, hasPermission, isModuleEnabled } from '@/utils/permissions';
@@ -11,7 +10,6 @@ export interface PaletteCommand {
   label: string;
   /** Chữ phụ bên phải: tên nhóm của trang */
   hint?: string;
-  icon: LucideIcon;
   to: string;
   /** State gửi kèm khi điều hướng, ví dụ mở luôn hộp Thêm gian hàng */
   state?: unknown;
@@ -66,7 +64,6 @@ export function pageCommands(sections: NavSection[]): PaletteCommand[] {
         id: `page:${i.to}`,
         label: i.label,
         hint: s.title === i.label ? undefined : s.title,
-        icon: i.icon,
         to: i.to,
       })),
   );
@@ -75,7 +72,6 @@ export function pageCommands(sections: NavSection[]): PaletteCommand[] {
 interface QuickActionDef {
   id: string;
   label: string;
-  icon: LucideIcon;
   module: ModuleKey;
   permission: string;
   to: (companyId: string) => string;
@@ -86,7 +82,6 @@ const QUICK_ACTIONS: QuickActionDef[] = [
   {
     id: 'purchase-request-new',
     label: 'Tạo đơn đặt hàng nhập',
-    icon: ClipboardPlus,
     module: 'purchasing',
     permission: PERMISSIONS.purchaseRequestManage,
     to: (companyId) => ROUTES.company.purchaseRequestNew(companyId),
@@ -94,7 +89,6 @@ const QUICK_ACTIONS: QuickActionDef[] = [
   {
     id: 'product-new',
     label: 'Thêm sản phẩm',
-    icon: PackagePlus,
     module: 'catalog',
     permission: PERMISSIONS.productManage,
     to: ROUTES.company.catalogNew,
@@ -102,7 +96,6 @@ const QUICK_ACTIONS: QuickActionDef[] = [
   {
     id: 'shop-new',
     label: 'Kết nối gian hàng',
-    icon: Store,
     module: 'channel',
     permission: PERMISSIONS.shopConnect,
     to: ROUTES.company.shops,
@@ -115,5 +108,5 @@ export function quickActions(context: CompanyContext | null): PaletteCommand[] {
   if (!context) return [];
   return QUICK_ACTIONS.filter(
     (a) => isModuleEnabled(context, a.module) && hasPermission(context, a.permission),
-  ).map((a) => ({ id: a.id, label: a.label, icon: a.icon, to: a.to(context.companyId), state: a.state }));
+  ).map((a) => ({ id: a.id, label: a.label, to: a.to(context.companyId), state: a.state }));
 }

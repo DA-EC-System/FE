@@ -1,5 +1,4 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { CircleHelp } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsTouch } from '@/hooks/useIsTouch';
@@ -35,14 +34,16 @@ export function HelpTip({ content, topic, onTour, mode, className }: HelpTipProp
       // Nằm trong dòng bảng hay nhãn ô nhập: bấm "?" không được mở dòng, không focus ô
       onClick={(e: MouseEvent) => e.stopPropagation()}
       className={cn(
-        'relative inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full align-middle text-muted-foreground transition-colors',
+        'relative inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full border align-middle text-muted-foreground transition-colors',
         'hover:text-foreground-2 focus-visible:text-foreground-2 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
         // Vùng chạm rộng hơn biểu tượng 14px
         'after:absolute after:-inset-1.5 after:content-[""]',
         className,
       )}
     >
-      <CircleHelp className="size-3.5" aria-hidden />
+      <span aria-hidden className="text-xs leading-none font-semibold">
+        ?
+      </span>
     </button>
   );
 
