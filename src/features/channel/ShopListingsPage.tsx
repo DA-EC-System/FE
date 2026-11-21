@@ -45,8 +45,12 @@ import {
   useUpdateListingContent,
   useShop,
   useShopListings,
+  useLatestSyncRun,
+  useSyncRun,
   useSyncListings,
 } from '@/api/shops.api';
+import { SyncRunPanel } from './SyncRunPanel';
+import { syncRunActive } from './syncRun';
 import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
   problemCode,
@@ -259,6 +263,14 @@ export function ShopListingsPage() {
   const contentMut = useUpdateListingContent();
   const decideMut = useDecideMapping();
   const syncMut = useSyncListings();
+  // Lượt đồng bộ người bấm: lượt vừa bấm, không có thì lượt gần nhất của gian hàng (Documents/21 §18.5 sync-runs, chốt
+  // v2 câu 6)
+  const [runId, setRunId] = useState<string | null>(null);
+  const [dismissedRun, setDismissedRun] = useState<string | null>(null);
+  const latestRun = useLatestSyncRun(shopId, Boolean(shop));
+  const currentRun = useSyncRun(shopId, runId);
+  const syncRun = currentRun.data ?? latestRun.data ?? null;
+  const syncRunning = syncMut.isPending || syncRunActive(syncRun);
   const listingReview = shop?.capabilities.listingReview ?? false;
   const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
   const connector = useStartConnect();
@@ -768,11 +780,8 @@ export function ShopListingsPage() {
   const sync = async () => {
     try {
       const r = await syncMut.mutateAsync(shopId);
-      toast.success(
-        r.queued
-          ? 'Đã bắt đầu đồng bộ với sàn. Bảng tự tải lại sau khoảng 15 giây; chưa thấy đổi thì tải lại trang.'
-          : 'Gian hàng đang có lượt đồng bộ chờ chạy, không tạo thêm.',
-      );
+      setRunId(r.runId);
+      setDismissedRun(null);
     } catch (e) {
       toast.error(problemMessage(e));
     }
@@ -1170,9 +1179,9 @@ export function ShopListingsPage() {
               Danh sách gian hàng
             </Button>
             {usable && can(PERMISSIONS.shopSync) && (
-              <Button variant="outline" disabled={syncMut.isPending} onClick={() => void sync()}>
-                <RefreshCw className={syncMut.isPending ? 'animate-spin motion-reduce:animate-none' : undefined} />
-                {syncMut.isPending ? 'Đang đồng bộ...' : 'Đồng bộ'}
+              <Button variant="outline" disabled={syncRunning} onClick={() => void sync()}>
+                <RefreshCw className={syncRunning ? 'animate-spin motion-reduce:animate-none' : undefined} />
+                {syncRunning ? 'Đang đồng bộ…' : 'Đồng bộ'}
               </Button>
             )}
             {canManage && (
@@ -1192,6 +1201,15 @@ export function ShopListingsPage() {
           </div>
         }
       />
+
+      {syncRun && syncRun.id !== dismissedRun && (
+        <SyncRunPanel
+          run={syncRun}
+          companyId={companyId}
+          onFinished={() => void listingsQuery.refetch()}
+          onClose={() => setDismissedRun(syncRun.id)}
+        />
+      )}
 
       {shop && !usable && (
         <AlertMessage severity="warning" className="mb-4">

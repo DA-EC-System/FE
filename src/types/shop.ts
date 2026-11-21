@@ -352,6 +352,8 @@ export interface ListingRow {
    */
   stockToPush: number | null;
   stockHeldReason: 'shop_waiting_opening' | 'not_counted' | null;
+  /** Giờ lần đẩy lỗi hoặc bị giữ gần nhất; null khi không có lỗi (Documents/21 §18.5, 21/11/2026) */
+  lastSyncFailedAt: string | null;
   listing: ChannelListing | null;
   /** Đường dẫn category của listing trên sàn, tra trong cây đã đồng bộ; null khi chưa rõ (§18.5, commerio-backend#467) */
   externalCategoryPath?: string | null;
@@ -558,8 +560,48 @@ export interface PriceQuoteRow {
  * Nút Đồng bộ (§18.5, commerio-backend#223): BE chỉ xếp một lượt đồng bộ chạy nền rồi trả 202. `queued = false` khi gian
  * hàng đã có lượt chờ. BE chưa phát sự kiện khi lượt chạy xong: FE tải lại listing ngay và thêm một lần sau khoảng 15 giây.
  */
+/** `POST …/listings/sync` (Documents/21 §18.5, đổi 21/11/2026): `runId` là lượt người bấm (lượt mới hoặc lượt đang chờ) */
 export interface ListingSyncResult {
   queued: boolean;
+  runId: string;
+}
+
+/** Chỗ sửa của một dòng lỗi đồng bộ (Documents/21 §18.5 `SyncFix`) */
+export type SyncFix = 'variant_price' | 'stocktake' | 'platform' | 'shop_reconnect';
+
+export interface SyncRunError {
+  listingId: string;
+  variantId: string | null;
+  productId: string | null;
+  productName: string | null;
+  attributesLabel: string | null;
+  /** SKU người bán của listing */
+  sku: string | null;
+  code: string;
+  /** Câu tiếng Việt cho người bán do app viết */
+  message: string;
+  /** Câu sàn trả, nguyên văn; null khi lỗi do app giữ */
+  platformMessage: string | null;
+  at: string;
+  fix: SyncFix | null;
+}
+
+/** Một lượt đồng bộ người bấm (`GET …/listings/sync-runs/:runId`, `…/latest`). Quá 30 phút thì `failed` + `run_stale` */
+export interface SyncRun {
+  id: string;
+  shopId: string;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  requestedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** `total` null khi đang đọc trạng thái trên sàn */
+  progress: { processed: number; total: number | null };
+  succeeded: number;
+  failed: number;
+  /** Tối đa 200 dòng; số đủ ở `failed` */
+  errors: SyncRunError[];
+  /** Lỗi cả lượt */
+  error: { code: string; message: string } | null;
 }
 
 /** Gỡ, đẩy lại: thao tác người dùng trên một listing */
