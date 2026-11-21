@@ -10,6 +10,8 @@ import { RowAction } from '@/components/common/RowAction';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductDraftsTab } from '@/features/purchasing/ProductDraftsTab';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -24,7 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
-import { PERMISSIONS } from '@/utils/permissions';
+import { DRAFT_PERMISSIONS, PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { ProductListItem, ProductListParams, ProductStatus, VariantReadiness } from '@/types/catalog';
 import { PRODUCT_STATUS_LABELS } from './labels';
@@ -50,6 +52,10 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
   const can = useCan();
   const canManage = can(PERMISSIONS.productManage);
   const canSetup = can(PERMISSIONS.catalogSetup);
+  // Tab "Hàng mới sắp về cần soạn" (chốt 21/11/2026 câu 1): xem đề nghị hoặc quản lý sản phẩm (Documents/21 §16.3)
+  const canDrafts = DRAFT_PERMISSIONS.some((p) => can(p));
+  const [tabParams, setTabParams] = useSearchParams();
+  const tab = canDrafts && tabParams.get('tab') === 'drafts' ? 'drafts' : 'products';
 
   const [urlParams] = useSearchParams();
   // `?search=`: link "Hoàn thiện <tên>" ở phiếu nhập kho mở sẵn đúng sản phẩm vừa tạo
@@ -215,86 +221,104 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         }
       />
 
-      {productsQuery.isError && (
-        <AlertMessage severity="error" className="mb-4">
-          {getErrorMessage(productsQuery.error)}
-        </AlertMessage>
+      {canDrafts && (
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTabParams(v === 'drafts' ? { tab: 'drafts' } : {}, { replace: true })}
+          className="mb-2"
+        >
+          <TabsList>
+            <TabsTrigger value="products">Sản phẩm</TabsTrigger>
+            <TabsTrigger value="drafts">Hàng mới sắp về cần soạn</TabsTrigger>
+          </TabsList>
+        </Tabs>
       )}
+      {tab === 'drafts' ? (
+        <ProductDraftsTab companyId={companyId} />
+      ) : (
+        <>
+          {productsQuery.isError && (
+            <AlertMessage severity="error" className="mb-4">
+              {getErrorMessage(productsQuery.error)}
+            </AlertMessage>
+          )}
 
-      <Card className="gap-0 py-0">
-        <FilterBar>
-          <SearchInput
-            value={search}
-            onChange={withReset(setSearch)}
-            placeholder="Tìm theo tên hoặc SKU..."
-          />
-          <FilterSelect loading={groupsQuery.isLoading}
-            label="Danh mục sản phẩm"
-            value={groupId}
-            onChange={withReset(setGroupId)}
-            options={groups.map((c) => ({ value: c.id, label: c.name }))}
-          />
-          {/* API không có "tất cả": sản phẩm đang hoạt động và đã lưu trữ xem riêng */}
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Hiển thị</Label>
-            <Select value={status} onValueChange={withReset((v: string) => setStatus(v as ProductStatus))}>
-              <SelectTrigger className="w-full md:min-w-40" aria-label="Hiển thị">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PRODUCT_STATUS_LABELS).map(([value, { label }]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {status === 'active' && (
-            <FilterSelect
-              guide="products-business"
-              label="Trạng thái kinh doanh"
-              value={businessStatus}
-              onChange={withReset(setBusinessStatus)}
-              options={(['selling', 'paused', 'discontinued'] as const).map((s) => ({
-                value: s,
-                label: BUSINESS_STATUS_LABELS[s],
-              }))}
-            />
-          )}
-          {status === 'active' && (
-            <FilterSelect
-              label="Độ hoàn thiện"
-              value={readiness}
-              onChange={withReset(setReadiness)}
-              options={[
-                { value: 'incomplete', label: 'Chờ hoàn thiện' },
-                { value: 'ready', label: 'Sẵn sàng' },
-              ]}
-            />
-          )}
-        </FilterBar>
-        <div data-guide="products-table">
-          <DataTable
-            columns={columns}
-            data={rows}
-            getRowId={(r) => r.id}
-            loading={productsQuery.isLoading}
-            fetching={productsQuery.isFetching}
-            empty={empty}
-            onRowClick={(r) => open(r.id)}
-            pagination={{
-              page,
-              pageSize,
-              total: productsQuery.data?.total ?? 0,
-              onChange: (p, size) => {
-                setPage(p);
-                setPageSize(size);
-              },
-            }}
-          />
-        </div>
-      </Card>
+          <Card className="gap-0 py-0">
+            <FilterBar>
+              <SearchInput
+                value={search}
+                onChange={withReset(setSearch)}
+                placeholder="Tìm theo tên hoặc SKU..."
+              />
+              <FilterSelect loading={groupsQuery.isLoading}
+                label="Danh mục sản phẩm"
+                value={groupId}
+                onChange={withReset(setGroupId)}
+                options={groups.map((c) => ({ value: c.id, label: c.name }))}
+              />
+              {/* API không có "tất cả": sản phẩm đang hoạt động và đã lưu trữ xem riêng */}
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Hiển thị</Label>
+                <Select value={status} onValueChange={withReset((v: string) => setStatus(v as ProductStatus))}>
+                  <SelectTrigger className="w-full md:min-w-40" aria-label="Hiển thị">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PRODUCT_STATUS_LABELS).map(([value, { label }]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {status === 'active' && (
+                <FilterSelect
+                  guide="products-business"
+                  label="Trạng thái kinh doanh"
+                  value={businessStatus}
+                  onChange={withReset(setBusinessStatus)}
+                  options={(['selling', 'paused', 'discontinued'] as const).map((s) => ({
+                    value: s,
+                    label: BUSINESS_STATUS_LABELS[s],
+                  }))}
+                />
+              )}
+              {status === 'active' && (
+                <FilterSelect
+                  label="Độ hoàn thiện"
+                  value={readiness}
+                  onChange={withReset(setReadiness)}
+                  options={[
+                    { value: 'incomplete', label: 'Chờ hoàn thiện' },
+                    { value: 'ready', label: 'Sẵn sàng' },
+                  ]}
+                />
+              )}
+            </FilterBar>
+            <div data-guide="products-table">
+              <DataTable
+                columns={columns}
+                data={rows}
+                getRowId={(r) => r.id}
+                loading={productsQuery.isLoading}
+                fetching={productsQuery.isFetching}
+                empty={empty}
+                onRowClick={(r) => open(r.id)}
+                pagination={{
+                  page,
+                  pageSize,
+                  total: productsQuery.data?.total ?? 0,
+                  onChange: (p, size) => {
+                    setPage(p);
+                    setPageSize(size);
+                  },
+                }}
+              />
+            </div>
+          </Card>
+        </>
+      )}
 
       {business.dialog}
     </div>

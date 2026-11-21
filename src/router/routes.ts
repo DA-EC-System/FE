@@ -75,6 +75,10 @@ export const ROUTES = {
     purchaseRequestNew: (companyId: string, from?: string) =>
       from ? `/c/${companyId}/purchasing/requests/new?from=${from}` : `/c/${companyId}/purchasing/requests/new`,
     goodsReceipt: (companyId: string, id: string) => `/c/${companyId}/purchasing/receipts/${id}`,
+    /** Soạn trước sản phẩm mới trên đề nghị nhập hàng (Documents/21 §16.3; chốt 21/11/2026 câu 2: trang riêng) */
+    productDraft: (companyId: string, id: string) => `/c/${companyId}/purchasing/product-drafts/${id}`,
+    /** Tab "Hàng mới sắp về cần soạn" ở trang Sản phẩm (chốt 21/11/2026 câu 1) */
+    productDrafts: (companyId: string) => `/c/${companyId}/catalog?tab=drafts`,
     supplierReturn: (companyId: string, id: string) => `/c/${companyId}/purchasing/returns/${id}`,
     supplierReturnNew: (companyId: string) => `/c/${companyId}/purchasing/returns/new`,
     orders: (companyId: string) => `/c/${companyId}/sales/orders`,

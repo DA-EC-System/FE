@@ -117,6 +117,9 @@ export const PURCHASING_PERMISSIONS = [
   PERMISSIONS.supplierReturnManage,
 ] as const;
 
+/** Xem bản soạn trước sản phẩm mới: xem đề nghị (mọi quyền mua hàng) hoặc quản lý sản phẩm (Documents/21 §16.3) */
+export const DRAFT_PERMISSIONS = [...PURCHASING_PERMISSIONS, PERMISSIONS.productManage] as const;
+
 /**
  * Quyền tiền bất kỳ, giống `financeView` ở BE (finance/api/access.ts): có một trong các quyền này là xem được
  * sổ tiền, lãi theo đơn, cảnh báo mốc doanh thu (sơ đồ D4.1). Không có mã quyền riêng cho sổ tiền.
