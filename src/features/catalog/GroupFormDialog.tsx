@@ -29,11 +29,12 @@ interface GroupFormDialogProps {
   /** null: tạo mới */
   group: ProductGroup | null;
   onClose: () => void;
-  onDone: (message: string) => void;
+  /** `created`: danh mục vừa tạo (chỉ khi thêm mới) */
+  onDone: (message: string, created?: ProductGroup) => void;
 }
 
 /**
- * Thêm, sửa nhóm hàng (Documents/21 §5.2, FE#350). Mã SKU sinh theo mẫu của công ty, không theo nhóm. Năm ô gợi ý
+ * Thêm, sửa danh mục sản phẩm (Documents/21 §5.2, FE#350; chữ theo Documents/29 mục 2). Mã SKU sinh theo mẫu của công ty, không theo nhóm. Năm ô gợi ý
  * ghi đè gợi ý của công ty; ô trống là theo công ty, chữ mờ hiện giá trị của công ty
  */
 export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialogProps) {
@@ -74,13 +75,13 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
       };
       if (group && platform) {
         await updateMut.mutateAsync({ id: group.id, version, suggest: body.suggest });
-        onDone(`Đã lưu gợi ý của nhóm ${group.name}`);
+        onDone(`Đã lưu gợi ý của danh mục ${group.name}`);
       } else if (group) {
         await updateMut.mutateAsync({ id: group.id, version, ...body });
-        onDone(`Đã cập nhật nhóm hàng ${values.name}`);
+        onDone(`Đã cập nhật danh mục ${values.name}`);
       } else {
-        await createMut.mutateAsync(body);
-        onDone(`Đã tạo nhóm hàng ${values.name}`);
+        const created = await createMut.mutateAsync(body);
+        onDone(`Đã tạo danh mục ${values.name}`, created);
       }
     } catch (e) {
       const problem = getProblem(e);
@@ -88,12 +89,12 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
       if (problem?.code === 'version_conflict' && latest) {
         reset({ name: latest.name, suggest: toSuggestForm(latest.suggest) });
         setVersion(latest.version);
-        setError('Nhóm hàng vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
+        setError('Danh mục vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
         return;
       }
       const fields = problem?.errors ?? {};
       if (problem?.code === 'name_taken') {
-        setFieldError('name', { message: fields.name ?? 'Đã có nhóm hàng cùng tên' });
+        setFieldError('name', { message: fields.name ?? 'Đã có danh mục cùng tên' });
         return;
       }
       const suggestErrors = suggestFieldErrors(fields);
@@ -115,11 +116,11 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{platform ? `Gợi ý của nhóm ${group?.name}` : group ? 'Sửa nhóm hàng' : 'Thêm nhóm hàng'}</DialogTitle>
+          <DialogTitle>{platform ? `Gợi ý của danh mục ${group?.name}` : group ? 'Sửa danh mục' : 'Thêm danh mục'}</DialogTitle>
           <DialogDescription>
             {platform
-              ? 'Nhóm chuẩn của nền tảng: tên và mẫu thông số dùng chung mọi công ty. Gợi ý giá, nhập lại dưới đây chỉ áp cho công ty bạn.'
-              : 'Nhóm hàng dùng để lọc sản phẩm trong app, không ghép sang sàn.'}
+              ? 'Danh mục mặc định của hệ thống: tên và thuộc tính sản phẩm dùng chung mọi công ty. Gợi ý giá, ngưỡng tồn dưới đây chỉ áp cho công ty bạn.'
+              : 'Danh mục dùng để lọc sản phẩm trong app và quyết định thuộc tính sản phẩm cần điền; không ghép sang category của sàn.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -127,32 +128,32 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
 
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="grid gap-4">
-            <FormTextField control={control} name="name" label="Tên nhóm hàng" autoFocus={!platform} disabled={platform} />
+            <FormTextField control={control} name="name" label="Tên danh mục" autoFocus={!platform} disabled={platform} />
             {!platform && sources.length > 0 && (
               <div className="grid gap-2">
-                <Label htmlFor="copy-template">Chép mẫu thông số từ nhóm</Label>
+                <Label htmlFor="copy-template">Dựa trên danh mục</Label>
                 <Select value={copyFrom || 'none'} onValueChange={(v) => setCopyFrom(v === 'none' ? '' : v)} disabled={busy}>
                   <SelectTrigger id="copy-template" className="w-full sm:w-80">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Không chép</SelectItem>
+                    <SelectItem value="none">Không dựa trên danh mục nào</SelectItem>
                     {sources.map((g) => (
                       <SelectItem key={g.id} value={g.id}>
-                        {g.name} · {g.specFieldCount ?? 0} thông số
+                        {g.name} · {g.specFieldCount ?? 0} thuộc tính
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className={replacing ? 'text-sm text-warning-text' : 'text-sm text-muted-foreground'}>
                   {replacing
-                    ? `Mẫu và trục chuẩn đang có của ${group?.name} sẽ bị thay bằng bản chép. Sản phẩm đã có không đổi.`
-                    : 'Chép thông số, cờ bắt buộc, thứ tự và trục chuẩn một lần; sửa nhóm nguồn sau đó không ảnh hưởng nhóm này.'}
+                    ? `Thuộc tính sản phẩm và biến thể theo đang có của ${group?.name} sẽ bị thay bằng bản chép. Sản phẩm đã có không đổi.`
+                    : 'Chép thuộc tính sản phẩm (kể cả cờ bắt buộc, thứ tự) và biến thể theo một lần; sửa danh mục nguồn sau đó không ảnh hưởng danh mục này.'}
                 </p>
               </div>
             )}
             <fieldset className="grid gap-3">
-              <legend className="mb-1 text-sm font-medium">Gợi ý giá và nhập lại</legend>
+              <legend className="mb-1 text-sm font-medium">Gợi ý giá và ngưỡng tồn</legend>
               <p className="text-sm text-muted-foreground">Để trống ô nào thì ô đó theo Cài đặt sản phẩm của công ty.</p>
               <SuggestFields control={control} name="suggest" placeholder={inherited} disabled={busy} />
             </fieldset>

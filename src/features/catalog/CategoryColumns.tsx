@@ -176,7 +176,7 @@ function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pen
     return (
       <div className={cn(frame, 'flex items-center justify-center text-center text-sm text-muted-foreground')} aria-label={`Cấp ${col + 1}`}>
         {col === 0 && !level.data?.syncedAt
-          ? 'Cây category của sàn chưa đồng bộ lần nào. Đồng bộ ở trang Nhóm hàng & thuộc tính.'
+          ? 'Cây category của sàn chưa đồng bộ lần nào. Đồng bộ ở trang Danh mục sản phẩm, tab Category của sàn.'
           : 'Chưa có category con.'}
       </div>
     );

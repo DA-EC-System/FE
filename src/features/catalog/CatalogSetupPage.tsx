@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Link2, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Link2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -15,18 +15,16 @@ import { useAttributes, useDeleteAttribute, useDeleteGroup, useGroups, useSetGro
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useCan, useModuleEnabled } from '@/hooks/usePermission';
+import { useAuth } from '@/hooks/useAuth';
+import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
-import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import { isPlatform, type Attribute, type DataScope, type ProductGroup } from '@/types/catalog';
 import { GroupFormDialog } from './GroupFormDialog';
 import { DeleteGroupDialog } from './DeleteGroupDialog';
-import { SUGGEST_KEYS } from './suggest';
 import { AttributeFormDialog } from './AttributeFormDialog';
 import { PlatformCategoryTab } from './PlatformCategoryTab';
 import { PLATFORM_TABS, isPlatformTab } from './platformCategory';
-import { SpecFieldsTab } from './specs/SpecFieldsTab';
-import { GroupTemplateDialog } from './specs/GroupTemplateDialog';
 import { AxisMappingDialog, AxisMappingLine } from './specs/AxisMappingDialog';
 import { ScopeSection } from './ScopeSection';
 import { splitByScope } from './scope';
@@ -35,20 +33,17 @@ import { AttributeValuesDialog } from './AttributeValuesDialog';
 const SCOPES: DataScope[] = ['platform', 'company'];
 
 type Deleting = { kind: 'group'; item: ProductGroup } | { kind: 'attribute'; item: Attribute };
-type TabKey = 'groups' | 'specs' | 'attributes';
-
-const ADD_LABELS: Record<TabKey, string> = {
-  groups: 'Thêm nhóm hàng',
-  specs: 'Thêm thông số',
-  attributes: 'Thêm thuộc tính phân loại',
-};
 
 /**
- * UC-CP-01: nhóm hàng (FE#350, Documents/21 §5.2), thuộc tính và giá trị.
- * Tab Lazada, TikTok: cây category và attribute của sàn, chỉ đọc (commerio-backend#400).
+ * Danh mục sản phẩm (Documents/29 bước 3, mục 2; Documents/21 §5.2, §5.6). Mỗi danh mục mở trang riêng để sửa thuộc
+ * tính sản phẩm, biến thể theo và ánh xạ sang sàn (`CategoryDetailPage`). Mục cuối liệt kê thuộc tính biến thể và giá trị;
+ * giá trị mới thêm ngay trong form sản phẩm, không có trang riêng (cố vấn chốt 22/11/2026).
+ * Tab theo sàn: cây category và attribute của sàn, chỉ đọc (commerio-backend#400).
  */
 export function CatalogSetupPage() {
   const can = useCan();
+  const companyId = useAuth().companyContext?.companyId ?? '';
+  const navigate = useNavigate();
   const canManage = can(PERMISSIONS.catalogSetup);
   const showPlatforms = useModuleEnabled('channel') && can(PERMISSIONS.shopView);
   const [params, setParams] = useSearchParams();
@@ -64,26 +59,24 @@ export function CatalogSetupPage() {
       },
       { replace: true },
     );
-  const [tab, setTab] = useState<TabKey>('groups');
   const { startTour } = usePageGuide('catalog-setup');
 
-  // Trang cài đặt thấy cả nhóm chuẩn đã ẩn để bật lại
+  // Trang cài đặt thấy cả danh mục mặc định đã ẩn để bật lại
   const groupsQuery = useGroups({ includeHidden: true });
   const hideMut = useSetGroupHidden();
   const attributesQuery = useAttributes();
   const deleteGroup = useDeleteGroup();
   const deleteAttribute = useDeleteAttribute();
 
-  const [groupForm, setGroupForm] = useState<{ item: ProductGroup | null } | null>(null);
-  const [attributeForm, setAttributeForm] = useState<{ item: Attribute | null } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [attributeForm, setAttributeForm] = useState<Attribute | null>(null);
   const [deleting, setDeleting] = useState<Deleting | null>(null);
-  const [templateOf, setTemplateOf] = useState<ProductGroup | null>(null);
-  const [creatingSpec, setCreatingSpec] = useState(false);
   const [axisOf, setAxisOf] = useState<Attribute | null>(null);
-  // Thuộc tính chuẩn: công ty chỉ thêm, xoá giá trị riêng
   const [valuesOf, setValuesOf] = useState<Attribute | null>(null);
-  // Nhóm còn sản phẩm: chuyển hết sang nhóm khác rồi xoá
+  // Danh mục còn sản phẩm: chuyển hết sang danh mục khác rồi xoá
   const [moving, setMoving] = useState<ProductGroup | null>(null);
+
+  const detailHref = (g: ProductGroup) => ROUTES.company.catalogCategory(companyId, g.id);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -95,11 +88,9 @@ export function CatalogSetupPage() {
     } catch (e) {
       const code = problemCode(e);
       if (code === 'in_use' && deleting.kind === 'group') {
-        // Có người vừa thêm sản phẩm vào nhóm: nạp lại số sản phẩm, lần bấm sau mở pop-up chuyển
         void groupsQuery.refetch();
-        toast.warning(`${name} vừa có sản phẩm mới. Bấm Xoá lại để chuyển sản phẩm sang nhóm khác.`);
+        toast.warning(`${name} vừa có sản phẩm mới. Bấm Xoá lại để chuyển sản phẩm sang danh mục khác.`);
       } else if (code === 'in_use') {
-        // V25: kể cả khi chỉ còn sản phẩm đã lưu trữ
         toast.warning(`Không thể xoá ${name} vì đang được sử dụng.`);
       } else if (code === 'version_conflict') {
         toast.warning(`${name} vừa được người khác sửa. Chưa có gì thay đổi, hãy thử lại.`);
@@ -113,173 +104,134 @@ export function CatalogSetupPage() {
   const toggleHidden = async (g: ProductGroup) => {
     try {
       await hideMut.mutateAsync({ id: g.id, hidden: !g.hidden });
-      toast.success(g.hidden ? `Đã hiện lại ${g.name}` : `Đã ẩn ${g.name}. Sản phẩm đang ở nhóm này không đổi.`);
+      toast.success(g.hidden ? `Đã hiện lại ${g.name}` : `Đã ẩn ${g.name}. Sản phẩm đang ở danh mục này không đổi.`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
   };
 
-  const inUseReason = (count: number) =>
-    count > 0 ? `Đang có ${count} sản phẩm dùng (kể cả đã lưu trữ), không xoá được` : null;
-
   const groupColumns = useMemo<ColumnDef<ProductGroup>[]>(
     () => [
       {
         accessorKey: 'name',
-        header: 'Nhóm hàng',
-        meta: { className: 'min-w-40 font-medium' },
+        header: 'Danh mục',
+        meta: { className: 'min-w-44 font-medium' },
         cell: ({ row }) => (
           <span className="inline-flex flex-wrap items-center gap-1.5">
-            <span className={row.original.hidden ? 'text-muted-foreground' : undefined}>{row.original.name}</span>
+            <Link
+              to={detailHref(row.original)}
+              className={row.original.hidden ? 'text-muted-foreground hover:underline' : 'text-primary-text hover:underline'}
+            >
+              {row.original.name}
+            </Link>
             {row.original.hidden && (
-              <Badge variant="outline" title="Không hiện ở form sản phẩm và bộ lọc">
+              <Badge variant="outline" title="Không gợi ý khi tạo sản phẩm, đề nghị nhập hàng">
                 Đã ẩn
               </Badge>
             )}
           </span>
         ),
       },
-      { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
       {
         id: 'axes',
-        header: 'Trục phân loại chuẩn',
+        header: 'Biến thể theo',
         meta: { className: 'min-w-40' },
         cell: ({ row }) =>
           row.original.axes?.length ? (
             row.original.axes.map((a) => a.name).join(', ')
           ) : (
-            <span className="text-muted-foreground">Chưa đặt</span>
+            <span className="text-muted-foreground">Không có biến thể</span>
           ),
       },
       {
         id: 'template',
-        header: 'Mẫu thông số',
-        meta: { className: 'w-40 whitespace-nowrap' },
+        header: 'Thuộc tính sản phẩm',
+        meta: { className: 'w-44 whitespace-nowrap' },
         cell: ({ row }) => {
           const n = row.original.specFieldCount ?? 0;
-          const label = n ? `${n} thông số · ${row.original.requiredCount ?? 0} bắt buộc` : 'Chưa có mẫu';
-          return canManage ? (
-            <button
-              type="button"
-              className="min-h-6 cursor-pointer text-primary-text hover:underline"
-              onClick={() => setTemplateOf(row.original)}
-            >
-              {label}
-            </button>
+          return n ? (
+            `${n} thuộc tính · ${row.original.requiredCount ?? 0} bắt buộc`
           ) : (
-            <span className={n ? undefined : 'text-muted-foreground'}>{label}</span>
+            <span className="text-muted-foreground">Chưa có</span>
           );
         },
       },
+      { accessorKey: 'productCount', header: 'Sản phẩm', meta: { className: 'w-24 text-right tabular-nums' } },
       {
-        id: 'suggest',
-        header: 'Gợi ý',
-        meta: { className: 'w-36 whitespace-nowrap' },
-        cell: ({ row }) => {
-          const own = SUGGEST_KEYS.filter((k) => row.original.suggest[k] !== null).length;
-          return own ? <Badge variant="secondary">Riêng {own}/5 ô</Badge> : <span className="text-muted-foreground">Theo công ty</span>;
-        },
+        id: 'actions',
+        header: '',
+        meta: { className: 'w-32 text-right' },
+        cell: ({ row }) => (
+          <div className="flex justify-end gap-1">
+            <RowAction label={canManage ? 'Mở để sửa' : 'Xem'} onClick={() => navigate(detailHref(row.original))}>
+              <Pencil />
+            </RowAction>
+            {canManage &&
+              (isPlatform(row.original) ? (
+                <RowAction
+                  label={row.original.hidden ? 'Hiện lại danh mục' : 'Ẩn danh mục (không bán)'}
+                  reason={hideMut.isPending ? 'Đang lưu' : null}
+                  onClick={() => void toggleHidden(row.original)}
+                >
+                  {row.original.hidden ? <Eye /> : <EyeOff />}
+                </RowAction>
+              ) : (
+                <RowAction
+                  label="Xoá"
+                  destructive
+                  onClick={() =>
+                    row.original.productCount > 0 ? setMoving(row.original) : setDeleting({ kind: 'group', item: row.original })
+                  }
+                >
+                  <Trash2 />
+                </RowAction>
+              ))}
+          </div>
+        ),
       },
-      {
-        id: 'updatedAt',
-        header: 'Cập nhật',
-        meta: { className: 'w-40 whitespace-nowrap' },
-        cell: ({ row }) => formatDateTime(row.original.updatedAt),
-      },
-      ...(canManage
-        ? [
-            {
-              id: 'actions',
-              header: '',
-              meta: { className: 'w-32 text-right' },
-              cell: ({ row }) =>
-                isPlatform(row.original) ? (
-                  <div className="flex justify-end gap-1">
-                    <RowAction label="Thêm thông số riêng vào mẫu" onClick={() => setTemplateOf(row.original)}>
-                      <ListChecks />
-                    </RowAction>
-                    <RowAction label="Sửa gợi ý giá, nhập lại" onClick={() => setGroupForm({ item: row.original })}>
-                      <Pencil />
-                    </RowAction>
-                    <RowAction
-                      label={row.original.hidden ? 'Hiện lại nhóm' : 'Ẩn nhóm (không bán)'}
-                      reason={hideMut.isPending ? 'Đang lưu' : null}
-                      onClick={() => void toggleHidden(row.original)}
-                    >
-                      {row.original.hidden ? <Eye /> : <EyeOff />}
-                    </RowAction>
-                  </div>
-                ) : (
-                  <div className="flex justify-end gap-1">
-                    <RowAction label="Sửa mẫu thông số" onClick={() => setTemplateOf(row.original)}>
-                      <ListChecks />
-                    </RowAction>
-                    <RowAction label="Sửa" onClick={() => setGroupForm({ item: row.original })}>
-                      <Pencil />
-                    </RowAction>
-                    <RowAction
-                      label="Xoá"
-                      destructive
-                      onClick={() =>
-                        row.original.productCount > 0
-                          ? setMoving(row.original)
-                          : setDeleting({ kind: 'group', item: row.original })
-                      }
-                    >
-                      <Trash2 />
-                    </RowAction>
-                  </div>
-                ),
-            } satisfies ColumnDef<ProductGroup>,
-          ]
-        : []),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- toggleHidden chỉ gọi mutation, đổi theo isPending
-    [canManage, hideMut.isPending],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- detailHref, toggleHidden đổi theo companyId và mutation
+    [canManage, companyId, hideMut.isPending],
   );
 
   const attributeColumns = useMemo<ColumnDef<Attribute>[]>(
     () => [
-      { accessorKey: 'name', header: 'Thuộc tính phân loại', meta: { className: 'w-44 font-medium' } },
+      { accessorKey: 'name', header: 'Thuộc tính biến thể', meta: { className: 'w-44 font-medium' } },
       {
         id: 'values',
         header: 'Giá trị (mã trong SKU)',
         meta: { className: 'min-w-64' },
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
-            {row.original.values.map((v) => (
-              <Badge
-                key={v.id}
-                variant={v.inUse ? 'secondary' : 'outline'}
-                title={
-                  [
-                    isPlatform(row.original) && v.scope === 'company' ? 'Giá trị riêng của công ty' : null,
-                    v.inUse ? 'Đã có variant dùng' : null,
-                  ]
-                    .filter(Boolean)
-                    .join('; ') || undefined
-                }
-              >
-                {v.value}
-                {isPlatform(row.original) && v.scope === 'company' && <span className="text-muted-foreground">riêng</span>}
-                <span className="font-mono text-muted-foreground">{v.code}</span>
-              </Badge>
-            ))}
+            {row.original.values.map((v) => {
+              const own = isPlatform(row.original) && v.scope === 'company';
+              return (
+                <Badge
+                  key={v.id}
+                  variant={v.inUse ? 'secondary' : 'outline'}
+                  title={[own ? 'Giá trị công ty tự thêm' : null, v.inUse ? 'Đã có biến thể dùng' : null].filter(Boolean).join('; ') || undefined}
+                >
+                  {v.value}
+                  <span className="font-mono text-muted-foreground">{v.code}</span>
+                  {own && <span className="text-muted-foreground">tự thêm</span>}
+                </Badge>
+              );
+            })}
           </div>
         ),
       },
-      { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
+      { accessorKey: 'productCount', header: 'Sản phẩm', meta: { className: 'w-24 text-right tabular-nums' } },
       ...(showPlatforms
         ? [
             {
               id: 'axisMapping',
-              header: 'Trục trên sàn',
+              header: 'Trên sàn',
               meta: { className: 'min-w-52' },
               cell: ({ row }) => (
                 <button
                   type="button"
                   className="grid w-full cursor-pointer gap-1 rounded-md text-left hover:bg-muted"
-                  aria-label={`Ghép ${row.original.name} sang phân loại của sàn`}
+                  aria-label={`Ánh xạ ${row.original.name} sang thuộc tính biến thể của sàn`}
                   onClick={() => setAxisOf(row.original)}
                 >
                   {PLATFORM_TABS.map((t) => (
@@ -299,23 +251,27 @@ export function CatalogSetupPage() {
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
                   {showPlatforms && (
-                    <RowAction label="Ghép sang sàn" onClick={() => setAxisOf(row.original)}>
+                    <RowAction label="Ánh xạ sang sàn" onClick={() => setAxisOf(row.original)}>
                       <Link2 />
                     </RowAction>
                   )}
                   {isPlatform(row.original) ? (
-                    <RowAction label="Giá trị riêng của công ty" onClick={() => setValuesOf(row.original)}>
+                    <RowAction label="Giá trị tự thêm của công ty" onClick={() => setValuesOf(row.original)}>
                       <Plus />
                     </RowAction>
                   ) : (
                     <>
-                      <RowAction label="Sửa" onClick={() => setAttributeForm({ item: row.original })}>
+                      <RowAction label="Sửa" onClick={() => setAttributeForm(row.original)}>
                         <Pencil />
                       </RowAction>
                       <RowAction
                         label="Xoá"
                         destructive
-                        reason={inUseReason(row.original.productCount)}
+                        reason={
+                          row.original.productCount > 0
+                            ? `Đang có ${row.original.productCount} sản phẩm dùng (kể cả đã lưu trữ), không xoá được`
+                            : null
+                        }
                         onClick={() => setDeleting({ kind: 'attribute', item: row.original })}
                       >
                         <Trash2 />
@@ -331,36 +287,21 @@ export function CatalogSetupPage() {
     [canManage, showPlatforms],
   );
 
-  const query = tab === 'attributes' ? attributesQuery : groupsQuery;
   const groupsByScope = useMemo(() => splitByScope(groupsQuery.data ?? []), [groupsQuery.data]);
-  const attributesByScope = useMemo(() => splitByScope(attributesQuery.data ?? []), [attributesQuery.data]);
-  const done = (message: string) => {
-    setGroupForm(null);
-    setAttributeForm(null);
-    toast.success(message);
-  };
+  const error = groupsQuery.error ?? attributesQuery.error;
 
   return (
     <div>
       <PageHeader
-        title="Nhóm hàng & thuộc tính"
-        subtitle="Nhóm hàng và mẫu thông số để dựng form sản phẩm; thuộc tính phân loại để tạo variant."
-        help="Nhóm hàng, thông số và thuộc tính chia hai mục. Chuẩn nền tảng: 12 nhóm kèm mẫu thông số, trục phân loại, thư viện thông số và ánh xạ sàn, dùng chung mọi công ty; công ty không sửa, không xoá, nhưng thêm được thông số riêng vào mẫu, lựa chọn riêng, giá trị riêng, và ẩn nhóm không bán. Của công ty: phần công ty tự tạo. Thông số (chất liệu, công dụng…) định nghĩa một lần ở tab Thông số, nhóm nào cần thì thêm vào mẫu. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Mỗi nhóm đặt được gợi ý giá, gợi ý nhập lại riêng, để trống thì theo Cài đặt sản phẩm. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
+        title="Danh mục sản phẩm"
+        subtitle="Danh mục quyết định thuộc tính sản phẩm cần điền và biến thể gợi ý khi tạo sản phẩm."
+        help="Danh mục mặc định của hệ thống dùng chung mọi công ty: không đổi tên, không xoá, nhưng thêm được thuộc tính sản phẩm riêng, lựa chọn riêng, và ẩn danh mục không bán. Danh mục tự tạo thì sửa, xoá tuỳ ý. Mở một danh mục để sửa thuộc tính sản phẩm, biến thể theo, ánh xạ sang sàn và gợi ý giá, ngưỡng tồn. Thuộc tính biến thể (màu, cỡ…) liệt kê ở cuối trang; giá trị mới thêm ngay khi tạo sản phẩm."
         onTour={startTour}
         action={
           canManage && source === 'commerio' ? (
-            <Button
-              data-guide="catalog-add"
-              onClick={() =>
-                tab === 'groups'
-                  ? setGroupForm({ item: null })
-                  : tab === 'specs'
-                    ? setCreatingSpec(true)
-                    : setAttributeForm({ item: null })
-              }
-            >
+            <Button data-guide="catalog-add" onClick={() => setCreating(true)}>
               <Plus />
-              {ADD_LABELS[tab]}
+              Thêm danh mục
             </Button>
           ) : null
         }
@@ -369,67 +310,54 @@ export function CatalogSetupPage() {
       <Tabs value={source} onValueChange={setSource}>
         {showPlatforms && (
           <TabsList className="mb-3">
-            <TabsTrigger value="commerio">Trong app</TabsTrigger>
+            <TabsTrigger value="commerio">Danh mục sản phẩm</TabsTrigger>
             {PLATFORM_TABS.map((t) => (
               <TabsTrigger key={t.platform} value={t.platform}>
-                {t.label}
+                Category {t.label}
               </TabsTrigger>
             ))}
           </TabsList>
         )}
-        <TabsContent value="commerio">
-          {query.isError && (
-            <AlertMessage severity="error" className="mb-4">
-              {getErrorMessage(query.error)}
-            </AlertMessage>
-          )}
-
-          <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-            <TabsList>
-              <TabsTrigger value="groups" data-guide="catalog-categories">
-                Nhóm hàng
-              </TabsTrigger>
-              <TabsTrigger value="specs">Thông số</TabsTrigger>
-              <TabsTrigger value="attributes" data-guide="catalog-attributes">
-                Thuộc tính phân loại
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="groups" className="grid gap-6">
-              {SCOPES.map((scope) => {
-                const rows = groupsByScope[scope];
-                const hidden = rows.filter((g) => g.hidden).length;
-                return (
-                  <ScopeSection key={scope} scope={scope} count={rows.length} note={hidden ? `${hidden} đang ẩn` : undefined}>
-                    <DataTable
-                      columns={groupColumns}
-                      data={rows}
-                      getRowId={(r) => r.id}
-                      loading={groupsQuery.isLoading}
-                      fetching={groupsQuery.isFetching}
-                      empty={scope === 'platform' ? 'Chưa có nhóm chuẩn' : 'Chưa có nhóm riêng. Bấm "Thêm nhóm hàng" để tạo.'}
-                    />
-                  </ScopeSection>
-                );
-              })}
-            </TabsContent>
-            <TabsContent value="specs">
-              <SpecFieldsTab canManage={canManage} showMapping={showPlatforms} creating={creatingSpec} onCloseCreate={() => setCreatingSpec(false)} />
-            </TabsContent>
-            <TabsContent value="attributes" className="grid gap-6">
-              {SCOPES.map((scope) => (
-                <ScopeSection key={scope} scope={scope} count={attributesByScope[scope].length}>
+        <TabsContent value="commerio" className="grid gap-6">
+          {error && <AlertMessage severity="error">{getErrorMessage(error)}</AlertMessage>}
+          {SCOPES.map((scope) => {
+            const rows = groupsByScope[scope];
+            const hidden = rows.filter((g) => g.hidden).length;
+            return (
+              <div key={scope} data-guide={scope === 'platform' ? 'catalog-categories' : undefined}>
+                <ScopeSection scope={scope} count={rows.length} note={hidden ? `${hidden} đang ẩn` : undefined}>
                   <DataTable
-                    columns={attributeColumns}
-                    data={attributesByScope[scope]}
+                    columns={groupColumns}
+                    data={rows}
                     getRowId={(r) => r.id}
-                    loading={attributesQuery.isLoading}
-                    fetching={attributesQuery.isFetching}
-                    empty={scope === 'platform' ? 'Chưa có thuộc tính chuẩn' : 'Chưa có thuộc tính riêng'}
+                    loading={groupsQuery.isLoading}
+                    fetching={groupsQuery.isFetching}
+                    empty={scope === 'platform' ? 'Chưa có danh mục mặc định' : 'Chưa có danh mục tự tạo. Bấm "Thêm danh mục" để tạo.'}
                   />
                 </ScopeSection>
-              ))}
-            </TabsContent>
-          </Tabs>
+              </div>
+            );
+          })}
+          <section aria-labelledby="variant-attrs" className="grid gap-2" data-guide="catalog-attributes">
+            <div>
+              <h2 id="variant-attrs" className="text-base font-semibold">
+                Thuộc tính biến thể
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Thứ phân biệt các biến thể, như màu sắc, kích cỡ. Giá trị mới thêm ngay khi tạo hoặc sửa sản phẩm.
+              </p>
+            </div>
+            <div className="rounded-lg border bg-card">
+              <DataTable
+                columns={attributeColumns}
+                data={attributesQuery.data ?? []}
+                getRowId={(r) => r.id}
+                loading={attributesQuery.isLoading}
+                fetching={attributesQuery.isFetching}
+                empty="Chưa có thuộc tính biến thể"
+              />
+            </div>
+          </section>
         </TabsContent>
         {showPlatforms &&
           PLATFORM_TABS.map((t) => (
@@ -440,21 +368,16 @@ export function CatalogSetupPage() {
       </Tabs>
 
       <GroupFormDialog
-        open={Boolean(groupForm)}
-        group={groupForm?.item ?? null}
-        onClose={() => setGroupForm(null)}
-        onDone={done}
-      />
-      {/* Thuộc tính chuẩn: trục trên sàn do nền tảng đặt (Documents/21 §18.8.1 "Hai tầng") */}
-      <AxisMappingDialog attribute={axisOf} canEdit={canManage && !(axisOf && isPlatform(axisOf))} onClose={() => setAxisOf(null)} />
-      <GroupTemplateDialog
-        group={templateOf}
-        onClose={() => setTemplateOf(null)}
-        onDone={(message) => {
-          setTemplateOf(null);
+        open={creating}
+        group={null}
+        onClose={() => setCreating(false)}
+        onDone={(message, created) => {
+          setCreating(false);
           toast.success(message);
+          if (created) navigate(ROUTES.company.catalogCategory(companyId, created.id));
         }}
       />
+      <AxisMappingDialog attribute={axisOf} canEdit={canManage && !(axisOf && isPlatform(axisOf))} onClose={() => setAxisOf(null)} />
       <DeleteGroupDialog
         group={moving}
         groups={(groupsQuery.data ?? []).filter((g) => !g.hidden)}
@@ -467,14 +390,17 @@ export function CatalogSetupPage() {
       <AttributeValuesDialog attribute={valuesOf} onClose={() => setValuesOf(null)} />
       <AttributeFormDialog
         open={Boolean(attributeForm)}
-        attribute={attributeForm?.item ?? null}
+        attribute={attributeForm}
         onClose={() => setAttributeForm(null)}
-        onDone={done}
+        onDone={(message) => {
+          setAttributeForm(null);
+          toast.success(message);
+        }}
       />
 
       <ConfirmDialog
         open={Boolean(deleting)}
-        title={deleting?.kind === 'group' ? 'Xoá nhóm hàng?' : 'Xoá thuộc tính phân loại?'}
+        title={deleting?.kind === 'group' ? 'Xoá danh mục?' : 'Xoá thuộc tính biến thể?'}
         message={
           <>
             Bạn sắp xoá <strong>{deleting?.item.name}</strong>. Hành động này không thể hoàn tác.

@@ -178,14 +178,14 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       <PageHeader
         title="Sản phẩm"
         subtitle="Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU."
-        help="Mỗi sản phẩm thuộc một nhóm hàng; mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm. Thuộc tính phân loại tạo ở trang Nhóm hàng & thuộc tính."
+        help="Mỗi sản phẩm thuộc một danh mục sản phẩm; mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm. Thuộc tính sản phẩm của từng danh mục sửa ở trang Danh mục sản phẩm."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">
             {canSetup && (
               <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
                 <Settings2 />
-                Nhóm hàng & thuộc tính
+                Danh mục sản phẩm
               </Button>
             )}
             {canManage && (

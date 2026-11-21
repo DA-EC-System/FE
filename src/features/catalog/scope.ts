@@ -1,14 +1,14 @@
 import type { DataScope } from '@/types/catalog';
 
-/** Tiêu đề và mô tả hai tầng dữ liệu (dữ liệu chung, Documents/21 §5.6) */
+/** Tiêu đề và mô tả hai tầng dữ liệu (Documents/21 §5.6; chữ theo Documents/29 mục 2) */
 export const SCOPE_TEXT: Record<DataScope, { title: string; hint: string }> = {
   platform: {
-    title: 'Chuẩn nền tảng',
-    hint: 'Dùng chung mọi công ty, nền tảng cập nhật. Công ty không sửa, không xoá; thêm được phần riêng.',
+    title: 'Mặc định của hệ thống',
+    hint: 'Soạn sẵn, dùng chung mọi công ty. Không sửa, không xoá được; thêm được phần riêng của công ty.',
   },
   company: {
-    title: 'Của công ty',
-    hint: 'Công ty tự tạo, sửa, xoá.',
+    title: 'Tự tạo',
+    hint: 'Công ty tự thêm, sửa, xoá được.',
   },
 };
 

@@ -52,6 +52,8 @@ export const ROUTES = {
     catalogProduct: (companyId: string, productId: string, spec?: string) =>
       `/c/${companyId}/catalog/products/${productId}${spec ? `?spec=${encodeURIComponent(spec)}` : ''}`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
+    /** Trang một danh mục sản phẩm: thuộc tính sản phẩm, biến thể theo, ánh xạ sàn (Documents/29 bước 3) */
+    catalogCategory: (companyId: string, groupId: string) => `/c/${companyId}/catalog/setup/categories/${groupId}`,
     /** Cài đặt sản phẩm (FE#350): route tạm dưới catalog, menu ở nhóm Quản trị */
     productSettings: (companyId: string) => `/c/${companyId}/catalog/settings`,
     inventory: (companyId: string) => `/c/${companyId}/inventory`,

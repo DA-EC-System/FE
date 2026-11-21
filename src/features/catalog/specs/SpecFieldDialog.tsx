@@ -19,7 +19,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCreateSpecField, useUpdateSpecField } from '@/api/catalog.api';
+import { useAddTemplateField, useCreateSpecField, useUpdateSpecField } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -64,14 +64,21 @@ interface SpecFieldDialogProps {
   field: SpecField | null;
   onClose: () => void;
   onDone: (message: string) => void;
+  /**
+   * Tạo mới rồi gắn ngay vào mẫu danh mục này, một giao dịch (`POST /catalog/groups/:id/template/fields`,
+   * Documents/21 §5.6). Có thêm ô "Bắt buộc". Bỏ trống: chỉ tạo vào thư viện
+   */
+  attachTo?: { groupId: string; groupName: string; version: number };
 }
 
 /**
  * Thông số trong thư viện của công ty (Documents/21 §5.5). Không đổi được kiểu nhập sau khi tạo; lựa chọn đang có sản
  * phẩm dùng thì không xoá được.
  */
-export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialogProps) {
+export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: SpecFieldDialogProps) {
   const createMut = useCreateSpecField();
+  const attachMut = useAddTemplateField();
+  const [required, setRequired] = useState(false);
   const updateMut = useUpdateSpecField();
   const [error, setError] = useState<string | null>(null);
   const [current, setCurrent] = useState<SpecField | null>(field);
@@ -86,6 +93,7 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
       reset(toForm(field));
       setCurrent(field);
       setError(null);
+      setRequired(false);
     }
   }, [open, field, reset]);
 
@@ -105,7 +113,21 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
           ...(unit !== undefined && { unit }),
           ...(options && { options }),
         });
-        onDone(`Đã cập nhật thông số ${values.name}`);
+        onDone(`Đã cập nhật thuộc tính ${values.name}`);
+      } else if (attachTo) {
+        await attachMut.mutateAsync({
+          groupId: attachTo.groupId,
+          version: attachTo.version,
+          required,
+          field: {
+            name: values.name,
+            input: values.input,
+            allowCustom: hasOptions(values.input) && values.allowCustom,
+            ...(unit !== undefined && { unit }),
+            ...(options && { options: options.map((o) => ({ value: o.value })) }),
+          },
+        });
+        onDone(`Đã thêm thuộc tính ${values.name} vào ${attachTo.groupName}`);
       } else {
         await createMut.mutateAsync({
           name: values.name,
@@ -114,7 +136,7 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
           ...(unit !== undefined && { unit }),
           ...(options && { options: options.map((o) => ({ value: o.value })) }),
         });
-        onDone(`Đã tạo thông số ${values.name}`);
+        onDone(`Đã tạo thuộc tính ${values.name}`);
       }
     } catch (e) {
       const problem = getProblem(e);
@@ -122,7 +144,15 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
       if (problem?.code === 'version_conflict' && latest) {
         reset(toForm(latest));
         setCurrent(latest);
-        setError('Thông số vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
+        setError('Thuộc tính vừa được người khác sửa. Form đã hiện bản mới nhất, chưa có gì thay đổi.');
+        return;
+      }
+      if (problem?.code === 'version_conflict' && attachTo) {
+        setError('Danh mục vừa được người khác sửa. Đóng hộp này rồi thử lại.');
+        return;
+      }
+      if (problem?.code === 'name_taken') {
+        setFieldError('name', { message: problem.errors?.name ?? 'Đã có thuộc tính cùng tên. Chọn thuộc tính đó trong danh sách có sẵn.' });
         return;
       }
       const errs = problem?.errors ?? {};
@@ -139,16 +169,18 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
     }
   });
 
-  const busy = createMut.isPending || updateMut.isPending;
+  const busy = createMut.isPending || updateMut.isPending || attachMut.isPending;
   const optionsError = formState.errors.options?.message ?? formState.errors.options?.root?.message;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{field ? `Sửa thông số ${field.name}` : 'Thêm thông số'}</DialogTitle>
+          <DialogTitle>
+            {field ? `Sửa thuộc tính ${field.name}` : attachTo ? `Thêm thuộc tính vào ${attachTo.groupName}` : 'Thêm thuộc tính sản phẩm'}
+          </DialogTitle>
           <DialogDescription>
-            Định nghĩa một lần, mọi nhóm hàng dùng lại. Nhóm nào cần thì thêm vào mẫu của nhóm.
+            Thuộc tính tạo một lần, danh mục khác của công ty chọn lại được, không phải tạo lại.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +188,7 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
 
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="grid min-h-0 gap-4">
-            <FormTextField control={control} name="name" label="Tên thông số" placeholder="Chất liệu" autoFocus />
+            <FormTextField control={control} name="name" label="Tên thuộc tính" placeholder="Chất liệu" autoFocus />
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={control}
@@ -180,7 +212,7 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
                     </Select>
                     {field && (
                       <p className="text-xs text-muted-foreground">
-                        Không đổi được sau khi tạo. Muốn kiểu khác thì tạo thông số mới.
+                        Không đổi được sau khi tạo. Muốn kiểu khác thì tạo thuộc tính mới.
                       </p>
                     )}
                     <FormMessage />
@@ -267,6 +299,12 @@ export function SpecFieldDialog({ open, field, onClose, onDone }: SpecFieldDialo
               </div>
             )}
 
+            {attachTo && (
+              <label className="flex min-h-6 items-center gap-2 text-sm">
+                <Checkbox checked={required} onCheckedChange={(v) => setRequired(v === true)} disabled={busy} />
+                Bắt buộc: thiếu thì sản phẩm còn "Chờ hoàn thiện" (vẫn lưu được)
+              </label>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
                 Huỷ

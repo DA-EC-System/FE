@@ -38,6 +38,7 @@ import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
 import { ProductFormPage } from '@/features/catalog/ProductFormPage';
 import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
+import { CategoryDetailPage } from '@/features/catalog/CategoryDetailPage';
 import { ProductSettingsPage } from '@/features/catalog/ProductSettingsPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { StockDocPage } from '@/features/inventory/StockDocPage';
@@ -250,6 +251,14 @@ export const router = createBrowserRouter([
                     element: (
                       <RequireModule module="catalog" anyPermission={CATALOG_SETUP_ANY}>
                         <CatalogSetupPage />
+                      </RequireModule>
+                    ),
+                  },
+                  {
+                    path: 'catalog/setup/categories/:groupId',
+                    element: (
+                      <RequireModule module="catalog" anyPermission={CATALOG_SETUP_ANY}>
+                        <CategoryDetailPage />
                       </RequireModule>
                     ),
                   },

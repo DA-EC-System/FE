@@ -91,7 +91,7 @@ export function SpecOptionsDialog({ field, onClose }: SpecOptionsDialogProps) {
           <>
             <section className="grid gap-2" aria-label="Lựa chọn chuẩn">
               <h3 className="text-sm font-medium">
-                Chuẩn nền tảng <span className="font-normal text-muted-foreground tabular-nums">{platform.length}</span>
+                Mặc định của hệ thống <span className="font-normal text-muted-foreground tabular-nums">{platform.length}</span>
               </h3>
               {platform.length ? (
                 <div className="flex flex-wrap gap-1">
@@ -108,7 +108,7 @@ export function SpecOptionsDialog({ field, onClose }: SpecOptionsDialogProps) {
 
             <section className="grid gap-2" aria-label="Lựa chọn riêng của công ty">
               <h3 className="text-sm font-medium">
-                Của công ty <span className="font-normal text-muted-foreground tabular-nums">{company.length}</span>
+                Tự tạo <span className="font-normal text-muted-foreground tabular-nums">{company.length}</span>
               </h3>
               {company.length ? (
                 <ul className="flex flex-wrap gap-1">

@@ -34,6 +34,7 @@ import type {
   SpecField,
   SpecFieldCreateInput,
   SpecFieldUpdateInput,
+  SpecInputKind,
   SpecOption,
   UploadTicket,
   VariantUpdateInput,
@@ -566,6 +567,26 @@ export function useGroupTemplate(groupId: string | undefined) {
       const { data } = await apiClient.get<GroupTemplate>(`/catalog/groups/${groupId}/template`);
       return data;
     },
+  });
+}
+
+/** Thuộc tính sản phẩm thêm vào mẫu danh mục: tạo mới vào thư viện của công ty, hoặc chọn thuộc tính có sẵn */
+export type TemplateFieldInput =
+  | { field: { name: string; input: SpecInputKind; unit?: string | null; allowCustom: boolean; options?: { value: string }[] } }
+  | { field: { fieldId: string } };
+
+/**
+ * Tạo (hoặc chọn) thuộc tính sản phẩm và gắn vào cuối mẫu danh mục trong một giao dịch:
+ * `POST /catalog/groups/:id/template/fields` (Documents/21 §5.6, Documents/29 bước 3). Đã có trong mẫu: 422 `errors.fieldId`
+ */
+export function useAddTemplateField() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ groupId, ...body }: TemplateFieldInput & { groupId: string; required: boolean; version: number }) => {
+      const { data } = await apiClient.post<GroupTemplate>(`/catalog/groups/${groupId}/template/fields`, body);
+      return data;
+    },
+    onSuccess: invalidate,
   });
 }
 

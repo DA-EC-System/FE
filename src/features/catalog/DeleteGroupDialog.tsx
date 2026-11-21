@@ -104,7 +104,7 @@ export function DeleteGroupDialog({ group, groups, onClose, onDone }: DeleteGrou
             </SelectContent>
           </Select>
           {!targets.length && (
-            <p className="text-sm text-muted-foreground">Chưa có nhóm nào khác. Thêm nhóm hàng mới trước.</p>
+            <p className="text-sm text-muted-foreground">Chưa có danh mục nào khác. Thêm danh mục mới trước.</p>
           )}
         </div>
 

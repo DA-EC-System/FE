@@ -45,35 +45,40 @@ interface SpecMappingDialogProps {
  * lựa chọn riêng của mình, PUT gửi đúng tập mã đang có
  */
 export function SpecMappingDialog({ field, canEdit, onClose }: SpecMappingDialogProps) {
-  const [platform, setPlatform] = useState<string>(PLATFORM_TABS[0].platform);
   return (
     <Dialog open={Boolean(field)} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Ánh xạ {field?.name} sang sàn</DialogTitle>
-          <DialogDescription>
-            Khi đẩy sản phẩm, giá trị {field?.name} tự điền vào attribute đã ánh xạ. Category khác nhau có thể dùng mã khác
-            nhau: xếp nhiều mã theo thứ tự ưu tiên.
-          </DialogDescription>
+          <DialogDescription>{MAPPING_HINT(field?.name ?? '')}</DialogDescription>
         </DialogHeader>
-        {field && (
-          <Tabs value={platform} onValueChange={setPlatform} className="min-h-0">
-            <TabsList>
-              {PLATFORM_TABS.map((t) => (
-                <TabsTrigger key={t.platform} value={t.platform}>
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {PLATFORM_TABS.map((t) => (
-              <TabsContent key={t.platform} value={t.platform} className="min-h-0 overflow-y-auto">
-                <PlatformMapping field={field} platform={t.platform} platformName={t.label} canEdit={canEdit} onClose={onClose} />
-              </TabsContent>
-            ))}
-          </Tabs>
-        )}
+        {field && <SpecMappingTabs field={field} canEdit={canEdit} onClose={onClose} />}
       </DialogContent>
     </Dialog>
+  );
+}
+
+export const MAPPING_HINT = (name: string) =>
+  `Khi đăng sản phẩm, giá trị ${name} tự điền vào attribute đã ánh xạ. Category khác nhau có thể dùng mã khác nhau: xếp nhiều mã theo thứ tự ưu tiên.`;
+
+/** Ánh xạ một thuộc tính sản phẩm, mỗi sàn một tab; nhúng được vào trang (không có `onClose` thì lưu xong ở lại) */
+export function SpecMappingTabs({ field, canEdit, onClose }: { field: SpecField; canEdit: boolean; onClose?: () => void }) {
+  const [platform, setPlatform] = useState<string>(PLATFORM_TABS[0].platform);
+  return (
+    <Tabs value={platform} onValueChange={setPlatform} className="min-h-0">
+      <TabsList>
+        {PLATFORM_TABS.map((t) => (
+          <TabsTrigger key={t.platform} value={t.platform}>
+            {t.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {PLATFORM_TABS.map((t) => (
+        <TabsContent key={t.platform} value={t.platform} className="min-h-0 overflow-y-auto">
+          <PlatformMapping field={field} platform={t.platform} platformName={t.label} canEdit={canEdit} onClose={onClose} />
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 }
 
@@ -88,7 +93,7 @@ function PlatformMapping({
   platform: string;
   platformName: string;
   canEdit: boolean;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   const query = useSpecMappings(platform);
   const saveMut = useSaveSpecMapping(platform);
@@ -139,7 +144,7 @@ function PlatformMapping({
         })),
       });
       toast.success(`Đã lưu ánh xạ ${field.name} sang ${platformName}`);
-      onClose();
+      onClose?.();
     } catch (e) {
       const errs = getProblem(e)?.errors ?? {};
       // codes.<i>.attributeCode: mã trùng, hoặc mã đã ánh xạ cho thông số khác
@@ -248,9 +253,11 @@ function PlatformMapping({
       <p className="text-xs text-muted-foreground">Mỗi mã của {platformName} chỉ nhận từ một thông số.</p>
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose} disabled={saveMut.isPending}>
-          {anyEditable ? 'Huỷ' : 'Đóng'}
-        </Button>
+        {onClose && (
+          <Button type="button" variant="outline" onClick={onClose} disabled={saveMut.isPending}>
+            {anyEditable ? 'Huỷ' : 'Đóng'}
+          </Button>
+        )}
         {anyEditable && codes.length > 0 && (
           <Button type="button" onClick={save} disabled={saveMut.isPending}>
             {saveMut.isPending ? 'Đang lưu...' : `Lưu ánh xạ ${platformName}`}

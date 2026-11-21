@@ -32,6 +32,10 @@ export interface ProductGroup {
   scope?: DataScope;
   /** Nhóm chuẩn công ty đã ẩn (không hiện ở form sản phẩm); nhóm của công ty luôn false */
   hidden?: boolean;
+  /** Danh mục mặc định đổi tên khi gộp dữ liệu chuẩn: tên cũ (Documents/21 §5.7) */
+  renamedFrom?: string | null;
+  /** Danh mục hẹp hơn tách từ danh mục cũ; rỗng là không tách (Documents/21 §5.7) */
+  splitInto?: { id: string; name: string }[];
   /** Kể cả sản phẩm đã lưu trữ */
   productCount: number;
   suggest: SuggestConfig;
@@ -76,7 +80,12 @@ export interface ProductSettingsInput {
 }
 
 /** Loại thuộc tính chuẩn sàn; adapter ghép sang sales attribute theo loại (Documents/21 §18.8.3) */
-export type PlatformKind = 'color' | 'size' | 'volume' | 'flavor';
+/** 23 thuộc tính biến thể chuẩn (Documents/21 §5.7); mã sale prop của từng sàn là hằng của adapter */
+export type PlatformKind =
+  | 'color' | 'size' | 'shoe_size' | 'bra_size' | 'age' | 'ring_size'
+  | 'storage' | 'version' | 'screen_size' | 'connector' | 'length' | 'battery_capacity'
+  | 'voltage' | 'power' | 'volume' | 'weight' | 'flavor' | 'scent'
+  | 'pack' | 'diaper_size' | 'bed_size' | 'style' | 'compatible_model';
 
 export interface AttributeValue {
   id: string;
@@ -443,10 +452,22 @@ export interface GroupTemplateField {
 }
 
 /** Mẫu nhóm hàng; `version` là của nhóm */
+/** Thuộc tính biến thể được phép của danh mục (Documents/21 §5.7): gợi ý và lọc ô chọn, không chặn lưu */
+export interface AllowedAttribute {
+  attributeId: string;
+  name: string;
+  platformKind: string | null;
+  scope?: DataScope;
+  /** Đang là biến thể mặc định (trục chuẩn) của danh mục */
+  isAxis: boolean;
+}
+
 export interface GroupTemplate {
   groupId: string;
   axes: (GroupAxis & { values: SpecOption[] })[];
   fields: GroupTemplateField[];
+  /** BE trước §5.7 chưa trả: coi như mọi thuộc tính đều được */
+  allowedAttributes?: AllowedAttribute[];
   version: number;
 }
 
@@ -455,6 +476,8 @@ export interface GroupTemplateInput {
   axisAttributeIds?: string[];
   /** Thứ tự mảng là thứ tự hiển thị. Nhóm chuẩn: chỉ dòng của công ty */
   fields: { fieldId: string; required: boolean }[];
+  /** Thuộc tính biến thể được phép (§5.7); bỏ trường là giữ. Danh mục mặc định: chỉ phần của công ty */
+  allowedAttributeIds?: string[];
   version: number;
 }
 

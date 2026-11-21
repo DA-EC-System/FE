@@ -26,7 +26,7 @@ interface GroupComboboxProps {
 
 /**
  * Chọn nhóm hàng kiểu seller center: gõ để lọc, không thấy thì "+ Tạo nhóm …" ngay trong danh sách (FE#350).
- * Chia hai mục "Chuẩn nền tảng" và "Của công ty" (Documents/21 §5.6); nhóm chuẩn đã ẩn không có trong `groups`
+ * Chia hai mục "Mặc định của hệ thống" và "Tự tạo" (Documents/21 §5.6); nhóm chuẩn đã ẩn không có trong `groups`
  */
 export function GroupCombobox({ value, onChange, groups, fallback, loading, disabled, invalid, canCreate }: GroupComboboxProps) {
   const [open, setOpen] = useState(false);
