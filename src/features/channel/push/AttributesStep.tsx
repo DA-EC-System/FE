@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -227,9 +226,10 @@ function CategoryTab({ items, label, draft, missingCodes, ...rest }: TabProps & 
       )}
       {optional.length > 0 && (
         <Collapsible>
-          <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-semibold">
-            <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />
+          <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline">
             Không bắt buộc ({optional.length} ô)
+            <span className="font-normal text-primary-text group-data-[state=open]:hidden">· Mở</span>
+            <span className="hidden font-normal text-primary-text group-data-[state=open]:inline">· Thu gọn</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
             <div className="grid gap-3 md:grid-cols-2">{optional.map((a) => card(a))}</div>
@@ -327,8 +327,7 @@ function ProductTab({ items, label, facts, companyId, productId, product, canEdi
       {canEditProduct ? (
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" size="sm" onClick={save} disabled={!dirty || Boolean(brandError) || update.isPending}>
-            {update.isPending && <Loader2 className="animate-spin" />}
-            Lưu vào sản phẩm
+            {update.isPending ? 'Đang lưu…' : 'Lưu vào sản phẩm'}
           </Button>
           {dirty && <span className="text-xs text-muted-foreground">Chưa lưu. Cần lưu trước khi đăng.</span>}
         </div>

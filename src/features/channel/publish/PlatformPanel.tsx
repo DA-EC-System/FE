@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +67,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
         <span className="flex-1" />
         {ready ? (
           <Badge variant="success">
-            <Check className="size-3.5" /> Đủ thông tin
+            Đủ thông tin
           </Badge>
         ) : d.missing.length ? (
           <Badge variant="warning">Còn {d.missing.length} mục</Badge>
@@ -159,7 +158,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
                 </div>
               ) : (
                 <p className="flex items-center gap-1.5 text-sm text-success-text">
-                  <Check className="size-4" /> Không còn attribute bắt buộc nào phải nhập.
+                  Không còn attribute bắt buộc nào phải nhập.
                 </p>
               )}
             </div>
@@ -194,7 +193,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
                         .join(' · ')}
                     </span>
                     <Badge variant="success">
-                      <Check className="size-3.5" /> Tự khớp
+                      Tự khớp
                     </Badge>
                     <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setEditAxes(true)}>
                       Sửa
@@ -207,9 +206,10 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
             {/* Sửa attribute khác (ghi đè phần tự điền, attribute không bắt buộc) */}
             {d.attrs && (
               <Collapsible defaultOpen={otherErrors}>
-                <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-semibold">
-                  <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />
+                <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline">
                   Mọi attribute của category
+                  <span className="font-normal text-primary-text group-data-[state=open]:hidden">· Mở</span>
+                  <span className="hidden font-normal text-primary-text group-data-[state=open]:inline">· Thu gọn</span>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3">
                   <AttributesStep
@@ -245,8 +245,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
 
       <footer className="flex flex-wrap items-center gap-3 border-t px-4 py-3">
         <Button type="button" onClick={() => void d.save()} disabled={!d.draft.externalCategoryId || d.saving || (!d.dirty && Boolean(d.saved.spec))}>
-          {d.saving && <Loader2 className="animate-spin" />}
-          Lưu thông tin {d.label}
+          {d.saving ? 'Đang lưu…' : `Lưu thông tin ${d.label}`}
         </Button>
         {d.dirty && <span className="text-sm text-muted-foreground">Chưa lưu. Lưu xong mới đăng được.</span>}
       </footer>
@@ -324,10 +323,11 @@ function AutoFilled({ d, attrs }: { d: PlatformDraft; attrs: PlatformAttribute[]
   if (!items.length) return null;
   return (
     <Collapsible>
-      <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-semibold">
-        <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />
+      <CollapsibleTrigger className="group flex flex-wrap items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline">
         Đã tự điền {items.length} attribute
         <span className="font-normal text-muted-foreground">· từ thuộc tính sản phẩm, hồ sơ công ty</span>
+        <span className="font-normal text-primary-text group-data-[state=open]:hidden">· Xem</span>
+        <span className="hidden font-normal text-primary-text group-data-[state=open]:inline">· Thu gọn</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2">
         <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
