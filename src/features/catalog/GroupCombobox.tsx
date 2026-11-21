@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -69,7 +68,6 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
           className={cn('w-full justify-between font-normal', !selected && 'text-muted-foreground')}
         >
           <span className="truncate">{loading ? 'Đang tải nhóm hàng…' : (selected?.name ?? 'Chọn nhóm hàng')}</span>
-          <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
@@ -83,8 +81,8 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
                 <CommandGroup key={scope} heading={SCOPE_TEXT[scope].title}>
                   {rows.map((g) => (
                     <CommandItem key={g.id} value={`${g.name} ${g.id}`} onSelect={() => choose(g.id)}>
-                      <Check className={cn(g.id === value ? 'opacity-100' : 'opacity-0')} />
                       {g.name}
+                      {g.id === value && <span className="ml-auto text-xs text-muted-foreground">Đang chọn</span>}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -93,8 +91,7 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
             {canAdd && (
               <CommandGroup forceMount>
                 <CommandItem value={`__new__${name}`} onSelect={add} disabled={create.isPending} forceMount>
-                  {create.isPending ? <Loader2 className="animate-spin" /> : <Plus />}
-                  Tạo nhóm “{name}”
+                  {create.isPending ? `Đang tạo danh mục “${name}”…` : `Tạo danh mục “${name}”`}
                 </CommandItem>
               </CommandGroup>
             )}
