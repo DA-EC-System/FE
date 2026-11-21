@@ -516,7 +516,7 @@ export function ProductFormPage() {
     isNew,
     archived,
     canPublish: can(PERMISSIONS.listingManage),
-    missingCount: missing.length,
+    missing: missing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
   });
   // Xoá hẳn chỉ khi mọi SKU Chờ hoàn thiện (§17.2); BE kiểm thêm chứng từ, listing và trả 409 product_in_use

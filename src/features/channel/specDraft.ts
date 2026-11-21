@@ -9,6 +9,7 @@ import type {
   PlatformAttribute,
   ProductSpec,
   ProductSpecInput,
+  ProductSpecResult,
   SpecMissing,
   SpecMissingReason,
   ResolvedAttribute,
@@ -209,6 +210,30 @@ export function specMissing(
     }
   }
   return out;
+}
+
+/**
+ * "Còn thiếu" của một sàn trên màn Đăng (kiểm người bán 21/11/2026 KB3 3.10). Bản đã lưu, đúng leaf, chưa sửa gì: tin
+ * `missing` của BE, vì BE tính cả giá trị tự điền từ thông số sản phẩm, hồ sơ công ty. Đang sửa, đổi category hoặc chưa
+ * lưu lần nào: tính lại trên giá trị gộp (ghi đè trong nháp > `resolved` của BE cho đúng leaf, Documents/21 §18.8.2).
+ */
+export function draftMissing(input: {
+  draft: SpecDraft;
+  dirty: boolean;
+  saved: Pick<ProductSpecResult, 'spec' | 'missing' | 'resolved'>;
+  /** Kết quả BE cho leaf đang chọn (`GET …/specs/:platform?categoryId=`), khi khác leaf đã lưu */
+  forLeaf: Pick<ProductSpecResult, 'resolved'> | undefined;
+  attrs: PlatformAttribute[] | null;
+  axes: Pick<ProductAxis, 'attributeId' | 'name'>[];
+  facts: ProductFacts;
+  caps: VariantCapabilities | null;
+}): SpecMissing[] {
+  const { draft, saved } = input;
+  if (!draft.externalCategoryId) return [{ code: 'category', label: 'Chưa chọn category', reason: 'category_changed' }];
+  const sameLeaf = Boolean(saved.spec) && saved.spec?.externalCategoryId === draft.externalCategoryId;
+  if (sameLeaf && !input.dirty) return saved.missing;
+  const resolved = sameLeaf ? saved.resolved : input.forLeaf?.resolved;
+  return specMissing(input.attrs, { ...draft, attributes: mergedValues(draft.attributes, resolved) }, input.axes, input.facts, input.caps);
 }
 
 /** Trục phân loại của sản phẩm, đọc từ biến thể chưa lưu trữ; giữ thứ tự xuất hiện */

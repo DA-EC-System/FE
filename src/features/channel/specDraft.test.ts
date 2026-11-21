@@ -3,6 +3,7 @@ import type { PlatformAttribute, ProductSpec } from '@/types/shop';
 import {
   CUSTOM_AXIS,
   draftFromSpec,
+  draftMissing,
   permissionBlocked,
   productAxes,
   profilePatch,
@@ -272,5 +273,31 @@ describe('Nút Lưu chỉ bật khi giá trị thật sự đổi', () => {
     expect(valuesChanged({ mat: 'm9', tags: ['b', 'a'] }, { mat: 'm9' }, resolved)).toBe(false);
     expect(valuesChanged({ mat: 'm9', org: 'Khác' }, { mat: 'm9' }, resolved)).toBe(true);
     expect(valuesChanged({}, { mat: 'm9' }, resolved)).toBe(true);
+  });
+});
+
+describe('draftMissing: tin missing của BE, tính lại có resolved (kiểm người bán KB3 3.10)', () => {
+  const LICENSE = attr({ code: 'license_no', label: 'Số đăng kí', required: true });
+  const attrs = [MATERIAL, LICENSE];
+  const base = { attrs, axes: [], facts: FACTS, caps: null };
+  const fromCatalog = { license_no: { value: 'GP-123', source: 'catalog' as const, fieldId: 'f1' } };
+
+  it('đã lưu, chưa sửa: trả nguyên missing của BE, kể cả khi bản nháp không có giá trị ghi đè', () => {
+    const saved = { spec: spec({ attributes: {} }), missing: [], resolved: fromCatalog };
+    expect(draftMissing({ ...base, draft: draftFromSpec(saved.spec), dirty: false, saved, forLeaf: undefined })).toEqual([]);
+  });
+
+  it('đang sửa: giá trị tự điền từ thông số sản phẩm (nguồn catalog) không bị báo thiếu', () => {
+    const saved = { spec: spec({ attributes: {} }), missing: [], resolved: fromCatalog };
+    const draft = { ...draftFromSpec(saved.spec), attributes: {} };
+    expect(draftMissing({ ...base, draft, dirty: true, saved, forLeaf: undefined }).map((m) => m.code)).toEqual(['material']);
+  });
+
+  it('đổi category: dùng resolved của leaf mới; chưa chọn category thì thiếu category', () => {
+    const saved = { spec: spec(), missing: [], resolved: {} };
+    const draft = { ...draftFromSpec(saved.spec), externalCategoryId: '999', attributes: { material: 'm1' } };
+    expect(draftMissing({ ...base, draft, dirty: true, saved, forLeaf: { resolved: fromCatalog } })).toEqual([]);
+    expect(draftMissing({ ...base, draft, dirty: true, saved, forLeaf: undefined }).map((m) => m.code)).toEqual(['license_no']);
+    expect(draftMissing({ ...base, draft: { ...draft, externalCategoryId: '' }, dirty: true, saved, forLeaf: undefined })[0]?.code).toBe('category');
   });
 });

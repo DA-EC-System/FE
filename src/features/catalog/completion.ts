@@ -99,13 +99,14 @@ export function publishBlocker(input: {
   isNew: boolean;
   archived: boolean;
   canPublish: boolean;
-  missingCount: number;
+  /** Nhãn các mục còn thiếu (thanh "Còn thiếu"), để câu lý do ghi rõ mục nào */
+  missing: readonly string[];
   dirty: boolean;
 }): string | null {
   if (input.isNew) return 'Lưu sản phẩm trước rồi mới đăng';
   if (input.archived) return 'Sản phẩm đã lưu trữ';
   if (!input.canPublish) return 'Bạn không có quyền đăng sản phẩm lên gian hàng';
-  if (input.missingCount) return `Còn thiếu ${input.missingCount} mục để đăng`;
+  if (input.missing.length) return `Còn thiếu ${input.missing.length} mục để đăng: ${input.missing.join(', ')}`;
   if (input.dirty) return 'Lưu thay đổi trước rồi mới đăng';
   return null;
 }
