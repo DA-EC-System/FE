@@ -20,6 +20,7 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { priceTextSchema } from '@/utils/price';
 import type { ProductDetail, ProductVariant, VariantUpdateInput } from '@/types/catalog';
+import { copyFieldsText, siblingToCopy } from './siblingCopy';
 
 /** Ô số nguyên dương, trống là chưa có (null) */
 const positiveInt = (max: number, tooBig: string) =>
@@ -72,12 +73,14 @@ interface VariantSpecDialogProps {
   productId: string;
   /** null là đóng */
   variant: ProductVariant | null;
+  /** Các SKU của sản phẩm, để gợi ý chép số từ SKU cùng sản phẩm (KB3 3.9) */
+  siblings?: readonly ProductVariant[];
   onClose: () => void;
   onDone: (message: string) => void;
 }
 
 /** FE#154, FE#260 (D7, D9): giá chuẩn, giá muốn bán, cân nặng, kích thước gói là cột của SKU; gọi PATCH §17.2 */
-export function VariantSpecDialog({ productId, variant, onClose, onDone }: VariantSpecDialogProps) {
+export function VariantSpecDialog({ productId, variant, siblings = [], onClose, onDone }: VariantSpecDialogProps) {
   const updateMut = useUpdateVariant();
   const [error, setError] = useState<string | null>(null);
   // Version gửi kèm; đổi khi 409 nạp bản mới
@@ -130,6 +133,17 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
   });
 
   const busy = updateMut.isPending;
+  // Gợi ý theo số đã lưu của SKU này; bấm chép thì điền ô trống, vẫn phải bấm Lưu (Documents/25 §5.3)
+  const copy = variant ? siblingToCopy(variant, siblings) : null;
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => setCopied(null), [variantId]);
+  const applyCopy = () => {
+    if (!copy) return;
+    for (const f of copy.fields) {
+      if (!String(form.getValues(f) ?? '').trim()) form.setValue(f, String(copy.from[f]), { shouldDirty: true, shouldValidate: true });
+    }
+    setCopied(copy.from.sku);
+  };
 
   return (
     <Dialog open={Boolean(variant)} onOpenChange={(next) => !next && !busy && onClose()}>
@@ -150,6 +164,15 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
                 Thực nhận mong muốn, cân nặng và kích thước đóng gói cần đủ để đăng bán và tính phí vận chuyển. Để trống là chưa có.
               </DialogDescription>
             </DialogHeader>
+            {copy && !copied && (
+              <AlertMessage severity="info">
+                SKU {copy.from.sku} cùng sản phẩm đã có {copyFieldsText(copy.fields)}.{' '}
+                <Button type="button" variant="outline" size="sm" className="ms-1" onClick={applyCopy}>
+                  Chép vào ô trống
+                </Button>
+              </AlertMessage>
+            )}
+            {copied && <p className="text-sm text-muted-foreground">Đã chép từ {copied}. Kiểm lại rồi bấm Lưu.</p>}
             <FormTextField
               control={control}
               name="standardPrice"

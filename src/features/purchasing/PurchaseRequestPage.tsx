@@ -1062,8 +1062,10 @@ function OrderDialog({
           Số lượng chưa nhận được cộng vào Hàng đang về của từng SKU. Kho tạo phiếu nhập kho khi hàng tới.
         </p>
         <div className="grid gap-1.5">
-          <Label htmlFor="order-date">Ngày giao dự kiến</Label>
-          <Input id="order-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={Boolean(error)} />
+          <Label htmlFor="order-date">
+            Ngày giao dự kiến<span className="text-destructive"> *</span>
+          </Label>
+          <Input id="order-date" type="date" required aria-required value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={Boolean(error)} />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <div className="grid gap-1.5">

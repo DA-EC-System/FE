@@ -47,6 +47,7 @@ import {
   formatQty,
   newProductConfirmText,
   newProductPlan,
+  prefillFullDelivery,
   receiptFormSchema,
   shortOfDraft,
   type ReceiptFormInput,
@@ -141,9 +142,20 @@ export function GoodsReceiptPage() {
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
   const loaded = useRef<string | null>(null);
 
+  const [prefilled, setPrefilled] = useState(false);
+
   const load = (latest: GoodsReceipt) => {
     loaded.current = latest.id;
-    reset(toForm(latest));
+    const values = toForm(latest);
+    reset(values);
+    // Phiếu vừa lập, chưa đếm dòng nào: điền sẵn như hàng về đủ, người dùng chỉ sửa dòng lệch (KB3 3.7). Đánh dấu đã sửa
+    // để Lưu, Nhập kho gửi số này lên
+    const fill = canManage && latest.status === 'counting' ? prefillFullDelivery(values.lines) : null;
+    fill?.forEach((f, i) => {
+      setValue(`lines.${i}.announced`, f.announced, { shouldDirty: true });
+      setValue(`lines.${i}.accepted`, f.accepted, { shouldDirty: true });
+    });
+    setPrefilled(Boolean(fill));
     setAttachments(latest.attachments);
     setAttachmentsDirty(false);
     setVersion(latest.version);
@@ -341,6 +353,12 @@ export function GoodsReceiptPage() {
           {notice.msg}
         </AlertMessage>
       )}
+      {prefilled && editable && (
+        <AlertMessage severity="info" className="mb-4" onClose={() => setPrefilled(false)}>
+          Đã điền sẵn SL NCC giao và SL đạt bằng số còn phải nhận. Chỉ sửa dòng giao thiếu, có hàng lỗi hoặc trả lại, rồi bấm
+          Nhập kho.
+        </AlertMessage>
+      )}
       {pendingNew > 0 && (
         <AlertMessage severity="info" className="mb-4">
           Phiếu có {pendingNew} dòng là sản phẩm mới. Bấm Nhập kho thì dòng có SL đạt hoặc Lỗi, giữ lại tạo biến thể; dòng chưa
@@ -527,7 +545,7 @@ export function GoodsReceiptPage() {
                       return Number.isInteger(v) && v >= 0 ? v : 0;
                     };
                     const diff = receiptDiff({
-                      outstanding: f.outstanding,
+                      outstanding: editable ? f.outstanding : null,
                       announced: num('announced'),
                       accepted: num('accepted'),
                       defectKept: num('defectKept'),
