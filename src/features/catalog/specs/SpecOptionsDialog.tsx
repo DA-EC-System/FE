@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -117,13 +118,13 @@ export function SpecOptionsDialog({ field, onClose }: SpecOptionsDialogProps) {
                         {o.value}
                         <button
                           type="button"
-                          className="inline-flex min-h-6 px-1.5 text-destructive cursor-pointer items-center justify-center rounded-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                           aria-label={o.inUse ? `${o.value} đang có sản phẩm dùng, không xoá được` : `Xoá ${o.value}`}
                           title={o.inUse ? 'Đang có sản phẩm dùng, không xoá được' : `Xoá ${o.value}`}
                           disabled={busy || o.inUse}
                           onClick={() => void remove(o.id, o.value)}
                         >
-                          Xoá
+                          <X className="size-3.5" />
                         </button>
                       </Badge>
                     </li>
