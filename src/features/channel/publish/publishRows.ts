@@ -117,6 +117,14 @@ export function rowBlocker(view: PriceView, platformReady: boolean): string | nu
   return null;
 }
 
+/** Chữ của ô "Tồn sẽ đẩy" (Documents/21 §18.9 R3, cùng nghĩa với `match-preview`); không chặn đăng */
+export function stockToPushText(row: Pick<ProductListingRow, 'stockToPush' | 'stockHeldReason'>): string {
+  if (row.stockToPush !== null) return row.stockToPush.toLocaleString('vi-VN');
+  if (row.stockHeldReason === 'shop_waiting_opening') return 'Chờ kiểm kê lần đầu';
+  if (row.stockHeldReason === 'not_counted') return 'Chưa có số tồn';
+  return '—';
+}
+
 /** Giá từ–đến của một sản phẩm trên một sàn, cho thẻ xem trước */
 export function priceRange(prices: readonly (number | null)[]): { min: number; max: number } | null {
   const xs = prices.filter((p): p is number => p !== null);

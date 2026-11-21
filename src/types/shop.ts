@@ -346,6 +346,12 @@ export interface ListingRow {
   belowFloor: boolean | null;
   /** Tổng phí và thuế của gian hàng trên 50% */
   feeWarning: 'over_50' | null;
+  /**
+   * Số tồn lần đẩy tồn tới sẽ gửi cho SKU này ở gian hàng này (Documents/21 §18.9 R3); null khi chưa đẩy được tồn, lý do
+   * (nếu có) ở `stockHeldReason`
+   */
+  stockToPush: number | null;
+  stockHeldReason: 'shop_waiting_opening' | 'not_counted' | null;
   listing: ChannelListing | null;
   /** Đường dẫn category của listing trên sàn, tra trong cây đã đồng bộ; null khi chưa rõ (§18.5, commerio-backend#467) */
   externalCategoryPath?: string | null;

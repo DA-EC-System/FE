@@ -57,6 +57,8 @@ const row = (variantId: string, productId: string, l: ChannelListing | null, thu
   netReceived: null,
   belowFloor: null,
   feeWarning: null,
+  stockToPush: null,
+  stockHeldReason: null,
   listing: l,
   specStatus: 'complete',
 });

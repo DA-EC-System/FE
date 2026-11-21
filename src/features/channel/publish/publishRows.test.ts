@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChannelListing, PriceQuoteRow, ProductListingRow } from '@/types/shop';
-import { feePct, initialSelection, isOnPlatform, priceRange, priceView, rowBlocker, selectedPlatforms, shopSummary } from './publishRows';
+import { feePct, initialSelection, isOnPlatform, priceRange, priceView, rowBlocker, selectedPlatforms, shopSummary, stockToPushText } from './publishRows';
 
 const row = (over: Partial<ProductListingRow> = {}): ProductListingRow =>
   ({
@@ -113,5 +113,15 @@ describe('priceRange', () => {
   it('bỏ giá null; không có giá nào thì null', () => {
     expect(priceRange([200, null, 100])).toEqual({ min: 100, max: 200 });
     expect(priceRange([null])).toBeNull();
+  });
+});
+
+describe('stockToPushText (§18.9 R3)', () => {
+  it('có số thì hiện số; giữ tồn thì ghi lý do; không đọc được số thì gạch', () => {
+    expect(stockToPushText({ stockToPush: 1200, stockHeldReason: null })).toBe('1.200');
+    expect(stockToPushText({ stockToPush: null, stockHeldReason: 'shop_waiting_opening' })).toBe('Chờ kiểm kê lần đầu');
+    expect(stockToPushText({ stockToPush: null, stockHeldReason: 'not_counted' })).toBe('Chưa có số tồn');
+    expect(stockToPushText({ stockToPush: null, stockHeldReason: null })).toBe('—');
+    expect(stockToPushText({ stockToPush: 0, stockHeldReason: null })).toBe('0');
   });
 });
