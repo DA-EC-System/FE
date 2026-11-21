@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -8,7 +9,7 @@ import { DataTable } from '@/components/common/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { RowTextAction } from '@/components/common/RowAction';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteRole, useRoles } from '@/api/identity.api';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
@@ -19,6 +20,35 @@ import { missingPermissions, PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import type { Role } from '@/types/identity';
 import { RoleFormDialog } from './RoleFormDialog';
+
+function IconAction({
+  label,
+  onClick,
+  children,
+  destructive,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  destructive?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={destructive ? 'size-8 text-destructive hover:text-destructive' : 'size-8'}
+          aria-label={label}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** UC-PI-06: vai trò mặc định và vai trò tự tạo của công ty */
 export function RolesPage() {
@@ -92,22 +122,22 @@ export function RolesPage() {
       {
         id: 'actions',
         header: () => <span className="sr-only">Hành động</span>,
-        meta: { className: 'w-40 whitespace-nowrap' },
+        meta: { className: 'w-28' },
         cell: ({ row: { original: r } }) =>
           readOnlyReason(r) ? (
             <div className="flex gap-1" data-guide="roles-actions">
-              <RowTextAction label="Xem quyền" onClick={() => setForm({ role: r })}>
-                Xem
-              </RowTextAction>
+              <IconAction label="Xem quyền" onClick={() => setForm({ role: r })}>
+                <Eye />
+              </IconAction>
             </div>
           ) : (
             <div className="flex gap-1" data-guide="roles-actions">
-              <RowTextAction label="Sửa" onClick={() => setForm({ role: r })}>
-                Sửa
-              </RowTextAction>
-              <RowTextAction label="Xoá" destructive onClick={() => setDeleting(r)}>
-                Xoá
-              </RowTextAction>
+              <IconAction label="Sửa" onClick={() => setForm({ role: r })}>
+                <Pencil />
+              </IconAction>
+              <IconAction label="Xoá" destructive onClick={() => setDeleting(r)}>
+                <Trash2 />
+              </IconAction>
             </div>
           ),
       },
@@ -127,6 +157,7 @@ export function RolesPage() {
         action={
           canManage ? (
             <Button onClick={() => setForm({ role: null })} data-guide="roles-create">
+              <Plus />
               Tạo vai trò
             </Button>
           ) : null

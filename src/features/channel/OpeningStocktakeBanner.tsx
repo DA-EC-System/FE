@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { RotateCcw } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { useRestartOpeningStocktake } from '@/api/shops.api';
@@ -68,6 +69,7 @@ export function OpeningStocktakeBanner({ shop, companyId }: { shop: Shop; compan
       </span>
       {canRestart && (
         <Button size="sm" variant="outline" className="ms-3" disabled={restart.isPending} onClick={onRestart}>
+          <RotateCcw />
           Lập lại phiếu kiểm kho
         </Button>
       )}

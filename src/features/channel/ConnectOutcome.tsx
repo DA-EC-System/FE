@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import { Check, Circle, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { CompanyRef } from '@/api/problemMessages';
@@ -24,10 +25,16 @@ export function ConnectSteps({ steps, current }: { steps: string[]; current: num
               tone === 'done' && 'text-foreground-2',
             )}
           >
-            <span className="flex-1">{label}</span>
-            <span className="text-xs text-muted-foreground">
-              {tone === 'done' ? 'Xong' : tone === 'run' ? 'Đang chạy…' : 'Chờ'}
+            <span className="grid size-5 place-items-center" aria-hidden>
+              {tone === 'done' ? (
+                <Check className="size-4 text-success" strokeWidth={3} />
+              ) : tone === 'run' ? (
+                <Loader2 className="size-4 animate-spin text-primary" />
+              ) : (
+                <Circle className="size-3.5 text-faint" />
+              )}
             </span>
+            {label}
           </li>
         );
       })}
@@ -39,14 +46,15 @@ export function ConnectSteps({ steps, current }: { steps: string[]; current: num
 
 type Tone = 'ok' | 'bad' | 'warn' | 'neutral';
 const TONE: Record<Tone, string> = {
-  ok: 'text-success',
-  bad: 'text-destructive',
-  warn: 'text-warning',
-  neutral: 'text-foreground',
+  ok: 'bg-success-soft text-success',
+  bad: 'bg-destructive-soft text-destructive',
+  warn: 'bg-warning-soft text-warning',
+  neutral: 'bg-muted text-muted-foreground',
 };
 
 export interface ResultScreenProps {
   tone: Tone;
+  icon: ComponentType<{ className?: string }>;
   title: string;
   description: ReactNode;
   /** Ô thông tin dạng nhãn nhỏ / giá trị */
@@ -58,11 +66,14 @@ export interface ResultScreenProps {
   outcome: string;
 }
 
-export function ResultScreen({ tone, title, description, facts, children, actions, outcome }: ResultScreenProps) {
+export function ResultScreen({ tone, icon: Icon, title, description, facts, children, actions, outcome }: ResultScreenProps) {
   return (
     <Card className="mx-auto mt-2 w-full max-w-[600px] items-center px-4 py-7 text-center sm:px-7 sm:py-9" data-outcome={outcome}>
+      <span aria-hidden className={cn('grid size-16 place-items-center rounded-full', TONE[tone])}>
+        <Icon className="size-7" />
+      </span>
       <div className="grid gap-1.5">
-        <h2 className={cn('text-xl font-semibold tracking-tight', TONE[tone])}>{title}</h2>
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
         <p className="mx-auto max-w-[46ch] text-muted-foreground">{description}</p>
       </div>
       {facts && facts.length > 0 && (

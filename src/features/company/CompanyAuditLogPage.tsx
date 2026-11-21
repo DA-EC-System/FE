@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
+import { FileSearch } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SelfApprovedTag } from '@/components/common/SelfApprovedTag';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -142,6 +143,7 @@ export function CompanyAuditLogPage() {
               setSelectedId(row.original.id);
             }}
           >
+            <FileSearch />
             Chi tiết
           </Button>
         ),

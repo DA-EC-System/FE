@@ -1,8 +1,9 @@
+import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lifecycleSteps, type LifecycleInput, type StepTone } from './lifecycle';
 
 /*
- * Kiểu .steps của Test_UI (FE#129): số tròn 24px; bước xong nền xanh; bước hiện tại viền vàng
+ * Kiểu .steps của Test_UI (FE#129): số tròn 24px; bước xong nền xanh có dấu ✓; bước hiện tại viền vàng
  * nhấp nháy nhẹ (--warning); bước lỗi viền đỏ; vạch nối tô xanh chạy từ trái sang khi bước đã qua.
  * Chuyển động tắt khi người dùng chọn prefers-reduced-motion (styles/index.css).
  */
@@ -52,7 +53,13 @@ export function LifecycleSteps<S extends string>({
                   DOT[tone],
                 )}
               >
-                {tone === 'bad' ? '!' : k + 1}
+                {tone === 'done' ? (
+                  <Check className="size-3.5" strokeWidth={3} aria-hidden />
+                ) : tone === 'bad' ? (
+                  <X className="size-3.5" strokeWidth={3} aria-hidden />
+                ) : (
+                  k + 1
+                )}
               </span>
               <span className={cn('ms-2 h-0.5 flex-1 rounded-full', line(steps[k + 1]?.tone))} />
             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import {
@@ -111,6 +112,7 @@ export function AddVariantDialog({
 
         {loading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+            <Loader2 className="size-4 animate-spin" />
             Đang tải thuộc tính…
           </p>
         ) : !productAttributes.length ? (

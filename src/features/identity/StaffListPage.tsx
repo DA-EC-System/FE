@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { Lock, LockOpen, UserCog, UserPlus } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -154,26 +155,26 @@ export function StaffListPage() {
             {
               id: 'actions',
               header: () => <span className="sr-only">Hành động</span>,
-              meta: { className: 'w-56 whitespace-nowrap' },
+              meta: { className: 'w-24' },
               cell: ({ row: { original: m } }) => {
                 const reason = protectedReason(m, account?.id, callerIsCeo);
                 const locked = m.status === 'locked';
                 return (
                   <div className="flex gap-1">
                     <span className="inline-flex" data-guide="staff-roles">
-                      <RowTextAction label="Đổi vai trò" reason={reason} onClick={() => setEditing(m)}>
-                        Đổi vai trò
-                      </RowTextAction>
+                      <RowAction label="Đổi vai trò" reason={reason} onClick={() => setEditing(m)}>
+                        <UserCog />
+                      </RowAction>
                     </span>
                     <span className="inline-flex" data-guide="staff-lock">
-                    <RowTextAction
+                    <RowAction
                       label={locked ? 'Mở khoá' : 'Tạm khoá'}
                       reason={reason}
                       destructive={!locked}
                       onClick={() => setLocking(m)}
                     >
-                      {locked ? 'Mở khoá' : 'Tạm khoá'}
-                    </RowTextAction>
+                      {locked ? <LockOpen /> : <Lock />}
+                    </RowAction>
                     </span>
                   </div>
                 );
@@ -199,6 +200,7 @@ export function StaffListPage() {
         action={
           canManage ? (
             <Button onClick={() => setInviteOpen(true)} data-guide="staff-invite">
+              <UserPlus />
               Mời nhân viên
             </Button>
           ) : null

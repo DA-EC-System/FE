@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { Check, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useDecideInvitation } from '@/api/identity.api';
@@ -155,26 +156,26 @@ export function PendingInvitations({
             {
               id: 'actions',
               header: () => <span className="sr-only">Hành động</span>,
-              meta: { className: 'w-40 whitespace-nowrap' },
+              meta: { className: 'w-24' },
               cell: ({ row: { original: inv } }) => {
                 const busy = decide.isPending && decide.variables?.id === inv.id;
                 return (
                   <div className="flex gap-1">
-                    <RowTextAction
+                    <RowAction
                       label="Duyệt"
                       reason={approveLockReason(inv, callerIsCeo) ?? (busy ? 'Đang xử lý' : null)}
                       onClick={() => run(inv, 'approve')}
                     >
-                      Duyệt
-                    </RowTextAction>
-                    <RowTextAction
+                      <Check />
+                    </RowAction>
+                    <RowAction
                       label="Từ chối"
                       destructive
                       reason={busy ? 'Đang xử lý' : null}
                       onClick={() => setRejecting(inv)}
                     >
-                      Từ chối
-                    </RowTextAction>
+                      <X />
+                    </RowAction>
                   </div>
                 );
               },

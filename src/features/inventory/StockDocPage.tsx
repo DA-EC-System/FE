@@ -3,13 +3,14 @@ import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { ArrowLeft, Loader2, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
@@ -381,6 +382,7 @@ export function StockDocPage() {
       <div className="grid justify-items-start gap-4">
         <AlertMessage severity="warning">Bạn không có quyền tạo phiếu kho.</AlertMessage>
         <Button variant="outline" onClick={backToList}>
+          <ArrowLeft />
           Về danh sách phiếu
         </Button>
       </div>
@@ -391,6 +393,7 @@ export function StockDocPage() {
       <div className="grid justify-items-start gap-4">
         <AlertMessage severity="error">{getErrorMessage(docQuery.error)}</AlertMessage>
         <Button variant="outline" onClick={backToList}>
+          <ArrowLeft />
           Về danh sách phiếu
         </Button>
       </div>
@@ -399,7 +402,7 @@ export function StockDocPage() {
   if (!isNew && !doc) {
     return (
       <div className="flex justify-center py-16">
-        <span className="text-sm text-muted-foreground" role="status">Đang tải…</span>
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -439,10 +442,12 @@ export function StockDocPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={backToList}>
+              <ArrowLeft />
               Quay lại
             </Button>
             {editable && (
               <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
+                <Save />
                 Lưu nháp
               </Button>
             )}
@@ -618,7 +623,7 @@ export function StockDocPage() {
                   )}
                   {!isStocktake && !isInspection && <TableHead className="w-40 text-right">Số lượng</TableHead>}
                   {showCost && <TableHead className="w-40 text-right">Giá vốn</TableHead>}
-                  {editable && <TableHead className="w-16" />}
+                  {editable && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -714,9 +719,9 @@ export function StockDocPage() {
                       {editable && (
                         <TableCell>
                           {(!isInspection || wrongSku) && (
-                            <RowTextAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
-                              Bỏ
-                            </RowTextAction>
+                            <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                              <Trash2 />
+                            </RowAction>
                           )}
                         </TableCell>
                       )}

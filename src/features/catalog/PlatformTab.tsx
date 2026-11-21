@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowUpRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -361,9 +362,8 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                   )}
                   <Collapsible>
                     <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                      <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
                       Giá trị tự điền lấy từ đâu
-                      <span className="font-normal group-data-[state=closed]:hidden">(thu gọn)</span>
-                      <span className="font-normal group-data-[state=open]:hidden">(mở)</span>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <ol className="grid list-decimal gap-0.5 pt-1 pl-9 text-xs text-muted-foreground">
@@ -413,9 +413,8 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 {groups.other.length > 0 && (
                   <Collapsible>
                     <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-sm font-semibold">
+                      <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
                       Không bắt buộc, đã điền ({groups.other.length})
-                      <span className="font-normal text-muted-foreground group-data-[state=closed]:hidden">(thu gọn)</span>
-                      <span className="font-normal text-muted-foreground group-data-[state=open]:hidden">(mở)</span>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="grid gap-3 pt-3">
                       <div className="grid gap-3 md:grid-cols-2">
@@ -559,6 +558,7 @@ function PushLink({ href }: { href: string }) {
     <Button asChild variant="link" size="sm" className="h-auto p-0">
       <Link to={href}>
         Sửa trên trang đẩy
+        <ArrowUpRight aria-hidden />
       </Link>
     </Button>
   );
@@ -576,6 +576,7 @@ function SourceBadge({ source, label, platformName, onJump }: { source: BadgeSou
         className="relative inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-sm border border-primary-border bg-accent px-1.5 py-0.5 text-xs font-medium text-primary-text after:absolute after:-inset-1.5 hover:border-primary"
       >
         {label}
+        <ArrowUpRight className="size-3.5" aria-hidden />
       </button>
     );
   }
@@ -653,6 +654,7 @@ function CategoryNotes({
       )}
       {drift.map((d) => (
         <p key={`${d.shopId}/${d.externalProductId}`} className="flex flex-wrap items-start gap-1 text-xs">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
           <span>Trên {shopName(d.shopId)} đang ở:</span>
           {d.fromPath ? <CategoryPath path={d.fromPath} /> : <span className="font-mono">{d.fromId}</span>}
         </p>
@@ -923,6 +925,7 @@ function SalesTable({ companyId, platform, rows }: { companyId: string; platform
         <Button asChild variant="link" size="sm" className="h-auto p-0">
           <Link to={ROUTES.company.shop(companyId, shop.shopId)}>
             Mở gian hàng
+            <ArrowUpRight aria-hidden />
           </Link>
         </Button>
       </div>

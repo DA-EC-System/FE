@@ -1,3 +1,4 @@
+import { ArrowLeftRight, Building2, LockKeyhole, Timer, UserRoundX, X } from 'lucide-react';
 import { getProblem } from '@/api/client';
 import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { companyMismatchMessage, isCompanyRef, isShopRef, problemSummary, type CompanyRef } from '@/api/problemMessages';
@@ -69,6 +70,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'declined',
         tone: 'bad',
+        icon: X,
         title: `Bạn đã từ chối uỷ quyền trên ${platformLabel(failure.platform, platformName)}`,
         description:
           'Chưa kết nối gian hàng nào. Commerio chưa có quyền gì trên gian hàng này, bạn có thể thử lại bất cứ lúc nào.',
@@ -78,6 +80,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'no_state',
         tone: 'warn',
+        icon: Timer,
         title: 'Hãy bắt đầu kết nối từ Commerio',
         description: `Hãy bấm Kết nối ${name} trong Commerio, không uỷ quyền từ ${platformInfo(failure.platform)?.authorizePortal ?? 'trang của sàn'}.`,
       };
@@ -86,6 +89,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'state_invalid',
         tone: 'warn',
+        icon: Timer,
         title: 'Phiên kết nối đã hết hạn',
         description:
           'Phiên kết nối đã hết hạn hoặc không hợp lệ. Liên kết uỷ quyền chỉ dùng được một lần, trong thời gian ngắn; bắt đầu lại để lấy liên kết mới.',
@@ -95,6 +99,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'mismatch',
         tone: 'warn',
+        icon: UserRoundX,
         title:
           failure.expected && failure.actual
             ? token
@@ -110,9 +115,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
           failure.expected && failure.actual ? (
             <div className="flex w-full flex-wrap items-stretch justify-center gap-3 text-start" data-testid="mismatch-compare">
               <ShopBox label="Gian hàng cần kết nối" shop={failure.expected} />
-              <span className="self-center text-sm text-muted-foreground" aria-hidden>
-                so với
-              </span>
+              <ArrowLeftRight className="size-5 self-center text-muted-foreground" aria-hidden />
               <ShopBox label={token ? 'Gian hàng của token' : 'Gian hàng vừa đăng nhập'} shop={failure.actual} miss />
             </div>
           ) : undefined,
@@ -122,6 +125,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'elsewhere',
         tone: 'bad',
+        icon: LockKeyhole,
         title: 'Gian hàng này đang kết nối ở một công ty khác',
         description:
           'Một gian hàng trên sàn chỉ kết nối với một công ty trong Commerio, để đơn và tồn không bị hai bên cùng đổi. Commerio không cho biết đó là công ty nào.',
@@ -137,6 +141,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'company_mismatch',
         tone: 'warn',
+        icon: Building2,
         title:
           failure.expected && failure.actual
             ? `Bạn đang mở ${failure.actual.name}, không phải ${failure.expected.name}`
@@ -146,9 +151,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
           failure.expected && failure.actual ? (
             <div className="flex w-full flex-wrap items-stretch justify-center gap-3 text-start" data-testid="company-compare">
               <CompanyBox label="Bắt đầu kết nối ở" company={failure.expected} />
-              <span className="self-center text-sm text-muted-foreground" aria-hidden>
-                so với
-              </span>
+              <ArrowLeftRight className="size-5 self-center text-muted-foreground" aria-hidden />
               <CompanyBox label="Đang mở" company={failure.actual} miss />
             </div>
           ) : undefined,
@@ -157,6 +160,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
       return {
         outcome: 'error',
         tone: 'bad',
+        icon: X,
         title: 'Chưa kết nối được gian hàng',
         description: failure.message,
         children: <PlatformDetail text={failure.platformMessage} className="justify-items-center" />,
@@ -168,6 +172,7 @@ export function failureScreen(failure: ConnectFailure, platformName?: string): O
 export const NO_COMPANY_SCREEN: Omit<ResultScreenProps, 'actions'> = {
   outcome: 'no_company',
   tone: 'warn',
+  icon: Building2,
   title: 'Không xác định được công ty',
   description:
     'Không xác định được công ty đang kết nối gian hàng. Có thể bạn đã đổi công ty ở tab khác. Chọn đúng công ty rồi kết nối lại.',

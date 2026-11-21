@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Info } from 'lucide-react';
 import { useOnboarding } from '@/api/onboarding.api';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
@@ -38,10 +39,12 @@ export function WelcomeReturnBar({ stepKey, finished, className }: { stepKey: On
       data-testid="welcome-return-bar"
       role="status"
     >
+      <Info className="size-4 shrink-0 text-primary" aria-hidden />
       <span className="min-w-0 flex-1">
         Thiết lập ban đầu, bước {n}/{required.length}. Xong việc ở trang này sẽ tự về hướng dẫn.
       </span>
       <Link to={welcome} className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline">
+        <ArrowLeft className="size-4" aria-hidden />
         Quay lại hướng dẫn
       </Link>
     </div>

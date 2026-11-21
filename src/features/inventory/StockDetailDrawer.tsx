@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -71,7 +72,7 @@ export function StockDetailBody({
     <div className={cn('grid gap-4', className)}>
       {query.isLoading && (
         <div className="flex justify-center py-12">
-          <span className="text-sm text-muted-foreground" role="status">Đang tải…</span>
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
       )}
       {query.isError && <AlertMessage severity="error">{getErrorMessage(query.error)}</AlertMessage>}

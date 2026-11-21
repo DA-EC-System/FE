@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
+import { X } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
@@ -381,6 +382,7 @@ export function LedgerPage() {
               {orderId && (
                 <Button variant="outline" size="sm" className="self-end" onClick={() => f.update({ orderId: undefined, page: undefined })}>
                   Đang lọc theo đơn{ledger.data?.items[0]?.orderCode ? ` ${ledger.data.items[0].orderCode}` : ''}
+                  <X />
                 </Button>
               )}
             </FilterBar>

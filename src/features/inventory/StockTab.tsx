@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { ClipboardPlus, History, Pencil, TriangleAlert } from 'lucide-react';
 import { SkuCode } from '@/components/common/SkuCode';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -156,9 +157,11 @@ export function StockTab() {
               {r.belowMin && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-xs font-medium text-destructive-text" tabIndex={0} data-testid="below-min">
-                      Cần nhập thêm
-                    </span>
+                    <TriangleAlert
+                      className="size-4 text-destructive"
+                      aria-label="Cần nhập thêm"
+                      data-testid="below-min"
+                    />
                   </TooltipTrigger>
                   <TooltipContent>
                     Có thể bán + hàng đang về − thiếu cho đơn ≤ tồn tối thiểu {formatQty(r.minQty ?? 0)}: cần nhập thêm
@@ -173,7 +176,7 @@ export function StockTab() {
       {
         id: 'minQty',
         header: 'Tồn tối thiểu',
-        meta: { className: 'w-44 text-right whitespace-nowrap' },
+        meta: { className: 'w-28 text-right' },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -182,9 +185,9 @@ export function StockTab() {
                 {r.minQty === null ? '—' : formatQty(r.minQty)}
               </span>
               {canReorder && (
-                <RowTextAction label={`Đặt ngưỡng tồn ${r.sku}`} onClick={() => setEditing(r)}>
-                  Sửa
-                </RowTextAction>
+                <RowAction label="Đặt tồn tối thiểu" onClick={() => setEditing(r)}>
+                  <Pencil />
+                </RowAction>
               )}
             </div>
           );
@@ -210,17 +213,17 @@ export function StockTab() {
       {
         id: 'actions',
         header: '',
-        meta: { className: 'w-44 text-right whitespace-nowrap' },
+        meta: { className: 'w-20 text-right' },
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
             {canRequest && row.original.belowMin && (
-              <RowTextAction label={`Thêm ${row.original.sku} vào đề nghị nhập hàng`} onClick={() => setRequesting(row.original)}>
-                Nhập thêm
-              </RowTextAction>
+              <RowAction label="Thêm vào đơn đặt hàng nhập" onClick={() => setRequesting(row.original)}>
+                <ClipboardPlus />
+              </RowAction>
             )}
-            <RowTextAction label={`Xem thẻ kho ${row.original.sku}`} onClick={() => setViewing(row.original.variantId)}>
-              Thẻ kho
-            </RowTextAction>
+            <RowAction label="Xem thẻ kho" onClick={() => setViewing(row.original.variantId)}>
+              <History />
+            </RowAction>
           </div>
         ),
       },

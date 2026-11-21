@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Lock, Store } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -185,6 +186,11 @@ export function AddShopDialog({ open, companyId, onClose }: AddShopDialogProps) 
                           )}
                         >
                           <span className="flex items-center gap-2 font-medium">
+                            {p.connectable ? (
+                              <Store className="size-4 text-primary" />
+                            ) : (
+                              <Lock className="size-4 text-muted-foreground" />
+                            )}
                             {p.name}
                           </span>
                           {!p.connectable ? (

@@ -1,5 +1,6 @@
 import { PaymentStatusBadge } from '@/features/finance/PaymentStatusBadge';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -271,6 +272,7 @@ export function OrderListPage() {
         action={
           canSync ? (
             <Button variant="outline" onClick={() => void syncOrders()} disabled={Boolean(syncReason)} title={syncReason}>
+              <RefreshCw className={cn(syncing && 'animate-spin')} />
               {shopId ? 'Đồng bộ đơn gian hàng này' : 'Đồng bộ đơn'}
             </Button>
           ) : undefined
@@ -340,14 +342,14 @@ export function OrderListPage() {
           />
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             className="md:ms-auto"
             aria-label={full ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
             title={full ? 'Thoát toàn màn hình (Esc)' : 'Toàn màn hình'}
             aria-pressed={full}
             onClick={() => setFull((v) => !v)}
           >
-            {full ? 'Thu nhỏ' : 'Toàn màn hình'}
+            {full ? <Minimize2 /> : <Maximize2 />}
           </Button>
         </FilterBar>
         <DataTable

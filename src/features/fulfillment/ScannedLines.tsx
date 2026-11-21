@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -92,13 +93,13 @@ export function ScannedLines({
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
-                          className="h-8 px-2"
+                          size="icon"
+                          className="size-8"
                           aria-label={`Bỏ ${r.sku}`}
                           disabled={disabled}
                           onClick={() => onChange(rows.filter((_, j) => j !== i))}
                         >
-                          Bỏ
+                          <X className="size-4" />
                         </Button>
                       )}
                     </TableCell>

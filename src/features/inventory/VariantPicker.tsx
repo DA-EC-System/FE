@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
@@ -55,12 +56,14 @@ export function VariantPicker({
       <Popover open={open && !disabled} onOpenChange={setOpen}>
         <PopoverAnchor asChild>
           <div className="relative">
+            <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id={id}
               role="combobox"
               aria-expanded={open}
               aria-controls={`${id}-list`}
               autoComplete="off"
+              className="ps-8"
               placeholder="Tìm theo tên hoặc SKU"
               value={input}
               disabled={disabled}
@@ -101,6 +104,7 @@ export function VariantPicker({
           <ul id={`${id}-list`} role="listbox" className="max-h-72 overflow-y-auto">
             {query.isFetching && !options.length && (
               <li className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
                 Đang tìm...
               </li>
             )}

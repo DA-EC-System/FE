@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
+import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect } from '@/components/common/FilterBar';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Card } from '@/components/ui/card';
 import { useDeadJobs, useRetryDeadJob } from '@/api/companySettings.api';
 import { useShops } from '@/api/shops.api';
@@ -77,11 +78,11 @@ export function DeadJobsPage() {
       {
         id: 'actions',
         header: '',
-        meta: { className: 'w-28 whitespace-nowrap text-right' },
+        meta: { className: 'w-16 text-right' },
         cell: ({ row }) => (
-          <RowTextAction label="Chạy lại" onClick={() => setRetrying(row.original)}>
-            Chạy lại
-          </RowTextAction>
+          <RowAction label="Chạy lại" onClick={() => setRetrying(row.original)}>
+            <RotateCcw />
+          </RowAction>
         ),
       },
     ],

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ArrowLeft, Check, PackageCheck, RotateCcw } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -112,6 +113,7 @@ export function PackScanPage() {
         onTour={startTour}
         action={
           <Button variant="outline" onClick={toDetail}>
+            <ArrowLeft />
             Về kiện hàng
           </Button>
         }
@@ -142,6 +144,7 @@ export function PackScanPage() {
               Ghi nhận
             </Button>
             <Button type="button" variant="ghost" size="lg" className="h-14" onClick={() => setScanned({})}>
+              <RotateCcw />
               Quét lại từ đầu
             </Button>
           </form>
@@ -212,6 +215,7 @@ export function PackScanPage() {
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           {l.untracked && key && n < l.quantity && (
                             <Button type="button" size="sm" variant="outline" onClick={() => putInBox(key)}>
+                              <Check />
                               Đã cho vào hộp
                             </Button>
                           )}
@@ -248,6 +252,7 @@ export function PackScanPage() {
           )}
           <div className="mt-4 flex justify-end" data-guide="pack-submit">
             <Button disabled={!complete || needsCarrier || command.isPending} onClick={pack}>
+              <PackageCheck />
               Đóng gói
             </Button>
           </div>

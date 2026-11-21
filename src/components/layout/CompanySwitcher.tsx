@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeftRight, Check, ChevronsUpDown } from 'lucide-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import {
   DropdownMenu,
@@ -66,6 +67,7 @@ export function CompanySwitcher() {
             >
               <BrandLogo size={30} />
               <BrandText title={companyContext.companyName} subtitle="Commerio" />
+              <ChevronsUpDown className="ms-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -92,13 +94,14 @@ export function CompanySwitcher() {
                       {m.roles.join(', ')}
                     </span>
                   </div>
-                  {current && <span className="ml-auto text-xs text-muted-foreground">Đang chọn</span>}
+                  {current && <Check className="ms-auto" />}
                 </DropdownMenuItem>
               );
             })}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="gap-2 p-2">
               <Link to={ROUTES.selectCompany}>
+                <ArrowLeftRight />
                 Tất cả công ty
               </Link>
             </DropdownMenuItem>

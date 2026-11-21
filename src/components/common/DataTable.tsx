@@ -7,6 +7,7 @@ import {
   type ColumnDefTemplate,
   type RowData,
 } from '@tanstack/react-table';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -233,23 +234,23 @@ function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 5
       <div className="flex items-center gap-1">
         <Button
           variant="outline"
-          size="sm"
-          className="h-8 px-2"
+          size="icon"
+          className="size-8"
           aria-label="Trang trước"
           disabled={page <= 1}
           onClick={() => onChange(page - 1, pageSize)}
         >
-          Trước
+          <ChevronLeft />
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className="h-8 px-2"
+          size="icon"
+          className="size-8"
           aria-label="Trang sau"
           disabled={page >= pageCount}
           onClick={() => onChange(page + 1, pageSize)}
         >
-          Sau
+          <ChevronRight />
         </Button>
       </div>
     </div>

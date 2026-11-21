@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, BarChart3, Check, PackagePlus, UserPlus, type LucideIcon } from 'lucide-react';
 import { Panel } from '@/components/common/Panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useOnboarding } from '@/api/onboarding.api';
 import { ROUTES } from '@/router/routes';
+import type { OnboardingKey } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { onboardingSteps, optionalSteps, requiredSteps, showOnboarding, type OnboardingStep } from './onboardingSteps';
 
@@ -26,6 +28,12 @@ function writeCollapsed(companyId: string, collapsed: boolean) {
     // Trình duyệt chặn bộ nhớ (cửa sổ ẩn danh): chỉ không nhớ được, bảng vẫn dùng được
   }
 }
+
+const OPTIONAL_ICON: Partial<Record<OnboardingKey, LucideIcon>> = {
+  first_product: PackagePlus,
+  invite_staff: UserPlus,
+  enable_report: BarChart3,
+};
 
 /**
  * Ở Tổng quan (US-CT-13, Documents/21 mục 23): dải "Còn n việc trước khi bắt đầu bán" khi còn mục bắt buộc, và bảng
@@ -85,6 +93,7 @@ function ResumeBand({ companyId, done, total, steps }: { companyId: string; done
       <Button asChild className="justify-self-start sm:justify-self-end">
         <Link to={ROUTES.company.welcome(companyId)}>
           Tiếp tục thiết lập
+          <ArrowRight />
         </Link>
       </Button>
     </section>
@@ -123,25 +132,36 @@ export function OptionalTodoList({ steps, className }: { steps: OnboardingStep[]
   return (
     <ul className={cn('divide-y', className)} data-testid="onboarding-list">
       {steps.map((s) => {
+        const Icon = s.done ? Check : (OPTIONAL_ICON[s.key] ?? ArrowRight);
         return (
           <li
             key={s.key}
             data-key={s.key}
             data-done={s.done}
-            className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3"
+            className="group grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3"
           >
+            <span
+              className={cn(
+                'grid size-8 place-items-center rounded-md bg-fill text-muted-foreground',
+                s.done && 'bg-success/15 text-success-text',
+              )}
+            >
+              <Icon className="size-4" aria-hidden />
+            </span>
             <div className="min-w-0">
               <b className="text-[13.5px] font-semibold">{s.label}</b>
               <span className="block text-[12.5px] text-muted-foreground">{s.hint}</span>
             </div>
             {s.done ? (
               <Badge variant="outline" className="border-success/30 bg-success/10 font-normal text-success-text">
+                <Check className="size-3.5" aria-hidden />
                 Xong
               </Badge>
             ) : (
               <Button asChild variant="outline" size="sm">
                 <Link to={s.to}>
                   {s.action}
+                  <ArrowRight className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
                 </Link>
               </Button>
             )}

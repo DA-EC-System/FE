@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ChartLine, Check, MessagesSquare, Sparkles, Store, Truck, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { BlockedReason } from '@/components/common/BlockedReason';
@@ -47,6 +48,14 @@ const MODULE_HELP: Record<OptionalModuleKey, string> = {
   assistant:
     'Câu hỏi cùng dữ liệu liên quan của công ty được gửi tới OpenAI, nên khi bật CEO phải đồng ý gửi dữ liệu. Mật khẩu, mã kết nối gian hàng và thông tin thanh toán không được gửi đi.',
   report: 'Hiện doanh thu, lợi nhuận 7 ngày và biểu đồ doanh thu theo ngày trên trang Tổng quan.',
+};
+
+const MODULE_ICONS: Record<OptionalModuleKey, LucideIcon> = {
+  purchasing: Truck,
+  channel: Store,
+  inbox: MessagesSquare,
+  assistant: Sparkles,
+  report: ChartLine,
 };
 
 const HAS_DATA_NOTE = 'Công ty đã có dữ liệu trong tính năng này nên không tắt được.';
@@ -130,6 +139,7 @@ export function ModuleSettingsPage() {
             </div>
           ))}
         {modulesQuery.data?.map((m) => {
+          const Icon = MODULE_ICONS[m.code];
           const label = MODULE_LABELS[m.code];
           const locked = m.enabled && m.hasData;
           const toggle = (
@@ -146,6 +156,9 @@ export function ModuleSettingsPage() {
               data-module={m.code}
               className="flex items-start gap-3 border-b px-4 py-3 last:border-b-0"
             >
+              <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <Icon className="size-4" />
+              </span>
               <div className="min-w-0 flex-1 space-y-0.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{label}</span>
@@ -192,6 +205,7 @@ export function ModuleSettingsPage() {
         <div className="flex flex-wrap gap-2 p-4" data-testid="core-modules">
           {CORE_MODULES.map((c) => (
             <Badge key={c} variant="outline">
+              <Check />
               {MODULE_LABELS[c]}
             </Badge>
           ))}

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { AlarmClock, Bell, CheckCheck, CircleAlert, CloudOff, Info, PackageMinus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useTasks } from '@/api/tasks.api';
@@ -8,11 +9,17 @@ import { selectNotices, useStockAlertStore, type StockNotice } from '@/stores/st
 import { problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import { docRefPath, ROUTES } from '@/router/routes';
-import type { TaskItem } from '@/types/tasks';
+import type { TaskItem, TaskSeverity } from '@/types/tasks';
 import { formatDateTime } from '@/utils/format';
 
 /** Số việc hiện trong chuông; xem đủ ở trang Tổng quan */
 const SHOWN = 8;
+
+const SEVERITY_ICON: Record<TaskSeverity, { icon: typeof Info; className: string }> = {
+  overdue: { icon: CircleAlert, className: 'bg-destructive-soft text-destructive' },
+  due_soon: { icon: AlarmClock, className: 'bg-warning-soft text-warning' },
+  info: { icon: Info, className: 'bg-fill text-foreground-2' },
+};
 
 /** Gom việc theo nhóm hiển thị, giữ thứ tự BE trả (việc gấp trước) */
 function byGroup(items: TaskItem[]) {
@@ -23,7 +30,7 @@ function byGroup(items: TaskItem[]) {
 
 /**
  * Chuông nhắc việc trên Header, mở panel như `.notif` của Test_UI: tiêu đề, việc gom theo nhóm,
- * mỗi việc có tên việc dẫn tới chứng từ, hạn xử lý.
+ * mỗi việc có icon theo mức gấp, tên việc dẫn tới chứng từ, hạn xử lý.
  */
 export function TaskBell({ companyId }: { companyId: string }) {
   const tasks = useTasks();
@@ -38,13 +45,13 @@ export function TaskBell({ companyId }: { companyId: string }) {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
-          className="relative h-8 rounded-md px-2 pe-4 text-foreground-2 hover:bg-fill"
+          size="icon"
+          className="relative size-8 rounded-md text-foreground-2 hover:bg-fill"
           aria-label={tasks.isError ? 'Việc cần làm: chưa tải được' : `Việc cần làm: ${count}`}
           data-testid="task-bell"
           data-guide="task-bell"
         >
-          Việc
+          <Bell className="size-[18px]" />
           {count > 0 && (
             <span
               className={cn(
@@ -74,6 +81,7 @@ export function TaskBell({ companyId }: { companyId: string }) {
         {tasks.isError ? (
           // Không hiện "Không có việc nào tới hạn" khi chưa đọc được (FE#248)
           <div className="px-4 py-10 text-center text-sm text-muted-foreground" data-testid="task-bell-error">
+            <CloudOff aria-hidden className="mx-auto mb-2 size-7 text-faint" />
             <p className="font-medium text-foreground">Chưa tải được việc cần làm</p>
             <p className="mt-1">{problemMessage(tasks.error)}</p>
           </div>
@@ -92,6 +100,7 @@ export function TaskBell({ companyId }: { companyId: string }) {
           </div>
         ) : (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            <CheckCheck aria-hidden className="mx-auto mb-2 size-7 text-faint" />
             Không có việc nào tới hạn.
           </div>
         )}
@@ -126,7 +135,10 @@ function StockNotices({ notices, companyId }: { notices: StockNotice[]; companyI
       </div>
       <ul className="max-h-48 overflow-y-auto">
         {notices.map((n) => (
-          <li key={n.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-2.5" data-notice-id={n.id}>
+          <li key={n.id} className="grid grid-cols-[32px_minmax(0,1fr)_auto] gap-3 px-4 py-2.5" data-notice-id={n.id}>
+            <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-warning-soft text-warning">
+              <PackageMinus className="size-4" />
+            </span>
             <div className="grid gap-1 text-sm">
               <span className="font-medium">{n.text}</span>
               <span className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -149,10 +161,10 @@ function StockNotices({ notices, companyId }: { notices: StockNotice[]; companyI
             <button
               type="button"
               aria-label="Bỏ thông báo"
-              className="h-6 self-start rounded px-1.5 text-xs text-muted-foreground hover:bg-table-head hover:text-foreground"
+              className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-table-head hover:text-foreground"
               onClick={() => dismiss(n.id)}
             >
-              Bỏ
+              <X className="size-3.5" />
             </button>
           </li>
         ))}
@@ -162,8 +174,12 @@ function StockNotices({ notices, companyId }: { notices: StockNotice[]; companyI
 }
 
 function TaskRow({ task, to }: { task: TaskItem; to: string | null }) {
+  const { icon: Icon, className } = SEVERITY_ICON[task.severity];
   return (
-    <li className="grid gap-3 px-4 py-2.5 transition-colors hover:bg-table-head">
+    <li className="grid grid-cols-[32px_minmax(0,1fr)] gap-3 px-4 py-2.5 transition-colors hover:bg-table-head">
+      <span aria-hidden className={cn('flex size-8 items-center justify-center rounded-full', className)}>
+        <Icon className="size-4" />
+      </span>
       <div className="grid gap-0.5 text-sm">
         {to ? (
           <Link to={to} className="font-medium hover:text-primary-text">

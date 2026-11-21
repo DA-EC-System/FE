@@ -1,3 +1,27 @@
+import {
+  Building,
+  Building2,
+  ClipboardList,
+  History,
+  LayoutDashboard,
+  Package,
+  PackageX,
+  Puzzle,
+  ScrollText,
+  ServerCrash,
+  Settings2,
+  ShieldCheck,
+  ShoppingCart,
+  BookOpenText,
+  Scale,
+  SlidersHorizontal,
+  Store,
+  Tags,
+  Truck,
+  Users,
+  Warehouse,
+  type LucideIcon,
+} from 'lucide-react';
 import { matchPath } from 'react-router-dom';
 import { docRefPath, ROUTES } from '@/router/routes';
 import type { TaskItem } from '@/types/tasks';
@@ -7,6 +31,7 @@ import type { ModuleKey } from '@/utils/modules';
 export interface NavItem {
   to: string;
   label: string;
+  icon: LucideIcon;
   /** Mục "Tổng quan" chỉ sáng khi đúng đường dẫn */
   end?: boolean;
   disabled?: boolean;
@@ -29,9 +54,9 @@ export const PLATFORM_NAV: NavSection[] = [
   {
     title: 'Quản trị nền tảng',
     items: [
-      { to: ROUTES.platform.overview, label: 'Tổng quan' },
-      { to: ROUTES.platform.companies, label: 'Công ty' },
-      { to: ROUTES.platform.auditLogs, label: 'Nhật ký thao tác nền tảng' },
+      { to: ROUTES.platform.overview, label: 'Tổng quan', icon: LayoutDashboard },
+      { to: ROUTES.platform.companies, label: 'Công ty', icon: Building2 },
+      { to: ROUTES.platform.auditLogs, label: 'Nhật ký thao tác nền tảng', icon: History },
     ],
   },
 ];
@@ -48,6 +73,7 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.root(companyId),
           label: 'Tổng quan',
+          icon: LayoutDashboard,
           end: true,
         },
       ],
@@ -58,6 +84,7 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.purchasing(companyId),
           label: 'Nhập hàng',
+          icon: ClipboardList,
           module: 'purchasing',
           anyPermission: PURCHASING_PERMISSIONS,
         },
@@ -69,18 +96,21 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.catalog(companyId),
           label: 'Sản phẩm',
+          icon: Package,
           module: 'catalog',
           permission: PERMISSIONS.productView,
         },
         {
           to: ROUTES.company.catalogSetup(companyId),
           label: 'Danh mục sản phẩm',
+          icon: SlidersHorizontal,
           module: 'catalog',
           anyPermission: CATALOG_SETUP_ANY,
         },
         {
           to: ROUTES.company.inventory(companyId),
           label: 'Kho',
+          icon: Warehouse,
           module: 'inventory',
           permission: PERMISSIONS.stockView,
         },
@@ -92,11 +122,12 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.shops(companyId),
           label: 'Gian hàng',
+          icon: Store,
           module: 'channel',
           permission: PERMISSIONS.shopView,
         },
         {
-          to: `/c/${companyId}/channel/pending-prices`, label: 'Giá mới chờ duyệt', module: 'channel', permission: PERMISSIONS.listingManage,
+          to: `/c/${companyId}/channel/pending-prices`, label: 'Giá mới chờ duyệt', icon: Tags, module: 'channel', permission: PERMISSIONS.listingManage,
         },
       ],
     },
@@ -106,18 +137,21 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.orders(companyId),
           label: 'Đơn hàng',
+          icon: ShoppingCart,
           module: 'sales',
           permission: PERMISSIONS.orderView,
         },
         {
           to: ROUTES.company.packages(companyId),
           label: 'Kiện hàng',
+          icon: Truck,
           module: 'fulfillment',
           permission: PERMISSIONS.fulfillmentProcess,
         },
         {
           to: ROUTES.company.returns(companyId),
           label: 'Trả hàng/Hoàn tiền',
+          icon: PackageX,
           module: 'sales',
           permission: PERMISSIONS.returnView,
         },
@@ -129,17 +163,19 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.ledger(companyId),
           label: 'Sổ giao dịch',
+          icon: BookOpenText,
           module: 'finance',
           anyPermission: FINANCE_VIEW_ANY,
         },
         {
           to: ROUTES.company.settlements(companyId),
           label: 'Đối soát công nợ sàn',
+          icon: Scale,
           module: 'finance',
           anyPermission: FINANCE_VIEW_ANY,
         },
         {
-          to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí sàn và thuế', module: 'finance', anyPermission: FINANCE_VIEW_ANY,
+          to: ROUTES.company.financeConfigs(companyId), label: 'Cấu hình phí sàn và thuế', icon: SlidersHorizontal, module: 'finance', anyPermission: FINANCE_VIEW_ANY,
         },
       ],
     },
@@ -149,42 +185,49 @@ export function companyNav(companyId: string): NavSection[] {
         {
           to: ROUTES.company.staff(companyId),
           label: 'Nhân viên',
+          icon: Users,
           module: 'identity',
           permission: PERMISSIONS.staffView,
         },
         {
           to: ROUTES.company.roles(companyId),
           label: 'Vai trò',
+          icon: ShieldCheck,
           module: 'identity',
           permission: PERMISSIONS.roleView,
         },
         {
           to: ROUTES.company.modules(companyId),
           label: 'Tính năng',
+          icon: Puzzle,
           module: 'platform',
           permission: PERMISSIONS.moduleManage,
         },
         {
           to: ROUTES.company.productSettings(companyId),
           label: 'Cài đặt sản phẩm',
+          icon: Settings2,
           module: 'catalog',
           permission: PERMISSIONS.catalogSetup,
         },
         {
           to: ROUTES.company.companyProfile(companyId),
           label: 'Hồ sơ công ty',
+          icon: Building,
           module: 'platform',
           permission: PERMISSIONS.companyManage,
         },
         {
           to: ROUTES.company.auditLogs(companyId),
           label: 'Nhật ký thao tác',
+          icon: ScrollText,
           module: 'platform',
           permission: PERMISSIONS.auditView,
         },
         {
           to: ROUTES.company.deadJobs(companyId),
           label: 'Tác vụ lỗi',
+          icon: ServerCrash,
           module: 'platform',
           permission: PERMISSIONS.jobManage,
         },
