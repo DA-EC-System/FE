@@ -77,9 +77,22 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { formatCurrency } from '@/utils/format';
 import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
 import { SkuCode } from '@/components/common/SkuCode';
-import { SHARED_TARGETS, productSuggestions, type ProductFactField } from './productTabs';
+import {
+  SHARED_TARGETS,
+  productSuggestions,
+  sharedTargetId,
+  tabFromParam,
+  type ProductFactField,
+  type ProductTabKey,
+  type SharedTarget,
+} from './productTabs';
 import { GROUP_FIELD_ID, missingItems, parseMinQty, publishBlocker } from './completion';
 import { ProductCompletionRail } from './ProductCompletionRail';
+import { PlatformTab, PlatformTabLabel } from './PlatformTab';
+import { NeedsAttentionBox } from './NeedsAttentionBox';
+import { attentionItems, type AttentionAction } from './needsAttention';
+import { focusField } from './focusField';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductMinQtyCard } from './ProductMinQtyCard';
 import { SpecFieldDialog } from './specs/SpecFieldDialog';
 import { RemoteSuggestion } from './RemoteSuggestion';
@@ -240,8 +253,40 @@ export function ProductFormPage() {
   });
   const { control, reset, setError: setFieldError } = form;
 
-  // Tab theo sàn chuyển sang màn Đăng sản phẩm (cố vấn chốt câu 3); ở đây chỉ đọc giá trị sàn đang ghi để gợi ý (FE#417 F2)
+  // Giá trị sàn đang ghi để gợi ý ở tab Nội bộ (FE#417 F2)
   const specQueries = useProductSpecs(productId, platforms, canShop && !isNew);
+
+  // Tab "Nội bộ" và một tab mỗi sàn có gian hàng đang hoạt động (bản phác trang-san-pham-tab/design/v2.html, chốt v2
+  // câu 1, 2); tab đang mở ghi lên `?tab=` để gửi link được
+  const shops = shopsQuery.data?.items ?? [];
+  const tabPlatforms = !isNew && canShop ? platforms : [];
+  const tab: ProductTabKey = tabFromParam(searchParams.get('tab'), tabPlatforms);
+  const setTab = (next: string) =>
+    setSearchParams(
+      (prev) => {
+        const q = new URLSearchParams(prev);
+        if (next === 'commerio') q.delete('tab');
+        else q.set('tab', next);
+        return q;
+      },
+      { replace: true },
+    );
+  // Ô dùng chung ở tab sàn hay hộp Cần xử lý: sang tab Nội bộ rồi cuộn, focus, nháy đúng ô sau khi tab hiện
+  const [jump, setJump] = useState<{ shared: SharedTarget } | { id: string } | null>(null);
+  const jumpTo = (target: SharedTarget) => {
+    setTab('commerio');
+    setJump({ shared: target });
+  };
+  useEffect(() => {
+    if (tab !== 'commerio' || !jump) return;
+    const id = 'id' in jump ? jump.id : sharedTargetId(jump.shared, (x) => document.getElementById(x) !== null);
+    // Xoá `jump` trong cùng khung hình: xoá ngay thì effect chạy lại và huỷ khung hình trước khi kịp focus
+    const frame = requestAnimationFrame(() => {
+      focusField(id);
+      setJump(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tab, jump]);
 
   // Mẫu nhóm: form tạo đọc theo nhóm đang chọn; trang sửa chỉ đọc khi đổi sang nhóm khác (ngoài ra BE trả sẵn `specs`)
   const groupId = form.watch('groupId');
@@ -519,6 +564,17 @@ export function ProductFormPage() {
     missing: missing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
   });
+  // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
+  const attention = product && !isNew ? attentionItems({ missing, variants: product.variants, rows: listingRows, platformName: platformLabel }) : [];
+  const onAttention = (a: AttentionAction) => {
+    if (a.kind === 'sku') setSpecVariantId(a.variantId);
+    else if (a.kind === 'fee') navigate(ROUTES.company.financeConfigs(companyId));
+    else if (a.kind === 'tab') setTab(a.platform);
+    else {
+      setTab('commerio');
+      setJump({ id: a.target });
+    }
+  };
   // Xoá hẳn chỉ khi mọi SKU Chờ hoàn thiện (§17.2); BE kiểm thêm chứng từ, listing và trả 409 product_in_use
   const deletable = Boolean(product && canManage && product.variants.every((v) => v.readiness === 'incomplete'));
   const removeProduct = async () => {
@@ -613,6 +669,24 @@ export function ProductFormPage() {
           </KpiStrip>
         )}
 
+        {product && !isNew && (
+          <NeedsAttentionBox items={attention} product={product} platforms={tabPlatforms} shops={shops} onAction={onAttention} />
+        )}
+
+        <Tabs value={tab} onValueChange={setTab} className="gap-4">
+          {product && tabPlatforms.length > 0 && (
+            <div className="max-w-full overflow-x-auto">
+              <TabsList aria-label="Nơi bán">
+                <TabsTrigger value="commerio">Nội bộ</TabsTrigger>
+                {tabPlatforms.map((p) => (
+                  <TabsTrigger key={p} value={p}>
+                    <PlatformTabLabel product={product} platform={p} shops={shops} />
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          )}
+          <TabsContent value="commerio" forceMount className="data-[state=inactive]:hidden">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="min-w-0">
         <form id="product-form" onSubmit={onSubmit} noValidate>
@@ -834,6 +908,8 @@ export function ProductFormPage() {
                           {canStock && <TableHead className="text-right">Có thể bán</TableHead>}
                           {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
                           <TableHead className="text-right">Giá chuẩn</TableHead>
+                          <TableHead className="text-right">Giá muốn thực nhận</TableHead>
+                          <TableHead className="text-right">Ngưỡng tồn</TableHead>
                           <TableHead>Thông tin</TableHead>
                           {canManage && <TableHead className="w-24" />}
                         </TableRow>
@@ -912,9 +988,12 @@ export function ProductFormPage() {
                             )}
                             <TableCell className="text-right whitespace-nowrap tabular-nums">
                               <span data-testid="variant-price">{priceText(v.standardPrice)}</span>
-                              <span className="block text-[12.5px] text-muted-foreground" data-testid="variant-target-price">
-                                Giá muốn thực nhận {priceText(v.targetNetPrice)}
-                              </span>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-target-price">
+                              {priceText(v.targetNetPrice)}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-min-qty">
+                              {v.minQty === null ? '—' : formatQty(v.minQty)}
                             </TableCell>
                             <TableCell data-testid="variant-readiness">
                               {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
@@ -980,6 +1059,23 @@ export function ProductFormPage() {
             />
           ) : null}
         </div>
+          </TabsContent>
+          {product &&
+            tabPlatforms.map((p) => (
+              <TabsContent key={p} value={p} forceMount className="data-[state=inactive]:hidden">
+                <PlatformTab
+                  companyId={companyId}
+                  product={product}
+                  platform={p}
+                  shops={shops}
+                  rows={listingRows}
+                  canEditSpec={can(PERMISSIONS.listingManage) && !archived}
+                  canEditProduct={!readOnly}
+                  onJump={jumpTo}
+                />
+              </TabsContent>
+            ))}
+        </Tabs>
 
         {product && (
           <AddVariantDialog
