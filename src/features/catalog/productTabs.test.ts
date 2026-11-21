@@ -49,7 +49,7 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
     expect(tabFromParam(null, ['lazada'])).toBe('commerio');
   });
 
-  it('chia attribute: bắt buộc (kể cả theo điều kiện đang đúng), key, còn lại đã có giá trị; bỏ sales', () => {
+  it('chia attribute: bắt buộc (kể cả theo điều kiện đang đúng), key, còn lại kể cả trống (chốt v2 câu 4); bỏ sales', () => {
     const attrs = [
       attr({ code: 'r', required: true }),
       attr({ code: 'w', requiredWhen: [{ code: 'r', optionIds: ['x'] }] }),
@@ -62,7 +62,7 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
     const g = attributeGroups(attrs, { r: 'x', o1: 'có' });
     expect(g.required.map((a) => a.code)).toEqual(['r', 'w']);
     expect(g.key.map((a) => a.code)).toEqual(['k']);
-    expect(g.other.map((a) => a.code)).toEqual(['o1']);
+    expect(g.other.map((a) => a.code)).toEqual(['o1', 'o2']);
     expect(attributeGroups(attrs, {}).required.map((a) => a.code)).toEqual(['r']);
   });
 

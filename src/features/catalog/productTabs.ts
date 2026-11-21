@@ -67,9 +67,9 @@ export function tabFromParam(param: string | null, visible: readonly Marketplace
 export interface AttributeGroups {
   /** Bắt buộc, kể cả bắt buộc theo điều kiện đang đúng: sửa tại chỗ */
   required: PlatformAttribute[];
-  /** Key attribute không bắt buộc: chỉ xem */
+  /** Key attribute không bắt buộc: sửa tại chỗ, gập mặc định (chốt v2 câu 4) */
   key: PlatformAttribute[];
-  /** Không bắt buộc, không key, đã có giá trị: chỉ xem */
+  /** Không bắt buộc, không key, kể cả còn trống: sửa tại chỗ, gập mặc định (chốt v2 câu 4) */
   other: PlatformAttribute[];
 }
 
@@ -80,7 +80,8 @@ export function attributeGroups(attrs: readonly PlatformAttribute[], values: Rec
     if (a.kind === 'sales') continue;
     if (a.required || conditionMet(a, values)) out.required.push(a);
     else if (a.isKey) out.key.push(a);
-    else if (a.tier !== 'product' && isFilled(effectiveValue(a, values))) out.other.push(a);
+    // Xuất xứ, thương hiệu (tier product) dùng chung, sửa ở tab Nội bộ; chỉ hiện ở nhóm khác khi đã có giá trị
+    else if (a.tier !== 'product' || isFilled(effectiveValue(a, values))) out.other.push(a);
   }
   return out;
 }

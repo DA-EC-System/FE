@@ -81,16 +81,16 @@ interface Props {
   rows: readonly ProductListingRow[];
   /** `channel.listing.manage` và sản phẩm chưa lưu trữ: sửa attribute bắt buộc tại chỗ */
   canEditSpec: boolean;
-  /** `catalog.product.manage` và chưa lưu trữ: nhãn "sửa ở Commerio", không thì "xem ở Commerio" */
+  /** `catalog.product.manage` và chưa lưu trữ: nhãn "sửa ở Nội bộ", không thì "xem ở Nội bộ" */
   canEditProduct: boolean;
-  /** Sang tab Commerio, cuộn tới ô dùng chung */
+  /** Sang tab Nội bộ, cuộn tới ô dùng chung */
   onJump: (target: SharedTarget) => void;
 }
 
 /**
  * Tab một sàn của trang sản phẩm (FE#417), bố cục theo Seller Center: thông tin cơ bản, attribute, chi tiết, bán hàng
  * theo gian hàng, bảng kích cỡ, vận chuyển. Attribute bắt buộc sửa và lưu tại chỗ qua `PUT …/specs/:platform`
- * (Documents/21 §18.5); ô dùng chung chỉ xem, bấm nhãn thì sang tab Commerio
+ * (Documents/21 §18.5); ô dùng chung chỉ xem, bấm nhãn thì sang tab Nội bộ
  */
 export function PlatformTab({ companyId, product, platform, shops, rows, canEditSpec, canEditProduct, onJump }: Props) {
   const data = usePlatformTab(product, platform, shops);
@@ -128,6 +128,30 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
       : missing;
   const missingCodes = new Set(draftMissing.filter((m) => ATTR_REASONS.has(m.reason)).map((m) => m.code));
   const groups = attrs ? attributeGroups(attrs, values) : null;
+  // Mọi attribute sửa được tại chỗ (chốt v2 câu 4): bắt buộc mở sẵn, không bắt buộc gập
+  const editRow = (a: PlatformAttribute) =>
+    spec ? (
+      <AttributeRow
+        key={a.code}
+        attribute={a}
+        values={values}
+        overrides={draft.attributes}
+        resolved={resolved}
+        fieldSources={spec.fieldSources}
+        platform={platform}
+        externalId={draft.externalCategoryId ?? ''}
+        shopId={data.shop?.id ?? null}
+        label={label}
+        canEdit={canEditSpec}
+        editing={editing.has(a.code)}
+        flagged={missingCodes.has(a.code)}
+        error={errors[`attributes.${a.code}`]}
+        onChange={(v) => setDraft((d) => withAttribute(d, a.code, v))}
+        onOverride={(v) => overrideOf(a.code, v)}
+        onJump={onJump}
+        companyProfileHref={ROUTES.company.companyProfile(companyId)}
+      />
+    ) : null;
   const extraMissing = otherMissing.filter((m) => m.code !== 'category');
   const overrideOf = (code: string, value: SpecValue | null) => {
     setDraft((d) => withAttribute(d, code, value));
@@ -139,7 +163,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     });
   };
 
-  const sharedLabel = canEditProduct ? 'Dùng chung · sửa ở Commerio' : 'Dùng chung · xem ở Commerio';
+  const sharedLabel = canEditProduct ? 'Dùng chung · sửa ở Nội bộ' : 'Dùng chung · xem ở Nội bộ';
   const gapOf = (t: SharedTarget) => gaps.find((g) => g.target === t);
 
   const onSave = async () => {
@@ -167,7 +191,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     }
   };
 
-  /** "Đi tới trường thiếu": ô attribute sửa được ở tab này trước, rồi tới ô dùng chung ở tab Commerio */
+  /** "Đi tới trường thiếu": ô attribute sửa được ở tab này trước, rồi tới ô dùng chung ở tab Nội bộ */
   const goToFirstMissing = () => {
     const attr = draftMissing.find((m) => ATTR_REASONS.has(m.reason) && !ORIGIN_CODES.has(m.code));
     if (attr) return focusField(platformFieldId(platform, attr.code));
@@ -248,6 +272,11 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
             )}
           </AlertMessage>
         )}
+        {canEditSpec && (
+          <div className="flex justify-end">
+            <PublishLink href={ROUTES.company.productPublish(companyId, product.id, { platform })} label={label} />
+          </div>
+        )}
         {spec?.source !== 'match' && total > 0 && (
           <AlertMessage severity="warning">
             <b>
@@ -270,7 +299,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
               source="shared"
               sourceLabel={sharedLabel}
               onJump={() => onJump('images')}
-              missing={gapOf('images') && 'Bắt buộc, chưa có ảnh. Tải ở tab Commerio, mọi sàn dùng chung.'}
+              missing={gapOf('images') && 'Bắt buộc, chưa có ảnh. Tải ở tab Nội bộ, mọi sàn dùng chung.'}
             >
               {product.images.length ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -334,28 +363,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 <Group title="Attribute bắt buộc" note={canEditSpec ? 'sửa và lưu ngay tại đây' : 'chỉ xem: cần quyền quản lý listing để sửa'}>
                   {groups.required.length ? (
                     <div className="grid gap-3 md:grid-cols-2">
-                      {groups.required.map((a) => (
-                        <AttributeRow
-                          key={a.code}
-                          attribute={a}
-                          values={values}
-                          overrides={draft.attributes}
-                          resolved={resolved}
-                          fieldSources={spec.fieldSources}
-                          platform={platform}
-                          externalId={draft.externalCategoryId ?? ''}
-                          shopId={data.shop?.id ?? null}
-                          label={label}
-                          canEdit={canEditSpec}
-                          editing={editing.has(a.code)}
-                          flagged={missingCodes.has(a.code)}
-                          error={errors[`attributes.${a.code}`]}
-                          onChange={(v) => setDraft((d) => withAttribute(d, a.code, v))}
-                          onOverride={(v) => overrideOf(a.code, v)}
-                          onJump={onJump}
-                          companyProfileHref={ROUTES.company.companyProfile(companyId)}
-                        />
-                      ))}
+                      {groups.required.map(editRow)}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Category này không có attribute bắt buộc trên {label}.</p>
@@ -377,6 +385,32 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                       </p>
                     </CollapsibleContent>
                   </Collapsible>
+                </Group>
+
+                {groups.key.length > 0 && (
+                  <Collapsible>
+                    <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-sm font-semibold">
+                      <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
+                      Key attributes ({groups.key.length})
+                      <span className="font-normal text-muted-foreground">· điền đủ thì điểm nội dung trên {label} cao hơn</span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <div className="grid gap-3 md:grid-cols-2">{groups.key.map(editRow)}</div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {groups.other.length > 0 && (
+                  <Collapsible>
+                    <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-sm font-semibold">
+                      <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
+                      Không bắt buộc ({groups.other.length})
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <div className="grid gap-3 md:grid-cols-2">{groups.other.map(editRow)}</div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
                   {canEditSpec && (
                     <div className="flex flex-wrap items-center gap-2">
                       <Button type="button" onClick={onSave} disabled={!dirty || save.isPending}>
@@ -398,35 +432,6 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                       {!dirty && <span className="text-xs text-muted-foreground">Chưa có thay đổi</span>}
                     </div>
                   )}
-                </Group>
-
-                {groups.key.length > 0 && (
-                  <Group title="Key attributes" note={`điền đủ thì điểm nội dung trên ${label} cao hơn`} action={canEditSpec && <PushLink href={pushHref} />}>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {groups.key.map((a) => (
-                        <ReadAttribute key={a.code} attribute={a} values={values} label={label} fieldSources={spec.fieldSources} source={valueSource(a.code, draft.attributes, resolved)} />
-                      ))}
-                    </div>
-                  </Group>
-                )}
-
-                {groups.other.length > 0 && (
-                  <Collapsible>
-                    <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-sm font-semibold">
-                      <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
-                      Không bắt buộc, đã điền ({groups.other.length})
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="grid gap-3 pt-3">
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {groups.other.map((a) => (
-                          <ReadAttribute key={a.code} attribute={a} values={values} label={label} fieldSources={spec.fieldSources} source={valueSource(a.code, draft.attributes, resolved)} />
-                        ))}
-                      </div>
-                      {canEditSpec && <PushLink href={pushHref} />}
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
-
               </div>
             )}
           </Section>
@@ -450,7 +455,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
             source="shared"
             sourceLabel={sharedLabel}
             onJump={() => onJump('description')}
-            missing={gapOf('description') && 'Bắt buộc, chưa có mô tả. Điền ở tab Commerio, mọi sàn dùng chung.'}
+            missing={gapOf('description') && 'Bắt buộc, chưa có mô tả. Điền ở tab Nội bộ, mọi sàn dùng chung.'}
           >
             {product.description.trim() ? (
               <p className="line-clamp-4 whitespace-pre-line">{product.description}</p>
@@ -473,7 +478,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
               source="shared"
               sourceLabel={sharedLabel}
               onJump={() => onJump('sizeChart')}
-              missing={gapOf('sizeChart') && `Category này trên ${label} bắt buộc ảnh bảng size. Tải ở tab Commerio.`}
+              missing={gapOf('sizeChart') && `Category này trên ${label} bắt buộc ảnh bảng size. Tải ở tab Nội bộ.`}
             >
               {product.sizeChart ? (
                 <img
@@ -553,11 +558,12 @@ function Group({ title, note, action, children }: { title: string; note?: string
   );
 }
 
-function PushLink({ href }: { href: string }) {
+/** Nút "Đăng sản phẩm" của tab sàn: mở màn Đăng 4 bước chọn sẵn sàn này (chốt v2 câu 5) */
+function PublishLink({ href, label }: { href: string; label: string }) {
   return (
-    <Button asChild variant="link" size="sm" className="h-auto p-0">
+    <Button asChild size="sm">
       <Link to={href}>
-        Sửa trên trang đẩy
+        Đăng sản phẩm lên {label}
         <ArrowUpRight aria-hidden />
       </Link>
     </Button>
@@ -566,7 +572,7 @@ function PushLink({ href }: { href: string }) {
 
 type BadgeSource = FieldSource | 'platform';
 
-/** Nhãn nguồn của một ô; ô dùng chung là nút sang tab Commerio */
+/** Nhãn nguồn của một ô; ô dùng chung là nút sang tab Nội bộ */
 function SourceBadge({ source, label, platformName, onJump }: { source: BadgeSource; label?: string; platformName?: string; onJump?: () => void }) {
   if (source === 'shared') {
     return (
@@ -663,28 +669,6 @@ function CategoryNotes({
   );
 }
 
-function ReadAttribute({
-  attribute: a,
-  values,
-  label,
-  fieldSources,
-  source,
-}: {
-  attribute: PlatformAttribute;
-  values: Record<string, SpecValue>;
-  label: string;
-  fieldSources?: ProductSpec['fieldSources'];
-  source: ResolvedAttribute['source'] | null;
-}) {
-  const text = valueLabel(a, values[a.code] ?? null);
-  const kind = attributeSource(a, fieldSources, source);
-  return (
-    <ReadField label={a.label} source={text ? kind : undefined} sourceLabel={kind === 'catalog' ? catalogLabel(a.code) : undefined} platformName={label}>
-      {text || <span className="text-muted-foreground">Chưa có giá trị</span>}
-    </ReadField>
-  );
-}
-
 /** Tên thông số gốc của thương hiệu, xuất xứ (cột của sản phẩm); thông số của nhóm BE chưa trả tên nên ghi chung */
 const productFieldName = (code: string) => (ORIGIN_CODES.has(code) ? 'Xuất xứ' : BRAND_CODES.has(code) ? 'Thương hiệu' : null);
 const catalogLabel = (code: string) => {
@@ -695,7 +679,7 @@ const catalogLabel = (code: string) => {
 /**
  * Một attribute bắt buộc ở tab sàn (Documents/21 §18.8.2). Ô đã tự điền (thông số gốc, hồ sơ công ty, mặc định sàn) chỉ
  * xem, kèm "Sửa riêng cho {sàn}"; ô đang sửa riêng có "Về giá trị gốc"; ô chưa có giá trị thì sửa ngay (thương hiệu,
- * xuất xứ thì mời điền ở tab Commerio trước, vì mọi sàn dùng chung)
+ * xuất xứ thì mời điền ở tab Nội bộ trước, vì mọi sàn dùng chung)
  */
 function AttributeRow({
   attribute: a,
@@ -764,10 +748,10 @@ function AttributeRow({
   if (canEdit && (overridden || editing)) {
     if (resolved?.[a.code] || isProduct) actions.push(<span key="back">{link('Về giá trị gốc', () => onOverride(null))}</span>);
   } else if (source === 'catalog') {
-    actions.push(<span key="jump">{link('Sửa ở tab Commerio', () => onJump(jumpTarget))}</span>);
+    actions.push(<span key="jump">{link('Sửa ở tab Nội bộ', () => onJump(jumpTarget))}</span>);
     if (canEdit) actions.push(<span key="own">{link(`Sửa riêng cho ${label}`, () => onOverride(value ?? ''))}</span>);
   } else if (!isFilled(value) && isProduct) {
-    actions.push(<span key="jump">{link(`Điền ${fieldName ?? a.label} ở tab Commerio`, () => onJump(jumpTarget))}</span>);
+    actions.push(<span key="jump">{link(`Điền ${fieldName ?? a.label} ở tab Nội bộ`, () => onJump(jumpTarget))}</span>);
     if (canEdit) actions.push(<span key="own">{link(`Chỉ điền cho ${label}`, () => onOverride(''))}</span>);
   } else if (canEdit && isFilled(value) && (source === 'company' || source === 'default')) {
     actions.push(<span key="own">{link(`Sửa riêng cho ${label}`, () => onOverride(value))}</span>);
@@ -781,7 +765,7 @@ function AttributeRow({
   const actionRow = actions.length > 0 && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{actions}</div>;
   const missingText = flagged
     ? isProduct
-      ? `Bắt buộc, chưa điền. Điền ${fieldName ?? a.label} ở tab Commerio để mọi sàn dùng chung, hoặc chỉ điền cho ${label}.`
+      ? `Bắt buộc, chưa điền. Điền ${fieldName ?? a.label} ở tab Nội bộ để mọi sàn dùng chung, hoặc chỉ điền cho ${label}.`
       : 'Bắt buộc, chưa điền.'
     : null;
 
@@ -791,7 +775,7 @@ function AttributeRow({
         label={a.label}
         required
         source={empty ? undefined : source}
-        sourceLabel={source === 'catalog' ? catalogLabel(a.code) : source === 'shared' ? 'Dùng chung · sửa ở Commerio' : undefined}
+        sourceLabel={source === 'catalog' ? catalogLabel(a.code) : source === 'shared' ? 'Dùng chung · sửa ở Nội bộ' : undefined}
         platformName={label}
         onJump={() => onJump(jumpTarget)}
         missing={missingText}
@@ -1023,7 +1007,7 @@ function ShippingTable({
       source="shared"
       sourceLabel={sharedLabel}
       onJump={onJump}
-      missing={gap && `${lacking.size} SKU chưa có cân nặng hoặc kích thước. Sửa ở bảng Biến thể của tab Commerio.`}
+      missing={gap && `${lacking.size} SKU chưa có cân nặng hoặc kích thước. Sửa ở bảng Biến thể của tab Nội bộ.`}
     >
       <ul className="grid gap-2">
         {variants.map((v) => {
