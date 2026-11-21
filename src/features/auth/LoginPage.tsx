@@ -5,13 +5,11 @@ import { z } from 'zod';
 import { Link, Navigate, useLocation, type Location } from 'react-router-dom';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FormTextField } from '@/components/common/FormTextField';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { useAuth, useLogin } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import type { Account } from '@/types/auth';
-import { USE_MOCKS } from '@/utils/env';
 import { authErrorMessage } from './authErrors';
 import { AuthShell, DividerText } from './AuthShell';
 import { GoogleLoginButton } from './GoogleLoginButton';
@@ -24,18 +22,6 @@ const loginSchema = z.object({
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
-
-// Chỉ hiện khi chạy với mock, không lộ ra bản dùng backend thật
-const SHOW_DEMO_ACCOUNTS = USE_MOCKS;
-
-const DEMO_ACCOUNTS = [
-  { label: 'Quản trị nền tảng', email: 'platform@commerio.vn', password: 'platform' },
-  { label: 'CEO · 2 công ty', email: 'ceo@commerio.vn', password: 'ceo' },
-  { label: 'Admin công ty', email: 'admin@commerio.vn', password: 'admin' },
-  { label: 'Sale', email: 'sale@commerio.vn', password: 'sale' },
-  { label: 'Nhân viên kho', email: 'kho@commerio.vn', password: 'kho' },
-  { label: 'Mới được mời', email: 'moi@commerio.vn', password: 'moi12345' },
-];
 
 interface LoginLocationState {
   from?: Location;
@@ -77,12 +63,7 @@ export function LoginPage() {
     login.mutate(values, { onError: (e) => setError(authErrorMessage(e)) });
   });
 
-  const fillDemo = (email: string, password: string) => {
-    form.setValue('email', email);
-    form.setValue('password', password);
-    form.clearErrors();
-    setError(null);
-  };
+
 
   return (
     <AuthShell title="Đăng nhập" subtitle="Chào mừng trở lại! Đăng nhập để tiếp tục làm việc.">
@@ -135,30 +116,6 @@ export function LoginPage() {
           Đăng ký công ty
         </Link>
       </p>
-
-      {SHOW_DEMO_ACCOUNTS && (
-        <>
-          <DividerText className="my-6">Tài khoản demo</DividerText>
-          <div className="grid gap-2">
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                onClick={() => fillDemo(acc.email, acc.password)}
-                className="flex w-full items-center justify-between gap-2 rounded-md border p-3 text-start transition-colors hover:border-primary hover:bg-accent"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{acc.email}</div>
-                  <div className="text-xs text-muted-foreground">Mật khẩu: {acc.password}</div>
-                </div>
-                <Badge variant="outline" className="border-primary/40 text-primary">
-                  {acc.label}
-                </Badge>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
     </AuthShell>
   );
 }

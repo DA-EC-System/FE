@@ -1,5 +1,5 @@
 # Staging trên k3s (repo backend, deploy/k8s): https://<tên miền>/ chạy image commerio-fe, gọi backend thật (Deployment fe).
-# Bản MSW ở /mock/ (fe-mock) đã bỏ khỏi staging ngày 19/11/2026; mock MSW vẫn dùng khi pnpm dev và E2E.
+# FE không còn mock MSW (bỏ bản /mock/ ngày 19/11/2026, gỡ hẳn MSW ngày 21/11/2026).
 # PR vào main chỉ build image để kiểm; merge vào main → đẩy :sha-<7 ký tự> và :develop (giữ tên tag cũ để k3s không phải đổi)
 # → đổi image của fe.
 # Đổi image qua SSH vào tài khoản ci-deploy trên VPS: khoá này chỉ chạy được lệnh deploy của FE
@@ -33,7 +33,6 @@ jobs:
       matrix:
         include:
           - image: ghcr.io/da-ec-system/commerio-fe
-            mocks: 'false'
             base: /
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -54,7 +53,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           build-args: |
             VITE_GOOGLE_CLIENT_ID=${{ vars.STAGING_GOOGLE_CLIENT_ID }}
-            VITE_USE_MOCKS=${{ matrix.mocks }}
             BASE_PATH=${{ matrix.base }}
             VITE_AGENTATION_ENDPOINT=${{ vars.STAGING_AGENTATION_ENDPOINT }}
           tags: |

@@ -2,21 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
-import { USE_MOCKS, appPath, BASE_PATH } from './utils/env';
 import { bootstrapSession } from './hooks/useAuth';
 import './lib/zod';
 
 async function bootstrap() {
-  // Bật MSW (xem utils/env.ts)
-  if (USE_MOCKS) {
-    const { worker } = await import('./mocks/browser');
-    await worker.start({
-      onUnhandledRequest: 'bypass',
-      serviceWorker: { url: appPath('mockServiceWorker.js'), options: { scope: BASE_PATH } },
-    });
-  }
-
-  // Khôi phục phiên bằng cookie refresh (sau khi MSW đã chặn request)
+  // Khôi phục phiên bằng cookie refresh
   void bootstrapSession();
 
   createRoot(document.getElementById('root')!).render(

@@ -1,6 +1,6 @@
 /**
  * Hàm thuần của trang đẩy lên sàn 4 bước (commerio-backend#400, Documents/21 §18.5): bản nháp thông tin sàn của sản
- * phẩm (`ProductSpec`), phần còn thiếu, gắn lỗi 422 về đúng bước. Mock MSW dùng chung `specMissing` để giống BE.
+ * phẩm (`ProductSpec`), phần còn thiếu, gắn lỗi 422 về đúng bước.
  */
 
 import type { ProductVariant } from '@/types/catalog';

@@ -24,8 +24,7 @@ export default defineConfig({
       usePolling: true,
       interval: 300,
     },
-    // Chạy với backend thật (VITE_USE_MOCKS=false): FE và API cùng origin như sau Caddy (V38),
-    // để cookie refresh SameSite=Strict được gửi kèm. Khi bật mock, MSW chặn request trước proxy.
+    // FE và API cùng origin như sau Caddy (V38), để cookie refresh SameSite=Strict được gửi kèm.
     // Stream SSE do tiến trình realtime phục vụ (Documents/21 §13.1): phải đứng trước dòng /api.
     proxy: {
       '/api/v1/notification/stream': process.env.REALTIME_PROXY_TARGET ?? 'http://localhost:3002',

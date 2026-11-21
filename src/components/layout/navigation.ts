@@ -12,7 +12,6 @@ import {
   Settings2,
   ShieldCheck,
   ShoppingCart,
-  FlaskConical,
   BookOpenText,
   Scale,
   SlidersHorizontal,
@@ -28,7 +27,6 @@ import { docRefPath, ROUTES } from '@/router/routes';
 import type { TaskItem } from '@/types/tasks';
 import { CATALOG_SETUP_ANY, FINANCE_VIEW_ANY, PERMISSIONS, PURCHASING_PERMISSIONS } from '@/utils/permissions';
 import type { ModuleKey } from '@/utils/modules';
-import { USE_MOCKS } from '@/utils/env';
 
 export interface NavItem {
   to: string;
@@ -235,22 +233,6 @@ export function companyNav(companyId: string): NavSection[] {
         },
       ],
     },
-    ...(USE_MOCKS
-      ? [
-          {
-            title: 'Dữ liệu giả',
-            items: [
-              {
-                to: ROUTES.company.devMarketplace(companyId),
-                label: 'Sàn giả lập',
-                icon: FlaskConical,
-                module: 'channel',
-                permission: PERMISSIONS.shopView,
-              } satisfies NavItem,
-            ],
-          },
-        ]
-      : []),
   ];
 }
 

@@ -91,7 +91,6 @@ export const ROUTES = {
     auditLogs: (companyId: string) => `/c/${companyId}/admin/audit-logs`,
     deadJobs: (companyId: string) => `/c/${companyId}/admin/dead-jobs`,
     /** Sàn giả lập, chỉ có khi chạy mock (FE#55) */
-    devMarketplace: (companyId: string) => `/c/${companyId}/dev/marketplace`,
   },
 } as const;
 
