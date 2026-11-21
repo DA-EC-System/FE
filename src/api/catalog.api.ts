@@ -114,7 +114,7 @@ export function useCreateGroup() {
 export function useUpdateGroup() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
-    // Nhóm chuẩn nền tảng: chỉ gửi `{ suggest, version }` (đổi tên 422, Documents/21 §5.2 dữ liệu chung)
+    // Nhóm chuẩn nền tảng: chỉ gửi `{ suggest, version }` (đổi tên 422, Documents/21 §5.6)
     mutationFn: async ({ id, ...body }: (ProductGroupInput | Pick<ProductGroupInput, 'suggest'>) & { id: string; version: number }) => {
       const { data } = await apiClient.put<ProductGroup>(`/catalog/groups/${id}`, body);
       return data;

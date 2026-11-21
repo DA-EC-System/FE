@@ -18,7 +18,7 @@ export interface SuggestConfig {
 
 /** Nhóm hàng (Documents/21 §5.2): phân loại nội bộ, một cấp, không ghép sang sàn */
 /**
- * Tầng của dòng dữ liệu (dữ liệu chung, Documents/21 §5.2, §5.5): `platform` là chuẩn nền tảng dùng chung mọi công ty, công ty
+ * Tầng của dòng dữ liệu (dữ liệu chung, Documents/21 §5.6): `platform` là chuẩn nền tảng dùng chung mọi công ty, công ty
  * chỉ đọc và thêm được phần riêng; `company` là của công ty. Thiếu (BE cũ) coi như `company`
  */
 export type DataScope = 'platform' | 'company';

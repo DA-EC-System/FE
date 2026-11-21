@@ -1,6 +1,6 @@
 import type { DataScope } from '@/types/catalog';
 
-/** Tiêu đề và mô tả hai tầng dữ liệu (dữ liệu chung, Documents/21 §5.2, §5.5) */
+/** Tiêu đề và mô tả hai tầng dữ liệu (dữ liệu chung, Documents/21 §5.6) */
 export const SCOPE_TEXT: Record<DataScope, { title: string; hint: string }> = {
   platform: {
     title: 'Chuẩn nền tảng',
