@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Plus, Trash2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FormTextField } from '@/components/common/FormTextField';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -190,8 +191,8 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
                         )}
                       />
                       <div className="pt-0.5">
-                        <RowTextAction
-                          label={`Xoá giá trị ${i + 1}`}
+                        <RowAction
+                          label="Xoá giá trị"
                           destructive
                           reason={
                             locked
@@ -202,8 +203,8 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
                           }
                           onClick={() => remove(i)}
                         >
-                          Xoá
-                        </RowTextAction>
+                          <Trash2 />
+                        </RowAction>
                       </div>
                     </div>
                   );
@@ -212,6 +213,7 @@ export function AttributeFormDialog({ open, attribute, onClose, onDone }: Attrib
               {valuesError && <p className="text-sm text-destructive">{valuesError}</p>}
               <div>
                 <Button type="button" variant="ghost" size="sm" onClick={() => append({ value: '', code: '' })}>
+                  <Plus />
                   Thêm giá trị
                 </Button>
               </div>

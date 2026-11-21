@@ -1,4 +1,5 @@
 import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Check, ChevronsUpDown, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -146,6 +147,7 @@ export function VariationEditor({
           title={value.axes.length >= MAX_AXES ? `Tối đa ${MAX_AXES} thuộc tính biến thể` : undefined}
           onClick={() => setAxes([...value.axes, newAxis()])}
         >
+          <Plus />
           Thêm thuộc tính biến thể
         </Button>
         {value.axes.length >= MAX_AXES && (
@@ -371,7 +373,7 @@ function AxisCard({
           {nameError ? (
             <p className="text-sm text-destructive">{nameError}</p>
           ) : attribute && allowed && !allowed.ids.includes(attribute.id) ? (
-            <p className="text-xs text-warning-text" role="status">
+            <p className="text-xs text-warning-foreground" role="status">
               Thuộc tính này không thuộc danh mục {allowed.groupName}. Vẫn lưu được; sàn có thể không nhận lúc đăng.
             </p>
           ) : (
@@ -384,8 +386,8 @@ function AxisCard({
             )
           )}
         </div>
-        <Button type="button" variant="ghost" size="sm" aria-label={`Bỏ ${label}`} onClick={onRemove} className="mt-6 text-destructive">
-          Bỏ
+        <Button type="button" variant="ghost" size="icon" aria-label={`Bỏ ${label}`} onClick={onRemove} className="mt-6">
+          <Trash2 />
         </Button>
       </div>
 
@@ -405,10 +407,10 @@ function AxisCard({
               <button
                 type="button"
                 aria-label={`Bỏ ${v}`}
-                className="min-h-5 cursor-pointer rounded-sm px-1 text-destructive hover:bg-muted"
+                className="rounded-sm hover:bg-muted"
                 onClick={() => onChange({ values: axis.values.filter((x) => x !== v) })}
               >
-                Bỏ
+                <X />
               </button>
             </Badge>
           ))}
@@ -497,10 +499,13 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
         close(false);
       }}
     >
+      <Check className={cn(axis.attributeId === a.id ? 'opacity-100' : 'opacity-0')} />
       {a.name}
-      <span className="ml-auto text-xs text-muted-foreground">
-        {[axis.attributeId === a.id ? 'Đang chọn' : null, a.platformKind ? 'Mặc định' : null].filter(Boolean).join(' · ')}
-      </span>
+      {a.platformKind && (
+        <Badge variant="outline" className="ml-auto">
+          Chuẩn sàn
+        </Badge>
+      )}
     </CommandItem>
   );
 
@@ -516,6 +521,7 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
           className={cn('w-full justify-between font-normal', !axis.name && 'text-muted-foreground')}
         >
           <span className="truncate">{axis.name || 'Chọn hoặc gõ tên, vd Màu sắc'}</span>
+          <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
@@ -524,6 +530,7 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
           <CommandList>
             {loading ? (
               <p className="flex items-center gap-2 p-3 text-sm text-muted-foreground" role="status">
+                <Loader2 className="size-4 animate-spin" />
                 Đang tải thuộc tính…
               </p>
             ) : (
@@ -545,6 +552,7 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
                     close(false);
                   }}
                 >
+                  <Plus />
                   {name.length > MAX_AXIS_NAME ? `Tên tối đa ${MAX_AXIS_NAME} ký tự` : `Dùng tên “${name}”`}
                 </CommandItem>
               </CommandGroup>

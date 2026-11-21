@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, ImagePlus, Loader2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,37 +105,37 @@ export function ProductImagesField({
                 <Button
                   type="button"
                   variant="secondary"
-                  size="sm"
+                  size="icon"
                   aria-label={`Bỏ ảnh ${i + 1}`}
-                  className="absolute top-1 right-1 h-6 px-1.5 text-xs"
+                  className="absolute top-1 right-1 size-6"
                   onClick={() => onChange(value.filter((_, j) => j !== i))}
                 >
-                  Bỏ
+                  <X />
                 </Button>
                 <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/45">
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     aria-label={`Đưa ảnh ${i + 1} lên trước`}
                     title="Đưa lên trước"
-                    className="h-7 px-1.5 text-xs text-white hover:bg-white/20 hover:text-white"
+                    className="size-7 text-white hover:bg-white/20 hover:text-white"
                     disabled={i === 0}
                     onClick={() => move(i, i - 1)}
                   >
-                    Trước
+                    <ChevronLeft />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     aria-label={`Đưa ảnh ${i + 1} ra sau`}
                     title="Đưa ra sau"
-                    className="h-7 px-1.5 text-xs text-white hover:bg-white/20 hover:text-white"
+                    className="size-7 text-white hover:bg-white/20 hover:text-white"
                     disabled={i === value.length - 1}
                     onClick={() => move(i, i + 1)}
                   >
-                    Sau
+                    <ChevronRight />
                   </Button>
                 </div>
               </>
@@ -152,10 +153,12 @@ export function ProductImagesField({
           >
             {uploading > 0 ? (
               <>
+                <Loader2 className="size-6 animate-spin" />
                 Đang tải {uploading} ảnh
               </>
             ) : (
               <>
+                <ImagePlus className="size-6" />
                 Thêm ảnh
               </>
             )}

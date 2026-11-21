@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ImagePlus, Loader2, X } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -189,13 +190,13 @@ function ValueImage({
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+              size="icon"
               aria-label={`Gỡ ảnh ${label}`}
-              className="absolute top-1 right-1 h-6 px-1.5 text-xs"
+              className="absolute top-1 right-1 size-6"
               disabled={busy}
               onClick={() => void remove()}
             >
-              {removeMut.isPending ? 'Đang gỡ' : 'Gỡ'}
+              {removeMut.isPending ? <Loader2 className="animate-spin" /> : <X />}
             </Button>
           )}
         </div>
@@ -210,6 +211,7 @@ function ValueImage({
           aria-label={`Thêm ảnh ${label}`}
           onClick={() => inputRef.current?.click()}
         >
+          {busy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
           {busy ? 'Đang tải' : 'Thêm ảnh'}
         </Button>
       )}

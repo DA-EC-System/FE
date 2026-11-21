@@ -1,5 +1,6 @@
 import { useId, useState, type KeyboardEvent } from 'react';
-import { RowTextAction } from '@/components/common/RowAction';
+import { Check, Trash2, X } from 'lucide-react';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -73,9 +74,9 @@ function SpecField({
         <span className="text-xs text-muted-foreground">{SPEC_INPUT_LABELS[view.input]}</span>
         {onClear && !readOnly && (
           <span className="ml-auto">
-            <RowTextAction label={`Xoá giá trị ${view.name}`} destructive onClick={onClear}>
-              Xoá
-            </RowTextAction>
+            <RowAction label={`Xoá giá trị ${view.name}`} destructive onClick={onClear}>
+              <Trash2 />
+            </RowAction>
           </span>
         )}
       </div>
@@ -247,6 +248,7 @@ function MultiControl({
               on ? 'border-primary bg-accent text-primary-text' : 'hover:border-primary',
             )}
           >
+            {on && <Check className="size-3.5" aria-hidden />}
             {o.value}
           </button>
         );
@@ -258,11 +260,11 @@ function MultiControl({
           {!readOnly && (
             <button
               type="button"
-              className="-mr-1 min-h-6 cursor-pointer rounded px-1 text-destructive hover:bg-muted"
+              className="-mr-1 inline-grid size-6 cursor-pointer place-items-center rounded hover:bg-muted"
               aria-label={`Bỏ ${v}`}
               onClick={() => onChange({ ...draft, newValues: draft.newValues.filter((x) => x !== v) })}
             >
-              Bỏ
+              <X className="size-3.5" />
             </button>
           )}
         </Badge>

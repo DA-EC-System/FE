@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { ImagePlus, Loader2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -132,12 +133,12 @@ function ValueImage({
           <Button
             type="button"
             variant="secondary"
-            size="sm"
+            size="icon"
             aria-label={`Bỏ ảnh ${label}`}
-            className="absolute top-1 right-1 h-6 px-1.5 text-xs"
+            className="absolute top-1 right-1 size-6"
             onClick={() => onChange(null)}
           >
-            Bỏ
+            <X />
           </Button>
         </div>
       ) : (
@@ -149,6 +150,7 @@ function ValueImage({
           aria-label={`Thêm ảnh ${label}`}
           onClick={() => inputRef.current?.click()}
         >
+          {busy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
           {busy ? 'Đang tải' : 'Thêm ảnh'}
         </Button>
       )}
