@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { ClipboardList, Loader2, Printer, Truck } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -198,18 +197,15 @@ export function PackageQueuePage() {
 
   const action = picking ? (
     <Button variant="outline" data-guide="package-actions" onClick={() => setShowPick((v) => !v)}>
-      <ClipboardList />
       Danh sách lấy hàng{selected.size > 0 ? ` (${selected.size} kiện)` : ''}
     </Button>
   ) : printing ? (
     <div className="flex flex-wrap gap-2" data-guide="package-actions">
       <Button variant="outline" disabled={selected.size === 0 || tooMany || printDocs.isPending} onClick={printSelected}>
-        <Printer />
         In phiếu giao hàng{selected.size > 0 ? ` (${selected.size})` : ''}
       </Button>
       {handing && (
         <Button disabled={selected.size === 0 || tooMany} onClick={() => setConfirmOpen(true)}>
-          <Truck />
           Bàn giao ĐVVC{selected.size > 0 ? ` (${selected.size})` : ''}
         </Button>
       )}
@@ -271,7 +267,6 @@ export function PackageQueuePage() {
               Danh sách lấy hàng · {pickList.data ? `${pickList.data.packageCount} kiện${selected.size > 0 ? ' đã chọn' : ''}` : selected.size > 0 ? `${selected.size} kiện đã chọn` : 'kiện chờ đóng gói'}
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer />
               In
             </Button>
           </CardHeader>
@@ -292,7 +287,6 @@ export function PackageQueuePage() {
                 {pickList.isLoading && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground" data-testid="pick-list-loading">
-                      <Loader2 className="me-2 inline size-4 animate-spin" />
                       Đang tổng hợp danh sách lấy hàng…
                     </TableCell>
                   </TableRow>

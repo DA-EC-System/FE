@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { Store } from 'lucide-react';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -84,7 +83,7 @@ export function ProductSkuSheet({ companyId, variant, rows, tab, specText, canSt
 }
 
 function ShopListings({ companyId, rows }: { companyId: string; rows: ProductListingRow[] }) {
-  if (!rows.length) return <EmptyState compact icon={Store} title="Công ty chưa có gian hàng nào đang kết nối" />;
+  if (!rows.length) return <EmptyState compact title="Công ty chưa có gian hàng nào đang kết nối" />;
   return (
     <Table data-testid="sku-listings">
       <TableHeader>

@@ -1,4 +1,3 @@
-import { Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/utils/format';
 import type { ReturnStatus } from '@/types/returns';
@@ -12,7 +11,6 @@ export function RespondByBadge({ status, respondBy }: { status: ReturnStatus; re
   const text = state.overdue ? `Quá hạn trả lời (${formatDateTime(state.at)})` : `Hạn trả lời ${formatDateTime(state.at)}${state.urgent ? ', còn dưới 24 giờ' : ''}`;
   return (
     <Badge variant={variant} data-testid="return-respond-by">
-      <Clock aria-hidden />
       {text}
     </Badge>
   );

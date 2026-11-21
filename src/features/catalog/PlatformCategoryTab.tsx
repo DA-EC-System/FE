@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { RefreshCw, Search } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +17,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import { cn } from '@/lib/utils';
 import type { PlatformAttribute } from '@/types/shop';
 import { SIZE_CHART_LABELS, groupAttributes, hasCondition, inputSummary, parentPath, platformLabel } from './platformCategory';
 import { SearchResults, TreeLevel } from './PlatformCategoryTree';
@@ -58,8 +56,7 @@ export function PlatformCategoryTab({ platform }: { platform: string }) {
 
   const syncButton = can(PERMISSIONS.shopSync) ? (
     <Button variant="outline" size="sm" onClick={runSync} disabled={sync.isPending}>
-      <RefreshCw className={cn(sync.isPending && 'animate-spin')} />
-      Đồng bộ ngay
+      {sync.isPending ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}
     </Button>
   ) : null;
 
@@ -97,14 +94,12 @@ export function PlatformCategoryTab({ platform }: { platform: string }) {
           <div className="flex min-w-0 flex-col border-b md:border-r md:border-b-0">
             <div className="p-3">
               <div className="relative">
-                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Tìm category, không cần dấu (vd: ao thun)"
                   aria-label={`Tìm category ${label}`}
-                  className="pl-8"
                 />
               </div>
               {query.trim().length === 1 && <p className="mt-1 text-xs text-muted-foreground">Nhập ít nhất 2 ký tự.</p>}
