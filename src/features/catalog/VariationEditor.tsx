@@ -31,7 +31,7 @@ import {
 import { AxisImagesField } from './AxisImagesField';
 
 const FACT_LABELS: Record<FactKey, string> = {
-  standardPrice: 'Giá bán lẻ',
+  standardPrice: 'Giá chuẩn',
   targetNetPrice: 'Giá muốn thực nhận',
   weightG: 'Cân nặng',
   lengthMm: 'Dài',
@@ -166,7 +166,7 @@ export function VariationEditor({
               <TableHead>SKU dự kiến</TableHead>
               {withFacts && (
                 <>
-                  <TableHead>Giá bán lẻ (đ)</TableHead>
+                  <TableHead>Giá chuẩn (đ)</TableHead>
                   <TableHead>Giá muốn thực nhận (đ)</TableHead>
                   <TableHead>Cân nặng (g)</TableHead>
                   <TableHead>Dài × rộng × cao gói (mm)</TableHead>

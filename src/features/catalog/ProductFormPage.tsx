@@ -833,7 +833,7 @@ export function ProductFormPage() {
                           <TableHead>Trạng thái</TableHead>
                           {canStock && <TableHead className="text-right">Có thể bán</TableHead>}
                           {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
-                          <TableHead className="text-right">Giá bán lẻ</TableHead>
+                          <TableHead className="text-right">Giá chuẩn</TableHead>
                           <TableHead>Thông tin</TableHead>
                           {canManage && <TableHead className="w-24" />}
                         </TableRow>
@@ -938,7 +938,7 @@ export function ProductFormPage() {
                                     variant="ghost"
                                     size="icon"
                                     aria-label={`Sửa thông tin ${v.sku}`}
-                                    title="Giá bán lẻ, giá muốn thực nhận, cân nặng, kích thước gói, ngưỡng tồn"
+                                    title="Giá chuẩn, giá muốn thực nhận, cân nặng, kích thước gói, ngưỡng tồn"
                                     onClick={() => setSpecVariantId(v.id)}
                                   >
                                     <Pencil />

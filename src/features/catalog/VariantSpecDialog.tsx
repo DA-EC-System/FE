@@ -153,7 +153,7 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
             <FormTextField
               control={control}
               name="standardPrice"
-              label="Giá bán lẻ (đ)"
+              label="Giá chuẩn (đ)"
               inputMode="numeric"
               hint="Giá tham khảo của SKU, không bắt buộc để đăng bán."
             />

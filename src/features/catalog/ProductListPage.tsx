@@ -131,7 +131,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         meta: {
           className: 'w-24',
           numeric: true,
-          help: 'Số SKU đang dùng (không tính SKU đã lưu trữ). Mỗi biến thể là một SKU; tồn kho và giá bán lẻ nằm ở từng SKU.',
+          help: 'Số SKU đang dùng (không tính SKU đã lưu trữ). Mỗi biến thể là một SKU; tồn kho và giá chuẩn nằm ở từng SKU.',
         },
       },
       {

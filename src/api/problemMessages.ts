@@ -74,7 +74,7 @@ const MESSAGES: Record<string, string> = {
   remote_skus_retry_later: 'Lần tải SKU sàn trước bị lỗi. Thử lại sau ít phút.',
   remote_skus_busy: 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
-  price_missing: 'Chưa có giá: bảng giá gian hàng và giá bán lẻ đều trống.',
+  price_missing: 'Chưa có giá: bảng giá gian hàng và giá chuẩn đều trống.',
   // Documents/21 §18.5 (commerio-backend#400, đổi nghĩa 18/11/2026): category sàn chọn theo từng sản phẩm.
   // Câu có tên sàn ở pushBlockMessage (features/channel/listingPush.ts)
   category_unmapped: 'Chưa chọn category sàn cho sản phẩm. Mở Thông tin sàn của sản phẩm để chọn rồi đăng bán lại.',

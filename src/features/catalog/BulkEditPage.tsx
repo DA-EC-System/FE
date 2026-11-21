@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow } from '@/types/catalog';
 
 const FIELD_LABELS: Record<BulkField, string> = {
-  standardPrice: 'Giá bán lẻ',
+  standardPrice: 'Giá chuẩn',
   minQty: 'Ngưỡng tồn',
   weightG: 'Khối lượng (g)',
   lengthMm: 'Dài (mm)',
