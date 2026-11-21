@@ -58,8 +58,6 @@ export const ROUTES = {
     catalogProduct: (companyId: string, productId: string, spec?: string) =>
       `/c/${companyId}/catalog/products/${productId}${spec ? `?spec=${encodeURIComponent(spec)}` : ''}`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
-    /** Màn Đăng sản phẩm (Documents/29 bước 4, acn-b8 làm); `?from=incomplete`: mở từ bộ lọc Chờ hoàn thiện */
-    productPublish: (companyId: string, productId: string) => `/c/${companyId}/catalog/products/${productId}/publish`,
     /** Trang một danh mục sản phẩm: thuộc tính sản phẩm, biến thể theo, ánh xạ sàn (Documents/29 bước 3) */
     catalogCategory: (companyId: string, groupId: string) => `/c/${companyId}/catalog/setup/categories/${groupId}`,
     /** Cài đặt sản phẩm (FE#350): route tạm dưới catalog, menu ở nhóm Quản trị */
