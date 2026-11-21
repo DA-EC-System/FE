@@ -1,5 +1,4 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePlatformCategories } from '@/api/shops.api';
@@ -86,7 +85,7 @@ export function CategoryColumns({ platform, label, selected, trail, onTrail, onS
     <div>
       {trail.length > 0 && (
         <Button type="button" variant="ghost" size="sm" className="mb-1 sm:hidden" onClick={() => onTrail(trail.slice(0, -1))}>
-          <ChevronLeft className="size-4" aria-hidden /> {openName ?? 'Quay lại cấp trên'}
+          Quay lại {openName ?? 'cấp trên'}
           {openName && <span className="sr-only"> (quay lại cấp trên)</span>}
         </Button>
       )}
@@ -211,7 +210,7 @@ function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pen
           >
             <span className="min-w-0 break-words">{c.name}</span>
             <RemovedBadge category={c} />
-            {!c.isLeaf && <ChevronRight className={cn('size-4 flex-none text-muted-foreground', isOpen && 'text-primary-text')} aria-hidden />}
+            {!c.isLeaf && <span className={cn('flex-none text-xs text-muted-foreground', isOpen && 'text-primary-text')}>Mở</span>}
           </button>
         );
       })}
