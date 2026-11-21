@@ -12,6 +12,7 @@ import type { PageResult } from './types';
 import type {
   Attribute,
   AttributeInput,
+  AttributeValue,
   BusinessStatusInput,
   BusinessStatusResult,
   BulkEditParams,
@@ -33,13 +34,15 @@ import type {
   SpecField,
   SpecFieldCreateInput,
   SpecFieldUpdateInput,
+  SpecOption,
   UploadTicket,
   VariantUpdateInput,
 } from '@/types/catalog';
 
 export const catalogKeys = {
   all: (companyId: string) => ['company', companyId, 'catalog'] as const,
-  groups: (companyId: string) => [...catalogKeys.all(companyId), 'groups'] as const,
+  groups: (companyId: string, includeHidden = false) =>
+    [...catalogKeys.all(companyId), 'groups', includeHidden ? 'all' : 'visible'] as const,
   settings: (companyId: string) => [...catalogKeys.all(companyId), 'settings'] as const,
   attributes: (companyId: string) => [...catalogKeys.all(companyId), 'attributes'] as const,
   products: (companyId: string) => [...catalogKeys.all(companyId), 'products'] as const,
@@ -48,7 +51,7 @@ export const catalogKeys = {
   product: (companyId: string, id: string) =>
     [...catalogKeys.products(companyId), 'detail', id] as const,
   specFields: (companyId: string) => [...catalogKeys.all(companyId), 'spec-fields'] as const,
-  template: (companyId: string, groupId: string) => [...catalogKeys.groups(companyId), 'template', groupId] as const,
+  template: (companyId: string, groupId: string) => [...catalogKeys.all(companyId), 'template', groupId] as const,
   bulkEdit: (companyId: string, params: BulkEditParams) =>
     [...catalogKeys.all(companyId), 'bulk-edit', params] as const,
 };
@@ -67,15 +70,33 @@ export function useInvalidateCatalog() {
 
 // ---------- Nhóm hàng và cài đặt sản phẩm (Documents/21 §5.2, FE#350) ----------
 
-export function useGroups() {
+/**
+ * Nhóm hàng hai tầng (chuẩn nền tảng và của công ty). Mặc định bỏ nhóm chuẩn công ty đã ẩn (form sản phẩm, bộ lọc);
+ * trang cài đặt truyền `includeHidden` để thấy và bật lại
+ */
+export function useGroups({ includeHidden = false }: { includeHidden?: boolean } = {}) {
   const companyId = useCompanyId();
   return useQuery({
-    queryKey: catalogKeys.groups(companyId),
+    queryKey: catalogKeys.groups(companyId, includeHidden),
     enabled: Boolean(companyId),
     queryFn: async () => {
-      const { data } = await apiClient.get<{ items: ProductGroup[] }>('/catalog/groups');
+      const { data } = await apiClient.get<{ items: ProductGroup[] }>('/catalog/groups', {
+        params: includeHidden ? { includeHidden: true } : undefined,
+      });
       return data.items;
     },
+  });
+}
+
+/** Ẩn hoặc hiện một nhóm chuẩn với công ty (`PUT /catalog/groups/:id/hidden`); không đụng sản phẩm đang ở nhóm */
+export function useSetGroupHidden() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
+      const { data } = await apiClient.put<ProductGroup>(`/catalog/groups/${id}/hidden`, { hidden });
+      return data;
+    },
+    onSuccess: invalidate,
   });
 }
 
@@ -93,7 +114,8 @@ export function useCreateGroup() {
 export function useUpdateGroup() {
   const invalidate = useInvalidateCatalog();
   return useMutation({
-    mutationFn: async ({ id, ...body }: ProductGroupInput & { id: string; version: number }) => {
+    // Nhóm chuẩn nền tảng: chỉ gửi `{ suggest, version }` (đổi tên 422, Documents/21 §5.2 dữ liệu chung)
+    mutationFn: async ({ id, ...body }: (ProductGroupInput | Pick<ProductGroupInput, 'suggest'>) & { id: string; version: number }) => {
       const { data } = await apiClient.put<ProductGroup>(`/catalog/groups/${id}`, body);
       return data;
     },
@@ -188,6 +210,32 @@ export function useDeleteAttribute() {
   return useMutation({
     mutationFn: async ({ id, version }: { id: string; version: number }) => {
       await apiClient.delete(`/catalog/attributes/${id}`, { params: { version } });
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Giá trị riêng của công ty trên thuộc tính chuẩn (Màu sắc, Kích cỡ…): `POST /catalog/attributes/:id/values` */
+export function useAddAttributeValue() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ attributeId, value, code }: { attributeId: string; value: string; code?: string }) => {
+      const { data } = await apiClient.post<AttributeValue>(`/catalog/attributes/${attributeId}/values`, {
+        value,
+        ...(code && { code }),
+      });
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Xoá giá trị riêng của công ty; giá trị chuẩn 403 `platform_managed`, đang dùng 409 `in_use` */
+export function useDeleteAttributeValue() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ attributeId, valueId }: { attributeId: string; valueId: string }) => {
+      await apiClient.delete(`/catalog/attributes/${attributeId}/values/${valueId}`);
     },
     onSuccess: invalidate,
   });
@@ -480,6 +528,29 @@ export function useDeleteSpecField() {
   return useMutation({
     mutationFn: async ({ id, version }: { id: string; version: number }) => {
       await apiClient.delete(`/catalog/spec-fields/${id}`, { params: { version } });
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Lựa chọn riêng của công ty trên thông số chuẩn: `POST /catalog/spec-fields/:id/options` (không version) */
+export function useAddSpecOption() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ fieldId, value }: { fieldId: string; value: string }) => {
+      const { data } = await apiClient.post<SpecOption>(`/catalog/spec-fields/${fieldId}/options`, { value });
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Xoá lựa chọn riêng của công ty; lựa chọn chuẩn 403 `platform_managed`, đang dùng 409 `in_use` */
+export function useDeleteSpecOption() {
+  const invalidate = useInvalidateCatalog();
+  return useMutation({
+    mutationFn: async ({ fieldId, optionId }: { fieldId: string; optionId: string }) => {
+      await apiClient.delete(`/catalog/spec-fields/${fieldId}/options/${optionId}`);
     },
     onSuccess: invalidate,
   });

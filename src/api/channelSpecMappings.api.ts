@@ -13,6 +13,9 @@ export interface MappedOption {
   optionId: string;
   platformOptionId: string | null;
   platformLabel: string | null;
+  /** Hai tầng (Documents/21 §18.8.1): lựa chọn riêng của công ty `editable: true`, kể cả trong thông số chuẩn */
+  scope?: 'platform' | 'company';
+  editable?: boolean;
 }
 
 export interface SpecMappingCode {
@@ -25,6 +28,9 @@ export interface SpecMappingCode {
 /** `suggestions` tính lúc đọc theo tên, không lưu; người dùng bấm lưu mới thành `codes` */
 export interface SpecMapping {
   fieldId: string;
+  /** Thông số chuẩn: `editable: false` ở cấp mã, chỉ nền tảng đổi tập mã */
+  scope?: 'platform' | 'company';
+  editable?: boolean;
   codes: SpecMappingCode[];
   suggestions: Omit<SpecMappingCode, 'priority'>[];
 }
@@ -36,6 +42,9 @@ export interface SpecMappingInput {
 
 export interface AxisMapping {
   attributeId: string;
+  /** Thuộc tính chuẩn: `editable: false`, PUT 403 `platform_managed` */
+  scope?: 'platform' | 'company';
+  editable?: boolean;
   platformKind: string | null;
   codes: { attributeCode: string; attributeLabel: string; priority: number }[];
   /** Mặc định theo `platformKind` do adapter khai, chỉ đọc */

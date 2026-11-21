@@ -47,6 +47,7 @@ const MESSAGES: Record<string, string> = {
   module_disabled: 'Tính năng này đã bị tắt. Tải lại trang để cập nhật menu.',
   // docs/21 mục 5
   in_use: 'Không thể xoá vì đang được sử dụng.',
+  platform_managed: 'Đây là dữ liệu chuẩn của nền tảng, công ty không sửa được. Có thể thêm phần riêng của công ty.',
   name_taken: 'Tên này đã được dùng trong công ty.',
   variant_exists: 'Variant đã có.',
   // FE#57, sơ đồ Sản phẩm B1

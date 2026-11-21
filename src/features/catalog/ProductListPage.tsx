@@ -69,7 +69,8 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     status,
     businessStatus: status === 'active' && businessStatus ? (businessStatus as ProductListParams['businessStatus']) : undefined,
   });
-  const groupsQuery = useGroups();
+  // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
+  const groupsQuery = useGroups({ includeHidden: true });
   const groups = groupsQuery.data ?? [];
 
   const withReset =

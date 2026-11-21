@@ -17,7 +17,7 @@ import {
 } from '@/api/channelSpecMappings.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
-import type { SpecField } from '@/types/catalog';
+import { isPlatform, type SpecField } from '@/types/catalog';
 import { PLATFORM_TABS } from '../platformCategory';
 import { AttributeCodePicker } from './AttributeCodePicker';
 import { hasOptions } from './specLabels';
@@ -41,6 +41,8 @@ interface SpecMappingDialogProps {
 /**
  * Ánh xạ một thông số sang attribute của từng sàn (Documents/21 §18.8.1). Nhiều mã theo thứ tự ưu tiên: khi đẩy, dùng
  * mã đầu tiên mà category đang chọn có. Mỗi mã của một sàn chỉ nhận từ một thông số.
+ * Thông số chuẩn (§18.8.1 "Hai tầng"): tập mã và ghép của lựa chọn chuẩn do nền tảng đặt, chỉ đọc; công ty chỉ ghép
+ * lựa chọn riêng của mình, PUT gửi đúng tập mã đang có
  */
 export function SpecMappingDialog({ field, canEdit, onClose }: SpecMappingDialogProps) {
   const [platform, setPlatform] = useState<string>(PLATFORM_TABS[0].platform);
@@ -106,6 +108,11 @@ function PlatformMapping({
   }, [row]);
 
   const withOptions = hasOptions(field.input);
+  // BE cũ chưa trả `editable`: suy theo tầng của thông số
+  const codesEditable = canEdit && (row?.editable ?? !isPlatform(field));
+  const optionEditable = (optionId: string) =>
+    canEdit && (codesEditable || field.options.find((o) => o.id === optionId)?.scope === 'company');
+  const anyEditable = codesEditable || (canEdit && withOptions && field.options.some((o) => o.scope === 'company'));
   const suggestions = (row?.suggestions ?? []).filter((s) => !codes.some((c) => c.attributeCode === s.attributeCode));
   const move = (i: number, to: number) =>
     setCodes((prev) => {
@@ -124,7 +131,10 @@ function PlatformMapping({
         codes: codes.map((c) => ({
           attributeCode: c.attributeCode,
           ...(withOptions && {
-            options: field.options.map((o) => ({ optionId: o.id, platformOptionId: c.options[o.id] ?? null })),
+            // Thông số chuẩn: chỉ gửi lựa chọn riêng của công ty
+            options: field.options
+              .filter((o) => codesEditable || optionEditable(o.id))
+              .map((o) => ({ optionId: o.id, platformOptionId: c.options[o.id] ?? null })),
           }),
         })),
       });
@@ -150,6 +160,12 @@ function PlatformMapping({
   return (
     <div className="mt-3 grid gap-4">
       {error && <AlertMessage severity="warning">{error}</AlertMessage>}
+      {!codesEditable && isPlatform(field) && (
+        <p className="text-sm text-muted-foreground">
+          Thông số chuẩn: mã {platformName} do nền tảng đặt, công ty không đổi được.
+          {anyEditable && ' Công ty ghép được lựa chọn riêng của mình.'}
+        </p>
+      )}
       {codes.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Chưa ánh xạ sang {platformName}. Khi đẩy, ô này để trống và người dùng tự điền ở tab {platformName}.
@@ -162,7 +178,7 @@ function PlatformMapping({
               <Badge variant="outline">{i + 1}</Badge>
               <span className="font-medium">{c.attributeLabel}</span>
               <span className="font-mono text-xs text-muted-foreground">{c.attributeCode}</span>
-              {canEdit && (
+              {codesEditable && (
                 <span className="ml-auto flex">
                   <RowAction label="Ưu tiên hơn" reason={i === 0 ? 'Đã ưu tiên nhất' : null} onClick={() => move(i, i - 1)}>
                     <ArrowUp />
@@ -182,7 +198,7 @@ function PlatformMapping({
                 platform={platform}
                 code={c}
                 field={field}
-                disabled={!canEdit}
+                editable={optionEditable}
                 onChange={(optionId, platformOptionId) =>
                   setCodes((prev) =>
                     prev.map((x, j) => (j === i ? { ...x, options: { ...x.options, [optionId]: platformOptionId } } : x)),
@@ -194,7 +210,7 @@ function PlatformMapping({
         ))}
       </ol>
 
-      {canEdit && suggestions.length > 0 && (
+      {codesEditable && suggestions.length > 0 && (
         <div className="grid gap-2 rounded-md border border-dashed p-3">
           <p className="text-sm font-medium">Gợi ý theo tên, chưa lưu</p>
           {suggestions.map((s) => (
@@ -220,7 +236,7 @@ function PlatformMapping({
         </div>
       )}
 
-      {canEdit && (
+      {codesEditable && (
         <AttributeCodePicker
           platform={platform}
           platformName={platformName}
@@ -233,9 +249,9 @@ function PlatformMapping({
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose} disabled={saveMut.isPending}>
-          {canEdit ? 'Huỷ' : 'Đóng'}
+          {anyEditable ? 'Huỷ' : 'Đóng'}
         </Button>
-        {canEdit && (
+        {anyEditable && codes.length > 0 && (
           <Button type="button" onClick={save} disabled={saveMut.isPending}>
             {saveMut.isPending ? 'Đang lưu...' : `Lưu ánh xạ ${platformName}`}
           </Button>
@@ -250,13 +266,14 @@ function OptionMap({
   platform,
   code,
   field,
-  disabled,
+  editable,
   onChange,
 }: {
   platform: string;
   code: CodeDraft;
   field: SpecField;
-  disabled: boolean;
+  /** Lựa chọn nào công ty ghép được */
+  editable: (optionId: string) => boolean;
   onChange: (optionId: string, platformOptionId: string | null) => void;
 }) {
   const catalog = useAttributeCatalog(platform, code.attributeCode, 'property');
@@ -276,10 +293,13 @@ function OptionMap({
             .sort((a, b) => a.position - b.position)
             .map((o) => (
               <div key={o.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-2">
-                <span className="truncate">{o.value}</span>
+                <span className="truncate">
+                  {o.value}
+                  {isPlatform(field) && o.scope === 'company' && <span className="ml-1.5 text-xs text-muted-foreground">riêng</span>}
+                </span>
                 <Select
                   value={code.options[o.id] ?? NONE}
-                  disabled={disabled}
+                  disabled={!editable(o.id)}
                   onValueChange={(v) => onChange(o.id, v === NONE ? null : v)}
                 >
                   <SelectTrigger className="h-8 w-full" aria-label={`Lựa chọn sàn cho ${o.value}`}>

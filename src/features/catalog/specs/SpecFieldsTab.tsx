@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Link2, Pencil, Trash2 } from 'lucide-react';
+import { Link2, ListPlus, Pencil, Trash2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { useDeleteSpecField, useSpecFields } from '@/api/catalog.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
-import type { SpecField } from '@/types/catalog';
+import { isPlatform, type DataScope, type SpecField } from '@/types/catalog';
+import { ScopeSection } from '../ScopeSection';
+import { splitByScope } from '../scope';
+import { SpecOptionsDialog } from './SpecOptionsDialog';
 import { useSpecMappings } from '@/api/channelSpecMappings.api';
 import { PLATFORM_TABS } from '../platformCategory';
 import { SpecFieldDialog } from './SpecFieldDialog';
 import { SpecMappingDialog } from './SpecMappingDialog';
-import { SPEC_INPUT_LABELS } from './specLabels';
+import { SPEC_INPUT_LABELS, hasOptions } from './specLabels';
 
 const MAX_CHIPS = 4;
 
@@ -65,13 +67,18 @@ interface SpecFieldsTabProps {
   onCloseCreate: () => void;
 }
 
-/** Thư viện thông số của công ty (Documents/21 §5.5) */
+const SCOPES: DataScope[] = ['platform', 'company'];
+
+/** Thư viện thông số hai tầng (Documents/21 §5.5, §5.6): chuẩn nền tảng chỉ đọc, thêm lựa chọn riêng; của công ty sửa, xoá */
 export function SpecFieldsTab({ canManage, showMapping, creating, onCloseCreate }: SpecFieldsTabProps) {
   const query = useSpecFields();
   const deleteMut = useDeleteSpecField();
   const [editing, setEditing] = useState<SpecField | null>(null);
   const [deleting, setDeleting] = useState<SpecField | null>(null);
   const [mapping, setMapping] = useState<SpecField | null>(null);
+  // Thông số chuẩn: xem và thêm lựa chọn riêng
+  const [optionsOf, setOptionsOf] = useState<SpecField | null>(null);
+  const byScope = useMemo(() => splitByScope(query.data ?? []), [query.data]);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -135,8 +142,13 @@ export function SpecFieldsTab({ canManage, showMapping, creating, onCloseCreate 
           return (
             <div className="flex flex-wrap items-center gap-1">
               {opts.slice(0, MAX_CHIPS).map((o) => (
-                <Badge key={o.id} variant="outline">
+                <Badge
+                  key={o.id}
+                  variant="outline"
+                  title={isPlatform(row.original) && o.scope === 'company' ? 'Lựa chọn riêng của công ty' : undefined}
+                >
                   {o.value}
+                {isPlatform(row.original) && o.scope === 'company' && <span className="text-muted-foreground">riêng</span>}
                 </Badge>
               ))}
               {opts.length > MAX_CHIPS && <span className="text-xs text-muted-foreground">+{opts.length - MAX_CHIPS}</span>}
@@ -179,21 +191,33 @@ export function SpecFieldsTab({ canManage, showMapping, creating, onCloseCreate 
                       <Link2 />
                     </RowAction>
                   )}
-                  <RowAction label="Sửa" onClick={() => setEditing(row.original)}>
-                    <Pencil />
-                  </RowAction>
-                  <RowAction
-                    label="Xoá"
-                    destructive
-                    reason={
-                      row.original.groupCount || row.original.productCount
-                        ? `Đang trong ${row.original.groupCount} mẫu nhóm, ${row.original.productCount} sản phẩm đã điền, không xoá được`
-                        : null
-                    }
-                    onClick={() => setDeleting(row.original)}
-                  >
-                    <Trash2 />
-                  </RowAction>
+                  {isPlatform(row.original) ? (
+                    <RowAction
+                      label="Lựa chọn riêng của công ty"
+                      reason={hasOptions(row.original.input) ? null : 'Thông số nhập tự do, không có lựa chọn'}
+                      onClick={() => setOptionsOf(row.original)}
+                    >
+                      <ListPlus />
+                    </RowAction>
+                  ) : (
+                    <>
+                      <RowAction label="Sửa" onClick={() => setEditing(row.original)}>
+                        <Pencil />
+                      </RowAction>
+                      <RowAction
+                        label="Xoá"
+                        destructive
+                        reason={
+                          row.original.groupCount || row.original.productCount
+                            ? `Đang trong ${row.original.groupCount} mẫu nhóm, ${row.original.productCount} sản phẩm đã điền, không xoá được`
+                            : null
+                        }
+                        onClick={() => setDeleting(row.original)}
+                      >
+                        <Trash2 />
+                      </RowAction>
+                    </>
+                  )}
                 </div>
               ),
             } satisfies ColumnDef<SpecField>,
@@ -210,16 +234,21 @@ export function SpecFieldsTab({ canManage, showMapping, creating, onCloseCreate 
           {getErrorMessage(query.error)}
         </AlertMessage>
       )}
-      <Card className="py-0">
-        <DataTable
-          columns={columns}
-          data={query.data ?? []}
-          getRowId={(r) => r.id}
-          loading={query.isLoading}
-          fetching={query.isFetching}
-          empty="Chưa có thông số"
-        />
-      </Card>
+      <div className="grid gap-6">
+        {SCOPES.map((scope) => (
+          <ScopeSection key={scope} scope={scope} count={byScope[scope].length}>
+            <DataTable
+              columns={columns}
+              data={byScope[scope]}
+              getRowId={(r) => r.id}
+              loading={query.isLoading}
+              fetching={query.isFetching}
+              empty={scope === 'platform' ? 'Chưa có thông số chuẩn' : 'Chưa có thông số riêng. Bấm "Thêm thông số" để tạo.'}
+            />
+          </ScopeSection>
+        ))}
+      </div>
+      <SpecOptionsDialog field={optionsOf} onClose={() => setOptionsOf(null)} />
       <SpecFieldDialog
         open={creating || Boolean(editing)}
         field={editing}

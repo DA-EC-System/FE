@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
-import type { ProductGroup, SuggestConfig } from '@/types/catalog';
+import { isPlatform, type ProductGroup, type SuggestConfig } from '@/types/catalog';
 import { groupSchema, type GroupForm } from './shared';
 import { SuggestFields } from './SuggestFields';
 import { EMPTY_SUGGEST_FORM, fromSuggestForm, suggestFieldErrors, suggestText, toSuggestForm } from './suggest';
@@ -44,6 +44,8 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
   const [version, setVersion] = useState(0);
   // Chép mẫu thông số và trục chuẩn từ nhóm khác (Documents/21 §5.2): một lần, không thành cha con
   const [copyFrom, setCopyFrom] = useState('');
+  // Nhóm chuẩn nền tảng: tên, mẫu do nền tảng đặt; công ty chỉ đặt gợi ý giá, nhập lại của mình
+  const platform = Boolean(group && isPlatform(group));
   const sources = (useGroups().data ?? []).filter((g) => g.id !== group?.id && (g.specFieldCount ?? 0) + (g.axes?.length ?? 0) > 0);
   const replacing = Boolean(copyFrom && group && (group.specFieldCount ?? 0) + (group.axes?.length ?? 0) > 0);
 
@@ -70,7 +72,10 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
         suggest: fromSuggestForm(values.suggest),
         ...(copyFrom && { copyTemplateFromGroupId: copyFrom }),
       };
-      if (group) {
+      if (group && platform) {
+        await updateMut.mutateAsync({ id: group.id, version, suggest: body.suggest });
+        onDone(`Đã lưu gợi ý của nhóm ${group.name}`);
+      } else if (group) {
         await updateMut.mutateAsync({ id: group.id, version, ...body });
         onDone(`Đã cập nhật nhóm hàng ${values.name}`);
       } else {
@@ -110,16 +115,20 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{group ? 'Sửa nhóm hàng' : 'Thêm nhóm hàng'}</DialogTitle>
-          <DialogDescription>Nhóm hàng dùng để lọc sản phẩm trong app, không ghép sang sàn.</DialogDescription>
+          <DialogTitle>{platform ? `Gợi ý của nhóm ${group?.name}` : group ? 'Sửa nhóm hàng' : 'Thêm nhóm hàng'}</DialogTitle>
+          <DialogDescription>
+            {platform
+              ? 'Nhóm chuẩn của nền tảng: tên và mẫu thông số dùng chung mọi công ty. Gợi ý giá, nhập lại dưới đây chỉ áp cho công ty bạn.'
+              : 'Nhóm hàng dùng để lọc sản phẩm trong app, không ghép sang sàn.'}
+          </DialogDescription>
         </DialogHeader>
 
         {error && <AlertMessage severity="warning">{error}</AlertMessage>}
 
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="grid gap-4">
-            <FormTextField control={control} name="name" label="Tên nhóm hàng" autoFocus />
-            {sources.length > 0 && (
+            <FormTextField control={control} name="name" label="Tên nhóm hàng" autoFocus={!platform} disabled={platform} />
+            {!platform && sources.length > 0 && (
               <div className="grid gap-2">
                 <Label htmlFor="copy-template">Chép mẫu thông số từ nhóm</Label>
                 <Select value={copyFrom || 'none'} onValueChange={(v) => setCopyFrom(v === 'none' ? '' : v)} disabled={busy}>

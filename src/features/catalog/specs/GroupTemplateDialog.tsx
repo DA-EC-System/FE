@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Lock, Trash2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { RowAction } from '@/components/common/RowAction';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -18,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAttributes, useGroupTemplate, useSpecFields, useUpdateGroupTemplate } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
-import type { ProductGroup } from '@/types/catalog';
+import { isPlatform, type ProductGroup } from '@/types/catalog';
 import { SPEC_INPUT_LABELS } from './specLabels';
 
 interface GroupTemplateDialogProps {
@@ -33,6 +34,8 @@ const NONE = 'none';
 /**
  * Mẫu của nhóm hàng (Documents/21 §5.5): tối đa hai trục phân loại chuẩn, thông số nào, bắt buộc hay tuỳ chọn, thứ
  * tự. Form tạo sản phẩm dựng theo mẫu. Bắt buộc chỉ tính vào mức sẵn sàng, không chặn lưu.
+ * Nhóm chuẩn nền tảng (§5.6): trục và dòng của mẫu chuẩn khoá, kể cả dòng tuỳ chọn; công ty chỉ thêm, sắp, bỏ dòng của
+ * mình, gửi `{ fields: chỉ dòng công ty, version }`
  */
 export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDialogProps) {
   const templateQuery = useGroupTemplate(group?.id);
@@ -46,18 +49,22 @@ export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDia
   const [adding, setAdding] = useState('');
 
   const template = templateQuery.data;
+  const platform = Boolean(group && isPlatform(group));
+  // Dòng của mẫu chuẩn: chỉ đọc, đứng trước dòng công ty
+  const locked = platform ? (template?.fields ?? []).filter(isPlatform) : [];
   useEffect(() => {
     if (template) {
       setAxes(template.axes.map((a) => a.attributeId));
-      setRows(template.fields.map((f) => ({ fieldId: f.fieldId, required: f.required })));
+      const own = platform ? template.fields.filter((f) => !isPlatform(f)) : template.fields;
+      setRows(own.map((f) => ({ fieldId: f.fieldId, required: f.required })));
       setVersion(template.version);
       setError(null);
     }
-  }, [template]);
+  }, [template, platform]);
 
   const library = fieldsQuery.data ?? [];
   const byId = new Map(library.map((f) => [f.id, f]));
-  const free = library.filter((f) => !rows.some((r) => r.fieldId === f.id));
+  const free = library.filter((f) => !rows.some((r) => r.fieldId === f.id) && !locked.some((l) => l.fieldId === f.id));
 
   const setAxis = (i: number, id: string) =>
     setAxes((prev) => {
@@ -78,7 +85,9 @@ export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDia
     if (!group) return;
     setError(null);
     try {
-      await saveMut.mutateAsync({ groupId: group.id, axisAttributeIds: axes, fields: rows, version });
+      await saveMut.mutateAsync(
+        platform ? { groupId: group.id, fields: rows, version } : { groupId: group.id, axisAttributeIds: axes, fields: rows, version },
+      );
       onDone(`Đã lưu mẫu của nhóm ${group.name}`);
     } catch (e) {
       if (problemCode(e) === 'version_conflict') {
@@ -88,7 +97,10 @@ export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDia
       }
       const errs = getProblem(e)?.errors ?? {};
       const first = Object.entries(errs)[0];
-      setError(first ? first[1] : problemMessage(e));
+      // `fields.<i>.fieldId`: nêu tên thông số để biết dòng nào lỗi
+      const at = first?.[0].match(/^fields\.(\d+)\./);
+      const name = at ? byId.get(rows[Number(at[1])]?.fieldId ?? '')?.name : undefined;
+      setError(first ? (name ? `${name}: ${first[1]}` : first[1]) : problemMessage(e));
     }
   };
 
@@ -101,7 +113,9 @@ export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDia
         <DialogHeader>
           <DialogTitle>Mẫu của nhóm {group?.name}</DialogTitle>
           <DialogDescription>
-            Chọn nhóm này khi tạo sản phẩm thì trục phân loại chọn sẵn và form hiện các thông số dưới đây.
+            {platform
+              ? 'Nhóm chuẩn của nền tảng: trục và thông số chuẩn dùng chung mọi công ty, không bỏ được. Thêm thông số riêng của công ty ở cuối mẫu.'
+              : 'Chọn nhóm này khi tạo sản phẩm thì trục phân loại chọn sẵn và form hiện các thông số dưới đây.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -117,6 +131,13 @@ export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDia
           <div className="grid min-h-0 gap-5 overflow-y-auto">
             <fieldset className="grid gap-2">
               <legend className="mb-1 text-sm font-medium">Trục phân loại chuẩn</legend>
+              {platform ? (
+                <p className="flex flex-wrap items-center gap-1.5 text-sm">
+                  <Lock className="size-3.5 text-muted-foreground" aria-hidden />
+                  {template?.axes.length ? template.axes.map((a) => a.name).join(', ') : <span className="text-muted-foreground">Không có</span>}
+                  <span className="text-muted-foreground">· do nền tảng đặt</span>
+                </p>
+              ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {[0, 1].map((i) => (
                   <div key={i} className="grid gap-1.5">
@@ -141,14 +162,37 @@ export function GroupTemplateDialog({ group, onClose, onDone }: GroupTemplateDia
                   </div>
                 ))}
               </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Điều gì khác nhau giữa các SKU (màu, cỡ, dung tích) là trục, không phải thông số.
               </p>
             </fieldset>
 
             <fieldset className="grid gap-2">
-              <legend className="mb-1 text-sm font-medium">Thông số ({rows.length})</legend>
-              {rows.length === 0 && <p className="text-sm text-muted-foreground">Chưa có thông số nào. Thêm từ thư viện bên dưới.</p>}
+              <legend className="mb-1 text-sm font-medium">Thông số ({locked.length + rows.length})</legend>
+              {locked.length > 0 && (
+                <>
+                  <h3 className="text-xs font-medium text-muted-foreground">Chuẩn nền tảng · {locked.length}</h3>
+                  <ol className="grid gap-1" aria-label="Thông số của mẫu chuẩn">
+                    {locked.map((f) => (
+                      <li key={f.fieldId} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-muted/50 px-3 py-1.5">
+                        <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium">{f.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{SPEC_INPUT_LABELS[f.input]}</span>
+                        </span>
+                        {f.required ? <Badge variant="secondary">Bắt buộc</Badge> : <span className="text-sm text-muted-foreground">Tuỳ chọn</span>}
+                      </li>
+                    ))}
+                  </ol>
+                  <h3 className="mt-2 text-xs font-medium text-muted-foreground">Của công ty · {rows.length}</h3>
+                </>
+              )}
+              {rows.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {platform ? 'Chưa thêm thông số riêng.' : 'Chưa có thông số nào.'} Thêm từ thư viện bên dưới.
+                </p>
+              )}
               <ol className="grid gap-1">
                 {rows.map((r, i) => {
                   const f = byId.get(r.fieldId);

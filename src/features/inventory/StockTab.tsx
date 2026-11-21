@@ -73,7 +73,8 @@ export function StockTab() {
     belowMin: belowMin || undefined,
     quarantine: quarantine || undefined,
   });
-  const groupsQuery = useGroups();
+  // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
+  const groupsQuery = useGroups({ includeHidden: true });
   const groups = groupsQuery.data ?? [];
   const summary = stockQuery.data?.summary;
   const filtered = Boolean(debouncedSearch || groupId || view !== 'all');

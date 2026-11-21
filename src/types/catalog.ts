@@ -17,9 +17,21 @@ export interface SuggestConfig {
 }
 
 /** Nhóm hàng (Documents/21 §5.2): phân loại nội bộ, một cấp, không ghép sang sàn */
+/**
+ * Tầng của dòng dữ liệu (dữ liệu chung, Documents/21 §5.2, §5.5): `platform` là chuẩn nền tảng dùng chung mọi công ty, công ty
+ * chỉ đọc và thêm được phần riêng; `company` là của công ty. Thiếu (BE cũ) coi như `company`
+ */
+export type DataScope = 'platform' | 'company';
+
+/** Dòng chuẩn nền tảng: công ty không sửa, không xoá */
+export const isPlatform = (row: { scope?: DataScope }) => row.scope === 'platform';
+
 export interface ProductGroup {
   id: string;
   name: string;
+  scope?: DataScope;
+  /** Nhóm chuẩn công ty đã ẩn (không hiện ở form sản phẩm); nhóm của công ty luôn false */
+  hidden?: boolean;
   /** Kể cả sản phẩm đã lưu trữ */
   productCount: number;
   suggest: SuggestConfig;
@@ -33,6 +45,7 @@ export interface ProductGroup {
 }
 
 export interface GroupAxis {
+  scope?: DataScope;
   attributeId: string;
   name: string;
   platformKind: PlatformKind | null;
@@ -72,11 +85,14 @@ export interface AttributeValue {
   code: string;
   /** Đã có biến thể dùng: không xoá được */
   inUse: boolean;
+  /** Giá trị chuẩn của thuộc tính nền tảng, hay giá trị công ty thêm */
+  scope?: DataScope;
 }
 
 export interface Attribute {
   id: string;
   name: string;
+  scope?: DataScope;
   /** Thuộc tính chuẩn sàn (Màu sắc, Kích cỡ, Dung tích, Hương vị), hệ thống tạo khi lập công ty; null là tự đặt */
   platformKind: PlatformKind | null;
   values: AttributeValue[];
@@ -375,11 +391,13 @@ export type SpecInputKind = 'select' | 'multiselect' | 'text' | 'number' | 'date
 export interface SpecOption {
   id: string;
   value: string;
+  scope?: DataScope;
 }
 
 /** Thông số trong thư viện của công ty */
 export interface SpecField {
   id: string;
+  scope?: DataScope;
   code: string;
   name: string;
   input: SpecInputKind;
@@ -412,6 +430,8 @@ export interface SpecFieldUpdateInput {
 }
 
 export interface GroupTemplateField {
+  /** Dòng của mẫu chuẩn (không bỏ được) hay dòng công ty thêm vào nhóm chuẩn */
+  scope?: DataScope;
   fieldId: string;
   code: string;
   name: string;
@@ -431,9 +451,9 @@ export interface GroupTemplate {
 }
 
 export interface GroupTemplateInput {
-  /** 0–2, khác nhau */
-  axisAttributeIds: string[];
-  /** Thứ tự mảng là thứ tự hiển thị */
+  /** 0–2, khác nhau. Nhóm chuẩn: không gửi (trục do nền tảng đặt, gửi thì 422) */
+  axisAttributeIds?: string[];
+  /** Thứ tự mảng là thứ tự hiển thị. Nhóm chuẩn: chỉ dòng của công ty */
   fields: { fieldId: string; required: boolean }[];
   version: number;
 }

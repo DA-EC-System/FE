@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Link2, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Link2, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -10,16 +10,15 @@ import { DataTable } from '@/components/common/DataTable';
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAttributes, useDeleteAttribute, useDeleteGroup, useGroups } from '@/api/catalog.api';
+import { useAttributes, useDeleteAttribute, useDeleteGroup, useGroups, useSetGroupHidden } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { useCan, useModuleEnabled } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
-import type { Attribute, ProductGroup } from '@/types/catalog';
+import { isPlatform, type Attribute, type DataScope, type ProductGroup } from '@/types/catalog';
 import { GroupFormDialog } from './GroupFormDialog';
 import { DeleteGroupDialog } from './DeleteGroupDialog';
 import { SUGGEST_KEYS } from './suggest';
@@ -29,6 +28,11 @@ import { PLATFORM_TABS, isPlatformTab } from './platformCategory';
 import { SpecFieldsTab } from './specs/SpecFieldsTab';
 import { GroupTemplateDialog } from './specs/GroupTemplateDialog';
 import { AxisMappingDialog, AxisMappingLine } from './specs/AxisMappingDialog';
+import { ScopeSection } from './ScopeSection';
+import { splitByScope } from './scope';
+import { AttributeValuesDialog } from './AttributeValuesDialog';
+
+const SCOPES: DataScope[] = ['platform', 'company'];
 
 type Deleting = { kind: 'group'; item: ProductGroup } | { kind: 'attribute'; item: Attribute };
 type TabKey = 'groups' | 'specs' | 'attributes';
@@ -63,7 +67,9 @@ export function CatalogSetupPage() {
   const [tab, setTab] = useState<TabKey>('groups');
   const { startTour } = usePageGuide('catalog-setup');
 
-  const groupsQuery = useGroups();
+  // Trang cài đặt thấy cả nhóm chuẩn đã ẩn để bật lại
+  const groupsQuery = useGroups({ includeHidden: true });
+  const hideMut = useSetGroupHidden();
   const attributesQuery = useAttributes();
   const deleteGroup = useDeleteGroup();
   const deleteAttribute = useDeleteAttribute();
@@ -74,6 +80,8 @@ export function CatalogSetupPage() {
   const [templateOf, setTemplateOf] = useState<ProductGroup | null>(null);
   const [creatingSpec, setCreatingSpec] = useState(false);
   const [axisOf, setAxisOf] = useState<Attribute | null>(null);
+  // Thuộc tính chuẩn: công ty chỉ thêm, xoá giá trị riêng
+  const [valuesOf, setValuesOf] = useState<Attribute | null>(null);
   // Nhóm còn sản phẩm: chuyển hết sang nhóm khác rồi xoá
   const [moving, setMoving] = useState<ProductGroup | null>(null);
 
@@ -102,12 +110,35 @@ export function CatalogSetupPage() {
     setDeleting(null);
   };
 
+  const toggleHidden = async (g: ProductGroup) => {
+    try {
+      await hideMut.mutateAsync({ id: g.id, hidden: !g.hidden });
+      toast.success(g.hidden ? `Đã hiện lại ${g.name}` : `Đã ẩn ${g.name}. Sản phẩm đang ở nhóm này không đổi.`);
+    } catch (e) {
+      toast.error(problemMessage(e));
+    }
+  };
+
   const inUseReason = (count: number) =>
     count > 0 ? `Đang có ${count} sản phẩm dùng (kể cả đã lưu trữ), không xoá được` : null;
 
   const groupColumns = useMemo<ColumnDef<ProductGroup>[]>(
     () => [
-      { accessorKey: 'name', header: 'Nhóm hàng', meta: { className: 'min-w-40 font-medium' } },
+      {
+        accessorKey: 'name',
+        header: 'Nhóm hàng',
+        meta: { className: 'min-w-40 font-medium' },
+        cell: ({ row }) => (
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            <span className={row.original.hidden ? 'text-muted-foreground' : undefined}>{row.original.name}</span>
+            {row.original.hidden && (
+              <Badge variant="outline" title="Không hiện ở form sản phẩm và bộ lọc">
+                Đã ẩn
+              </Badge>
+            )}
+          </span>
+        ),
+      },
       { accessorKey: 'productCount', header: 'Số sản phẩm', meta: { className: 'w-28 text-right' } },
       {
         id: 'axes',
@@ -161,32 +192,50 @@ export function CatalogSetupPage() {
               id: 'actions',
               header: '',
               meta: { className: 'w-32 text-right' },
-              cell: ({ row }) => (
-                <div className="flex justify-end gap-1">
-                  <RowAction label="Sửa mẫu thông số" onClick={() => setTemplateOf(row.original)}>
-                    <ListChecks />
-                  </RowAction>
-                  <RowAction label="Sửa" onClick={() => setGroupForm({ item: row.original })}>
-                    <Pencil />
-                  </RowAction>
-                  <RowAction
-                    label="Xoá"
-                    destructive
-                    onClick={() =>
-                      row.original.productCount > 0
-                        ? setMoving(row.original)
-                        : setDeleting({ kind: 'group', item: row.original })
-                    }
-                  >
-                    <Trash2 />
-                  </RowAction>
-                </div>
-              ),
+              cell: ({ row }) =>
+                isPlatform(row.original) ? (
+                  <div className="flex justify-end gap-1">
+                    <RowAction label="Thêm thông số riêng vào mẫu" onClick={() => setTemplateOf(row.original)}>
+                      <ListChecks />
+                    </RowAction>
+                    <RowAction label="Sửa gợi ý giá, nhập lại" onClick={() => setGroupForm({ item: row.original })}>
+                      <Pencil />
+                    </RowAction>
+                    <RowAction
+                      label={row.original.hidden ? 'Hiện lại nhóm' : 'Ẩn nhóm (không bán)'}
+                      reason={hideMut.isPending ? 'Đang lưu' : null}
+                      onClick={() => void toggleHidden(row.original)}
+                    >
+                      {row.original.hidden ? <Eye /> : <EyeOff />}
+                    </RowAction>
+                  </div>
+                ) : (
+                  <div className="flex justify-end gap-1">
+                    <RowAction label="Sửa mẫu thông số" onClick={() => setTemplateOf(row.original)}>
+                      <ListChecks />
+                    </RowAction>
+                    <RowAction label="Sửa" onClick={() => setGroupForm({ item: row.original })}>
+                      <Pencil />
+                    </RowAction>
+                    <RowAction
+                      label="Xoá"
+                      destructive
+                      onClick={() =>
+                        row.original.productCount > 0
+                          ? setMoving(row.original)
+                          : setDeleting({ kind: 'group', item: row.original })
+                      }
+                    >
+                      <Trash2 />
+                    </RowAction>
+                  </div>
+                ),
             } satisfies ColumnDef<ProductGroup>,
           ]
         : []),
     ],
-    [canManage],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toggleHidden chỉ gọi mutation, đổi theo isPending
+    [canManage, hideMut.isPending],
   );
 
   const attributeColumns = useMemo<ColumnDef<Attribute>[]>(
@@ -202,9 +251,17 @@ export function CatalogSetupPage() {
               <Badge
                 key={v.id}
                 variant={v.inUse ? 'secondary' : 'outline'}
-                title={v.inUse ? 'Đã có variant dùng' : undefined}
+                title={
+                  [
+                    isPlatform(row.original) && v.scope === 'company' ? 'Giá trị riêng của công ty' : null,
+                    v.inUse ? 'Đã có variant dùng' : null,
+                  ]
+                    .filter(Boolean)
+                    .join('; ') || undefined
+                }
               >
                 {v.value}
+                {isPlatform(row.original) && v.scope === 'company' && <span className="text-muted-foreground">riêng</span>}
                 <span className="font-mono text-muted-foreground">{v.code}</span>
               </Badge>
             ))}
@@ -246,17 +303,25 @@ export function CatalogSetupPage() {
                       <Link2 />
                     </RowAction>
                   )}
-                  <RowAction label="Sửa" onClick={() => setAttributeForm({ item: row.original })}>
-                    <Pencil />
-                  </RowAction>
-                  <RowAction
-                    label="Xoá"
-                    destructive
-                    reason={inUseReason(row.original.productCount)}
-                    onClick={() => setDeleting({ kind: 'attribute', item: row.original })}
-                  >
-                    <Trash2 />
-                  </RowAction>
+                  {isPlatform(row.original) ? (
+                    <RowAction label="Giá trị riêng của công ty" onClick={() => setValuesOf(row.original)}>
+                      <Plus />
+                    </RowAction>
+                  ) : (
+                    <>
+                      <RowAction label="Sửa" onClick={() => setAttributeForm({ item: row.original })}>
+                        <Pencil />
+                      </RowAction>
+                      <RowAction
+                        label="Xoá"
+                        destructive
+                        reason={inUseReason(row.original.productCount)}
+                        onClick={() => setDeleting({ kind: 'attribute', item: row.original })}
+                      >
+                        <Trash2 />
+                      </RowAction>
+                    </>
+                  )}
                 </div>
               ),
             } satisfies ColumnDef<Attribute>,
@@ -267,6 +332,8 @@ export function CatalogSetupPage() {
   );
 
   const query = tab === 'attributes' ? attributesQuery : groupsQuery;
+  const groupsByScope = useMemo(() => splitByScope(groupsQuery.data ?? []), [groupsQuery.data]);
+  const attributesByScope = useMemo(() => splitByScope(attributesQuery.data ?? []), [attributesQuery.data]);
   const done = (message: string) => {
     setGroupForm(null);
     setAttributeForm(null);
@@ -278,7 +345,7 @@ export function CatalogSetupPage() {
       <PageHeader
         title="Nhóm hàng & thuộc tính"
         subtitle="Nhóm hàng và mẫu thông số để dựng form sản phẩm; thuộc tính phân loại để tạo variant."
-        help="Công ty mới có sẵn 12 nhóm hàng, mỗi nhóm có mẫu thông số và trục phân loại chuẩn. Thông số (chất liệu, công dụng…) định nghĩa một lần ở tab Thông số, nhóm nào cần thì thêm vào mẫu. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Mỗi nhóm đặt được gợi ý giá, gợi ý nhập lại riêng, để trống thì theo Cài đặt sản phẩm. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
+        help="Nhóm hàng, thông số và thuộc tính chia hai mục. Chuẩn nền tảng: 12 nhóm kèm mẫu thông số, trục phân loại, thư viện thông số và ánh xạ sàn, dùng chung mọi công ty; công ty không sửa, không xoá, nhưng thêm được thông số riêng vào mẫu, lựa chọn riêng, giá trị riêng, và ẩn nhóm không bán. Của công ty: phần công ty tự tạo. Thông số (chất liệu, công dụng…) định nghĩa một lần ở tab Thông số, nhóm nào cần thì thêm vào mẫu. Nhóm hàng không ghép sang sàn; mã SKU sinh theo mẫu của công ty. Mỗi nhóm đặt được gợi ý giá, gợi ý nhập lại riêng, để trống thì theo Cài đặt sản phẩm. Thuộc tính phân loại (màu, cỡ…) và các giá trị của nó dùng để tạo tổ hợp variant."
         onTour={startTour}
         action={
           canManage && source === 'commerio' ? (
@@ -302,7 +369,7 @@ export function CatalogSetupPage() {
       <Tabs value={source} onValueChange={setSource}>
         {showPlatforms && (
           <TabsList className="mb-3">
-            <TabsTrigger value="commerio">Của công ty</TabsTrigger>
+            <TabsTrigger value="commerio">Trong app</TabsTrigger>
             {PLATFORM_TABS.map((t) => (
               <TabsTrigger key={t.platform} value={t.platform}>
                 {t.label}
@@ -327,30 +394,40 @@ export function CatalogSetupPage() {
                 Thuộc tính phân loại
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="groups">
-              <Card className="py-0">
-                <DataTable
-                  columns={groupColumns}
-                  data={groupsQuery.data ?? []}
-                  getRowId={(r) => r.id}
-                  loading={groupsQuery.isLoading} fetching={groupsQuery.isFetching}
-                  empty="Chưa có nhóm hàng"
-                />
-              </Card>
+            <TabsContent value="groups" className="grid gap-6">
+              {SCOPES.map((scope) => {
+                const rows = groupsByScope[scope];
+                const hidden = rows.filter((g) => g.hidden).length;
+                return (
+                  <ScopeSection key={scope} scope={scope} count={rows.length} note={hidden ? `${hidden} đang ẩn` : undefined}>
+                    <DataTable
+                      columns={groupColumns}
+                      data={rows}
+                      getRowId={(r) => r.id}
+                      loading={groupsQuery.isLoading}
+                      fetching={groupsQuery.isFetching}
+                      empty={scope === 'platform' ? 'Chưa có nhóm chuẩn' : 'Chưa có nhóm riêng. Bấm "Thêm nhóm hàng" để tạo.'}
+                    />
+                  </ScopeSection>
+                );
+              })}
             </TabsContent>
             <TabsContent value="specs">
               <SpecFieldsTab canManage={canManage} showMapping={showPlatforms} creating={creatingSpec} onCloseCreate={() => setCreatingSpec(false)} />
             </TabsContent>
-            <TabsContent value="attributes">
-              <Card className="py-0">
-                <DataTable
-                  columns={attributeColumns}
-                  data={attributesQuery.data ?? []}
-                  getRowId={(r) => r.id}
-                  loading={attributesQuery.isLoading} fetching={attributesQuery.isFetching}
-                  empty="Chưa có thuộc tính phân loại"
-                />
-              </Card>
+            <TabsContent value="attributes" className="grid gap-6">
+              {SCOPES.map((scope) => (
+                <ScopeSection key={scope} scope={scope} count={attributesByScope[scope].length}>
+                  <DataTable
+                    columns={attributeColumns}
+                    data={attributesByScope[scope]}
+                    getRowId={(r) => r.id}
+                    loading={attributesQuery.isLoading}
+                    fetching={attributesQuery.isFetching}
+                    empty={scope === 'platform' ? 'Chưa có thuộc tính chuẩn' : 'Chưa có thuộc tính riêng'}
+                  />
+                </ScopeSection>
+              ))}
             </TabsContent>
           </Tabs>
         </TabsContent>
@@ -368,7 +445,8 @@ export function CatalogSetupPage() {
         onClose={() => setGroupForm(null)}
         onDone={done}
       />
-      <AxisMappingDialog attribute={axisOf} canEdit={canManage} onClose={() => setAxisOf(null)} />
+      {/* Thuộc tính chuẩn: trục trên sàn do nền tảng đặt (Documents/21 §18.8.1 "Hai tầng") */}
+      <AxisMappingDialog attribute={axisOf} canEdit={canManage && !(axisOf && isPlatform(axisOf))} onClose={() => setAxisOf(null)} />
       <GroupTemplateDialog
         group={templateOf}
         onClose={() => setTemplateOf(null)}
@@ -379,13 +457,14 @@ export function CatalogSetupPage() {
       />
       <DeleteGroupDialog
         group={moving}
-        groups={groupsQuery.data ?? []}
+        groups={(groupsQuery.data ?? []).filter((g) => !g.hidden)}
         onClose={() => setMoving(null)}
         onDone={(message) => {
           setMoving(null);
           toast.success(message);
         }}
       />
+      <AttributeValuesDialog attribute={valuesOf} onClose={() => setValuesOf(null)} />
       <AttributeFormDialog
         open={Boolean(attributeForm)}
         attribute={attributeForm?.item ?? null}
