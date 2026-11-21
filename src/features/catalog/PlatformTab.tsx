@@ -202,7 +202,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     ...(spec ? [{ key: 'attrs', title: 'Attribute', miss: attrMissingCount }] : []),
     ...(extraMissing.length ? [{ key: 'extra', title: 'Sàn đòi thêm', miss: extraMissing.length }] : []),
     { key: 'detail', title: 'Chi tiết sản phẩm', miss: gapOf('description') ? 1 : 0 },
-    { key: 'sales', title: platform === 'lazada' ? 'Giá và tồn kho' : 'Thông tin bán hàng', miss: 0 },
+    { key: 'sales', title: 'Giá và tồn kho', miss: 0 },
     ...(sizeRule && sizeRule !== 'unsupported' ? [{ key: 'size', title: 'Bảng kích cỡ', miss: gapOf('sizeChart') ? 1 : 0 }] : []),
     { key: 'ship', title: 'Vận chuyển', miss: gapOf('variants') ? 1 : 0 },
   ];
@@ -503,7 +503,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
           />
           <ReadField label="Cách giao hàng" source="platform">
             <span className="text-muted-foreground">
-              {platform === 'lazada' ? 'Lazada tự thêm tuỳ chọn giao hàng; Commerio giữ nguyên giá trị đang có.' : 'Theo mặc định của sàn. Commerio không sửa.'}
+              Theo cài đặt của sàn. Commerio không sửa.
             </span>
           </ReadField>
         </Section>

@@ -19,11 +19,8 @@ import {
   categoryPollDelay,
   CEO_ONLY_CATEGORY,
 } from '@/features/catalog/platformCategory';
+import { platformInfo } from '@/lib/platforms';
 
-const SELLER_CENTER: Record<string, string> = {
-  tiktok: 'https://seller-vn.tiktok.com/',
-  lazada: 'https://sellercenter.lazada.vn/',
-};
 
 interface Props {
   platform: string;
@@ -126,8 +123,9 @@ export function CategoryChangeBlock({
   const platformOwned = drift.some((d) => d.platformOwned);
   const ceoBlocked = platformOwned && !isCeo;
   const shopName = (id: string) => shops.find((s) => s.id === id)?.shopName ?? '';
-  const sellerCenter = SELLER_CENTER[platform] && (
-    <a className="font-medium underline" href={SELLER_CENTER[platform]} target="_blank" rel="noreferrer">
+  const sellerCenterUrl = platformInfo(platform)?.sellerCenterUrl;
+  const sellerCenter = sellerCenterUrl && (
+    <a className="font-medium underline" href={sellerCenterUrl} target="_blank" rel="noreferrer">
       Mở Seller Center
     </a>
   );

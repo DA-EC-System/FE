@@ -1,18 +1,18 @@
+import { SUPPORTED_PLATFORMS } from '@/lib/platforms';
 import type { ListingRow, PlatformAttribute, PlatformAttributeInput, SizeChartRule } from '@/types/shop';
 
 /** Sàn có tab ở trang Nhóm hàng & thuộc tính (commerio-backend#400) */
-export const PLATFORM_TABS = [
-  { platform: 'lazada', label: 'Lazada' },
-  { platform: 'tiktok', label: 'TikTok Shop' },
-] as const;
+export const PLATFORM_TABS: readonly { platform: string; label: string }[] = SUPPORTED_PLATFORMS.map((p) => ({
+  platform: p.code,
+  label: p.label,
+}));
 
-export type PlatformTab = (typeof PLATFORM_TABS)[number]['platform'];
+export type PlatformTab = string;
 
 export const isPlatformTab = (value: string | null): value is PlatformTab =>
   PLATFORM_TABS.some((t) => t.platform === value);
 
-export const platformLabel = (platform: string) =>
-  PLATFORM_TABS.find((t) => t.platform === platform)?.label ?? platform;
+export { platformLabel } from '@/lib/platforms';
 
 /** Có điều kiện bắt buộc theo attribute khác (Documents/21 §18.5: `{ code, optionIds }[] | null`) */
 export function hasCondition(a: Pick<PlatformAttribute, 'requiredWhen'>): boolean {

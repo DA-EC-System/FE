@@ -290,7 +290,7 @@ describe('lỗi sàn chung theo ngữ cảnh (FE#250, Documents/21 §18.4)', () 
 
 describe('Mã lỗi trang đẩy lên sàn (commerio-backend#400, Documents/21 §18.5)', () => {
   it.each([
-    ['product_name_too_short', 'ít nhất 25 ký tự'],
+    ['product_name_too_short', 'Tên sản phẩm quá ngắn'],
     ['category_not_leaf', 'leaf category'],
     ['category_not_permitted', 'Xin quyền trên Seller Center'],
     ['spec_incomplete', 'còn thiếu'],

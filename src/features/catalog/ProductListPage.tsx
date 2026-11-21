@@ -177,7 +177,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       <PageHeader
         title="Sản phẩm"
         subtitle="Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU."
-        help="Mỗi sản phẩm thuộc một nhóm hàng; mã SKU tự sinh theo mẫu của công ty. Thuộc tính phân loại tạo ở trang Nhóm hàng & thuộc tính."
+        help="Mỗi sản phẩm thuộc một nhóm hàng; mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm. Thuộc tính phân loại tạo ở trang Nhóm hàng & thuộc tính."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">

@@ -5,6 +5,14 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
+const PLATFORM_NAME_MESSAGE =
+  'Không gõ tên sàn trong chuỗi (CLAUDE.md "Thiết kế cho nhiều sàn"). Lấy tên từ src/lib/platforms.ts hoặc viết câu chung.';
+const PLATFORM_NAME_SELECTORS = [
+  "Literal[value=/Lazada|TikTok|Shopee/i]",
+  "TemplateElement[value.raw=/Lazada|TikTok|Shopee/i]",
+  "JSXText[value=/Lazada|TikTok|Shopee/i]",
+].map((selector) => ({ selector, message: PLATFORM_NAME_MESSAGE }));
+
 export default tseslint.config(
   { ignores: ['dist', 'playwright-report', 'test-results'] },
   {
@@ -39,6 +47,23 @@ export default tseslint.config(
           message:
             "Không dùng toast.promise: useMutation bỏ lời gọi trùng bằng promise không bao giờ xong, toast sẽ treo 'đang tải'. Dùng await rồi toast.success/toast.error (FE#247).",
         },
+      ],
+    },
+  },
+  {
+    // CLAUDE.md "Thiết kế cho nhiều sàn": tên sàn chỉ ở bảng sàn src/lib/platforms.ts; câu khác viết chung hoặc ghép từ bảng.
+    // Chỉ xét chuỗi và chữ JSX, không xét comment. Test, mock được nêu tên sàn.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/platforms.ts', 'src/**/*.test.{ts,tsx}', 'src/mocks/**', 'src/test/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.object.name='toast'][callee.property.name='promise']",
+          message:
+            "Không dùng toast.promise: useMutation bỏ lời gọi trùng bằng promise không bao giờ xong, toast sẽ treo 'đang tải'. Dùng await rồi toast.success/toast.error (FE#247).",
+        },
+        ...PLATFORM_NAME_SELECTORS,
       ],
     },
   },

@@ -21,7 +21,7 @@ describe('thông tin đơn sàn (FE#176)', () => {
     expect(paymentMethodLabel({ paymentMethod: 'prepaid', platformPaymentMethod: 'COD' })).toBe('Trả trước');
     expect(platform('COD')).toBe('COD');
     expect(platform('MIXEDCARD')).toBe('Thẻ');
-    expect(platform('Lazada Wallet')).toBe('Ví Lazada');
+    expect(platform('Lazada Wallet')).toBe('Ví của sàn');
     expect(platform('PAYLATER_X')).toBe('PAYLATER_X');
     expect(platform('toString')).toBe('toString');
     expect(platform(null)).toBe('Qua sàn');

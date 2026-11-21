@@ -102,6 +102,7 @@ interface Deciding {
 }
 
 /** Sàn lưu thông tin sàn của sản phẩm (Documents/21 §18.5) */
+// eslint-disable-next-line no-restricted-syntax -- chờ capability từ BE (audit nhieu-san bước 3), không thêm chỗ mới
 const SPEC_PLATFORMS: ReadonlySet<string> = new Set(['lazada', 'tiktok']);
 
 /**

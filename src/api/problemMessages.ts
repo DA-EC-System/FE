@@ -7,6 +7,7 @@
 import axios from 'axios';
 import { getErrorMessage, getProblem, notImplementedMessage, retryAfterSeconds } from './client';
 import type { RemoteSkusRefreshError } from '@/types/shop';
+import { platformInfo } from '@/lib/platforms';
 
 const MESSAGES: Record<string, string> = {
   dry_run_required: 'Cần tính thử trước khi gửi duyệt.',
@@ -79,7 +80,7 @@ const MESSAGES: Record<string, string> = {
   spec_incomplete: 'Thông tin sàn của sản phẩm còn thiếu. Bổ sung rồi đăng bán lại.',
   category_not_permitted: 'Gian hàng chưa được bán category này. Xin quyền trên Seller Center hoặc đổi category.',
   product_name_too_short:
-    'Tên sản phẩm phải dài ít nhất 25 ký tự thì TikTok mới gợi ý category. Sửa tên ở trang sản phẩm, hoặc tìm category trong cây.',
+    'Tên sản phẩm quá ngắn nên sàn chưa gợi ý được category. Đặt tên dài, đủ ý hơn ở trang sản phẩm, hoặc tự tìm category trong cây.',
   category_not_leaf: 'Category này còn category con. Sàn chỉ nhận sản phẩm ở leaf category.',
   dimensions_missing: 'Sản phẩm thiếu cân nặng hoặc kích thước gói, sàn bắt buộc có.',
   images_missing: 'Sản phẩm chưa có ảnh. Thêm ảnh trong trang sản phẩm rồi đăng bán lại.',
@@ -439,15 +440,10 @@ export function problemMessage(error: unknown, action?: MarketplaceAction): stri
   return platformMessage ? `${message} Sàn báo: ${platformMessage}` : message;
 }
 
-/** Nơi lấy token dán tay theo sàn (`tich-hop-san/lazada.md` §3.1, `tich-hop-san/tiktok.md`) */
-const TOKEN_SOURCES: Record<string, string> = {
-  lazada: 'Lazada Open Platform → Testing Tools → API Explorer',
-  tiktok: 'TikTok Shop Partner Center → API Testing Tool',
-};
 
 /** "ở <nơi lấy token>" để ghép vào câu; sàn chưa ghi nơi lấy thì nói chung */
 export function tokenSourcePhrase(platform: string): string {
-  const source = TOKEN_SOURCES[platform];
+  const source = platformInfo(platform)?.tokenSource;
   return source ? `ở ${source}` : 'trên trang nhà phát triển của sàn';
 }
 

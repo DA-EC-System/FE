@@ -183,8 +183,8 @@ describe('lỗi cân nặng kiện hàng (FE#326)', () => {
 
 describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
   const at = '2026-11-17T00:00:00.000Z';
-  const TITLE = 'Tên sản phẩm phải dài 25–255 ký tự trên TikTok. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.';
-  const SIZE = 'Category TikTok này bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.';
+  const TITLE = 'Sàn yêu cầu tên sản phẩm dài 25–255 ký tự. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.';
+  const SIZE = 'Category này trên sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.';
 
   it.each([
     ['listing_check_failed', '12052051: The product name must be between 25 and 255 characters, inclusive.', TITLE],
@@ -198,7 +198,7 @@ describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
     [
       'marketplace_rejected',
       'E0501: Category attribute "brand" is mandatory',
-      'Category Lazada bắt buộc attribute "brand". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
+      'Category trên sàn bắt buộc attribute "brand". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
     ],
   ])('%s: %s', (code, message, text) => {
     expect(pushErrorText({ code, message, at })).toEqual({ text, platformMessage: message });

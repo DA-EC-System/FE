@@ -28,10 +28,11 @@ import { usePageGuide } from '@/guides/usePageGuide';
 import { formatDateTime } from '@/utils/format';
 import { CORE_MODULES, MODULE_LABELS, type OptionalModuleKey } from '@/utils/modules';
 import type { CompanyModule } from '@/types/companySettings';
+import { supportedPlatformNames } from '@/lib/platforms';
 
 const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
   purchasing: 'Nhà cung cấp, đơn đặt hàng nhập và nhập kho theo đơn.',
-  channel: 'Kết nối gian hàng Lazada, TikTok Shop; đồng bộ đơn và tồn kho.',
+  channel: `Kết nối gian hàng ${supportedPlatformNames()}; đồng bộ đơn và tồn kho.`,
   inbox: 'Gom tin nhắn khách hàng từ các kênh vào một hộp thư.',
   assistant: 'Hỏi đáp về số liệu bán hàng bằng tiếng Việt, chạy trên OpenAI.',
   report: 'Báo cáo doanh thu, lợi nhuận, tồn kho theo thời gian.',

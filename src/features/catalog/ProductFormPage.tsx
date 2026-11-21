@@ -660,7 +660,7 @@ export function ProductFormPage() {
                     </FormControl>
                     <FormMessage />
                     {!form.formState.errors.groupId && !readOnly && (
-                      <FormDescription>Để lọc sản phẩm trong app; mã SKU sinh theo mẫu của công ty</FormDescription>
+                      <FormDescription>Dùng để lọc và tìm sản phẩm. Mã SKU tạo theo mẫu ở Cài đặt sản phẩm.</FormDescription>
                     )}
                   </FormItem>
                 )}
@@ -696,7 +696,7 @@ export function ProductFormPage() {
                         <FormControl>
                           <CountryCombobox value={field.value} onChange={field.onChange} disabled={readOnly} />
                         </FormControl>
-                        <FormDescription>Dùng chung cho mọi sàn; TikTok bắt buộc ở nhiều category</FormDescription>
+                        <FormDescription>Dùng cho mọi sàn. Nhiều category trên sàn bắt buộc có xuất xứ.</FormDescription>
                         <FormMessage />
                         {remoteLines('originCountry', field.value, countryName)}
                       </FormItem>
@@ -711,7 +711,7 @@ export function ProductFormPage() {
                         <FormControl>
                           <Input {...field} placeholder="Để trống là không thương hiệu" maxLength={120} readOnly={readOnly} />
                         </FormControl>
-                        <FormDescription>Lazada nhận "No Brand" khi để trống</FormDescription>
+                        <FormDescription>Để trống thì sản phẩm đăng lên sàn là không thương hiệu.</FormDescription>
                         <FormMessage />
                         {remoteLines('brand', field.value)}
                       </FormItem>
@@ -719,7 +719,7 @@ export function ProductFormPage() {
                   />
                 {tabPlatforms.length > 0 && (
                   <p className="text-xs text-muted-foreground md:col-span-2">
-                    Dùng cho: {tabPlatforms.map(platformLabel).join(' · ')}. Sửa ở đây thì mọi sàn đọc theo.
+                    Dùng cho: {tabPlatforms.map((p) => platformLabel(p)).join(' · ')}. Sửa ở đây thì mọi sàn đọc theo.
                   </p>
                 )}
               </CardContent>
@@ -780,7 +780,7 @@ export function ProductFormPage() {
                 Bảng size
                 <HelpTip
                   topic="Bảng size"
-                  content="Lazada, TikTok bắt buộc với quần áo, giày dép. Thiếu ảnh này thì sàn từ chối khi đăng bán."
+                  content="Sàn bắt buộc với quần áo, giày dép. Thiếu ảnh này thì sàn từ chối khi đăng bán."
                 />
               </CardTitle>
             </CardHeader>

@@ -163,7 +163,7 @@ const MARKETPLACE_PAYMENT_LABELS: Record<string, string> = {
   MIXEDCARD: 'Thẻ',
   CREDIT_CARD: 'Thẻ',
   DEBIT_CARD: 'Thẻ',
-  LAZADA_WALLET: 'Ví Lazada',
+  LAZADA_WALLET: 'Ví của sàn',
   WALLET: 'Ví',
   BANK_TRANSFER: 'Chuyển khoản',
   INSTALLMENT: 'Trả góp',

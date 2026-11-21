@@ -1,6 +1,5 @@
 import type {
   ListingStatus,
-  Marketplace,
   RemoteSkuStatus,
   ShopCapabilities,
   ShopOpeningStocktake,
@@ -10,16 +9,8 @@ import type {
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { shopUsable } from '@/lib/machines/channel';
 
-export const PLATFORM_LABELS: Record<Marketplace, string> = {
-  tiktok: 'TikTok Shop',
-  shopee: 'Shopee',
-  lazada: 'Lazada',
-  mock: 'Sàn giả lập (mock)',
-};
-
-export function platformLabel(code: string, name?: string): string {
-  return name?.trim() || PLATFORM_LABELS[code] || code;
-}
+// Tên sàn chỉ ở bảng sàn duy nhất (src/lib/platforms.ts); giữ đường import cũ
+export { platformLabel } from '@/lib/platforms';
 
 /** Chỉ chọn hạn để hiển thị; cảnh báo do BE quyết định. */
 export function authorizationDeadline(shop: { authExpiresAt?: string | null; refreshExpiresAt: string | null }): string | null {

@@ -167,6 +167,7 @@ export function PackageDetailPage() {
                     ' ',
                   )
                 : `Mở kiện ${p.code} để sửa. Kiện quay về Chờ đóng gói, cần đóng gói lại.${
+                    // eslint-disable-next-line no-restricted-syntax -- chờ capability từ BE (audit nhieu-san bước 3), không thêm chỗ mới
                     p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã kiện và mã vận đơn mới.' : ''
                   }`,
           label,
