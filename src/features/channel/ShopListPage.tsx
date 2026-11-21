@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { MoreHorizontal, PlugZap, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
@@ -283,8 +282,8 @@ export function ShopListPage() {
               {primary}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8" aria-label={`Thao tác khác với ${s.shopName}`}>
-                    <MoreHorizontal />
+                  <Button variant="ghost" size="sm" className="h-8 px-2" aria-label={`Thao tác khác với ${s.shopName}`}>
+                    Thao tác
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
@@ -353,7 +352,6 @@ export function ShopListPage() {
         action={
           canConnect ? (
             <Button onClick={() => setAdding(true)}>
-              <Plus />
               Thêm gian hàng
             </Button>
           ) : null
@@ -370,7 +368,6 @@ export function ShopListPage() {
               </span>
               {canConnect && (
                 <Button size="sm" variant="outline" disabled={connector.pending} onClick={() => reconnect(s)}>
-                  <PlugZap />
                   Kết nối lại
                 </Button>
               )}

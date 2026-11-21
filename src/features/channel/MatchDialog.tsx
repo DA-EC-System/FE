@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Sparkles } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { SearchInput } from '@/components/common/FilterBar';
 import { Badge } from '@/components/ui/badge';
@@ -109,7 +108,6 @@ export function MatchDialog({
                   </span>
                   {o.suggested && (
                     <Badge variant="info">
-                      <Sparkles />
                       Gợi ý
                     </Badge>
                   )}
