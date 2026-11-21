@@ -50,7 +50,8 @@ export function CategoryDetailPage() {
   const groupsQuery = useGroups({ includeHidden: true });
   const group = groupsQuery.data?.find((g) => g.id === groupId);
   const templateQuery = useGroupTemplate(groupId);
-  const library = useSpecFields().data ?? [];
+  const libraryQuery = useSpecFields();
+  const library = useMemo(() => libraryQuery.data ?? [], [libraryQuery.data]);
   const attributes = useAttributes().data ?? [];
   const saveMut = useUpdateGroupTemplate();
   const attachMut = useAddTemplateField();

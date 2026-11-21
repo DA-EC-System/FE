@@ -249,6 +249,8 @@ export interface ProductListParams {
   status?: ProductStatus;
   /** Có ít nhất một SKU ở trạng thái này */
   businessStatus?: Exclude<VariantBusinessStatus, 'archived'>;
+  /** `incomplete`: còn SKU Chờ hoàn thiện; `ready`: mọi SKU Sẵn sàng (Documents#228, 21 §17.2) */
+  readiness?: VariantReadiness;
 }
 
 /**

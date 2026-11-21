@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUP_FIELD_ID, MIN_QTY_FIELD_ID, missingItems, publishBlocker } from './completion';
+import { GROUP_FIELD_ID, MIN_QTY_FIELD_ID, missingItems, parseMinQty, publishBlocker } from './completion';
 import { SHARED_TARGETS } from './productTabs';
 import { specFieldDomId } from './specs/SpecFieldsInput';
 
@@ -44,6 +44,17 @@ describe('missingItems', () => {
   it('đủ hết thì rỗng', () => {
     expect(missingItems({ variants: [{ businessStatus: 'selling', missing: [] }], form: { name: 'A', groupId: 'g', imageCount: 1 } })).toEqual([]);
   });
+});
+
+describe('parseMinQty', () => {
+  it.each([
+    ['10', 10],
+    [' 0 ', 0],
+    ['', null],
+    ['-1', null],
+    ['1.5', null],
+    ['abc', null],
+  ])('%s → %s', (text, n) => expect(parseMinQty(text)).toBe(n));
 });
 
 describe('publishBlocker', () => {

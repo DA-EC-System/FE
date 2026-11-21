@@ -458,17 +458,28 @@ export async function uploadFile(file: File, purpose: 'product_image' | 'attachm
 // ---------- Sửa hàng loạt SKU (FE#155, BE#242) ----------
 
 /** Dòng SKU kèm số hiện tại và gợi ý của BE. Gợi ý chỉ để hiện, không tự lưu */
-export function useBulkEditRows(params: BulkEditParams) {
+export function useBulkEditRows(params: BulkEditParams, options: { enabled?: boolean } = {}) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: catalogKeys.bulkEdit(companyId, params),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && (options.enabled ?? true),
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', { params });
       return data;
     },
   });
+}
+
+/**
+ * Sản phẩm kế còn "Chờ hoàn thiện", bỏ qua `exceptId` (nút "Lưu và sang sản phẩm kế", Documents/29 bước 3). Dùng bảng sửa
+ * hàng loạt `incomplete=true` (Documents/21 §17.5) vì danh sách sản phẩm chưa lọc theo độ hoàn thiện (Documents#228)
+ */
+export async function fetchNextIncompleteProduct(exceptId: string): Promise<string | null> {
+  const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', {
+    params: { page: 1, pageSize: 200, incomplete: true },
+  });
+  return data.items.find((r) => r.productId !== exceptId)?.productId ?? null;
 }
 
 /** Lưu một lần; dòng lỗi trả về trong `failed`, dòng khác vẫn lưu */

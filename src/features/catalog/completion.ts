@@ -86,6 +86,14 @@ export function missingItems(input: {
   return items;
 }
 
+/** Ngưỡng tồn gõ tay: số nguyên không âm, hoặc null khi ô trống hay sai */
+export function parseMinQty(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d+$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
 /** Lý do khoá nút "Đăng sản phẩm"; null là bấm được */
 export function publishBlocker(input: {
   isNew: boolean;
