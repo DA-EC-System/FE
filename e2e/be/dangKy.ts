@@ -8,6 +8,7 @@
  * (playwright.config.ts). Không in mã ra log, thông báo lỗi.
  */
 import { type APIRequestContext, expect } from '@playwright/test';
+import { congTyCuaToken, gachCongTy, ghiCongTy } from './soCongTyThu';
 
 function env(name: string): string {
   const value = process.env[name]?.trim();
@@ -41,6 +42,7 @@ export async function dangKyCongTyApi(
     const verify = await api.post('/api/v1/identity/register/verify', { data: { registrationId, code: maThu() } });
     if (verify.status() === 201) {
       const res = (await verify.json()) as { accessToken: string; context: { companyId: string } };
+      ghiCongTy({ companyId: res.context.companyId, email: body.ceo.email, password: body.ceo.password });
       return { companyId: res.context.companyId, accessToken: res.accessToken };
     }
     const text = await verify.text();
@@ -55,11 +57,15 @@ export async function dangKyCongTyApi(
  * Xoá công ty thử vừa đăng ký (commerio-backend#523, Documents/21 mục 2.2), gọi ở `afterAll`: `DELETE /platform/company`
  * bằng access token của CEO đã gắn công ty. 204 là xoá xong, 404 là server không bật đăng ký thử (không có gì để dọn).
  * 401 (token hết 15 phút, hoặc spec đã đổi mật khẩu) thì trả `false` để bên gọi lấy token mới hoặc bỏ qua: việc nền
- * `platform.test_company_cleanup` xoá công ty thử quá 6 giờ. Mã khác (403 `not_test_company`…) là lỗi thật, ném ra.
+ * dọn cuối lượt (`soCongTyThu.ts`) đăng nhập lại rồi xoá. Mã khác (403 `not_test_company`…) là lỗi thật, ném ra.
  */
 export async function xoaCongTyThu(api: APIRequestContext, accessToken: string): Promise<boolean> {
   const res = await api.delete('/api/v1/platform/company', { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (res.status() === 204 || res.status() === 404) return true;
+  if (res.status() === 204 || res.status() === 404) {
+    const companyId = congTyCuaToken(accessToken);
+    if (companyId) gachCongTy(companyId);
+    return true;
+  }
   if (res.status() === 401) return false;
   expect(res.status(), `Không xoá được công ty thử: ${await res.text()}`).toBe(204);
   return true;

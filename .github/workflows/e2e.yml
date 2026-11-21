@@ -134,6 +134,11 @@ jobs:
       # Không tải báo cáo lên artifact: repo public, báo cáo (error-context, bước fill) chứa mã thử đăng ký
       # (commerio-backend#459). Log của job thì GitHub tự che giá trị secret; xem lỗi trong log.
       - run: pnpm e2e:be
+      # Lưới cuối khi Playwright bị huỷ, hết giờ trước teardown `be-don`: xoá công ty thử còn trong sổ (Documents/21
+      # mục 2.2, không có việc nền dọn định kỳ). Sổ rỗng thì không gọi gì.
+      - name: Dọn công ty thử còn sót
+        if: always()
+        run: node e2e/be/soCongTyThu.ts
 
   notify:
     needs: [e2e, e2e-be]
