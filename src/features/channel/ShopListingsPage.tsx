@@ -35,6 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useDecideMapping,
   useDelistListing,
+  useMatchBulk,
   useMatchListing,
   useOverrideListingPrice,
   usePushListings,
@@ -66,6 +67,8 @@ import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, P
 import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import { MatchPreviewPanel } from './MatchPreviewPanel';
+import { CreateVariantDialog } from './CreateVariantDialog';
+import { bulkPairs, bulkSummary, bulkSummaryText, isOpenRemote, suggestionLabel } from './remoteLinking';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
@@ -283,6 +286,12 @@ export function ShopListingsPage() {
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [matching, setMatching] = useState<Matching | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
+  /** Tạo SKU kho từ SKU sàn (§18.9 R2) */
+  const [creating, setCreating] = useState<RemoteSku | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  /** SKU sàn đang bấm "Liên kết" nhanh theo gợi ý trùng mã */
+  const [quickLinking, setQuickLinking] = useState<string | null>(null);
+  const bulkMut = useMatchBulk();
   const [pushing, setPushing] = useState<ListingRow[] | null>(null);
   const [deciding, setDeciding] = useState<Deciding | null>(null);
   const [decideError, setDecideError] = useState<string | null>(null);
@@ -513,6 +522,39 @@ export function ShopListingsPage() {
       sellerSku: r.listing!.sellerSku,
       current: r,
     });
+  };
+
+  /** Liên kết nhanh theo gợi ý trùng mã SKU (§18.9 R2); gợi ý theo tên thì mở hộp chọn, không liên kết nhanh */
+  const quickLink = async (r: RemoteSku) => {
+    const s = r.suggestion;
+    if (!s || s.match !== 'sku' || quickLinking) return;
+    setQuickLinking(r.externalSkuId);
+    try {
+      const { pending } = await matchMut.mutateAsync({ shopId, externalSkuId: r.externalSkuId, variantId: s.variantId });
+      if (pending) toast.info(`Đã gửi CEO duyệt liên kết ${r.sellerSku || r.externalSkuId} với ${s.sku}.`);
+      else toast.success(`Đã liên kết ${r.sellerSku || r.externalSkuId} với SKU kho ${s.sku}.`);
+    } catch (e) {
+      toast.error(`Chưa liên kết được ${r.sellerSku || r.externalSkuId}: ${problemMessage(e)}`);
+      void remoteQuery.refetch();
+    } finally {
+      setQuickLinking(null);
+    }
+  };
+
+  const pairs = useMemo(() => bulkPairs(unmatchedRemote), [unmatchedRemote]);
+  const runBulk = async () => {
+    try {
+      const summary = bulkSummary(await bulkMut.mutateAsync({ shopId, pairs }));
+      setBulkOpen(false);
+      const text = bulkSummaryText(summary);
+      if (summary.failed.length) {
+        const first = summary.failed[0]!;
+        toast.warning(`${text} Ví dụ ${first.externalSkuId}: ${first.message ?? first.code ?? 'lỗi'}. Các SKU này còn ở tab Chưa liên kết.`);
+      } else toast.success(text);
+    } catch (e) {
+      setBulkOpen(false);
+      toast.error(problemMessage(e));
+    }
   };
 
   const saveMatch = async (id: string) => {
@@ -1005,6 +1047,23 @@ export function ShopListingsPage() {
       },
       { accessorKey: 'externalSkuId', header: 'SKU ID sàn', meta: { className: 'w-44 font-mono text-xs' } },
       {
+        id: 'suggestion',
+        header: 'Gợi ý SKU kho',
+        meta: { className: 'min-w-56' },
+        cell: ({ row }) => {
+          const s = row.original.suggestion;
+          if (!s) return <span className="text-xs text-muted-foreground">{isOpenRemote(row.original) ? 'Không có gợi ý' : '—'}</span>;
+          return (
+            <div className="grid justify-items-start gap-1">
+              <span>
+                <span className="font-mono text-xs">{s.sku}</span> · {s.productName}
+              </span>
+              <Badge variant={s.match === 'sku' ? 'success' : 'info'}>{suggestionLabel(s)}</Badge>
+            </div>
+          );
+        },
+      },
+      {
         id: 'pending',
         header: 'Trạng thái',
         meta: { className: 'min-w-40' },
@@ -1036,28 +1095,23 @@ export function ShopListingsPage() {
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-28 text-right' },
+              meta: { className: 'min-w-48 text-right' },
               cell: ({ row }: { row: { original: RemoteSku } }) => {
                 const r = row.original;
                 return (
                   <div className="flex justify-end gap-1">
                     {decideActions(r.listingId, r.listingVersion, r.sellerSku || r.externalSkuId, r.pendingMapping)}
                     {canMatch && !r.matchedVariantId && !r.mode && (
-                      <RowAction
-                        label="Liên kết SKU kho"
-                        reason={r.pendingMapping ? 'Đang chờ CEO duyệt liên kết' : null}
-                        onClick={() =>
-                          openMatch({
-                            from: 'remote',
-                            externalSkuId: r.externalSkuId,
-                            title: r.title,
-                            sellerSku: r.sellerSku,
-                            current: null,
-                          })
+                      <RemoteLinkActions
+                        r={r}
+                        busy={quickLinking === r.externalSkuId}
+                        canCreate={canEditProduct && Boolean(r.canCreate)}
+                        onQuickLink={() => void quickLink(r)}
+                        onPick={() =>
+                          openMatch({ from: 'remote', externalSkuId: r.externalSkuId, title: r.title, sellerSku: r.sellerSku, current: null })
                         }
-                      >
-                        <Link2 />
-                      </RowAction>
+                        onCreate={() => setCreating(r)}
+                      />
                     )}
                   </div>
                 );
@@ -1067,7 +1121,7 @@ export function ShopListingsPage() {
         : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canMatch, canDecide, items],
+    [canMatch, canDecide, items, quickLinking, canEditProduct],
   );
 
   const backToList = () => navigate(ROUTES.company.shops(companyId));
@@ -1258,6 +1312,17 @@ export function ShopListingsPage() {
                 <AlertMessage severity="error">{problemMessage(remoteQuery.error, 'remote_skus')}</AlertMessage>
               </div>
             ) : (
+              <>
+              {tab === 'unmatched' && canMatch && pairs.length > 0 && (
+                <div className="mx-4 mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-success-border px-3 py-2 text-sm">
+                  <span>
+                    <b>{pairs.length} SKU sàn trùng mã SKU với SKU kho.</b> Liên kết một lần, cặp nào lỗi thì còn lại ở tab này.
+                  </span>
+                  <Button type="button" size="sm" onClick={() => setBulkOpen(true)}>
+                    Liên kết {pairs.length} cặp trùng mã SKU
+                  </Button>
+                </div>
+              )}
               <DataTable
                 columns={remoteColumns}
                 data={remoteRows}
@@ -1274,6 +1339,7 @@ export function ShopListingsPage() {
                         : 'Mọi SKU sàn đã liên kết'
                 }
               />
+              </>
             )}
           </div>
         ) : (
@@ -1304,6 +1370,16 @@ export function ShopListingsPage() {
         )}
       </Card>
 
+      <CreateVariantDialog shopId={shopId} remote={creating} onClose={() => setCreating(null)} />
+      <ConfirmDialog
+        open={bulkOpen}
+        title={`Liên kết ${pairs.length} cặp trùng mã SKU`}
+        message="Mỗi SKU sàn được liên kết với SKU kho cùng mã SKU người bán. Cặp cần CEO duyệt (đổi liên kết đã có đơn) sẽ chờ duyệt; cặp lỗi còn lại ở tab Chưa liên kết."
+        confirmLabel="Liên kết"
+        loading={bulkMut.isPending}
+        onConfirm={() => void runBulk()}
+        onClose={() => setBulkOpen(false)}
+      />
       <MatchDialog
         open={Boolean(matching)}
         title={
@@ -1452,6 +1528,47 @@ export function ShopListingsPage() {
         onConfirm={(reason) => void decide(reason)}
         onClose={() => setDeciding(null)}
       />
+    </div>
+  );
+}
+
+/**
+ * Nút ở dòng SKU sàn chưa liên kết (bản phác dang-sp-lien-ket.html, Documents/21 §18.9 R2): gợi ý trùng mã SKU thì "Liên
+ * kết" ngay; gợi ý theo tên chỉ "Xem gợi ý" (không chọn sẵn); không có gợi ý thì chọn tay hoặc tạo SKU kho mới. Chỉ chữ,
+ * không icon (Thành chốt 21/11/2026)
+ */
+function RemoteLinkActions({
+  r,
+  busy,
+  canCreate,
+  onQuickLink,
+  onPick,
+  onCreate,
+}: {
+  r: RemoteSku;
+  busy: boolean;
+  canCreate: boolean;
+  onQuickLink: () => void;
+  onPick: () => void;
+  onCreate: () => void;
+}) {
+  if (r.pendingMapping) return <span className="text-xs text-muted-foreground">Đang chờ CEO duyệt liên kết</span>;
+  const s = r.suggestion;
+  return (
+    <div className="flex flex-wrap justify-end gap-1.5">
+      {s?.match === 'sku' && (
+        <Button type="button" size="sm" onClick={onQuickLink} disabled={busy}>
+          {busy ? 'Đang liên kết…' : 'Liên kết'}
+        </Button>
+      )}
+      <Button type="button" size="sm" variant="outline" onClick={onPick}>
+        {s?.match === 'sku' ? 'Chọn khác' : s ? 'Xem gợi ý' : 'Chọn SKU kho'}
+      </Button>
+      {!s && canCreate && (
+        <Button type="button" size="sm" variant="outline" onClick={onCreate}>
+          Tạo SKU kho mới
+        </Button>
+      )}
     </div>
   );
 }

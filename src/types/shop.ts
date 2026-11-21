@@ -400,6 +400,50 @@ export interface RemoteSku {
   listingId: string | null;
   listingVersion: number | null;
   pendingMapping: PendingMapping | null;
+  /**
+   * Gợi ý SKU kho, cùng hàm gợi ý của `/setup` (Documents/21 §18.9 R2). `match: 'name'` chỉ là gợi ý, FE không chọn sẵn;
+   * liên kết hàng loạt chỉ gom cặp `match: 'sku'`. BE chưa có R2 thì vắng
+   */
+  suggestion?: RemoteSkuSuggestion | null;
+  /** Tạo được SKU kho từ SKU sàn này (`create-variant`); BE chưa có R2 thì vắng */
+  canCreate?: boolean;
+  cannotCreateReason?: CannotCreateReason | null;
+}
+
+export interface RemoteSkuSuggestion {
+  variantId: string;
+  sku: string;
+  productName: string;
+  match: 'sku' | 'name';
+  /** Độ giống tên 0..1, chỉ có khi match = name; match = sku thì null */
+  score: number | null;
+}
+
+/** `POST /channel/shops/:id/listings/match-bulk` (§18.9 R2): mỗi cặp một giao dịch, thành công được một phần */
+export interface MatchBulkPair {
+  externalSkuId: string;
+  variantId: string;
+}
+
+export interface MatchBulkResult {
+  externalSkuId: string;
+  variantId: string;
+  /** matched: đã liên kết; pending: chờ CEO duyệt; failed: lỗi, xem `code` (mã lỗi của `listings/match`) */
+  outcome: 'matched' | 'pending' | 'failed';
+  /** Chỉ dòng failed: mã và câu lỗi của `listings/match` (vd `mapping_pending`, `shop_not_active`) */
+  code: string | null;
+  message: string | null;
+}
+
+/**
+ * `POST remote-skus/:externalSkuId/create-variant` (§18.9 R2). `created: true` (201): tạo SKU kho mới; `false` (200): SKU
+ * người bán trùng SKU kho có sẵn nên liên kết vào SKU đó; `pending: true` (202): chờ CEO duyệt như `listings/match`
+ */
+export interface CreateVariantResult {
+  variantId: string;
+  created: boolean;
+  pending: boolean;
+  listing: ChannelListing;
 }
 
 /** Lỗi của lần đọc trọn SKU sàn gần nhất (§18.3, BE#361) */
@@ -442,7 +486,14 @@ export interface ListingMatchPreview {
   stockWillPush: boolean;
   stockHeldReason: 'shop_waiting_opening' | 'not_counted' | null;
   priceWillPush: boolean;
+  /**
+   * Trường lưu cặp này sẽ ghi vào sản phẩm vì ở app đang trống mà sàn có (Documents/21 §18.9 R4); `value` là chữ hiển thị.
+   * BE chưa có R4 thì vắng
+   */
+  fillBack?: { field: FillBackField; value: string | null }[];
 }
+
+export type FillBackField = 'originCountry' | 'brand' | 'description' | 'weight' | 'dimensions' | 'platformSpec';
 
 export interface ListingMatchInput {
   externalSkuId: string;
@@ -510,7 +561,8 @@ export interface SetupSuggestion {
 }
 
 /** no_seller_sku: sàn chưa có SKU người bán; sku_too_long: quá 50 ký tự; sku_taken: đã là SKU kho; no_permission: thiếu catalog.product.manage */
-export type CannotCreateReason = 'no_seller_sku' | 'sku_too_long' | 'sku_taken' | 'no_permission';
+/** already_matched: dòng remote-skus đã liên kết hoặc đang chờ duyệt (§18.9 R2) */
+export type CannotCreateReason = 'no_seller_sku' | 'sku_too_long' | 'sku_taken' | 'no_permission' | 'already_matched';
 
 /** Quyết định cho một SKU sàn: variantId người dùng chọn (có thể khác gợi ý), null là bỏ qua */
 export interface SetupDecision {

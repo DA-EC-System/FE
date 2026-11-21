@@ -19,6 +19,9 @@ import type {
   MappingDecision,
   ListingMatchInput,
   ListingMatchPreview,
+  CreateVariantResult,
+  MatchBulkPair,
+  MatchBulkResult,
   ListingRow,
   Marketplace,
   ListingSyncResult,
@@ -379,6 +382,45 @@ export function useMatchListing() {
 }
 
 /** Gỡ khỏi sàn: giữ ghép để đẩy lại sau */
+/**
+ * Liên kết nhiều cặp SKU sàn ↔ SKU kho một lần (Documents/21 §18.9 R2, ≤ 100 cặp). HTTP 200 kể cả khi có cặp lỗi; kết quả
+ * theo từng cặp. Chia lô 100 cặp
+ */
+export function useMatchBulk() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ shopId, pairs }: { shopId: string; pairs: MatchBulkPair[] }) => {
+      const results: MatchBulkResult[] = [];
+      for (let i = 0; i < pairs.length; i += 100) {
+        const { data } = await apiClient.post<{ results: MatchBulkResult[] }>(`/channel/shops/${shopId}/listings/match-bulk`, {
+          pairs: pairs.slice(i, i + 100),
+        });
+        results.push(...data.results);
+      }
+      return results;
+    },
+    onSettled: invalidate,
+  });
+}
+
+/**
+ * Tạo SKU kho từ SKU sàn rồi liên kết, ngoài thiết lập gian hàng (Documents/21 §18.9 R2): cùng luật dòng `create: true`
+ * của `POST /setup`; `groupId` là danh mục sản phẩm của sản phẩm mới
+ */
+export function useCreateVariantFromRemote() {
+  const invalidate = useInvalidateShops();
+  return useMutation({
+    mutationFn: async ({ shopId, externalSkuId, groupId }: { shopId: string; externalSkuId: string; groupId: string }) => {
+      const { data } = await apiClient.post<CreateVariantResult>(
+        `/channel/shops/${shopId}/remote-skus/${encodeURIComponent(externalSkuId)}/create-variant`,
+        { groupId },
+      );
+      return data;
+    },
+    onSettled: invalidate,
+  });
+}
+
 export function useDelistListing() {
   const invalidate = useInvalidateShops();
   return useMutation({
