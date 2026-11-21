@@ -25,6 +25,7 @@ import type {
   ListingRow,
   Marketplace,
   ListingSyncResult,
+  SyncRun,
   PlatformCategoryDetail,
   PlatformCategoryList,
   PlatformCategorySyncResult,
@@ -61,6 +62,7 @@ export const shopKeys = {
   detail: (companyId: string, id: string) => [...shopKeys.all(companyId), 'detail', id] as const,
   listings: (companyId: string, id: string) => [...shopKeys.all(companyId), 'listings', id] as const,
   remoteSkus: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus', id] as const,
+  syncRun: (companyId: string, shopId: string, runId: string) => [...shopKeys.all(companyId), 'sync-run', shopId, runId] as const,
   remoteSkusRefresh: (companyId: string, id: string) => [...shopKeys.all(companyId), 'remote-skus-refresh', id] as const,
   setup: (companyId: string, id: string) => [...shopKeys.all(companyId), 'setup', id] as const,
   platformCategories: (companyId: string, platform: string) =>
@@ -570,12 +572,12 @@ export function usePriceQuote() {
   });
 }
 
-/** Khoảng chờ trước lần tải lại thứ hai sau khi bấm Đồng bộ: lượt chạy nền thường xong trong vài giây tới vài chục giây. */
-export const SYNC_RELOAD_DELAY_MS = 15_000;
+/** Hỏi lại lượt đồng bộ đang chạy (Documents/21 §18.5 gợi ý 2–3 giây) */
+export const SYNC_RUN_POLL_MS = 2_500;
 
 /**
- * Đồng bộ tay với sàn (§18.5): BE xếp một lượt đồng bộ chạy nền, trả 202 `{ queued }` (quyền shop.sync). BE chưa phát
- * sự kiện khi lượt chạy xong (commerio-backend#223), nên tải lại ngay và thêm một lần sau `SYNC_RELOAD_DELAY_MS`.
+ * Đồng bộ tay với sàn (§18.5): BE xếp một lượt chạy nền, trả 202 `{ queued, runId }` (quyền shop.sync). Kết quả đọc bằng
+ * `useSyncRun`; listing tải lại khi lượt xong (ở nơi gọi).
  */
 export function useSyncListings() {
   const invalidate = useInvalidateShops();
@@ -584,9 +586,36 @@ export function useSyncListings() {
       const { data } = await apiClient.post<ListingSyncResult>(`/channel/shops/${shopId}/listings/sync`);
       return data;
     },
-    onSuccess: () => {
-      void invalidate();
-      setTimeout(() => void invalidate(), SYNC_RELOAD_DELAY_MS);
+    onSuccess: () => void invalidate(),
+  });
+}
+
+const runActive = (run: SyncRun | null | undefined) => run?.status === 'queued' || run?.status === 'running';
+
+/** Một lượt đồng bộ; hỏi lại tới khi `done` hoặc `failed` */
+export function useSyncRun(shopId: string, runId: string | null) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.syncRun(companyId, shopId, runId ?? ''),
+    enabled: Boolean(companyId && shopId && runId),
+    refetchInterval: (q) => (runActive(q.state.data) ? SYNC_RUN_POLL_MS : false),
+    queryFn: async () => {
+      const { data } = await apiClient.get<SyncRun>(`/channel/shops/${shopId}/listings/sync-runs/${encodeURIComponent(runId ?? '')}`);
+      return data;
+    },
+  });
+}
+
+/** Lượt người bấm gần nhất của gian hàng, để quay lại trang vẫn thấy kết quả; hỏi lại khi còn chạy */
+export function useLatestSyncRun(shopId: string, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: shopKeys.syncRun(companyId, shopId, 'latest'),
+    enabled: Boolean(companyId && shopId) && enabled,
+    refetchInterval: (q) => (runActive(q.state.data) ? SYNC_RUN_POLL_MS : false),
+    queryFn: async () => {
+      const { data } = await apiClient.get<SyncRun | null>(`/channel/shops/${shopId}/listings/sync-runs/latest`);
+      return data;
     },
   });
 }

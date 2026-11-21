@@ -236,7 +236,7 @@ export function ListingStatusCell({
       {/* Tầng 3: một dòng đồng bộ giá và tồn */}
       {live && (
         <span className="text-xs text-muted-foreground" data-testid="sync-line">
-          {syncLine(l)}
+          {syncLine(l, r.lastSyncFailedAt ?? null)}
         </span>
       )}
     </div>
