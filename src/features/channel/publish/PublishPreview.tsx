@@ -110,6 +110,8 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
   });
   const toPublish = views.filter((v) => !v.onPlatform && !v.blocker);
   const showMargin = views.some((v) => v.view.marginPct !== null);
+  // Gian hàng chưa có cấu hình phí (tính thử trả fee_not_configured, KB2 2.12): báo rõ, kèm đường tới cấu hình phí
+  const noFeeShops = shops.filter((s) => views.some((v) => v.r.shopId === s.id && !v.onPlatform && v.view.blockedCode === 'fee_not_configured'));
   const anyManual = views.some((v) => v.manual);
   const shopsToPublish = shops.filter((s) => toPublish.some((v) => v.r.shopId === s.id));
 
@@ -194,6 +196,16 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
         </AlertMessage>
       )}
 
+      {noFeeShops.length > 0 && (
+        <AlertMessage severity="warning">
+          {noFeeShops.map((s) => s.shopName).join(', ')} chưa có cấu hình phí sàn: chưa tính được phí, thực nhận nên chưa đăng
+          được.{' '}
+          <Link to={ROUTES.company.financeConfigs(companyId)} className="font-medium text-primary underline-offset-4 hover:underline">
+            Mở Cấu hình phí sàn và thuế
+          </Link>
+        </AlertMessage>
+      )}
+
       <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
@@ -246,7 +258,11 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                     )}
                   </TableCell>
                   <TableCell className="text-right align-top tabular-nums">
-                    {fee !== null ? pct(fee) : '—'}
+                    {fee !== null ? pct(fee) : v.view.blockedCode === 'fee_not_configured' ? (
+                      <span className="text-xs text-warning-text">Chưa cấu hình phí</span>
+                    ) : (
+                      '—'
+                    )}
                     {v.view.feeWarning && <div className="text-xs text-warning-text">Phí trên 50%</div>}
                   </TableCell>
                   <TableCell className="text-right align-top">{v.view.netReceived !== null ? <Money value={v.view.netReceived} /> : '—'}</TableCell>
