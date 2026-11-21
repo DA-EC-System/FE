@@ -354,7 +354,7 @@ export function useProductDraft(id: string | undefined) {
     queryKey: purchasingKeys.draft(companyId, id ?? ''),
     enabled: Boolean(companyId && id),
     queryFn: async () => {
-      const { data } = await apiClient.get<ProductDraft>(`/purchasing/product-drafts/${id}`);
+      const { data } = await apiClient.get<ProductDraft>(`/purchasing/product-drafts/${encodeURIComponent(id ?? '')}`);
       return data;
     },
   });
@@ -366,7 +366,7 @@ export function useSaveProductDraft() {
   const companyId = useCompanyId();
   return useMutation({
     mutationFn: async ({ id, ...body }: ProductDraftInput & { id: string }) => {
-      const { data } = await apiClient.put<ProductDraft>(`/purchasing/product-drafts/${id}`, body);
+      const { data } = await apiClient.put<ProductDraft>(`/purchasing/product-drafts/${encodeURIComponent(id ?? '')}`, body);
       return data;
     },
     onSuccess: (data) => {
