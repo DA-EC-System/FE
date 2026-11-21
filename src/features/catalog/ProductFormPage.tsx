@@ -1043,6 +1043,7 @@ export function ProductFormPage() {
         <VariantSpecDialog
           productId={product.id}
           variant={specVariant}
+          siblings={product.variants}
           onClose={closeSpec}
           onDone={(message) => {
             closeSpec();

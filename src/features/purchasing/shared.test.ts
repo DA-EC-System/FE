@@ -3,6 +3,7 @@ import {
   hasActiveSupplier,
   newProductConfirmText,
   newProductPlan,
+  prefillFullDelivery,
   receiptFormSchema,
   returnFormSchema,
   shortOfDraft,
@@ -114,5 +115,21 @@ describe('newProductPlan, newProductConfirmText (21 §16.3, chốt 21/11 câu 3)
     expect(newProductConfirmText(newProductPlan([fresh('a', 'Đen / M', '0')], [req('a', null)]))).toBe(
       'Chưa tạo sản phẩm mới nào: các dòng sản phẩm mới chưa có SL đạt hoặc lỗi, giữ lại. Chưa về hàng, để lần nhập sau: Áo thun basic (Đen / M).',
     );
+  });
+});
+
+describe('prefillFullDelivery (KB3 3.7: hàng về đủ thì điền sẵn)', () => {
+  it('phiếu mới mọi dòng 0: điền SL NCC giao, SL đạt bằng còn phải nhận', () => {
+    const lines = [line({ outstanding: 20, announced: '0', accepted: '0' }), line({ outstanding: 5, announced: '', accepted: '' })];
+    expect(prefillFullDelivery(lines)).toEqual([
+      { announced: '20', accepted: '20' },
+      { announced: '5', accepted: '5' },
+    ]);
+  });
+
+  it('đã có số đếm hoặc không còn gì phải nhận thì không điền', () => {
+    expect(prefillFullDelivery([line({ outstanding: 20, announced: '20', accepted: '0' })])).toBeNull();
+    expect(prefillFullDelivery([line({ outstanding: 0, announced: '0', accepted: '0' })])).toBeNull();
+    expect(prefillFullDelivery([])).toBeNull();
   });
 });
