@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { Eye, EyeOff, Link2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DataTable } from '@/components/common/DataTable';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -167,31 +168,31 @@ export function CatalogSetupPage() {
       {
         id: 'actions',
         header: '',
-        meta: { className: 'w-44 text-right whitespace-nowrap' },
+        meta: { className: 'w-32 text-right' },
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
-            <RowTextAction label={`Mở ${row.original.name}`} onClick={() => navigate(detailHref(row.original))}>
-              Mở
-            </RowTextAction>
+            <RowAction label={`Mở ${row.original.name}`} onClick={() => navigate(detailHref(row.original))}>
+              <Pencil />
+            </RowAction>
             {canManage &&
               (isPlatform(row.original) ? (
-                <RowTextAction
+                <RowAction
                   label={`${row.original.hidden ? 'Hiện lại' : 'Ẩn'} ${row.original.name}`}
                   reason={hideMut.isPending ? 'Đang lưu' : null}
                   onClick={() => void toggleHidden(row.original)}
                 >
-                  {row.original.hidden ? 'Hiện lại' : 'Ẩn'}
-                </RowTextAction>
+                  {row.original.hidden ? <Eye /> : <EyeOff />}
+                </RowAction>
               ) : (
-                <RowTextAction
+                <RowAction
                   label={`Xoá ${row.original.name}`}
                   destructive
                   onClick={() =>
                     row.original.productCount > 0 ? setMoving(row.original) : setDeleting({ kind: 'group', item: row.original })
                   }
                 >
-                  Xoá
-                </RowTextAction>
+                  <Trash2 />
+                </RowAction>
               ))}
           </div>
         ),
@@ -254,24 +255,24 @@ export function CatalogSetupPage() {
             {
               id: 'actions',
               header: '',
-              meta: { className: 'w-44 text-right whitespace-nowrap' },
+              meta: { className: 'w-32 text-right' },
               cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
                   {showPlatforms && (
-                    <RowTextAction label={`Ánh xạ ${row.original.name} sang sàn`} onClick={() => setAxisOf(row.original)}>
-                      Ánh xạ
-                    </RowTextAction>
+                    <RowAction label={`Ánh xạ ${row.original.name} sang sàn`} onClick={() => setAxisOf(row.original)}>
+                      <Link2 />
+                    </RowAction>
                   )}
                   {isPlatform(row.original) ? (
-                    <RowTextAction label={`Giá trị tự thêm của ${row.original.name}`} onClick={() => setValuesOf(row.original)}>
-                      Giá trị tự thêm
-                    </RowTextAction>
+                    <RowAction label={`Giá trị tự thêm của ${row.original.name}`} onClick={() => setValuesOf(row.original)}>
+                      <Plus />
+                    </RowAction>
                   ) : (
                     <>
-                      <RowTextAction label={`Sửa ${row.original.name}`} onClick={() => setAttributeForm(row.original)}>
-                        Sửa
-                      </RowTextAction>
-                      <RowTextAction
+                      <RowAction label={`Sửa ${row.original.name}`} onClick={() => setAttributeForm(row.original)}>
+                        <Pencil />
+                      </RowAction>
+                      <RowAction
                         label={`Xoá ${row.original.name}`}
                         destructive
                         reason={
@@ -281,8 +282,8 @@ export function CatalogSetupPage() {
                         }
                         onClick={() => setDeleting({ kind: 'attribute', item: row.original })}
                       >
-                        Xoá
-                      </RowTextAction>
+                        <Trash2 />
+                      </RowAction>
                     </>
                   )}
                 </div>
@@ -307,6 +308,7 @@ export function CatalogSetupPage() {
         action={
           canManage && source === 'commerio' ? (
             <Button data-guide="catalog-add" onClick={() => setCreating(true)}>
+              <Plus />
               Thêm danh mục
             </Button>
           ) : null

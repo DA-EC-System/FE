@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -118,13 +119,13 @@ export function AttributeValuesDialog({ attribute, onClose }: AttributeValuesDia
                     <span className="font-mono text-muted-foreground">{v.code}</span>
                     <button
                       type="button"
-                      className="inline-flex min-h-6 px-1.5 text-destructive cursor-pointer items-center justify-center rounded-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={v.inUse ? `${v.value} đã có variant dùng, không xoá được` : `Xoá ${v.value}`}
                       title={v.inUse ? 'Đã có variant dùng, không xoá được' : `Xoá ${v.value}`}
                       disabled={busy || v.inUse}
                       onClick={() => void remove(v)}
                     >
-                      Xoá
+                      <X className="size-3.5" />
                     </button>
                   </Badge>
                 </li>

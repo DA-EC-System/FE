@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -162,15 +163,15 @@ function PlatformAxis({
             <span className="font-mono text-xs text-muted-foreground">{c.attributeCode}</span>
             {canEdit && (
               <span className="ml-auto flex">
-                <RowTextAction label={`Ưu tiên ${c.attributeCode} hơn`} reason={i === 0 ? 'Đã ưu tiên nhất' : null} onClick={() => move(i, i - 1)}>
-                  Lên
-                </RowTextAction>
-                <RowTextAction label={`Ưu tiên ${c.attributeCode} kém hơn`} reason={i === codes.length - 1 ? 'Đã ở cuối' : null} onClick={() => move(i, i + 1)}>
-                  Xuống
-                </RowTextAction>
-                <RowTextAction label={`Bỏ mã ${c.attributeCode}`} destructive onClick={() => setCodes((prev) => prev.filter((_, j) => j !== i))}>
-                  Bỏ
-                </RowTextAction>
+                <RowAction label={`Ưu tiên ${c.attributeCode} hơn`} reason={i === 0 ? 'Đã ưu tiên nhất' : null} onClick={() => move(i, i - 1)}>
+                  <ArrowUp />
+                </RowAction>
+                <RowAction label={`Ưu tiên ${c.attributeCode} kém hơn`} reason={i === codes.length - 1 ? 'Đã ở cuối' : null} onClick={() => move(i, i + 1)}>
+                  <ArrowDown />
+                </RowAction>
+                <RowAction label={`Bỏ mã ${c.attributeCode}`} destructive onClick={() => setCodes((prev) => prev.filter((_, j) => j !== i))}>
+                  <Trash2 />
+                </RowAction>
               </span>
             )}
           </li>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ImageOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Money } from '@/components/common/Money';
@@ -167,8 +168,8 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
               {cover ? (
                 <img src={cover.url} alt="" width={80} height={80} className="size-20 flex-none rounded-md object-cover" />
               ) : (
-                <span className="flex size-20 flex-none items-center justify-center rounded-md bg-muted p-1 text-center text-xs text-muted-foreground">
-                  Chưa có ảnh
+                <span className="flex size-20 flex-none items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <ImageOff className="size-6" aria-label="Chưa có ảnh" />
                 </span>
               )}
               <div className="min-w-0 text-sm">
@@ -296,6 +297,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
 
       <div className="flex flex-wrap items-center justify-end gap-3">
         <Button type="button" onClick={() => void publish()} disabled={busy || !toPublish.length}>
+          {busy && <Loader2 className="animate-spin" />}
           {busy ? 'Đang đăng…' : toPublish.length ? `Đăng ${toPublish.length} SKU lên ${shopsToPublish.length} gian hàng` : 'Không có SKU nào đăng được'}
         </Button>
       </div>

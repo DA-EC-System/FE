@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -462,6 +463,7 @@ export function ProductFormPage() {
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={backToList}>
+      <ArrowLeft />
       Về danh sách sản phẩm
     </Button>
   );
@@ -550,6 +552,7 @@ export function ProductFormPage() {
               <div className="flex flex-wrap gap-2">
                 {deletable && (
                   <Button type="button" variant="outline" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 />
                     Xoá hẳn
                   </Button>
                 )}
@@ -787,6 +790,7 @@ export function ProductFormPage() {
               <CardTitle>Biến thể (SKU)</CardTitle>
               {!isNew && !readOnly && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+                  <Plus />
                   Thêm biến thể
                 </Button>
               )}
@@ -932,12 +936,12 @@ export function ProductFormPage() {
                                   <Button
                                     type="button"
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     aria-label={`Sửa thông tin ${v.sku}`}
                                     title="Giá bán lẻ, giá muốn thực nhận, cân nặng, kích thước gói, ngưỡng tồn"
                                     onClick={() => setSpecVariantId(v.id)}
                                   >
-                                    Sửa
+                                    <Pencil />
                                   </Button>
                                 )}
                                 <BusinessActionMenu

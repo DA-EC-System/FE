@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FormTextField } from '@/components/common/FormTextField';
-import { RowTextAction } from '@/components/common/RowAction';
+import { RowAction } from '@/components/common/RowAction';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -251,24 +252,24 @@ export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: Spec
                           )}
                         />
                         <div className="flex">
-                          <RowTextAction label={`Đưa lựa chọn ${i + 1} lên trên`} reason={i === 0 ? 'Đã ở đầu' : null} onClick={() => move(i, i - 1)}>
-                            Lên
-                          </RowTextAction>
-                          <RowTextAction
+                          <RowAction label={`Đưa lựa chọn ${i + 1} lên trên`} reason={i === 0 ? 'Đã ở đầu' : null} onClick={() => move(i, i - 1)}>
+                            <ArrowUp />
+                          </RowAction>
+                          <RowAction
                             label={`Đưa lựa chọn ${i + 1} xuống dưới`}
                             reason={i === fields.length - 1 ? 'Đã ở cuối' : null}
                             onClick={() => move(i, i + 1)}
                           >
-                            Xuống
-                          </RowTextAction>
-                          <RowTextAction
+                            <ArrowDown />
+                          </RowAction>
+                          <RowAction
                             label={`Xoá lựa chọn ${i + 1}`}
                             destructive
                             reason={locked ? 'Đang có sản phẩm dùng, không xoá được' : null}
                             onClick={() => remove(i)}
                           >
-                            Xoá
-                          </RowTextAction>
+                            <Trash2 />
+                          </RowAction>
                         </div>
                       </div>
                     );
@@ -277,6 +278,7 @@ export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: Spec
                 {optionsError && <p className="text-sm text-destructive">{optionsError}</p>}
                 <div>
                   <Button type="button" variant="ghost" size="sm" onClick={() => append({ value: '' })}>
+                    <Plus />
                     Thêm lựa chọn
                   </Button>
                 </div>
