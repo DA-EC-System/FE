@@ -49,7 +49,7 @@ export function ProductSkuSheet({ companyId, variant, rows, tab, specText, canSt
           <dl className="mx-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-md border p-3 text-sm" data-testid="sku-info">
             <dt className="text-muted-foreground">Giá bán lẻ</dt>
             <dd className="text-right tabular-nums">{priceText(variant.standardPrice)}</dd>
-            <dt className="text-muted-foreground">Thực nhận mong muốn</dt>
+            <dt className="text-muted-foreground">Giá muốn thực nhận</dt>
             <dd className="text-right tabular-nums">{priceText(variant.targetNetPrice)}</dd>
             <dt className="text-muted-foreground">Cân nặng · kích thước</dt>
             <dd className="text-right tabular-nums" data-testid="variant-spec">

@@ -159,7 +159,7 @@ export function SpecOptionsDialog({ field, onClose }: SpecOptionsDialogProps) {
             </form>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Thông số nhập tự do, không có danh sách lựa chọn.</p>
+          <p className="text-sm text-muted-foreground">Thuộc tính nhập tự do, không có danh sách lựa chọn.</p>
         )}
 
         <DialogFooter>

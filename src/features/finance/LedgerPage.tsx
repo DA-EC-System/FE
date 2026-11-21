@@ -42,7 +42,7 @@ const KPIS: { key: keyof LedgerTotals; label: string; hint: string }[] = [
   { key: 'receivable', label: 'Phải thu sàn', hint: 'Ước tính, chờ sàn thanh toán' },
   { key: 'platformBalance', label: 'Số dư tại sàn (chưa rút)', hint: 'Tiền sàn đã thanh toán vào ví người bán, chưa rút về ngân hàng' },
   { key: 'withdrawn', label: 'Đã rút về ngân hàng', hint: 'Tổng các lần rút' },
-  { key: 'committedPurchase', label: 'Cam kết chi nhập hàng', hint: 'Đơn đặt hàng nhập đã duyệt, chưa nhận đủ hàng' },
+  { key: 'committedPurchase', label: 'Cam kết chi nhập hàng', hint: 'Đề nghị nhập hàng đã duyệt, chưa nhận đủ hàng' },
 ];
 
 const REGIMES = { company: 'doanh nghiệp', household: 'hộ kinh doanh', individual: 'cá nhân kinh doanh' } as const;

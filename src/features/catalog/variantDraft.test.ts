@@ -63,10 +63,10 @@ describe('axisErrors, draftError', () => {
   it('không có nhóm: một variant mặc định; bỏ tick hết thì báo; quá 100 thì báo', () => {
     expect(draftError(emptyDraft)).toBeNull();
     const one: VariantDraft = { axes: [axis({ name: 'Cỡ', values: ['S'] })], excluded: ['s'] };
-    expect(draftError(one)).toBe('Cần ít nhất một variant');
+    expect(draftError(one)).toBe('Cần ít nhất một biến thể');
     const many = (n: number) => Array.from({ length: n }, (_, i) => `v${i}`);
     expect(draftError({ axes: [axis({ name: 'A', values: many(11) }), axis({ name: 'B', values: many(10) })], excluded: [] })).toBe(
-      'Tối đa 100 variant mỗi lần tạo',
+      'Tối đa 100 biến thể mỗi lần tạo',
     );
   });
 });

@@ -158,11 +158,11 @@ export const MISSING_LABELS: Record<VariantMissing, string> = {
   name: 'tên',
   image: 'ảnh',
   variantImages: 'ảnh phân loại',
-  price: 'thực nhận mong muốn',
-  minQty: 'tồn tối thiểu',
+  price: 'giá muốn thực nhận',
+  minQty: 'ngưỡng tồn',
   weight: 'cân nặng',
   dimensions: 'kích thước đóng gói',
-  specs: 'thông số bắt buộc',
+  specs: 'thuộc tính sản phẩm bắt buộc',
 };
 
 export interface ProductVariant {

@@ -31,7 +31,7 @@ import type { CompanyModule } from '@/types/companySettings';
 import { supportedPlatformNames } from '@/lib/platforms';
 
 const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
-  purchasing: 'Nhà cung cấp, đơn đặt hàng nhập và nhập kho theo đơn.',
+  purchasing: 'Nhà cung cấp, đề nghị nhập hàng và nhập kho theo đơn.',
   channel: `Kết nối gian hàng ${supportedPlatformNames()}; đồng bộ đơn và tồn kho.`,
   inbox: 'Gom tin nhắn khách hàng từ các kênh vào một hộp thư.',
   assistant: 'Hỏi đáp về số liệu bán hàng bằng tiếng Việt, chạy trên OpenAI.',
@@ -41,7 +41,7 @@ const MODULE_DESCRIPTIONS: Record<OptionalModuleKey, string> = {
 /** Chi tiết trong HelpTip của từng dòng; dòng chỉ giữ một câu mô tả */
 const MODULE_HELP: Record<OptionalModuleKey, string> = {
   purchasing:
-    'Thêm mục Nhập hàng trên thanh bên: nhà cung cấp, đơn đặt hàng nhập, phiếu nhập kho và trả hàng NCC.',
+    'Thêm mục Nhập hàng trên thanh bên: nhà cung cấp, đề nghị nhập hàng, phiếu nhập kho và trả hàng NCC.',
   channel:
     'Thêm mục Kênh bán: kết nối gian hàng, liên kết SKU, đồng bộ đơn từ sàn, đồng bộ tồn và giá lên sàn.',
   inbox: 'Tin nhắn khách gửi qua các kênh về một hộp thư, nhân viên trả lời ở một chỗ.',

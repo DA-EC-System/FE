@@ -88,7 +88,7 @@ export function AddVariantDialog({
     setArchivedId(null);
     try {
       const variant = await addMut.mutateAsync({ productId: product.id, attributeValueIds: ids });
-      onDone(`Đã thêm variant ${variant.sku}`);
+      onDone(`Đã thêm biến thể ${variant.sku}`);
     } catch (e) {
       if (problemCode(e) === 'variant_archived' && getProblem(e)?.variantId) {
         setArchivedId(getProblem(e)!.variantId!);
@@ -106,7 +106,7 @@ export function AddVariantDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Thêm variant</DialogTitle>
+          <DialogTitle>Thêm biến thể</DialogTitle>
           <DialogDescription>Chọn một giá trị cho từng thuộc tính của sản phẩm.</DialogDescription>
         </DialogHeader>
 
@@ -144,7 +144,7 @@ export function AddVariantDialog({
             ))}
             <div className="rounded-md bg-muted p-3" data-testid="variant-sku-preview">
               <p className="text-xs text-muted-foreground">
-                {existing ? 'SKU của variant' : 'SKU dự kiến'}
+                {existing ? 'SKU của biến thể' : 'SKU dự kiến'}
               </p>
               <p className="font-mono text-sm">{preview}</p>
             </div>

@@ -47,7 +47,7 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
   const add = async () => {
     try {
       const group = await create.mutateAsync({ name });
-      toast.success(`Đã tạo nhóm hàng ${group.name}`);
+      toast.success(`Đã tạo danh mục sản phẩm ${group.name}`);
       choose(group.id);
     } catch (e) {
       const problem = getProblem(e);
@@ -62,13 +62,13 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
           type="button"
           variant="outline"
           role="combobox"
-          aria-label="Nhóm hàng"
+          aria-label="Danh mục sản phẩm"
           aria-expanded={open}
           aria-invalid={invalid || undefined}
           disabled={disabled || loading}
           className={cn('w-full justify-between font-normal', !selected && 'text-muted-foreground')}
         >
-          <span className="truncate">{loading ? 'Đang tải nhóm hàng…' : (selected?.name ?? 'Chọn nhóm hàng')}</span>
+          <span className="truncate">{loading ? 'Đang tải danh mục sản phẩm…' : (selected?.name ?? 'Chọn danh mục sản phẩm')}</span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -76,7 +76,7 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
         <Command>
           <CommandInput placeholder="Gõ để tìm hoặc tạo nhóm…" value={typed} onValueChange={setTyped} maxLength={60} />
           <CommandList>
-            <CommandEmpty>{canCreate ? 'Gõ tên để tạo nhóm mới.' : 'Không thấy nhóm hàng nào.'}</CommandEmpty>
+            <CommandEmpty>{canCreate ? 'Gõ tên để tạo danh mục mới.' : 'Không thấy danh mục sản phẩm nào.'}</CommandEmpty>
             {(['company', 'platform'] as const).map((scope) => {
               const rows = byScope[scope];
               return rows.length > 0 ? (

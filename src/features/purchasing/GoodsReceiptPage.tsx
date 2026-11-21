@@ -82,7 +82,7 @@ const RECEIPT_PATH: GoodsReceiptStatus[] = ['counting', 'matched'];
 /** Thân hộp xác nhận; tiêu đề và nút lấy đúng nhãn của bước trong `goodsReceiptMachine` để khớp nút ở đầu trang */
 const ACTION_CONFIRM: Partial<Record<GoodsReceiptAction, string>> = {
   post: 'Hàng đạt cộng vào tồn kho. Hàng lỗi giữ lại chuyển vào khu Hàng lỗi/chờ kiểm, kèm sẵn phiếu trả hàng NCC nháp. Sau khi nhập kho, phiếu không sửa được.',
-  post_short: 'Nhập kho như trên. Đơn đặt hàng nhập được đánh dấu "Nhà cung cấp giao thiếu" đến khi có cách xử lý phần thiếu.',
+  post_short: 'Nhập kho như trên. Đề nghị nhập hàng được đánh dấu "Nhà cung cấp giao thiếu" đến khi có cách xử lý phần thiếu.',
 };
 
 /**
@@ -398,7 +398,7 @@ export function GoodsReceiptPage() {
                 <StatusBadge status={receipt.status} statuses={RECEIPT_STATUS} />
               </div>
             </Info>
-            <Info label="Đơn đặt hàng nhập">
+            <Info label="Đề nghị nhập hàng">
               <DocLink companyId={companyId} docRef={{ type: 'purchase_request', ...receipt.request }} />
               {' · '}
               {receipt.supplier.name}
@@ -655,7 +655,7 @@ export function GoodsReceiptPage() {
         open={Boolean(confirmText)}
         title={`${confirmLabel} ${receipt.number}?`}
         // API chưa trả tên người lập đơn đặt hàng (chỉ có requestCreatedById); hiện số đơn với nhãn đúng thay vì gắn số vào nhãn "Người lập"
-        ownerLabel="Đơn đặt hàng nhập"
+        ownerLabel="Đề nghị nhập hàng"
         createdByName={receipt.request.number}
         selfApproval={receipt.requestCreatedById === actor.accountId}
         confirmLabel={confirmLabel}
@@ -669,7 +669,7 @@ export function GoodsReceiptPage() {
       <ReasonDialog
         open={cancelling}
         title={`Huỷ phiếu ${receipt.number}`}
-        message="Phiếu chưa nhập kho nên tồn không đổi; đơn đặt hàng nhập vẫn còn chờ nhận như cũ."
+        message="Phiếu chưa nhập kho nên tồn không đổi; đề nghị nhập hàng vẫn còn chờ nhận như cũ."
         confirmLabel="Huỷ phiếu"
         destructive
         loading={busy}
@@ -756,7 +756,7 @@ function ShortResolutionCard({
               onChange={(e) => setFollowUp(e.target.value)}
             />
             {followUpError && <p className="text-sm text-destructive">{followUpError}</p>}
-            <p className="text-xs text-muted-foreground">Khi hàng bù tới, lập phiếu nhập kho mới từ đơn đặt hàng nhập rồi ghi số phiếu đó ở đây.</p>
+            <p className="text-xs text-muted-foreground">Khi hàng bù tới, lập phiếu nhập kho mới từ đề nghị nhập hàng rồi ghi số phiếu đó ở đây.</p>
           </div>
         )}
         <div className="grid gap-1.5">

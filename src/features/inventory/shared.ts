@@ -42,7 +42,7 @@ export const qtyText = (min: number, max: number, label = 'Số lượng') =>
 /** UC-IN-02: tồn tối thiểu; ô trống là bỏ ngưỡng */
 export const minQtySchema = z.string().transform((raw, ctx): number | null => {
   if (!raw.trim()) return null;
-  const parsed = qtyText(0, MAX_QTY, 'Tồn tối thiểu').safeParse(raw);
+  const parsed = qtyText(0, MAX_QTY, 'Ngưỡng tồn').safeParse(raw);
   if (parsed.success) return parsed.data;
   ctx.addIssue({ code: 'custom', message: parsed.error.issues[0].message });
   return z.NEVER;

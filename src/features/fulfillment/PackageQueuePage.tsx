@@ -283,7 +283,7 @@ export function PackageQueuePage() {
                 <TableRow>
                   <TableHead className="w-36">SKU</TableHead>
                   <TableHead>Sản phẩm</TableHead>
-                  <TableHead>Thuộc tính phân loại</TableHead>
+                  <TableHead>Thuộc tính biến thể</TableHead>
                   <TableHead className="w-24 text-right">Số lượng</TableHead>
                   <TableHead className="w-20 text-right">Số kiện</TableHead>
                 </TableRow>

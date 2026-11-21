@@ -27,7 +27,7 @@ export function PurchasingPage() {
       <PageHeader
         title="Nhập hàng"
         subtitle="Đặt hàng nhập, nhập kho và trả hàng cho nhà cung cấp."
-        help="Đơn đặt hàng nhập phải được duyệt rồi mới gửi NCC. Hàng về thì Kho tạo phiếu nhập kho từ đơn đặt, kiểm đếm rồi bấm Nhập kho. Hàng lỗi thì tạo phiếu trả hàng NCC; NCC đổi hàng thì tạo đơn đặt hàng đổi."
+        help="Đề nghị nhập hàng phải được duyệt rồi mới gửi NCC. Hàng về thì Kho tạo phiếu nhập kho từ đề nghị, kiểm đếm rồi bấm Nhập kho. Hàng lỗi thì tạo phiếu trả hàng NCC; NCC đổi hàng thì tạo đề nghị nhập hàng đổi."
         onTour={startTour}
       />
       <Tabs

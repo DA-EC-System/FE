@@ -93,7 +93,7 @@ export function AddToRequestDialog({
     <Dialog open={open} onOpenChange={(next) => !next && !mut.isPending && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Thêm vào đơn đặt hàng nhập</DialogTitle>
+          <DialogTitle>Thêm vào đề nghị nhập hàng</DialogTitle>
           <DialogDescription>
             {level?.sku} · có thể bán {formatQty(level?.available ?? 0)}, tồn tối thiểu {level?.minQty === null ? '—' : formatQty(level?.minQty ?? 0)}
             {level?.incoming ? `, hàng đang về ${formatQty(level.incoming)}` : ''}
@@ -112,7 +112,7 @@ export function AddToRequestDialog({
                   {d.number} · {d.supplier.name} ({d.lineCount} dòng)
                 </SelectItem>
               ))}
-              <SelectItem value={NEW_DRAFT}>Tạo đơn đặt hàng nhập nháp mới</SelectItem>
+              <SelectItem value={NEW_DRAFT}>Tạo đề nghị nhập hàng nháp mới</SelectItem>
             </SelectContent>
           </Select>
           {errs.target && <p className="text-sm text-destructive">{errs.target}</p>}

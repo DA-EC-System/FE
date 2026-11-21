@@ -71,7 +71,7 @@ describe('quickActions', () => {
       ),
     );
     // Không còn "Tạo đơn": đơn tạo tay ngoài MVP (FE#249)
-    expect(all.map((a) => a.label)).toEqual(['Tạo đơn đặt hàng nhập', 'Thêm sản phẩm', 'Kết nối gian hàng']);
+    expect(all.map((a) => a.label)).toEqual(['Tạo đề nghị nhập hàng', 'Thêm sản phẩm', 'Kết nối gian hàng']);
     expect(all.find((a) => a.id === 'shop-new')).toMatchObject({ to: `/c/${C}/channel/shops`, state: { addShop: true } });
 
     const noPurchasing = quickActions(ctx(['catalog.product.manage', 'purchasing.request.manage'], ['catalog']));

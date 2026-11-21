@@ -46,7 +46,7 @@ export function ProductSettingsPage() {
       <PageHeader
         title="Cài đặt sản phẩm"
         subtitle="Mẫu mã SKU và gợi ý giá, gợi ý nhập lại mặc định của công ty."
-        help="Mẫu SKU áp dụng cho SKU sinh sau khi lưu; SKU đã có giữ nguyên. Gợi ý ở đây dùng cho mọi nhóm hàng chưa đặt gợi ý riêng."
+        help="Mẫu SKU áp dụng cho SKU sinh sau khi lưu; SKU đã có giữ nguyên. Gợi ý ở đây dùng cho mọi danh mục sản phẩm chưa đặt gợi ý riêng."
       />
       {settingsQuery.isError && (
         <AlertMessage severity="error" className="mb-4">
@@ -111,7 +111,7 @@ function SettingsFormView({ settings, onConflict }: { settings: ProductSettings;
           </AlertMessage>
         )}
         {!canEdit && (
-          <AlertMessage severity="info">Bạn chỉ xem được. Cần quyền quản lý nhóm hàng để sửa.</AlertMessage>
+          <AlertMessage severity="info">Bạn chỉ xem được. Cần quyền quản lý danh mục sản phẩm để sửa.</AlertMessage>
         )}
         <Card className="gap-0 py-0">
           <div className="border-b px-4 py-3 text-sm font-semibold">Mẫu mã SKU</div>
@@ -136,7 +136,7 @@ function SettingsFormView({ settings, onConflict }: { settings: ProductSettings;
           <div className="border-b px-4 py-3 text-sm font-semibold">Gợi ý mặc định</div>
           <div className="grid gap-3 px-4 py-4">
             <p className="text-sm text-muted-foreground">
-              Dùng cho nhóm hàng chưa đặt gợi ý riêng. Để trống thì không gợi ý.
+              Dùng cho danh mục sản phẩm chưa đặt gợi ý riêng. Để trống thì không gợi ý.
             </p>
             <SuggestFields control={control} name="suggest" placeholder={companyPlaceholder} disabled={!canEdit} />
           </div>

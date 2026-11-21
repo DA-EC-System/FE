@@ -155,7 +155,7 @@ const ACTION_CONFIRM: Partial<Record<PurchaseRequestAction, { title: string; mes
   withdraw: { title: 'Rút lại', message: 'Đơn quay về nháp để sửa.' },
   approve: {
     title: 'Duyệt',
-    message: 'Giá nhập được chốt. Sản phẩm mới sẽ được tạo khi nhập kho. Dòng không duyệt sẽ không đặt hàng.',
+    message: 'Giá nhập được chốt. Dòng không duyệt sẽ không đặt hàng.',
   },
   order: { title: 'Đã đặt hàng', message: 'Số lượng chưa nhận được cộng vào Hàng đang về của từng SKU. Kho tạo phiếu nhập kho khi hàng tới.' },
   cancel: { title: 'Huỷ đơn', message: 'Đơn bị huỷ, không đặt hàng tiếp được.' },
@@ -436,7 +436,7 @@ export function PurchaseRequestPage() {
   const backToList = () => navigate(ROUTES.company.purchasing(companyId));
 
   if (isNew && !canManage) {
-    return <PageError severity="warning" message="Bạn không có quyền tạo đơn đặt hàng nhập." onBack={backToList} />;
+    return <PageError severity="warning" message="Bạn không có quyền tạo đề nghị nhập hàng." onBack={backToList} />;
   }
   if (reqQuery.isError) return <PageError message={getErrorMessage(reqQuery.error)} onBack={backToList} />;
   if (!isNew && !req) return <PageLoading />;
@@ -445,14 +445,19 @@ export function PurchaseRequestPage() {
   const showProgress = Boolean(req && !EDITABLE.has(req.status) && req.status !== 'pending_approval');
   const supplierOptions = (suppliersQuery.data ?? []).filter((s) => s.active || s.id === supplierId);
   const linesError = errors.lines?.root?.message ?? errors.lines?.message;
-  const confirmText = confirm ? ACTION_CONFIRM[confirm] : undefined;
+  const baseConfirm = confirm ? ACTION_CONFIRM[confirm] : undefined;
+  // Câu "tạo khi nhập kho" chỉ khi đề nghị có dòng sản phẩm mới (kiểm người bán KB3 3.7)
+  const confirmText =
+    baseConfirm && confirm === 'approve' && req?.lines.some((l) => l.newProduct)
+      ? { ...baseConfirm, message: `${baseConfirm.message} Sản phẩm, biến thể mới sẽ được tạo khi nhập kho.` }
+      : baseConfirm;
   const total = lines.reduce((s, l) => {
     const q = Number(l.quantity);
     const c = parseMoney(l.unitCost);
     return Number.isFinite(q) && c.ok && c.value !== null ? s + q * c.value : s;
   }, 0);
   const colCount = 2 + (showCost ? 1 : 0) + (showProgress ? 3 : 0) + (editable || canExclude ? 1 : 0);
-  const title = req ? `Đơn đặt hàng nhập ${req.number}` : fromReturnId ? 'Tạo đơn đặt hàng đổi' : 'Tạo đơn đặt hàng nhập';
+  const title = req ? `Đề nghị nhập hàng ${req.number}` : fromReturnId ? 'Tạo đề nghị nhập hàng đổi' : 'Tạo đề nghị nhập hàng';
   const lifecycleBlocked = options.flatMap(({ transition: t, blocked }) =>
     blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
   );
@@ -505,7 +510,7 @@ export function PurchaseRequestPage() {
     <div>
       <PageHeader
         title={title}
-        subtitle="Mỗi đơn đặt hàng nhập một NCC."
+        subtitle="Mỗi đề nghị nhập hàng một NCC."
         help="Nhân viên nhập hàng tạo nháp rồi gửi duyệt. Người duyệt phải khác người lập. Duyệt xong thì đặt hàng với NCC; số chưa nhận hiện ở cột Hàng đang về của tồn kho. Hàng tới thì Kho tạo phiếu nhập kho từ đơn."
         onTour={startTour}
         action={
@@ -745,7 +750,8 @@ export function PurchaseRequestPage() {
                                 {f.sku || np?.parentName || np?.name || live.parentName}
                                 {(live.isNew || np) && (
                                   <Badge variant="info" className="ms-2">
-                                    Sản phẩm mới
+                                    {/* Thêm vào sản phẩm có sẵn là biến thể mới, không phải sản phẩm mới (KB3 3.8) */}
+                                    {(np ? np.parentId !== null : live.parentMode === 'existing') ? 'Biến thể mới' : 'Sản phẩm mới'}
                                   </Badge>
                                 )}
                                 {line?.excluded && (

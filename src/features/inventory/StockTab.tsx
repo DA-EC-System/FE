@@ -98,7 +98,7 @@ export function StockTab() {
         header: 'SKU',
         meta: {
           className: 'min-w-60',
-          help: 'Nhãn dưới mã SKU. Đang về: số còn chờ của đơn đặt hàng nhập. Hàng lỗi/chờ kiểm: hàng lỗi, hoàn, trả chưa kiểm, chưa bán được. Thiếu cho đơn: số đơn đang cần mà có thể bán chưa đủ.',
+          help: 'Nhãn dưới mã SKU. Đang về: số còn chờ của đề nghị nhập hàng. Hàng lỗi/chờ kiểm: hàng lỗi, hoàn, trả chưa kiểm, chưa bán được. Thiếu cho đơn: số đơn đang cần mà có thể bán chưa đủ.',
         },
         cell: ({ row }) => {
           const r = row.original;
@@ -118,7 +118,7 @@ export function StockTab() {
       },
       {
         id: 'group',
-        header: 'Nhóm hàng',
+        header: 'Danh mục sản phẩm',
         meta: { className: 'w-32' },
         cell: ({ row }) => row.original.group.name,
       },
@@ -175,7 +175,7 @@ export function StockTab() {
       },
       {
         id: 'minQty',
-        header: 'Tồn tối thiểu',
+        header: 'Ngưỡng tồn',
         meta: { className: 'w-28 text-right' },
         cell: ({ row }) => {
           const r = row.original;
@@ -185,7 +185,7 @@ export function StockTab() {
                 {r.minQty === null ? '—' : formatQty(r.minQty)}
               </span>
               {canReorder && (
-                <RowAction label="Đặt tồn tối thiểu" onClick={() => setEditing(r)}>
+                <RowAction label="Đặt ngưỡng tồn" onClick={() => setEditing(r)}>
                   <Pencil />
                 </RowAction>
               )}
@@ -217,7 +217,7 @@ export function StockTab() {
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
             {canRequest && row.original.belowMin && (
-              <RowAction label="Thêm vào đơn đặt hàng nhập" onClick={() => setRequesting(row.original)}>
+              <RowAction label="Thêm vào đề nghị nhập hàng" onClick={() => setRequesting(row.original)}>
                 <ClipboardPlus />
               </RowAction>
             )}
@@ -276,7 +276,7 @@ export function StockTab() {
             placeholder="Tìm theo tên sản phẩm hoặc SKU"
           />
           <FilterSelect loading={groupsQuery.isLoading}
-            label="Nhóm hàng"
+            label="Danh mục sản phẩm"
             value={groupId}
             onChange={withReset(setGroupId)}
             options={groups.map((c) => ({ value: c.id, label: c.name }))}

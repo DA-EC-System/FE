@@ -124,7 +124,7 @@ export const optionsLabel = (values: Record<string, string> | NewProductOption[]
 
 // Giới hạn theo BE (commerio-backend#243): tên trục ≤ 15 ký tự, giá trị ≤ 20 ký tự.
 const optionSchema = z.object({
-  axis: z.string().max(15, 'Tên trục tối đa 15 ký tự'),
+  axis: z.string().max(15, 'Tên thuộc tính biến thể tối đa 15 ký tự'),
   value: z.string().trim().max(20, 'Tối đa 20 ký tự'),
 });
 
@@ -143,17 +143,17 @@ const requestLineSchema = z
   .superRefine((l, ctx) => {
     if (!l.isNew) return;
     if (l.parentMode === 'existing') {
-      if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm cha' });
+      if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm' });
     } else {
-      if (!l.parentName) ctx.addIssue({ code: 'custom', path: ['parentName'], message: 'Nhập tên sản phẩm cha' });
-      if (!l.groupId) ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Chọn nhóm hàng' });
+      if (!l.parentName) ctx.addIssue({ code: 'custom', path: ['parentName'], message: 'Nhập tên sản phẩm' });
+      if (!l.groupId) ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Chọn danh mục sản phẩm' });
     }
     const seen = new Set<string>();
     l.options.forEach((o, k) => {
       const axis = o.axis.trim();
       if (axis && !o.value) ctx.addIssue({ code: 'custom', path: ['options', k, 'value'], message: `Nhập ${axis.toLowerCase()}` });
-      if (!axis && o.value) ctx.addIssue({ code: 'custom', path: ['options', k, 'axis'], message: 'Chọn trục phân loại' });
-      if (axis && seen.has(axis)) ctx.addIssue({ code: 'custom', path: ['options', k, 'axis'], message: 'Trục bị lặp' });
+      if (!axis && o.value) ctx.addIssue({ code: 'custom', path: ['options', k, 'axis'], message: 'Chọn thuộc tính biến thể' });
+      if (axis && seen.has(axis)) ctx.addIssue({ code: 'custom', path: ['options', k, 'axis'], message: 'Thuộc tính biến thể bị lặp' });
       seen.add(axis);
     });
   });
@@ -173,7 +173,7 @@ function checkNewProductGroups(lines: z.output<typeof requestLineSchema>[], ctx:
   for (const [key, idx] of groups) {
     const axes = [...new Set(idx.flatMap((i) => filledOptions(lines[i]!.options).map((o) => o.axis)))];
     if (key.startsWith('new:') && axes.length > MAX_AXES) {
-      idx.forEach((i) => issue(i, `Các dòng cùng sản phẩm cha có ${axes.length} trục phân loại; tối đa ${MAX_AXES}`));
+      idx.forEach((i) => issue(i, `Các dòng cùng sản phẩm có ${axes.length} thuộc tính biến thể; tối đa ${MAX_AXES}`));
       continue;
     }
     const combos = new Map<string, number>();
@@ -181,12 +181,12 @@ function checkNewProductGroups(lines: z.output<typeof requestLineSchema>[], ctx:
       const values = Object.fromEntries(filledOptions(lines[i]!.options).map((o) => [o.axis, o.value.toLowerCase()]));
       const missing = axes.filter((a) => !values[a]);
       if (key.startsWith('new:') && missing.length) {
-        issue(i, `Thiếu ${missing.join(', ').toLowerCase()}: các dòng cùng sản phẩm cha dùng chung trục phân loại`);
+        issue(i, `Thiếu ${missing.join(', ').toLowerCase()}: các dòng cùng sản phẩm dùng chung thuộc tính biến thể`);
         continue;
       }
       const combo = axes.map((a) => values[a]).join('|');
       const first = combos.get(combo);
-      if (first !== undefined) issue(i, `Trùng phân loại với dòng ${first + 1} cùng sản phẩm cha`);
+      if (first !== undefined) issue(i, `Trùng phân loại với dòng ${first + 1} cùng sản phẩm`);
       else combos.set(combo, i);
     }
   }

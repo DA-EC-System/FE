@@ -147,7 +147,7 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
             <DialogHeader>
               <DialogTitle>Thông tin SKU {variant?.sku}</DialogTitle>
               <DialogDescription>
-                Thực nhận mong muốn, cân nặng và kích thước đóng gói cần đủ để đăng bán và tính phí vận chuyển. Để trống là chưa có.
+                Giá muốn thực nhận, cân nặng và kích thước đóng gói cần đủ để đăng bán và tính phí vận chuyển. Để trống là chưa có.
               </DialogDescription>
             </DialogHeader>
             <FormTextField
@@ -160,7 +160,7 @@ export function VariantSpecDialog({ productId, variant, onClose, onDone }: Varia
             <FormTextField
               control={control}
               name="targetNetPrice"
-              label="Thực nhận mong muốn (đ)"
+              label="Giá muốn thực nhận (đ)"
               inputMode="numeric"
               hint="Số tiền muốn nhận về sau phí sàn. Giá niêm yết trên từng sàn tính ngược từ số này ở phần Kênh bán."
             />

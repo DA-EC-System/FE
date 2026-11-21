@@ -201,7 +201,7 @@ export function specMissing(
   }
   if (caps) {
     if (axes.length > caps.maxAxes) {
-      out.push({ code: 'axes', label: `Sản phẩm có ${axes.length} trục, category này nhận tối đa ${caps.maxAxes}`, reason: 'axis_shape' });
+      out.push({ code: 'axes', label: `Sản phẩm có ${axes.length} thuộc tính biến thể, category này nhận tối đa ${caps.maxAxes}`, reason: 'axis_shape' });
     }
     const mapped = new Set(axes.map((x) => spec.axisMap[x.attributeId]));
     for (const code of caps.salesRequired) {
