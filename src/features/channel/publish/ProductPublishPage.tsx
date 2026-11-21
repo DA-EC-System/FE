@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Check } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PageSpinner } from '@/components/common/PageSpinner';
@@ -94,7 +95,7 @@ function PublishFlow({
         to={ROUTES.company.catalogProduct(companyId, product.id)}
         className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        Về trang sản phẩm
+        <ArrowLeft className="size-4" /> Về trang sản phẩm
       </Link>
       <PageHeader
         title={`Đăng sản phẩm: ${product.name}`}
@@ -116,8 +117,8 @@ function PublishFlow({
               k < step && 'border-success-border text-success-text',
             )}
           >
+            {k < step && <Check className="size-3.5" />}
             {k + 1}. {name}
-            {k < step && <span className="sr-only"> (đã qua)</span>}
           </button>
         ))}
       </nav>
