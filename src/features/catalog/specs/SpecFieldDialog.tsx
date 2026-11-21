@@ -140,7 +140,8 @@ export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: Spec
       }
     } catch (e) {
       const problem = getProblem(e);
-      const latest = conflictCurrent<SpecField>(e);
+      // Gắn vào mẫu danh mục: 409 kèm `current` là GroupTemplate, không phải thuộc tính
+      const latest = attachTo ? null : conflictCurrent<SpecField>(e);
       if (problem?.code === 'version_conflict' && latest) {
         reset(toForm(latest));
         setCurrent(latest);
@@ -151,21 +152,26 @@ export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: Spec
         setError('Danh mục vừa được người khác sửa. Đóng hộp này rồi thử lại.');
         return;
       }
+      // POST …/template/fields trả lỗi theo đường dẫn body `{ field: {...} }` (`field.name`, `field.options.<i>`, be#552):
+      // bỏ tiền tố để gắn vào cùng ô của form
+      const errs = Object.fromEntries(
+        Object.entries(problem?.errors ?? {}).map(([k, v]) => [attachTo ? k.replace(/^field\./, '') : k, v]),
+      );
       if (problem?.code === 'name_taken') {
-        setFieldError('name', { message: problem.errors?.name ?? 'Đã có thuộc tính cùng tên. Chọn thuộc tính đó trong danh sách có sẵn.' });
+        setFieldError('name', { message: errs.name ?? 'Đã có thuộc tính cùng tên. Chọn thuộc tính đó trong danh sách có sẵn.' });
         return;
       }
-      const errs = problem?.errors ?? {};
       let placed = false;
       for (const [key, message] of Object.entries(errs)) {
-        // Lỗi theo ô của BE: name, unit, options, options.<i>; xoá lựa chọn đang dùng là 409 in_use kèm options.<i>
+        // Lỗi theo ô của BE: name, input, allowCustom, unit, options, options.<i>; xoá lựa chọn đang dùng là 409 in_use
+        // kèm options.<i>. `fieldId` (thuộc tính đã có trong mẫu) không có ô riêng: hiện ở đầu hộp
         const path = /^options\.\d+$/.test(key) ? `${key}.value` : key;
-        if (['name', 'unit', 'options'].includes(key) || /^options\.\d+\.value$/.test(path)) {
+        if (['name', 'input', 'allowCustom', 'unit', 'options'].includes(key) || /^options\.\d+\.value$/.test(path)) {
           setFieldError(path as FieldPath<SpecFieldForm>, { message });
           placed = true;
         }
       }
-      if (!placed) setError(problemMessage(e));
+      if (!placed) setError(errs.fieldId ?? problemMessage(e));
     }
   });
 
