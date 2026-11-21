@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { hasActiveSupplier, receiptFormSchema, returnFormSchema, shortOfDraft, type ReceiptLineDraft } from './shared';
+import {
+  hasActiveSupplier,
+  newProductConfirmText,
+  newProductPlan,
+  receiptFormSchema,
+  returnFormSchema,
+  shortOfDraft,
+  type ReceiptLineDraft,
+} from './shared';
 
 const line = (over: Partial<ReceiptLineDraft> = {}): ReceiptLineDraft => ({
   lineId: 'l1',
   sku: 'SKU-1',
+  isNew: false,
   productName: 'Áo',
   attributesLabel: '',
   outstanding: 10,
@@ -68,5 +77,42 @@ describe('hasActiveSupplier: chặn Lập đề nghị khi chưa có nhà cung c
   });
   it('có ít nhất một nhà cung cấp đang giao dịch thì cho lập', () => {
     expect(hasActiveSupplier([{ active: false }, { active: true }])).toBe(true);
+  });
+});
+
+describe('newProductPlan, newProductConfirmText (21 §16.3, chốt 21/11 câu 3)', () => {
+  const fresh = (lineId: string, attributesLabel: string, accepted: string, defectKept = '0', productName = 'Áo thun basic') =>
+    line({ lineId, sku: null, isNew: true, productName, attributesLabel, accepted, defectKept });
+  const req = (id: string, parentId: string | null, variantId: string | null = null) => ({ id, variantId, newProduct: { parentId } });
+
+  it('dòng có đạt hoặc lỗi giữ tạo biến thể, dòng 0 để lần sau; gộp theo tên cha', () => {
+    const plan = newProductPlan(
+      [line(), fresh('a', 'Đen / M', '18', '2'), fresh('b', 'Đen / L', '0'), fresh('c', 'Trắng / M', '0', '1')],
+      [req('a', null), req('b', null), req('c', null)],
+    );
+    expect(plan.productCount).toBe(1);
+    expect(plan.variantCount).toBe(2);
+    expect(newProductConfirmText(plan)).toBe(
+      'Sẽ tạo 1 sản phẩm, 2 biến thể: Áo thun basic (Đen / M, Trắng / M). Chưa về hàng, để lần nhập sau: Áo thun basic (Đen / L).',
+    );
+  });
+
+  it('thêm biến thể vào sản phẩm có sẵn không đếm là sản phẩm mới', () => {
+    const plan = newProductPlan([fresh('a', 'Xanh / 32', '5', '0', 'Quần jean slim')], [req('a', 'p1')]);
+    expect(plan.productCount).toBe(0);
+    expect(newProductConfirmText(plan)).toBe('Sẽ tạo 1 biến thể: Quần jean slim (Xanh / 32), thêm vào sản phẩm có sẵn.');
+  });
+
+  it('dòng đề nghị đã có SKU (phiếu khác ghi sổ trước) thì không tạo nữa; không có dòng mới thì không có câu', () => {
+    const plan = newProductPlan([fresh('a', 'Đen / M', '3')], [req('a', null, 'v1')]);
+    expect(plan.groups).toEqual([]);
+    expect(newProductConfirmText(plan)).toBeNull();
+  });
+
+  it('chưa đọc được đề nghị thì chỉ đếm biến thể; chưa dòng nào có hàng thì nói rõ', () => {
+    expect(newProductConfirmText(newProductPlan([fresh('a', 'Đen / M', '1')]))).toBe('Sẽ tạo 1 biến thể: Áo thun basic (Đen / M).');
+    expect(newProductConfirmText(newProductPlan([fresh('a', 'Đen / M', '0')], [req('a', null)]))).toBe(
+      'Chưa tạo sản phẩm mới nào: các dòng sản phẩm mới chưa có SL đạt hoặc lỗi, giữ lại. Chưa về hàng, để lần nhập sau: Áo thun basic (Đen / M).',
+    );
   });
 });

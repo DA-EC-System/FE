@@ -210,7 +210,9 @@ export type RequestFormOutput = z.output<typeof requestFormSchema>;
 /** Dòng phiếu nhập kho trên form */
 export interface ReceiptLineDraft {
   lineId: string;
-  sku: string;
+  /** null khi dòng sản phẩm mới chưa ghi sổ */
+  sku: string | null;
+  isNew: boolean;
   productName: string;
   attributesLabel: string;
   outstanding: number;
@@ -266,6 +268,84 @@ export function shortOfDraft(l: Pick<ReceiptLineDraft, 'announced' | 'accepted' 
     return Number.isInteger(v) && v >= 0 ? v : 0;
   };
   return Math.max(0, n(l.announced) - n(l.accepted) - n(l.defectKept) - n(l.returnedOnSpot));
+}
+
+/** Dòng đề nghị cần để biết dòng sản phẩm mới là cha mới hay thêm biến thể vào cha có sẵn, và đã có SKU chưa */
+export type RequestLineRef = { id: string; variantId: string | null; newProduct: { parentId: string | null } | null };
+
+export interface NewProductGroup {
+  /** Tên sản phẩm (cha) */
+  name: string;
+  /** true: cha mới; false: thêm biến thể vào cha có sẵn; null: chưa biết (không đọc được đề nghị) */
+  newParent: boolean | null;
+  /** Biến thể sẽ tạo (giá trị phân loại) */
+  created: string[];
+  /** Biến thể chưa về hàng trong phiếu này, để lần nhập sau */
+  waiting: string[];
+}
+
+export interface NewProductPlan {
+  groups: NewProductGroup[];
+  /** Số sản phẩm cha mới sẽ tạo */
+  productCount: number;
+  /** Số biến thể (SKU) sẽ tạo */
+  variantCount: number;
+}
+
+/**
+ * Dòng sản phẩm mới trên phiếu nhập kho đang kiểm: bấm Nhập kho thì dòng có SL đạt hoặc lỗi giữ > 0 sinh SKU, dòng 0
+ * để lần nhập sau (Documents/21 §16.3 "Dòng sản phẩm mới khi ghi sổ phiếu nhận"). Dòng đề nghị đã có SKU (phiếu khác
+ * ghi sổ trước) thì không tạo nữa. Các dòng cùng tên cha gộp một nhóm, theo thứ tự trên phiếu.
+ */
+export function newProductPlan(
+  lines: readonly Pick<ReceiptLineDraft, 'lineId' | 'sku' | 'isNew' | 'productName' | 'attributesLabel' | 'accepted' | 'defectKept'>[],
+  requestLines?: readonly RequestLineRef[],
+): NewProductPlan {
+  const n = (s: string) => {
+    const v = Number(s.trim().replace(/[\s.,]/g, ''));
+    return Number.isInteger(v) && v > 0 ? v : 0;
+  };
+  const refs = new Map((requestLines ?? []).map((l) => [l.id, l]));
+  const groups = new Map<string, NewProductGroup>();
+  for (const l of lines) {
+    const ref = refs.get(l.lineId);
+    if (!l.isNew || l.sku !== null || ref?.variantId) continue;
+    const key = l.productName.trim().replace(/\s+/g, ' ').toLowerCase();
+    const label = l.attributesLabel || l.productName;
+    let g = groups.get(key);
+    if (!g) {
+      g = { name: l.productName, newParent: ref?.newProduct ? ref.newProduct.parentId === null : null, created: [], waiting: [] };
+      groups.set(key, g);
+    }
+    (n(l.accepted) + n(l.defectKept) > 0 ? g.created : g.waiting).push(label);
+  }
+  const list = [...groups.values()];
+  return {
+    groups: list,
+    productCount: list.filter((g) => g.newParent && g.created.length > 0).length,
+    variantCount: list.reduce((s, g) => s + g.created.length, 0),
+  };
+}
+
+/** Câu trong hộp xác nhận Nhập kho (Thành chốt 21/11/2026 câu 3: "sẽ tạo N sản phẩm, M biến thể"); null khi không có dòng sản phẩm mới */
+export function newProductConfirmText(plan: NewProductPlan): string | null {
+  if (!plan.groups.length) return null;
+  const parts: string[] = [];
+  const made = plan.groups.filter((g) => g.created.length);
+  if (made.length) {
+    const head = plan.productCount
+      ? `Sẽ tạo ${plan.productCount} sản phẩm, ${plan.variantCount} biến thể`
+      : `Sẽ tạo ${plan.variantCount} biến thể`;
+    const items = made.map((g) => `${g.name} (${g.created.join(', ')})${g.newParent === false ? ', thêm vào sản phẩm có sẵn' : ''}`);
+    parts.push(`${head}: ${items.join('; ')}.`);
+  } else {
+    parts.push('Chưa tạo sản phẩm mới nào: các dòng sản phẩm mới chưa có SL đạt hoặc lỗi, giữ lại.');
+  }
+  const waiting = plan.groups.filter((g) => g.waiting.length);
+  if (waiting.length) {
+    parts.push(`Chưa về hàng, để lần nhập sau: ${waiting.map((g) => `${g.name} (${g.waiting.join(', ')})`).join('; ')}.`);
+  }
+  return parts.join(' ');
 }
 
 export const returnFormSchema = z.object({

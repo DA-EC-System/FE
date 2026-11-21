@@ -155,7 +155,7 @@ const ACTION_CONFIRM: Partial<Record<PurchaseRequestAction, { title: string; mes
   withdraw: { title: 'Rút lại', message: 'Đơn quay về nháp để sửa.' },
   approve: {
     title: 'Duyệt',
-    message: 'Giá nhập được chốt; dòng sản phẩm mới được tạo SKU. Dòng không duyệt sẽ không đặt hàng.',
+    message: 'Giá nhập được chốt. Sản phẩm mới sẽ được tạo khi nhập kho. Dòng không duyệt sẽ không đặt hàng.',
   },
   order: { title: 'Đã đặt hàng', message: 'Số lượng chưa nhận được cộng vào Hàng đang về của từng SKU. Kho tạo phiếu nhập kho khi hàng tới.' },
   cancel: { title: 'Huỷ đơn', message: 'Đơn bị huỷ, không đặt hàng tiếp được.' },
@@ -759,8 +759,9 @@ export function PurchaseRequestPage() {
                                   ? [
                                       optionsLabel(np.optionValues),
                                       np.parentId
-                                        ? 'Cha có sẵn'
-                                        : `Cha mới · Nhóm hàng ${np.groupName}`,
+                                        ? 'Thêm vào sản phẩm có sẵn'
+                                        : `Danh mục sản phẩm ${np.groupName}`,
+                                      'Tạo khi nhập kho',
                                     ]
                                       .filter(Boolean)
                                       .join(' · ')
