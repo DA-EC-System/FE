@@ -24,8 +24,8 @@ import { cn } from '@/lib/utils';
 import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow } from '@/types/catalog';
 
 const FIELD_LABELS: Record<BulkField, string> = {
-  standardPrice: 'Giá bán lẻ',
-  minQty: 'Tồn tối thiểu',
+  standardPrice: 'Giá chuẩn',
+  minQty: 'Ngưỡng tồn',
   weightG: 'Khối lượng (g)',
   lengthMm: 'Dài (mm)',
   widthMm: 'Rộng (mm)',
@@ -33,7 +33,7 @@ const FIELD_LABELS: Record<BulkField, string> = {
 };
 const FIELDS = Object.keys(FIELD_LABELS) as BulkField[];
 const FIELD_HELP: Partial<Record<BulkField, string>> = {
-  standardPrice: 'Giá bán lẻ của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số lãi (theo nhóm hàng hoặc công ty).',
+  standardPrice: 'Giá chuẩn của SKU (VND). Gợi ý tính từ giá nhập gần nhất nhân hệ số lãi (theo danh mục sản phẩm hoặc công ty).',
   minQty: 'Số có thể bán xuống tới số này thì gợi ý nhập hàng. Gợi ý tính từ tốc độ bán, số ngày nhà cung cấp giao và tồn dự phòng.',
   weightG: 'Dùng tính phí vận chuyển. Gợi ý lấy theo SKU cùng sản phẩm gần nhất.',
 };
@@ -295,7 +295,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     <div>
       <PageHeader
         title="Sửa hàng loạt"
-        subtitle="Sửa giá bán lẻ, tồn tối thiểu, khối lượng và kích thước của nhiều SKU rồi lưu một lần."
+        subtitle="Sửa giá chuẩn, ngưỡng tồn, khối lượng và kích thước của nhiều SKU rồi lưu một lần."
         help="Ô có nhãn gợi ý chỉ được lưu khi bạn bấm áp dụng. Dòng lỗi giữ nguyên số đã gõ, các dòng khác vẫn lưu."
         action={
           <Button variant="outline" onClick={onExit}>
@@ -316,7 +316,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
           <SearchInput value={search} onChange={withReset(setSearch)} placeholder="Tìm theo tên hoặc SKU..." />
           <FilterSelect
             loading={groups.isLoading}
-            label="Nhóm hàng"
+            label="Danh mục sản phẩm"
             value={groupId}
             onChange={withReset(setGroupId)}
             options={(groups.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
@@ -417,7 +417,7 @@ function BulkCell({
   const label = `${FIELD_LABELS[field]} ${row.sku}`;
   if (readOnly) {
     return (
-      <span className="text-sm" title="Cần quyền đặt tồn tối thiểu">
+      <span className="text-sm" title="Cần quyền đặt ngưỡng tồn">
         {current === null ? '—' : showNumber(field, current)}
       </span>
     );

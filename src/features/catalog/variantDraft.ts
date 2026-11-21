@@ -138,8 +138,8 @@ export function draftError(draft: VariantDraft): string | null {
   if (draft.axes.length > MAX_AXES) return `Tối đa ${MAX_AXES} thuộc tính biến thể`;
   if (axisErrors(draft).some((e) => e.name || e.values)) return 'Sửa lỗi ở thuộc tính biến thể';
   const count = includedCombos(draft).length;
-  if (!count) return 'Cần ít nhất một variant';
-  if (count > MAX_VARIANTS) return `Tối đa ${MAX_VARIANTS} variant mỗi lần tạo`;
+  if (!count) return 'Cần ít nhất một biến thể';
+  if (count > MAX_VARIANTS) return `Tối đa ${MAX_VARIANTS} biến thể mỗi lần tạo`;
   if (includedCombos(draft).some((c) => Object.keys(factsOf(draft.facts?.[comboId(c)]).errors).length)) {
     return 'Sửa ô giá, cân nặng, kích thước đang báo lỗi';
   }

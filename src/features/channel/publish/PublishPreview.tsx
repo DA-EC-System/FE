@@ -190,7 +190,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
       {quoteError && <AlertMessage severity="warning">{quoteError}</AlertMessage>}
       {anyManual && (
         <AlertMessage severity="info">
-          Giá bạn gõ thành <b>giá đặt tay</b>: áp ngay khi đăng, không tự đổi theo giá muốn bán hay phí nữa cho tới khi bỏ giá đặt tay ở trang gian hàng.
+          Giá bạn gõ thành <b>giá đặt tay</b>: áp ngay khi đăng, không tự đổi theo giá muốn thực nhận hay phí nữa cho tới khi bỏ giá đặt tay ở trang gian hàng.
         </AlertMessage>
       )}
 

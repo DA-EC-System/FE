@@ -203,7 +203,7 @@ export function ShopSetupPage() {
     }
     if (needGroup) {
       setStep(0);
-      setGroupError('Chọn nhóm hàng cho SKU kho tạo mới');
+      setGroupError('Chọn danh mục sản phẩm cho SKU kho tạo mới');
       return;
     }
     try {
@@ -251,7 +251,7 @@ export function ShopSetupPage() {
 
   const next = () => {
     if (step === 0 && needGroup) {
-      setGroupError('Chọn nhóm hàng cho SKU kho tạo mới');
+      setGroupError('Chọn danh mục sản phẩm cho SKU kho tạo mới');
       return;
     }
     setStep((s) => s + 1);
@@ -693,7 +693,7 @@ function CreatePanel({
           <Label htmlFor="create-group">Nhóm hàng cho {creating} SKU kho tạo mới</Label>
           <Select value={groupId} onValueChange={onGroup} disabled={groups.isPending}>
             <SelectTrigger id="create-group" className="w-full" aria-invalid={Boolean(error)} aria-describedby={error ? 'create-group-error' : undefined}>
-              <SelectValue placeholder={groups.isPending ? 'Đang tải nhóm hàng...' : 'Chọn nhóm hàng'} />
+              <SelectValue placeholder={groups.isPending ? 'Đang tải danh mục sản phẩm...' : 'Chọn danh mục sản phẩm'} />
             </SelectTrigger>
             <SelectContent>
               {(groups.data ?? []).map((g) => (

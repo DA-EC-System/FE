@@ -66,7 +66,7 @@ test('mã sản phẩm ở đầu trang; SKU mới thiếu giá muốn bán, ch�
   await page.goto(`/c/${cty.companyId}/catalog/products/${productId}`);
   await expect(page.getByTestId('product-code')).toHaveText(p.code!);
   await expect(sku().getByTestId('variant-readiness')).toContainText('Chờ hoàn thiện');
-  await expect(sku().getByTestId('variant-readiness')).toContainText('giá muốn bán');
+  await expect(sku().getByTestId('variant-readiness')).toContainText('giá muốn thực nhận');
   await expect(sku().locator('[data-testid=variant-status] [data-status=not_listed]')).toBeVisible();
 });
 
@@ -74,7 +74,7 @@ test('sửa giá chuẩn và giá muốn bán: hết thiếu giá muốn bán, B
   test.skip(Boolean(boQua), boQua);
   await sku().getByRole('button', { name: /^Sửa thông tin / }).click();
   await o('Giá chuẩn (đ)').fill('199.000');
-  await o('Giá muốn bán – số muốn thực nhận (đ)').fill('170.000');
+  await o('Giá muốn thực nhận (đ)').fill('170.000');
   const patch = page.waitForResponse(
     (r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname.endsWith(`/variants/${variantId}`),
   );
@@ -85,7 +85,7 @@ test('sửa giá chuẩn và giá muốn bán: hết thiếu giá muốn bán, B
 
   await expect(sku().getByTestId('variant-price')).toContainText('199.000');
   await expect(sku().getByTestId('variant-target-price')).toContainText('170.000');
-  await expect(sku().getByTestId('variant-readiness')).not.toContainText('giá muốn bán');
+  await expect(sku().getByTestId('variant-readiness')).not.toContainText('giá muốn thực nhận');
   const v = (await chiTiet()).variants[0]!;
   expect(v).toMatchObject({ standardPrice: 199000, targetNetPrice: 170000 });
   expect(v.missing).not.toContain('price');

@@ -99,8 +99,8 @@ export function StockDetailBody({
           <div className="flex flex-wrap gap-2">
             <Badge variant={level.belowMin ? 'destructive' : 'secondary'}>
               {level.minQty === null
-                ? 'Chưa đặt tồn tối thiểu'
-                : `Tồn tối thiểu ${formatQty(level.minQty)}${level.belowMin ? ' · cần nhập thêm' : ''}`}
+                ? 'Chưa đặt ngưỡng tồn'
+                : `Ngưỡng tồn ${formatQty(level.minQty)}${level.belowMin ? ' · cần nhập thêm' : ''}`}
             </Badge>
             {canCost && level.avgCost !== null && (
               <Badge variant="outline">Giá vốn {formatCurrency(level.avgCost)}</Badge>

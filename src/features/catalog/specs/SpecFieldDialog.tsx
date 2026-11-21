@@ -28,7 +28,7 @@ import { SPEC_INPUTS, SPEC_INPUT_LABELS, hasOptions } from './specLabels';
 
 const schema = z
   .object({
-    name: z.string().trim().min(1, 'Nhập tên thông số').max(100, 'Tối đa 100 ký tự'),
+    name: z.string().trim().min(1, 'Nhập tên thuộc tính').max(100, 'Tối đa 100 ký tự'),
     input: z.enum(['select', 'multiselect', 'text', 'number', 'date']),
     unit: z.string().trim().max(20, 'Tối đa 20 ký tự'),
     allowCustom: z.boolean(),

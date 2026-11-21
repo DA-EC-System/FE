@@ -582,7 +582,7 @@ function SourceBadge({ source, label, platformName, onJump }: { source: BadgeSou
   }
   if (source === 'company') return <Badge variant="info">Từ hồ sơ công ty</Badge>;
   if (source === 'override') return <Badge variant="purple">Bạn sửa riêng cho {platformName}</Badge>;
-  if (source === 'catalog') return <Badge variant="primary">{label ?? 'Từ thông số gốc'}</Badge>;
+  if (source === 'catalog') return <Badge variant="primary">{label ?? 'Từ thuộc tính sản phẩm'}</Badge>;
   if (source === 'default') return <Badge variant="neutral">Mặc định của sàn</Badge>;
   if (source === 'match') return <Badge variant="purple">Đọc từ sàn khi ghép</Badge>;
   if (source === 'platform') return <Badge variant="secondary">Sàn quản lý</Badge>;
@@ -689,7 +689,7 @@ function ReadAttribute({
 const productFieldName = (code: string) => (ORIGIN_CODES.has(code) ? 'Xuất xứ' : BRAND_CODES.has(code) ? 'Thương hiệu' : null);
 const catalogLabel = (code: string) => {
   const name = productFieldName(code);
-  return name ? `Từ thông số gốc: ${name}` : 'Từ thông số gốc';
+  return name ? `Từ thuộc tính sản phẩm: ${name}` : 'Từ thuộc tính sản phẩm';
 };
 
 /**
@@ -870,17 +870,17 @@ function ExtraMissing({
         let body: string | null = null;
         const actions: React.ReactNode[] = [];
         if (m.reason === 'axis_unmapped') {
-          title = `Trục “${m.label}” chưa ánh xạ sang ${label}`;
-          body = `Chưa có sales attribute của ${label} khớp với trục này, và category này không nhận tên trục tự đặt. Chọn sales attribute cho trục ở bước Variants.`;
+          title = `Thuộc tính biến thể “${m.label}” chưa ánh xạ sang ${label}`;
+          body = `Chưa có sales attribute của ${label} khớp với thuộc tính biến thể này, và category này không nhận tên thuộc tính biến thể tự đặt. Chọn sales attribute cho thuộc tính biến thể ở bước Bổ sung theo sàn.`;
           if (pushHref) actions.push(btn(pushHref, 'Ánh xạ trên trang đẩy', true));
         } else if (m.reason === 'sales_required') {
           title = `Category bắt buộc phân loại theo “${m.label}”`;
           body =
-            'Sản phẩm chưa có trục nào ánh xạ tới sales attribute này. Trục của sản phẩm không thêm được sau khi tạo: chọn category khác, hoặc lập sản phẩm cha mới có trục này.';
+            'Sản phẩm chưa có thuộc tính biến thể nào ánh xạ tới sales attribute này. Thuộc tính biến thể của sản phẩm không thêm được sau khi tạo: chọn category khác, hoặc lập sản phẩm mới có thuộc tính biến thể này.';
           if (pushHref) actions.push(btn(pushHref, 'Chọn category khác', true));
-          actions.push(btn(newProductHref, 'Lập sản phẩm cha mới'));
+          actions.push(btn(newProductHref, 'Lập sản phẩm mới'));
         } else if (m.reason === 'axis_shape') {
-          title = 'Bộ trục của sản phẩm không hợp với category';
+          title = 'Thuộc tính biến thể của sản phẩm không hợp với category';
           body = m.label;
           if (pushHref) actions.push(btn(pushHref, 'Chọn category khác', true));
         } else {
@@ -1023,7 +1023,7 @@ function ShippingTable({
       source="shared"
       sourceLabel={sharedLabel}
       onJump={onJump}
-      missing={gap && `${lacking.size} SKU chưa có cân nặng hoặc kích thước. Sửa ở bảng Variant của tab Commerio.`}
+      missing={gap && `${lacking.size} SKU chưa có cân nặng hoặc kích thước. Sửa ở bảng Biến thể của tab Commerio.`}
     >
       <ul className="grid gap-2">
         {variants.map((v) => {

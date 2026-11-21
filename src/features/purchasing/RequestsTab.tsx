@@ -161,7 +161,7 @@ export function RequestsTab() {
               onClick={openNewRequest}
             >
               <Plus />
-              Tạo đơn đặt hàng nhập
+              Tạo đề nghị nhập hàng
             </Button>
           )}
         </FilterBar>
@@ -171,7 +171,7 @@ export function RequestsTab() {
           getRowId={(r) => r.id}
           loading={query.isLoading}
           fetching={query.isFetching}
-          empty={filtered ? 'Không tìm thấy đơn phù hợp' : 'Chưa có đơn đặt hàng nhập nào'}
+          empty={filtered ? 'Không tìm thấy đơn phù hợp' : 'Chưa có đề nghị nhập hàng nào'}
           onRowClick={(r) => navigate(ROUTES.company.purchaseRequest(companyId, r.id))}
           pagination={{
             page,
@@ -202,7 +202,7 @@ function NoSupplierDialog({ open, onClose, suppliersHref }: { open: boolean; onC
         <DialogHeader>
           <DialogTitle>Chưa có nhà cung cấp</DialogTitle>
           <DialogDescription>
-            Đơn đặt hàng nhập phải chọn một NCC đang giao dịch. Thêm NCC trước rồi quay lại tạo đơn.
+            Đề nghị nhập hàng phải chọn một NCC đang giao dịch. Thêm NCC trước rồi quay lại tạo đơn.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

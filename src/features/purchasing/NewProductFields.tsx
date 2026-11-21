@@ -84,12 +84,12 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
             options: v === 'new' ? emptyOptions() : [],
           });
         }}
-        aria-label={`Sản phẩm cha của ${name}`}
+        aria-label={`Sản phẩm của ${name}`}
       >
         {(
           [
-            ['existing', 'Cha có sẵn'],
-            ['new', 'Cha mới'],
+            ['existing', 'Sản phẩm có sẵn'],
+            ['new', 'Sản phẩm mới'],
           ] as const
         ).map(([value, text]) => (
           <label key={value} className="flex items-center gap-1.5 text-sm">
@@ -103,7 +103,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
         <div className="grid gap-1">
           <ParentPicker
             id={`parent-${index}`}
-            label={`Sản phẩm cha ${name}`}
+            label={`Sản phẩm ${name}`}
             selected={line.parentId ? { id: line.parentId, name: line.parentName } : null}
             invalid={Boolean(errors?.parentId)}
             disabled={disabled}
@@ -111,7 +111,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
           />
           <Err error={errors?.parentId} />
           {line.parentId && parentQuery.data && !parentAxes.length && (
-            <p className="text-xs text-muted-foreground">Sản phẩm này không có trục phân loại.</p>
+            <p className="text-xs text-muted-foreground">Sản phẩm này không có thuộc tính biến thể.</p>
           )}
         </div>
       ) : (
@@ -119,8 +119,8 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
           <div className="grid gap-1">
             <Input
               value={line.parentName}
-              placeholder="Tên sản phẩm cha"
-              aria-label={`Tên sản phẩm cha ${name}`}
+              placeholder="Tên sản phẩm"
+              aria-label={`Tên sản phẩm ${name}`}
               aria-invalid={Boolean(errors?.parentName)}
               disabled={disabled}
               className="h-8"
@@ -134,8 +134,8 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
               disabled={disabled || groupsQuery.isLoading}
               onValueChange={(v) => onChange({ groupId: v })}
             >
-              <SelectTrigger className="h-8 w-full" aria-label={`Nhóm hàng ${name}`} aria-invalid={Boolean(errors?.groupId)}>
-                <SelectValue placeholder={groupsQuery.isLoading ? 'Đang tải…' : 'Nhóm hàng'} />
+              <SelectTrigger className="h-8 w-full" aria-label={`Danh mục sản phẩm ${name}`} aria-invalid={Boolean(errors?.groupId)}>
+                <SelectValue placeholder={groupsQuery.isLoading ? 'Đang tải…' : 'Danh mục sản phẩm'} />
               </SelectTrigger>
               <SelectContent>
                 {(groupsQuery.data ?? []).map((c) => (
@@ -165,10 +165,10 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
                     >
                       <SelectTrigger
                         className="h-8 w-32 shrink-0"
-                        aria-label={`Trục phân loại ${k + 1} ${name}`}
+                        aria-label={`Thuộc tính biến thể ${k + 1} ${name}`}
                         aria-invalid={Boolean(err?.axis)}
                       >
-                        <SelectValue placeholder="Trục" />
+                        <SelectValue placeholder="Thuộc tính" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NO_AXIS}>Không dùng</SelectItem>
@@ -290,7 +290,7 @@ function ParentPicker({
             aria-invalid={invalid}
             autoComplete="off"
             className="h-8 ps-8"
-            placeholder={selected?.name || 'Tìm sản phẩm cha theo tên hoặc mã'}
+            placeholder={selected?.name || 'Tìm sản phẩm theo tên hoặc mã'}
             value={open ? input : (selected?.name ?? input)}
             disabled={disabled}
             onFocus={() => setOpen(true)}

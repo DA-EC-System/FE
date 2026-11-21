@@ -186,8 +186,8 @@ export const GUIDES = {
     version: 1,
     title: 'Sản phẩm',
     intro: [
-      'Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU.',
-      'Tồn và giá bán lẻ nằm ở variant, không ở sản phẩm.',
+      'Mỗi sản phẩm có một hoặc nhiều biến thể, mỗi biến thể là một SKU.',
+      'Tồn và giá chuẩn nằm ở biến thể, không ở sản phẩm.',
       'Bấm vào một dòng để xem hoặc sửa sản phẩm.',
     ],
     primaryAction: { label: 'Thêm sản phẩm', target: 'products-add' },
@@ -195,7 +195,7 @@ export const GUIDES = {
       {
         target: 'products-add',
         title: 'Thêm sản phẩm',
-        body: 'Chọn nhóm hàng, nhập tên rồi chọn thuộc tính phân loại để tạo các variant. Mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm.',
+        body: 'Chọn danh mục sản phẩm, nhập tên rồi chọn thuộc tính biến thể để tạo các biến thể. Mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm.',
         permission: 'catalog.product.manage',
       },
       {
@@ -258,7 +258,7 @@ export const GUIDES = {
       'Mỗi đơn một NCC; người duyệt phải khác người lập.',
       'Hàng chỉ cộng vào tồn khi bấm Nhập kho.',
     ],
-    primaryAction: { label: 'Tạo đơn đặt hàng nhập', target: 'purchasing-new' },
+    primaryAction: { label: 'Tạo đề nghị nhập hàng', target: 'purchasing-new' },
     steps: [
       {
         target: 'purchasing-tabs',
@@ -267,21 +267,21 @@ export const GUIDES = {
       },
       {
         target: 'purchasing-new',
-        title: 'Tạo đơn đặt hàng nhập',
+        title: 'Tạo đề nghị nhập hàng',
         body: 'Chọn NCC, thêm SKU cần nhập rồi lưu nháp. Gửi duyệt khi đã đủ dòng.',
         permission: 'purchasing.request.manage',
       },
       {
         target: 'purchasing-suppliers',
         title: 'Nhà cung cấp',
-        body: 'Danh sách NCC. Thêm NCC ở đây trước khi tạo đơn đặt hàng nhập.',
+        body: 'Danh sách NCC. Thêm NCC ở đây trước khi tạo đề nghị nhập hàng.',
       },
     ],
   },
   'purchase-request': {
     key: 'purchase-request',
     version: 1,
-    title: 'Đơn đặt hàng nhập',
+    title: 'Đề nghị nhập hàng',
     intro: [
       'Thêm dòng, gửi duyệt, người khác duyệt rồi mới đặt hàng với NCC.',
       'Đã đặt thì Kho tạo phiếu nhập kho từ đơn khi hàng về.',
@@ -366,7 +366,7 @@ export const GUIDES = {
       {
         target: 'sr-replace',
         title: 'Đơn đặt hàng đổi',
-        body: 'NCC đổi hàng thì bấm đây để tạo đơn đặt hàng nhập cho phần hàng đổi.',
+        body: 'NCC đổi hàng thì bấm đây để tạo đề nghị nhập hàng cho phần hàng đổi.',
         permission: 'purchasing.request.manage',
       },
     ],
@@ -530,7 +530,7 @@ export const GUIDES = {
     version: 1,
     title: 'Liên kết SKU',
     intro: [
-      'Mỗi variant trong Commerio liên kết với một SKU trên sàn.',
+      'Mỗi biến thể trong Commerio liên kết với một SKU trên sàn.',
       'Đã liên kết thì đơn sàn trừ đúng tồn, Commerio đồng bộ tồn và giá lên đúng SKU.',
       'Nhãn ở cột Trạng thái báo SKU lệch tồn, đăng lỗi hay giá chưa đồng bộ; rê chuột vào nhãn để xem lý do.',
     ],
@@ -539,18 +539,18 @@ export const GUIDES = {
       {
         target: 'listings-tabs',
         title: 'Lọc chưa liên kết',
-        body: 'Tab Chưa liên kết liệt kê SKU trên sàn chưa nối với variant nào. Các tab khác lọc variant chưa đăng bán, chờ đồng bộ giá hoặc đăng lỗi.',
+        body: 'Tab Chưa liên kết liệt kê SKU trên sàn chưa nối với biến thể nào. Các tab khác lọc biến thể chưa đăng bán, chờ đồng bộ giá hoặc đăng lỗi.',
       },
       {
         target: 'listings-match',
         title: 'Liên kết SKU',
-        body: 'Bấm Liên kết ở dòng variant để chọn SKU sàn. Đổi liên kết SKU đã có đơn hoặc đặt "không quản lý tồn" thì cần CEO duyệt.',
+        body: 'Bấm Liên kết ở dòng biến thể để chọn SKU sàn. Đổi liên kết SKU đã có đơn hoặc đặt "không quản lý tồn" thì cần CEO duyệt.',
         permission: 'channel.listing.match',
       },
       {
         target: 'listings-push',
         title: 'Đăng bán',
-        body: 'Tích các variant rồi bấm nút này để tạo sản phẩm mới trên sàn hoặc đồng bộ giá mới. Sàn trả kết quả sau, trang tự đọc lại.',
+        body: 'Tích các biến thể rồi bấm nút này để tạo sản phẩm mới trên sàn hoặc đồng bộ giá mới. Sàn trả kết quả sau, trang tự đọc lại.',
         permission: 'channel.listing.manage',
       },
     ],

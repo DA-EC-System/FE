@@ -31,8 +31,8 @@ import {
 import { AxisImagesField } from './AxisImagesField';
 
 const FACT_LABELS: Record<FactKey, string> = {
-  standardPrice: 'Giá bán lẻ',
-  targetNetPrice: 'Thực nhận mong muốn',
+  standardPrice: 'Giá chuẩn',
+  targetNetPrice: 'Giá muốn thực nhận',
   weightG: 'Cân nặng',
   lengthMm: 'Dài',
   widthMm: 'Rộng',
@@ -94,7 +94,7 @@ export function VariationEditor({
   const errors = axisErrors(value);
   const rows = useMemo(() => draftRows(value, attributes, settings), [value, attributes, settings]);
   const includedCount = rows.filter((r) => r.included).length;
-  const tooMany = includedCount > MAX_VARIANTS ? `Tối đa ${MAX_VARIANTS} variant mỗi lần tạo` : null;
+  const tooMany = includedCount > MAX_VARIANTS ? `Tối đa ${MAX_VARIANTS} biến thể mỗi lần tạo` : null;
   const shownError = tooMany ?? error;
 
   // Đổi nhóm thì tổ hợp đổi: bỏ danh sách tổ hợp đã loại cho chắc
@@ -166,8 +166,8 @@ export function VariationEditor({
               <TableHead>SKU dự kiến</TableHead>
               {withFacts && (
                 <>
-                  <TableHead>Giá bán lẻ (đ)</TableHead>
-                  <TableHead>Thực nhận mong muốn (đ)</TableHead>
+                  <TableHead>Giá chuẩn (đ)</TableHead>
+                  <TableHead>Giá muốn thực nhận (đ)</TableHead>
                   <TableHead>Cân nặng (g)</TableHead>
                   <TableHead>Dài × rộng × cao gói (mm)</TableHead>
                 </>
@@ -179,11 +179,11 @@ export function VariationEditor({
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableCell />
                 <TableCell colSpan={2} className="text-sm text-muted-foreground">
-                  Điền một lần cho mọi variant
+                  Điền một lần cho mọi biến thể
                 </TableCell>
                 <FactCells
                   values={bulk}
-                  label="mọi variant"
+                  label="mọi biến thể"
                   onChange={(k, t) => setBulk((b) => ({ ...b, [k]: t }))}
                   after={
                     <Button
@@ -211,7 +211,7 @@ export function VariationEditor({
                       checked={r.included}
                       disabled={rows.length === 1}
                       onCheckedChange={() => toggleRow(r.id)}
-                      aria-label={`Tạo variant ${label}`}
+                      aria-label={`Tạo biến thể ${label}`}
                     />
                   </TableCell>
                   <TableCell>{label}</TableCell>
@@ -239,7 +239,7 @@ export function VariationEditor({
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        Sẽ tạo <Badge variant="secondary">{includedCount}</Badge> variant. SKU thật cấp khi lưu, có thể lệch bản xem trước
+        Sẽ tạo <Badge variant="secondary">{includedCount}</Badge> biến thể. SKU thật cấp khi lưu, có thể lệch bản xem trước
         nếu có người vừa tạo sản phẩm khác hoặc mã giá trị mới bị trùng.
       </p>
       {withFacts && (

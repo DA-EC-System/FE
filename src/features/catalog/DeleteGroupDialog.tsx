@@ -93,7 +93,7 @@ export function DeleteGroupDialog({ group, groups, onClose, onDone }: DeleteGrou
           <Label htmlFor="move-target">Chuyển sản phẩm sang</Label>
           <Select value={targetId} onValueChange={setTargetId} disabled={busy}>
             <SelectTrigger id="move-target" className="w-full" aria-label="Chuyển sản phẩm sang">
-              <SelectValue placeholder="Chọn nhóm hàng" />
+              <SelectValue placeholder="Chọn danh mục sản phẩm" />
             </SelectTrigger>
             <SelectContent>
               {targets.map((g) => (

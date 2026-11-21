@@ -13,7 +13,7 @@ export const SOURCE_IMAGE_TYPES = [...IMAGE_TYPES, 'image/webp'];
 
 /** Nhóm hàng (Documents/21 §5.2): tên 1–60 ký tự, năm ô gợi ý ghi đè công ty (trống là theo công ty) */
 export const groupSchema = z.object({
-  name: z.string().trim().min(1, 'Nhập tên nhóm hàng').max(60, 'Tên nhóm hàng tối đa 60 ký tự'),
+  name: z.string().trim().min(1, 'Nhập tên danh mục sản phẩm').max(60, 'Tên danh mục tối đa 60 ký tự'),
   suggest: suggestFormSchema,
 });
 export type GroupForm = z.infer<typeof groupSchema>;
@@ -65,7 +65,7 @@ export function effectiveCode(v: { value: string; code?: string }): string {
 
 export const productSchema = z.object({
   name: z.string().trim().min(1, 'Nhập tên sản phẩm').max(200, 'Tên sản phẩm tối đa 200 ký tự'),
-  groupId: z.string().min(1, 'Chọn nhóm hàng'),
+  groupId: z.string().min(1, 'Chọn danh mục sản phẩm'),
   description: z.string().max(5000, 'Mô tả tối đa 5000 ký tự'),
   /** Mã ISO alpha-2, rỗng là chưa chọn (Documents/21 §17.2; chỉ sửa được khi đã tạo sản phẩm) */
   originCountry: z.string(),

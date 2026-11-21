@@ -46,7 +46,7 @@ const ACTION_EFFECT: Record<VariantBusinessAction, string> = {
   pause: 'Sản phẩm trên các sàn bị ẩn cho đến khi mở bán lại. Hàng vẫn nhập và giữ tồn như cũ.',
   unpause: 'Sản phẩm đang ẩn trên sàn được hiện lại.',
   discontinue:
-    'Không nhập thêm hàng: SKU không còn trong gợi ý nhập hàng và không thêm được vào đơn đặt hàng nhập. Hàng còn tồn vẫn bán tiếp; listing đang ẩn vì tạm ngừng bán sẽ hiện lại.',
+    'Không nhập thêm hàng: SKU không còn trong gợi ý nhập hàng và không thêm được vào đề nghị nhập hàng. Hàng còn tồn vẫn bán tiếp; listing đang ẩn vì tạm ngừng bán sẽ hiện lại.',
   reactivate: 'SKU nhập và bán lại như bình thường.',
   archive:
     'SKU ẩn khỏi danh sách và bị gỡ khỏi các sàn. Chỉ lưu trữ được khi tồn kho, hàng đang về và hàng lỗi/chờ kiểm đều bằng 0, và không còn phiếu nào chưa hoàn tất.',

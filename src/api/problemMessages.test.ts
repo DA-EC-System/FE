@@ -23,7 +23,7 @@ const loi = (data: ProblemDetails) =>
 describe('mã mới của Documents#55 (FE#153)', () => {
   it.each([
     ['product_in_use', 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.'],
-    ['too_many_axes', 'Một sản phẩm tối đa 2 thuộc tính phân loại (vd Màu, Cỡ).'],
+    ['too_many_axes', 'Một sản phẩm tối đa 2 thuộc tính biến thể (vd Màu, Cỡ).'],
     ['unsupported_file_type', 'Chỉ nhận tệp CSV, XLSX hoặc TXT.'],
     ['evidence_required', 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi nhập kho.'],
     ['shop_not_active', 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đăng bán.'],
@@ -173,7 +173,7 @@ describe('404 vì chưa có route khác 404 bản ghi không có (FE#248)', () =
 describe('updateContentMessage: lỗi nút Sửa nội dung (FE#275, §18.3 update-content)', () => {
   it.each([
     ['invalid_transition', 'Listing không còn đang bán'],
-    ['listing_unmanaged', 'Liên kết SKU sàn với variant trước'],
+    ['listing_unmanaged', 'Liên kết SKU sàn với biến thể trước'],
     ['shared_remote_product', 'Sửa trên Seller Center'],
     ['marketplace_unavailable', 'chưa đưa được nội dung mới lên'],
     ['marketplace_unsupported', 'chưa hỗ trợ sửa nội dung'],

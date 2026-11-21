@@ -9,7 +9,7 @@ import { SUGGEST_KEYS } from './suggest';
 const FIELDS: Record<keyof SuggestConfig, { label: string; hint: string }> = {
   marginCoefficient: {
     label: 'Hệ số lãi',
-    hint: 'Giá muốn bán gợi ý = giá nhập gần nhất × hệ số. 1,4 là lãi 40%.',
+    hint: 'Giá muốn thực nhận gợi ý = giá nhập gần nhất × hệ số. 1,4 là lãi 40%.',
   },
   priceRounding: { label: 'Làm tròn giá gợi ý', hint: 'Giá gợi ý làm tròn lên theo bước này, ví dụ 1.000 đ.' },
   reorderLeadDays: {

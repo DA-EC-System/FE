@@ -49,12 +49,12 @@ const MESSAGES: Record<string, string> = {
   in_use: 'Không thể xoá vì đang được sử dụng.',
   platform_managed: 'Đây là dữ liệu chuẩn của nền tảng, công ty không sửa được. Có thể thêm phần riêng của công ty.',
   name_taken: 'Tên này đã được dùng trong công ty.',
-  variant_exists: 'Variant đã có.',
+  variant_exists: 'Biến thể đã có.',
   // FE#57, sơ đồ Sản phẩm B1
   archive_blocked: 'Chưa lưu trữ được: SKU còn tồn kho, hàng đang về, hàng lỗi/chờ kiểm hoặc phiếu chưa hoàn tất.',
   variant_archived: 'Phân loại này đã có SKU (đã lưu trữ). Bấm Khôi phục để bán lại với SKU cũ.',
   // Documents/21 §17.4: SKU còn listing chưa gỡ thì không xoá trống trường bắt buộc chung
-  listing_field_required: 'SKU đang có trên sàn nên không để trống được thực nhận mong muốn, cân nặng, kích thước hoặc ảnh. Gỡ khỏi sàn trước nếu muốn xoá.',
+  listing_field_required: 'SKU đang có trên sàn nên không để trống được giá muốn thực nhận, cân nặng, kích thước hoặc ảnh. Gỡ khỏi sàn trước nếu muốn xoá.',
   file_type_not_allowed: 'Kiểu tệp không được nhận (ảnh sản phẩm chỉ JPG hoặc PNG).',
   file_too_large: 'Tệp quá cỡ cho phép (ảnh sản phẩm tối đa 1 MB).',
   // FE#8, chờ commerio-backend#19
@@ -67,14 +67,14 @@ const MESSAGES: Record<string, string> = {
   shop_mismatch: 'Tài khoản sàn vừa uỷ quyền không phải gian hàng đang kết nối lại.',
   // §18.7.11; có `expected`, `actual` thì câu nêu tên hai công ty, xem companyMismatchMessage
   company_mismatch: 'Bạn bắt đầu kết nối ở một công ty khác với công ty đang mở. Chuyển về công ty đó rồi kết nối lại.',
-  sku_taken: 'SKU sàn này đã liên kết với variant khác.',
+  sku_taken: 'SKU sàn này đã liên kết với biến thể khác.',
   // §18.6.5
   mapping_pending: 'SKU sàn này đang chờ CEO duyệt liên kết. Chờ CEO duyệt hoặc từ chối rồi liên kết lại.',
   // Tải SKU sàn (BE#220); có `Retry-After` thì câu nêu số phút, xem retryLaterMessage
   remote_skus_retry_later: 'Lần tải SKU sàn trước bị lỗi. Thử lại sau ít phút.',
   remote_skus_busy: 'Đang tải danh sách SKU trên sàn. Thử lại sau ít phút.',
   marketplace_error: 'Sàn đang báo lỗi, chưa thực hiện được. Thử lại sau ít phút.',
-  price_missing: 'Chưa có giá: bảng giá gian hàng và giá bán lẻ đều trống.',
+  price_missing: 'Chưa có giá: bảng giá gian hàng và giá chuẩn đều trống.',
   // Documents/21 §18.5 (commerio-backend#400, đổi nghĩa 18/11/2026): category sàn chọn theo từng sản phẩm.
   // Câu có tên sàn ở pushBlockMessage (features/channel/listingPush.ts)
   category_unmapped: 'Chưa chọn category sàn cho sản phẩm. Mở Thông tin sàn của sản phẩm để chọn rồi đăng bán lại.',
@@ -134,7 +134,7 @@ const MESSAGES: Record<string, string> = {
   stock_insufficient: 'Không đủ hàng ở khu vực này để giảm. Xem lại số trên phiếu.',
   decision_made: 'Phiếu đã chọn cách xử lý hàng rồi.',
   // FE#17, lib/machines/purchasing.ts
-  all_lines_excluded: 'Đơn đặt hàng nhập phải còn ít nhất một dòng không bị loại.',
+  all_lines_excluded: 'Đề nghị nhập hàng phải còn ít nhất một dòng không bị loại.',
   has_receipts: 'Đơn đã có phiếu nhập kho nên không huỷ được. Dùng Đóng đơn thiếu hàng nếu NCC không giao tiếp.',
   receipt_counting: 'Còn phiếu nhập kho đang kiểm. Nhập kho hoặc huỷ phiếu đó trước khi đóng đơn thiếu hàng.',
   has_shortage: 'Phiếu còn thiếu hàng. Bấm Nhập kho, báo thiếu.',
@@ -173,7 +173,7 @@ const MESSAGES: Record<string, string> = {
   shop_awaiting_stocktake: 'Gian hàng đang chờ kiểm kho đầu kỳ. Hoàn thành phiếu kiểm kho đầu kỳ rồi thử lại.',
   // Documents#55 (21 mục 5, 16, 18.3, 19), FE#153
   product_in_use: 'Sản phẩm đã hoàn thiện hoặc đã có chứng từ, listing nên không xoá hẳn được. Dùng Lưu trữ.',
-  too_many_axes: 'Một sản phẩm tối đa 2 thuộc tính phân loại (vd Màu, Cỡ).',
+  too_many_axes: 'Một sản phẩm tối đa 2 thuộc tính biến thể (vd Màu, Cỡ).',
   unsupported_file_type: 'Chỉ nhận tệp CSV, XLSX hoặc TXT.',
   evidence_required: 'Tài xế để hàng lại mà có lỗi hoặc thiếu: đính ảnh mở thùng trước khi nhập kho.',
   shop_not_active: 'Gian hàng chưa hoạt động. Hoàn tất thiết lập gian hàng trước khi đăng bán.',
@@ -338,7 +338,7 @@ function retryLaterMessage(error: unknown): string {
 /** Câu lỗi riêng của nút Sửa nội dung (§18.3 update-content); mã khác dùng problemMessage */
 const UPDATE_CONTENT_MESSAGES: Record<string, string> = {
   invalid_transition: 'Listing không còn đang bán nên không sửa nội dung được. Tải lại để xem trạng thái mới.',
-  listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên. Liên kết SKU sàn với variant trước.',
+  listing_unmanaged: 'Listing không gắn sản phẩm Commerio nên không có nội dung để đưa lên. Liên kết SKU sàn với biến thể trước.',
   shared_remote_product: 'Sản phẩm trên sàn có nhiều SKU, Commerio chưa sửa nội dung từng SKU được. Sửa trên Seller Center.',
   marketplace_unavailable: 'Sàn đang lỗi, chưa đưa được nội dung mới lên. Thử lại sau ít phút.',
   marketplace_unsupported: 'Sàn này chưa hỗ trợ sửa nội dung sản phẩm đang bán.',

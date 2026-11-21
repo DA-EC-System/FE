@@ -1150,7 +1150,7 @@ export function ShopListingsPage() {
             ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
             : undefined
         }
-        help="Liên kết SKU (mapping) là nối mỗi SKU sàn với một SKU kho trong Commerio. Đơn của SKU đã liên kết sẽ trừ đúng tồn, và Commerio đồng bộ tồn, giá lên đúng SKU sàn đó. Giá lấy từ giá riêng của gian hàng, chưa đặt thì lấy giá bán lẻ."
+        help="Liên kết SKU (mapping) là nối mỗi SKU sàn với một SKU kho trong Commerio. Đơn của SKU đã liên kết sẽ trừ đúng tồn, và Commerio đồng bộ tồn, giá lên đúng SKU sàn đó. Giá lấy từ giá riêng của gian hàng, chưa đặt thì lấy giá chuẩn."
         onTour={startTour}
         action={
           <div className="flex flex-wrap items-center gap-2">

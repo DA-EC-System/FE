@@ -22,7 +22,7 @@ export function hasCondition(a: Pick<PlatformAttribute, 'requiredWhen'>): boolea
 export type AttributeGroupKey = 'sales' | 'required' | 'conditional' | 'key' | 'product' | 'company' | 'optional';
 
 export const ATTRIBUTE_GROUPS: { key: AttributeGroupKey; title: string; hint?: string }[] = [
-  { key: 'sales', title: 'Thuộc tính phân loại (sales attribute)', hint: 'Khớp với thuộc tính phân loại của sản phẩm ở bước Variant khi đăng bán' },
+  { key: 'sales', title: 'Thuộc tính biến thể (sales attribute)', hint: 'Khớp với thuộc tính biến thể của sản phẩm ở bước Bổ sung theo sàn khi đăng sản phẩm' },
   { key: 'required', title: 'Bắt buộc' },
   { key: 'conditional', title: 'Bắt buộc theo điều kiện', hint: 'Bắt buộc khi attribute khác có giá trị nhất định' },
   { key: 'key', title: 'Attribute quan trọng', hint: 'Không bắt buộc nhưng sàn dùng để lọc, xếp hạng' },

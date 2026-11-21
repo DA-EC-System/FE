@@ -70,7 +70,7 @@ export function AttributeValuesDialog({ attribute, onClose }: AttributeValuesDia
       await deleteMut.mutateAsync({ attributeId: live.id, valueId: v.id });
       toast.success(`Đã xoá ${v.value}`);
     } catch (err) {
-      toast.warning(problemCode(err) === 'in_use' ? `Không xoá được ${v.value}: đã có variant dùng.` : problemMessage(err));
+      toast.warning(problemCode(err) === 'in_use' ? `Không xoá được ${v.value}: đã có biến thể dùng.` : problemMessage(err));
     }
   };
 
@@ -120,8 +120,8 @@ export function AttributeValuesDialog({ attribute, onClose }: AttributeValuesDia
                     <button
                       type="button"
                       className="inline-flex size-6 cursor-pointer items-center justify-center rounded-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={v.inUse ? `${v.value} đã có variant dùng, không xoá được` : `Xoá ${v.value}`}
-                      title={v.inUse ? 'Đã có variant dùng, không xoá được' : `Xoá ${v.value}`}
+                      aria-label={v.inUse ? `${v.value} đã có biến thể dùng, không xoá được` : `Xoá ${v.value}`}
+                      title={v.inUse ? 'Đã có biến thể dùng, không xoá được' : `Xoá ${v.value}`}
                       disabled={busy || v.inUse}
                       onClick={() => void remove(v)}
                     >

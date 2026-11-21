@@ -25,11 +25,11 @@ const errorsOf = (lines: RequestLineDraft[]) => {
 describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', () => {
   it('cha mới cần tên và danh mục; cha có sẵn cần chọn cha', () => {
     expect(errorsOf([line({ parentName: '', groupId: '' })])).toMatchObject({
-      'lines.0.parentName': 'Nhập tên sản phẩm cha',
-      'lines.0.groupId': 'Chọn nhóm hàng',
+      'lines.0.parentName': 'Nhập tên sản phẩm',
+      'lines.0.groupId': 'Chọn danh mục sản phẩm',
     });
     expect(errorsOf([line({ parentMode: 'existing', parentName: '' })])).toMatchObject({
-      'lines.0.parentId': 'Chọn sản phẩm cha',
+      'lines.0.parentId': 'Chọn sản phẩm',
     });
   });
 
@@ -43,7 +43,7 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
       }),
     ]);
     expect(e['lines.0.options.0.value']).toBe('Nhập màu sắc');
-    expect(e['lines.0.options.1.axis']).toBe('Chọn trục phân loại');
+    expect(e['lines.0.options.1.axis']).toBe('Chọn thuộc tính biến thể');
   });
 
   it('các dòng cùng tên cha mới gộp một cha: quá 2 trục thì báo', () => {
@@ -51,7 +51,7 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
       line({ options: [{ axis: 'Màu sắc', value: 'Đen' }, { axis: 'Kích cỡ', value: 'M' }] }),
       line({ parentName: '  áo  POLO ', options: [{ axis: 'Chất liệu', value: 'Cotton' }] }),
     ]);
-    expect(e['lines.0.options']).toMatch(/3 trục phân loại; tối đa 2/);
+    expect(e['lines.0.options']).toMatch(/3 thuộc tính biến thể; tối đa 2/);
     expect(e['lines.1.options']).toMatch(/tối đa 2/);
   });
 
@@ -67,7 +67,7 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
   it('trùng tổ hợp giá trị trong cùng cha thì báo ở dòng sau; khác cha thì không', () => {
     const opts = [{ axis: 'Màu sắc', value: 'Đen' }];
     expect(errorsOf([line({ options: opts }), line({ options: [{ axis: 'Màu sắc', value: 'đen' }] })])).toMatchObject({
-      'lines.1.options': 'Trùng phân loại với dòng 1 cùng sản phẩm cha',
+      'lines.1.options': 'Trùng phân loại với dòng 1 cùng sản phẩm',
     });
     expect(errorsOf([line({ options: opts }), line({ parentName: 'Áo thun', options: opts })])).toEqual({});
   });
