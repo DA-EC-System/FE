@@ -271,3 +271,9 @@ describe('Mã chặn đẩy theo thông tin sàn (commerio-backend#400, Document
     expect([...SPEC_FIX_CODES].sort()).toEqual(['category_not_permitted', 'category_unmapped', 'listing_check_failed', 'spec_incomplete']);
   });
 });
+
+describe('pushBlockMessage: below_floor khi đăng với giá đặt tay (§18.9 R1)', () => {
+  it('nói rõ giá niêm yết dưới giá thấp nhất, không dùng câu của listing đang bán', () => {
+    expect(pushBlockMessage('below_floor', null, 'Sàn A')).toMatch(/dưới giá thấp nhất, chưa đăng/);
+  });
+});

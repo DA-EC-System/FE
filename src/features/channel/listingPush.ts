@@ -48,6 +48,9 @@ export function pushBlockMessage(code: string, message: string | null, platform:
       return `Chưa chọn category ${platform} cho sản phẩm`;
     case 'spec_incomplete':
       return message ? `Thông tin ${platform} của sản phẩm còn thiếu: ${message}` : `Thông tin ${platform} của sản phẩm còn thiếu`;
+    case 'below_floor':
+      // Giá niêm yết người bán gõ khi đăng (Documents/21 §18.9 R1) thấp hơn giá thấp nhất; không dùng câu của listing đang bán
+      return 'Giá niêm yết dưới giá thấp nhất, chưa đăng. Tăng giá hoặc sửa giá muốn bán của SKU';
     case 'category_not_permitted':
       return 'Gian hàng chưa được bán category này. Xin quyền trên Seller Center hoặc đổi category';
     default:
