@@ -71,7 +71,8 @@ export type PurchaseRequestAction =
   | 'cancel';
 
 /**
- * Dòng sản phẩm mới (Documents/21, 25 §3.2, §5.4; commerio-backend#243): chưa có SKU, duyệt xong mỗi dòng sinh một SKU.
+ * Dòng sản phẩm mới (Documents/21 §16.3, 25 §3.2, §4.2): chưa có SKU; mỗi dòng sinh một SKU khi ghi sổ phiếu nhập kho lần
+ * đầu có SL đạt hoặc lỗi giữ > 0 (đổi 22/11/2026, trước là lúc duyệt).
  * `parentId` là sản phẩm cha có sẵn (giá trị phân loại theo trục của cha đó); `parentId = null` thì `parentName` là
  * cha mới, các dòng cùng `parentName` gộp một cha, trục lấy từ các dòng (tối đa 2, 422 `too_many_axes`).
  * `optionValues` là tên trục → giá trị (tên trục ≤ 15 ký tự, giá trị ≤ 20), thứ tự khoá là thứ tự trục. `groupId` chỉ
@@ -92,7 +93,7 @@ export interface NewProductView extends NewProductInput {
 
 export interface PurchaseRequestLine {
   id: string;
-  /** null khi là sản phẩm mới chưa duyệt */
+  /** null khi là sản phẩm mới chưa nhập kho */
   variantId: string | null;
   sku: string | null;
   productName: string;
@@ -193,9 +194,14 @@ export type ShortResolutionKind = 'follow_up' | 'close_short' | 'supplier_wrong'
 export interface GoodsReceiptLine {
   /** Dòng đề nghị nhập */
   lineId: string;
-  variantId: string;
-  sku: string;
+  /** null khi dòng sản phẩm mới chưa ghi sổ: SKU sinh lúc nhập kho (Documents/21 §16.3) */
+  variantId: string | null;
+  sku: string | null;
+  /** Dòng đề nghị là sản phẩm mới (cha mới hoặc thêm biến thể vào cha có sẵn) */
+  isNew: boolean;
+  /** Tên sản phẩm; dòng sản phẩm mới là tên cha */
   productName: string;
+  /** Dòng sản phẩm mới chưa có SKU: giá trị phân loại dự kiến */
   attributesLabel: string;
   /** Còn chờ của dòng đề nghị lúc này */
   outstanding: number;

@@ -204,7 +204,7 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
   );
 }
 
-/** Ô giá trị phân loại: gõ tự do, gợi ý giá trị đã có của thuộc tính (giá trị mới được tạo khi duyệt) */
+/** Ô giá trị phân loại: gõ tự do, gợi ý giá trị đã có của thuộc tính (giá trị mới được tạo khi nhập kho) */
 function AxisValueInput({
   axis,
   value,

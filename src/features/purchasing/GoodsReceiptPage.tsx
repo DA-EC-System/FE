@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusTimeline } from '@/components/common/StatusTimeline';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,7 +22,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useGoodsReceipt, useGoodsReceiptAction, useShortResolution, useUpdateGoodsReceipt } from '@/api/purchasing.api';
+import {
+  useGoodsReceipt,
+  useGoodsReceiptAction,
+  usePurchaseRequest,
+  useShortResolution,
+  useUpdateGoodsReceipt,
+} from '@/api/purchasing.api';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -38,6 +45,8 @@ import {
   RECEIPT_STATUS,
   RESOLUTION_LABELS,
   formatQty,
+  newProductConfirmText,
+  newProductPlan,
   receiptFormSchema,
   shortOfDraft,
   type ReceiptFormInput,
@@ -55,6 +64,7 @@ const toForm = (r: GoodsReceipt): ReceiptFormInput => ({
   lines: r.lines.map((l) => ({
     lineId: l.lineId,
     sku: l.sku,
+    isNew: l.isNew,
     productName: l.productName,
     attributesLabel: l.attributesLabel,
     outstanding: l.outstanding,
@@ -95,6 +105,8 @@ export function GoodsReceiptPage() {
   useBreadcrumb(receipt?.number);
   const { startTour } = usePageGuide('goods-receipt', { ready: Boolean(receipt) });
   const editable = canManage && receipt?.status === 'counting';
+  // Dòng sản phẩm mới: đọc đề nghị để biết cha mới hay cha có sẵn, dòng đã có SKU chưa (câu trong hộp Nhập kho)
+  const requestQuery = usePurchaseRequest(editable ? receipt?.request.id : undefined);
 
   const updateMut = useUpdateGoodsReceipt();
   const actionMut = useGoodsReceiptAction();
@@ -125,6 +137,8 @@ export function GoodsReceiptPage() {
   const [confirm, setConfirm] = useState<GoodsReceiptAction | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
+  /** Lỗi cả dòng BE trả lúc nhập kho (`errors["lines.<i>"]`, vd 409 `new_product_name_taken`), theo chỉ số dòng phiếu */
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
   const loaded = useRef<string | null>(null);
 
   const load = (latest: GoodsReceipt) => {
@@ -133,6 +147,7 @@ export function GoodsReceiptPage() {
     setAttachments(latest.attachments);
     setAttachmentsDirty(false);
     setVersion(latest.version);
+    setRowErrors({});
   };
 
   useEffect(() => {
@@ -167,7 +182,13 @@ export function GoodsReceiptPage() {
     }
     const fieldErrors = problem?.errors ?? {};
     let placed = 0;
+    const rowErrs: Record<number, string> = {};
     for (const [path, message] of Object.entries(fieldErrors)) {
+      const row = /^lines\.(\d+)$/.exec(path);
+      if (row) {
+        rowErrs[Number(row[1])] = message;
+        continue;
+      }
       const m = /^lines\.(\d+)\.(announced|accepted|defectKept|returnedOnSpot|reason)$/.exec(path);
       if (m) {
         setError(`lines.${Number(m[1])}.${m[2] as CountKey}`, { message });
@@ -176,6 +197,12 @@ export function GoodsReceiptPage() {
         setError('note', { message });
         placed++;
       }
+    }
+    setRowErrors(rowErrs);
+    const rowMsgs = Object.entries(rowErrs).map(([i, m]) => `Dòng ${Number(i) + 1}: ${m}`);
+    if (rowMsgs.length) {
+      setNotice({ severity: 'error', msg: `${rowMsgs.join(' ')} Phiếu vẫn Đang kiểm.` });
+      return;
     }
     setNotice({
       severity: 'error',
@@ -249,6 +276,14 @@ export function GoodsReceiptPage() {
   if (!receipt) return <PageLoading />;
 
   const confirmText = confirm ? ACTION_CONFIRM[confirm] : undefined;
+  const plan = newProductPlan(editable ? lines : [], requestQuery.data?.lines);
+  const planText = confirm === 'post' || confirm === 'post_short' ? newProductConfirmText(plan) : null;
+  const pendingNew = editable ? lines.filter((l) => l.isNew && l.sku === null).length : 0;
+  // Sau nhập kho: dòng sản phẩm mới đã có SKU, gộp theo tên sản phẩm để mở trang hoàn thiện (Documents/29 bước 3)
+  const madeNames =
+    receipt.status === 'counting' || receipt.status === 'cancelled'
+      ? []
+      : [...new Set(receipt.lines.filter((l) => l.isNew && l.sku).map((l) => l.productName))];
   const confirmLabel = options.find((o) => o.transition.action === confirm)?.transition.label ?? '';
   const countInput = (i: number, key: CountKey, label: string, sku: string) => {
     const err = errors.lines?.[i]?.[key];
@@ -304,6 +339,28 @@ export function GoodsReceiptPage() {
       {notice && (
         <AlertMessage severity={notice.severity} className="mb-4" onClose={() => setNotice(null)}>
           {notice.msg}
+        </AlertMessage>
+      )}
+      {pendingNew > 0 && (
+        <AlertMessage severity="info" className="mb-4">
+          Phiếu có {pendingNew} dòng là sản phẩm mới. Bấm Nhập kho thì dòng có SL đạt hoặc Lỗi, giữ lại tạo biến thể; dòng chưa
+          về hàng để lần nhập sau.
+        </AlertMessage>
+      )}
+      {madeNames.length > 0 && (
+        <AlertMessage severity="success" className="mb-4">
+          Sản phẩm mới đã vào danh sách sản phẩm, còn thiếu thông tin thì ở bộ lọc Chờ hoàn thiện:{' '}
+          {madeNames.map((name, k) => (
+            <span key={name}>
+              {k > 0 && ', '}
+              <Link
+                to={`${ROUTES.company.catalog(companyId)}?${new URLSearchParams({ readiness: 'incomplete', search: name })}`}
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Hoàn thiện {name}
+              </Link>
+            </span>
+          ))}
         </AlertMessage>
       )}
       {receipt.status === 'counting' && receipt.deliveryMode === 'left' && (
@@ -461,6 +518,9 @@ export function GoodsReceiptPage() {
                     const live = lines[i] ?? f;
                     const lineShort = editable ? shortOfDraft(live) : (line?.short ?? 0);
                     const reasonErr = errors.lines?.[i]?.reason;
+                    // Dòng sản phẩm mới chưa có SKU: gọi theo tên sản phẩm và giá trị phân loại
+                    const name = f.sku ?? [f.productName, f.attributesLabel].filter(Boolean).join(' ');
+                    const rowErr = rowErrors[i];
                     const num = (key: CountKey) => {
                       if (!editable) return line?.[key] ?? 0;
                       const v = Number(String(live[key]).trim().replace(/[\s.,]/g, ''));
@@ -475,22 +535,55 @@ export function GoodsReceiptPage() {
                       short: lineShort,
                     });
                     return (
-                      <TableRow key={f.key} data-row-id={f.lineId} className={cn('align-top', diff && 'chg')}>
+                      <TableRow
+                        key={f.key}
+                        data-row-id={f.lineId}
+                        className={cn('align-top', diff && 'chg', rowErr && 'border-b-2 border-b-destructive')}
+                      >
                         <TableCell>
-                          <p className="font-medium">
-                            {f.sku}
-                            {diff && <DiffTag sku={f.sku} note={diff} />}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {f.productName}
-                            {f.attributesLabel ? ` · ${f.attributesLabel}` : ''}
-                          </p>
+                          {f.sku === null ? (
+                            <>
+                              <p className="font-medium">
+                                {f.productName}
+                                <Badge variant="info" className="ms-2">
+                                  Sản phẩm mới
+                                </Badge>
+                                {diff && <DiffTag sku={name} note={diff} />}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {[f.attributesLabel, receipt.status === 'counting' ? 'SKU tạo khi nhập kho' : 'Chưa về hàng']
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-medium">
+                                {f.sku}
+                                {f.isNew && (
+                                  <Badge variant="info" className="ms-2">
+                                    Sản phẩm mới
+                                  </Badge>
+                                )}
+                                {diff && <DiffTag sku={f.sku} note={diff} />}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {f.productName}
+                                {f.attributesLabel ? ` · ${f.attributesLabel}` : ''}
+                              </p>
+                            </>
+                          )}
+                          {rowErr && (
+                            <p className="mt-1 text-xs text-destructive" role="alert">
+                              {rowErr}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">{formatQty(f.outstanding)}</TableCell>
                         {(['announced', 'accepted', 'defectKept', 'returnedOnSpot'] as CountKey[]).map((key) => (
                           <TableCell key={key} className="text-right">
                             {editable
-                              ? countInput(i, key, { announced: 'SL NCC giao', accepted: 'SL đạt', defectKept: 'Lỗi, giữ lại', returnedOnSpot: 'Trả lại ngay' }[key], f.sku)
+                              ? countInput(i, key, { announced: 'SL NCC giao', accepted: 'SL đạt', defectKept: 'Lỗi, giữ lại', returnedOnSpot: 'Trả lại ngay' }[key], name)
                               : formatQty(line?.[key] ?? 0)}
                           </TableCell>
                         ))}
@@ -502,7 +595,7 @@ export function GoodsReceiptPage() {
                             <div className="grid gap-1">
                               <Input
                                 {...register(`lines.${i}.reason`)}
-                                aria-label={`Lý do ${f.sku}`}
+                                aria-label={`Lý do ${name}`}
                                 aria-invalid={Boolean(reasonErr)}
                                 className="h-8"
                               />
@@ -571,6 +664,7 @@ export function GoodsReceiptPage() {
         onClose={() => setConfirm(null)}
       >
         {confirmText}
+        {planText && <p className="mt-2">{planText}</p>}
       </SecondPersonDialog>
       <ReasonDialog
         open={cancelling}

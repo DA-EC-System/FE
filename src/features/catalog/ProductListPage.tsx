@@ -50,13 +50,14 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
   const canManage = can(PERMISSIONS.productManage);
   const canSetup = can(PERMISSIONS.catalogSetup);
 
-  const [search, setSearch] = useState('');
+  const [urlParams] = useSearchParams();
+  // `?search=`: link "Hoàn thiện <tên>" ở phiếu nhập kho mở sẵn đúng sản phẩm vừa tạo
+  const [search, setSearch] = useState(() => urlParams.get('search') ?? '');
   const debouncedSearch = useDebounce(search.trim());
   const [groupId, setGroupId] = useState('');
   const [status, setStatus] = useState<ProductStatus>('active');
   const [businessStatus, setBusinessStatus] = useState('');
   // `?readiness=incomplete`: link "Hoàn thiện ngay" sau nhập kho mở thẳng bộ lọc Chờ hoàn thiện (Documents/29 bước 2–3)
-  const [urlParams] = useSearchParams();
   const [readiness, setReadiness] = useState(() => (urlParams.get('readiness') === 'incomplete' ? 'incomplete' : ''));
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
