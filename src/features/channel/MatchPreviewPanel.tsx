@@ -96,10 +96,16 @@ export function MatchPreviewPanel({ shopId, pair }: MatchPreviewPanelProps) {
           <ul className="mt-1 grid gap-0.5">
             {data.fillBack.map((f) => (
               <li key={f.field}>
-                <span className="text-muted-foreground">{FILL_BACK_LABELS[f.field]}:</span> {f.value ?? 'lấy từ sàn'}
+                <span className="text-muted-foreground">{FILL_BACK_LABELS[f.field]}</span>
+                {f.value ? `: ${f.value}` : ''}
               </li>
             ))}
           </ul>
+          {data.fillBackError && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Chưa đọc được sản phẩm trên sàn: {data.fillBackError.message}. Vẫn liên kết được; giá trị sẽ điền khi đọc được.
+            </p>
+          )}
         </div>
       )}
       <p className="text-xs text-muted-foreground">Số trên sàn đọc lúc {formatDateTime(data.platform.syncedAt)}.</p>

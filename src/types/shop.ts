@@ -491,6 +491,8 @@ export interface ListingMatchPreview {
    * BE chưa có R4 thì vắng
    */
   fillBack?: { field: FillBackField; value: string | null }[];
+  /** Không đọc được sản phẩm trên sàn để lấy giá trị (mọi `value` null); vẫn liên kết được (be#543) */
+  fillBackError?: { code: string; message: string } | null;
 }
 
 export type FillBackField = 'originCountry' | 'brand' | 'description' | 'weight' | 'dimensions' | 'platformSpec';
