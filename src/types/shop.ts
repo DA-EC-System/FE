@@ -369,6 +369,23 @@ export interface ProductListingRow extends ListingRow {
   platform: Marketplace;
 }
 
+/**
+ * Gian hàng mà các listing chưa gỡ của sản phẩm nằm ở hơn một sản phẩm sàn (Documents/21 §18.8.4); chỉ có khi
+ * `productCount` > 1
+ */
+export interface SeparateProducts {
+  shopId: string;
+  platform: Marketplace;
+  productCount: number;
+}
+
+/** `GET /channel/products/:productId/listings` */
+export interface ProductListingsResponse {
+  items: ProductListingRow[];
+  /** BE cũ chưa trả thì thiếu */
+  separateProducts?: SeparateProducts[];
+}
+
 /** SKU đang có trên sàn, BE lấy từ API của sàn (§18.3 `remote-skus`) */
 export interface RemoteSku {
   externalProductId: string;
