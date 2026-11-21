@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   hasActiveSupplier,
   newProductConfirmText,
+  axisChoices,
+  newLineFromPrevious,
   newProductPlan,
   prefillFullDelivery,
   receiptFormSchema,
@@ -115,6 +117,41 @@ describe('newProductPlan, newProductConfirmText (21 §16.3, chốt 21/11 câu 3)
     expect(newProductConfirmText(newProductPlan([fresh('a', 'Đen / M', '0')], [req('a', null)]))).toBe(
       'Chưa tạo sản phẩm mới nào: các dòng sản phẩm mới chưa có SL đạt hoặc lỗi, giữ lại. Chưa về hàng, để lần nhập sau: Áo thun basic (Đen / M).',
     );
+  });
+});
+
+describe('newLineFromPrevious (KB2 2.1: dòng sau chép dòng trên)', () => {
+  const base = { variantId: null, parentId: '', isNew: true } as const;
+  it('chép tên, danh mục, thuộc tính; để trống giá trị', () => {
+    const prev = { ...base, parentMode: 'new' as const, parentName: 'Điện thoại TD22 X1', groupId: 'g1', options: [{ axis: 'Màu sắc', value: 'Xanh' }, { axis: 'Dung lượng', value: '128GB' }] };
+    expect(newLineFromPrevious([prev])).toEqual({
+      isNew: true,
+      parentMode: 'new',
+      parentId: '',
+      parentName: 'Điện thoại TD22 X1',
+      groupId: 'g1',
+      options: [{ axis: 'Màu sắc', value: '' }, { axis: 'Dung lượng', value: '' }],
+    });
+  });
+  it('chưa có dòng sản phẩm mới: dòng trống đủ ô thuộc tính', () => {
+    expect(newLineFromPrevious([{ ...base, isNew: false, variantId: 'v1', parentMode: 'existing', parentName: '', groupId: '', options: [] }])).toMatchObject({
+      parentMode: 'new',
+      parentName: '',
+      options: [{ axis: '', value: '' }, { axis: '', value: '' }],
+    });
+  });
+});
+
+describe('axisChoices (chốt 21/11 mục 5)', () => {
+  const attrs = [{ id: 'a1', name: 'Màu sắc' }, { id: 'a2', name: 'Hương vị' }, { id: 'a3', name: 'Dung lượng' }];
+  it('hợp danh mục lên đầu theo thứ tự danh mục, còn lại ngoài danh mục', () => {
+    expect(axisChoices(attrs, [{ attributeId: 'a3' }, { attributeId: 'a1' }])).toEqual({
+      fits: [{ id: 'a3', name: 'Dung lượng' }, { id: 'a1', name: 'Màu sắc' }],
+      others: [{ id: 'a2', name: 'Hương vị' }],
+    });
+  });
+  it('danh mục chưa giới hạn: một nhóm', () => {
+    expect(axisChoices(attrs, [])).toEqual({ fits: attrs, others: [] });
   });
 });
 
