@@ -3,7 +3,7 @@ import type { Attribute, ProductAxis, ProductSettings, VariantFacts } from '@/ty
 import { cartesian } from './shared';
 
 /**
- * Nhóm phân loại khi tạo sản phẩm kiểu seller center (FE#350 phần 3, Documents/21 §5.2 `POST /catalog/products`):
+ * Thuộc tính biến thể khi tạo sản phẩm kiểu seller center (FE#350 phần 3, Documents/21 §5.2 `POST /catalog/products`):
  * chọn thuộc tính có sẵn hoặc gõ tên mới, gõ giá trị rồi Enter. Luật theo Lazada: tối đa 2 nhóm, tên ≤ 15 ký tự, giá trị
  * ≤ 20 ký tự, ≤ 50 giá trị mỗi nhóm, không trùng (không phân biệt hoa thường).
  */
@@ -117,9 +117,9 @@ export function axisErrors(draft: VariantDraft): { name?: string; values?: strin
   return draft.axes.map((axis, i) => {
     const errors: { name?: string; values?: string } = {};
     const name = axis.name.trim();
-    if (!name) errors.name = 'Nhập tên nhóm phân loại';
-    else if (name.length > MAX_AXIS_NAME) errors.name = `Tên nhóm phân loại tối đa ${MAX_AXIS_NAME} ký tự`;
-    else if (draft.axes.some((other, j) => j !== i && sameText(other.name, name))) errors.name = 'Hai nhóm phân loại trùng tên';
+    if (!name) errors.name = 'Nhập tên thuộc tính biến thể';
+    else if (name.length > MAX_AXIS_NAME) errors.name = `Tên thuộc tính biến thể tối đa ${MAX_AXIS_NAME} ký tự`;
+    else if (draft.axes.some((other, j) => j !== i && sameText(other.name, name))) errors.name = 'Hai thuộc tính biến thể trùng tên';
     if (!axis.values.length) errors.values = 'Thêm ít nhất một giá trị';
     return errors;
   });
@@ -135,8 +135,8 @@ export const includedCombos = (draft: VariantDraft) =>
 
 /** Lỗi chung của form phân loại khi bấm Tạo, null nếu tạo được */
 export function draftError(draft: VariantDraft): string | null {
-  if (draft.axes.length > MAX_AXES) return `Tối đa ${MAX_AXES} nhóm phân loại`;
-  if (axisErrors(draft).some((e) => e.name || e.values)) return 'Sửa lỗi ở nhóm phân loại';
+  if (draft.axes.length > MAX_AXES) return `Tối đa ${MAX_AXES} thuộc tính biến thể`;
+  if (axisErrors(draft).some((e) => e.name || e.values)) return 'Sửa lỗi ở thuộc tính biến thể';
   const count = includedCombos(draft).length;
   if (!count) return 'Cần ít nhất một variant';
   if (count > MAX_VARIANTS) return `Tối đa ${MAX_VARIANTS} variant mỗi lần tạo`;

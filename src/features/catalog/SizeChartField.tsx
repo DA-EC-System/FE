@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { ImagePlus, Loader2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { uploadProductImage } from '@/api/catalog.api';
@@ -64,12 +63,12 @@ export function SizeChartField({ value, onChange, onBusyChange, disabled, error 
               <Button
                 type="button"
                 variant="secondary"
-                size="icon"
+                size="sm"
                 aria-label="Bỏ ảnh bảng size"
-                className="absolute top-1 right-1 size-6"
+                className="absolute top-1 right-1 h-6 px-1.5 text-xs"
                 onClick={() => onChange(null)}
               >
-                <X />
+                Bỏ
               </Button>
             )}
           </div>
@@ -85,12 +84,10 @@ export function SizeChartField({ value, onChange, onBusyChange, disabled, error 
           >
             {uploading ? (
               <>
-                <Loader2 className="size-6 animate-spin" />
                 Đang tải ảnh
               </>
             ) : (
               <>
-                <ImagePlus className="size-6" />
                 {value ? 'Đổi ảnh' : 'Thêm ảnh'}
               </>
             )}

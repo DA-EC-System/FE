@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -28,8 +27,8 @@ export function CountryCombobox({ value, onChange, id, disabled, invalid }: Coun
         setOpen(false);
       }}
     >
-      <Check className={cn(o.code === value ? 'opacity-100' : 'opacity-0')} />
       {o.name}
+      {o.code === value && <span className="ml-auto text-xs text-muted-foreground">Đang chọn</span>}
       <span className="ms-auto font-mono text-xs text-muted-foreground">{o.code}</span>
     </CommandItem>
   );
@@ -48,7 +47,6 @@ export function CountryCombobox({ value, onChange, id, disabled, invalid }: Coun
           className={cn('w-full justify-between font-normal', !value && 'text-muted-foreground')}
         >
           <span className="truncate">{value ? countryName(value) : 'Chọn nước'}</span>
-          <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) min-w-64 p-0" align="start">

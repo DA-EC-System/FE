@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { focusField } from '../focusField';
 import { SpecFieldsInput, specFieldDomId } from './SpecFieldsInput';
 import { EMPTY_SPEC, missingRequired, type SpecDraft, type SpecDrafts, type SpecFieldView } from './specValues';
@@ -19,8 +20,13 @@ interface ProductSpecsCardProps {
   errors: Record<string, string>;
   readOnly: boolean;
   loading: boolean;
-  /** Link sửa mẫu nhóm, khi có quyền */
+  /** Link trang danh mục, khi có quyền sửa danh mục */
   templateLink: string | null;
+  /**
+   * Thêm thuộc tính vào danh mục đang chọn ngay từ form, một bước (Documents/29 bước 3; Documents/21 §5.6).
+   * Không có: người dùng không có quyền sửa danh mục
+   */
+  onAddField?: () => void;
 }
 
 /**
@@ -37,16 +43,24 @@ export function ProductSpecsCard({
   readOnly,
   loading,
   templateLink,
+  onAddField,
 }: ProductSpecsCardProps) {
   const missing = missingRequired(templateViews, drafts);
 
   return (
     <Card id={PRODUCT_SPECS_ID} tabIndex={-1} className="outline-none">
       <CardHeader>
-        <CardTitle>Thông số{groupName ? ` của nhóm ${groupName}` : ''}</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="flex-1">Thuộc tính sản phẩm{groupName ? ` của ${groupName}` : ''}</CardTitle>
+          {groupName && !readOnly && onAddField && (
+            <Button type="button" variant="outline" size="sm" onClick={onAddField}>
+              Thêm thuộc tính vào danh mục
+            </Button>
+          )}
+        </div>
         {!readOnly && missing.length > 0 && (
           <p className="text-sm text-warning-text">
-            Còn trống {missing.length} thông số bắt buộc:{' '}
+            Còn trống {missing.length} thuộc tính bắt buộc:{' '}
             {missing.map((v, i) => (
               <span key={v.fieldId}>
                 {i > 0 && ', '}
@@ -65,7 +79,7 @@ export function ProductSpecsCard({
       </CardHeader>
       <CardContent className="grid gap-5">
         {!groupName ? (
-          <p className="text-sm text-muted-foreground">Chọn nhóm hàng để hiện các thông số của nhóm.</p>
+          <p className="text-sm text-muted-foreground">Chọn danh mục sản phẩm để hiện các thuộc tính cần điền.</p>
         ) : loading ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <Skeleton className="h-14" />
@@ -75,23 +89,23 @@ export function ProductSpecsCard({
           <SpecFieldsInput views={templateViews} drafts={drafts} onChange={onChange} errors={errors} readOnly={readOnly} />
         ) : (
           <p className="text-sm text-muted-foreground">
-            Nhóm {groupName} chưa có mẫu thông số.
+            Danh mục {groupName} chưa có thuộc tính sản phẩm.
             {templateLink && (
               <>
                 {' '}
                 <Link to={templateLink} className="font-medium text-primary-text underline underline-offset-2">
-                  Lập mẫu cho nhóm
+                  Mở trang danh mục
                 </Link>
               </>
             )}
           </p>
         )}
         {otherViews.length > 0 && (
-          <section className="grid gap-3 border-t pt-4" aria-label="Thông số khác">
+          <section className="grid gap-3 border-t pt-4" aria-label="Thuộc tính khác">
             <div>
-              <h3 className="text-sm font-semibold">Thông số khác</h3>
+              <h3 className="text-sm font-semibold">Thuộc tính khác</h3>
               <p className="text-xs text-muted-foreground">
-                Không có trong mẫu của nhóm hiện tại, thường do đổi nhóm. Vẫn gửi lên sàn nếu có ánh xạ; không cần thì xoá.
+                Không thuộc danh mục hiện tại, thường do đổi danh mục. Vẫn gửi lên sàn nếu có ánh xạ; không cần thì xoá.
               </p>
             </div>
             <SpecFieldsInput

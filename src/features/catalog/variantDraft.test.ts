@@ -1,4 +1,4 @@
-// Nhóm phân loại kiểu seller center (FE#350 phần 3, Documents/21 §5.2)
+// Thuộc tính biến thể kiểu seller center (FE#350 phần 3, Documents/21 §5.2)
 import { describe, expect, it } from 'vitest';
 import type { Attribute, ProductSettings } from '@/types/catalog';
 import {
@@ -51,13 +51,13 @@ describe('axisErrors, draftError', () => {
       excluded: [],
     };
     expect(axisErrors(draft)).toEqual([
-      { name: 'Hai nhóm phân loại trùng tên' },
-      { name: 'Hai nhóm phân loại trùng tên', values: 'Thêm ít nhất một giá trị' },
+      { name: 'Hai thuộc tính biến thể trùng tên' },
+      { name: 'Hai thuộc tính biến thể trùng tên', values: 'Thêm ít nhất một giá trị' },
     ]);
     expect(axisErrors({ axes: [axis({ name: 'A'.repeat(16), values: ['x'] })], excluded: [] })[0]!.name).toBe(
-      'Tên nhóm phân loại tối đa 15 ký tự',
+      'Tên thuộc tính biến thể tối đa 15 ký tự',
     );
-    expect(draftError(draft)).toBe('Sửa lỗi ở nhóm phân loại');
+    expect(draftError(draft)).toBe('Sửa lỗi ở thuộc tính biến thể');
   });
 
   it('không có nhóm: một variant mặc định; bỏ tick hết thì báo; quá 100 thì báo', () => {

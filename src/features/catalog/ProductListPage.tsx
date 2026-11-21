@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, ImageIcon, Pencil, Plus, Settings2, TableProperties } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
-import { RowAction } from '@/components/common/RowAction';
+import { RowTextAction } from '@/components/common/RowAction';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,7 +25,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
-import type { ProductListItem, ProductListParams, ProductStatus } from '@/types/catalog';
+import type { ProductListItem, ProductListParams, ProductStatus, VariantReadiness } from '@/types/catalog';
 import { PRODUCT_STATUS_LABELS } from './labels';
 import { usePageGuide } from '@/guides/usePageGuide';
 import { BulkEditPage } from './BulkEditPage';
@@ -56,6 +55,9 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
   const [groupId, setGroupId] = useState('');
   const [status, setStatus] = useState<ProductStatus>('active');
   const [businessStatus, setBusinessStatus] = useState('');
+  // `?readiness=incomplete`: link "Hoàn thiện ngay" sau nhập kho mở thẳng bộ lọc Chờ hoàn thiện (Documents/29 bước 2–3)
+  const [urlParams] = useSearchParams();
+  const [readiness, setReadiness] = useState(() => (urlParams.get('readiness') === 'incomplete' ? 'incomplete' : ''));
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const business = useBusinessAction();
@@ -68,8 +70,14 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     groupId: groupId || undefined,
     status,
     businessStatus: status === 'active' && businessStatus ? (businessStatus as ProductListParams['businessStatus']) : undefined,
+    readiness: status === 'active' && readiness ? (readiness as VariantReadiness) : undefined,
   });
-  const groupsQuery = useGroups();
+  // BE chưa lọc `readiness` (Documents#228 chờ merge) thì lọc thêm trên trang để không hiện sai dòng
+  const rows = (productsQuery.data?.items ?? []).filter((p) =>
+    status !== 'active' || !readiness ? true : readiness === 'incomplete' ? p.incompleteCount > 0 : p.incompleteCount === 0,
+  );
+  // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
+  const groupsQuery = useGroups({ includeHidden: true });
   const groups = groupsQuery.data ?? [];
 
   const withReset =
@@ -79,7 +87,9 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       setPage(1);
     };
 
-  const open = (id: string) => navigate(ROUTES.company.catalogProduct(companyId, id));
+  // Mở từ bộ lọc Chờ hoàn thiện: form có nút "Lưu và sang sản phẩm kế" (phương án 3A)
+  const open = (id: string) =>
+    navigate(`${ROUTES.company.catalogProduct(companyId, id)}${readiness === 'incomplete' ? '?from=incomplete' : ''}`);
 
   const columns = useMemo<ColumnDef<ProductListItem>[]>(
     () => [
@@ -95,7 +105,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
                 <AvatarImage src={row.original.thumbnailUrl} alt="" className="object-cover" />
               )}
               <AvatarFallback className="rounded-md">
-                <ImageIcon className="size-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{row.original.name.trim().charAt(0).toUpperCase()}</span>
               </AvatarFallback>
             </Avatar>
             <span className="grid min-w-0">
@@ -109,17 +119,17 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       },
       {
         id: 'group',
-        header: 'Nhóm hàng',
+        header: 'Danh mục sản phẩm',
         meta: { className: 'min-w-32' },
         cell: ({ row }) => row.original.group.name,
       },
       {
         accessorKey: 'variantCount',
-        header: 'Số variant',
+        header: 'Số biến thể',
         meta: {
           className: 'w-24',
           numeric: true,
-          help: 'Số SKU đang dùng (không tính SKU đã lưu trữ). Mỗi variant là một SKU; tồn kho và giá bán lẻ nằm ở từng SKU.',
+          help: 'Số SKU đang dùng (không tính SKU đã lưu trữ). Mỗi biến thể là một SKU; tồn kho và giá bán lẻ nằm ở từng SKU.',
         },
       },
       {
@@ -140,15 +150,15 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       {
         id: 'actions',
         header: '',
-        meta: { className: 'w-24 text-right' },
+        meta: { className: 'w-28 text-right' },
         cell: ({ row }) => {
           const p = row.original;
           const editable = canManage && p.status === 'active';
           return (
             <div className="flex justify-end gap-1">
-              <RowAction label={editable ? 'Sửa' : 'Xem'} onClick={() => open(p.id)}>
-                {editable ? <Pencil /> : <Eye />}
-              </RowAction>
+              <RowTextAction label={`${editable ? 'Sửa' : 'Xem'} ${p.name}`} onClick={() => open(p.id)}>
+                {editable ? 'Sửa' : 'Xem'}
+              </RowTextAction>
               {canManage && (
                 <BusinessActionMenu
                   label={`Đổi trạng thái ${p.name}`}
@@ -162,10 +172,10 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, companyId],
+    [canManage, companyId, readiness],
   );
 
-  const filtered = Boolean(debouncedSearch || groupId);
+  const filtered = Boolean(debouncedSearch || groupId || readiness);
   const empty = filtered
     ? 'Không tìm thấy sản phẩm phù hợp'
     : status === 'archived'
@@ -176,26 +186,23 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     <div>
       <PageHeader
         title="Sản phẩm"
-        subtitle="Mỗi sản phẩm có một hoặc nhiều variant, mỗi variant là một SKU."
-        help="Mỗi sản phẩm thuộc một nhóm hàng; mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm. Thuộc tính phân loại tạo ở trang Nhóm hàng & thuộc tính."
+        subtitle="Mỗi sản phẩm có một hoặc nhiều biến thể, mỗi biến thể là một SKU."
+        help="Mỗi sản phẩm thuộc một danh mục sản phẩm; mã SKU tự tạo theo mẫu ở Cài đặt sản phẩm. Thuộc tính sản phẩm của từng danh mục sửa ở trang Danh mục sản phẩm."
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">
             {canSetup && (
               <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
-                <Settings2 />
-                Nhóm hàng & thuộc tính
+                Danh mục sản phẩm
               </Button>
             )}
             {canManage && (
               <Button variant="outline" onClick={onBulk}>
-                <TableProperties />
                 Sửa hàng loạt
               </Button>
             )}
             {canManage && (
               <Button onClick={() => navigate(ROUTES.company.catalogNew(companyId))} data-guide="products-add">
-                <Plus />
                 Thêm sản phẩm
               </Button>
             )}
@@ -217,7 +224,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
             placeholder="Tìm theo tên hoặc SKU..."
           />
           <FilterSelect loading={groupsQuery.isLoading}
-            label="Nhóm hàng"
+            label="Danh mục sản phẩm"
             value={groupId}
             onChange={withReset(setGroupId)}
             options={groups.map((c) => ({ value: c.id, label: c.name }))}
@@ -250,11 +257,22 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
               }))}
             />
           )}
+          {status === 'active' && (
+            <FilterSelect
+              label="Độ hoàn thiện"
+              value={readiness}
+              onChange={withReset(setReadiness)}
+              options={[
+                { value: 'incomplete', label: 'Chờ hoàn thiện' },
+                { value: 'ready', label: 'Sẵn sàng' },
+              ]}
+            />
+          )}
         </FilterBar>
         <div data-guide="products-table">
           <DataTable
             columns={columns}
-            data={productsQuery.data?.items ?? []}
+            data={rows}
             getRowId={(r) => r.id}
             loading={productsQuery.isLoading}
             fetching={productsQuery.isFetching}

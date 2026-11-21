@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -32,6 +31,8 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  fetchNextIncompleteProduct,
+  useBulkSaveVariants,
   useAttributes,
   useGroups,
   useProductSettings,
@@ -75,21 +76,13 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { formatCurrency } from '@/utils/format';
 import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
 import { SkuCode } from '@/components/common/SkuCode';
-import { PlatformTab, PlatformTabLabel } from './PlatformTab';
-import { focusField } from './focusField';
-import {
-  SHARED_TARGETS,
-  sharedTargetId,
-  productSuggestions,
-  tabFromParam,
-  visiblePlatforms,
-  type ProductFactField,
-  type ProductTabKey,
-  type SharedTarget,
-} from './productTabs';
+import { SHARED_TARGETS, productSuggestions, type ProductFactField } from './productTabs';
+import { GROUP_FIELD_ID, missingItems, parseMinQty, publishBlocker } from './completion';
+import { ProductCompletionRail } from './ProductCompletionRail';
+import { ProductMinQtyCard } from './ProductMinQtyCard';
+import { SpecFieldDialog } from './specs/SpecFieldDialog';
 import { RemoteSuggestion } from './RemoteSuggestion';
 import { countryName } from './countries';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { platformLabel } from './platformCategory';
 import { ProductSkuSheet } from './ProductSkuSheet';
 import { VariantImagesCard } from './VariantImagesCard';
@@ -206,6 +199,13 @@ export function ProductFormPage() {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Ngưỡng tồn mức sản phẩm (Documents/29 bước 3): form tạo áp sau khi tạo; trang sửa áp ở ProductMinQtyCard
+  const [minQtyText, setMinQtyText] = useState('');
+  const bulkSave = useBulkSaveVariants();
+  // Thêm thuộc tính vào danh mục ngay từ form (Documents/21 §5.6)
+  const [addingField, setAddingField] = useState(false);
+  // "Lưu và sang sản phẩm kế": mở từ bộ lọc Chờ hoàn thiện (`?from=incomplete`)
+  const nextAfterSave = useRef(false);
   // Thông số theo mẫu nhóm (Documents/21 §5.5): giá trị đang gõ, bản đã lưu để chỉ gửi ô đã đổi, lỗi BE theo thông số
   const [specDrafts, setSpecDrafts] = useState<SpecDrafts>({});
   const [specInitial, setSpecInitial] = useState<SpecDrafts>({});
@@ -239,42 +239,14 @@ export function ProductFormPage() {
   });
   const { control, reset, setError: setFieldError } = form;
 
-  // FE#417: tab Commerio và một tab mỗi sàn đã có spec hoặc listing; tab đang mở ghi lên `?tab=` để gửi link được
-  const shops = shopsQuery.data?.items ?? [];
+  // Tab theo sàn chuyển sang màn Đăng sản phẩm (cố vấn chốt câu 3); ở đây chỉ đọc giá trị sàn đang ghi để gợi ý (FE#417 F2)
   const specQueries = useProductSpecs(productId, platforms, canShop && !isNew);
-  const tabPlatforms = visiblePlatforms(platforms, (p) => Boolean(specQueries[platforms.indexOf(p)]?.data?.spec), listingRows);
-  const tab: ProductTabKey = tabFromParam(searchParams.get('tab'), tabPlatforms);
-  const setTab = (next: string) =>
-    setSearchParams(
-      (prev) => {
-        const q = new URLSearchParams(prev);
-        if (next === 'commerio') q.delete('tab');
-        else q.set('tab', next);
-        return q;
-      },
-      { replace: true },
-    );
-  // "Dùng chung · sửa ở Commerio": sang tab Commerio rồi cuộn, focus, nháy đúng ô sau khi tab hiện
-  const [jump, setJump] = useState<SharedTarget | null>(null);
-  const jumpTo = (target: SharedTarget) => {
-    setTab('commerio');
-    setJump(target);
-  };
-  useEffect(() => {
-    if (tab !== 'commerio' || !jump) return;
-    const id = sharedTargetId(jump, (x) => document.getElementById(x) !== null);
-    // Xoá `jump` trong cùng khung hình: xoá ngay thì effect chạy lại và huỷ khung hình trước khi kịp focus
-    const frame = requestAnimationFrame(() => {
-      focusField(id);
-      setJump(null);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [tab, jump]);
 
   // Mẫu nhóm: form tạo đọc theo nhóm đang chọn; trang sửa chỉ đọc khi đổi sang nhóm khác (ngoài ra BE trả sẵn `specs`)
   const groupId = form.watch('groupId');
   const groupChanged = Boolean(product && groupId && groupId !== product.group.id);
-  const templateQuery = useGroupTemplate(isNew || groupChanged ? groupId || undefined : undefined);
+  // Trang sửa cũng đọc mẫu: cần `version` để thêm thuộc tính vào danh mục và `allowedAttributes` (Documents/21 §5.6, §5.7)
+  const templateQuery = useGroupTemplate(groupId || undefined);
   const template = templateQuery.data;
   // Thông tin vẽ của mọi thông số đã gặp, để giá trị của nhóm cũ vẫn hiện ở "Thông số khác" khi đổi nhóm
   const seenViews = useRef(new Map<string, SpecFieldView>());
@@ -428,7 +400,19 @@ export function ProductFormPage() {
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
           ...draftBody(draft, attributes),
         });
-        toast.success(`Đã tạo ${created.name} với ${created.variants.length} variant`);
+        toast.success(`Đã tạo ${created.name} với ${created.variants.length} biến thể`);
+        // Ngưỡng tồn áp sau khi tạo; lỗi thì sản phẩm vẫn tạo xong, mục "Ngưỡng tồn" còn ở thanh Còn thiếu (Documents/29 bước 3)
+        const minQty = parseMinQty(minQtyText);
+        if (minQty !== null && created.variants.length) {
+          try {
+            const result = await bulkSave.mutateAsync(
+              created.variants.map((v) => ({ variantId: v.id, version: v.version, reorderVersion: null, minQty })),
+            );
+            if (result.failed.length) toast.warning(`Chưa đặt được ngưỡng tồn cho ${result.failed.length} biến thể: ${result.failed[0].message}`);
+          } catch (e) {
+            toast.warning(`Chưa đặt được ngưỡng tồn: ${problemMessage(e)}`);
+          }
+        }
         navigate(ROUTES.company.catalogProduct(companyId, created.id), { replace: true });
       } else {
         const saved = await updateMut.mutateAsync({
@@ -445,6 +429,15 @@ export function ProductFormPage() {
         });
         load(saved);
         toast.success(`Đã lưu ${saved.name}`);
+        if (nextAfterSave.current) {
+          nextAfterSave.current = false;
+          const next = await fetchNextIncompleteProduct(saved.id);
+          if (next) navigate(`${ROUTES.company.catalogProduct(companyId, next)}?from=incomplete`);
+          else {
+            toast.success('Đã hoàn thiện hết sản phẩm chờ hoàn thiện');
+            backToList();
+          }
+        }
       }
     } catch (e) {
       const latest = conflictCurrent<ProductDetail>(e);
@@ -469,8 +462,7 @@ export function ProductFormPage() {
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={backToList}>
-      <ArrowLeft />
-      Danh sách sản phẩm
+      Về danh sách sản phẩm
     </Button>
   );
 
@@ -495,7 +487,36 @@ export function ProductFormPage() {
     );
   }
 
-  const busy = createMut.isPending || updateMut.isPending;
+  const busy = createMut.isPending || updateMut.isPending || bulkSave.isPending;
+  const imagesBusy = uploading || chartUploading || axisUploading;
+  const saveDisabled = busy || imagesBusy;
+  const saveLabel = busy ? 'Đang lưu...' : imagesBusy ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu';
+  const fromIncomplete = searchParams.get('from') === 'incomplete';
+  // Danh mục mặc định đã tách (Documents/21 §5.7): gợi ý người dùng tự chọn danh mục hẹp hơn
+  const currentGroup = groups.find((g) => g.id === groupId);
+  const saveAndNext = () => {
+    nextAfterSave.current = true;
+    void onSubmit().finally(() => {
+      nextAfterSave.current = false;
+    });
+  };
+  // Thanh "Còn thiếu" (Documents/29 bước 3): BE tính `missing` theo SKU; thuộc tính bắt buộc theo bản đang gõ
+  const watched = form.watch();
+  const missing = missingItems({
+    variants: product?.variants,
+    form: isNew ? { name: watched.name ?? '', groupId: watched.groupId ?? '', imageCount: images.length } : undefined,
+    requiredSpecs: templateViews,
+    specDrafts,
+  });
+  const specsDirty = JSON.stringify(specDrafts) !== JSON.stringify(specInitial);
+  const imagesDirty = product ? JSON.stringify(images.map((i) => i.fileId)) !== JSON.stringify(toImages(product).map((i) => i.fileId)) : false;
+  const blocker = publishBlocker({
+    isNew,
+    archived,
+    canPublish: can(PERMISSIONS.listingManage),
+    missingCount: missing.length,
+    dirty: form.formState.isDirty || specsDirty || imagesDirty,
+  });
   // Xoá hẳn chỉ khi mọi SKU Chờ hoàn thiện (§17.2); BE kiểm thêm chứng từ, listing và trả 409 product_in_use
   const deletable = Boolean(product && canManage && product.variants.every((v) => v.readiness === 'incomplete'));
   const removeProduct = async () => {
@@ -529,13 +550,12 @@ export function ProductFormPage() {
               <div className="flex flex-wrap gap-2">
                 {deletable && (
                   <Button type="button" variant="outline" onClick={() => setDeleteOpen(true)}>
-                    <Trash2 />
                     Xoá hẳn
                   </Button>
                 )}
-                {!readOnly && tab === 'commerio' && (
-                  <Button type="submit" form="product-form" disabled={busy || uploading || chartUploading || axisUploading}>
-                    {busy ? 'Đang lưu...' : uploading || chartUploading || axisUploading ? 'Đang tải ảnh...' : isNew ? 'Tạo sản phẩm' : 'Lưu'}
+                {!readOnly && (
+                  <Button type="submit" form="product-form" className="lg:hidden" disabled={saveDisabled}>
+                    {saveLabel}
                   </Button>
                 )}
               </div>
@@ -543,6 +563,12 @@ export function ProductFormPage() {
           }
         />
 
+        {currentGroup?.splitInto?.length ? (
+          <AlertMessage severity="info" className="mb-4">
+            Danh mục {currentGroup.renamedFrom ?? currentGroup.name} đã tách thành{' '}
+            {currentGroup.splitInto.map((s) => s.name).join(', ')}. Chọn danh mục phù hợp hơn ở ô Danh mục sản phẩm rồi Lưu.
+          </AlertMessage>
+        ) : null}
         {archived && (
           <AlertMessage severity="info" className="mb-4">
             Sản phẩm đã lưu trữ nên chỉ xem được; Khôi phục từng SKU để bán tiếp. SKU của sản phẩm không cấp lại cho sản phẩm khác.
@@ -556,7 +582,7 @@ export function ProductFormPage() {
 
         {product && (
           <KpiStrip label="Tóm tắt sản phẩm" className="mb-4">
-            <Kpi label="Nhóm hàng" value={<span className="text-lg">{product.group.name}</span>} />
+            <Kpi label="Danh mục sản phẩm" value={<span className="text-lg">{product.group.name}</span>} />
             <Kpi
               label="SKU theo trạng thái"
               value={product.variants.length}
@@ -584,46 +610,8 @@ export function ProductFormPage() {
           </KpiStrip>
         )}
 
-        <Tabs value={tab} onValueChange={setTab} className="gap-4">
-          {!isNew && canShop && platforms.length > 0 && (
-            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-              <div className="max-w-full overflow-x-auto">
-                <TabsList aria-label="Nơi bán">
-                  <TabsTrigger value="commerio">Commerio (nội bộ)</TabsTrigger>
-                  {product &&
-                    tabPlatforms.map((p) => (
-                      <TabsTrigger key={p} value={p}>
-                        <PlatformTabLabel product={product} platform={p} shops={shops} />
-                      </TabsTrigger>
-                    ))}
-                </TabsList>
-              </div>
-              {product && can(PERMISSIONS.listingManage) && !archived && (
-                <div className="flex flex-wrap gap-2 pb-1.5">
-                  {platforms
-                    .filter((p) => !tabPlatforms.includes(p))
-                    .map((p) => (
-                      <Button key={p} asChild variant="outline" size="sm">
-                        <Link to={ROUTES.company.productPush(companyId, product.id, p)}>
-                          <Plus />
-                          Lên {platformLabel(p)}
-                        </Link>
-                      </Button>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-          {!isNew && canShop && !shopsQuery.isLoading && !shopsQuery.isError && !platforms.length && (
-            <p className="text-sm text-muted-foreground">
-              Công ty chưa kết nối gian hàng nào.{' '}
-              <Link to={ROUTES.company.shops(companyId)} className="font-medium text-primary-text underline">
-                Kết nối gian hàng
-              </Link>{' '}
-              để đưa sản phẩm lên sàn.
-            </p>
-          )}
-          <TabsContent value="commerio" forceMount className="data-[state=inactive]:hidden">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
+          <div className="min-w-0">
         <form id="product-form" onSubmit={onSubmit} noValidate>
         <div className="grid gap-4">
           <Card>
@@ -644,8 +632,8 @@ export function ProductFormPage() {
                 control={control}
                 name="groupId"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nhóm hàng</FormLabel>
+                  <FormItem id={GROUP_FIELD_ID} className="rounded-md">
+                    <FormLabel>Danh mục sản phẩm</FormLabel>
                     <FormControl>
                       <GroupCombobox
                         value={field.value}
@@ -660,7 +648,7 @@ export function ProductFormPage() {
                     </FormControl>
                     <FormMessage />
                     {!form.formState.errors.groupId && !readOnly && (
-                      <FormDescription>Dùng để lọc và tìm sản phẩm. Mã SKU tạo theo mẫu ở Cài đặt sản phẩm.</FormDescription>
+                      <FormDescription>Quyết định thuộc tính sản phẩm cần điền và biến thể gợi ý. Mã SKU tạo theo mẫu ở Cài đặt sản phẩm.</FormDescription>
                     )}
                   </FormItem>
                 )}
@@ -717,11 +705,6 @@ export function ProductFormPage() {
                       </FormItem>
                     )}
                   />
-                {tabPlatforms.length > 0 && (
-                  <p className="text-xs text-muted-foreground md:col-span-2">
-                    Dùng cho: {tabPlatforms.map((p) => platformLabel(p)).join(' · ')}. Sửa ở đây thì mọi sàn đọc theo.
-                  </p>
-                )}
               </CardContent>
             </Card>
 
@@ -734,7 +717,8 @@ export function ProductFormPage() {
             errors={specErrors}
             readOnly={readOnly}
             loading={(isNew || groupChanged) && templateQuery.isLoading}
-            templateLink={can(PERMISSIONS.catalogSetup) ? ROUTES.company.catalogSetup(companyId) : null}
+            templateLink={can(PERMISSIONS.catalogSetup) && groupId ? ROUTES.company.catalogCategory(companyId, groupId) : null}
+            onAddField={can(PERMISSIONS.catalogSetup) && template ? () => setAddingField(true) : undefined}
           />
 
           {product && canShop && listingsQuery.isError && (
@@ -800,11 +784,10 @@ export function ProductFormPage() {
 
           <Card id={SHARED_TARGETS.variants}>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Variant</CardTitle>
+              <CardTitle>Biến thể (SKU)</CardTitle>
               {!isNew && !readOnly && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-                  <Plus />
-                  Thêm variant
+                  Thêm biến thể
                 </Button>
               )}
             </CardHeader>
@@ -824,6 +807,15 @@ export function ProductFormPage() {
                   serverAxisErrors={axisErrorsFromServer}
                   submitted={submitted}
                   withFacts
+                  allowed={
+                    // Danh sách rỗng: danh mục chưa giới hạn, hiện mọi thuộc tính, không cảnh báo (Documents#230)
+                    template?.allowedAttributes?.length
+                      ? {
+                          ids: template.allowedAttributes.map((a) => a.attributeId),
+                          groupName: groups.find((g) => g.id === groupId)?.name ?? '',
+                        }
+                      : undefined
+                  }
                   onImagesBusyChange={setAxisUploading}
                 />
               ) : (
@@ -833,7 +825,7 @@ export function ProductFormPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>SKU</TableHead>
-                          <TableHead>Thuộc tính phân loại</TableHead>
+                          <TableHead>Thuộc tính biến thể</TableHead>
                           <TableHead>Trạng thái</TableHead>
                           {canStock && <TableHead className="text-right">Có thể bán</TableHead>}
                           {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
@@ -917,17 +909,17 @@ export function ProductFormPage() {
                             <TableCell className="text-right whitespace-nowrap tabular-nums">
                               <span data-testid="variant-price">{priceText(v.standardPrice)}</span>
                               <span className="block text-[12.5px] text-muted-foreground" data-testid="variant-target-price">
-                                Thực nhận {priceText(v.targetNetPrice)}
+                                Giá muốn thực nhận {priceText(v.targetNetPrice)}
                               </span>
                             </TableCell>
                             <TableCell data-testid="variant-readiness">
                               {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
                                 NOT_COMPUTED
                               ) : v.readiness === 'ready' ? (
-                                <span className="text-muted-foreground">Đủ thông tin</span>
+                                <span className="text-muted-foreground">Sẵn sàng</span>
                               ) : (
                                 <Badge variant="warning" title={`Thiếu: ${missingText(v)}`}>
-                                  Thiếu thông tin
+                                  Chờ hoàn thiện
                                 </Badge>
                               )}
                               {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
@@ -940,12 +932,12 @@ export function ProductFormPage() {
                                   <Button
                                     type="button"
                                     variant="ghost"
-                                    size="icon"
+                                    size="sm"
                                     aria-label={`Sửa thông tin ${v.sku}`}
-                                    title="Giá bán lẻ, thực nhận mong muốn, cân nặng, kích thước đóng gói"
+                                    title="Giá bán lẻ, giá muốn thực nhận, cân nặng, kích thước gói, ngưỡng tồn"
                                     onClick={() => setSpecVariantId(v.id)}
                                   >
-                                    <Pencil />
+                                    Sửa
                                   </Button>
                                 )}
                                 <BusinessActionMenu
@@ -967,25 +959,23 @@ export function ProductFormPage() {
               )}
             </CardContent>
           </Card>
+
+          <ProductMinQtyCard value={minQtyText} onChange={setMinQtyText} product={product} readOnly={readOnly} />
         </div>
         </form>
-          </TabsContent>
-          {product &&
-            tabPlatforms.map((p) => (
-              <TabsContent key={p} value={p} forceMount className="data-[state=inactive]:hidden">
-                <PlatformTab
-                  companyId={companyId}
-                  product={product}
-                  platform={p}
-                  shops={shops}
-                  rows={listingRows}
-                  canEditSpec={can(PERMISSIONS.listingManage) && !archived}
-                  canEditProduct={!readOnly}
-                  onJump={jumpTo}
-                />
-              </TabsContent>
-            ))}
-        </Tabs>
+          </div>
+          {!readOnly ? (
+            <ProductCompletionRail
+              items={missing}
+              isNew={isNew}
+              saveLabel={saveLabel}
+              saveDisabled={saveDisabled}
+              onSaveNext={fromIncomplete && !isNew ? () => void saveAndNext() : undefined}
+              publishHref={product && !blocker ? ROUTES.company.productPublish(companyId, product.id) : null}
+              publishBlocker={blocker}
+            />
+          ) : null}
+        </div>
 
         {product && (
           <AddVariantDialog
@@ -1031,6 +1021,18 @@ export function ProductFormPage() {
           canShop={canShop}
           canCost={canCost}
           onClose={() => setSkuVariantId(null)}
+        />
+      )}
+      {template && (
+        <SpecFieldDialog
+          open={addingField}
+          field={null}
+          attachTo={{ groupId, groupName: groups.find((g) => g.id === groupId)?.name ?? '', version: template.version }}
+          onClose={() => setAddingField(false)}
+          onDone={(message) => {
+            setAddingField(false);
+            toast.success(message);
+          }}
         />
       )}
       {product && (

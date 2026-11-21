@@ -79,7 +79,8 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     groupId: groupId || undefined,
     incomplete: incomplete || undefined,
   });
-  const groups = useGroups();
+  // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
+  const groups = useGroups({ includeHidden: true });
   const save = useBulkSaveVariants();
   const rows = useMemo(() => query.data?.items ?? [], [query.data]);
 

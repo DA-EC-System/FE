@@ -17,9 +17,25 @@ export interface SuggestConfig {
 }
 
 /** Nhóm hàng (Documents/21 §5.2): phân loại nội bộ, một cấp, không ghép sang sàn */
+/**
+ * Tầng của dòng dữ liệu (dữ liệu chung, Documents/21 §5.6): `platform` là chuẩn nền tảng dùng chung mọi công ty, công ty
+ * chỉ đọc và thêm được phần riêng; `company` là của công ty. Thiếu thì coi như `platform` (chỉ đọc), để thiếu dữ liệu không mở nút sửa rồi bị 403
+ */
+export type DataScope = 'platform' | 'company';
+
+/** Dòng chuẩn nền tảng, hoặc thiếu `scope`: công ty không sửa, không xoá */
+export const isPlatform = (row: { scope?: DataScope }) => row.scope !== 'company';
+
 export interface ProductGroup {
   id: string;
   name: string;
+  scope?: DataScope;
+  /** Nhóm chuẩn công ty đã ẩn (không hiện ở form sản phẩm); nhóm của công ty luôn false */
+  hidden?: boolean;
+  /** Danh mục mặc định đổi tên khi gộp dữ liệu chuẩn: tên cũ (Documents/21 §5.7) */
+  renamedFrom?: string | null;
+  /** Danh mục hẹp hơn tách từ danh mục cũ; rỗng là không tách (Documents/21 §5.7) */
+  splitInto?: { id: string; name: string }[];
   /** Kể cả sản phẩm đã lưu trữ */
   productCount: number;
   suggest: SuggestConfig;
@@ -33,6 +49,7 @@ export interface ProductGroup {
 }
 
 export interface GroupAxis {
+  scope?: DataScope;
   attributeId: string;
   name: string;
   platformKind: PlatformKind | null;
@@ -63,7 +80,12 @@ export interface ProductSettingsInput {
 }
 
 /** Loại thuộc tính chuẩn sàn; adapter ghép sang sales attribute theo loại (Documents/21 §18.8.3) */
-export type PlatformKind = 'color' | 'size' | 'volume' | 'flavor';
+/** 23 thuộc tính biến thể chuẩn (Documents/21 §5.7); mã sale prop của từng sàn là hằng của adapter */
+export type PlatformKind =
+  | 'color' | 'size' | 'shoe_size' | 'bra_size' | 'age' | 'ring_size'
+  | 'storage' | 'version' | 'screen_size' | 'connector' | 'length' | 'battery_capacity'
+  | 'voltage' | 'power' | 'volume' | 'weight' | 'flavor' | 'scent'
+  | 'pack' | 'diaper_size' | 'bed_size' | 'style' | 'compatible_model';
 
 export interface AttributeValue {
   id: string;
@@ -72,11 +94,14 @@ export interface AttributeValue {
   code: string;
   /** Đã có biến thể dùng: không xoá được */
   inUse: boolean;
+  /** Giá trị chuẩn của thuộc tính nền tảng, hay giá trị công ty thêm */
+  scope?: DataScope;
 }
 
 export interface Attribute {
   id: string;
   name: string;
+  scope?: DataScope;
   /** Thuộc tính chuẩn sàn (Màu sắc, Kích cỡ, Dung tích, Hương vị), hệ thống tạo khi lập công ty; null là tự đặt */
   platformKind: PlatformKind | null;
   values: AttributeValue[];
@@ -224,6 +249,8 @@ export interface ProductListParams {
   status?: ProductStatus;
   /** Có ít nhất một SKU ở trạng thái này */
   businessStatus?: Exclude<VariantBusinessStatus, 'archived'>;
+  /** `incomplete`: còn SKU Chờ hoàn thiện; `ready`: mọi SKU Sẵn sàng (Documents#228, 21 §17.2) */
+  readiness?: VariantReadiness;
 }
 
 /**
@@ -375,11 +402,13 @@ export type SpecInputKind = 'select' | 'multiselect' | 'text' | 'number' | 'date
 export interface SpecOption {
   id: string;
   value: string;
+  scope?: DataScope;
 }
 
 /** Thông số trong thư viện của công ty */
 export interface SpecField {
   id: string;
+  scope?: DataScope;
   code: string;
   name: string;
   input: SpecInputKind;
@@ -412,6 +441,8 @@ export interface SpecFieldUpdateInput {
 }
 
 export interface GroupTemplateField {
+  /** Dòng của mẫu chuẩn (không bỏ được) hay dòng công ty thêm vào nhóm chuẩn */
+  scope?: DataScope;
   fieldId: string;
   code: string;
   name: string;
@@ -423,18 +454,32 @@ export interface GroupTemplateField {
 }
 
 /** Mẫu nhóm hàng; `version` là của nhóm */
+/** Thuộc tính biến thể được phép của danh mục (Documents/21 §5.7): gợi ý và lọc ô chọn, không chặn lưu */
+export interface AllowedAttribute {
+  attributeId: string;
+  name: string;
+  platformKind: string | null;
+  scope?: DataScope;
+  /** Đang là biến thể mặc định (trục chuẩn) của danh mục */
+  isAxis: boolean;
+}
+
 export interface GroupTemplate {
   groupId: string;
   axes: (GroupAxis & { values: SpecOption[] })[];
   fields: GroupTemplateField[];
+  /** BE trước §5.7 chưa trả: coi như mọi thuộc tính đều được */
+  allowedAttributes?: AllowedAttribute[];
   version: number;
 }
 
 export interface GroupTemplateInput {
-  /** 0–2, khác nhau */
-  axisAttributeIds: string[];
-  /** Thứ tự mảng là thứ tự hiển thị */
+  /** 0–2, khác nhau. Nhóm chuẩn: không gửi (trục do nền tảng đặt, gửi thì 422) */
+  axisAttributeIds?: string[];
+  /** Thứ tự mảng là thứ tự hiển thị. Nhóm chuẩn: chỉ dòng của công ty */
   fields: { fieldId: string; required: boolean }[];
+  /** Thuộc tính biến thể được phép (§5.7); bỏ trường là giữ. Danh mục mặc định: chỉ phần của công ty */
+  allowedAttributeIds?: string[];
   version: number;
 }
 

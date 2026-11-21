@@ -1,5 +1,4 @@
 import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Check, ChevronsUpDown, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,13 +58,18 @@ interface VariationEditorProps {
   withFacts?: boolean;
   /** Có thì hiện khối ảnh theo phân loại; báo đang tải để form chặn nút Tạo */
   onImagesBusyChange?: (busy: boolean) => void;
+  /**
+   * Thuộc tính biến thể hợp với danh mục (Documents/21 §5.7 `allowedAttributes`): lên đầu ô chọn; chọn ngoài danh sách
+   * chỉ cảnh báo, vẫn lưu. Không có (BE cũ, chưa chọn danh mục) thì không lọc
+   */
+  allowed?: { ids: string[]; groupName: string };
 }
 
 let nextKey = 0;
 const newAxis = (): AxisDraft => ({ key: `axis-${++nextKey}`, attributeId: null, name: '', values: [] });
 
 /**
- * Phân loại hàng khi tạo sản phẩm, kiểu seller center (FE#350 phần 3): "+ Thêm nhóm phân loại" (tối đa 2), tên chọn
+ * Phân loại hàng khi tạo sản phẩm, kiểu seller center (FE#350 phần 3): "+ Thêm thuộc tính biến thể" (tối đa 2), tên chọn
  * thuộc tính có sẵn hoặc tự đặt, giá trị gõ rồi Enter hoặc bấm gợi ý; bảng tổ hợp có tick bỏ và SKU dự kiến.
  * Không thêm nhóm nào thì sản phẩm có một variant "Mặc định".
  */
@@ -80,6 +84,7 @@ export function VariationEditor({
   loading,
   withFacts,
   onImagesBusyChange,
+  allowed,
 }: VariationEditorProps) {
   const [bulk, setBulk] = useState<FactsDraft>({});
   const setFact = (id: string, key: FactKey, text: string) =>
@@ -106,8 +111,8 @@ export function VariationEditor({
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">
-        Thêm tối đa {MAX_AXES} nhóm phân loại (vd Màu sắc, Kích cỡ) để chia variant. Không thêm thì sản phẩm chỉ có một
-        variant &lsquo;Mặc định&rsquo;.
+        Thêm tối đa {MAX_AXES} thuộc tính biến thể (vd Màu sắc, Kích cỡ). Không thêm thì sản phẩm chỉ có một biến thể
+        &lsquo;Mặc định&rsquo;. Giá trị mới (màu, cỡ chưa có) gõ thẳng vào đây.
       </p>
 
       {value.axes.map((axis, i) => {
@@ -120,6 +125,7 @@ export function VariationEditor({
             axis={axis}
             attributes={attributes}
             usedIds={value.axes.filter((a) => a.key !== axis.key).flatMap((a) => (a.attributeId ? [a.attributeId] : []))}
+            allowed={allowed}
             loading={loading}
             nameError={show ? errors[i]?.name : undefined}
             valuesError={show ? errors[i]?.values : undefined}
@@ -137,14 +143,13 @@ export function VariationEditor({
           variant="outline"
           size="sm"
           disabled={value.axes.length >= MAX_AXES}
-          title={value.axes.length >= MAX_AXES ? `Tối đa ${MAX_AXES} nhóm phân loại` : undefined}
+          title={value.axes.length >= MAX_AXES ? `Tối đa ${MAX_AXES} thuộc tính biến thể` : undefined}
           onClick={() => setAxes([...value.axes, newAxis()])}
         >
-          <Plus />
-          Thêm nhóm phân loại
+          Thêm thuộc tính biến thể
         </Button>
         {value.axes.length >= MAX_AXES && (
-          <span className="ml-2 text-xs text-muted-foreground">Đã đủ {MAX_AXES} nhóm phân loại.</span>
+          <span className="ml-2 text-xs text-muted-foreground">Đã đủ {MAX_AXES} thuộc tính biến thể.</span>
         )}
       </div>
 
@@ -293,6 +298,7 @@ interface AxisCardProps {
   attributes: Attribute[];
   /** Thuộc tính nhóm kia đang dùng */
   usedIds: string[];
+  allowed?: VariationEditorProps['allowed'];
   loading?: boolean;
   nameError?: string;
   valuesError?: string;
@@ -307,6 +313,7 @@ function AxisCard({
   axis,
   attributes,
   usedIds,
+  allowed,
   loading,
   nameError,
   valuesError,
@@ -319,7 +326,7 @@ function AxisCard({
   const [typed, setTyped] = useState('');
   const [typedError, setTypedError] = useState<string | null>(null);
   const attribute = axisAttribute(axis, attributes);
-  const label = axis.name.trim() || `Nhóm phân loại ${index + 1}`;
+  const label = axis.name.trim() || `Thuộc tính biến thể ${index + 1}`;
   // Giá trị có sẵn của thuộc tính chưa thêm: bấm để thêm nhanh
   const suggestions = (attribute?.values ?? []).filter((v) => !axis.values.some((x) => sameText(x, v.value)));
 
@@ -350,10 +357,11 @@ function AxisCard({
     <div className="grid gap-3 rounded-md border p-3" role="group" aria-label={label}>
       <div className="flex items-start gap-2">
         <div className="grid flex-1 gap-1.5">
-          <span className="text-sm font-medium">Tên nhóm phân loại {index + 1}</span>
+          <span className="text-sm font-medium">Tên thuộc tính biến thể {index + 1}</span>
           <AxisNameCombobox
             axis={axis}
             attributes={attributes.filter((a) => !usedIds.includes(a.id))}
+            allowed={allowed}
             loading={loading}
             invalid={Boolean(nameError)}
             onPick={(a) => onChange({ attributeId: a.id, name: a.name })}
@@ -362,6 +370,10 @@ function AxisCard({
           />
           {nameError ? (
             <p className="text-sm text-destructive">{nameError}</p>
+          ) : attribute && allowed && !allowed.ids.includes(attribute.id) ? (
+            <p className="text-xs text-warning-text" role="status">
+              Thuộc tính này không thuộc danh mục {allowed.groupName}. Vẫn lưu được; sàn có thể không nhận lúc đăng.
+            </p>
           ) : (
             axis.name.trim() &&
             !attribute && (
@@ -372,8 +384,8 @@ function AxisCard({
             )
           )}
         </div>
-        <Button type="button" variant="ghost" size="icon" aria-label={`Bỏ ${label}`} onClick={onRemove} className="mt-6">
-          <Trash2 />
+        <Button type="button" variant="ghost" size="sm" aria-label={`Bỏ ${label}`} onClick={onRemove} className="mt-6 text-destructive">
+          Bỏ
         </Button>
       </div>
 
@@ -393,10 +405,10 @@ function AxisCard({
               <button
                 type="button"
                 aria-label={`Bỏ ${v}`}
-                className="rounded-sm hover:bg-muted"
+                className="min-h-5 cursor-pointer rounded-sm px-1 text-destructive hover:bg-muted"
                 onClick={() => onChange({ values: axis.values.filter((x) => x !== v) })}
               >
-                <X />
+                Bỏ
               </button>
             </Badge>
           ))}
@@ -446,6 +458,7 @@ interface AxisNameComboboxProps {
   axis: AxisDraft;
   /** Thuộc tính còn chọn được (bỏ thuộc tính nhóm kia đang dùng) */
   attributes: Attribute[];
+  allowed?: VariationEditorProps['allowed'];
   loading?: boolean;
   invalid?: boolean;
   onPick: (attribute: Attribute) => void;
@@ -454,12 +467,17 @@ interface AxisNameComboboxProps {
 }
 
 /** Tên nhóm: thuộc tính chuẩn sàn (`platformKind`) lên đầu, rồi thuộc tính của công ty; gõ tên khác là tự đặt */
-function AxisNameCombobox({ axis, attributes, loading, invalid, onPick, onCustom, onClose }: AxisNameComboboxProps) {
+function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick, onCustom, onClose }: AxisNameComboboxProps) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   const name = typed.trim();
-  const platform = attributes.filter((a) => a.platformKind);
-  const own = attributes.filter((a) => !a.platformKind);
+  // Có danh sách theo danh mục: hợp danh mục lên đầu theo thứ tự BE, còn lại xếp sau; không có thì chia chuẩn / tự tạo
+  const fits = allowed
+    ? allowed.ids.flatMap((id) => attributes.filter((a) => a.id === id))
+    : [];
+  const rest = allowed ? attributes.filter((a) => !allowed.ids.includes(a.id)) : attributes;
+  const platform = rest.filter((a) => a.platformKind);
+  const own = rest.filter((a) => !a.platformKind);
   const canCustom = name.length > 0 && !attributes.some((a) => sameText(a.name, name));
 
   const close = (next: boolean) => {
@@ -479,13 +497,10 @@ function AxisNameCombobox({ axis, attributes, loading, invalid, onPick, onCustom
         close(false);
       }}
     >
-      <Check className={cn(axis.attributeId === a.id ? 'opacity-100' : 'opacity-0')} />
       {a.name}
-      {a.platformKind && (
-        <Badge variant="outline" className="ml-auto">
-          Chuẩn sàn
-        </Badge>
-      )}
+      <span className="ml-auto text-xs text-muted-foreground">
+        {[axis.attributeId === a.id ? 'Đang chọn' : null, a.platformKind ? 'Mặc định' : null].filter(Boolean).join(' · ')}
+      </span>
     </CommandItem>
   );
 
@@ -501,7 +516,6 @@ function AxisNameCombobox({ axis, attributes, loading, invalid, onPick, onCustom
           className={cn('w-full justify-between font-normal', !axis.name && 'text-muted-foreground')}
         >
           <span className="truncate">{axis.name || 'Chọn hoặc gõ tên, vd Màu sắc'}</span>
-          <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
@@ -510,14 +524,16 @@ function AxisNameCombobox({ axis, attributes, loading, invalid, onPick, onCustom
           <CommandList>
             {loading ? (
               <p className="flex items-center gap-2 p-3 text-sm text-muted-foreground" role="status">
-                <Loader2 className="size-4 animate-spin" />
                 Đang tải thuộc tính…
               </p>
             ) : (
-              <CommandEmpty>Gõ tên để tạo nhóm phân loại tự đặt.</CommandEmpty>
+              <CommandEmpty>Gõ tên để tạo thuộc tính biến thể tự đặt.</CommandEmpty>
             )}
-            {platform.length > 0 && <CommandGroup heading="Chuẩn sàn">{platform.map(item)}</CommandGroup>}
-            {own.length > 0 && <CommandGroup heading="Của công ty">{own.map(item)}</CommandGroup>}
+            {fits.length > 0 && <CommandGroup heading={`Hợp với ${allowed?.groupName}`}>{fits.map(item)}</CommandGroup>}
+            {platform.length > 0 && (
+              <CommandGroup heading={allowed ? 'Mặc định khác (không thuộc danh mục)' : 'Mặc định của hệ thống'}>{platform.map(item)}</CommandGroup>
+            )}
+            {own.length > 0 && <CommandGroup heading={allowed ? 'Tự tạo khác' : 'Tự tạo'}>{own.map(item)}</CommandGroup>}
             {canCustom && (
               <CommandGroup heading="Tự đặt" forceMount>
                 <CommandItem
@@ -529,7 +545,6 @@ function AxisNameCombobox({ axis, attributes, loading, invalid, onPick, onCustom
                     close(false);
                   }}
                 >
-                  <Plus />
                   {name.length > MAX_AXIS_NAME ? `Tên tối đa ${MAX_AXIS_NAME} ký tự` : `Dùng tên “${name}”`}
                 </CommandItem>
               </CommandGroup>
