@@ -18,7 +18,7 @@ import type { ProductDetail } from '@/types/catalog';
 import type { PriceQuoteRow, ProductListingRow, PushResult, Shop } from '@/types/shop';
 import { LISTING_STATUS_LABELS, platformLabel } from '../shopSchemas';
 import { pushBlockMessage, splitPushResults } from '../listingPush';
-import { feePct, isOnPlatform, priceRange, priceView, rowBlocker } from './publishRows';
+import { feePct, isOnPlatform, priceRange, priceView, rowBlocker, stockToPushText } from './publishRows';
 
 const keyOf = (shopId: string, variantId: string) => `${shopId}:${variantId}`;
 const pct = (x: number) => `${(x * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
@@ -203,6 +203,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
               <TableHead className="text-right">Phí và thuế</TableHead>
               <TableHead className="text-right">Thực nhận</TableHead>
               {showMargin && <TableHead className="text-right">Biên lãi</TableHead>}
+              <TableHead className="text-right">Tồn sẽ đẩy</TableHead>
               <TableHead>Trạng thái</TableHead>
             </TableRow>
           </TableHeader>
@@ -251,6 +252,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                   {showMargin && (
                     <TableCell className="text-right align-top tabular-nums">{v.view.marginPct !== null ? pct(v.view.marginPct) : '—'}</TableCell>
                   )}
+                  <TableCell className="text-right align-top tabular-nums">{stockToPushText(v.r)}</TableCell>
                   <TableCell className="align-top">
                     {v.onPlatform && v.r.listing ? (
                       <Badge variant="outline">{LISTING_STATUS_LABELS[v.r.listing.status]}</Badge>
@@ -265,7 +267,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
             })}
             {!views.length && (
               <TableRow>
-                <TableCell colSpan={showMargin ? 7 : 6} className="text-center text-muted-foreground">
+                <TableCell colSpan={showMargin ? 8 : 7} className="text-center text-muted-foreground">
                   Chưa chọn gian hàng nào.
                 </TableCell>
               </TableRow>
