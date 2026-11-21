@@ -46,4 +46,9 @@ describe('receiptDiff (FE#137)', () => {
     );
     expect(receiptDiff({ ...base, accepted: 4, returnedOnSpot: 1 })).toBe('Trả lại ngay 1.');
   });
+
+  it('phiếu đã nhập kho (outstanding null): giao đủ không báo lệch (KB3 3.7)', () => {
+    expect(receiptDiff({ ...base, outstanding: null, announced: 20, accepted: 20 })).toBeNull();
+    expect(receiptDiff({ ...base, outstanding: null, announced: 20, accepted: 18, short: 2 })).toBe('Thiếu 2.');
+  });
 });

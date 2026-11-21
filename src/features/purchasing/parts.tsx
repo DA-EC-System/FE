@@ -60,7 +60,11 @@ export function withApprovalHint<S extends string, A extends string, R extends O
  * Dòng chưa giao lần này (báo giao 0) không tính chênh. Trả câu giải thích cho tooltip, không chênh thì null.
  */
 export function receiptDiff(l: {
-  outstanding: number;
+  /**
+   * Còn phải nhận lúc đếm; null khi phiếu đã nhập kho, vì BE trả "còn chờ lúc này" đã trừ chính phiếu này (so ra lệch
+   * giả, kiểm người bán KB3 3.7)
+   */
+  outstanding: number | null;
   announced: number;
   accepted: number;
   defectKept: number;
@@ -68,7 +72,7 @@ export function receiptDiff(l: {
   short: number;
 }): string | null {
   const parts: string[] = [];
-  if (l.announced > 0 && l.announced !== l.outstanding) {
+  if (l.outstanding !== null && l.announced > 0 && l.announced !== l.outstanding) {
     parts.push(`NCC giao ${l.announced}, còn phải nhận ${l.outstanding}`);
   }
   if (l.defectKept > 0) parts.push(`lỗi giữ lại ${l.defectKept}`);

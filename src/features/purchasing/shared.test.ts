@@ -5,6 +5,7 @@ import {
   axisChoices,
   newLineFromPrevious,
   newProductPlan,
+  prefillFullDelivery,
   receiptFormSchema,
   returnFormSchema,
   shortOfDraft,
@@ -151,5 +152,21 @@ describe('axisChoices (chốt 21/11 mục 5)', () => {
   });
   it('danh mục chưa giới hạn: một nhóm', () => {
     expect(axisChoices(attrs, [])).toEqual({ fits: attrs, others: [] });
+  });
+});
+
+describe('prefillFullDelivery (KB3 3.7: hàng về đủ thì điền sẵn)', () => {
+  it('phiếu mới mọi dòng 0: điền SL NCC giao, SL đạt bằng còn phải nhận', () => {
+    const lines = [line({ outstanding: 20, announced: '0', accepted: '0' }), line({ outstanding: 5, announced: '', accepted: '' })];
+    expect(prefillFullDelivery(lines)).toEqual([
+      { announced: '20', accepted: '20' },
+      { announced: '5', accepted: '5' },
+    ]);
+  });
+
+  it('đã có số đếm hoặc không còn gì phải nhận thì không điền', () => {
+    expect(prefillFullDelivery([line({ outstanding: 20, announced: '20', accepted: '0' })])).toBeNull();
+    expect(prefillFullDelivery([line({ outstanding: 0, announced: '0', accepted: '0' })])).toBeNull();
+    expect(prefillFullDelivery([])).toBeNull();
   });
 });

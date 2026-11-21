@@ -99,9 +99,8 @@ export function feePct(view: Pick<PriceView, 'listPrice' | 'netReceived'>): numb
   return (view.listPrice - view.netReceived) / view.listPrice;
 }
 
-/** Lý do một dòng chưa đăng được ở bước xem trước; null là đăng được */
-export function rowBlocker(view: PriceView, platformReady: boolean): string | null {
-  if (!platformReady) return 'Còn thiếu thông tin của sàn';
+/** Lý do giá của một dòng chưa đăng được; null là giá ổn */
+function priceBlocker(view: PriceView): string | null {
   switch (view.blockedCode) {
     case 'price_missing':
       return 'Chưa có giá bán';
@@ -115,6 +114,15 @@ export function rowBlocker(view: PriceView, platformReady: boolean): string | nu
   if (view.listPrice === null) return 'Chưa có giá bán';
   if (view.belowFloor) return 'Dưới giá thấp nhất';
   return null;
+}
+
+/**
+ * Lý do một dòng chưa đăng được ở bước xem trước; null là đăng được. Nêu đủ các lý do (thiếu thông tin sàn không che
+ * lý do về giá, phí: kiểm người bán KB2 2.12)
+ */
+export function rowBlocker(view: PriceView, platformReady: boolean): string | null {
+  const reasons = [platformReady ? null : 'Còn thiếu thông tin của sàn', priceBlocker(view)].filter(Boolean);
+  return reasons.length ? reasons.join('; ') : null;
 }
 
 /** Chữ của ô "Tồn sẽ đẩy" (Documents/21 §18.9 R3, cùng nghĩa với `match-preview`); không chặn đăng */

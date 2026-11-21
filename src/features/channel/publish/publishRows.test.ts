@@ -106,6 +106,9 @@ describe('priceView, feePct, rowBlocker', () => {
   });
   it('sàn còn thiếu thông tin thì chặn trước mọi lý do giá', () => {
     expect(rowBlocker(priceView(row(), undefined), false)).toBe('Còn thiếu thông tin của sàn');
+    expect(rowBlocker(priceView(row({ netReceived: null, belowFloor: null }), undefined), false)).toBe(
+      'Còn thiếu thông tin của sàn; Gian hàng chưa có cấu hình phí',
+    );
   });
 });
 

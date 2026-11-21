@@ -421,3 +421,16 @@ export function axisChoices(
     others: attributes.filter((a) => !ids.includes(a.id)),
   };
 }
+
+/**
+ * Phiếu vừa lập, mọi dòng còn 0: điền sẵn SL NCC giao và SL đạt bằng số còn phải nhận, người dùng chỉ sửa dòng lệch
+ * (kiểm người bán KB3 3.7). Trả null khi phiếu đã có số đếm (không đè số người dùng đã lưu).
+ */
+export function prefillFullDelivery(
+  lines: readonly Pick<ReceiptLineDraft, 'outstanding' | 'announced' | 'accepted' | 'defectKept' | 'returnedOnSpot'>[],
+): { announced: string; accepted: string }[] | null {
+  const zero = (s: string) => Number(s.trim() || '0') === 0;
+  if (!lines.length || !lines.every((l) => zero(l.announced) && zero(l.accepted) && zero(l.defectKept) && zero(l.returnedOnSpot))) return null;
+  if (!lines.some((l) => l.outstanding > 0)) return null;
+  return lines.map((l) => ({ announced: String(l.outstanding), accepted: String(l.outstanding) }));
+}
