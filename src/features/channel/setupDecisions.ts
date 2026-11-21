@@ -39,6 +39,8 @@ export const CANNOT_CREATE_TEXT: Record<CannotCreateReason, string | null> = {
   sku_too_long: 'SKU người bán dài quá 50 ký tự nên không tạo được SKU kho. Sửa SKU trên sàn, hoặc chọn SKU kho có sẵn.',
   sku_taken: null,
   no_permission: null,
+  // Dòng đã liên kết hoặc đang chờ duyệt (§18.9 R2): cột trạng thái đã nói, không ghi thêm
+  already_matched: null,
 };
 
 /**

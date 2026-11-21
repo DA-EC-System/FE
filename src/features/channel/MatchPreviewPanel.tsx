@@ -4,6 +4,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { useMatchPreview } from '@/api/shops.api';
 import type { ListingMatchPreview } from '@/types/shop';
 import { formatCurrency, formatDateTime } from '@/utils/format';
+import { FILL_BACK_LABELS } from './remoteLinking';
 
 interface MatchPreviewPanelProps {
   shopId: string;
@@ -89,6 +90,24 @@ export function MatchPreviewPanel({ shopId, pair }: MatchPreviewPanelProps) {
         </tbody>
       </table>
       <AlertMessage severity={severity}>{price ? `${stockNote(data)} ${price}` : stockNote(data)}</AlertMessage>
+      {data.fillBack && data.fillBack.length > 0 && (
+        <div data-testid="match-fill-back">
+          <p className="font-medium">Sẽ điền ngược vào sản phẩm (đang trống trong Commerio):</p>
+          <ul className="mt-1 grid gap-0.5">
+            {data.fillBack.map((f) => (
+              <li key={f.field}>
+                <span className="text-muted-foreground">{FILL_BACK_LABELS[f.field]}</span>
+                {f.value ? `: ${f.value}` : ''}
+              </li>
+            ))}
+          </ul>
+          {data.fillBackError && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Chưa đọc được sản phẩm trên sàn: {data.fillBackError.message}. Vẫn liên kết được; giá trị sẽ điền khi đọc được.
+            </p>
+          )}
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">Số trên sàn đọc lúc {formatDateTime(data.platform.syncedAt)}.</p>
     </div>
   );
