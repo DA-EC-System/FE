@@ -588,7 +588,7 @@ export type TemplateFieldInput =
 
 /**
  * Tạo (hoặc chọn) thuộc tính sản phẩm và gắn vào cuối mẫu danh mục trong một giao dịch:
- * `POST /catalog/groups/:id/template/fields` (Documents/21 §5.6, Documents/29 bước 3). Đã có trong mẫu: 422 `errors.fieldId`
+ * `POST /catalog/groups/:id/template/fields` (Documents/21 §5.6, Documents/29 bước 3). Lỗi theo ô có tiền tố `field.` theo body (be#552): đã có trong mẫu là 422 `errors["field.fieldId"]`, `errors["field.name"]`, `errors["field.options.<i>"]`…; 409 `version_conflict` kèm `current` là GroupTemplate
  */
 export function useAddTemplateField() {
   const invalidate = useInvalidateCatalog();
