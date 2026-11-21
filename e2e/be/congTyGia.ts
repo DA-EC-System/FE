@@ -10,7 +10,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { type APIRequestContext, type Browser, type Page, expect, request, test } from '@playwright/test';
-import { dangKyCongTyApi, emailThu } from './dangKy';
+import { dangKyCongTyApi, emailThu, xoaCongTyThu } from './dangKy';
 
 export interface CongTyGia {
   companyId: string;
@@ -78,9 +78,21 @@ export async function taoCongTyGia(
     page,
     token,
     api,
+    // Xoá công ty thử (commerio-backend#523). Token hết hạn thì làm mới bằng cookie refresh của trang (không tính vào giới
+    // hạn đăng nhập) rồi thử lại; vẫn không được thì để việc nền mỗi đêm dọn.
     dispose: async () => {
-      await api.dispose();
-      await page.close();
+      try {
+        if (!(await xoaCongTyThu(api, token))) {
+          const refreshed = await page.request.post('/api/v1/identity/refresh');
+          if (refreshed.ok()) {
+            const { accessToken: fresh } = (await refreshed.json()) as { accessToken: string };
+            if (!(await xoaCongTyThu(api, fresh))) console.warn(`Chưa xoá được công ty thử ${companyId}: việc nền đêm sẽ dọn`);
+          }
+        }
+      } finally {
+        await api.dispose();
+        await page.close();
+      }
     },
   };
 }
