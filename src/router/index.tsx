@@ -30,7 +30,7 @@ import { WelcomePage } from '@/features/company/WelcomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
 import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
-import { ProductPushPage } from '@/features/channel/ProductPushPage';
+import { LegacyPushRedirect, ProductPublishPage } from '@/features/channel/publish/ProductPublishPage';
 import { MockOAuthPage, ShopOAuthCallbackPage, ShopOAuthRedirect } from '@/features/channel/ShopOAuthPages';
 import { StaffListPage } from '@/features/identity/StaffListPage';
 import { JoinPage } from '@/features/auth/JoinPage';
@@ -157,10 +157,15 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    // Lối cũ của trang đẩy từng sàn: chuyển sang màn Đăng sản phẩm
                     path: 'channel/products/:productId/push/:platform',
+                    element: <LegacyPushRedirect />,
+                  },
+                  {
+                    path: 'catalog/products/:productId/publish',
                     element: (
                       <RequireModule module="channel" permission={PERMISSIONS.listingManage}>
-                        <ProductPushPage />
+                        <ProductPublishPage />
                       </RequireModule>
                     ),
                   },

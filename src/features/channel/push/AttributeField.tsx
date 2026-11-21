@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -96,7 +95,7 @@ function OptionPicker({ attribute: a, value, onChange, inputId, invalid, multipl
             <Badge key={id} variant="secondary" className="h-6 gap-1 pr-1">
               {valueLabel(a, id)}
               <button type="button" aria-label={`Bỏ ${valueLabel(a, id)}`} onClick={() => choose(id)} className="rounded-sm hover:bg-muted">
-                <X />
+                Bỏ
               </button>
             </Badge>
           ))}
@@ -114,7 +113,6 @@ function OptionPicker({ attribute: a, value, onChange, inputId, invalid, multipl
             className={cn('w-full justify-between font-normal', !picked.length && 'text-muted-foreground')}
           >
             <span className="truncate">{!multiple && picked.length ? valueLabel(a, picked[0]) : multiple && picked.length ? 'Thêm giá trị…' : 'Chọn…'}</span>
-            <ChevronsUpDown className="opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
@@ -133,8 +131,8 @@ function OptionPicker({ attribute: a, value, onChange, inputId, invalid, multipl
                 <CommandGroup heading={`Giá trị của sàn (${a.options.length})`}>
                   {a.options.map((o) => (
                     <CommandItem key={o.id} value={`${o.label} ${o.id}`} onSelect={() => choose(o.id)}>
-                      <Check className={cn(picked.includes(o.id) ? 'opacity-100' : 'opacity-0')} />
                       {o.label}
+                      {picked.includes(o.id) && <span className="ml-auto text-xs text-muted-foreground">Đã chọn</span>}
                     </CommandItem>
                   ))}
                 </CommandGroup>

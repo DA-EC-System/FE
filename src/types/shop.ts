@@ -465,6 +465,34 @@ export interface PushResult {
 /** Body đẩy: tối đa 20 biến thể một lần. Ảnh BE tự lấy từ catalog (§18.5, commerio-backend#303) */
 export interface PushListingsInput {
   variantIds: string[];
+  /**
+   * Giá niêm yết người bán gõ ở màn Đăng sản phẩm (Documents/21 §18.9 R1): thành giá ghi đè tay, áp ngay, BE kiểm
+   * `below_floor`, không chờ duyệt; lần tính lại theo phí không đổi giá này cho tới khi bỏ ghi đè
+   */
+  listPrices?: Record<string, number>;
+}
+
+/** Một dòng tính thử giá (Documents/21 §18.9 R1); thiếu `listPrice` thì BE tính theo giá muốn bán */
+export interface PriceQuoteItem {
+  shopId: string;
+  variantId: string;
+  listPrice?: number;
+}
+
+/**
+ * Kết quả tính thử giá, cùng nghĩa với `ListingRow` (§18.6.7). `marginPct` chỉ có khi người gọi có
+ * `inventory.cost.view`. `blocked.code`: `price_missing`, `fee_config_invalid`, `fee_not_configured` (ba số null)
+ */
+export interface PriceQuoteRow {
+  shopId: string;
+  variantId: string;
+  listPrice: number | null;
+  netReceived: number | null;
+  belowFloor: boolean | null;
+  feeWarning: 'over_50' | null;
+  feeConfigId: string | null;
+  blocked: { code: string } | null;
+  marginPct?: number | null;
 }
 
 /**
