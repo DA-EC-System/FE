@@ -501,11 +501,6 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
     >
       <Check className={cn(axis.attributeId === a.id ? 'opacity-100' : 'opacity-0')} />
       {a.name}
-      {a.platformKind && (
-        <Badge variant="outline" className="ml-auto">
-          Mặc định
-        </Badge>
-      )}
     </CommandItem>
   );
 
@@ -538,9 +533,9 @@ function AxisNameCombobox({ axis, attributes, allowed, loading, invalid, onPick,
             )}
             {fits.length > 0 && <CommandGroup heading={`Hợp với ${allowed?.groupName}`}>{fits.map(item)}</CommandGroup>}
             {platform.length > 0 && (
-              <CommandGroup heading={allowed ? 'Mặc định khác (không thuộc danh mục)' : 'Mặc định của hệ thống'}>{platform.map(item)}</CommandGroup>
+              <CommandGroup heading={allowed ? 'Ngoài danh mục: mặc định của hệ thống' : 'Mặc định của hệ thống'}>{platform.map(item)}</CommandGroup>
             )}
-            {own.length > 0 && <CommandGroup heading={allowed ? 'Tự tạo khác' : 'Tự tạo'}>{own.map(item)}</CommandGroup>}
+            {own.length > 0 && <CommandGroup heading={allowed ? 'Ngoài danh mục: tự tạo' : 'Tự tạo'}>{own.map(item)}</CommandGroup>}
             {canCustom && (
               <CommandGroup heading="Tự đặt" forceMount>
                 <CommandItem
