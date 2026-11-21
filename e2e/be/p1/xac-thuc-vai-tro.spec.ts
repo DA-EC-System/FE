@@ -2,7 +2,7 @@
 // Không dùng mockApi. Mỗi lần chạy tự đăng ký công ty mới nên chạy lại được trên cùng database.
 import { type APIRequestContext, type Page } from '@playwright/test';
 import { chu, chua, duongDan, expect, loi, menu, test, thayChu, toast } from '../../fixtures';
-import { dangKyCongTyApi, emailThu, maThu } from '../dangKy';
+import { dangKyCongTyApi, emailThu, maThu, xoaCongTyThu } from '../dangKy';
 
 const RUN = Date.now().toString().slice(-7);
 const MAT_KHAU = 'matkhau123';
@@ -12,13 +12,16 @@ const UUID = '[0-9a-f-]{36}';
 const maSoThue = (n: number) => `03${RUN}${n}`;
 const emailCeo = (n: number) => emailThu(`ceo${n}.${RUN}`);
 
-const dangKyApi = async (api: APIRequestContext, n: number): Promise<string> =>
-  (
-    await dangKyCongTyApi(api, {
-      company: { name: `Công ty E2E ${RUN}-${n}`, taxCode: maSoThue(n) },
-      ceo: { fullName: `CEO Thử ${n}`, email: emailCeo(n), password: MAT_KHAU },
-    })
-  ).companyId;
+/** Token CEO của từng công ty đã đăng ký, để `afterAll` xoá (commerio-backend#523) */
+const daDangKy: string[] = [];
+const dangKyApi = async (api: APIRequestContext, n: number): Promise<string> => {
+  const { companyId, accessToken } = await dangKyCongTyApi(api, {
+    company: { name: `Công ty E2E ${RUN}-${n}`, taxCode: maSoThue(n) },
+    ceo: { fullName: `CEO Thử ${n}`, email: emailCeo(n), password: MAT_KHAU },
+  });
+  daDangKy.push(accessToken);
+  return companyId;
+};
 
 const dangNhapTay = async (page: Page, email: string, password: string) => {
   await page.locator('input[name=email]').fill(email);
@@ -53,6 +56,12 @@ let congTy1 = '';
 test.beforeAll(async ({ playwright }) => {
   const api = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
   congTy1 = String(await dangKyApi(api, 1));
+  await api.dispose();
+});
+// Công ty 2 đổi mật khẩu nên token cũ 401: bỏ qua, việc nền đêm dọn (không đăng nhập lại vì giới hạn 20 lần/15 phút)
+test.afterAll(async ({ playwright }) => {
+  const api = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
+  for (const token of daDangKy) await xoaCongTyThu(api, token);
   await api.dispose();
 });
 

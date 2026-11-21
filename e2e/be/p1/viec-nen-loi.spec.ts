@@ -1,19 +1,26 @@
 // P1 với BE thật · Việc nền lỗi (FE#145; commerio-backend#102, Documents/21 §14.5)
 // Không dùng mockApi. Tự đăng ký công ty mới nên chạy lại được; công ty mới chưa có việc lỗi nên chỉ đọc, không chạy lại.
 import { duongDan, expect, menu, test } from '../../fixtures';
-import { dangKyCongTyApi, emailThu } from '../dangKy';
+import { dangKyCongTyApi, emailThu, xoaCongTyThu } from '../dangKy';
 
 const RUN = Date.now().toString().slice(-7);
 const MAT_KHAU = 'matkhau123';
 const EMAIL = emailThu(`ceo.job.${RUN}`);
 
 test.describe('P1 · Việc nền lỗi (BE thật)', () => {
+  let token = '';
   test.beforeAll(async ({ playwright }) => {
     const api = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
-    await dangKyCongTyApi(api, {
+    ({ accessToken: token } = await dangKyCongTyApi(api, {
       company: { name: `Công ty Job ${RUN}`, taxCode: `04${RUN}1` },
       ceo: { fullName: 'CEO Việc nền', email: EMAIL, password: MAT_KHAU },
-    });
+    }));
+    await api.dispose();
+  });
+  test.afterAll(async ({ playwright }) => {
+    if (!token) return;
+    const api = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
+    await xoaCongTyThu(api, token);
     await api.dispose();
   });
 

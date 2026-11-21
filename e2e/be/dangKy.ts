@@ -50,3 +50,17 @@ export async function dangKyCongTyApi(
   }
   throw new Error(`Nhập mã thử 4 lần vẫn sai (registrationId ${registrationId}): kiểm biến mã thử của BE staging và worker`);
 }
+
+/**
+ * Xoá công ty thử vừa đăng ký (commerio-backend#523, Documents/21 mục 2.2), gọi ở `afterAll`: `DELETE /platform/company`
+ * bằng access token của CEO đã gắn công ty. 204 là xoá xong, 404 là server không bật đăng ký thử (không có gì để dọn).
+ * 401 (token hết 15 phút, hoặc spec đã đổi mật khẩu) thì trả `false` để bên gọi lấy token mới hoặc bỏ qua: việc nền
+ * `platform.test_company_cleanup` xoá công ty thử quá 6 giờ. Mã khác (403 `not_test_company`…) là lỗi thật, ném ra.
+ */
+export async function xoaCongTyThu(api: APIRequestContext, accessToken: string): Promise<boolean> {
+  const res = await api.delete('/api/v1/platform/company', { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (res.status() === 204 || res.status() === 404) return true;
+  if (res.status() === 401) return false;
+  expect(res.status(), `Không xoá được công ty thử: ${await res.text()}`).toBe(204);
+  return true;
+}
