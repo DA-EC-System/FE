@@ -58,13 +58,13 @@ describe('parseMinQty', () => {
 });
 
 describe('publishBlocker', () => {
-  const ok = { isNew: false, archived: false, canPublish: true, missingCount: 0, dirty: false };
+  const ok = { isNew: false, archived: false, canPublish: true, missing: [] as string[], dirty: false };
   it('bấm được khi đủ điều kiện', () => expect(publishBlocker(ok)).toBeNull());
   it.each([
     [{ isNew: true }, 'Lưu sản phẩm trước rồi mới đăng'],
     [{ archived: true }, 'Sản phẩm đã lưu trữ'],
     [{ canPublish: false }, 'Bạn không có quyền đăng sản phẩm lên gian hàng'],
-    [{ missingCount: 3 }, 'Còn thiếu 3 mục để đăng'],
+    [{ missing: ['ảnh', 'cân nặng (2 SKU)'] }, 'Còn thiếu 2 mục để đăng: ảnh, cân nặng (2 SKU)'],
     [{ dirty: true }, 'Lưu thay đổi trước rồi mới đăng'],
   ])('%o → %s', (patch, reason) => expect(publishBlocker({ ...ok, ...patch })).toBe(reason));
 });

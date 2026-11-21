@@ -8,11 +8,11 @@ import type { ProductDetail } from '@/types/catalog';
 import type { ProductSpecResult, SpecMissing, SpecValue } from '@/types/shop';
 import {
   draftFromSpec,
+  draftMissing,
   productAxes,
   PROFILE_FIELDS,
   profilePatch,
   specInput,
-  specMissing,
   suggestValueMap,
   withAttribute,
   withAxis,
@@ -54,9 +54,10 @@ export function usePlatformDraft({
   const facts = useMemo(() => ({ originCountry: product.originCountry ?? null, brand: product.brand ?? null }), [product.originCountry, product.brand]);
   const forLeaf = useSpecForCategory(product.id, platform, draft.externalCategoryId);
   const caps = forLeaf.data?.variantCapabilities ?? null;
-  const missing: SpecMissing[] = draft.externalCategoryId
-    ? specMissing(attrs, draft, axes, facts, caps)
-    : [{ code: 'category', label: 'Chưa chọn category', reason: 'category_changed' }];
+  // "Còn thiếu" (kiểm người bán 21/11/2026 KB3 3.10): bản đã lưu, chưa sửa gì thì tin `missing` của BE, vì BE tính cả
+  // giá trị tự điền từ thông số sản phẩm, hồ sơ công ty (`resolved`). Đang sửa, đổi category hay chưa lưu lần nào thì
+  // tính lại trên giá trị gộp: ghi đè trong nháp > `resolved` của BE cho đúng leaf đang chọn (Documents/21 §18.8.2)
+  const missing: SpecMissing[] = draftMissing({ draft, dirty, saved, forLeaf: forLeaf.data, attrs, axes, facts, caps });
 
   // Áp gợi ý thuộc tính biến thể của BE khi đã có attribute của leaf (§18.8.3)
   const suggestion = forLeaf.data;
