@@ -211,11 +211,15 @@ function Stepper({ steps, cur, done, onPick }: { steps: OnboardingStep[]; cur: n
                   )}
                 >
                   {i + 1}
-                  {state === 'done' && <span className="sr-only">Đã xong</span>}
-                  {locked && <span className="sr-only">Chưa mở</span>}
                 </span>
                 <span className="grid gap-0.5">
-                  <span className="text-sm font-medium">{s.label}</span>
+                  <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium">
+                    {s.label}
+                    {/* Trạng thái bằng chữ, không chỉ bằng màu (cố vấn chốt 22/11/2026) */}
+                    <span className={cn('text-xs font-normal', state === 'done' ? 'text-success-text' : 'text-muted-foreground')}>
+                      {state === 'done' ? 'Xong' : 'Chưa xong'}
+                    </span>
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {locked ? `Làm xong bước ${cur + 1} trước` : WIZARD_TEXT[s.key as WizardKey].sub}
                   </span>

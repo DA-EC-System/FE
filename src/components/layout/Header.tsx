@@ -51,7 +51,7 @@ export function Header({ active, sections }: { active: ActiveNav | null; section
 
   return (
     <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b bg-card px-4 md:px-6">
-      <SidebarTrigger className="-ms-1 size-8 text-foreground-2 hover:bg-fill" />
+      <SidebarTrigger className="-ms-1 h-8 px-2 text-foreground-2 hover:bg-fill" />
       <nav aria-label="Vị trí" className="min-w-0">
         <ol className="flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground">
           {crumbs.map((c, i) => {
