@@ -22,13 +22,15 @@ export function WelcomeReturnBar({ stepKey, finished, className }: { stepKey: On
   const welcome = ROUTES.company.welcome(companyId);
   const wasFinished = useRef(finished);
 
+  // Chỉ khi công ty chưa hoàn tất onboarding: sau đó dấu cũ trong tab không còn kéo về wizard
+  const onboardingOpen = onboarding.data?.completedAt === null;
   useEffect(() => {
-    if (active && finished && !wasFinished.current) navigate(welcome);
+    if (active && onboardingOpen && finished && !wasFinished.current) navigate(welcome);
     wasFinished.current = finished;
-  }, [active, finished, navigate, welcome]);
+  }, [active, onboardingOpen, finished, navigate, welcome]);
 
   const data = onboarding.data;
-  if (!active || !data || data.done >= data.total) return null;
+  if (!active || !data || data.completedAt !== null || data.done >= data.total) return null;
   const required = data.items.filter((i) => !i.optional);
   const n = required.findIndex((i) => i.key === stepKey) + 1;
   if (!n) return null;

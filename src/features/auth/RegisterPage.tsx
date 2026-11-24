@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useForm, type UseFormSetError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
@@ -10,6 +10,7 @@ import { Form } from '@/components/ui/form';
 import { AuthShell } from './AuthShell';
 import { registerSchema, type RegisterForm } from './schemas';
 import { useCooldown } from './useCooldown';
+import { clearPendingRegistration, loadPendingRegistration, savePendingRegistration } from '@/lib/registrationResume';
 import { useRegisterCompany, useResendRegistration, useVerifyRegistration } from '@/hooks/useAuth';
 import { getErrorMessage, getProblem, retryAfterSeconds } from '@/api/client';
 import { ROUTES } from '@/router/routes';
@@ -82,8 +83,20 @@ export function RegisterPage() {
   const resend = useResendRegistration();
   const verify = useVerifyRegistration();
   const cooldown = useCooldown();
-  const [step, setStep] = useState<Step>({ kind: 'form' });
+  // Tải lại trang khi đang chờ mã thì về thẳng màn nhập mã (FE#468, N2)
+  const [step, setStep] = useState<Step>(() => {
+    const pending = loadPendingRegistration();
+    return pending ? { kind: 'code', ...pending } : { kind: 'form' };
+  });
   const [error, setError] = useState<string | null>(null);
+  // Về lại màn nhập mã sau khi tải lại: không biết đã chờ bao lâu, nên chờ trọn thời gian giãn cách trước khi cho gửi lại
+  const restoredWait = step.kind === 'code' ? step.status.resendAfterSeconds : 0;
+  const startCooldown = cooldown.start;
+  useEffect(() => {
+    if (restoredWait > 0) startCooldown(restoredWait);
+    // Chỉ chạy một lần lúc mở trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [notice, setNotice] = useState<string | null>(null);
 
   const form = useForm<RegisterForm>({
@@ -107,6 +120,7 @@ export function RegisterPage() {
   };
 
   const backToForm = (message: string | null) => {
+    clearPendingRegistration();
     setStep({ kind: 'form' });
     setNotice(null);
     setError(message);
@@ -121,6 +135,7 @@ export function RegisterPage() {
       },
       {
         onSuccess: (status) => {
+          savePendingRegistration({ email: v.email, status });
           setStep({ kind: 'code', email: v.email, status });
           cooldown.start(status.resendAfterSeconds);
           setNotice(SENT_NOTICE);
@@ -161,6 +176,7 @@ export function RegisterPage() {
     setError(null);
     resend.mutate(current.status.registrationId, {
       onSuccess: (status) => {
+        savePendingRegistration({ email: current.email, status });
         setStep({ ...current, status });
         cooldown.start(status.resendAfterSeconds);
         setNotice(RESENT_NOTICE);
