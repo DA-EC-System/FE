@@ -55,14 +55,24 @@ export interface Shop {
   authExpiresAt?: string | null;
   tokenExpiringSoon: boolean;
   externalShopId: string;
+  /** Tên gian hàng trên sàn; có khi chỉ là mã thô (TikTok sandbox: `SANDBOX_VN…`) */
   shopName: string;
+  /** Tên người dùng đặt (1–60 ký tự); null thì hiện `shopName` (commerio-backend#565). BE cũ chưa trả thì vắng */
+  displayName?: string | null;
   region: string | null;
   status: ShopStatus;
   /** Hạn của access token sàn; null khi đã ngắt. BE tự làm mới khi còn dưới 24 giờ */
   accessExpiresAt: string | null;
   /** Hạn của refresh token: quá hạn thì chỉ người dùng kết nối lại được. Null khi đã ngắt hoặc sàn giả lập (§18.4) */
   refreshExpiresAt: string | null;
-  lastOrderSyncAt?: string;
+  /** Mốc của lượt kéo đơn định kỳ; lượt kéo đơn còn mở sau thiết lập không tiến mốc này */
+  lastOrderSyncAt?: string | null;
+  /** Giờ bắt đầu lượt lấy đơn gần nhất chạy xong trọn (commerio-backend#223) */
+  ordersPulledOkAt?: string | null;
+  /** Lượt kéo đơn còn mở sau thiết lập đã xong; null khi chưa xong (commerio-backend#198) */
+  openOrdersPulledAt?: string | null;
+  /** Lỗi của lượt kéo đơn định kỳ gần nhất; null khi lượt sau chạy trọn */
+  orderPullError?: string | null;
   /** Mốc kéo đơn đặt ở thiết lập lần đầu: chỉ kéo đơn tạo từ mốc này */
   orderCutoffAt: string | null;
   /** Việc đang chờ trong hàng đợi vì chưa gọi được sàn (đẩy tồn, đẩy giá, ẩn listing) */
@@ -651,8 +661,10 @@ export interface ShopSetupResult {
 /** PATCH /channel/shops/:id (§18.4, BE#377): sửa hạn trả hàng khi capabilities.returnWindow = days */
 export interface ShopUpdateInput {
   version: number;
-  /** Số nguyên 1–60 */
-  returnWindowDays: number;
+  /** Số nguyên 1–60; bỏ trống là giữ */
+  returnWindowDays?: number;
+  /** Tên hiển thị 1–60 ký tự; null bỏ tên riêng, hiện tên trên sàn; bỏ trống là giữ (commerio-backend#565) */
+  displayName?: string | null;
 }
 
 export interface ShopDisconnectInput {

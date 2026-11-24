@@ -16,6 +16,7 @@ import { useDeleteShop } from '@/api/shops.api';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import type { Shop } from '@/types/shop';
 import { DELETE_CONFIRM_WORD, deleteConfirmed, platformLabel } from './shopSchemas';
+import { shopDisplayName } from './shopList';
 
 interface ShopDeleteDialogProps {
   /** Gian hàng đang xoá, lấy từ danh sách mới nhất để version theo kịp sau khi nạp lại */
@@ -53,7 +54,7 @@ function DeleteContent({ shop, onClose, onStale }: { shop: Shop } & Omit<ShopDel
     try {
       const { deleted } = await del.mutateAsync({ id: shop.id, confirm: DELETE_CONFIRM_WORD, version: shop.version });
       toast.success(
-        `Đã xoá ${shop.shopName}: ${deleted.orders} đơn, ${deleted.packages} kiện hàng, ${deleted.listings} listing`,
+        `Đã xoá ${shopDisplayName(shop)}: ${deleted.orders} đơn, ${deleted.packages} kiện hàng, ${deleted.listings} listing`,
       );
       onClose();
     } catch (e) {
@@ -65,7 +66,7 @@ function DeleteContent({ shop, onClose, onStale }: { shop: Shop } & Omit<ShopDel
         return;
       }
       if (code === 'version_conflict') {
-        setError(`${shop.shopName} vừa được người khác sửa. Chưa xoá gì, đã nạp lại danh sách; xem lại rồi bấm Xoá vĩnh viễn.`);
+        setError(`${shopDisplayName(shop)} vừa được người khác sửa. Chưa xoá gì, đã nạp lại danh sách; xem lại rồi bấm Xoá vĩnh viễn.`);
         onStale();
         return;
       }
@@ -88,7 +89,7 @@ function DeleteContent({ shop, onClose, onStale }: { shop: Shop } & Omit<ShopDel
       }}
     >
       <AlertDialogHeader>
-        <AlertDialogTitle>Xoá vĩnh viễn {shop.shopName}?</AlertDialogTitle>
+        <AlertDialogTitle>Xoá vĩnh viễn {shopDisplayName(shop)}?</AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="grid gap-2">
             <p>

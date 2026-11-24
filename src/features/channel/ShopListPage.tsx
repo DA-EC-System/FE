@@ -28,7 +28,16 @@ import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatDate, formatDateTime } from '@/utils/format';
 import type { Shop } from '@/types/shop';
-import { hasCategoryChangeIssue, missingReturnWindow, needsAction, shopPage, shopPlatformOptions, type ShopSegment } from './shopList';
+import {
+  hasCategoryChangeIssue,
+  lastOrderPull,
+  missingReturnWindow,
+  needsAction,
+  shopDisplayName,
+  shopPage,
+  shopPlatformOptions,
+  type ShopSegment,
+} from './shopList';
 import { RETURN_WINDOW_EDIT } from './ReturnWindowPanel';
 import { authorizationDeadline, platformLabel, STATUS_META } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
@@ -36,6 +45,7 @@ import { AddShopDialog } from './AddShopDialog';
 import { ReconnectTokenDialog } from './ReconnectTokenDialog';
 import { ShopDeleteDialog } from './ShopDeleteDialog';
 import { ShopDisconnectDialog } from './ShopDisconnectDialog';
+import { ShopRenameDialog } from './ShopRenameDialog';
 
 /** Lý do một thao tác trên dòng bị khoá, theo trạng thái gian hàng (Test_UI) */
 const BLOCKED_BY_STATUS: Record<Shop['status'], string | null> = {
@@ -122,6 +132,7 @@ export function ShopListPage() {
   const [pageSize, setPageSize] = useState(25);
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [tokenReconnecting, setTokenReconnecting] = useState<Shop | null>(null);
   // Màn kết quả "Thêm gian hàng khác" quay về đây và mở luôn hộp thêm
   const [adding, setAdding] = useState(
@@ -143,6 +154,7 @@ export function ShopListPage() {
   const visibleShops = shopPage(allShops, { page, pageSize, search: debouncedSearch, platform, segment });
   // Lấy từ danh sách mới nhất: nạp lại sau 409 thì hộp xoá gửi version mới
   const deleting = deletingId ? (allShops.find((s) => s.id === deletingId) ?? null) : null;
+  const renaming = renamingId ? (allShops.find((s) => s.id === renamingId) ?? null) : null;
   const syncMut = useSyncShop();
   const connector = useStartConnect();
 
@@ -177,7 +189,7 @@ export function ShopListPage() {
   const sync = async (s: Shop) => {
     try {
       const r = await syncMut.mutateAsync(s.id);
-      toast.success(`Đã đồng bộ đơn của ${s.shopName}: ${r.created} đơn mới, ${r.updated} đơn cập nhật`);
+      toast.success(`Đã đồng bộ đơn của ${shopDisplayName(s)}: ${r.created} đơn mới, ${r.updated} đơn cập nhật`);
     } catch (e) {
       toast.error(problemMessage(e));
     }
@@ -189,12 +201,22 @@ export function ShopListPage() {
         id: 'shopName',
         header: 'Gian hàng',
         meta: { className: 'min-w-52' },
-        cell: ({ row }) => (
-          <div className="min-w-0">
-            <p className="truncate font-medium">{row.original.shopName}</p>
-            <p className="truncate font-mono text-xs text-muted-foreground">{row.original.externalShopId}</p>
-          </div>
-        ),
+        // Tên hiển thị trước; tên trên sàn (có khi là mã thô SANDBOX_VN…) xuống dòng phụ kèm mã gian hàng (FE#464)
+        cell: ({ row }) => {
+          const s = row.original;
+          const name = shopDisplayName(s);
+          return (
+            <div className="min-w-0">
+              <p className="truncate font-medium" data-testid="shop-display-name">
+                {name}
+              </p>
+              <p className="truncate font-mono text-xs text-muted-foreground" title={`${s.shopName} · ${s.externalShopId}`}>
+                {name !== s.shopName && <>{s.shopName} · </>}
+                {s.externalShopId}
+              </p>
+            </div>
+          );
+        },
       },
       {
         id: 'platform',
@@ -245,12 +267,22 @@ export function ShopListPage() {
         id: 'lastOrderSyncAt',
         header: 'Đồng bộ đơn gần nhất',
         meta: { className: 'w-40 whitespace-nowrap' },
-        cell: ({ row }) =>
-          row.original.lastOrderSyncAt ? (
-            formatDateTime(row.original.lastOrderSyncAt)
-          ) : (
-            <span className="text-muted-foreground">Chưa đồng bộ</span>
-          ),
+        // Mốc muộn nhất của mọi lượt kéo đơn, gồm lượt đơn còn mở sau thiết lập: khớp với "Đơn 7 ngày" (FE#464)
+        cell: ({ row }) => {
+          const s = row.original;
+          const pull = lastOrderPull(s);
+          return (
+            <div className="grid gap-0.5" data-testid="shop-last-order-pull">
+              {pull ? formatDateTime(pull.at) : <span className="text-muted-foreground">Chưa đồng bộ</span>}
+              {pull?.openOrdersOnly && <span className="text-xs text-muted-foreground">Đơn còn mở lúc thiết lập</span>}
+              {s.orderPullError && (
+                <span className="text-xs text-destructive" title={s.orderPullError}>
+                  Lượt kéo gần nhất lỗi
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: 'actions',
@@ -283,12 +315,13 @@ export function ShopListPage() {
               {primary}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8" aria-label={`Thao tác khác với ${s.shopName}`}>
+                  <Button variant="ghost" size="icon" className="size-8" aria-label={`Thao tác khác với ${shopDisplayName(s)}`}>
                     <MoreHorizontal />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
                   <DropdownMenuItem onSelect={() => openShop(s)}>Listing & giá</DropdownMenuItem>
+                  {canConnect && <DropdownMenuItem onSelect={() => setRenamingId(s.id)}>Đổi tên hiển thị</DropdownMenuItem>}
                   {canConnect && (
                     <MenuItem
                       label="Thiết lập lần đầu"
@@ -365,7 +398,7 @@ export function ShopListPage() {
           <AlertMessage severity="warning">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                <strong>{s.shopName}</strong> cần kết nối lại: sàn đã thu hồi quyền, chưa đồng bộ đơn và tồn được.
+                <strong>{shopDisplayName(s)}</strong> cần kết nối lại: sàn đã thu hồi quyền, chưa đồng bộ đơn và tồn được.
                 {s.pendingJobs > 0 && ` ${s.pendingJobs} cập nhật chờ gửi sàn, sẽ gửi ngay khi kết nối lại.`}
               </span>
               {canConnect && (
@@ -447,6 +480,10 @@ export function ShopListPage() {
         onClose={() => setDisconnecting(null)}
         onConflict={() => void shopsQuery.refetch()}
       />
+
+      {canConnect && (
+        <ShopRenameDialog shop={renaming} onClose={() => setRenamingId(null)} onConflict={() => void shopsQuery.refetch()} />
+      )}
 
       {canDelete && (
         <ShopDeleteDialog

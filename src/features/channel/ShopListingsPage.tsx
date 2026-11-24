@@ -102,6 +102,7 @@ import {
 } from './shopSchemas';
 import { useStartConnect } from './useStartConnect';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { shopDisplayName } from './shopList';
 
 /** Tab của bảng theo Test_UI `v-listing` */
 
@@ -201,7 +202,9 @@ export function ShopListingsPage() {
 
   const shopQuery = useShop(shopId);
   const shop = shopQuery.data;
-  useBreadcrumb(shop?.shopName);
+  // Tên hiển thị của gian hàng (FE#464): tên trên sàn có khi chỉ là mã thô
+  const shopLabel = shop ? shopDisplayName(shop) : undefined;
+  useBreadcrumb(shopLabel);
   const usable = shop ? isUsable(shop.status) : false;
   const canManage = can(PERMISSIONS.listingManage) && usable;
   /** Ghép SKU tách quyền khỏi đẩy, gỡ (§18.6.5): Sale ghép được nhưng không đẩy */
@@ -239,7 +242,7 @@ export function ShopListingsPage() {
     companyId,
     shopId,
     platform: shop?.platform,
-    shopLabel: shop?.shopName,
+    shopLabel,
     canFix: canEditProduct,
   });
   const remoteQuery = useRemoteSkus(shopId, canMatch);
@@ -1273,7 +1276,7 @@ export function ShopListingsPage() {
   return (
     <div>
       <PageHeader
-        title={shop ? `Listing & giá · ${shop.shopName}` : 'Listing & giá'}
+        title={shop ? `Listing & giá · ${shopDisplayName(shop)}` : 'Listing & giá'}
         subtitle={
           shop
             ? `${platformLabel(shop.platform, shop.platformName)} · ${shop.externalShopId}`
@@ -1619,7 +1622,7 @@ export function ShopListingsPage() {
                 (SKU sàn <strong>{delisting.listing.sellerSku}</strong>)
               </>
             )}{' '}
-            khỏi gian hàng <strong>{shop?.shopName}</strong> trên {platformName}. Khách không đặt được SKU này trên sàn nữa;
+            khỏi gian hàng <strong>{shopLabel}</strong> trên {platformName}. Khách không đặt được SKU này trên sàn nữa;
             liên kết SKU vẫn giữ để đăng lại sau.
           </>
         }
@@ -1636,12 +1639,12 @@ export function ShopListingsPage() {
           decidingOutside?.action === 'accept-price' ? (
             <>
               Lấy giá <strong>{priceText(decidingOutside.row.listing?.outsideChange?.platformPrice)}</strong> đang có trên sàn làm
-              giá riêng của <strong>{decidingOutside.row.sku}</strong> ở {shop?.shopName}, rồi bật lại SKU.
+              giá riêng của <strong>{decidingOutside.row.sku}</strong> ở {shopLabel}, rồi bật lại SKU.
             </>
           ) : (
             <>
               Dùng lại giá Commerio <strong>{priceText(decidingOutside?.row.price)}</strong> và bật lại{' '}
-              <strong>{decidingOutside?.row.sku}</strong> trên {shop?.shopName}.
+              <strong>{decidingOutside?.row.sku}</strong> trên {shopLabel}.
             </>
           )
         }
@@ -1655,7 +1658,7 @@ export function ShopListingsPage() {
         title="Cập nhật thông tin lên sàn?"
         message={
           <>
-            Đưa tên, mô tả, thuộc tính mới của <strong>{updatingContent?.sku}</strong> lên {shop?.shopName}; sàn sẽ duyệt lại.
+            Đưa tên, mô tả, thuộc tính mới của <strong>{updatingContent?.sku}</strong> lên {shopLabel}; sàn sẽ duyệt lại.
             Thường sàn vẫn bán bản cũ trong lúc duyệt; nếu sàn ngừng bán để duyệt, listing chuyển Chờ sàn duyệt. Ảnh, giá
             và tồn không đổi.
           </>
@@ -1670,7 +1673,7 @@ export function ShopListingsPage() {
         title="Đăng bán lên sàn?"
         message={
           <>
-            Đăng bán {pushing?.length} SKU lên {shop?.shopName}. <strong>{newCount} SKU chưa có trên sàn</strong> sẽ được tạo
+            Đăng bán {pushing?.length} SKU lên {shopLabel}. <strong>{newCount} SKU chưa có trên sàn</strong> sẽ được tạo
             thành sản phẩm mới, và tự liên kết với SKU sàn vừa tạo.
           </>
         }

@@ -31,7 +31,12 @@ export interface CongTyGia {
  */
 export async function taoCongTyGia(
   browser: Browser,
-  opts: { ten: string; batThem?: ('inbox' | 'assistant' | 'report')[] },
+  opts: {
+    ten: string;
+    batThem?: ('inbox' | 'assistant' | 'report')[];
+    /** Chạy sau khi đăng ký, trước khi đăng nhập bằng form (spec chỉ chạy local dựng dữ liệu thẳng vào DB) */
+    truocDangNhap?: (companyId: string) => void | Promise<void>;
+  },
 ): Promise<CongTyGia> {
   const { baseURL, viewport, storageState } = test.info().project.use;
   const suffix = randomUUID().replaceAll('-', '');
@@ -53,6 +58,7 @@ export async function taoCongTyGia(
     expect(res.status(), await res.text()).toBe(200);
   }
   await anon.dispose();
+  await opts.truocDangNhap?.(companyId);
 
   // browser.newPage không tự lấy storageState của config: truyền vào để giữ cờ tắt hướng dẫn lần đầu (FE#132)
   const page = await browser.newPage({ baseURL, viewport, storageState });

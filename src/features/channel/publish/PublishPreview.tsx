@@ -23,6 +23,7 @@ import { LISTING_STATUS_LABELS, platformLabel } from '../shopSchemas';
 import { pushResultBlocks, splitPushResults } from '../listingPush';
 import { blockerFix, canUseFix } from '../blockerFix';
 import { feePct, isOnPlatform, priceNote, priceRange, priceView, rowBlocker, rowReasons, stockToPushText, withPreview } from './publishRows';
+import { shopDisplayName } from '../shopList';
 
 const keyOf = (shopId: string, variantId: string) => `${shopId}:${variantId}`;
 const pct = (x: number) => `${(x * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
@@ -247,7 +248,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
 
       {noFeeShops.length > 0 && (
         <AlertMessage severity="warning" alert>
-          {noFeeShops.map((s) => s.shopName).join(', ')} chưa có cấu hình phí sàn: chưa tính được phí, thực nhận nên chưa đăng
+          {noFeeShops.map((s) => shopDisplayName(s)).join(', ')} chưa có cấu hình phí sàn: chưa tính được phí, thực nhận nên chưa đăng
           được.{' '}
           <Link to={ROUTES.company.financeConfigs(companyId)} className="font-medium text-primary underline-offset-4 hover:underline">
             Mở Cấu hình phí sàn và thuế
@@ -281,7 +282,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                       <span>
                         <span className="text-xs text-muted-foreground">{platformLabel(shop.platform, shop.platformName)}</span>
                         <br />
-                        {shop.shopName}
+                        {shopDisplayName(shop)}
                       </span>
                     ) : null}
                   </TableCell>
@@ -295,7 +296,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                     ) : (
                       <>
                         <MoneyInput
-                          aria-label={`Giá niêm yết ${v.r.sku} ở ${shop?.shopName ?? ''}`}
+                          aria-label={`Giá niêm yết ${v.r.sku} ở ${shop ? shopDisplayName(shop) : ''}`}
                           value={v.text ?? formatMoneyInput(v.r.price)}
                           onChange={(text) => setEdits((e) => ({ ...e, [v.key]: text }))}
                           aria-invalid={Boolean(v.invalid) || undefined}
@@ -421,7 +422,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
           {outcome.map((o) => (
             <div key={o.shop.id} className="rounded-lg border px-3 py-2 text-sm">
               <div className="flex flex-wrap items-center gap-2">
-                <b>{o.shop.shopName}</b>
+                <b>{shopDisplayName(o.shop)}</b>
                 {o.error ? (
                   <span className="text-destructive-text">{o.error}</span>
                 ) : (

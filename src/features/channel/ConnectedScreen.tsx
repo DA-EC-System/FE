@@ -13,6 +13,7 @@ import {
   remoteCountsValue,
 } from './connectResult';
 import { platformLabel, STATUS_LABELS } from './shopSchemas';
+import { shopDisplayName } from './shopList';
 
 interface ConnectedScreenProps {
   result: ShopCallbackResult;
@@ -31,7 +32,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
   // previousStatus, remoteProductCount, remoteSkuCount chỉ có trong shops[] (§18.7.4)
   const first = firstConnection(result);
   const { shop } = first;
-  const name = shop.shopName;
+  const name = shopDisplayName(shop);
   const later = (
     <Button variant="outline" onClick={onLater}>
       Để sau
@@ -60,7 +61,7 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
             return (
             <li key={item.shop.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-shop-id={item.shop.id}>
               <div className="grid min-w-0 flex-1 gap-0.5">
-                <span className="truncate font-medium">{item.shop.shopName}</span>
+                <span className="truncate font-medium">{shopDisplayName(item.shop)}</span>
                 <span className="truncate text-xs text-muted-foreground">
                   <span className="font-mono">{item.shop.externalShopId}</span>
                   {item.previousStatus ? ` · trước: ${STATUS_LABELS[item.previousStatus]}` : ''}
@@ -69,11 +70,11 @@ export function ConnectedScreen({ result, platformName, onSetup, onView, onLater
               </div>
               <Badge variant={badge.variant}>{badge.label}</Badge>
               {item.shop.status === 'connecting' && onSetup ? (
-                <Button size="sm" aria-label={`Thiết lập ${item.shop.shopName}`} onClick={() => onSetup(item.shop.id)}>
+                <Button size="sm" aria-label={`Thiết lập ${shopDisplayName(item.shop)}`} onClick={() => onSetup(item.shop.id)}>
                   Thiết lập
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" aria-label={`Xem ${item.shop.shopName}`} onClick={() => onView(item.shop.id)}>
+                <Button size="sm" variant="outline" aria-label={`Xem ${shopDisplayName(item.shop)}`} onClick={() => onView(item.shop.id)}>
                   Xem
                 </Button>
               )}

@@ -38,6 +38,7 @@ import { LineThumb } from './LineThumb';
 import { CopyButton } from '@/components/common/CopyButton';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { stagesFor } from '@/lib/machines/order';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 const PAGE_SIZES = [25, 50, 100];
 const ALL = 'all';
@@ -203,11 +204,11 @@ export function OrderListPage() {
   );
 
   const shopOptions = useMemo(() => {
-    const options = (shopsQuery.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }));
+    const options = (shopsQuery.data?.items ?? []).map((s) => ({ value: s.id, label: shopDisplayName(s) }));
     // Không xem được danh sách gian hàng (thiếu quyền) vẫn hiện gian hàng đang lọc để xoá được
     if (shopId && !options.some((o) => o.value === shopId)) {
       const shop = query.data?.items.find((o) => o.shop?.id === shopId)?.shop;
-      options.push({ value: shopId, label: shop?.shopName ?? 'Gian hàng đang lọc' });
+      options.push({ value: shopId, label: shop ? shopDisplayName(shop) : 'Gian hàng đang lọc' });
     }
     return options;
   }, [shopsQuery.data, query.data, shopId]);
@@ -232,7 +233,7 @@ export function OrderListPage() {
       if (r.status === 'fulfilled') {
         created += r.value.created;
         updated += r.value.updated;
-      } else failed.push({ name: syncTargets[i].shopName, error: r.reason });
+      } else failed.push({ name: shopDisplayName(syncTargets[i]), error: r.reason });
     });
     const ok = results.length - failed.length;
     if (ok > 0) toast.success(`Đã đồng bộ ${ok} gian hàng: ${created} đơn mới, ${updated} đơn cập nhật`);

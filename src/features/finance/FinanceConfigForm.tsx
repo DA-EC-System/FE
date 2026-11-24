@@ -14,6 +14,7 @@ import { problemMessage } from '@/api/problemMessages';
 import type { ConfigKind, CreateFinanceConfig, FinanceConfig } from '@/types/finance';
 import { HelpTip } from '@/components/common/HelpTip';
 import { CONFIG_KINDS, PAYLOAD_FIELDS, PAYLOAD_HINTS, REGIMES, todayVn, validateConfig } from './lifecycleShared';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 const selectClass = 'h-10 w-full rounded-md border bg-background px-3 text-sm';
 export function FinanceConfigForm({ existing, correction = false, onClose, onSaved }: {
@@ -42,7 +43,7 @@ export function FinanceConfigForm({ existing, correction = false, onClose, onSav
     <DialogTitle>{editing ? 'Sửa bản nháp' : correction ? 'Bản điều chỉnh hồi tố' : 'Thêm phiên bản cấu hình'}</DialogTitle><DialogDescription>Lưu nháp, tính thử rồi gửi duyệt.</DialogDescription>
     </DialogHeader><form onSubmit={(e) => void submit(e)} className="grid gap-4">
     <div><Label htmlFor="config-kind">Loại cấu hình</Label><select id="config-kind" className={selectClass} disabled={Boolean(existing)} value={kind} onChange={(e) => { setKind(e.target.value as ConfigKind); setValues({}); setErrors({}); }}>{Object.entries(CONFIG_KINDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-    {kind === 'fee' && <div><Label htmlFor="config-shop">Gian hàng</Label><select id="config-shop" className={selectClass} value={shopId} disabled={Boolean(existing) || shops.isLoading} onChange={(e) => setShopId(e.target.value)}><option value="">{shops.isLoading ? 'Đang tải gian hàng…' : 'Chọn gian hàng'}</option>{(shops.data?.items ?? []).map((s) => <option value={s.id} key={s.id}>{s.shopName}</option>)}</select>{errors.shopId && <p className="text-sm text-destructive">{errors.shopId}</p>}</div>}
+    {kind === 'fee' && <div><Label htmlFor="config-shop">Gian hàng</Label><select id="config-shop" className={selectClass} value={shopId} disabled={Boolean(existing) || shops.isLoading} onChange={(e) => setShopId(e.target.value)}><option value="">{shops.isLoading ? 'Đang tải gian hàng…' : 'Chọn gian hàng'}</option>{(shops.data?.items ?? []).map((s) => <option value={s.id} key={s.id}>{shopDisplayName(s)}</option>)}</select>{errors.shopId && <p className="text-sm text-destructive">{errors.shopId}</p>}</div>}
     <div><Label htmlFor="effective-from">Ngày hiệu lực</Label><Input id="effective-from" type="date" value={effectiveFrom} disabled={correction} onChange={(e) => setFrom(e.target.value)} />{correction && <p className="text-xs text-muted-foreground">Phiên bản điều chỉnh giữ nguyên ngày hiệu lực của phiên bản bị điều chỉnh.</p>}{errors.effectiveFrom && <p className="text-destructive">{errors.effectiveFrom}</p>}</div>
     {correction && <div><Label htmlFor="retroactive-from">Điều chỉnh hồi tố từ ngày</Label><Input id="retroactive-from" type="date" value={retroactiveFrom} onChange={(e) => setRetroactiveFrom(e.target.value)} />{errors.retroactiveFrom && <p className="text-destructive">{errors.retroactiveFrom}</p>}</div>}
     {Object.entries(PAYLOAD_FIELDS[kind]).map(([key, label]) => <div key={key}><div className="flex items-center gap-1"><Label htmlFor={`payload-${key}`}>{label}</Label>{PAYLOAD_HINTS[key] && <HelpTip topic={label} content={PAYLOAD_HINTS[key]} />}</div>

@@ -22,6 +22,7 @@ import { CategoryStep } from '../push/CategoryStep';
 import { VariantsStep } from '../push/VariantsStep';
 import { fieldId } from '../push/fieldIds';
 import type { PlatformDraft } from './usePlatformDraft';
+import { shopDisplayName } from '../shopList';
 
 const SOURCE_LABELS: Record<ResolvedAttribute['source'], string> = {
   override: 'Đã nhập cho sản phẩm này',
@@ -82,7 +83,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
     <section aria-label={`Thông tin ${d.label}`} className="rounded-xl border">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
         <h3 className="text-base font-semibold">{d.label}</h3>
-        <span className="text-sm text-muted-foreground">· {shops.map((s) => s.shopName).join(', ')}</span>
+        <span className="text-sm text-muted-foreground">· {shops.map((s) => shopDisplayName(s)).join(', ')}</span>
         <span className="flex-1" />
         {ready ? (
           <Badge variant="success">

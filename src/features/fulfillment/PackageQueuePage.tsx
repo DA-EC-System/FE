@@ -32,6 +32,7 @@ import type { OrderSource } from '@/types/sales';
 import { SOURCE_LABELS, sourceLabel } from '@/features/sales/shared';
 import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, canPrintLabel, handoverFailureLabel, isHotPackage, pendingDropTotal } from './shared';
 import { PendingDropBadge } from './PendingDropBadge';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 const PAGE_SIZES = [25, 50, 100];
 const MAX_HANDOVER = 50;
@@ -345,7 +346,7 @@ export function PackageQueuePage() {
               label="Gian hàng"
               value={shopId}
               onChange={f.setFilter('shopId')}
-              options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))}
+              options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: shopDisplayName(s) }))}
             />
           )}
         </FilterBar>

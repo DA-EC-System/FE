@@ -18,6 +18,7 @@ import { formatDateTime } from '@/utils/format';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { DeadJob } from '@/types/companySettings';
 import { DEAD_JOB_QUEUE_LABELS, queueLabel } from './deadJobLabels';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 /**
  * §14.5: tác vụ tự động đã thử hết lượt mà vẫn lỗi (đồng bộ đơn, đồng bộ listing, gia hạn uỷ quyền gian hàng...).
@@ -35,7 +36,7 @@ export function DeadJobsPage() {
   // Response không có tên gian hàng: lấy từ danh sách gian hàng theo shopId
   const shopsQuery = useShops({ enabled: can(PERMISSIONS.shopView) });
   const shopNames = useMemo(
-    () => new Map((shopsQuery.data?.items ?? []).map((s) => [s.id, s.shopName])),
+    () => new Map((shopsQuery.data?.items ?? []).map((s) => [s.id, shopDisplayName(s)])),
     [shopsQuery.data],
   );
 

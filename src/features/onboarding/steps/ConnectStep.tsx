@@ -14,6 +14,7 @@ import { ShopTokenForm } from '@/features/channel/ShopTokenForm';
 import { failureScreen, type ConnectFailure } from '@/features/channel/connectFailure';
 import { useStartConnect } from '@/features/channel/useStartConnect';
 import { markWelcome } from '@/features/company/welcomeFlow';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 const methodsOf = (p: ShopPlatform) => (p.methods?.length ? p.methods : ['oauth']);
 
@@ -139,7 +140,7 @@ function ShopCard({
         {lost ? <TriangleAlert className="size-5 text-destructive" aria-hidden /> : <Store className="size-5" aria-hidden />}
       </span>
       <span className="grid min-w-0 flex-1 gap-0.5">
-        <b className="truncate font-semibold">{shop.shopName}</b>
+        <b className="truncate font-semibold">{shopDisplayName(shop)}</b>
         <span className="text-sm text-muted-foreground">
           {lost
             ? `${platformName} · Commerio mất quyền truy cập gian hàng (token hết hạn hoặc bị thu hồi). Kết nối lại bằng đúng tài khoản người bán của gian hàng này.`

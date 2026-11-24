@@ -5,6 +5,7 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
+import { useCallback } from 'react';
 import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
@@ -779,9 +780,23 @@ export function useProductListingRows(
   poll?: (rows: ProductListingsResponse['items']) => number | false,
 ) {
   const companyId = useCompanyId();
+  // Dòng listing mang tên trên sàn (có khi là mã thô SANDBOX_VN…): thay bằng tên hiển thị của gian hàng (FE#464).
+  // Chung cache với danh sách gian hàng; chưa tải xong thì giữ tên trên sàn
+  const shops = useShops({ enabled }).data?.items;
+  const select = useCallback(
+    (d: ProductListingsResponse) => {
+      if (!shops) return d.items;
+      const names = new Map(shops.map((s) => [s.id, s.displayName?.trim() || s.shopName]));
+      return d.items.map((r) => {
+        const name = names.get(r.shopId);
+        return name && name !== r.shopName ? { ...r, shopName: name } : r;
+      });
+    },
+    [shops],
+  );
   return useQuery({
     ...productListingsQuery(companyId, productId, enabled),
-    select: (d) => d.items,
+    select,
     refetchInterval: poll ? (query) => poll(query.state.data?.items ?? []) : false,
     refetchIntervalInBackground: false,
   });
