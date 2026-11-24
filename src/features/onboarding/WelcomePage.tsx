@@ -363,6 +363,7 @@ function ReadyScreen({ data, companyId, total }: { data: Onboarding; companyId: 
  */
 function CompleteButton({ data, onMissing, onDone }: { data: Onboarding; onMissing: (view: WizardView) => void; onDone: () => void }) {
   const complete = useCompleteOnboarding();
+  const visible = new Set<WizardKey>(wizardSteps(data).map((s) => s.key));
   const [missing, setMissing] = useState<WizardKey[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Chỉ người được gọi POST /onboarding/complete: BE ép ở trang này (`mustWizard`), hoặc công ty đã hoàn tất (gọi lại trả 200)
@@ -370,6 +371,8 @@ function CompleteButton({ data, onMissing, onDone }: { data: Onboarding; onMissi
   const submit = async () => {
     setMissing(null);
     setError(null);
+    // Công ty đã hoàn tất: không gọi lại (người thiếu quyền sẽ nhận 403), vào thẳng Tổng quan
+    if (data.completedAt !== null) return onDone();
     try {
       await complete.mutateAsync();
       onDone();
@@ -377,6 +380,7 @@ function CompleteButton({ data, onMissing, onDone }: { data: Onboarding; onMissi
       const problem = getProblem(e);
       if (problem?.code === 'onboarding_incomplete' && problem.missing?.length) {
         setMissing(problem.missing.filter((k): k is WizardKey => k in WIZARD_STEP_LABELS));
+        // Bước người xem không thấy (thiếu quyền) thì không có nút tới bước
       } else {
         setError(problemMessage(e));
       }
@@ -394,9 +398,13 @@ function CompleteButton({ data, onMissing, onDone }: { data: Onboarding; onMissi
                   {missing!.map((k) => (
                     <li key={k}>
                       {WIZARD_STEP_LABELS[k]}.{' '}
-                      <button type="button" className="font-medium text-primary underline-offset-4 hover:underline" onClick={() => onMissing(k)}>
-                        Tới bước này
-                      </button>
+                      {visible.has(k) ? (
+                        <button type="button" className="font-medium text-primary underline-offset-4 hover:underline" onClick={() => onMissing(k)}>
+                          Tới bước này
+                        </button>
+                      ) : (
+                        'Bước này do người có quyền trong công ty làm.'
+                      )}
                     </li>
                   ))}
                 </ul>
