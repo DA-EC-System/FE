@@ -6,7 +6,7 @@ import { Panel } from '@/components/common/Panel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTasks } from '@/api/tasks.api';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import { docRefPath } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
@@ -39,6 +39,11 @@ export function TaskList({ companyId }: { companyId: string }) {
           <Skeleton className="h-10" />
           <Skeleton className="h-10" />
         </div>
+      ) : tasks.isError && isRouteMissing(tasks.error) ? (
+        // Máy chủ chưa có danh sách việc (commerio-backend#209 chưa lên): không báo lỗi, coi như chưa có việc
+        <p className="px-4 py-6 text-sm text-muted-foreground" data-testid="task-list-unavailable">
+          Chưa có việc cần làm.
+        </p>
       ) : tasks.isError ? (
         <div className="p-4">
           <AlertMessage severity="error">

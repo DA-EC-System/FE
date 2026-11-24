@@ -10,6 +10,7 @@ import { AppSidebar } from './AppSidebar';
 import { AppTitle, CompanySwitcher } from './CompanySwitcher';
 import { PageGuideHost } from '@/components/guide/PageGuideHost';
 import { Header } from './Header';
+import { SetupBanner } from './SetupBanner';
 import {
   PLATFORM_NAV,
   companyNav,
@@ -22,6 +23,8 @@ interface AppLayoutProps {
   sections: NavSection[];
   /** Đầu sidebar: tên nền tảng, hoặc nút đổi công ty */
   brand: ReactNode;
+  /** Dải trên nội dung trang (công ty đang thiết lập, FE#468) */
+  banner?: ReactNode;
 }
 
 /** Sidebar shadcn ghi trạng thái đóng/mở vào cookie này */
@@ -34,7 +37,7 @@ const SIDEBAR_STYLE = { '--sidebar-width': '232px' } as CSSProperties;
  * Khung chung theo Test_UI (`.app`): sidebar trắng có nhóm thu gọn, header trắng có breadcrumb, nội dung đệm 24px
  * trải hết chiều ngang (bỏ giới hạn 1280px của Test_UI để bảng nhiều cột đủ chỗ). Trên mobile sidebar mở bằng Sheet. Mỗi không gian truyền menu riêng.
  */
-export function AppLayout({ sections, brand }: AppLayoutProps) {
+export function AppLayout({ sections, brand, banner }: AppLayoutProps) {
   const { companyContext } = useAuth();
   const location = useLocation();
 
@@ -77,6 +80,7 @@ export function AppLayout({ sections, brand }: AppLayoutProps) {
         <Header active={active} sections={visibleSections} />
         <main className="flex-1 px-4 pt-4 pb-16 md:px-6 md:pt-6">
           <div className="w-full">
+            {banner}
             <Outlet />
           </div>
         </main>
@@ -98,7 +102,7 @@ export function CompanyLayout() {
   const companyId = companyContext?.companyId ?? '';
   return (
     <>
-      <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} />
+      <AppLayout sections={companyNav(companyId)} brand={<CompanySwitcher />} banner={<SetupBanner />} />
       {/* Hộp thêm vào đề nghị nhập mở từ toast, chuông khi SKU chạm ngưỡng (FE#318) */}
       {canAddToRequest(companyContext) && <StockRequestHost />}
     </>

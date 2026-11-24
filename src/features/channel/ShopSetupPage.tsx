@@ -162,7 +162,8 @@ export function ShopSetupPage() {
 
   return (
     <div className="mx-auto grid max-w-4xl gap-4">
-      <WelcomeReturnBar stepKey="setup_shop" finished={done} />
+      {/* Mở từ wizard thiết lập: thanh quay lại, hoàn tất thì tự về wizard */}
+      <WelcomeReturnBar stepKey="link_skus" finished={done} />
       <PageHeader
         title={`Thiết lập ${s.shopName}`}
         subtitle={`${platformName} · làm một lần sau khi kết nối; xong mới đồng bộ đơn và tồn`}

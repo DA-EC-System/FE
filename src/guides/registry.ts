@@ -9,6 +9,8 @@ export const GUIDES = {
     key: 'company-home',
     version: 2,
     title: 'Chào mừng tới Commerio',
+    // Không tự mở: người mới đi qua wizard thiết lập rồi mới tới Tổng quan (FE#468); vẫn mở được ở nút "?"
+    autoOpen: false,
     intro: [
       'Trang Tổng quan cho biết hôm nay cần làm gì và kinh doanh đang ra sao.',
       'Mới bắt đầu thì đi theo thứ tự: kết nối gian hàng, thêm sản phẩm, rồi nhập hàng.',
