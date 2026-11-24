@@ -32,9 +32,10 @@ export async function boQuaWizard(target: Page | BrowserContext): Promise<void> 
 
 /** `test` của Playwright, thêm: mọi context của fixture bỏ qua wizard thiết lập bắt buộc (`boQuaWizard`) */
 export const test = base.extend({
-  context: async ({ context }, use) => {
+  // Tham số thứ hai đặt `dung`, không đặt `use`: eslint react-hooks tưởng là hook
+  context: async ({ context }, dung) => {
     await boQuaWizard(context);
-    await use(context);
+    await dung(context);
   },
 });
 
