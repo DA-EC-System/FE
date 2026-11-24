@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { useApplyCategory, useProductListings } from '@/api/shops.api';
+import { shopKeys, useApplyCategory, useProductListings } from '@/api/shops.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,7 +28,7 @@ interface Props {
   label: string;
   companyId: string;
   productId: string;
-  shops: Shop[];
+  shops: readonly Shop[];
   /** Category đang chọn ở bước 1 (có thể chưa lưu) */
   draftPath: string;
   draftCategoryId: string;
@@ -119,6 +120,19 @@ export function CategoryChangeBlock({
   const mismatchGroups = byRemoteProduct(mismatch);
   const revisionFailedGroups = byRemoteProduct(revisionFailed);
   const queuedProducts = new Set(queued.map(({ shopId, row }) => `${shopId}/${row.listing?.externalProductId}`)).size;
+
+  // Lượt đổi hết "đang gửi" (xong hoặc lỗi): bảng listing của sản phẩm và tab sàn (rows, CategoryNotes) đọc query khác,
+  // chỉ được làm mới một lần lúc bấm đổi, nên làm mới lại ở đây
+  const qc = useQueryClient();
+  const wasQueued = useRef(false);
+  const queuedNow = queued.length > 0;
+  useEffect(() => {
+    if (wasQueued.current && !queuedNow) {
+      void qc.invalidateQueries({ queryKey: shopKeys.productListings(companyId, productId) });
+      for (const s of shops) void qc.invalidateQueries({ queryKey: shopKeys.listings(companyId, s.id) });
+    }
+    wasQueued.current = queuedNow;
+  }, [queuedNow, qc, companyId, productId, shops]);
 
   const platformOwned = drift.some((d) => d.platformOwned);
   const ceoBlocked = platformOwned && !isCeo;

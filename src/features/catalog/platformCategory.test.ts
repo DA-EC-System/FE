@@ -14,6 +14,7 @@ import {
   isPlatformTab,
   parentPath,
   pathSegments,
+  shopsOnPlatform,
 } from './platformCategory';
 
 const attr = (over: Partial<PlatformAttribute>): PlatformAttribute => ({
@@ -180,5 +181,27 @@ describe('applyCategoryError', () => {
     }
     expect(applyCategoryError('forbidden', 'TikTok Shop')).toBe('Chỉ CEO đổi được category của sản phẩm người bán tự đăng trên sàn');
     expect(applyCategoryError('lạ', 'TikTok Shop')).toBeNull();
+  });
+});
+
+describe('shopsOnPlatform (sản phẩm có trên hai sàn)', () => {
+  const shops = [
+    { id: 's-laz', platform: 'lazada' },
+    { id: 's-tt', platform: 'tiktok' },
+  ];
+  // Listing của sản phẩm trên Lazada ở category khác với spec TikTok
+  const rows = [row({ shop: 's-laz', path: 'Lazada > Áo', id: 'laz-ao' }), row({ shop: 's-tt', product: 'tt1', ...SPEC })];
+  const rowsOf = (ids: string[]) => rows.filter((r) => ids.includes(r.shopId));
+
+  it('chỉ lấy gian hàng của sàn đang xem', () => {
+    expect(shopsOnPlatform(shops, 'tiktok').map((s) => s.id)).toEqual(['s-tt']);
+    expect(shopsOnPlatform(shops, 'shopee')).toEqual([]);
+  });
+
+  it('tab TikTok không thấy lệch vì category của Lazada', () => {
+    const tiktok = shopsOnPlatform(shops, 'tiktok').map((s) => s.id);
+    expect(categoryDrift(rowsOf(tiktok), SPEC)).toEqual([]);
+    // Không lọc (lỗi cũ): listing Lazada bị tính là lệch, hiện nút đổi category trên TikTok
+    expect(categoryDrift(rowsOf(shops.map((s) => s.id)), SPEC).map((d) => d.shopId)).toEqual(['s-laz']);
   });
 });

@@ -108,7 +108,7 @@ export function valueError(axis: AxisDraft, text: string): string | null {
   if (!value) return 'Nhập giá trị';
   if (value.length > MAX_AXIS_VALUE) return `Mỗi giá trị tối đa ${MAX_AXIS_VALUE} ký tự`;
   if (axis.values.some((v) => sameText(v, value))) return `Đã có giá trị ${value}`;
-  if (axis.values.length >= MAX_AXIS_VALUES) return `Mỗi nhóm tối đa ${MAX_AXIS_VALUES} giá trị`;
+  if (axis.values.length >= MAX_AXIS_VALUES) return `Mỗi thuộc tính biến thể tối đa ${MAX_AXIS_VALUES} giá trị`;
   return null;
 }
 

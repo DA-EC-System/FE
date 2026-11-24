@@ -114,7 +114,7 @@ export function CatalogSetupPage() {
     () => [
       {
         accessorKey: 'name',
-        header: 'Danh mục',
+        header: 'Danh mục sản phẩm',
         meta: { className: 'min-w-44 font-medium' },
         cell: ({ row }) => (
           <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -158,7 +158,7 @@ export function CatalogSetupPage() {
         cell: ({ row }) => {
           const n = row.original.specFieldCount ?? 0;
           return n ? (
-            `${n} thuộc tính · ${row.original.requiredCount ?? 0} bắt buộc`
+            `${n} thuộc tính · ${row.original.requiredCount ?? 0} cần cho Sẵn sàng`
           ) : (
             <span className="text-muted-foreground">Chưa có</span>
           );
@@ -171,9 +171,6 @@ export function CatalogSetupPage() {
         meta: { className: 'w-32 text-right' },
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
-            <RowAction label={`Mở ${row.original.name}`} onClick={() => navigate(detailHref(row.original))}>
-              <Pencil />
-            </RowAction>
             {canManage &&
               (isPlatform(row.original) ? (
                 <RowAction

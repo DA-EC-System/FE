@@ -167,7 +167,7 @@ function PlatformMapping({
       {error && <AlertMessage severity="warning">{error}</AlertMessage>}
       {!codesEditable && isPlatform(field) && (
         <p className="text-sm text-muted-foreground">
-          Thông số chuẩn: mã {platformName} do nền tảng đặt, công ty không đổi được.
+          Thuộc tính chuẩn: mã {platformName} do nền tảng đặt, công ty không đổi được.
           {anyEditable && ' Công ty ghép được lựa chọn riêng của mình.'}
         </p>
       )}
@@ -250,7 +250,7 @@ function PlatformMapping({
           onPick={(a) => setCodes((prev) => [...prev, { attributeCode: a.code, attributeLabel: a.label, options: {} }])}
         />
       )}
-      <p className="text-xs text-muted-foreground">Mỗi mã của {platformName} chỉ nhận từ một thông số.</p>
+      <p className="text-xs text-muted-foreground">Mỗi mã của {platformName} chỉ nhận từ một thuộc tính.</p>
 
       <DialogFooter>
         {onClose && (
