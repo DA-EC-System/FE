@@ -56,7 +56,7 @@ import {
   useSyncListings,
 } from '@/api/shops.api';
 import { SyncRunPanel } from './SyncRunPanel';
-import { syncRunActive, syncRunState } from './syncRun';
+import { syncRunState } from './syncRun';
 import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
   problemCode,
@@ -74,7 +74,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
-import { onPlatform } from '@/lib/machines/channel';
+import { onPlatform, syncRunActive } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import { MatchPreviewPanel } from './MatchPreviewPanel';
 import { CreateVariantDialog } from './CreateVariantDialog';

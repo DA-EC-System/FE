@@ -9,7 +9,7 @@ import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/re
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { salesKeys } from './sales.api';
-import { syncRunActive } from '@/features/channel/syncRun';
+import { syncRunActive } from '@/lib/machines/channel';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   ApplyCategoryResult,

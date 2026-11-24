@@ -4,7 +4,8 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, X } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { SyncRun } from '@/types/shop';
-import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunErrorFix, syncRunHeadline } from './syncRun';
+import { syncRunActive } from '@/lib/machines/channel';
+import { syncErrorFix, syncErrorTitle, syncRunErrorFix, syncRunHeadline } from './syncRun';
 
 const SHOWN_ERRORS = 20;
 

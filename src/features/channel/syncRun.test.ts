@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncRun } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
-import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunErrorFix, syncRunHeadline, syncRunState } from './syncRun';
+import { syncErrorFix, syncErrorTitle, syncRunErrorFix, syncRunHeadline, syncRunState } from './syncRun';
 
 const AT = '2026-11-21T13:15:00.000Z';
 const run = (over: Partial<SyncRun> = {}): SyncRun => ({
@@ -21,7 +21,6 @@ const run = (over: Partial<SyncRun> = {}): SyncRun => ({
 
 describe('syncRunHeadline (Documents/21 §18.5 SyncRun)', () => {
   it('đang chạy: tiến độ, hoặc đang đọc sàn khi chưa biết tổng', () => {
-    expect(syncRunActive(run({ status: 'running' }))).toBe(true);
     expect(syncRunHeadline(run({ status: 'running', progress: { processed: 12, total: 20 } }))).toBe(
       'Đang đồng bộ giá và tồn với sàn… 12 / 20 SKU.',
     );

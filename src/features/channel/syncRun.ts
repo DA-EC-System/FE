@@ -1,3 +1,4 @@
+import { syncRunActive } from '@/lib/machines/channel';
 import { ROUTES } from '@/router/routes';
 import type { SyncRun, SyncRunError } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
@@ -6,8 +7,6 @@ import { formatDateTime } from '@/utils/format';
  * Kết quả lượt đồng bộ ở trang gian hàng (Documents/21 §18.5 `SyncRun`; bản phác
  * `.claude/issues/trang-san-pham-tab/design/v2.html` màn 2; CLAUDE.md "Lỗi phải chỉ chỗ sửa").
  */
-export const syncRunActive = (run: Pick<SyncRun, 'status'> | null | undefined) => run?.status === 'queued' || run?.status === 'running';
-
 /** Câu chính của hộp kết quả */
 export function syncRunHeadline(run: SyncRun): string {
   if (syncRunActive(run)) {

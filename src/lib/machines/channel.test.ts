@@ -5,6 +5,7 @@ import {
   presenceFrom,
   shopMachine,
   shopUsable,
+  syncRunActive,
 } from './channel';
 
 const owner = { accountId: 'a1', permissions: [PERMISSIONS.shopConnect, PERMISSIONS.shopDisconnect, PERMISSIONS.listingManage] };
@@ -121,5 +122,15 @@ describe('Listing (sơ đồ C2)', () => {
     expect(presenceFrom(['live', 'rejected'])).toBe('live');
     expect(presenceFrom(['push_failed', 'pushing'])).toBe('error');
     expect(presenceFrom(['live', 'delisted'])).toBe('live');
+  });
+});
+
+describe('Lượt đồng bộ (Documents/21 §18.5 SyncRun)', () => {
+  it('queued, running là còn chạy; done, failed, chưa có lượt thì không', () => {
+    expect(syncRunActive({ status: 'queued' })).toBe(true);
+    expect(syncRunActive({ status: 'running' })).toBe(true);
+    expect(syncRunActive({ status: 'done' })).toBe(false);
+    expect(syncRunActive({ status: 'failed' })).toBe(false);
+    expect(syncRunActive(null)).toBe(false);
   });
 });
