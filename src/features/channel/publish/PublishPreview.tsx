@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ImageOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -19,7 +19,7 @@ import type { ProductDetail } from '@/types/catalog';
 import type { PriceQuoteRow, ProductListingRow, PushResult, Shop } from '@/types/shop';
 import { LISTING_STATUS_LABELS, platformLabel } from '../shopSchemas';
 import { pushBlockMessage, splitPushResults } from '../listingPush';
-import { feePct, isOnPlatform, priceRange, priceView, rowBlocker, stockToPushText } from './publishRows';
+import { feePct, isOnPlatform, priceNote, priceRange, priceView, rowBlocker, stockToPushText } from './publishRows';
 
 const keyOf = (shopId: string, variantId: string) => `${shopId}:${variantId}`;
 const pct = (x: number) => `${(x * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
@@ -55,6 +55,8 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
   const [busy, setBusy] = useState(false);
   const quote = usePriceQuote();
   const push = usePushListings();
+  const navigate = useNavigate();
+  const standardOf = new Map(product.variants.map((v) => [v.id, v.standardPrice]));
   const platformOf = new Map(shops.map((s) => [s.id, s.platform]));
 
   // Giá đã gõ hợp lệ và khác giá BE tính sẵn: gửi tính thử sau khi ngừng gõ
@@ -147,7 +149,12 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
       setOutcome(results);
       setEdits({});
       const total = results.reduce((n, r) => n + r.queued, 0);
-      if (total) toast.success(`Đã gửi ${total} SKU lên sàn. Trạng thái từng dòng tự cập nhật.`);
+      const clean = results.every((r) => !r.error && !r.blocked.length);
+      if (total && clean) {
+        // Đăng trọn: về tab sàn của sản phẩm, nơi có trạng thái từng SKU (FE#462). Còn SKU bị chặn thì ở lại xem lý do
+        toast.success(`Đã gửi ${total} SKU lên sàn. Trạng thái từng SKU hiện ở tab sàn và tự cập nhật.`);
+        navigate(`${ROUTES.company.catalogProduct(companyId, product.id)}?tab=${results[0]!.shop.platform}`);
+      } else if (total) toast.success(`Đã gửi ${total} SKU lên sàn. Một số SKU bị chặn, xem lý do bên dưới.`);
       else toast.error('Chưa SKU nào được đăng, xem lý do từng gian hàng.');
     } finally {
       setBusy(false);
@@ -155,6 +162,9 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
   };
 
   const platforms = [...new Set(shops.map((s) => s.platform))];
+  // Không SKU nào đăng được: sàn đầu tiên còn thiếu thông tin (sửa ở bước 2), không thì lý do đầu tiên
+  const fixPlatform = toPublish.length ? null : ([...problemsByPlatform.keys()].find((p) => !readyPlatforms.has(p)) ?? null);
+  const firstBlocker = views.find((v) => v.blocker)?.blocker ?? null;
 
   return (
     <div className="grid gap-5">
@@ -197,7 +207,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
       )}
 
       {noFeeShops.length > 0 && (
-        <AlertMessage severity="warning">
+        <AlertMessage severity="warning" alert>
           {noFeeShops.map((s) => s.shopName).join(', ')} chưa có cấu hình phí sàn: chưa tính được phí, thực nhận nên chưa đăng
           được.{' '}
           <Link to={ROUTES.company.financeConfigs(companyId)} className="font-medium text-primary underline-offset-4 hover:underline">
@@ -254,6 +264,9 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                         />
                         {v.invalid && <p className="mt-1 text-xs text-destructive-text">{v.invalid}</p>}
                         {v.manual && !v.invalid && <p className="mt-1 text-xs text-muted-foreground">Giá đặt tay</p>}
+                        {!v.manual && !v.invalid && priceNote(v.r, standardOf.get(v.r.variantId)) && (
+                          <p className="mt-1 text-xs text-muted-foreground">{priceNote(v.r, standardOf.get(v.r.variantId))}</p>
+                        )}
                       </>
                     )}
                   </TableCell>
@@ -294,7 +307,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
       </div>
 
       {problemsByPlatform.size > 0 && (
-        <section aria-label="Lỗi theo sàn" className="grid gap-1.5 rounded-xl border border-warning-border p-3 text-sm" role="status">
+        <section aria-label="Lỗi theo sàn" className="grid gap-1.5 rounded-xl border border-warning-border p-3 text-sm" role="alert">
           <h3 className="font-semibold">Chưa đăng được</h3>
           {[...problemsByPlatform].map(([p, m]) => (
             <p key={p}>
@@ -307,15 +320,28 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
               )}
             </p>
           ))}
-          <p className="text-muted-foreground">Các SKU còn lại vẫn đăng được.</p>
+          {toPublish.length > 0 && <p className="text-muted-foreground">Các SKU còn lại vẫn đăng được.</p>}
         </section>
       )}
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <Button type="button" onClick={() => void publish()} disabled={busy || !toPublish.length}>
-          {busy && <Loader2 className="animate-spin" />}
-          {busy ? 'Đang đăng…' : toPublish.length ? `Đăng ${toPublish.length} SKU lên ${shopsToPublish.length} gian hàng` : 'Không có SKU nào đăng được'}
-        </Button>
+        {!toPublish.length && !busy && fixPlatform ? (
+          // Không SKU nào đăng được vì thiếu thông tin sàn: nút chính dẫn về đúng chỗ sửa (FE#458)
+          <Button type="button" onClick={() => onFixPlatform(fixPlatform)}>
+            Chưa đăng được: bổ sung thông tin {platformLabel(fixPlatform)}
+          </Button>
+        ) : (
+          <Button type="button" onClick={() => void publish()} disabled={busy || !toPublish.length}>
+            {busy && <Loader2 className="animate-spin" />}
+            {busy
+              ? 'Đang đăng…'
+              : toPublish.length
+                ? `Đăng ${toPublish.length} SKU lên ${shopsToPublish.length} gian hàng`
+                : firstBlocker
+                  ? `Chưa đăng được: ${firstBlocker.toLocaleLowerCase('vi')}`
+                  : 'Không có SKU nào đăng được'}
+          </Button>
+        )}
       </div>
 
       {outcome && (

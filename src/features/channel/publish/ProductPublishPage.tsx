@@ -12,6 +12,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { useCan } from '@/hooks/usePermission';
 import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
@@ -83,6 +84,11 @@ function PublishFlow({
   const [focusPlatform, setFocusPlatform] = useState<string | null>(search.get('platform'));
   const [status, setStatus] = useState<ReadonlyMap<string, PlatformStatus>>(new Map());
   const chosenPlatforms = selectedPlatforms(usable, selected);
+  // Bản nháp sàn chưa lưu ("Lưu thông tin {sàn}"): hỏi lại khi rời trang (FE#459); chuyển bước thì nháp vẫn giữ
+  const dirtyPlatforms = platforms.filter((p) => status.get(p)?.dirty);
+  const leave = useLeaveGuard(dirtyPlatforms.length > 0, {
+    message: `Thông tin ${dirtyPlatforms.map((p) => platformLabel(p)).join(', ')} chưa lưu. Rời trang thì phần đang sửa bị bỏ.`,
+  });
 
   const goTo = (s: Step) => {
     setStep(s);
@@ -104,24 +110,30 @@ function PublishFlow({
       />
 
       <nav aria-label="Các bước" className="mb-4 flex flex-wrap gap-1.5">
-        {STEPS.map((name, k) => (
-          <button
-            key={name}
-            type="button"
-            onClick={() => goTo(k as Step)}
-            disabled={k > 0 && !selected.size}
-            aria-current={step === k ? 'step' : undefined}
-            className={cn(
-              'inline-flex min-h-9 items-center gap-1 rounded-full border px-3 py-1 text-sm text-muted-foreground disabled:opacity-50',
-              step === k && 'border-primary bg-accent font-semibold text-primary-text',
-              k < step && 'border-success-border text-success-text',
-            )}
-          >
-            {k < step && <Check className="size-3.5" aria-hidden />}
-            {k < step && <span className="sr-only"> (đã qua)</span>}
-            {k + 1}. {name}
-          </button>
-        ))}
+        {STEPS.map((name, k) => {
+          // ✓ chỉ khi bước thật sự xong (FE#458): bước 1 đã chọn gian hàng, bước 2 mọi sàn đã chọn đủ thông tin và đã lưu
+          const done = k < step && (k === 0 ? selected.size > 0 : k === 1 ? chosenPlatforms.every((p) => status.get(p)?.ready) : false);
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => goTo(k as Step)}
+              disabled={k > 0 && !selected.size}
+              aria-current={step === k ? 'step' : undefined}
+              className={cn(
+                'inline-flex min-h-9 items-center gap-1 rounded-full border px-3 py-1 text-sm text-muted-foreground disabled:opacity-50',
+                step === k && 'border-primary bg-accent font-semibold text-primary-text',
+                done && 'border-success-border text-success-text',
+                k < step && !done && 'border-warning-border text-warning-text',
+              )}
+            >
+              {done && <Check className="size-3.5" aria-hidden />}
+              {done && <span className="sr-only"> (đã xong)</span>}
+              {k < step && !done && <span className="sr-only"> (còn thiếu)</span>}
+              {k + 1}. {name}
+            </button>
+          );
+        })}
       </nav>
       {/* Thứ bậc heading không nhảy từ H1 xuống H3 của từng sàn (FE#464); bước đang mở đã hiện ở thanh bước */}
       <h2 className="sr-only">
@@ -168,7 +180,7 @@ function PublishFlow({
               onStatus={(st) =>
                 setStatus((prev) => {
                   const cur = prev.get(p);
-                  if (cur && cur.ready === st.ready && cur.missing === st.missing) return prev;
+                  if (cur && cur.ready === st.ready && cur.missing === st.missing && cur.dirty === st.dirty) return prev;
                   return new Map(prev).set(p, st);
                 })
               }
@@ -203,6 +215,7 @@ function PublishFlow({
           </Button>
         )}
       </div>
+      {leave.dialog}
     </div>
   );
 }
@@ -211,6 +224,8 @@ function PublishFlow({
 interface PlatformStatus {
   ready: boolean;
   missing: number;
+  /** Còn sửa dở chưa lưu */
+  dirty: boolean;
 }
 
 /** Sàn đủ thông tin: không thiếu gì, đã lưu, không còn sửa dở */
@@ -248,7 +263,8 @@ function PlatformSlot({
   const d = usePlatformDraft({ platform, label, product, initial, shopId: suggestShopId, canEditCompany });
   const ready = isReady(d);
   const missing = d.missing.length;
-  useEffect(() => onStatus({ ready, missing }), [ready, missing]); // eslint-disable-line react-hooks/exhaustive-deps -- chỉ báo khi tình trạng đổi
+  const dirty = d.dirty;
+  useEffect(() => onStatus({ ready, missing, dirty }), [ready, missing, dirty]); // eslint-disable-line react-hooks/exhaustive-deps -- chỉ báo khi tình trạng đổi
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focus || !ref.current) return;

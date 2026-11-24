@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,11 +48,12 @@ import { useStock } from '@/api/inventory.api';
 import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
 import { formatQty } from '@/features/inventory/shared';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
-import type { Marketplace, ProductListingRow } from '@/types/shop';
+import type { ListingStatus, Marketplace, ProductListingRow } from '@/types/shop';
 import { STOCK_STATE } from '@/features/inventory/shared';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { useCan } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
@@ -144,6 +145,9 @@ function specText(v: ProductVariant) {
 }
 
 const FACT_LABELS: Record<ProductFactField, string> = { originCountry: 'xuất xứ', brand: 'thương hiệu', description: 'mô tả' };
+
+/** Listing đã lên sàn thật (khung "Tiếp theo" xong việc); pushing, push_failed, rejected, delisted không tính */
+const PUBLISHED_STATUSES: ReadonlySet<ListingStatus> = new Set(['live', 'under_review', 'platform_hold', 'hidden']);
 
 const toImages = (p: ProductDetail): ImageItem[] =>
   [...p.images].sort((a, b) => a.position - b.position).map((i) => ({ fileId: i.fileId, url: i.url }));
@@ -266,6 +270,13 @@ export function ProductFormPage() {
   const shops = shopsQuery.data?.items ?? [];
   const tabPlatforms = !isNew && canShop ? platforms : [];
   const tab: ProductTabKey = tabFromParam(searchParams.get('tab'), tabPlatforms);
+  // Tab sàn còn attribute sửa dở (PlatformTab báo lên), để hỏi lại khi rời tab/trang (FE#459)
+  const [platformDirty, setPlatformDirty] = useState<Partial<Record<Marketplace, boolean>>>({});
+  const onPlatformDirty = useCallback(
+    (p: Marketplace, dirty: boolean) => setPlatformDirty((prev) => (Boolean(prev[p]) === dirty ? prev : { ...prev, [p]: dirty })),
+    [],
+  );
+  const tabName = (t: string) => (t === 'commerio' ? 'Nội bộ' : platformLabel(t as Marketplace));
   const setTab = (next: string) =>
     setSearchParams(
       (prev) => {
@@ -428,17 +439,25 @@ export function ProductFormPage() {
       },
       { replace: true },
     );
-  // Đã đăng lên sàn (bước cuối của khung) thì khung xong việc, gỡ cờ để Back/F5 không hiện lại
-  const publishedAny = listingRows.some((r) => r.listing && r.listing.status !== 'delisted');
+  // Đã đăng lên sàn (bước cuối của khung) thì khung xong việc, gỡ cờ để Back/F5 không hiện lại. Chỉ tính trạng thái đã
+  // lên sàn thật; đang đẩy, đẩy hỏng, bị từ chối thì khung vẫn hiện để làm lại
+  const publishedAny = listingRows.some((r) => r.listing && PUBLISHED_STATUSES.has(r.listing.status));
   useEffect(() => {
     if (justCreated && publishedAny) closeCreated();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo hai cờ
   }, [justCreated, publishedAny]);
   // "Đăng sản phẩm" trong khung: gỡ cờ trên mục history của trang này trước, rồi mới sang trình đăng (hai điều hướng
-  // liền nhau trong một lượt thì lượt sau huỷ lượt trước)
+  // liền nhau trong một lượt thì lượt sau huỷ lượt trước). setTimeout(navigate, 0) chỉ an toàn khi hai route này không có
+  // loader/lazy (điều hướng xong ngay); thêm loader thì phải đợi lượt replace xong. Ref chặn bấm đúp tạo hai mục /publish
+  const publishing = useRef(false);
   const publishFromCreated = (href: string) => {
+    if (publishing.current) return;
+    publishing.current = true;
     closeCreated();
-    setTimeout(() => navigate(href), 0);
+    setTimeout(() => {
+      navigate(href);
+      publishing.current = false;
+    }, 0);
   };
 
   /** Lỗi 422 của BE về đúng chỗ (AC-8) */
@@ -530,6 +549,8 @@ export function ProductFormPage() {
         if (nextAfterSave.current) {
           nextAfterSave.current = false;
           const next = await fetchNextIncompleteProduct(saved.id);
+          // Tab Nội bộ vừa lưu nhưng state còn cũ trong lượt render này; tab sàn còn attribute chưa lưu thì vẫn hỏi
+          if (!tabPlatforms.some((p) => platformDirty[p])) leave.allowNext();
           if (next) navigate(`${ROUTES.company.catalogProduct(companyId, next)}?from=incomplete`);
           else {
             toast.success('Đã hoàn thiện hết sản phẩm chờ hoàn thiện');
@@ -557,6 +578,26 @@ export function ProductFormPage() {
       if (!applyFieldErrors(e)) setError(problemMessage(e));
     }
   });
+
+  // Hỏi lại khi rời trang hoặc rời tab mà còn chưa lưu (FE#459, cùng cách FE#319): nút "Lưu" ở tab Nội bộ, "Lưu
+  // attribute {sàn}" ở tab sàn. Trang tạo mới không hỏi (chưa có gì để mất ngoài ô đang gõ)
+  const internalDirty =
+    !isNew &&
+    (form.formState.isDirty ||
+      JSON.stringify(specDrafts) !== JSON.stringify(specInitial) ||
+      (product
+        ? JSON.stringify(images.map((i) => i.fileId)) !== JSON.stringify(toImages(product).map((i) => i.fileId)) ||
+          (sizeChart?.fileId ?? null) !== (product.sizeChart?.fileId ?? null)
+        : false));
+  const dirtyTabs = [...(internalDirty ? ['commerio'] : []), ...tabPlatforms.filter((p) => platformDirty[p])];
+  const leave = useLeaveGuard(dirtyTabs.length > 0, {
+    message: `Còn thay đổi chưa lưu ở tab ${dirtyTabs.map(tabName).join(', ')}. Rời trang thì các thay đổi này bị bỏ.`,
+  });
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const requestTab = (next: string) => {
+    if (next !== tab && dirtyTabs.includes(tab)) setPendingTab(next);
+    else setTab(next);
+  };
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={backToList}>
@@ -634,6 +675,7 @@ export function ProductFormPage() {
     try {
       await deleteMut.mutateAsync({ id: product.id, version: product.version });
       toast.success(`Đã xoá ${product.name}`);
+      leave.allowNext();
       backToList();
     } catch (e) {
       toast.error(problemMessage(e));
@@ -734,7 +776,7 @@ export function ProductFormPage() {
           <NeedsAttentionBox items={attention} product={product} platforms={tabPlatforms} shops={shops} onAction={onAttention} />
         )}
 
-        <Tabs value={tab} onValueChange={setTab} className="gap-4">
+        <Tabs value={tab} onValueChange={requestTab} className="gap-4">
           {/* Giữ chỗ dải tab sàn khi gian hàng đang tải, để trang không nhảy (FE#463). Tải xong mà không có sàn nào hoạt
               động thì dải tab không hiện, trang vẫn co lại ~36px: chấp nhận, hiếm khi người tạo sản phẩm chưa có gian hàng */}
           {product && canShop && shopsQuery.isLoading && <Skeleton className="h-9 w-64" data-testid="platform-tabs-placeholder" />}
@@ -1142,6 +1184,7 @@ export function ProductFormPage() {
                   canEditSpec={can(PERMISSIONS.listingManage) && !archived}
                   canEditProduct={!readOnly}
                   onJump={jumpTo}
+                  onDirtyChange={onPlatformDirty}
                 />
               </TabsContent>
             ))}
@@ -1168,6 +1211,19 @@ export function ProductFormPage() {
         )}
 
         {business.dialog}
+        {leave.dialog}
+        <ConfirmDialog
+          open={pendingTab !== null}
+          title="Chuyển tab khi chưa lưu?"
+          message={`Tab ${tabName(tab)} còn thay đổi chưa lưu. Chuyển tab vẫn giữ nguyên phần đang sửa để quay lại lưu; rời trang thì mất.`}
+          confirmLabel="Chuyển tab"
+          cancelLabel="Ở lại"
+          onConfirm={() => {
+            if (pendingTab) setTab(pendingTab);
+            setPendingTab(null);
+          }}
+          onClose={() => setPendingTab(null)}
+        />
         {product && (
           <ConfirmDialog
             open={deleteOpen}

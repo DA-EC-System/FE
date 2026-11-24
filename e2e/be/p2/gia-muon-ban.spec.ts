@@ -91,18 +91,18 @@ test('sửa giá chuẩn và giá muốn bán: hết thiếu giá muốn bán, B
   expect(v.missing).not.toContain('price');
 });
 
-test('tạm ngừng rồi bỏ tạm ngừng: nhãn chính đổi theo trạng thái kinh doanh', async () => {
+test('tạm ngừng bán rồi mở bán lại: nhãn chính đổi theo trạng thái kinh doanh', async () => {
   test.skip(Boolean(boQua), boQua);
   const alert = page.getByRole('alertdialog');
   await sku().getByRole('button', { name: /^Đổi trạng thái/ }).click();
-  await page.getByRole('menuitem', { name: 'Tạm ngừng', exact: true }).click();
-  await alert.getByRole('button', { name: 'Tạm ngừng', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Tạm ngừng bán', exact: true }).click();
+  await alert.getByRole('button', { name: 'Tạm ngừng bán', exact: true }).click();
   await expect(sku().locator('[data-testid=variant-status] [data-status=paused]')).toBeVisible();
   expect((await chiTiet()).variants[0]!.businessStatus).toBe('paused');
 
   await sku().getByRole('button', { name: /^Đổi trạng thái/ }).click();
-  await page.getByRole('menuitem', { name: 'Bỏ tạm ngừng', exact: true }).click();
-  await alert.getByRole('button', { name: 'Bỏ tạm ngừng', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Mở bán lại', exact: true }).click();
+  await alert.getByRole('button', { name: 'Mở bán lại', exact: true }).click();
   await expect(sku().locator('[data-testid=variant-status] [data-status=not_listed]')).toBeVisible();
   expect((await chiTiet()).variants[0]!.businessStatus).toBe('selling');
 });

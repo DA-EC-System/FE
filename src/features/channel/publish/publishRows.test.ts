@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChannelListing, PriceQuoteRow, ProductListingRow } from '@/types/shop';
-import { feePct, initialSelection, isOnPlatform, priceRange, priceView, rowBlocker, selectedPlatforms, shopSummary, stockToPushText } from './publishRows';
+import { feePct, initialSelection, isOnPlatform, priceNote, priceRange, priceView, rowBlocker, selectedPlatforms, shopSummary, stockToPushText } from './publishRows';
 
 const row = (over: Partial<ProductListingRow> = {}): ProductListingRow =>
   ({
@@ -126,5 +126,20 @@ describe('stockToPushText (§18.9 R3)', () => {
     expect(stockToPushText({ stockToPush: null, stockHeldReason: 'not_counted' })).toBe('Chưa có số tồn');
     expect(stockToPushText({ stockToPush: null, stockHeldReason: null })).toBe('—');
     expect(stockToPushText({ stockToPush: 0, stockHeldReason: null })).toBe('0');
+  });
+});
+
+describe('priceNote', () => {
+  const std = 1_234_567;
+  const from = std.toLocaleString('vi-VN');
+  it('trùng giá chuẩn hoặc thiếu số thì không ghi', () => {
+    expect(priceNote({ price: std, priceSource: 'standard' }, std)).toBeNull();
+    expect(priceNote({ price: null, priceSource: 'standard' }, std)).toBeNull();
+    expect(priceNote({ price: 1_240_000, priceSource: 'standard' }, null)).toBeNull();
+  });
+  it('ghi theo nguồn giá', () => {
+    expect(priceNote({ price: 1_240_000, priceSource: 'standard' }, std)).toBe(`Làm tròn từ ${from} theo quy tắc giá`);
+    expect(priceNote({ price: 1_300_000, priceSource: 'shop' }, std)).toBe(`Giá theo gian hàng, tính từ giá chuẩn ${from}`);
+    expect(priceNote({ price: 999_000, priceSource: 'override' }, std)).toBe(`Giá đặt tay, giá chuẩn ${from}`);
   });
 });

@@ -6,9 +6,13 @@ import {
   ArrowLeft,
   BadgeCheck,
   Check,
+  ChevronDown,
+  ChevronRight,
   CloudOff,
+  Ellipsis,
   ImageIcon,
   Link2,
+  Loader2,
   PencilLine,
   PlugZap,
   Power,
@@ -26,6 +30,8 @@ import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, SearchInput } from '@/components/common/FilterBar';
 import { RowAction } from '@/components/common/RowAction';
+import { HelpTip } from '@/components/common/HelpTip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +74,7 @@ import { onPlatform } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import { MatchPreviewPanel } from './MatchPreviewPanel';
 import { CreateVariantDialog } from './CreateVariantDialog';
+import { groupRemote, remoteTableRows, type RemoteTableRow } from './remoteGroups';
 import { bulkPairs, bulkSummary, bulkSummaryText, isOpenRemote, suggestionLabel } from './remoteLinking';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
@@ -109,12 +116,13 @@ interface Deciding {
 const SPEC_PLATFORMS: ReadonlySet<string> = new Set(['lazada', 'tiktok']);
 
 /**
- * Tab theo Test_UI `v-listing`. "Chưa ghép" là SKU trên sàn chưa ghép biến thể nào;
- * các tab còn lại lọc biến thể Commerio theo trạng thái listing (sơ đồ C2).
+ * Tab theo Test_UI `v-listing`. "SKU sàn chưa liên kết" là SKU trên sàn chưa ghép biến thể nào;
+ * các tab còn lại lọc biến thể Commerio theo trạng thái listing (sơ đồ C2). Nhãn nêu rõ tập đếm (FE#460): "SKU kho" đếm
+ * SKU của công ty, "SKU sàn chưa liên kết" đếm SKU trên sàn nên hai số có thể chênh nhiều.
  */
 const LISTING_TABS: { value: ListingTab; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'unmatched', label: 'Chưa liên kết' },
+  { value: 'all', label: 'SKU kho' },
+  { value: 'unmatched', label: 'SKU sàn chưa liên kết' },
   { value: 'pending', label: 'Chờ duyệt liên kết' },
   { value: 'not_listed', label: 'Chưa đăng bán' },
   { value: 'stale', label: 'Chờ đồng bộ giá' },
@@ -153,6 +161,16 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
       return r.categoryChange?.status === 'failed' || r.categoryChange?.status === 'mismatch';
   }
 }
+
+/**
+ * Cột cố định khi bảng cuộn ngang (FE#460): tên ở đầu, thao tác ở cuối. Ô dữ liệu cần nền đặc để chữ cột khác không lộ
+ * qua; ô tiêu đề giữ nền tiêu đề của TableHead
+ */
+const STICKY_BG = '[&:is(td)]:bg-card [tr:hover>&]:bg-table-head [tr[data-state=selected]>&]:bg-accent';
+const STICKY_START = `sticky start-0 z-10 ${STICKY_BG}`;
+/** Cột Sản phẩm của bảng SKU kho đứng sau cột chọn (w-10) */
+const STICKY_AFTER_SELECT = `sticky start-10 z-10 ${STICKY_BG}`;
+const STICKY_END = `sticky end-0 z-10 ${STICKY_BG}`;
 
 /** Gỡ được khi listing còn trên sàn và không đang đẩy */
 const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
@@ -283,6 +301,12 @@ export function ShopListingsPage() {
   const [updatingContent, setUpdatingContent] = useState<ListingRow | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  /** Bảng SKU sàn phân trang theo sản phẩm trên sàn, sản phẩm nhiều SKU gập/mở được (FE#460) */
+  const [remotePage, setRemotePage] = useState(1);
+  const [remotePageSize, setRemotePageSize] = useState(25);
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
+  /** Biến thể đang gửi lệnh đăng: icon trên dòng quay để biết đã bấm (FE#461) */
+  const [pushingIds, setPushingIds] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [matching, setMatching] = useState<Matching | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
@@ -330,6 +354,22 @@ export function ShopListingsPage() {
         )
       : source;
   }, [unmatchedRemote, pendingRemote, search, tab]);
+
+  const remoteGroups = useMemo(() => groupRemote(remoteRows), [remoteRows]);
+  const remotePageCount = Math.max(1, Math.ceil(remoteGroups.length / remotePageSize));
+  const safeRemotePage = Math.min(remotePage, remotePageCount);
+  const remotePageRows = useMemo(
+    () =>
+      remoteTableRows(remoteGroups.slice((safeRemotePage - 1) * remotePageSize, safeRemotePage * remotePageSize), closedGroups),
+    [remoteGroups, safeRemotePage, remotePageSize, closedGroups],
+  );
+  const toggleGroup = (key: string) =>
+    setClosedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   /** Số dòng mỗi tab, không tính ô tìm kiếm. Chưa tải được SKU sàn thì "Chờ duyệt" đếm theo biến thể */
   const tabCounts = useMemo(() => {
@@ -409,6 +449,7 @@ export function ShopListingsPage() {
   const changeTab = (v: string) => {
     setTab(v as ListingTab);
     setPage(1);
+    setRemotePage(1);
     setSelection(new Set());
     setSearchParams((p) => writeShopListingParams(p, { tab: v as ListingTab }), { replace: true });
   };
@@ -416,6 +457,7 @@ export function ShopListingsPage() {
   const changeSearch = (v: string) => {
     setSearch(v);
     setPage(1);
+    setRemotePage(1);
     setSearchParams((p) => writeShopListingParams(p, { q: v }), { replace: true });
   };
 
@@ -732,15 +774,19 @@ export function ShopListingsPage() {
 
   /**
    * Đẩy sản phẩm mới một dòng: `specStatus` đủ thì hỏi rồi đẩy như cũ, chưa có hay còn thiếu thì mở trang 4 bước
-   * (commerio-backend#400, Documents/21 §18.5). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có nút Sửa thông tin sàn
+   * (commerio-backend#400, Documents/21 §18.5). Thông tin sàn đủ thì mở trang đăng sản phẩm với gian hàng này, cùng bước xem
+   * trước như nút Đăng sản phẩm ở trang sản phẩm (FE#461). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có
+   * nút Sửa thông tin sàn
    */
   const requestNewPush = (row: ListingRow) => {
     if (specPlatform && row.specStatus !== 'complete') openSpec(row.productId);
+    else if (specPlatform) navigate(ROUTES.company.productPublish(companyId, row.productId, { shops: [shopId] }));
     else requestPush([row]);
   };
 
   /** Đẩy chạy nền (§18.6.4): dòng được xếp việc chuyển Đang đẩy, trang tự đọc lại tới khi sàn trả kết quả */
   const push = async (targets: ListingRow[]) => {
+    setPushingIds(new Set(targets.map((r) => r.variantId)));
     try {
       const results = await pushMut.mutateAsync({ shopId, variantIds: targets.map((r) => r.variantId) });
       const { queued, blocked } = splitPushResults(results);
@@ -761,6 +807,8 @@ export function ShopListingsPage() {
       if (blocked.length) toast.warning(`${blocked.length} SKU không đăng được, xem lý do ở cột Trạng thái`);
     } catch (e) {
       toast.error(problemMessage(e, 'push'));
+    } finally {
+      setPushingIds(new Set());
     }
     setPushing(null);
   };
@@ -789,7 +837,7 @@ export function ShopListingsPage() {
     if (canManage) {
       cols.push({
         id: 'select',
-        meta: { className: 'w-10' },
+        meta: { className: `w-10 ${STICKY_START}` },
         header: () => (
           <Checkbox
             aria-label="Chọn tất cả dòng đang lọc"
@@ -823,7 +871,7 @@ export function ShopListingsPage() {
       {
         id: 'product',
         header: 'Sản phẩm',
-        meta: { className: 'min-w-56' },
+        meta: { className: `min-w-56 ${canManage ? STICKY_AFTER_SELECT : STICKY_START}` },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -951,7 +999,7 @@ export function ShopListingsPage() {
       cols.push({
         id: 'actions',
         header: '',
-        meta: { className: 'w-40 text-right' },
+        meta: { className: `w-40 text-right ${STICKY_END}` },
         cell: ({ row }) => {
           const r = row.original;
           const status = r.listing?.status;
@@ -978,11 +1026,11 @@ export function ShopListingsPage() {
               )}
               {!canManage ? null : status && REPUSH_STATUSES.includes(status) ? (
                 <RowAction
-                  label="Đăng lại"
+                  label={pushingIds.has(r.variantId) ? 'Đang đăng lại...' : 'Đăng lại'}
                   reason={pushMut.isPending ? 'Đang đăng...' : null}
                   onClick={() => requestPush([r])}
                 >
-                  <RotateCcw />
+                  {pushingIds.has(r.variantId) ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <RotateCcw />}
                 </RowAction>
               ) : (
                 <RowAction
@@ -990,7 +1038,7 @@ export function ShopListingsPage() {
                   reason={pushMut.isPending ? 'Đang đăng...' : busy}
                   onClick={() => (r.listing ? requestPush([r]) : requestNewPush(r))}
                 >
-                  <Upload />
+                  {pushingIds.has(r.variantId) ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <Upload />}
                 </RowAction>
               )}
               {canDecideOutside && r.listing?.outsideChange && (
@@ -1022,10 +1070,21 @@ export function ShopListingsPage() {
                   <PencilLine />
                 </RowAction>
               )}
+              {/* Thao tác huỷ để trong menu ⋯, không đứng sát Đăng lại (FE#462) */}
               {canManage && status && canDelist(status) && (
-                <RowAction label="Gỡ khỏi sàn" destructive onClick={() => setDelisting(r)}>
-                  <CloudOff />
-                </RowAction>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="size-8" aria-label={`Thao tác khác với ${r.sku}`}>
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem variant="destructive" onSelect={() => setDelisting(r)}>
+                      <CloudOff />
+                      Gỡ khỏi sàn
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           );
@@ -1034,23 +1093,57 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, listingReview, canSetPrice, canSync, shopId]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, pushingIds, listingReview, canSetPrice, canSync, shopId]);
 
-  const remoteColumns = useMemo<ColumnDef<RemoteSku>[]>(
+  const remoteColumns = useMemo<ColumnDef<RemoteTableRow>[]>(
     () => [
-      { accessorKey: 'title', header: 'Sản phẩm trên sàn', meta: { className: 'min-w-56 font-medium' } },
+      {
+        id: 'title',
+        header: 'Sản phẩm trên sàn',
+        meta: { className: `min-w-56 max-w-80 font-medium ${STICKY_START}` },
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.group) {
+            const { key, count, open } = r.group;
+            return (
+              <button
+                type="button"
+                className="flex items-start gap-1.5 text-start"
+                aria-expanded={open}
+                onClick={() => toggleGroup(key)}
+                data-testid="remote-group-toggle"
+              >
+                {open ? <ChevronDown className="mt-0.5 size-4 shrink-0" /> : <ChevronRight className="mt-0.5 size-4 shrink-0" />}
+                <span>
+                  {r.title}
+                  <span className="ms-1.5 text-xs font-normal text-muted-foreground">{count} SKU</span>
+                </span>
+              </button>
+            );
+          }
+          if (r.child) return <span className="block ps-6 text-xs font-normal text-muted-foreground">{r.title}</span>;
+          return r.title;
+        },
+      },
       {
         id: 'sellerSku',
         header: 'SKU người bán',
         meta: { className: 'w-40 font-mono text-xs' },
-        cell: ({ row }) => row.original.sellerSku || <span className="text-muted-foreground">—</span>,
+        cell: ({ row }) =>
+          row.original.group ? null : row.original.sellerSku || <span className="text-muted-foreground">—</span>,
       },
-      { accessorKey: 'externalSkuId', header: 'SKU ID sàn', meta: { className: 'w-44 font-mono text-xs' } },
+      {
+        id: 'externalSkuId',
+        header: 'SKU ID sàn',
+        meta: { className: 'w-44 font-mono text-xs' },
+        cell: ({ row }) => (row.original.group ? null : row.original.externalSkuId),
+      },
       {
         id: 'suggestion',
         header: 'Gợi ý SKU kho',
         meta: { className: 'min-w-56' },
         cell: ({ row }) => {
+          if (row.original.group) return null;
           const s = row.original.suggestion;
           if (!s) return <span className="text-xs text-muted-foreground">{isOpenRemote(row.original) ? 'Không có gợi ý' : '—'}</span>;
           return (
@@ -1069,6 +1162,7 @@ export function ShopListingsPage() {
         meta: { className: 'min-w-40' },
         cell: ({ row }) => {
           const r = row.original;
+          if (r.group) return null;
           const current = r.matchedVariantId
             ? `Liên kết với ${items.find((x) => x.variantId === r.matchedVariantId)?.sku ?? 'SKU kho khác'}`
             : r.mode === 'unmanaged'
@@ -1095,9 +1189,10 @@ export function ShopListingsPage() {
             {
               id: 'actions',
               header: '',
-              meta: { className: 'min-w-48 text-right' },
-              cell: ({ row }: { row: { original: RemoteSku } }) => {
+              meta: { className: `min-w-48 text-right ${STICKY_END}` },
+              cell: ({ row }: { row: { original: RemoteTableRow } }) => {
                 const r = row.original;
+                if (r.group) return null;
                 return (
                   <div className="flex justify-end gap-1">
                     {decideActions(r.listingId, r.listingVersion, r.sellerSku || r.externalSkuId, r.pendingMapping)}
@@ -1116,7 +1211,7 @@ export function ShopListingsPage() {
                   </div>
                 );
               },
-            } satisfies ColumnDef<RemoteSku>,
+            } satisfies ColumnDef<RemoteTableRow>,
           ]
         : []),
     ],
@@ -1174,6 +1269,12 @@ export function ShopListingsPage() {
                 <RefreshCw className={syncMut.isPending ? 'animate-spin motion-reduce:animate-none' : undefined} />
                 {syncMut.isPending ? 'Đang đồng bộ...' : 'Đồng bộ'}
               </Button>
+            )}
+            {usable && can(PERMISSIONS.shopSync) && (
+              <HelpTip
+                topic="Đồng bộ"
+                content="Đẩy giá và tồn của Commerio lên sàn cho các SKU đã liên kết, rồi đọc lại trạng thái trên sàn. Không lấy SKU mới từ sàn; muốn lấy thì dùng Tải SKU từ sàn."
+              />
             )}
             {canManage && (
               <Button
@@ -1274,6 +1375,10 @@ export function ShopListingsPage() {
                   <RefreshCw className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
                   {refreshing ? 'Đang tải SKU từ sàn…' : 'Tải SKU từ sàn'}
                 </Button>
+                <HelpTip
+                  topic="Tải SKU từ sàn"
+                  content="Lấy về danh sách sản phẩm và SKU đang có trên sàn để liên kết với SKU kho. Không đổi giá hay tồn trên sàn; muốn đẩy giá, tồn thì dùng Đồng bộ."
+                />
               </>
             )}
           </div>
@@ -1325,7 +1430,7 @@ export function ShopListingsPage() {
               )}
               <DataTable
                 columns={remoteColumns}
-                data={remoteRows}
+                data={remotePageRows}
                 getRowId={(r) => r.externalSkuId}
                 loading={remoteQuery.isLoading || (refreshRunning && !remoteQuery.data?.syncedAt)}
                 fetching={remoteQuery.isFetching}
@@ -1338,6 +1443,17 @@ export function ShopListingsPage() {
                         ? 'Chưa tải SKU từ sàn'
                         : 'Mọi SKU sàn đã liên kết'
                 }
+                pagination={{
+                  page: safeRemotePage,
+                  pageSize: remotePageSize,
+                  total: remoteGroups.length,
+                  pageSizes: [25, 50, 100],
+                  sizeLabel: 'Sản phẩm mỗi trang',
+                  onChange: (p, size) => {
+                    setRemotePage(p);
+                    setRemotePageSize(size);
+                  },
+                }}
               />
               </>
             )}
@@ -1347,6 +1463,7 @@ export function ShopListingsPage() {
             columns={columns}
             data={pageRows}
             getRowId={(r) => r.variantId}
+            isRowSelected={(r) => selection.has(r.variantId)}
             onRowDoubleClick={(r) => navigate(ROUTES.company.catalogProduct(companyId, r.productId))}
             loading={listingsQuery.isLoading}
             fetching={listingsQuery.isFetching}
@@ -1370,7 +1487,12 @@ export function ShopListingsPage() {
         )}
       </Card>
 
-      <CreateVariantDialog shopId={shopId} remote={creating} onClose={() => setCreating(null)} />
+      <CreateVariantDialog
+        shopId={shopId}
+        remote={creating}
+        siblings={creating ? remoteSkus.filter((s) => s.externalProductId && s.externalProductId === creating.externalProductId).length : 0}
+        onClose={() => setCreating(null)}
+      />
       <ConfirmDialog
         open={bulkOpen}
         title={`Liên kết ${pairs.length} cặp trùng mã SKU`}
@@ -1437,8 +1559,15 @@ export function ShopListingsPage() {
         title="Gỡ khỏi sàn?"
         message={
           <>
-            Gỡ <strong>{delisting?.sku}</strong> khỏi {shop?.shopName}. Khách không đặt được SKU này trên sàn nữa; liên kết
-            SKU vẫn giữ để đăng lại sau.
+            Gỡ SKU kho <strong>{delisting?.sku}</strong>
+            {delisting?.listing?.sellerSku && delisting.listing.sellerSku !== delisting.sku && (
+              <>
+                {' '}
+                (SKU sàn <strong>{delisting.listing.sellerSku}</strong>)
+              </>
+            )}{' '}
+            khỏi gian hàng <strong>{shop?.shopName}</strong> trên {platformName}. Khách không đặt được SKU này trên sàn nữa;
+            liên kết SKU vẫn giữ để đăng lại sau.
           </>
         }
         confirmLabel="Gỡ khỏi sàn"

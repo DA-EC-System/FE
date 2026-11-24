@@ -20,15 +20,17 @@ interface AlertMessageProps {
   /** Có thì hiện nút đóng */
   onClose?: () => void;
   className?: string;
+  /** Khối báo chặn (vd trình đăng, FE#459): đọc ngay bằng `role="alert"` dù không phải mức lỗi */
+  alert?: boolean;
 }
 
 /** Thông báo một dòng kèm icon theo mức độ, kiểu .note của Test_UI (thay cho Alert severity của MUI) */
-export function AlertMessage({ severity, children, onClose, className }: AlertMessageProps) {
+export function AlertMessage({ severity, children, onClose, className, alert }: AlertMessageProps) {
   const Icon = ICON[severity];
   return (
     <Alert
       variant={VARIANT[severity]}
-      role={severity === 'error' ? 'alert' : 'status'}
+      role={alert || severity === 'error' ? 'alert' : 'status'}
       className={cn(onClose && 'relative pe-10', className)}
     >
       <Icon />

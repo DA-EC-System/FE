@@ -56,6 +56,12 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
   const axisMissing = d.missing.filter((m) => AXIS_REASONS.has(m.reason));
   const categoryMissing = d.missing.filter((m) => m.reason === 'category_changed' || m.reason === 'category_removed');
   const ready = d.missing.length === 0 && !d.dirty && Boolean(d.saved.spec);
+  // Category nhận ít trục hơn sản phẩm: lý do chặn chính, đưa lên đầu bước 2 kèm lối xử lý (FE#459)
+  const axisOver = d.draft.externalCategoryId && d.caps && d.axes.length > d.caps.maxAxes ? d.caps.maxAxes : null;
+  const changeCategory = () => {
+    setChangingCategory(true);
+    requestAnimationFrame(() => document.getElementById(`category-${d.platform}`)?.scrollIntoView({ block: 'center' }));
+  };
   const byCode = new Map((d.attrs ?? []).map((a) => [a.code, a]));
   // Lỗi 422 rơi vào attribute không nằm trong phần thiếu: mở sẵn khối sửa mọi attribute
   const otherErrors = Object.keys(d.errors).some((k) => k.startsWith('attributes.') && !attrMissing.some((m) => `attributes.${m.code}` === k));
@@ -78,8 +84,20 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
       </header>
 
       <div className="grid gap-5 px-4 py-4">
+        {axisOver !== null && (
+          <AlertMessage severity="error">
+            <p>
+              <b>Chưa đăng được vào category này.</b> {d.label} chỉ nhận tối đa {axisOver} thuộc tính biến thể ở category đang
+              chọn, sản phẩm có {d.axes.length} ({d.axes.map((a) => a.name).join(', ')}).
+            </p>
+            <p className="text-muted-foreground">Chọn category khác nhận đủ {d.axes.length} thuộc tính biến thể.</p>
+            <Button type="button" size="sm" variant="outline" onClick={changeCategory}>
+              Đổi category
+            </Button>
+          </AlertMessage>
+        )}
         {/* Category */}
-        <div className="grid gap-2">
+        <div className="grid gap-2" id={`category-${d.platform}`}>
           <h4 className="text-sm font-semibold">Category</h4>
           {d.draft.externalCategoryId && !changingCategory ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">

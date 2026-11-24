@@ -336,7 +336,9 @@ export function useUpdateProduct() {
       const { data } = await apiClient.put<ProductDetail>(`/catalog/products/${id}`, body);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (p) => {
+      // Đặt ngay bản vừa lưu: trang sản phẩm so ảnh với cache, chờ đọc lại thì rời trang ngay sau khi lưu bị hỏi nhầm
+      qc.setQueryData(catalogKeys.product(companyId, p.id), withVariantDefaults(p));
       invalidate();
       // Listing gian hàng hiện tên, ảnh đại diện của sản phẩm (FE#205): đổi ảnh xong quay lại gian hàng phải thấy ngay
       void qc.invalidateQueries({ queryKey: [...shopKeys.all(companyId), 'listings'] });

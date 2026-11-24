@@ -125,6 +125,26 @@ export function rowBlocker(view: PriceView, platformReady: boolean): string | nu
   return reasons.length ? reasons.join('; ') : null;
 }
 
+/**
+ * Ghi chú cạnh giá niêm yết khi giá sẽ đẩy khác giá chuẩn của SKU (FE#461): giải thích vì sao 1.240.000 chứ không phải
+ * 1.234.567. null khi trùng giá chuẩn hoặc thiếu số
+ */
+export function priceNote(
+  row: Pick<ProductListingRow, 'price' | 'priceSource'>,
+  standardPrice: number | null | undefined,
+): string | null {
+  if (row.price === null || standardPrice == null || row.price === standardPrice) return null;
+  const from = standardPrice.toLocaleString('vi-VN');
+  switch (row.priceSource) {
+    case 'override':
+      return `Giá đặt tay, giá chuẩn ${from}`;
+    case 'shop':
+      return `Giá theo gian hàng, tính từ giá chuẩn ${from}`;
+    default:
+      return `Làm tròn từ ${from} theo quy tắc giá`;
+  }
+}
+
 /** Chữ của ô "Tồn sẽ đẩy" (Documents/21 §18.9 R3, cùng nghĩa với `match-preview`); không chặn đăng */
 export function stockToPushText(row: Pick<ProductListingRow, 'stockToPush' | 'stockHeldReason'>): string {
   if (row.stockToPush !== null) return row.stockToPush.toLocaleString('vi-VN');
