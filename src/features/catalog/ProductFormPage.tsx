@@ -549,7 +549,8 @@ export function ProductFormPage() {
         if (nextAfterSave.current) {
           nextAfterSave.current = false;
           const next = await fetchNextIncompleteProduct(saved.id);
-          leave.allowNext();
+          // Tab Nội bộ vừa lưu nhưng state còn cũ trong lượt render này; tab sàn còn attribute chưa lưu thì vẫn hỏi
+          if (!tabPlatforms.some((p) => platformDirty[p])) leave.allowNext();
           if (next) navigate(`${ROUTES.company.catalogProduct(companyId, next)}?from=incomplete`);
           else {
             toast.success('Đã hoàn thiện hết sản phẩm chờ hoàn thiện');
@@ -584,7 +585,10 @@ export function ProductFormPage() {
     !isNew &&
     (form.formState.isDirty ||
       JSON.stringify(specDrafts) !== JSON.stringify(specInitial) ||
-      (product ? JSON.stringify(images.map((i) => i.fileId)) !== JSON.stringify(toImages(product).map((i) => i.fileId)) : false));
+      (product
+        ? JSON.stringify(images.map((i) => i.fileId)) !== JSON.stringify(toImages(product).map((i) => i.fileId)) ||
+          (sizeChart?.fileId ?? null) !== (product.sizeChart?.fileId ?? null)
+        : false));
   const dirtyTabs = [...(internalDirty ? ['commerio'] : []), ...tabPlatforms.filter((p) => platformDirty[p])];
   const leave = useLeaveGuard(dirtyTabs.length > 0, {
     message: `Còn thay đổi chưa lưu ở tab ${dirtyTabs.map(tabName).join(', ')}. Rời trang thì các thay đổi này bị bỏ.`,

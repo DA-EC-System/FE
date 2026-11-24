@@ -166,8 +166,11 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
  * Cột cố định khi bảng cuộn ngang (FE#460): tên ở đầu, thao tác ở cuối. Ô dữ liệu cần nền đặc để chữ cột khác không lộ
  * qua; ô tiêu đề giữ nền tiêu đề của TableHead
  */
-const STICKY_START = 'sticky start-0 z-10 [&:is(td)]:bg-card [tr:hover>&]:bg-table-head';
-const STICKY_END = 'sticky end-0 z-10 [&:is(td)]:bg-card [tr:hover>&]:bg-table-head';
+const STICKY_BG = '[&:is(td)]:bg-card [tr:hover>&]:bg-table-head [tr[data-state=selected]>&]:bg-accent';
+const STICKY_START = `sticky start-0 z-10 ${STICKY_BG}`;
+/** Cột Sản phẩm của bảng SKU kho đứng sau cột chọn (w-10) */
+const STICKY_AFTER_SELECT = `sticky start-10 z-10 ${STICKY_BG}`;
+const STICKY_END = `sticky end-0 z-10 ${STICKY_BG}`;
 
 /** Gỡ được khi listing còn trên sàn và không đang đẩy */
 const canDelist = (s: ListingStatus) => onPlatform(s) && s !== 'pushing';
@@ -834,7 +837,7 @@ export function ShopListingsPage() {
     if (canManage) {
       cols.push({
         id: 'select',
-        meta: { className: 'w-10' },
+        meta: { className: `w-10 ${STICKY_START}` },
         header: () => (
           <Checkbox
             aria-label="Chọn tất cả dòng đang lọc"
@@ -868,7 +871,7 @@ export function ShopListingsPage() {
       {
         id: 'product',
         header: 'Sản phẩm',
-        meta: { className: `min-w-56 ${STICKY_START}` },
+        meta: { className: `min-w-56 ${canManage ? STICKY_AFTER_SELECT : STICKY_START}` },
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -1445,6 +1448,7 @@ export function ShopListingsPage() {
                   pageSize: remotePageSize,
                   total: remoteGroups.length,
                   pageSizes: [25, 50, 100],
+                  sizeLabel: 'Sản phẩm mỗi trang',
                   onChange: (p, size) => {
                     setRemotePage(p);
                     setRemotePageSize(size);
@@ -1459,6 +1463,7 @@ export function ShopListingsPage() {
             columns={columns}
             data={pageRows}
             getRowId={(r) => r.variantId}
+            isRowSelected={(r) => selection.has(r.variantId)}
             onRowDoubleClick={(r) => navigate(ROUTES.company.catalogProduct(companyId, r.productId))}
             loading={listingsQuery.isLoading}
             fetching={listingsQuery.isFetching}

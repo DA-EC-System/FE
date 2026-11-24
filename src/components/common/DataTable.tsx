@@ -50,6 +50,8 @@ export interface ServerPagination {
   total: number;
   onChange: (page: number, pageSize: number) => void;
   pageSizes?: number[];
+  /** Nhãn ô chọn cỡ trang khi một trang không đếm theo dòng, vd bảng gom theo sản phẩm */
+  sizeLabel?: string;
 }
 
 interface DataTableProps<T> {
@@ -71,6 +73,8 @@ interface DataTableProps<T> {
   renderExpanded?: (row: T) => ReactNode;
   /** Lớp CSS thêm cho dòng, vd tô sáng */
   rowClassName?: (row: T) => string | undefined;
+  /** Dòng đang được chọn (checkbox ngoài TanStack): đặt data-state=selected để TableRow tô màu */
+  isRowSelected?: (row: T) => boolean;
 }
 
 /** Bảng dữ liệu dùng TanStack Table, phân trang phía server (thay DataGrid của MUI). */
@@ -86,6 +90,7 @@ export function DataTable<T>({
   pagination,
   renderExpanded,
   rowClassName,
+  isRowSelected,
 }: DataTableProps<T>) {
   const table = useReactTable({
     data,
@@ -141,6 +146,7 @@ export function DataTable<T>({
                   <Fragment key={row.id}>
                     <TableRow
                       data-row-id={row.id}
+                      data-state={isRowSelected?.(row.original) ? 'selected' : undefined}
                       className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
                       onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                       onDoubleClick={
@@ -206,7 +212,7 @@ function renderCell<TProps extends object>(cell: ColumnDefTemplate<TProps> | und
   return typeof cell === 'function' ? (cell as (p: TProps) => ReactNode)(props) : cell;
 }
 
-function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 50] }: ServerPagination) {
+function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 50], sizeLabel = 'Số dòng mỗi trang' }: ServerPagination) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);
@@ -214,9 +220,9 @@ function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 5
   return (
     <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 border-t px-4 py-3 text-sm">
       <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">Số dòng mỗi trang</span>
+        <span className="text-muted-foreground">{sizeLabel}</span>
         <Select value={String(pageSize)} onValueChange={(v) => onChange(1, Number(v))}>
-          <SelectTrigger size="sm" aria-label="Số dòng mỗi trang">
+          <SelectTrigger size="sm" aria-label={sizeLabel}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

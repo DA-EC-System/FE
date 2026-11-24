@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
@@ -34,10 +34,12 @@ export function CategoryPickerDialog({ open, onOpenChange, companyId, product, p
   const save = useSaveProductSpec();
   const changed = draft.externalCategoryId !== (spec?.externalCategoryId ?? null);
 
-  const onOpen = (next: boolean) => {
-    if (next) setDraft(draftFromSpec(spec));
-    onOpenChange(next);
-  };
+  // Radix không gọi onOpenChange(true) khi cha mở hộp, nên đặt lại lựa chọn theo prop `open`: Huỷ rồi mở lại không còn
+  // category chọn dở (review FE#466)
+  useEffect(() => {
+    if (open) setDraft(draftFromSpec(spec));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ đặt lại lúc mở, không theo spec đổi khi đang mở
+  }, [open]);
 
   const onSave = async () => {
     if (!draft.externalCategoryId || save.isPending) return;
@@ -63,7 +65,7 @@ export function CategoryPickerDialog({ open, onOpenChange, companyId, product, p
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{spec ? `Đổi category ${label}` : `Chọn category ${label}`}</DialogTitle>
@@ -88,7 +90,7 @@ export function CategoryPickerDialog({ open, onOpenChange, companyId, product, p
           </AlertMessage>
         )}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpen(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Huỷ
           </Button>
           <Button type="button" onClick={onSave} disabled={!changed || !draft.externalCategoryId || save.isPending}>

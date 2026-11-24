@@ -29,7 +29,8 @@ export function VariantsStep({ label, axes, sales, caps, draft, errors, onAxis, 
   const list = sales ?? [];
   return (
     <div className="grid gap-4">
-      <AlertMessage severity={caps && axes.length > caps.maxAxes ? 'warning' : 'info'} alert={Boolean(caps && axes.length > caps.maxAxes)}>
+      {/* Vượt số trục đã báo bằng role=alert ở khối đầu bước (PlatformPanel), ở đây chỉ là trạng thái (review FE#466) */}
+      <AlertMessage severity={caps && axes.length > caps.maxAxes ? 'warning' : 'info'}>
         {/* Bọc một đoạn: AlertDescription là grid, phần tử inline (<b>) đứng riêng một dòng (FE#459) */}
         <p>
           Mỗi thuộc tính biến thể của sản phẩm khớp với một thuộc tính biến thể của {label}; Commerio đã chọn sẵn theo loại thuộc
