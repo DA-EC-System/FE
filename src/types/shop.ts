@@ -79,6 +79,8 @@ export interface Shop {
   pendingJobs: number;
   /** Số biến thể đã ghép SKU sàn */
   listingCount: number;
+  /** Số SKU sàn chưa liên kết, không tính SKU chờ CEO duyệt (§18.12, commerio-backend#565); BE cũ thì vắng */
+  unlinkedSkuCount?: number;
   /** Đơn tạo trong 7 ngày gần nhất (§18.7.1). BE chưa trả thì vắng, FE hiện "—" */
   orders7d?: number;
   /** Đơn chưa completed hoặc cancelled: còn thì không ngắt được (§18.7.1) */

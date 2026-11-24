@@ -41,7 +41,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useDecideMapping,
   useDelistListing,
-  useMatchBulk,
   useMatchListing,
   useOverrideListingPrice,
   usePushListings,
@@ -79,7 +78,8 @@ import { MatchDialog, type MatchOption } from './MatchDialog';
 import { MatchPreviewPanel } from './MatchPreviewPanel';
 import { CreateVariantDialog } from './CreateVariantDialog';
 import { groupRemote, remoteTableRows, type RemoteTableRow } from './remoteGroups';
-import { bulkPairs, bulkSummary, bulkSummaryText, isOpenRemote, suggestionLabel } from './remoteLinking';
+import { isOpenRemote, suggestionLabel } from './remoteLinking';
+import { SkuLinkList } from './skuLink/SkuLinkList';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
@@ -348,10 +348,8 @@ export function ShopListingsPage() {
   const [matchError, setMatchError] = useState<string | null>(null);
   /** Tạo SKU kho từ SKU sàn (§18.9 R2) */
   const [creating, setCreating] = useState<RemoteSku | null>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
   /** SKU sàn đang bấm "Liên kết" nhanh theo gợi ý trùng mã */
   const [quickLinking, setQuickLinking] = useState<string | null>(null);
-  const bulkMut = useMatchBulk();
   const [pushing, setPushing] = useState<ListingRow[] | null>(null);
   const [deciding, setDeciding] = useState<Deciding | null>(null);
   const [decideError, setDecideError] = useState<string | null>(null);
@@ -616,22 +614,6 @@ export function ShopListingsPage() {
       void remoteQuery.refetch();
     } finally {
       setQuickLinking(null);
-    }
-  };
-
-  const pairs = useMemo(() => bulkPairs(unmatchedRemote), [unmatchedRemote]);
-  const runBulk = async () => {
-    try {
-      const summary = bulkSummary(await bulkMut.mutateAsync({ shopId, pairs }));
-      setBulkOpen(false);
-      const text = bulkSummaryText(summary);
-      if (summary.failed.length) {
-        const first = summary.failed[0]!;
-        toast.warning(`${text} Ví dụ ${first.externalSkuId}: ${first.message ?? first.code ?? 'lỗi'}. Các SKU này còn ở tab Chưa liên kết.`);
-      } else toast.success(text);
-    } catch (e) {
-      setBulkOpen(false);
-      toast.error(problemMessage(e));
     }
   };
 
@@ -1472,18 +1454,18 @@ export function ShopListingsPage() {
               <div className="px-4 pb-6">
                 <AlertMessage severity="error">{problemMessage(remoteQuery.error, 'remote_skus')}</AlertMessage>
               </div>
+            ) : tab === 'unmatched' ? (
+              // Danh sách Liên kết SKU dùng chung với bước thiết lập (FE#460): phân trang ở BE, gợi ý kèm độ tin, chọn nhiều dòng
+              <div className="px-4 pb-4">
+                <SkuLinkList
+                  shopId={shopId}
+                  mode="apply"
+                  showSkip={false}
+                  onPick={(r) => openMatch({ from: 'remote', externalSkuId: r.externalSkuId, title: r.title, sellerSku: r.sellerSku, current: null })}
+                />
+              </div>
             ) : (
               <>
-              {tab === 'unmatched' && canMatch && pairs.length > 0 && (
-                <div className="mx-4 mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-success-border px-3 py-2 text-sm">
-                  <span>
-                    <b>{pairs.length} SKU sàn trùng mã SKU với SKU kho.</b> Liên kết một lần, cặp nào lỗi thì còn lại ở tab này.
-                  </span>
-                  <Button type="button" size="sm" onClick={() => setBulkOpen(true)}>
-                    Liên kết {pairs.length} cặp trùng mã SKU
-                  </Button>
-                </div>
-              )}
               <DataTable
                 columns={remoteColumns}
                 data={remotePageRows}
@@ -1548,15 +1530,6 @@ export function ShopListingsPage() {
         remote={creating}
         siblings={creating ? remoteSkus.filter((s) => s.externalProductId && s.externalProductId === creating.externalProductId).length : 0}
         onClose={() => setCreating(null)}
-      />
-      <ConfirmDialog
-        open={bulkOpen}
-        title={`Liên kết ${pairs.length} cặp trùng mã SKU`}
-        message="Mỗi SKU sàn được liên kết với SKU kho cùng mã SKU người bán. Cặp cần CEO duyệt (đổi liên kết đã có đơn) sẽ chờ duyệt; cặp lỗi còn lại ở tab Chưa liên kết."
-        confirmLabel="Liên kết"
-        loading={bulkMut.isPending}
-        onConfirm={() => void runBulk()}
-        onClose={() => setBulkOpen(false)}
       />
       <MatchDialog
         open={Boolean(matching)}

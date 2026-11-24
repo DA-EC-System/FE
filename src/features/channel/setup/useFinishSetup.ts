@@ -4,6 +4,7 @@ import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useFinishSetupFromDraft } from '@/api/setupDraft.api';
 import type { ShopSetupResult } from '@/types/shop';
+import { shopDisplayName } from '../shopList';
 import { setupIssues, type SetupIssue } from './setupDraft';
 import type { SetupDraftState } from './useSetupDraft';
 
@@ -14,7 +15,7 @@ export function finishedMessage(done: ShopSetupResult): string {
     done.created ? `tạo ${done.created} SKU kho` : null,
     done.stocktakeNumber ? `tạo phiếu kiểm kê đầu kỳ ${done.stocktakeNumber}` : null,
   ].filter(Boolean);
-  return `${done.shop.shopName} đã thiết lập xong${details.length ? `: ${details.join(', ')}` : ''}`;
+  return `${shopDisplayName(done.shop)} đã thiết lập xong${details.length ? `: ${details.join(', ')}` : ''}`;
 }
 
 /**

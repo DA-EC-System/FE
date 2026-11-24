@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
-import { setupDraftKeys, useSaveCreateGroups, useSaveSetupDraft, useSetupDraftView } from '@/api/setupDraft.api';
+import { setupDraftKeys, useApplySavedDraft, useSaveCreateGroups, useSaveSetupDraft, useSetupDraftView } from '@/api/setupDraft.api';
 import { useAuthStore } from '@/stores/authStore';
 import type { CreateGroup, DraftStep, SetupDraftInput, SetupDraftSaved, ShopSetupDraftView } from '@/types/setupDraft';
 
@@ -21,6 +21,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
   const view = useSetupDraftView(shopId, enabled);
   const saveDraft = useSaveSetupDraft(shopId);
   const saveGroups = useSaveCreateGroups(shopId);
+  const apply = useApplySavedDraft(shopId);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const lastFailed = useRef<(() => Promise<DraftWriteOutcome>) | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -118,6 +119,16 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
 
   const retry = useCallback(() => lastFailed.current?.(), []);
 
+  /** Lần ghi nháp ngoài hook (danh sách Liên kết SKU tự ghi `items`, FE#460): đưa bản mới vào cache và dòng "Đã lưu" */
+  const applySaved = useCallback(
+    (draft: SetupDraftSaved['draft'], draftVersion: number) => {
+      void apply({ draft, draftVersion });
+      setSavedAt(new Date());
+      setWriteError(null);
+    },
+    [apply],
+  );
+
   return {
     view,
     draft: view.data?.draft ?? null,
@@ -125,6 +136,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
     save,
     confirm,
     writeGroups,
+    applySaved,
     saving: pending > 0,
     savedAt,
     saveError,
