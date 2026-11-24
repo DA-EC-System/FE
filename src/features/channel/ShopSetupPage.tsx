@@ -20,6 +20,7 @@ import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
 import type { DraftStep } from '@/types/setupDraft';
 import { platformLabel, returnWindowNote } from './shopSchemas';
 import { SETUP_POLL_MAX_MS, SETUP_POLL_MS, setupRunning } from './setupDecisions';
+import { shopDisplayName } from './shopList';
 import { CategorySyncBlock } from './setup/CategorySyncBlock';
 import { CutoffStep } from './setup/CutoffStep';
 import { DraftNotices, DraftSavedLine } from './setup/DraftNotices';
@@ -30,6 +31,7 @@ import { setupIssues, SETUP_STEP_NAMES, type SetupIssue } from './setup/setupDra
 import { useFinishSetup } from './setup/useFinishSetup';
 import { useGroupStep } from './setup/useGroupStep';
 import { useSetupDraft } from './setup/useSetupDraft';
+import { SkuLinkList } from './skuLink/SkuLinkList';
 
 /** Các bước của trang thiết lập gian hàng, cùng thứ tự bước 3–6 của wizard onboarding (FE#468) */
 type SetupStep = 'match' | 'groups' | 'opening' | 'cutoff' | 'run';
@@ -74,7 +76,7 @@ export function ShopSetupPage() {
   const shop = useShop(shopId, (data) =>
     done && setupRunning(data) && Date.now() - pollFrom < SETUP_POLL_MAX_MS ? SETUP_POLL_MS : false,
   );
-  useBreadcrumb(shop.data?.shopName);
+  useBreadcrumb(shop.data ? shopDisplayName(shop.data) : undefined);
   const connecting = shop.data?.status === 'connecting';
   const state = useSetupDraft(shopId, connecting && !done);
   const [step, setStepRaw] = useState<SetupStep>('match');
@@ -139,9 +141,7 @@ export function ShopSetupPage() {
 
   // Lý do Tiếp bị khoá, kèm chỗ sửa (CLAUDE.md "Lỗi phải chỉ chỗ sửa")
   const why: ReactNode =
-    step === 'match' ? (
-      'Danh sách Liên kết SKU sàn đang làm ở FE#460 (anh Khoa). Xong mới bấm Tiếp được.'
-    ) : step === 'groups' && groupData.missing > 0 ? (
+    step === 'groups' && groupData.missing > 0 ? (
       <>
         Còn {groupData.missing} sản phẩm chưa có danh mục.{' '}
         <Button
@@ -165,7 +165,7 @@ export function ShopSetupPage() {
       {/* Mở từ wizard thiết lập: thanh quay lại, hoàn tất thì tự về wizard */}
       <WelcomeReturnBar stepKey="link_skus" finished={done} />
       <PageHeader
-        title={`Thiết lập ${s.shopName}`}
+        title={`Thiết lập ${shopDisplayName(s)}`}
         subtitle={`${platformName} · làm một lần sau khi kết nối; xong mới đồng bộ đơn và tồn`}
         help="Commerio chưa đồng bộ đơn và tồn của gian hàng cho đến khi xong các bước. Lựa chọn lưu nháp ở Commerio; bỏ dở thì quay lại bằng nút Thiết lập ở danh sách gian hàng."
       />
@@ -213,11 +213,15 @@ export function ShopSetupPage() {
               <PageSpinner />
             ) : step === 'match' ? (
               <>
-                {/* Thành duyệt 24/11/2026: giữ chỗ tới khi danh sách Liên kết SKU của FE#460 có chế độ nháp */}
-                <AlertMessage severity="info">
-                  Bước này dùng danh sách Liên kết SKU sàn chung với trang Listing & giá (FE#460). Danh sách chưa có chế độ nháp nên chưa
-                  chọn được ở đây.
-                </AlertMessage>
+                <SkuLinkList
+                  shopId={s.id}
+                  mode="draft"
+                  draft={draft}
+                  draftVersion={state.draftVersion}
+                  onDraftSaved={state.applySaved}
+                  onConflict={() => void state.reload()}
+                  showSkip
+                />
                 <CategorySyncBlock shopId={s.id} platform={s.platform} platformName={platformName} />
               </>
             ) : step === 'groups' ? (

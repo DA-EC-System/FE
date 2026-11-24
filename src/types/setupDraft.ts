@@ -1,4 +1,4 @@
-import type { CannotCreateReason, OpeningStockMode } from './shop';
+import type { CannotCreateReason, OpeningStockMode, PendingMapping, RemoteSkusRefresh } from './shop';
 
 /**
  * Kiểu của bản nháp thiết lập gian hàng và danh sách SKU sàn gom theo sản phẩm sàn (Documents/21 §18.7.5 "Bản nháp
@@ -66,16 +66,36 @@ export interface RowDecision {
   groupId: string | null;
 }
 
-/** Một SKU sàn trong `GET remote-products` (§18.12); chỉ các trường wizard đọc */
+/**
+ * Gợi ý SKU kho cho một SKU sàn chưa liên kết (§18.12): trùng SKU người bán là `high` (`score` null), giống tên từ 0,7 là
+ * `medium`, còn lại `low`. Gợi ý theo tên chỉ là gợi ý, FE không chọn sẵn; "Chấp nhận gợi ý chắc chắn" chỉ gom `high`
+ */
+export interface SkuLinkSuggestion {
+  variantId: string;
+  sku: string;
+  productName: string;
+  match: 'sku' | 'name';
+  score: number | null;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/** Một SKU sàn trong `GET remote-products` (§18.12) */
 export interface RemoteSkuRow {
   externalSkuId: string;
   sellerSku: string | null;
   title: string;
+  /** Nhãn biến thể sàn trả ("Đỏ, M"); null khi sàn không có */
   variantLabel: string | null;
   platformStock: number;
   /** Có thể bán ở Commerio của biến thể dòng đang trỏ tới; dòng `create` là null (FE tính 0) */
   available: number | null;
   matchedVariantId: string | null;
+  /** Ghép đang có hiệu lực; null khi chưa ghép. Vắng ở dữ liệu cũ */
+  mode?: 'mapped' | 'unmanaged' | null;
+  /** Yêu cầu liên kết chờ CEO duyệt, cùng hình `ChannelListing.pendingMapping` */
+  pendingMapping?: PendingMapping | null;
+  /** Chỉ SKU chưa liên kết của trang đang trả mới có */
+  suggestion?: SkuLinkSuggestion | null;
   canCreate: boolean;
   cannotCreateReason: CannotCreateReason | null;
   decision: RowDecision | null;
@@ -108,6 +128,10 @@ export interface RemoteProductList {
   pageSize: number;
   counts: { unlinked: number; linked: number; pending: number };
   syncedAt: string | null;
+  /** Lượt tải SKU sàn chạy nền, cùng nghĩa `GET remote-skus` (BE#361); FE hỏi lại tới khi khác `running` */
+  refresh?: RemoteSkusRefresh | null;
+  /** Gian hàng quá nhiều SKU nên BE chỉ gợi ý theo SKU (§18.7.5) */
+  nameMatchSkipped?: boolean;
   /**
    * Số SKU khớp cả bộ lọc, không theo trang (§18.12, Documents#251). `create`…`none`: theo lựa chọn trong nháp, chỉ gian
    * hàng `connecting` (còn lại null). `drifted`/`matched`: SKU có `available` (dòng `create` tính 0) lệch/khớp tồn sàn.
@@ -125,6 +149,19 @@ export interface RemoteProductList {
     platformStockSum?: number | null;
     availableSum?: number | null;
   };
+}
+
+/** Một dòng gửi `POST sku-links` (§18.12): cùng hình `Decision`; `variantId` chỉ khác null khi `link` */
+export type SkuLinkInput = Decision;
+
+/** Kết quả từng dòng khi gian hàng `active` (áp ngay) */
+export interface SkuLinkResult {
+  externalSkuId: string;
+  result: 'linked' | 'pending' | 'created' | 'error';
+  variantId: string | null;
+  productId: string | null;
+  code: string | null;
+  message: string | null;
 }
 
 /** POST /channel/shops/:id/sku-links khi gian hàng `connecting` (ghi nháp) */

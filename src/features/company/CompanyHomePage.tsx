@@ -19,6 +19,7 @@ import { margin, vnToday } from '@/features/report/shared';
 import { changePercent, compactMoney, signedPercent } from '@/utils/kpi';
 import { MODULE_LABELS, isOptionalModule } from '@/utils/modules';
 import { PERMISSIONS } from '@/utils/permissions';
+import { UnlinkedSkuPanel } from '@/features/channel/skuLink/UnlinkedSkuPanel';
 import { RevenueChart } from './RevenueChart';
 import { OnboardingCard } from './OnboardingCard';
 import { TaskList } from './TaskList';
@@ -157,6 +158,7 @@ export function CompanyHomePage() {
             <div data-guide="home-tasks">
               <TaskList companyId={companyContext.companyId} />
             </div>
+            {can(PERMISSIONS.listingMatch) && <UnlinkedSkuPanel companyId={companyContext.companyId} />}
             {canReport && (
               <Panel
                 title="Doanh thu theo ngày"
