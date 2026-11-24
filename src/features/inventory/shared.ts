@@ -51,6 +51,16 @@ export const minQtySchema = z.string().transform((raw, ctx): number | null => {
 // ---------- Phiếu kho (sơ đồ B3) ----------
 
 const blank = z.string().transform((): number | undefined => undefined);
+
+/** Ô trống là chưa nhập (undefined); có chữ thì kiểm như `qtyText`, giữ đúng câu lỗi */
+const optionalQty = (label: string) =>
+  z.string().transform((raw, ctx): number | undefined => {
+    if (!raw.trim()) return undefined;
+    const parsed = qtyText(0, MAX_QTY, label).safeParse(raw);
+    if (parsed.success) return parsed.data;
+    ctx.addIssue({ code: 'custom', message: parsed.error.issues[0].message });
+    return z.NEVER;
+  });
 const isInspection = (type: StockDocType) => type === 'return_inspection';
 
 export const docLineSchema = (type: StockDocType) =>
@@ -59,7 +69,7 @@ export const docLineSchema = (type: StockDocType) =>
       variantId: z.string().min(1, 'Chọn SKU'),
       quantity: type === 'write_off' || type === 'to_quarantine' ? qtyText(1, MAX_QTY) : blank,
       // Kiểm kê: ô trống là chưa đếm, lưu nháp được; gửi duyệt khi còn ô trống bị chặn (commerio-backend#575)
-      counted: type === 'stocktake' ? z.string().pipe(z.union([z.string().trim().length(0).transform(() => undefined), qtyText(0, MAX_QTY, 'Thực tế')])) : blank,
+      counted: type === 'stocktake' ? optionalQty('Thực tế') : blank,
       platformStock: z.number().nullable().optional(),
       countSource: z.enum(['manual', 'platform']).nullable().optional(),
       scanned: isInspection(type) ? qtyText(0, MAX_QTY, 'Đã quét') : blank,
@@ -150,7 +160,12 @@ export const toLineInputs = (values: DocFormOutput): StockDocLineInput[] =>
   });
 
 /** Số ô chữ hiện tại (để tính Δ, phần thiếu khi đang gõ); ô sai thì null */
-export const draftNumber = (text: string): number | null => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : null);
+export const draftNumber = (text: string): number | null => {
+  const t = text.trim();
+  // "1.200" hay "1 200" là một nghìn hai trăm, như ô nhập nhận (qtyText)
+  const digits = /^\d{1,3}([.,\s]\d{3})+$/.test(t) ? t.replace(/[\s.,]/g, '') : t;
+  return /^\d+$/.test(digits) ? Number(digits) : null;
+};
 
 // ---------- Nhãn ----------
 

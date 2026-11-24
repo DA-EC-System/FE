@@ -72,7 +72,9 @@ export function InviteStaffDialog({ open, roles, onClose, fixedRole }: InviteSta
       setCreated(await create.mutateAsync(values.roleIds));
     } catch (e) {
       const message = getProblem(e)?.errors?.roleIds;
-      if (message) setFieldError('roleIds', { message });
+      // Vai trò cố định: không có ô chọn vai trò để gắn lỗi, báo ở đầu hộp
+      if (message && !fixedRoleId) setFieldError('roleIds', { message });
+      else if (message) setError(message);
       else setError(problemMessage(e));
     }
   });

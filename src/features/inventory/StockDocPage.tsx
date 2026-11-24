@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch, type FieldErrors, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowLeft, ChevronLeft, ChevronRight, ListRestart, Loader2, Save, Search, Trash2 } from 'lucide-react';
@@ -295,10 +295,15 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   useEffect(() => {
     if (focusRow === null) return;
     const input = document.querySelector<HTMLInputElement>(`[data-line-index="${focusRow}"] input`);
-    if (!input) return;
+    if (!input) {
+      // Dòng không nằm trên trang (đã bị bỏ): thôi chờ
+      if (!sheet.items.includes(focusRow)) setFocusRow(null);
+      return;
+    }
     input.scrollIntoView({ block: 'center' });
     input.focus();
     setFocusRow(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRow, sheet.page, sheetOrder]);
 
   /** "Tới dòng trống kế": sau dòng đang gõ; bộ lọc đang xem không còn dòng trống thì chuyển sang "Chưa nhập" */
@@ -413,10 +418,26 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
     }
   };
 
+  /**
+   * Ô sai nằm ở trang khác của bảng kiểm kê (chỉ vẽ 50 dòng): mở trang có dòng sai đầu tiên, đưa con trỏ tới, báo số
+   * dòng sai. Không có dòng sai thì để form tự báo như cũ.
+   */
+  const onInvalid = (errs: FieldErrors<DocFormInput>) => {
+    if (!isStocktake || !Array.isArray(errs.lines)) return;
+    const bad = errs.lines.flatMap((e, i) => (e ? [i] : []));
+    if (!bad.length) return;
+    const order = visibleRows((getValues('lines') ?? []).map(toSheetRow), 'all', '');
+    setSheetFilter('all');
+    setSheetSearch('');
+    setSheetPage(Math.floor(order.indexOf(bad[0]) / SHEET_PAGE_SIZE) + 1);
+    setFocusRow(bad[0]);
+    setNotice({ severity: 'error', msg: `${bad.length} dòng nhập chưa đúng. Đã đưa tới dòng đầu tiên, xem ô báo đỏ.` });
+  };
+
   const onSave = handleSubmit(async (values) => {
     const saved = await save(values);
     if (saved) toast.success(`Đã lưu nháp ${saved.number}`);
-  });
+  }, onInvalid);
 
   const runAction = async (target: StockDoc, action: StockDocAction, reason?: string) => {
     try {
@@ -442,7 +463,7 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
       void handleSubmit(async (values) => {
         const saved = await save(values);
         if (saved) await runAction(saved, action);
-      })();
+      }, onInvalid)();
       return;
     }
     if (doc) void runAction({ ...doc, version }, action);
@@ -711,7 +732,13 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
                   </b>{' '}
                   Chênh lệch = thực tế − tồn hệ thống.{hasPlatform && ' Tồn trên sàn chỉ để tham khảo khi đếm.'}{' '}
                   {editable && counts.empty > 0 && (
-                    <button type="button" className="font-medium text-primary underline-offset-4 hover:underline" onClick={goNextEmpty}>
+                    <button
+                      type="button"
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                      // Giữ con trỏ ở ô đang gõ để tìm dòng trống sau dòng đó
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={goNextEmpty}
+                    >
                       Tới dòng trống kế
                     </button>
                   )}
