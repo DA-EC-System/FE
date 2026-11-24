@@ -80,6 +80,7 @@ import { CreateVariantDialog } from './CreateVariantDialog';
 import { groupRemote, remoteTableRows, type RemoteTableRow } from './remoteGroups';
 import { isOpenRemote, suggestionLabel } from './remoteLinking';
 import { SkuLinkList } from './skuLink/SkuLinkList';
+import { PushPreviewDialog } from './publish/PushPreviewDialog';
 import { SKU_LINK_PAGE_SIZE } from './skuLink/skuLinkRows';
 import { useRemoteProducts } from '@/api/setupDraft.api';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
@@ -788,17 +789,17 @@ export function ShopListingsPage() {
     setUpdatingContent(null);
   };
 
-  /** Biến thể chưa có SKU sàn sẽ được tạo mới: hỏi trước (ngoại lệ 7a) */
-  const requestPush = (targets: ListingRow[]) => {
-    if (targets.some((r) => !r.listing)) setPushing(targets);
-    else void push(targets);
-  };
+  /**
+   * Mọi lần đăng từ trang này đi qua bước xem trước (FE#461): push-preview kiểm từng SKU, chỉ đăng SKU đăng được; SKU chưa
+   * có trên sàn sẽ được tạo mới (ngoại lệ 7a) cũng báo ở đây
+   */
+  const requestPush = (targets: ListingRow[]) => setPushing(targets);
 
   /**
    * Đẩy sản phẩm mới một dòng: `specStatus` đủ thì hỏi rồi đẩy như cũ, chưa có hay còn thiếu thì mở trang 4 bước
    * (commerio-backend#400, Documents/21 §18.5). Thông tin sàn đủ thì mở trang đăng sản phẩm với gian hàng này, cùng bước xem
-   * trước như nút Đăng sản phẩm ở trang sản phẩm (FE#461). Đẩy nhiều dòng một lần vẫn gửi thẳng, dòng thiếu thông tin sàn có
-   * nút Sửa thông tin sàn
+   * trước như nút Đăng sản phẩm ở trang sản phẩm (FE#461). Đẩy nhiều dòng một lần qua hộp xem trước của trang này, dòng thiếu
+   * thông tin sàn bị chặn kèm chỗ sửa
    */
   const requestNewPush = (row: ListingRow) => {
     if (specPlatform && row.specStatus !== 'complete') openSpec(row.productId);
@@ -1256,7 +1257,6 @@ export function ShopListingsPage() {
     );
   }
 
-  const newCount = pushing?.filter((r) => !r.listing).length ?? 0;
   const searching = Boolean(search.trim());
 
   return (
@@ -1645,18 +1645,19 @@ export function ShopListingsPage() {
         onConfirm={handleUpdateContent}
         onClose={() => setUpdatingContent(null)}
       />
-      <ConfirmDialog
-        open={Boolean(pushing)}
-        title="Đăng bán lên sàn?"
-        message={
-          <>
-            Đăng bán {pushing?.length} SKU lên {shopLabel}. <strong>{newCount} SKU chưa có trên sàn</strong> sẽ được tạo
-            thành sản phẩm mới, và tự liên kết với SKU sàn vừa tạo.
-          </>
-        }
-        confirmLabel="Đăng bán"
-        loading={pushMut.isPending}
-        onConfirm={() => pushing && push(pushing)}
+      <PushPreviewDialog
+        targets={pushing ? pushing.map((r) => ({ variantId: r.variantId, isNew: !r.listing })) : null}
+        shopId={shopId}
+        companyId={companyId}
+        platform={shop?.platform ?? null}
+        shopLabel={shopLabel ?? 'gian hàng'}
+        can={{ product: canEditProduct, finance: canEditFinance }}
+        saving={pushMut.isPending}
+        onConfirm={(ids) => {
+          if (!pushing) return;
+          const ok = new Set(ids);
+          void push(pushing.filter((r) => ok.has(r.variantId)));
+        }}
         onClose={() => setPushing(null)}
       />
       <ConfirmDialog
