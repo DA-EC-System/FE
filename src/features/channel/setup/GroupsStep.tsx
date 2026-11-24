@@ -120,6 +120,8 @@ export function GroupsStep({
     );
   }
 
+  // Cột "Category trên sàn" chỉ hiện khi BE trả `externalCategoryPath` (§18.12, chờ BE)
+  const hasPath = data.rows.some((r) => r.externalCategoryPath !== undefined);
   const pageIds = shown.map((r) => r.externalProductId);
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => picked.has(id));
 
@@ -222,6 +224,7 @@ export function GroupsStep({
                 />
               </th>
               <th className="px-3 py-2 text-start font-normal">Sản phẩm</th>
+              {hasPath && <th className="px-3 py-2 text-start font-normal">Category trên sàn</th>}
               <th className="px-3 py-2 text-start font-normal">Danh mục sản phẩm</th>
             </tr>
           </thead>
@@ -251,6 +254,11 @@ export function GroupsStep({
                   <b className="font-medium">{r.title}</b>
                   <span className="block text-xs text-muted-foreground">{r.createCount} biến thể sẽ tạo</span>
                 </td>
+                {hasPath && (
+                  <td className="px-3 py-2.5 text-xs">
+                    {r.externalCategoryPath ?? <span className="text-muted-foreground">Chưa đọc được</span>}
+                  </td>
+                )}
                 <td className="px-3 py-2.5">
                   <select
                     aria-label={`Danh mục sản phẩm của ${r.title}`}
@@ -273,7 +281,7 @@ export function GroupsStep({
             ))}
             {!shown.length && (
               <tr>
-                <td colSpan={3} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={hasPath ? 4 : 3} className="px-3 py-6 text-center text-muted-foreground">
                   Không có sản phẩm nào khớp.
                 </td>
               </tr>

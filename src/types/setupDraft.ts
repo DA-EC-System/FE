@@ -87,6 +87,11 @@ export interface RemoteProduct {
   titleEn: string | null;
   imageUrl: string | null;
   externalCategoryId: string | null;
+  /**
+   * Đường dẫn category trên sàn để hiện ("Thời trang nam › Áo khoác"), đọc từ cây đã đồng bộ. Chờ BE thêm ở §18.12; vắng
+   * (undefined) thì FE ẩn cột "Category trên sàn", null là chưa đọc được
+   */
+  externalCategoryPath?: string | null;
   /** Danh mục gợi ý qua bảng ánh xạ category sàn; null khi không ánh xạ được hoặc cây chưa có */
   suggestedGroupId: string | null;
   skus: RemoteSkuRow[];

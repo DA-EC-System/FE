@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRemoteProducts } from '@/api/setupDraft.api';
 import { problemMessage } from '@/api/problemMessages';
+import { getProblem } from '@/api/client';
+import { returnDaysError } from '../shopSchemas';
 import { cn } from '@/lib/utils';
 import type { OpeningStockMode } from '@/types/shop';
 import { finishSummary, stockRows, stockTotals } from './setupDraft';
@@ -22,7 +24,18 @@ const n = (v: number) => v.toLocaleString('vi-VN');
  * chỉ kiểm kê đầu kỳ: lựa chọn đẩy tồn bị khoá, nháp chưa có lựa chọn thì ghi `stocktake` ngay. Bảng xem trước gom theo
  * sản phẩm sàn; dòng tổng cả gian hàng lấy `stockTotals` BE trả (vắng thì không hiện).
  */
-export function StockSyncStep({ shopId, state, firstShop }: { shopId: string; state: SetupDraftState; firstShop: boolean }) {
+export function StockSyncStep({
+  shopId,
+  state,
+  firstShop,
+  needDays,
+}: {
+  shopId: string;
+  state: SetupDraftState;
+  firstShop: boolean;
+  /** Sàn tính hạn trả theo số ngày (`capabilities.returnWindow = 'days'`): ô Hạn trả hàng thuộc dữ liệu bước này (§18.7.5) */
+  needDays: boolean;
+}) {
   const opening = state.draft?.openingStock ?? null;
   const wrote = useRef(false);
   const { save } = state;
@@ -86,7 +99,52 @@ export function StockSyncStep({ shopId, state, firstShop }: { shopId: string; st
           );
         })}
       </RadioGroup>
+      {needDays && <ReturnDaysField state={state} />}
       <StockPreview shopId={shopId} firstShop={firstShop} hold={opening === 'stocktake'} />
+    </div>
+  );
+}
+
+/**
+ * Hạn trả hàng (ngày). Hợp đồng xếp `returnWindowDays` vào dữ liệu bước `stock_sync` (§18.7.5) nên ô nằm ở bước 5, không ở
+ * bước 6 như design v2.html s6: để ở bước 6 thì ghi ô này xoá mốc `stock_sync` và Hoàn tất báo 409 `setup_draft_incomplete`.
+ * Lưu khi rời ô, số hợp lệ mới ghi.
+ */
+function ReturnDaysField({ state }: { state: SetupDraftState }) {
+  const saved = state.draft?.returnWindowDays;
+  const [value, setValue] = useState(saved != null ? String(saved) : '');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (saved != null) setValue(String(saved));
+  }, [saved]);
+  const commit = async () => {
+    const bad = returnDaysError(value);
+    setError(bad);
+    if (bad || Number(value) === saved) return;
+    const out = await state.save({ returnWindowDays: Number(value) });
+    if (!out.ok && out.invalid) setError(getProblem(out.error)?.errors?.returnWindowDays ?? problemMessage(out.error));
+  };
+  return (
+    <div className="grid max-w-sm gap-1.5">
+      <Label htmlFor="return-window-days">Hạn trả hàng (ngày)</Label>
+      <Input
+        id="return-window-days"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={60}
+        step={1}
+        className="w-32"
+        value={value}
+        aria-invalid={Boolean(error)}
+        aria-describedby="return-window-days-hint"
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => void commit()}
+      />
+      <span id="return-window-days-hint" className={cn('text-xs', error ? 'text-destructive' : 'text-muted-foreground')}>
+        {error ??
+          'Sàn không báo hạn trả hàng, nên Commerio lấy ngày giao thành công cộng số ngày này. Qua hạn trả hàng, đơn mới chuyển Hoàn thành.'}
+      </span>
     </div>
   );
 }

@@ -30,6 +30,8 @@ export interface GroupRow {
   /** Số SKU của sản phẩm sàn sẽ tạo thành biến thể */
   createCount: number;
   externalCategoryId: string | null;
+  /** undefined: BE chưa trả trường này */
+  externalCategoryPath?: string | null;
   groupId: string | null;
   suggestedGroupId: string | null;
   source: GroupSource;
@@ -50,6 +52,7 @@ export function groupRows(products: RemoteProduct[], draft: SetupDraft | null): 
         title: p.title,
         createCount: p.skus.filter(isCreate).length,
         externalCategoryId: p.externalCategoryId,
+        externalCategoryPath: p.externalCategoryPath,
         groupId,
         suggestedGroupId: p.suggestedGroupId,
         source,
@@ -144,6 +147,14 @@ export function stockTotals(rows: StockRow[]): StockTotals {
 
 /** Bước wizard chứa ô lỗi; `order_cutoff` là bước 6 (hạn trả hàng nằm ở đó) */
 export type SetupStepKey = DraftStep | 'order_cutoff';
+
+/** Tên bước để báo lỗi hoàn tất */
+export const SETUP_STEP_NAMES: Record<SetupStepKey, string> = {
+  link_skus: 'Bước 3 Liên kết SKU sàn',
+  assign_groups: 'Bước 4 Danh mục sản phẩm',
+  stock_sync: 'Bước 5 Đồng bộ tồn lần đầu',
+  order_cutoff: 'Bước 6 Đồng bộ đơn từ thời điểm nào',
+};
 
 export interface SetupIssue {
   step: SetupStepKey;
