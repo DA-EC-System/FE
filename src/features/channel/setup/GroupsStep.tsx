@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleHelp, Search, Sparkles, UserPen } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
@@ -60,10 +60,13 @@ export function GroupsStep({
   const pageNow = Math.min(page, pages);
   const shown = visible.slice((pageNow - 1) * PAGE_SIZE, pageNow * PAGE_SIZE);
 
-  // Đưa dòng cần sửa ra: bỏ lọc, nhảy tới trang chứa dòng, cuộn và tô
+  // Đưa dòng cần sửa ra: bỏ lọc, nhảy tới trang chứa dòng, cuộn và tô. Chỉ chạy khi có yêu cầu mới (nonce), không chạy
+  // lại mỗi lần nháp đổi, để bộ lọc người dùng chọn sau đó còn giữ
+  const rowsRef = useRef(data.rows);
+  rowsRef.current = data.rows;
   useEffect(() => {
     if (!focusProductId) return;
-    const idx = data.rows.findIndex((r) => r.externalProductId === focusProductId);
+    const idx = rowsRef.current.findIndex((r) => r.externalProductId === focusProductId);
     if (idx < 0) return;
     setFilter('all');
     setSearch('');
@@ -71,7 +74,7 @@ export function GroupsStep({
     requestAnimationFrame(() =>
       document.getElementById(`group-row-${focusProductId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
     );
-  }, [focusProductId, focusNonce, data.rows]);
+  }, [focusProductId, focusNonce]);
 
   const write = async (ids: string[], groupId: string) => {
     setRowError(null);

@@ -14,6 +14,7 @@ import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
+import { useStartConnect } from './useStartConnect';
 import { ROUTES } from '@/router/routes';
 import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
 import type { DraftStep } from '@/types/setupDraft';
@@ -76,12 +77,19 @@ export function ShopSetupPage() {
   useBreadcrumb(shop.data?.shopName);
   const connecting = shop.data?.status === 'connecting';
   const state = useSetupDraft(shopId, connecting && !done);
-  const groupData = useGroupStep(shopId, state, connecting && !done);
+  const [step, setStepRaw] = useState<SetupStep>('match');
+  const groupData = useGroupStep(shopId, state, connecting && !done && step === 'groups');
   const finish = useFinishSetup(shopId, state);
-  const [step, setStep] = useState<SetupStep>('match');
+  const connector = useStartConnect();
   const [resumed, setResumed] = useState(false);
   const [issues, setIssues] = useState<SetupIssue[]>([]);
   const [focus, setFocus] = useState<{ key: string | null; nonce: number }>({ key: null, nonce: 0 });
+  // Đổi bước thì bỏ báo lỗi của lần bấm trước, để lỗi cũ không nằm lại ở bước khác
+  const setStep = (next: SetupStep) => {
+    setIssues([]);
+    finish.clear();
+    setStepRaw(next);
+  };
 
   // Mở lại trang: về bước đầu tiên chưa xác nhận
   const draft = state.draft;
@@ -89,7 +97,7 @@ export function ShopSetupPage() {
     if (resumed || !state.view.data) return;
     setResumed(true);
     const c = draft?.confirmed;
-    setStep(!c?.link_skus ? 'match' : !c.assign_groups ? 'groups' : !c.stock_sync ? 'opening' : 'cutoff');
+    setStepRaw(!c?.link_skus ? 'match' : !c.assign_groups ? 'groups' : !c.stock_sync ? 'opening' : 'cutoff');
   }, [resumed, state.view.data, draft]);
 
   if (shop.isLoading) return <PageSpinner />;
@@ -165,7 +173,7 @@ export function ShopSetupPage() {
           <LifecycleSteps path={PATH} current={current} statuses={STEP_META} />
         </CardContent>
       </Card>
-      <DraftNotices state={state} />
+      <DraftNotices state={state} onReconnect={() => void connector.start({ platform: s.platform, shopId: s.id })} />
       {state.view.isError && !done && <AlertMessage severity="error">{problemMessage(state.view.error)}</AlertMessage>}
       {issues.length > 0 && (
         <AlertMessage severity="error">

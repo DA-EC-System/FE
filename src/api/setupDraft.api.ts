@@ -27,7 +27,11 @@ import type { ShopSetupResult } from '@/types/shop';
 const useCompanyId = () => useAuthStore((s) => s.companyContext?.companyId ?? '');
 
 export const setupDraftKeys = {
-  view: (companyId: string, shopId: string) => [...shopKeys.all(companyId), 'setup-draft', shopId] as const,
+  /**
+   * Ngoài `shopKeys.all`: sự kiện SSE `channel.*`, nối lại SSE và mọi lần làm mới gian hàng không gọi lại GET /setup (GET
+   * này còn đọc sàn), và không có lượt đọc cũ nào ghi đè nháp mới hơn trong cache
+   */
+  view: (companyId: string, shopId: string) => ['setup-draft', companyId, shopId] as const,
   remoteProducts: (companyId: string, shopId: string) => [...shopKeys.all(companyId), 'remote-products', shopId] as const,
   categorySync: (companyId: string, shopId: string) => [...shopKeys.all(companyId), 'category-sync', shopId] as const,
 };
@@ -38,13 +42,16 @@ export const CATEGORY_SYNC_POLL_MS = 3000;
 /** GET /setup: mốc kéo đơn đề xuất, gian hàng đầu tiên, bản nháp. Chỉ gọi khi gian hàng `connecting` */
 export function useSetupDraftView(shopId: string, enabled: boolean) {
   const companyId = useCompanyId();
+  const qc = useQueryClient();
   return useQuery({
     queryKey: setupDraftKeys.view(companyId, shopId),
     enabled: Boolean(companyId && shopId) && enabled,
     retry: false,
     queryFn: async () => {
       const { data } = await apiClient.get<ShopSetupDraftView>(`/channel/shops/${shopId}/setup`);
-      return data;
+      // Lượt đọc bắt đầu trước một lần ghi mà về sau lần ghi đó: giữ nháp mới hơn, không lùi draftVersion (sẽ ra 409 giả)
+      const old = qc.getQueryData<ShopSetupDraftView>(setupDraftKeys.view(companyId, shopId));
+      return old && old.draftVersion > data.draftVersion ? { ...data, draft: old.draft, draftVersion: old.draftVersion } : data;
     },
   });
 }
@@ -53,10 +60,17 @@ export function useSetupDraftView(shopId: string, enabled: boolean) {
 export function useApplySavedDraft(shopId: string) {
   const qc = useQueryClient();
   const companyId = useCompanyId();
-  return (saved: SetupDraftSaved) =>
-    qc.setQueryData<ShopSetupDraftView>(setupDraftKeys.view(companyId, shopId), (old) =>
-      old ? { ...old, draft: { ...saved.draft, changed: old.draft?.changed ?? null }, draftVersion: saved.draftVersion } : old,
-    );
+  return async (saved: SetupDraftSaved) => {
+    const key = setupDraftKeys.view(companyId, shopId);
+    // Huỷ lượt đọc đang chạy để nó không ghi bản cũ đè lên (cùng cách inventory.api.ts, FE#147)
+    await qc.cancelQueries({ queryKey: key });
+    qc.setQueryData<ShopSetupDraftView>(key, (old) => {
+      if (!old) return old;
+      // `changed` chỉ GET trả; xác nhận lại bước Liên kết SKU thì BE đặt lại baseline nên bỏ câu báo
+      const sameBaseline = old.draft?.confirmed.link_skus === saved.draft.confirmed.link_skus;
+      return { ...old, draft: { ...saved.draft, changed: sameBaseline ? (old.draft?.changed ?? null) : null }, draftVersion: saved.draftVersion };
+    });
+  };
 }
 
 /** PUT /setup/draft: lưu `openingStock`, `returnWindowDays`, hoặc xác nhận bước (`confirm`) */
@@ -77,17 +91,13 @@ export function useSaveSetupDraft(shopId: string) {
  */
 export function useSaveCreateGroups(shopId: string) {
   const apply = useApplySavedDraft(shopId);
-  const qc = useQueryClient();
-  const companyId = useCompanyId();
   return useMutation({
     mutationFn: async ({ groups, draftVersion }: { groups: CreateGroup[]; draftVersion: number }) => {
       const { data } = await apiClient.post<SkuLinkDraftResult>(`/channel/shops/${shopId}/sku-links`, { groups, draftVersion });
       return data;
     },
-    onSuccess: (data) => {
-      apply(data);
-      void qc.invalidateQueries({ queryKey: setupDraftKeys.remoteProducts(companyId, shopId) });
-    },
+    // Cột danh mục đọc `draft.createGroups`, không đọc danh sách: không cần tải lại các trang sản phẩm
+    onSuccess: apply,
   });
 }
 
@@ -185,8 +195,11 @@ export function useFinishSetupFromDraft(shopId: string) {
       return data;
     },
     onSuccess: (data) => {
+      // Gian hàng đã active: bỏ nháp và danh sách SKU sàn của lần thiết lập (GET /setup giờ trả 409), chỉ làm mới gian hàng
+      qc.removeQueries({ queryKey: setupDraftKeys.view(companyId, shopId) });
+      qc.removeQueries({ queryKey: setupDraftKeys.remoteProducts(companyId, shopId) });
       qc.setQueryData(shopKeys.detail(companyId, data.shop.id), data.shop);
-      return qc.invalidateQueries({ queryKey: shopKeys.all(companyId) });
+      return qc.invalidateQueries({ queryKey: shopKeys.list(companyId) });
     },
   });
 }

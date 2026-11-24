@@ -49,7 +49,12 @@ export function useFinishSetup(shopId: string, state: SetupDraftState) {
     }
   };
 
-  return { run, pending: finish.isPending, issues, error, result, startedAt };
+  const clear = () => {
+    setIssues([]);
+    setError(null);
+  };
+
+  return { run, clear, pending: finish.isPending, issues, error, result, startedAt };
 }
 
 export type FinishSetupState = ReturnType<typeof useFinishSetup>;

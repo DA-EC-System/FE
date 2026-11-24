@@ -97,8 +97,6 @@ export interface StockRow {
   platformStock: number;
   /** Có thể bán ở Commerio; dòng `create` là 0 (SKU kho mới chưa có tồn) */
   available: number;
-  /** Gian hàng đầu tiên: số sàn giữ tới khi phiếu đầu kỳ ghi sổ; còn lại: số sẽ đẩy lên sàn */
-  after: number;
   drift: boolean;
 }
 
@@ -106,7 +104,7 @@ export interface StockRow {
  * Dòng xem trước tồn cho SKU có quyết định `link` hoặc `create` (§18.7.5 "Xem trước tồn"). Gian hàng đầu tiên chỉ kiểm
  * kê đầu kỳ nên sàn giữ `platformStock`; lệch là tồn trên sàn khác có thể bán.
  */
-export function stockRows(skus: RemoteSkuRow[], firstShop: boolean): StockRow[] {
+export function stockRows(skus: RemoteSkuRow[]): StockRow[] {
   return skus
     .filter((s) => s.decision?.action === 'link' || s.decision?.action === 'create')
     .map((s) => {
@@ -117,7 +115,6 @@ export function stockRows(skus: RemoteSkuRow[], firstShop: boolean): StockRow[] 
         sellerSku: s.sellerSku,
         platformStock: s.platformStock,
         available,
-        after: firstShop ? s.platformStock : available,
         drift: s.platformStock !== available,
       };
     });
@@ -145,7 +142,7 @@ export function stockTotals(rows: StockRow[]): StockTotals {
 
 // ---------- Bước 6: Hoàn tất ----------
 
-/** Bước wizard chứa ô lỗi; `order_cutoff` là bước 6 (hạn trả hàng nằm ở đó) */
+/** Bước wizard chứa ô lỗi; `order_cutoff` là bước 6 (lỗi chung lúc hoàn tất) */
 export type SetupStepKey = DraftStep | 'order_cutoff';
 
 /** Tên bước để báo lỗi hoàn tất */
@@ -200,7 +197,8 @@ export function setupIssues(
     } else if (key === 'openingStock') {
       issues.push({ step: 'stock_sync', rowKey: null, message });
     } else if (key === 'returnWindowDays') {
-      issues.push({ step: 'order_cutoff', rowKey: null, message });
+      // Ô Hạn trả hàng nằm ở bước 5 (dữ liệu của `stock_sync`, §18.7.5; Thành duyệt 24/11/2026)
+      issues.push({ step: 'stock_sync', rowKey: null, message });
     }
   }
   return issues;

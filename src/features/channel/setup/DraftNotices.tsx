@@ -38,14 +38,20 @@ export function DraftNotices({ state, onReconnect }: { state: SetupDraftState; o
         <AlertMessage severity="error">
           <b className="font-semibold">Commerio mất quyền truy cập gian hàng nên chưa lưu được nháp.</b> Kết nối lại bằng đúng tài khoản người
           bán của gian hàng này; lựa chọn đã lưu vẫn giữ.
-          {onReconnect && (
-            <Button size="sm" variant="outline" className="mt-2 flex" onClick={onReconnect}>
-              <RefreshCw />
-              Kết nối lại
+          <span className="mt-2 flex flex-wrap gap-2">
+            {onReconnect && (
+              <Button size="sm" onClick={onReconnect}>
+                <RefreshCw />
+                Kết nối lại
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => void state.reload()}>
+              Đã kết nối lại, tải lại nháp
             </Button>
-          )}
+          </span>
         </AlertMessage>
       )}
+      {state.writeError && <AlertMessage severity="error">{state.writeError}</AlertMessage>}
       {changed && (
         <AlertMessage severity="warning">
           {changed}

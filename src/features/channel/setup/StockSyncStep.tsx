@@ -68,7 +68,10 @@ export function StockSyncStep({
       </p>
       <RadioGroup
         value={opening ?? ''}
-        onValueChange={(v) => void save({ openingStock: v as OpeningStockMode })}
+        onValueChange={async (v) => {
+          const out = await save({ openingStock: v as OpeningStockMode });
+          if (!out.ok && out.invalid) state.setWriteError(problemMessage(out.error));
+        }}
         aria-label="Cách đồng bộ tồn lần đầu"
         className="grid max-w-2xl gap-3"
       >
@@ -202,7 +205,7 @@ function StockPreview({ shopId, firstShop, hold }: { shopId: string; firstShop: 
             <span>Sau khi thiết lập</span>
           </div>
           {list.data.items.map((p) => {
-            const rows = stockRows(p.skus, firstShop);
+            const rows = stockRows(p.skus);
             if (!rows.length) return null;
             const t = stockTotals(rows);
             return (
@@ -260,7 +263,7 @@ function StockPreview({ shopId, firstShop, hold }: { shopId: string; firstShop: 
               </details>
             );
           })}
-          {!list.data.items.some((p) => stockRows(p.skus, firstShop).length) && (
+          {!list.data.items.some((p) => stockRows(p.skus).length) && (
             <p className="px-3 py-6 text-center text-muted-foreground">Trang này không có SKU nào sẽ liên kết.</p>
           )}
         </div>

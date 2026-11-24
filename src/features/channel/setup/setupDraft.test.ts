@@ -120,20 +120,16 @@ describe('bước 5: xem trước tồn', () => {
   ];
 
   it('chỉ dòng link, create; create tính 0', () => {
-    const rows = stockRows(skus, false);
-    expect(rows.map((r) => [r.externalSkuId, r.available, r.after, r.drift])).toEqual([
-      ['a', 5, 5, false],
-      ['b', 1, 1, true],
-      ['c', 0, 0, true],
+    const rows = stockRows(skus);
+    expect(rows.map((r) => [r.externalSkuId, r.available, r.drift])).toEqual([
+      ['a', 5, false],
+      ['b', 1, true],
+      ['c', 0, true],
     ]);
   });
 
-  it('gian hàng đầu tiên giữ tồn trên sàn', () => {
-    expect(stockRows(skus, true).map((r) => r.after)).toEqual([5, 3, 4]);
-  });
-
   it('tổng', () => {
-    expect(stockTotals(stockRows(skus, false))).toEqual({ drifted: 2, matched: 1, platformTotal: 12, availableTotal: 6 });
+    expect(stockTotals(stockRows(skus))).toEqual({ drifted: 2, matched: 1, platformTotal: 12, availableTotal: 6 });
   });
 });
 
@@ -162,7 +158,7 @@ describe('bước 6: lỗi hoàn tất, tóm tắt', () => {
     ).toEqual([
       { step: 'link_skus', rowKey: 'b', message: 'SKU kho đã liên kết SKU sàn khác' },
       { step: 'assign_groups', rowKey: 'p1', message: 'Danh mục đã bị ẩn' },
-      { step: 'order_cutoff', rowKey: null, message: 'Từ 1 tới 60 ngày' },
+      { step: 'stock_sync', rowKey: null, message: 'Từ 1 tới 60 ngày' },
     ]);
   });
 

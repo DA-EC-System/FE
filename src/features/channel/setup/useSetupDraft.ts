@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getProblem } from '@/api/client';
+import { problemMessage } from '@/api/problemMessages';
 import { setupDraftKeys, useSaveCreateGroups, useSaveSetupDraft, useSetupDraftView } from '@/api/setupDraft.api';
 import { useAuthStore } from '@/stores/authStore';
 import type { CreateGroup, DraftStep, SetupDraftInput, ShopSetupDraftView } from '@/types/setupDraft';
 
-/** Kết quả một lần ghi: `invalid` là 422 (lỗi theo ô, bên gọi tự hiện); các lỗi khác hook giữ để hiện thanh báo */
+/** Kết quả một lần ghi: `invalid` là 422 (lỗi theo ô, bên gọi tự hiện); các lỗi khác hook giữ để hiện thanh báo (`DraftNotices`) */
 export type DraftWriteOutcome = { ok: true } | { ok: false; invalid: boolean; error: unknown };
 
 /**
@@ -26,6 +27,8 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
   const [saveError, setSaveError] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
+  /** Lỗi khác (403 thiếu quyền, 404, 409 mã khác...): một câu theo `problemMessage`, xoá khi lần ghi sau thành công */
+  const [writeError, setWriteError] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
 
   const currentVersion = useCallback(
@@ -41,8 +44,12 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
           try {
             await write(currentVersion());
             setSavedAt(new Date());
-            setSaveError(false);
-            lastFailed.current = null;
+            setWriteError(null);
+            // Chỉ xoá báo "chưa lưu được" khi chính lần ghi lỗi đó đã lưu lại được, không xoá vì một lần ghi khác
+            if (lastFailed.current === attempt) {
+              lastFailed.current = null;
+              setSaveError(false);
+            }
             return { ok: true };
           } catch (e) {
             const p = getProblem(e);
@@ -52,7 +59,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
             else if (!p?.status || p.status >= 500) {
               setSaveError(true);
               lastFailed.current = attempt;
-            }
+            } else setWriteError(problemMessage(e));
             return { ok: false, invalid: false, error: e };
           } finally {
             setPending((n) => n - 1);
@@ -84,6 +91,8 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
   const reload = useCallback(async () => {
     setConflict(false);
     setSaveError(false);
+    setNeedsReauth(false);
+    setWriteError(null);
     lastFailed.current = null;
     await qc.invalidateQueries({ queryKey: setupDraftKeys.view(companyId, shopId) });
   }, [qc, companyId, shopId]);
@@ -104,6 +113,8 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
     conflict,
     reload,
     needsReauth,
+    writeError,
+    setWriteError,
   };
 }
 
