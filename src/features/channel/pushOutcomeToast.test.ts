@@ -35,7 +35,7 @@ describe('toast kết quả đăng (review PR #480)', () => {
     expect(t).toEqual({
       kind: 'error',
       text: 'Chưa đăng được SKU-a lên Đùi Gà Store: Cân nặng phải là số',
-      action: { label: 'Sửa cân nặng', to: '/c/c1/catalog/products/p1?spec=a' },
+      action: { label: 'Sửa cân nặng', to: '/c/c1/catalog/products/p1?spec=a&field=weightG' },
     });
   });
 
@@ -44,7 +44,7 @@ describe('toast kết quả đăng (review PR #480)', () => {
     expect(outcomeToast(pushOutcomes(pushing('a', 'b', 'c'), rows, keyOf, ctx), ctx)).toEqual({
       kind: 'error',
       text: 'Đã đăng 2 SKU, lỗi 1 SKU',
-      action: { label: 'Sửa cân nặng', to: '/c/c1/catalog/products/p1?spec=c' },
+      action: { label: 'Sửa cân nặng', to: '/c/c1/catalog/products/p1?spec=c&field=weightG' },
     });
   });
 

@@ -5,10 +5,10 @@ const ctx = { companyId: 'c1', productId: 'p1', platform: 'lazada', shopId: 's1'
 const product = '/c/c1/catalog/products/p1';
 
 describe('blockerFix: nút tới chỗ sửa theo target (FE#462)', () => {
-  it('trường của biến thể: mở hộp Thông tin SKU', () => {
+  it('trường của biến thể: ô của SKU trong bảng biến thể', () => {
     expect(blockerFix({ kind: 'variant_field', field: 'weight' }, ctx)).toEqual({
       label: 'Sửa cân nặng',
-      to: `${product}?spec=v1`,
+      to: `${product}?spec=v1&field=weightG`,
       perm: 'product',
     });
     expect(blockerFix({ kind: 'variant_field', field: 'price' }, { ...ctx, variantId: null })?.to).toBe(

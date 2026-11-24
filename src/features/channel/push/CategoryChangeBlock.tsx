@@ -129,10 +129,9 @@ export function CategoryChangeBlock({
   useEffect(() => {
     if (wasQueued.current && !queuedNow) {
       void qc.invalidateQueries({ queryKey: shopKeys.productListings(companyId, productId) });
-      for (const s of shops) void qc.invalidateQueries({ queryKey: shopKeys.listings(companyId, s.id) });
     }
     wasQueued.current = queuedNow;
-  }, [queuedNow, qc, companyId, productId, shops]);
+  }, [queuedNow, qc, companyId, productId]);
 
   const platformOwned = drift.some((d) => d.platformOwned);
   const ceoBlocked = platformOwned && !isCeo;

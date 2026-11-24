@@ -1,26 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useBlocker } from 'react-router-dom';
-import type { ColumnDef } from '@tanstack/react-table';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, Check, Loader2, Save, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { DataTable } from '@/components/common/DataTable';
+import { EditableGrid, type EditableGridApi, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
+import { parseVariantField, type SkuVersions } from './variantCells';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useBulkEditRows, useBulkSaveVariants, useGroups } from '@/api/catalog.api';
+import { fetchBulkRow, useBulkEditCache, useBulkEditRows, useGroups, useSaveBulkCells } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useSaveGuard } from '@/hooks/useSaveGuard';
 import { PERMISSIONS } from '@/utils/permissions';
 import { formatCurrency } from '@/utils/format';
-import { cn } from '@/lib/utils';
 import type { BulkEditRow, BulkField, BulkSaveResult, BulkSaveRow } from '@/types/catalog';
 
 const FIELD_LABELS: Record<BulkField, string> = {
@@ -41,29 +38,16 @@ const FIELD_HELP: Partial<Record<BulkField, string>> = {
   weightG: 'Dùng tính phí vận chuyển. Gợi ý lấy theo SKU cùng sản phẩm gần nhất.',
 };
 
-/** Ô người dùng đã sửa hoặc đã nhận gợi ý, giữ chuỗi gốc để báo lỗi đúng chỗ */
-interface Draft {
-  version: number;
-  reorderVersion: number | null;
-  values: Partial<Record<BulkField, string>>;
-}
-type RowError = BulkSaveResult['failed'][number];
-
 const showNumber = (field: BulkField, n: number) =>
   field === 'standardPrice' || field === 'targetNetPrice' ? formatCurrency(n) : n.toLocaleString('vi-VN');
 
-/** "" là xoá giá trị; còn lại phải là số nguyên dương. Cho gõ dấu chấm ngăn nghìn */
-function parseCell(raw: string): { ok: true; value: number | null } | { ok: false } {
-  const t = raw.trim().replace(/[.\s]/g, '');
-  if (!t) return { ok: true, value: null };
-  if (!/^\d+$/.test(t) || Number(t) <= 0) return { ok: false };
-  return { ok: true, value: Number(t) };
-}
+const failureText = (f: BulkSaveResult['failed'][number], field: BulkField) => f.errors?.[field] ?? f.message;
 
-/** FE#155 (US-SP-04): sửa nhiều SKU một lần; gợi ý của BE chỉ được lưu khi người dùng nhận */
+/** FE#155 (US-SP-04), FE#475: sửa nhiều SKU trực tiếp từng ô, lưu ngay; gợi ý của BE chỉ được lưu khi người dùng nhận */
 export function BulkEditPage({ onExit }: { onExit: () => void }) {
   const can = useCan();
   const canReorder = can(PERMISSIONS.reorderManage);
+  const canEdit = can(PERMISSIONS.productManage);
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim());
@@ -71,29 +55,25 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
   const [incomplete, setIncomplete] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [rowErrors, setRowErrors] = useState<Record<string, RowError>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const grid = useRef<EditableGridApi>(null);
 
-  const query = useBulkEditRows({
+  const params = {
     page,
     pageSize,
     search: debouncedSearch || undefined,
     groupId: groupId || undefined,
     incomplete: incomplete || undefined,
-  });
+  };
+  const query = useBulkEditRows(params);
+  const cache = useBulkEditCache();
   // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
   const groups = useGroups({ includeHidden: true });
-  const save = useBulkSaveVariants();
+  const saveCells = useSaveBulkCells();
   const rows = useMemo(() => query.data?.items ?? [], [query.data]);
-
-  const dirtyIds = Object.keys(drafts);
-  const dirty = dirtyIds.length > 0;
-  const invalid = useMemo(
-    () =>
-      Object.values(drafts).some((d) => Object.values(d.values).some((raw) => raw !== undefined && !parseCell(raw).ok)),
-    [drafts],
-  );
+  const waitingToLeave = useSaveGuard(busy || applying);
 
   const withReset =
     <T,>(set: (v: T) => void) =>
@@ -103,177 +83,183 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
       setSelected(new Set());
     };
 
-  const setCell = (row: BulkEditRow, field: BulkField, raw: string) => {
-    setDrafts((prev) => {
-      const d = prev[row.variantId] ?? { version: row.version, reorderVersion: row.reorderVersion, values: {} };
-      const values = { ...d.values };
-      const current = row.current[field];
-      // Gõ lại đúng số cũ thì coi như không sửa
-      const parsed = parseCell(raw);
-      if (parsed.ok && parsed.value === current) delete values[field];
-      else values[field] = raw;
-      const next = { ...prev };
-      if (Object.keys(values).length) next[row.variantId] = { ...d, values };
-      else delete next[row.variantId];
-      return next;
-    });
-  };
-
   const acceptable = (row: BulkEditRow) =>
-    FIELDS.filter(
-      (f) => row.suggestions[f] && drafts[row.variantId]?.values[f] === undefined && (f !== 'minQty' || canReorder),
-    );
-
-  const acceptSuggestions = (targets: BulkEditRow[]) => {
-    setDrafts((prev) => {
-      const next = { ...prev };
-      for (const row of targets) {
-        const d = next[row.variantId] ?? { version: row.version, reorderVersion: row.reorderVersion, values: {} };
-        const values = { ...d.values };
-        for (const f of FIELDS) {
-          const s = row.suggestions[f];
-          if (!s || values[f] !== undefined || (f === 'minQty' && !canReorder)) continue;
-          values[f] = String(s.value);
-        }
-        if (Object.keys(values).length) next[row.variantId] = { ...d, values };
-      }
-      return next;
+    FIELDS.filter((f) => {
+      const s = row.suggestions[f];
+      return s && s.value !== row.current[f] && (f !== 'minQty' || canReorder);
     });
-  };
 
   const selectedRows = rows.filter((r) => selected.has(r.variantId));
   // Chưa chọn dòng nào thì áp cho mọi SKU trên trang (KB2 2.10: nút từng mờ khi chưa chọn)
   const suggestTargets = selected.size ? selectedRows : rows;
   const selectedSuggestions = suggestTargets.reduce((n, r) => n + acceptable(r).length, 0);
 
-  const submit = async () => {
-    const payload: BulkSaveRow[] = Object.entries(drafts).map(([variantId, d]) => {
-      const row: BulkSaveRow = { variantId, version: d.version };
-      for (const [f, raw] of Object.entries(d.values) as [BulkField, string][]) {
-        const parsed = parseCell(raw);
-        if (parsed.ok) row[f] = parsed.value;
-      }
-      if ('minQty' in row) row.reorderVersion = d.reorderVersion;
-      return row;
-    });
+  /**
+   * Một ô: một dòng gửi PATCH bulk. Version (cả `reorderVersion` của ngưỡng tồn) lấy từ dòng đang hiện hoặc lượt trước
+   * cùng dòng, không đọc lại trước khi gửi: người khác vừa sửa thì BE trả xung đột thay vì ghi đè
+   */
+  const save = async (row: BulkEditRow, columnId: string, value: unknown, v: SkuVersions): Promise<SaveResult<SkuVersions>> => {
+    const field = columnId as BulkField;
+    const body: BulkSaveRow = { variantId: row.variantId, version: v.version, [field]: value as number | null };
+    if (field === 'minQty') body.reorderVersion = v.reorderVersion ?? null;
+    const result = await saveCells.mutateAsync({ rows: [body] });
+    const failed = result.failed[0];
+    if (failed) {
+      return failed.code === 'version_conflict'
+        ? { ok: false, conflict: true, error: `${failed.errors?.[field] ?? 'Người khác vừa sửa SKU này'}. Tải lại dòng rồi lưu lại.` }
+        : { ok: false, error: failureText(failed, field) };
+    }
+    const saved = result.saved.find((s) => s.variantId === row.variantId);
+    const version = saved?.version ?? v.version + 1;
+    cache.patch(row.variantId, (r) => ({ ...r, version, current: { ...r.current, [field]: value as number | null } }));
+    if (field !== 'minQty') return { ok: true, version: { ...v, version } };
+    // BE không trả `reorderVersion` mới (dòng tồn mới tạo, ngưỡng không đổi... mỗi trường hợp tăng khác nhau): đọc lại dòng
+    // sau khi lưu. Đọc sau khi lưu nên không làm mất phát hiện xung đột
+    const fresh = await fetchBulkRow(row.variantId, row.sku).catch(() => null);
+    if (fresh) cache.replace(fresh);
+    else void query.refetch();
+    return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : v.reorderVersion } };
+  };
+
+  const reloadRow = async (row: BulkEditRow) => {
+    const fresh = await fetchBulkRow(row.variantId, row.sku);
+    if (fresh) cache.replace(fresh);
+    else await query.refetch();
+  };
+
+  /** "Áp gợi ý": một lần lưu cho mọi dòng; lỗi hiện trên từng ô theo `failed[].errors` */
+  const applySuggestions = async () => {
+    setApplying(true);
     try {
-      const result = await save.mutateAsync(payload);
-      const savedIds = new Set(result.saved.map((s) => s.variantId));
-      setDrafts((prev) => {
-        const next: Record<string, Draft> = {};
-        for (const [id, d] of Object.entries(prev)) {
-          if (savedIds.has(id)) continue;
-          const failure = result.failed.find((f) => f.variantId === id);
-          // Xung đột version: giữ số đã gõ, lấy version mới khi bảng tải lại
-          next[id] = failure?.code === 'version_conflict' ? { ...d, version: -1 } : d;
-        }
-        return next;
-      });
-      setRowErrors(Object.fromEntries(result.failed.map((f) => [f.variantId, f])));
-      if (result.failed.length) {
-        toast.warning(`Đã lưu ${result.saved.length} SKU, ${result.failed.length} SKU lỗi. Xem lỗi trên từng dòng.`);
-      } else {
-        toast.success(`Đã lưu ${result.saved.length} SKU`);
+      // Đọc lại để có version, reorderVersion mới nhất của các dòng
+      const fresh = (await query.refetch()).data?.items ?? [];
+      const ids = new Set(suggestTargets.map((r) => r.variantId));
+      const payload: { row: BulkEditRow; body: BulkSaveRow; fields: BulkField[] }[] = [];
+      for (const row of fresh) {
+        if (!ids.has(row.variantId)) continue;
+        const fields = acceptable(row);
+        if (!fields.length) continue;
+        const body: BulkSaveRow = { variantId: row.variantId, version: row.version };
+        for (const f of fields) body[f] = row.suggestions[f]!.value;
+        if (fields.includes('minQty')) body.reorderVersion = row.reorderVersion;
+        payload.push({ row, body, fields });
       }
+      if (!payload.length) return;
+      const result = await saveCells.mutateAsync({ rows: payload.map((p) => p.body) });
+      for (const s of result.saved) {
+        const p = payload.find((x) => x.row.variantId === s.variantId);
+        if (!p) continue;
+        cache.patch(s.variantId, (r) => ({
+          ...r,
+          version: s.version,
+          current: { ...r.current, ...Object.fromEntries(p.fields.map((f) => [f, p.body[f] ?? null])) },
+        }));
+        for (const f of p.fields) grid.current?.markSaved(s.variantId, f);
+      }
+      // Dòng có lưu ngưỡng tồn: đọc lại sau khi lưu để có `reorderVersion` mới (BE không trả)
+      const minQtyRows = payload.filter((p) => p.fields.includes('minQty') && result.saved.some((s) => s.variantId === p.row.variantId));
+      const freshRows = await Promise.all(minQtyRows.map((p) => fetchBulkRow(p.row.variantId, p.row.sku).catch(() => null)));
+      for (const fresh of freshRows) if (fresh) cache.replace(fresh);
+      if (freshRows.some((r) => !r)) void query.refetch();
+      for (const f of result.failed) {
+        const p = payload.find((x) => x.row.variantId === f.variantId);
+        if (!p) continue;
+        const fields = p.fields.filter((field) => f.errors?.[field]);
+        for (const field of fields.length ? fields : p.fields) {
+          grid.current?.setCellError(
+            f.variantId,
+            field,
+            f.code === 'version_conflict' ? 'Người khác vừa sửa SKU này. Tải lại dòng rồi lưu lại.' : failureText(f, field),
+            String(p.body[field] ?? ''),
+            f.code === 'version_conflict',
+          );
+        }
+      }
+      const count = result.saved.reduce((n, s) => n + (payload.find((p) => p.row.variantId === s.variantId)?.fields.length ?? 0), 0);
+      if (result.failed.length) toast.warning(`Đã lưu ${count} gợi ý, ${result.failed.length} SKU lỗi. Xem lỗi trên từng ô.`);
+      else toast.success(`Đã lưu ${count} gợi ý`);
     } catch (error) {
       toast.error(getErrorMessage(error));
+    } finally {
+      setApplying(false);
     }
   };
 
-  // Sau khi bảng tải lại, dòng xung đột nhận version mới để lưu lại được
-  useEffect(() => {
-    setDrafts((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const row of rows) {
-        const d = next[row.variantId];
-        if (d && d.version === -1) {
-          next[row.variantId] = { ...d, version: row.version, reorderVersion: row.reorderVersion };
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [rows]);
-
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      dirty && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
-  );
-  useEffect(() => {
-    if (!dirty) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [dirty]);
-
-  const columns = useMemo<ColumnDef<BulkEditRow>[]>(() => {
+  const columns = useMemo<GridColumn<BulkEditRow>[]>(() => {
     const pageIds = rows.map((r) => r.variantId);
     const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-    const fieldColumn = (field: BulkField): ColumnDef<BulkEditRow> => ({
+    const toggle = (id: string, on: boolean) =>
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (on) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    const fieldColumn = (field: BulkField): GridColumn<BulkEditRow> => ({
       id: field,
       header: FIELD_LABELS[field],
-      meta: { className: field === 'standardPrice' || field === 'targetNetPrice' ? 'min-w-36' : 'min-w-28', numeric: true, help: FIELD_HELP[field] },
-      cell: ({ row }) => (
-        <BulkCell
-          row={row.original}
-          field={field}
-          raw={drafts[row.original.variantId]?.values[field]}
-          error={rowErrors[row.original.variantId]?.errors?.[field]}
-          readOnly={field === 'minQty' && !canReorder}
-          onChange={(raw) => setCell(row.original, field, raw)}
-        />
-      ),
+      help: FIELD_HELP[field],
+      numeric: true,
+      className: field === 'standardPrice' || field === 'targetNetPrice' ? 'min-w-32' : 'min-w-24',
+      render: (row) => {
+        const v = row.current[field];
+        return v === null ? <span className="text-muted-foreground">—</span> : showNumber(field, v);
+      },
+      edit: {
+        raw: (row) => (row.current[field] === null ? '' : String(row.current[field])),
+        parse: (raw) => parseVariantField(field, raw),
+        readOnly: () => (field === 'minQty' && !canReorder ? 'Cần quyền đặt ngưỡng tồn' : false),
+        extra: (row, { locked, save: saveRaw }) => {
+          const s = row.suggestions[field];
+          if (!s || s.value === row.current[field] || (field === 'minQty' && !canReorder)) return null;
+          const label = `${FIELD_LABELS[field]} ${row.sku}`;
+          return (
+            <div className="mt-0.5 flex justify-end">
+              <button
+                type="button"
+                disabled={locked}
+                className="inline-flex items-center gap-1 rounded border border-info-border bg-info-soft px-1.5 py-0.5 text-xs text-info-text hover:border-info disabled:cursor-not-allowed disabled:opacity-60"
+                title={locked ? `${s.basis}. Mở khoá để lưu gợi ý.` : s.basis}
+                aria-label={`Lưu gợi ý ${label}: ${showNumber(field, s.value)}. ${s.basis}`}
+                onClick={() => saveRaw(String(s.value))}
+              >
+                <span className="font-medium">gợi ý</span>
+                <span className="tabular-nums">{showNumber(field, s.value)}</span>
+                <Check className="size-3" />
+              </button>
+            </div>
+          );
+        },
+      },
     });
     return [
       {
-        id: 'select',
-        header: () => (
-          <Checkbox
-            className="size-6"
-            aria-label="Chọn mọi SKU trên trang"
-            checked={allOnPage}
-            onCheckedChange={(v) =>
-              setSelected((prev) => {
-                const next = new Set(prev);
-                for (const id of pageIds) {
-                  if (v) next.add(id);
-                  else next.delete(id);
-                }
-                return next;
-              })
-            }
-          />
-        ),
-        meta: { className: 'w-10' },
-        // Ô chọn 24×24 (vùng bấm tối thiểu, FE#464)
-        cell: ({ row }) => (
-          <Checkbox
-            className="size-6"
-            aria-label={`Chọn ${row.original.sku}`}
-            checked={selected.has(row.original.variantId)}
-            onCheckedChange={(v) =>
-              setSelected((prev) => {
-                const next = new Set(prev);
-                if (v) next.add(row.original.variantId);
-                else next.delete(row.original.variantId);
-                return next;
-              })
-            }
-          />
-        ),
-      },
-      {
         id: 'sku',
         header: 'SKU',
-        meta: { className: 'min-w-64' },
-        cell: ({ row }) => {
-          const r = row.original;
-          const failure = rowErrors[r.variantId];
-          return (
+        sticky: true,
+        className: 'min-w-64 max-w-80',
+        headerContent: (
+          <span className="flex items-center gap-2">
+            <Checkbox
+              className="size-6"
+              aria-label="Chọn mọi SKU trên trang"
+              checked={allOnPage}
+              onCheckedChange={(v) => {
+                for (const id of pageIds) toggle(id, Boolean(v));
+              }}
+            />
+            SKU
+          </span>
+        ),
+        render: (r) => (
+          <div className="flex items-start gap-2 whitespace-normal">
+            {/* Ô chọn 24×24 (vùng bấm tối thiểu, FE#464) */}
+            <Checkbox
+              className="mt-0.5 size-6"
+              aria-label={`Chọn ${r.sku}`}
+              checked={selected.has(r.variantId)}
+              onCheckedChange={(v) => toggle(r.variantId, Boolean(v))}
+            />
             <div className="grid gap-0.5">
               <span className="font-medium">{r.productName}</span>
               <span className="text-xs text-muted-foreground">
@@ -286,25 +272,20 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
                   {r.source.lastCost !== null && ` · giá nhập ${formatCurrency(r.source.lastCost)}`}
                 </span>
               )}
-              {failure && (
-                <span className="text-xs text-destructive-text" role="alert" data-testid="bulk-row-error">
-                  {failure.message}
-                </span>
-              )}
             </div>
-          );
-        },
+          </div>
+        ),
       },
       ...FIELDS.map(fieldColumn),
     ];
-  }, [rows, selected, drafts, rowErrors, canReorder]);
+  }, [rows, selected, canReorder]);
 
   return (
     <div>
       <PageHeader
         title="Sửa hàng loạt"
-        subtitle="Sửa giá chuẩn, ngưỡng tồn, khối lượng và kích thước của nhiều SKU rồi lưu một lần."
-        help="Ô có nhãn gợi ý chỉ được lưu khi bạn bấm áp dụng. Dòng lỗi giữ nguyên số đã gõ, các dòng khác vẫn lưu."
+        subtitle="Sửa giá chuẩn, ngưỡng tồn, khối lượng và kích thước của nhiều SKU ngay trong bảng. Mỗi ô lưu ngay khi bấm Enter."
+        help="Bảng mặc định khoá để không sửa nhầm khi cuộn; bấm Khoá sửa (Ctrl+E) để mở. Ô có nhãn gợi ý chỉ được lưu khi bạn bấm gợi ý hoặc áp dụng. Ô lỗi giữ nguyên số đã gõ, các ô khác vẫn lưu."
         action={
           <Button variant="outline" onClick={onExit}>
             <ArrowLeft />
@@ -316,6 +297,11 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
       {query.isError && (
         <AlertMessage severity="error" className="mb-4">
           {getErrorMessage(query.error)}
+        </AlertMessage>
+      )}
+      {waitingToLeave && (
+        <AlertMessage severity="info" className="mb-4">
+          Đang lưu nốt các ô vừa sửa, xong sẽ tự chuyển trang.
         </AlertMessage>
       )}
 
@@ -333,30 +319,34 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
             <Switch id="bulk-incomplete" checked={incomplete} onCheckedChange={withReset(setIncomplete)} />
             <Label htmlFor="bulk-incomplete">Chỉ SKU thiếu thông tin</Label>
           </div>
-          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-            {selected.size > 0 && <span className="text-sm text-muted-foreground">Đã chọn {selected.size} SKU</span>}
-            <Button
-              variant="outline"
-              disabled={selectedSuggestions === 0}
-              onClick={() => {
-                acceptSuggestions(suggestTargets);
-                toast.success(`Đã áp dụng ${selectedSuggestions} gợi ý, bấm Lưu để ghi`);
-              }}
-            >
-              <Sparkles />
-              {selected.size ? 'Áp dụng gợi ý cho SKU đã chọn' : 'Áp dụng mọi gợi ý trên trang'}
-              {selectedSuggestions > 0 && ` (${selectedSuggestions})`}
-            </Button>
-          </div>
         </FilterBar>
-        <DataTable
+        <EditableGrid
+          gridId="catalog-bulk-edit"
+          aria-label="Sửa hàng loạt SKU"
+          apiRef={grid}
           columns={columns}
-          data={rows}
+          rows={rows}
           getRowId={(r) => r.variantId}
+          rowLabel={(r) => r.sku}
+          getVersion={(r): SkuVersions => ({ version: r.version, reorderVersion: r.reorderVersion })}
+          save={save}
+          reloadRow={reloadRow}
+          canEdit={canEdit}
+          onBusyChange={setBusy}
+          selectedCount={selected.size}
+          isRowSelected={(r) => selected.has(r.variantId)}
           loading={query.isLoading}
-          fetching={query.isFetching}
+          fetching={query.isFetching && !applying}
           empty={incomplete ? 'Mọi SKU đã đủ thông tin' : 'Không tìm thấy SKU phù hợp'}
-          rowClassName={(r) => cn(rowErrors[r.variantId] && 'bg-destructive-soft/40')}
+          actions={
+            canEdit && (
+              <Button variant="outline" size="sm" disabled={selectedSuggestions === 0 || applying || busy} onClick={() => void applySuggestions()}>
+                {applying ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                {selected.size ? 'Áp gợi ý cho SKU đã chọn' : 'Áp mọi gợi ý trên trang'}
+                {selectedSuggestions > 0 && ` (${selectedSuggestions})`}
+              </Button>
+            )
+          }
           pagination={{
             page,
             pageSize,
@@ -368,100 +358,6 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
           }}
         />
       </Card>
-
-      <div className="sticky bottom-0 z-20 mt-4 rounded-lg border bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <span className="mr-auto text-sm text-muted-foreground" data-testid="bulk-dirty">
-            {dirty ? `${dirtyIds.length} SKU có thay đổi chưa lưu` : 'Chưa có thay đổi'}
-            {invalid && ' · còn ô chưa hợp lệ'}
-          </span>
-          <Button
-            variant="ghost"
-            disabled={!dirty || save.isPending}
-            onClick={() => {
-              setDrafts({});
-              setRowErrors({});
-            }}
-          >
-            Bỏ thay đổi
-          </Button>
-          <Button disabled={!dirty || invalid || save.isPending} onClick={submit}>
-            {save.isPending ? <Loader2 className="animate-spin" /> : <Save />}
-            Lưu {dirty ? `${dirtyIds.length} SKU` : ''}
-          </Button>
-        </div>
-      </div>
-
-      <ConfirmDialog
-        open={blocker.state === 'blocked'}
-        title="Rời trang khi chưa lưu?"
-        message="Các ô đã sửa và gợi ý đã áp dụng chưa được lưu sẽ bị bỏ."
-        confirmLabel="Rời trang"
-        cancelLabel="Ở lại"
-        destructive
-        onConfirm={() => blocker.proceed?.()}
-        onClose={() => blocker.reset?.()}
-      />
-    </div>
-  );
-}
-
-function BulkCell({
-  row,
-  field,
-  raw,
-  error,
-  readOnly,
-  onChange,
-}: {
-  row: BulkEditRow;
-  field: BulkField;
-  raw: string | undefined;
-  error?: string;
-  readOnly: boolean;
-  onChange: (raw: string) => void;
-}) {
-  const current = row.current[field];
-  const suggestion = row.suggestions[field];
-  const label = `${FIELD_LABELS[field]} ${row.sku}`;
-  if (readOnly) {
-    return (
-      <span className="text-sm" title="Cần quyền đặt ngưỡng tồn">
-        {current === null ? '—' : showNumber(field, current)}
-      </span>
-    );
-  }
-  const edited = raw !== undefined;
-  const bad = edited && !parseCell(raw).ok;
-  return (
-    <div className="grid justify-items-end gap-1">
-      <Input
-        aria-label={label}
-        inputMode="numeric"
-        className={cn(
-          'h-8 w-full min-w-20 text-right tabular-nums',
-          edited && 'border-primary bg-accent',
-          (bad || error) && 'border-destructive',
-        )}
-        value={edited ? raw : current === null ? '' : String(current)}
-        placeholder="Trống"
-        aria-invalid={bad || Boolean(error)}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {suggestion && !edited && (
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded border border-info-border bg-info-soft px-1.5 py-0.5 text-xs text-info-text hover:border-info"
-          title={suggestion.basis}
-          aria-label={`Áp dụng gợi ý ${label}: ${showNumber(field, suggestion.value)}. ${suggestion.basis}`}
-          onClick={() => onChange(String(suggestion.value))}
-        >
-          <span className="font-medium">gợi ý</span>
-          <span className="tabular-nums">{showNumber(field, suggestion.value)}</span>
-          <Check className="size-3" />
-        </button>
-      )}
-      {(bad || error) && <span className="text-xs text-destructive-text">{bad ? 'Nhập số lớn hơn 0' : error}</span>}
     </div>
   );
 }

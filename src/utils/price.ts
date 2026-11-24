@@ -56,7 +56,7 @@ export const priceTextSchema = z.string().transform((raw, ctx): number | null =>
     ctx.addIssue({ code: 'custom', message });
     return z.NEVER;
   };
-  // Đọc bằng parseMoney (FE#385); câu lỗi riêng của ô giá giữ tới khi VariantSpecDialog, BulkEditPage chuyển sang MoneyInput
+  // Đọc bằng parseMoney (FE#385); câu lỗi riêng của ô giá giữ tới khi các bảng sửa SKU chuyển sang MoneyInput
   const parsed = parseMoney(raw);
   if (!parsed.ok) return fail(parsed.error === MONEY_NEGATIVE_ERROR ? 'Giá không được âm' : 'Giá phải là số nguyên đồng, vd 150000');
   if (parsed.value === null) return null;

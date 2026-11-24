@@ -272,3 +272,17 @@ describe('pushBlockMessage: below_floor khi đăng với giá đặt tay (§18.9
     expect(pushBlockMessage('below_floor', null, 'Sàn A')).toMatch(/dưới giá thấp nhất, chưa đăng/);
   });
 });
+
+describe('lỗi cân nặng kiện hàng ghi trước #567 (FE#326)', () => {
+  const at = '2026-11-18T00:00:00.000Z';
+  it('câu tiếng Việt nêu khoảng sàn cho phép, câu gốc ở Chi tiết từ sàn', () => {
+    const message = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
+    const t = pushErrorText({ code: 'marketplace_rejected', message, at });
+    expect(t.text).toBe('Cân nặng kiện hàng phải từ 0,001 đến 300 kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.');
+    expect(t.platformMessage).toBe(message);
+  });
+  it('số lạ sau mã không bị lấy làm khoảng', () => {
+    const odd = pushErrorText({ code: 'marketplace_rejected', message: 'PACKAGE_WEIGHT_INVALID SellerSku ABC-12, weight 500', at });
+    expect(odd.text).toContain('Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép');
+  });
+});

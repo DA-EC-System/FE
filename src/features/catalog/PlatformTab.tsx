@@ -1045,7 +1045,7 @@ function SalesTable({
 }
 
 /** Câu lỗi đẩy BE dựng, nút tới chỗ sửa, mã gốc của sàn trong "Chi tiết từ sàn" (FE#462) */
-function PushErrorNote({
+export function PushErrorNote({
   companyId,
   row,
   can,
@@ -1072,7 +1072,7 @@ function PushErrorNote({
       </span>
       {fix && (
         <Button asChild variant="link" size="sm" className="h-auto p-0">
-          {/* Trong trang sản phẩm: mở hộp, chuyển tab tại chỗ (qua hộp hỏi khi chưa lưu); không thì đi theo link */}
+          {/* Trong trang sản phẩm: chọn ô của SKU, chuyển tab tại chỗ (qua hộp hỏi khi chưa lưu); không thì đi theo link */}
           <Link
             to={fix.to}
             data-testid="error-fix"
@@ -1117,7 +1117,7 @@ function ShippingTable({
       f.lengthMm === null || f.widthMm === null || f.heightMm === null ? '— mm' : `${f.lengthMm}×${f.widthMm}×${f.heightMm} mm`
     }`;
 
-  /** Ghi số sàn vào SKU khi người dùng bấm; gửi kèm version của SKU, lệch thì tải lại và báo như hộp Thông tin SKU */
+  /** Ghi số sàn vào SKU khi người dùng bấm; gửi kèm version của SKU, lệch thì tải lại và báo như bảng biến thể */
   const use = async (variantId: string, version: number, patch: Omit<VariantUpdateInput, 'version'>) => {
     setBusyId(variantId);
     try {

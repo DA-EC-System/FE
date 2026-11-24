@@ -144,6 +144,18 @@ const isTranslated = (e: SyncError) => e.kind != null || e.target != null || e.p
 
 /** Lỗi cân nặng kiện hàng của Lazada ghi trước #567 (FE#326) */
 const LEGACY_WEIGHT = /PACKAGE_WEIGHT[A-Z_]*INVALID/i;
+// Lazada, staging 18/11/2026: "BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0".
+// Số lấy theo cụm "khoảng A và B" / "between A and B", không bắt số lạ đứng sau mã (vd SellerSku ABC-12)
+const LEGACY_WEIGHT_RANGE =
+  /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i;
+/** Số kg của sàn ("300.0", "0.001") theo cách viết Việt Nam: "300", "0,001" */
+const kgText = (raw: string) => Number(raw).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+const legacyWeightText = (message: string) => {
+  const m = message.match(LEGACY_WEIGHT_RANGE);
+  return m?.[1] && m[2]
+    ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.`
+    : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.';
+};
 
 /**
  * Câu hiện cho lỗi đẩy, lỗi đồng bộ tồn/giá của listing, và phần "Chi tiết từ sàn" (FE#462). Câu là `message` BE dựng
@@ -156,7 +168,9 @@ export function pushErrorText(e: SyncError): { text: string; platformMessage?: s
     const detail = [raw, e.requestId ? `Mã yêu cầu: ${e.requestId}` : ''].filter(Boolean).join(' · ');
     return { text: e.message || codeMessage(e.code), ...(detail ? { platformMessage: detail } : {}) };
   }
-  if (e.message && (LEGACY_PLATFORM_MESSAGE_CODES.has(e.code) || LEGACY_WEIGHT.test(e.message))) {
+  // Lỗi cân nặng cũ: giữ câu FE#326 (main), câu sàn vào "Chi tiết từ sàn"
+  if (e.message && LEGACY_WEIGHT.test(e.message)) return { text: legacyWeightText(e.message), platformMessage: e.message };
+  if (e.message && LEGACY_PLATFORM_MESSAGE_CODES.has(e.code)) {
     return { text: codeMessage(e.code), platformMessage: e.message };
   }
   return { text: e.message || codeMessage(e.code) };

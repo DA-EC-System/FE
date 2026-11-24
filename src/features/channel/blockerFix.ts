@@ -6,7 +6,7 @@ import type { BlockerTarget } from '@/types/blocker';
  * Nút tới đúng chỗ sửa của một mục chặn hay lỗi đẩy, chọn theo `target` BE trả (FE#462, Documents/21 §18.10). Hàm thuần:
  * chỗ gọi tự kiểm quyền theo `perm` rồi điều hướng tới `to`.
  *
- * - `variant_field` → hộp Thông tin SKU của biến thể (`?spec=`);
+ * - `variant_field` → ô của SKU trong bảng biến thể (`?spec=&field=`, FE#475);
  * - `category`, `spec_attribute`, `axis` → tab sàn của trang sản phẩm, đúng ô;
  * - `product_field` → tab Nội bộ, đúng ô;
  * - `shop.fee_config` → Phí sàn; `shop.category_permission` → ô category để đổi (xin quyền thì trên Seller Center);
@@ -30,6 +30,8 @@ export interface BlockerFixContext {
 }
 
 const VARIANT_FIELD_LABEL = { price: 'Sửa giá', weight: 'Sửa cân nặng', dimensions: 'Sửa kích thước' } as const;
+/** Ô của bảng biến thể cho từng trường (BulkField) */
+const VARIANT_FIELD_CELL = { price: 'standardPrice', weight: 'weightG', dimensions: 'lengthMm' } as const;
 
 const PRODUCT_FIELD = {
   images: { label: 'Sửa ảnh', id: SHARED_TARGETS.images },
@@ -41,7 +43,7 @@ const PRODUCT_FIELD = {
 export function blockerFix(target: BlockerTarget | null | undefined, ctx: BlockerFixContext): BlockerFix | null {
   if (!target) return null;
   const { companyId, productId, platform } = ctx;
-  const product = (at?: { spec?: string; tab?: string; focus?: string }) =>
+  const product = (at?: { spec?: string; field?: string; tab?: string; focus?: string }) =>
     ROUTES.company.catalogProduct(companyId, productId, at);
   const onTab = (label: string, focus: string): BlockerFix | null =>
     platform ? { label, to: product({ tab: platform, focus }), perm: 'product' } : null;
@@ -50,7 +52,9 @@ export function blockerFix(target: BlockerTarget | null | undefined, ctx: Blocke
     case 'variant_field':
       return {
         label: VARIANT_FIELD_LABEL[target.field],
-        to: ctx.variantId ? product({ spec: ctx.variantId }) : product({ focus: SHARED_TARGETS.variants }),
+        to: ctx.variantId
+          ? product({ spec: ctx.variantId, field: VARIANT_FIELD_CELL[target.field] })
+          : product({ focus: SHARED_TARGETS.variants }),
         perm: 'product',
       };
     case 'product_field': {
