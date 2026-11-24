@@ -103,14 +103,15 @@ export function workspaceMode(data: Onboarding | undefined): WorkspaceMode {
 }
 
 /**
- * Trang còn mở được khi đang bị ép về `/welcome`. Tạm thời ở PR A của FE#468: bước 3 tới 6 còn làm ở trang thiết lập
- * gian hàng, bước 7 ở trang phiếu kiểm kê, uỷ quyền sàn về trang callback. Các PR sau nhúng các bước vào wizard thì
- * bỏ dần khỏi danh sách này.
+ * Trang còn mở được khi đang bị ép về `/welcome`: uỷ quyền sàn về trang callback; bước 3 tới 6 còn làm ở trang thiết
+ * lập gian hàng (tạm, tới khi nhúng vào wizard). Bước 7 đã nhúng phiếu kiểm kê đầu kỳ vào wizard (FE#468 PR C) nên
+ * trang phiếu không còn mở được lúc bị ép. Trang Nhân viên mở được để duyệt yêu cầu tham gia của nhân viên kho được mời.
  */
 const INTERIM_ALLOWED: RegExp[] = [
   /^channel\/shops\/oauth-callback\/[^/]+$/,
   /^channel\/shops\/[^/]+\/setup$/,
-  /^inventory\/documents\/[^/]+$/,
+  // Duyệt yêu cầu tham gia của nhân viên kho được mời ở bước 5, 7 (tab "Yêu cầu tham gia", `?tab=pending`)
+  /^admin\/staff$/,
 ];
 
 /** Guard công ty: đường cần chuyển tới (`/welcome`), hoặc null nếu được ở lại trang */
