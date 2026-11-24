@@ -93,6 +93,8 @@ import {
 } from './productTabs';
 import { GROUP_FIELD_ID, missingForPublish, missingItems, parseMinQty, publishBlocker } from './completion';
 import { ProductCompletionRail } from './ProductCompletionRail';
+import { useProductReadiness } from '@/api/readiness.api';
+import { readinessBlocker } from '@/features/channel/readiness';
 import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { NeedsAttentionBox } from './NeedsAttentionBox';
 import { attentionItems, type AttentionAction } from './needsAttention';
@@ -198,6 +200,8 @@ export function ProductFormPage() {
   const pollFrom = useRef<number | null>(null);
   // Quá 30 phút mà còn SKU Đang đăng: thôi hỏi lại, tab sàn gợi ý bấm Tải lại (review PR #480)
   const [pollTimedOut, setPollTimedOut] = useState(false);
+  // Readiness theo gian hàng (FE#458): rail, nhãn tab sàn, nút Đăng cùng một nguồn với lệnh đăng của BE
+  const readiness = useProductReadiness(isNew ? null : productId, canShop);
   const listingsQuery = useProductListingRows(productId, canShop, (rows) => {
     const now = Date.now();
     const delay = listingPollDelay(rows, pollFrom.current ?? now, now);
@@ -735,6 +739,7 @@ export function ProductFormPage() {
     canPublish: can(PERMISSIONS.listingManage),
     missing: publishMissing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
+    shopsBlocker: readiness.data ? readinessBlocker(readiness.data) : undefined,
   });
   // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
   const attention = product && !isNew ? attentionItems({ missing, variants: product.variants, rows: listingRows, platformName: platformLabel }) : [];
@@ -1264,6 +1269,8 @@ export function ProductFormPage() {
               onSaveNext={fromIncomplete && !isNew ? () => void saveAndNext() : undefined}
               publishHref={product && !blocker ? ROUTES.company.productPublish(companyId, product.id) : null}
               publishBlocker={blocker}
+              shops={readiness.data}
+              onOpenPlatform={(p) => requestTab(p)}
             />
           ) : null}
         </div>
