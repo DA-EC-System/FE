@@ -5,7 +5,7 @@
 import { defineMachine } from '@/lib/stateMachine';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { VariantPresence } from '@/types/catalog';
-import type { ListingAction, ListingStatus, ShopAction, ShopStatus } from '@/types/shop';
+import type { ListingAction, ListingStatus, ShopAction, ShopStatus, SyncRun } from '@/types/shop';
 
 export const shopMachine = defineMachine<ShopStatus, ShopAction>([
   { from: 'connecting', to: 'active', action: 'finish_setup', label: 'Hoàn tất thiết lập', permission: PERMISSIONS.shopConnect },
@@ -31,6 +31,9 @@ export const shopMachine = defineMachine<ShopStatus, ShopAction>([
 
 /** Token còn gọi được API sàn: ghép, đẩy, đồng bộ */
 export const shopUsable = (status: ShopStatus) => status === 'active' || status === 'connecting';
+
+/** Lượt đồng bộ giá và tồn còn chạy (Documents/21 §18.5 `SyncRun`): hỏi lại kết quả, nút Đồng bộ khoá */
+export const syncRunActive = (run: Pick<SyncRun, 'status'> | null | undefined) => run?.status === 'queued' || run?.status === 'running';
 
 const manage = PERMISSIONS.listingManage;
 

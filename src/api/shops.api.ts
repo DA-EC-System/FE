@@ -9,6 +9,7 @@ import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/re
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { salesKeys } from './sales.api';
+import { syncRunActive } from '@/lib/machines/channel';
 import { useAuthStore } from '@/stores/authStore';
 import type {
   ApplyCategoryResult,
@@ -590,15 +591,13 @@ export function useSyncListings() {
   });
 }
 
-const runActive = (run: SyncRun | null | undefined) => run?.status === 'queued' || run?.status === 'running';
-
 /** Một lượt đồng bộ; hỏi lại tới khi `done` hoặc `failed` */
 export function useSyncRun(shopId: string, runId: string | null) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.syncRun(companyId, shopId, runId ?? ''),
     enabled: Boolean(companyId && shopId && runId),
-    refetchInterval: (q) => (runActive(q.state.data) ? SYNC_RUN_POLL_MS : false),
+    refetchInterval: (q) => (syncRunActive(q.state.data) ? SYNC_RUN_POLL_MS : false),
     queryFn: async () => {
       const { data } = await apiClient.get<SyncRun>(`/channel/shops/${shopId}/listings/sync-runs/${encodeURIComponent(runId ?? '')}`);
       return data;
@@ -606,13 +605,16 @@ export function useSyncRun(shopId: string, runId: string | null) {
   });
 }
 
-/** Lượt người bấm gần nhất của gian hàng, để quay lại trang vẫn thấy kết quả; hỏi lại khi còn chạy */
+/**
+ * Lượt người bấm gần nhất của gian hàng, để quay lại trang vẫn thấy kết quả; hỏi lại khi còn chạy. Đã có `runId` thì
+ * bên gọi tắt (`enabled`) để không hỏi trùng với `useSyncRun`
+ */
 export function useLatestSyncRun(shopId: string, enabled = true) {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: shopKeys.syncRun(companyId, shopId, 'latest'),
     enabled: Boolean(companyId && shopId) && enabled,
-    refetchInterval: (q) => (runActive(q.state.data) ? SYNC_RUN_POLL_MS : false),
+    refetchInterval: (q) => (syncRunActive(q.state.data) ? SYNC_RUN_POLL_MS : false),
     queryFn: async () => {
       const { data } = await apiClient.get<SyncRun | null>(`/channel/shops/${shopId}/listings/sync-runs/latest`);
       return data;

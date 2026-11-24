@@ -1,3 +1,4 @@
+import { syncRunActive } from '@/lib/machines/channel';
 import { ROUTES } from '@/router/routes';
 import type { SyncRun, SyncRunError } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
@@ -6,8 +7,6 @@ import { formatDateTime } from '@/utils/format';
  * Kết quả lượt đồng bộ ở trang gian hàng (Documents/21 §18.5 `SyncRun`; bản phác
  * `.claude/issues/trang-san-pham-tab/design/v2.html` màn 2; CLAUDE.md "Lỗi phải chỉ chỗ sửa").
  */
-export const syncRunActive = (run: Pick<SyncRun, 'status'> | null | undefined) => run?.status === 'queued' || run?.status === 'running';
-
 /** Câu chính của hộp kết quả */
 export function syncRunHeadline(run: SyncRun): string {
   if (syncRunActive(run)) {
@@ -33,11 +32,50 @@ export function syncErrorTitle(e: Pick<SyncRunError, 'productName' | 'attributes
   return e.sku ?? 'SKU';
 }
 
-/** Nút tới chỗ sửa của một dòng lỗi; `href` null là việc làm ngoài app (trang người bán của sàn) */
+/** Lượt người vừa bấm Đồng bộ, kèm gian hàng của lượt đó */
+export interface StartedRun {
+  shopId: string;
+  runId: string;
+}
+
+/** `runId` của lượt vừa bấm nếu thuộc gian hàng đang mở; gian hàng khác thì null (dùng lượt gần nhất của gian hàng đó) */
+export const startedRunId = (started: StartedRun | null, shopId: string): string | null =>
+  started && started.shopId === shopId ? started.runId : null;
+
+/**
+ * Trạng thái hộp đồng bộ ở trang gian hàng. Đã có `runId` (vừa bấm Đồng bộ) thì chỉ dùng lượt đó, không lấy lượt gần
+ * nhất; POST xong mà chưa đọc được lượt thì vẫn là đang chạy. Đọc lượt lỗi thì báo lỗi, không đứng mãi ở "Đang đồng bộ…".
+ */
+export function syncRunState(input: {
+  pending: boolean;
+  runId: string | null;
+  current: SyncRun | undefined;
+  currentError: boolean;
+  latest: SyncRun | null | undefined;
+}): { run: SyncRun | null; running: boolean; readError: boolean } {
+  const run = input.runId ? (input.current ?? null) : (input.latest ?? null);
+  const readError = Boolean(input.runId) && input.currentError;
+  const running = input.pending || (!readError && ((Boolean(input.runId) && !input.current) || syncRunActive(run)));
+  return { run, running, readError };
+}
+
+/**
+ * Nút tới chỗ sửa của một dòng lỗi; `href` null là việc làm ngoài app (trang người bán của sàn). Không có chỗ sửa riêng
+ * mà biết sản phẩm thì mở sản phẩm đó (CLAUDE.md "Lỗi phải chỉ chỗ sửa")
+ */
 export function syncErrorFix(
   e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>,
   companyId: string,
 ): { label: string; href: string | null } | null {
+  const fix = fixOf(e, companyId);
+  if (fix || !e.productId) return fix;
+  // Có biến thể thì `?spec=` mở luôn hộp Thông tin SKU của biến thể đó (routes.ts catalogProduct)
+  return e.variantId
+    ? { label: 'Mở Thông tin SKU', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId) }
+    : { label: 'Mở sản phẩm', href: ROUTES.company.catalogProduct(companyId, e.productId) };
+}
+
+function fixOf(e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>, companyId: string): { label: string; href: string | null } | null {
   switch (e.fix) {
     case 'variant_price':
       return e.productId && e.variantId

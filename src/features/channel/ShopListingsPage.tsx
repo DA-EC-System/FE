@@ -56,7 +56,7 @@ import {
   useSyncListings,
 } from '@/api/shops.api';
 import { SyncRunPanel } from './SyncRunPanel';
-import { syncRunActive } from './syncRun';
+import { startedRunId, syncRunState, type StartedRun } from './syncRun';
 import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
   problemCode,
@@ -74,7 +74,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { usePageGuide } from '@/guides/usePageGuide';
 import type { ListingRow, ListingStatus, MappingDecision, OutsideChangeAction, PendingMapping, RemoteSku } from '@/types/shop';
-import { onPlatform } from '@/lib/machines/channel';
+import { onPlatform, syncRunActive } from '@/lib/machines/channel';
 import { MatchDialog, type MatchOption } from './MatchDialog';
 import { MatchPreviewPanel } from './MatchPreviewPanel';
 import { CreateVariantDialog } from './CreateVariantDialog';
@@ -283,12 +283,23 @@ export function ShopListingsPage() {
   const syncMut = useSyncListings();
   // Lượt đồng bộ người bấm: lượt vừa bấm, không có thì lượt gần nhất của gian hàng (Documents/21 §18.5 sync-runs, chốt
   // v2 câu 6)
-  const [runId, setRunId] = useState<string | null>(null);
+  // Lượt vừa bấm gắn với gian hàng: route giữ component khi đổi gian hàng, lượt của gian hàng khác không được dùng
+  const [startedRun, setStartedRun] = useState<StartedRun | null>(null);
+  const runId = startedRunId(startedRun, shopId);
   const [dismissedRun, setDismissedRun] = useState<string | null>(null);
-  const latestRun = useLatestSyncRun(shopId, Boolean(shop));
+  const latestRun = useLatestSyncRun(shopId, Boolean(shop) && !runId);
   const currentRun = useSyncRun(shopId, runId);
-  const syncRun = currentRun.data ?? latestRun.data ?? null;
-  const syncRunning = syncMut.isPending || syncRunActive(syncRun);
+  const {
+    run: syncRun,
+    running: syncRunning,
+    readError: syncReadError,
+  } = syncRunState({
+    pending: syncMut.isPending,
+    runId,
+    current: currentRun.data,
+    currentError: currentRun.isError,
+    latest: latestRun.data,
+  });
   const listingReview = shop?.capabilities.listingReview ?? false;
   const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
   const connector = useStartConnect();
@@ -828,7 +839,7 @@ export function ShopListingsPage() {
   const sync = async () => {
     try {
       const r = await syncMut.mutateAsync(shopId);
-      setRunId(r.runId);
+      setStartedRun({ shopId, runId: r.runId });
       setDismissedRun(null);
     } catch (e) {
       toast.error(problemMessage(e));
@@ -1303,7 +1314,16 @@ export function ShopListingsPage() {
         }
       />
 
-      {syncRun && syncRun.id !== dismissedRun && (
+      {syncReadError && (
+        <AlertMessage severity="warning" className="mb-4">
+          <span>Không đọc được kết quả đồng bộ: {problemMessage(currentRun.error)}</span>
+          <Button size="sm" variant="outline" className="ms-3" disabled={currentRun.isFetching} onClick={() => void currentRun.refetch()}>
+            <RefreshCw />
+            Thử lại
+          </Button>
+        </AlertMessage>
+      )}
+      {syncRun && syncRun.id !== dismissedRun && !(syncReadError && syncRunActive(syncRun)) && (
         <SyncRunPanel
           run={syncRun}
           companyId={companyId}
