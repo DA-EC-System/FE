@@ -256,7 +256,7 @@ export function GroupsStep({
                 </td>
                 {hasPath && (
                   <td className="px-3 py-2.5 text-xs">
-                    {r.externalCategoryPath ?? <span className="text-muted-foreground">Chưa đọc được</span>}
+                    {r.externalCategoryPath ?? <span className="text-muted-foreground">—</span>}
                   </td>
                 )}
                 <td className="px-3 py-2.5">

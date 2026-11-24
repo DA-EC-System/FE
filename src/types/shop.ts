@@ -610,74 +610,15 @@ export interface ListingActionInput {
   version: number;
 }
 
-/** sku: SKU người bán trùng SKU Commerio; name: tên gần giống; none: không tìm được */
-export type SetupMatch = 'sku' | 'name' | 'none';
-
 /** Trạng thái sản phẩm trên sàn đã chuẩn hoá ở bước ghép (§18.7.5); SKU đã xoá không có trong gợi ý */
 export type RemoteSkuStatus = 'live' | 'review' | 'rejected' | 'hold' | 'inactive';
-
-/** Một SKU người bán trên sàn ở bước 1 thiết lập lần đầu, kèm biến thể gợi ý (§18.7.5) */
-export interface SetupSuggestion {
-  externalSkuId: string;
-  title: string;
-  /** Ảnh đầu tiên của sản phẩm trên sàn, chỉ để hiện (URL TikTok có ký, có thể hết hạn); null là không có */
-  imageUrl: string | null;
-  status: RemoteSkuStatus;
-  match: SetupMatch;
-  /** Độ giống tên 0..1, chỉ có khi match = name */
-  score: number | null;
-  /** Biến thể gợi ý; null khi match = none */
-  variantId: string | null;
-  sku: string | null;
-  /** Khả dụng ở Commerio (null khi match = none) và số đang có trên sàn */
-  available: number | null;
-  platformStock: number;
-  /** Tạo được SKU kho từ SKU sàn này (commerio-backend#500, §18.7.5) */
-  canCreate: boolean;
-  /** Có khi và chỉ khi canCreate = false */
-  cannotCreateReason: CannotCreateReason | null;
-}
 
 /** no_seller_sku: sàn chưa có SKU người bán; sku_too_long: quá 50 ký tự; sku_taken: đã là SKU kho; no_permission: thiếu catalog.product.manage */
 /** already_matched: dòng remote-skus đã liên kết hoặc đang chờ duyệt (§18.9 R2) */
 export type CannotCreateReason = 'no_seller_sku' | 'sku_too_long' | 'sku_taken' | 'no_permission' | 'already_matched';
 
-/** Quyết định cho một SKU sàn: variantId người dùng chọn (có thể khác gợi ý), null là bỏ qua */
-export interface SetupDecision {
-  externalSkuId: string;
-  variantId: string | null;
-  /** true: tạo SKU kho từ SKU sàn rồi liên kết, kèm variantId null (§18.7.5) */
-  create?: boolean;
-}
-
-export interface ShopSetupPreview {
-  /** Mọi SKU người bán đọc được trên sàn, kể cả match = none */
-  suggestions: SetupSuggestion[];
-  /** Số dòng match = none */
-  unmatchedRemote: number;
-  /**
-   * true khi BE bỏ ghép theo tên vì gian hàng quá nhiều SKU hoặc so tên quá lâu: dòng không trùng SKU đều match = none
-   * (§18.7.5, commerio-backend#198). Vắng khi BE chưa lên #198
-   */
-  nameMatchSkipped?: boolean;
-  /** Mốc kéo đơn BE đề xuất (lúc kết nối); FE chỉ hiển thị, không gửi lại */
-  proposedCutoffAt: string;
-  /** Gian hàng đầu tiên của công ty: tồn đầu kỳ chỉ được chọn kiểm kê */
-  firstShopOfCompany: boolean;
-}
-
 /** push: đẩy khả dụng của Commerio lên sàn; stocktake: lập phiếu kiểm kê nháp cho các SKU lệch */
 export type OpeningStockMode = 'push' | 'stocktake';
-
-export interface ShopSetupInput {
-  /** SKU có trong suggestions mà không có ở đây coi như bỏ qua. Không gửi kèm externalSkuIds cũ */
-  decisions: SetupDecision[];
-  /** Nhóm hàng cho SKU kho tạo từ SKU sàn; bắt buộc khi có dòng create */
-  createGroupId?: string;
-  openingStock: OpeningStockMode;
-  /** Bắt buộc, số nguyên 1–60 khi capabilities.returnWindow = days */
-  returnWindowDays?: number | null;
-}
 
 export interface ShopSetupResult {
   shop: Shop;
