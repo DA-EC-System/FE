@@ -32,7 +32,7 @@ test('tạo sản phẩm: chuyển sang trang sửa, một toast, focus tiêu đ
   await expect(oTen).toHaveAccessibleDescription(/Tên sản phẩm cần ít nhất 25 ký tự \(hiện 7\)/);
   await oTen.fill(tenSanPham);
   await page.getByRole('combobox', { name: 'Danh mục sản phẩm' }).click();
-  await page.getByPlaceholder('Gõ để tìm hoặc tạo nhóm…').fill(tenDanhMuc);
+  await page.getByPlaceholder('Gõ để tìm hoặc tạo danh mục…').fill(tenDanhMuc);
   await page.getByRole('option', { name: tenDanhMuc, exact: true }).click();
 
   const post = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/catalog/products');

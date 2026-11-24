@@ -28,7 +28,7 @@ const LABELS: Record<VariantMissing | 'category', string> = {
   minQty: 'Ngưỡng tồn',
   weight: 'Cân nặng',
   dimensions: 'Kích thước gói',
-  specs: 'Thuộc tính sản phẩm bắt buộc',
+  specs: 'Thuộc tính cần cho Sẵn sàng',
 };
 
 const TARGETS: Record<VariantMissing | 'category', string> = {

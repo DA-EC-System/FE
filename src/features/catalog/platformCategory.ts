@@ -9,6 +9,11 @@ export const PLATFORM_TABS: readonly { platform: string; label: string }[] = SUP
 
 export type PlatformTab = string;
 
+/** Gian hàng của một sàn: listing, lệch category và hộp xác nhận đổi category chỉ xét gian hàng sàn đó */
+export function shopsOnPlatform<T extends { platform: string }>(shops: readonly T[], platform: string): T[] {
+  return shops.filter((s) => s.platform === platform);
+}
+
 export const isPlatformTab = (value: string | null): value is PlatformTab =>
   PLATFORM_TABS.some((t) => t.platform === value);
 

@@ -1,12 +1,13 @@
 import { useId, useState, type KeyboardEvent } from 'react';
 import { Check, Trash2, X } from 'lucide-react';
+import { HelpTip } from '@/components/common/HelpTip';
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { SPEC_INPUT_LABELS } from './specLabels';
+import { READY_SPEC_HELP, SPEC_INPUT_LABELS } from './specLabels';
 import { EMPTY_SPEC, isEmptySpec, type SpecDraft, type SpecDrafts, type SpecFieldView } from './specValues';
 
 /** id của từng ô, để mức sẵn sàng và tab sàn nhảy tới (`productTabs.ts` SHARED_TARGETS) */
@@ -126,7 +127,12 @@ function SpecField({
       {error ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : (
-        missing && <p className="text-xs text-warning-text">Bắt buộc trong mẫu nhóm: thiếu thì chưa &lsquo;Sẵn sàng&rsquo;, vẫn lưu được.</p>
+        missing && (
+          <p className="flex items-center gap-1 text-xs text-warning-text">
+            Cần cho Sẵn sàng: thiếu thì SKU còn &lsquo;Chờ hoàn thiện&rsquo;, vẫn lưu và đăng được.
+            <HelpTip topic="Cần cho Sẵn sàng" content={READY_SPEC_HELP} />
+          </p>
+        )
       )}
     </div>
   );

@@ -148,7 +148,7 @@ export function GroupFormDialog({ open, group, onClose, onDone }: GroupFormDialo
                 <p className={replacing ? 'text-sm text-warning-text' : 'text-sm text-muted-foreground'}>
                   {replacing
                     ? `Thuộc tính sản phẩm và biến thể theo đang có của ${group?.name} sẽ bị thay bằng bản chép. Sản phẩm đã có không đổi.`
-                    : 'Chép thuộc tính sản phẩm (kể cả cờ bắt buộc, thứ tự) và biến thể theo một lần; sửa danh mục nguồn sau đó không ảnh hưởng danh mục này.'}
+                    : 'Chép thuộc tính sản phẩm (kể cả cờ Cần cho Sẵn sàng, thứ tự) và biến thể theo một lần; sửa danh mục nguồn sau đó không ảnh hưởng danh mục này.'}
                 </p>
               </div>
             )}

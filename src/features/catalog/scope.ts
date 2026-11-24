@@ -19,3 +19,9 @@ export function splitByScope<T extends { scope?: DataScope }>(rows: readonly T[]
     company: rows.filter((r) => r.scope === 'company'),
   };
 }
+
+/** Tiêu đề hai mục trong ô chọn danh mục sản phẩm (Documents/29 dòng 46–49, FE#474) */
+export const GROUP_SCOPE_HEADINGS: Record<DataScope, string> = {
+  platform: 'Danh mục mặc định',
+  company: 'Danh mục tự tạo',
+};

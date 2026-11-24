@@ -9,26 +9,46 @@ import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import type { ProductGroup } from '@/types/catalog';
-import { SCOPE_TEXT, splitByScope } from './scope';
+import { GROUP_SCOPE_HEADINGS, splitByScope } from './scope';
 
 interface GroupComboboxProps {
   value: string;
   onChange: (groupId: string) => void;
   groups: ProductGroup[];
-  /** Nhóm hiện tại của sản phẩm khi danh sách chưa có (chưa nạp xong) */
+  /** Danh mục hiện tại của sản phẩm khi danh sách chưa có (chưa nạp xong) */
   fallback?: { id: string; name: string };
   loading?: boolean;
   disabled?: boolean;
   invalid?: boolean;
-  /** Tạo nhóm tại chỗ: cần quyền quản lý sản phẩm hoặc nhóm hàng (Documents/21 §5.2, tạo chỉ gửi `name`) */
+  /** Tạo danh mục tại chỗ: cần quyền quản lý sản phẩm hoặc danh mục sản phẩm (Documents/21 §5.2, tạo chỉ gửi `name`) */
   canCreate?: boolean;
+  /** Ô lọc: thêm dòng "Tất cả" ở đầu, chọn thì trả chuỗi rỗng */
+  allLabel?: string;
+  id?: string;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
+  className?: string;
 }
 
 /**
- * Chọn nhóm hàng kiểu seller center: gõ để lọc, không thấy thì "+ Tạo nhóm …" ngay trong danh sách (FE#350).
- * Chia hai mục "Mặc định của hệ thống" và "Tự tạo" (Documents/21 §5.6); nhóm chuẩn đã ẩn không có trong `groups`
+ * Chọn danh mục sản phẩm kiểu seller center: gõ để lọc, không thấy thì "+ Tạo danh mục …" ngay trong danh sách
+ * (FE#350). Chia hai mục "Danh mục mặc định" và "Danh mục tự tạo" (Documents/21 §5.6, FE#474)
  */
-export function GroupCombobox({ value, onChange, groups, fallback, loading, disabled, invalid, canCreate }: GroupComboboxProps) {
+export function GroupCombobox({
+  value,
+  onChange,
+  groups,
+  fallback,
+  loading,
+  disabled,
+  invalid,
+  canCreate,
+  allLabel,
+  id,
+  'aria-label': ariaLabel = 'Danh mục sản phẩm',
+  'aria-describedby': describedBy,
+  className,
+}: GroupComboboxProps) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   const create = useCreateGroup();
@@ -37,9 +57,10 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
   const selected = groups.find((g) => g.id === value) ?? (fallback?.id === value ? fallback : undefined);
   const canAdd =
     canCreate && name.length > 0 && name.length <= 60 && !groups.some((g) => g.name.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+  const shown = loading ? 'Đang tải danh mục sản phẩm…' : (selected?.name ?? (allLabel && !value ? allLabel : 'Chọn danh mục sản phẩm'));
 
-  const choose = (id: string) => {
-    onChange(id);
+  const choose = (next: string) => {
+    onChange(next);
     setTyped('');
     setOpen(false);
   };
@@ -59,28 +80,44 @@ export function GroupCombobox({ value, onChange, groups, fallback, loading, disa
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           role="combobox"
-          aria-label="Danh mục sản phẩm"
+          aria-label={ariaLabel}
+          aria-describedby={describedBy}
           aria-expanded={open}
           aria-invalid={invalid || undefined}
+          aria-busy={loading || undefined}
           disabled={disabled || loading}
-          className={cn('w-full justify-between font-normal', !selected && 'text-muted-foreground')}
+          className={cn('w-full justify-between font-normal', !selected && !(allLabel && !value) && 'text-muted-foreground', className)}
         >
-          <span className="truncate">{loading ? 'Đang tải danh mục sản phẩm…' : (selected?.name ?? 'Chọn danh mục sản phẩm')}</span>
+          <span className="truncate">{shown}</span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+      <PopoverContent className="w-(--radix-popover-trigger-width) min-w-56 p-0" align="start">
         <Command>
-          <CommandInput placeholder="Gõ để tìm hoặc tạo nhóm…" value={typed} onValueChange={setTyped} maxLength={60} />
+          <CommandInput
+            placeholder={canCreate ? 'Gõ để tìm hoặc tạo danh mục…' : 'Gõ để tìm danh mục…'}
+            value={typed}
+            onValueChange={setTyped}
+            maxLength={60}
+          />
           <CommandList>
             <CommandEmpty>{canCreate ? 'Gõ tên để tạo danh mục mới.' : 'Không thấy danh mục sản phẩm nào.'}</CommandEmpty>
+            {allLabel && (
+              <CommandGroup>
+                <CommandItem value={`__all__ ${allLabel}`} onSelect={() => choose('')}>
+                  <Check className={cn(!value ? 'opacity-100' : 'opacity-0')} />
+                  {allLabel}
+                </CommandItem>
+              </CommandGroup>
+            )}
             {(['company', 'platform'] as const).map((scope) => {
               const rows = byScope[scope];
               return rows.length > 0 ? (
-                <CommandGroup key={scope} heading={SCOPE_TEXT[scope].title}>
+                <CommandGroup key={scope} heading={GROUP_SCOPE_HEADINGS[scope]}>
                   {rows.map((g) => (
                     <CommandItem key={g.id} value={`${g.name} ${g.id}`} onSelect={() => choose(g.id)}>
                       <Check className={cn(g.id === value ? 'opacity-100' : 'opacity-0')} />
