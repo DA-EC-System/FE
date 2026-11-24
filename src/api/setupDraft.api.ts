@@ -115,6 +115,32 @@ export function useRemoteProducts(shopId: string, query: RemoteProductQuery, ena
   });
 }
 
+/** Trần số trang đọc liền một lượt (50 sản phẩm mỗi trang): 4.000 sản phẩm sẽ tạo */
+const ALL_PAGES_MAX = 80;
+
+/**
+ * Mọi sản phẩm sàn có SKU mang quyết định `decision` (bước 4 dùng `create`): đọc liền các trang 50 sản phẩm. Bước 4 cần cả
+ * danh sách vì lọc "Chưa có danh mục" và ghi danh mục gợi ý xét theo nháp, BE không lọc được theo danh mục.
+ */
+export function useAllRemoteProducts(shopId: string, decision: DecisionFilter, enabled = true) {
+  const companyId = useCompanyId();
+  return useQuery({
+    queryKey: [...setupDraftKeys.remoteProducts(companyId, shopId), 'all', decision],
+    enabled: Boolean(companyId && shopId) && enabled,
+    queryFn: async () => {
+      const items: RemoteProductList['items'] = [];
+      for (let page = 1; page <= ALL_PAGES_MAX; page += 1) {
+        const { data } = await apiClient.get<RemoteProductList>(`/channel/shops/${shopId}/remote-products`, {
+          params: { status: 'all', decision, page, pageSize: 50 },
+        });
+        items.push(...data.items);
+        if (items.length >= data.total || !data.items.length) break;
+      }
+      return items;
+    },
+  });
+}
+
 /** GET category-sync: trạng thái cây category của sàn và quyền theo gian hàng (§18.5) */
 export function useCategorySync(shopId: string, enabled = true) {
   const companyId = useCompanyId();

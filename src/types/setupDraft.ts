@@ -103,6 +103,11 @@ export interface RemoteProductList {
   pageSize: number;
   counts: { unlinked: number; linked: number; pending: number };
   syncedAt: string | null;
+  /**
+   * Tổng xem trước tồn của SKU có quyết định `link`/`create` trên cả gian hàng (Thành chốt 24/11/2026: BE trả, FE không
+   * đọc hết trang). Tên và hình trường chờ Documents/21 §18.12; vắng thì FE không hiện dòng tổng
+   */
+  stockTotals?: { drifted: number; matched: number; platformTotal: number; availableTotal: number } | null;
 }
 
 /** POST /channel/shops/:id/sku-links khi gian hàng `connecting` (ghi nháp) */
