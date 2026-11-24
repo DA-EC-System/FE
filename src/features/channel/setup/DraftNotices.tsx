@@ -26,6 +26,12 @@ export function DraftNotices({ state, onReconnect }: { state: SetupDraftState; o
           </Button>
         </AlertMessage>
       )}
+      {state.replaced && !state.conflict && (
+        <AlertMessage severity="warning">
+          <b className="font-semibold">Bản nháp vừa được sửa ở tab hoặc máy khác,</b> trang đã hiện bản mới nhất. Lựa chọn vừa bấm chưa lưu;
+          kiểm lại rồi chọn lại nếu cần.
+        </AlertMessage>
+      )}
       {state.saveError && !state.conflict && (
         <AlertMessage severity="warning">
           <b className="font-semibold">Chưa lưu được nháp.</b> Lựa chọn vẫn còn trên trang này nhưng tải lại sẽ mất.{' '}

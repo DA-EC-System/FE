@@ -4,7 +4,7 @@ import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { setupDraftKeys, useSaveCreateGroups, useSaveSetupDraft, useSetupDraftView } from '@/api/setupDraft.api';
 import { useAuthStore } from '@/stores/authStore';
-import type { CreateGroup, DraftStep, SetupDraftInput, ShopSetupDraftView } from '@/types/setupDraft';
+import type { CreateGroup, DraftStep, SetupDraftInput, SetupDraftSaved, ShopSetupDraftView } from '@/types/setupDraft';
 
 /** Kết quả một lần ghi: `invalid` là 422 (lỗi theo ô, bên gọi tự hiện); các lỗi khác hook giữ để hiện thanh báo (`DraftNotices`) */
 export type DraftWriteOutcome = { ok: true } | { ok: false; invalid: boolean; error: unknown };
@@ -26,6 +26,8 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState(false);
   const [conflict, setConflict] = useState(false);
+  /** Nháp vừa được thay bằng bản BE trả kèm 409 (người khác vừa sửa); chỉ báo, không chặn */
+  const [replaced, setReplaced] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
   /** Lỗi khác (403 thiếu quyền, 404, 409 mã khác...): một câu theo `problemMessage`, xoá khi lần ghi sau thành công */
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
             await write(currentVersion());
             setSavedAt(new Date());
             setWriteError(null);
+            setReplaced(false);
             // Chỉ xoá báo "chưa lưu được" khi chính lần ghi lỗi đó đã lưu lại được, không xoá vì một lần ghi khác
             if (lastFailed.current === attempt) {
               lastFailed.current = null;
@@ -54,7 +57,18 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
           } catch (e) {
             const p = getProblem(e);
             if (p?.status === 422) return { ok: false, invalid: true, error: e };
-            if (p?.code === 'version_conflict') setConflict(true);
+            if (p?.code === 'version_conflict') {
+              // Documents/21 §18.7.5 (Documents#253): 409 kèm `current: { draft, draftVersion }`, FE thay nháp đang giữ
+              // bằng bản này rồi báo một dòng; thiếu `current` thì mới chặn và bắt bấm "Tải bản mới nhất"
+              const cur = p.current as Partial<SetupDraftSaved> | undefined;
+              if (cur?.draft && typeof cur.draftVersion === 'number') {
+                const fresh = { draft: cur.draft, draftVersion: cur.draftVersion };
+                qc.setQueryData<ShopSetupDraftView>(setupDraftKeys.view(companyId, shopId), (old) =>
+                  old ? { ...old, ...fresh } : old,
+                );
+                setReplaced(true);
+              } else setConflict(true);
+            }
             else if (p?.code === 'invalid_transition') setNeedsReauth(true);
             else if (!p?.status || p.status >= 500) {
               setSaveError(true);
@@ -70,7 +84,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
       };
       return attempt();
     },
-    [currentVersion],
+    [currentVersion, qc, companyId, shopId],
   );
 
   const save = useCallback(
@@ -90,6 +104,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
   /** "Tải bản mới nhất": bỏ lựa chọn chưa lưu ở tab này, đọc lại nháp */
   const reload = useCallback(async () => {
     setConflict(false);
+    setReplaced(false);
     setSaveError(false);
     setNeedsReauth(false);
     setWriteError(null);
@@ -111,6 +126,7 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
     saveError,
     retry,
     conflict,
+    replaced,
     reload,
     needsReauth,
     writeError,
