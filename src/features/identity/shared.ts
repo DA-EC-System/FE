@@ -24,6 +24,8 @@ export const FREELY_ASSIGNABLE_ROLE_IDS: readonly string[] = [
   '00000000-0000-4000-8000-000000000003',
   '00000000-0000-4000-8000-000000000004',
 ];
+/** Vai có sẵn Nhân viên kho (BE `core/access/domain/catalog.ts`): wizard mời người đếm tồn đầu kỳ (FE#468) */
+export const WAREHOUSE_ROLE_ID = FREELY_ASSIGNABLE_ROLE_IDS[1];
 export const isFreelyAssignable = (role: Pick<Role, 'id' | 'builtIn'>) =>
   role.builtIn && FREELY_ASSIGNABLE_ROLE_IDS.includes(role.id);
 
