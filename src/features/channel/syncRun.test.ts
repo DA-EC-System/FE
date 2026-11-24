@@ -49,8 +49,8 @@ describe('dòng lỗi: tên và nút tới chỗ sửa', () => {
 
   it('mỗi fix một chỗ sửa', () => {
     expect(syncErrorFix({ fix: 'variant_price', productId: 'p1', variantId: 'v1' }, 'c1')).toEqual({
-      label: 'Mở Thông tin SKU, ô Giá muốn thực nhận',
-      href: '/c/c1/catalog/products/p1?spec=v1',
+      label: 'Sửa ô Giá muốn thực nhận của SKU',
+      href: '/c/c1/catalog/products/p1?spec=v1&field=targetNetPrice',
     });
     expect(syncErrorFix({ fix: 'variant_price', productId: null, variantId: 'v1' }, 'c1')).toBeNull();
     expect(syncErrorFix({ fix: 'stocktake', productId: null, variantId: null }, 'c1')?.href).toBe('/c/c1/inventory/documents/new?type=stocktake');
@@ -58,9 +58,9 @@ describe('dòng lỗi: tên và nút tới chỗ sửa', () => {
     expect(syncErrorFix({ fix: null, productId: null, variantId: null }, 'c1')).toBeNull();
   });
 
-  it('không có chỗ sửa riêng mà biết sản phẩm: nút dự phòng mở Thông tin SKU hoặc sản phẩm', () => {
+  it('không có chỗ sửa riêng mà biết sản phẩm: nút dự phòng mở SKU hoặc sản phẩm', () => {
     expect(syncErrorFix({ fix: null, productId: 'p1', variantId: 'v1' }, 'c1')).toEqual({
-      label: 'Mở Thông tin SKU',
+      label: 'Mở SKU trong bảng biến thể',
       href: '/c/c1/catalog/products/p1?spec=v1',
     });
     expect(syncErrorFix({ fix: null, productId: 'p1', variantId: null }, 'c1')).toEqual({

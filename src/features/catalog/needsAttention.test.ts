@@ -28,7 +28,7 @@ const row = (over: Partial<ProductListingRow>): ProductListingRow =>
 const platformName = (p: string) => (p === 'p1' ? 'Sàn Một' : p);
 
 describe('attentionItems (hộp Cần xử lý, chốt v2 câu 7)', () => {
-  it('thiếu giá ở biến thể: mở hộp Thông tin SKU của biến thể đầu tiên còn thiếu', () => {
+  it('thiếu giá ở biến thể: mở ô giá của biến thể đầu tiên còn thiếu', () => {
     const items = attentionItems({
       missing: [{ key: 'price', label: 'Giá muốn thực nhận', skuCount: 2, target: 'x' }],
       variants: [variant('v1', 'Đen'), variant('v2', 'Trắng', ['price']), variant('v3', 'Xanh', ['price'])],
@@ -39,8 +39,8 @@ describe('attentionItems (hộp Cần xử lý, chốt v2 câu 7)', () => {
       {
         key: 'sku:price',
         text: 'Biến thể Trắng chưa có giá muốn thực nhận (và 1 biến thể khác)',
-        actionLabel: 'Mở Thông tin SKU V2',
-        action: { kind: 'sku', variantId: 'v2' },
+        actionLabel: 'Sửa giá muốn thực nhận của V2',
+        action: { kind: 'sku', variantId: 'v2', field: 'targetNetPrice' },
       },
     ]);
   });
