@@ -5,14 +5,17 @@ import { AlertMessage } from '@/components/common/AlertMessage';
 import { PageSpinner } from '@/components/common/PageSpinner';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/api/shops.api';
+import { useAuth } from '@/hooks/useAuth';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
+import { SETUP_POLL_MAX_MS, SETUP_POLL_MS, setupRunning } from '@/features/channel/setupDecisions';
 import { platformLabel, returnWindowNote } from '@/features/channel/shopSchemas';
 import { useStartConnect } from '@/features/channel/useStartConnect';
 import { CategorySyncBlock } from '@/features/channel/setup/CategorySyncBlock';
 import { CutoffStep } from '@/features/channel/setup/CutoffStep';
 import { DraftNotices, DraftSavedLine } from '@/features/channel/setup/DraftNotices';
 import { GroupsStep } from '@/features/channel/setup/GroupsStep';
+import { SetupProgress } from '@/features/channel/setup/SetupProgress';
 import { StockSyncStep } from '@/features/channel/setup/StockSyncStep';
 import { setupIssues, SETUP_STEP_NAMES, type SetupIssue } from '@/features/channel/setup/setupDraft';
 import { useFinishSetup } from '@/features/channel/setup/useFinishSetup';
@@ -40,6 +43,7 @@ export function ShopSetupWizardStep({
   onAdvance,
   onGoStep,
   onOwnsAction,
+  onRefresh,
 }: {
   shopId: string;
   stepKey: ShopSetupKey;
@@ -47,8 +51,16 @@ export function ShopSetupWizardStep({
   onAdvance: (key: WizardKey) => void | Promise<void>;
   onGoStep: (key: WizardKey) => void;
   onOwnsAction: (owns: boolean) => void;
+  /** Đọc lại tiến độ onboarding (sau Hoàn tất, bước xong nhưng wizard ở lại xem việc chạy nền) */
+  onRefresh: () => void | Promise<unknown>;
 }) {
-  const shop = useShop(shopId);
+  const { companyContext } = useAuth();
+  const companyId = companyContext?.companyId ?? '';
+  // Mốc bắt đầu theo dõi việc chạy nền: lúc mở bước, hoặc lúc vừa bấm Hoàn tất
+  const [pollFrom, setPollFrom] = useState(() => Date.now());
+  const shop = useShop(shopId, (data) =>
+    stepKey === 'order_cutoff' && setupRunning(data) && Date.now() - pollFrom < SETUP_POLL_MAX_MS ? SETUP_POLL_MS : false,
+  );
   const connecting = shop.data?.status === 'connecting';
   const state = useSetupDraft(shopId, connecting);
   const groupData = useGroupStep(shopId, state, connecting && stepKey === 'assign_groups');
@@ -66,6 +78,10 @@ export function ShopSetupWizardStep({
   if (shop.isLoading) return <PageSpinner />;
   if (shop.isError || !shop.data) return <AlertMessage severity="error">{problemMessage(shop.error)}</AlertMessage>;
   const s = shop.data;
+  if (!connecting && stepKey === 'order_cutoff') {
+    // Đã hoàn tất: wizard ở lại bước này cho tới khi người dùng bấm Tiếp, hiện tiến độ và kết quả việc chạy nền
+    return <SetupProgress shop={s} companyId={companyId} timedOut={Date.now() - pollFrom >= SETUP_POLL_MAX_MS} />;
+  }
   if (!connecting) {
     return <AlertMessage severity="success">Gian hàng đã hoàn tất thiết lập. Bấm Tiếp để sang bước sau.</AlertMessage>;
   }
@@ -103,7 +119,10 @@ export function ShopSetupWizardStep({
   const finishNow = async () => {
     setAdvancing(true);
     try {
-      if (await finish.run()) await onAdvance(stepKey);
+      if (await finish.run()) {
+        setPollFrom(Date.now());
+        await onRefresh();
+      }
     } finally {
       setAdvancing(false);
     }

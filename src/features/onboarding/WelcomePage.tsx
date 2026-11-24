@@ -195,6 +195,7 @@ export function WelcomePage() {
                 onAdvance={advance}
                 onGoStep={go}
                 onOwnsAction={setOwnsAction}
+                onRefresh={() => onboarding.refetch()}
               />
             )}
             {/* Bước 5 (FE#468): mời Nhân viên kho sớm để họ đếm ở bước 7 */}
