@@ -42,6 +42,11 @@ export interface GridColumn<T> {
   /** Cột định danh: dính bên trái khi cuộn ngang */
   sticky?: boolean;
   testId?: string;
+  /**
+   * Ô có ô nhập riêng (vd thông tin sản phẩm mới trên đề nghị nhập hàng): ô nhập trong ô vẫn nhận Tab, Enter trên ô đưa
+   * focus vào ô nhập đầu tiên
+   */
+  interactive?: boolean;
   /** Nội dung ô khi không sửa */
   render: (row: T) => ReactNode;
   edit?: {
@@ -77,6 +82,11 @@ interface EditableGridProps<T, V> {
   getVersion: (row: T) => V;
   /** Gửi một ô; trả version mới để lượt sau cùng dòng dùng. Không ném lỗi thì tốt; ném thì ô hiện câu lỗi chung */
   save: (row: T, columnId: string, value: unknown, version: V) => Promise<SaveResult<V>>;
+  /**
+   * Lỗi từ ngoài bảng của một ô, vd kiểm form khi bấm Lưu cả phiếu. Hiện khi ô không có trạng thái lưu riêng; nối qua
+   * aria-describedby như lỗi lưu ô
+   */
+  cellError?: (row: T, columnId: string) => string | undefined;
   /** Nạp lại một dòng sau xung đột version */
   reloadRow?: (row: T) => Promise<void>;
   /** Không có quyền sửa: không hiện nút khoá, bảng luôn chỉ đọc */
@@ -195,7 +205,7 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
 
   // Nút, link, ô chọn trong ô không nhận Tab: Tab vào bảng một lần (roving tabindex), Enter trên ô mới bấm tới
   useLayoutEffect(() => {
-    tableRef.current?.querySelectorAll<HTMLElement>(`tbody [role="gridcell"] :is(${INNER_FOCUSABLE})`).forEach((el) => {
+    tableRef.current?.querySelectorAll<HTMLElement>(`tbody [role="gridcell"]:not([data-interactive]) :is(${INNER_FOCUSABLE})`).forEach((el) => {
       if (!el.hasAttribute('data-grid-editor')) el.tabIndex = -1;
     });
   });
@@ -298,7 +308,9 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
         (x) => !(x as HTMLButtonElement).disabled && x.getAttribute('aria-disabled') !== 'true',
       );
     if (!el) return;
-    if (el.getAttribute('aria-haspopup')) {
+    if (el.matches('input, textarea, select')) {
+      el.focus();
+    } else if (el.getAttribute('aria-haspopup')) {
       // Menu của Radix mở bằng phím trên nút: chuyển focus vào nút rồi gửi Enter
       el.focus();
       el.dispatchEvent(new globalThis.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -496,7 +508,7 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
                       const ro = readOnlyReason(row, col);
                       const editable = isEditable(row, col);
                       const errId = `${gridId}-err-${rowId}-${col.id}`;
-                      const errorText = ed?.error ?? (st?.kind === 'error' ? st.message : undefined);
+                      const errorText = ed?.error ?? (st ? (st.kind === 'error' ? st.message : undefined) : props.cellError?.(row, col.id));
                       const name = col.edit ? `${col.label ?? col.header} ${rowLabel(row)}` : undefined;
                       return (
                         <td
@@ -506,6 +518,7 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
                           data-col-id={col.id}
                           data-testid={col.testId}
                           data-status={st?.kind}
+                          data-interactive={col.interactive ? '' : undefined}
                           tabIndex={ed ? -1 : isActive ? 0 : -1}
                           aria-label={col.edit && !ed ? `${name}: ${displayText(st, col.edit.raw(row))}` : undefined}
                           aria-readonly={col.edit ? !editable : undefined}

@@ -3,6 +3,7 @@ import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Save } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { EditableGrid, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { getErrorMessage, getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
@@ -20,7 +20,6 @@ import { useProductDraft, useSaveProductDraft } from '@/api/purchasing.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { useCan } from '@/hooks/usePermission';
-import { cn } from '@/lib/utils';
 import { ROUTES } from '@/router/routes';
 import { MISSING_LABELS, type VariantMissing } from '@/types/catalog';
 import type { ProductDraft, ProductDraftInput, VariantFactKey } from '@/types/purchasing';
@@ -42,6 +41,7 @@ import {
   draftFieldErrors,
   editableVariantIndexes,
   factsDraft,
+  parseFact,
   parseFacts,
   requestClosed,
   specDraftsOf,
@@ -78,8 +78,25 @@ const toForm = (d: ProductDraft): DraftForm => ({
   variants: d.variants.map(factsDraft),
 });
 
-/** Cột số trên bảng Biến thể; Dài × Rộng × Cao gộp một cột như bản phác */
-const SIZE_KEYS: VariantFactKey[] = ['lengthMm', 'widthMm', 'heightMm'];
+/** Dòng của bảng Biến thể: `index` null là dòng "Mọi biến thể", còn lại là chỉ số trong `draft.variants` */
+interface VariantRow {
+  id: string;
+  index: number | null;
+}
+
+/** Cột số của bảng Biến thể (FE#476: mỗi ô một số nên Dài, Rộng, Cao tách cột) */
+const FACT_COLUMNS: { key: VariantFactKey; header: string }[] = [
+  { key: 'targetNetPrice', header: 'Giá muốn thực nhận (đ)' },
+  { key: 'standardPrice', header: 'Giá chuẩn (đ)' },
+  { key: 'weightG', header: 'Cân nặng (g)' },
+  { key: 'lengthMm', header: 'Dài (mm)' },
+  { key: 'widthMm', header: 'Rộng (mm)' },
+  { key: 'heightMm', header: 'Cao (mm)' },
+  { key: 'minQty', header: 'Ngưỡng tồn' },
+];
+
+/** "150000" → "150.000"; chữ khác giữ nguyên */
+const showFact = (v: string) => (/^\d+$/.test(v) ? Number(v).toLocaleString('vi-VN') : v);
 
 /**
  * Soạn trước sản phẩm mới (Documents/29 bước 1; Documents/21 §16.3 "Bản soạn trước"; bản phác
@@ -106,10 +123,13 @@ export function ProductDraftPage() {
   const [uploading, setUploading] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<{ severity: 'error' | 'warning'; msg: string; reload?: boolean } | null>(null);
+  /** Đổi khi nạp lại form (Huỷ, lưu xong, tải lại): dựng lại bảng Biến thể để bỏ trạng thái lưu, lỗi cũ trên ô */
+  const [formKey, setFormKey] = useState(0);
   const loaded = useRef<string | null>(null);
 
   const load = (d: ProductDraft) => {
     loaded.current = `${d.id}:${d.version}`;
+    setFormKey((k) => k + 1);
     setForm(toForm(d));
     setDirty(false);
     setErrors({});
@@ -220,33 +240,101 @@ export function ProductDraftPage() {
   };
 
   const missing = draft.readiness.missing.map((m) => MISSING_LABELS[m as VariantMissing] ?? m);
-  const factCell = (row: 'defaults' | number, key: VariantFactKey, editable: boolean) => {
-    const values = row === 'defaults' ? form.defaults : (form.variants[row] ?? EMPTY_FACTS);
-    const errKey = row === 'defaults' ? `variantDefaults.${key}` : `variants.${row}.${key}`;
-    const err = errors[errKey];
-    const lockedMinQty = key === 'minQty' && !canMinQty;
-    const rowName = row === 'defaults' ? 'mọi biến thể' : variantLabel(draft.variants[row]!.optionValues);
-    return (
-      <div className="grid gap-1">
-        <Input
-          value={values[key]}
-          inputMode="numeric"
-          aria-label={`${FACT_LABELS[key]} ${rowName}`}
-          aria-invalid={Boolean(err)}
-          disabled={!editable || lockedMinQty || busy}
-          title={lockedMinQty ? 'Cần quyền chỉnh ngưỡng tồn' : undefined}
-          placeholder={row === 'defaults' ? '' : form.defaults[key]}
-          className="h-8 w-24 text-right"
-          onChange={(e) => {
-            const next = { ...values, [key]: e.target.value };
-            if (row === 'defaults') patch({ defaults: next });
-            else patch({ variants: form.variants.map((v, i) => (i === row ? next : v)) });
-          }}
-        />
-        {err && <p className="text-xs text-destructive">{err}</p>}
-      </div>
-    );
+  const factsOf = (r: VariantRow) => (r.index === null ? form.defaults : (form.variants[r.index] ?? EMPTY_FACTS));
+  const errorKey = (r: VariantRow, key: string) => (r.index === null ? `variantDefaults.${key}` : `variants.${r.index}.${key}`);
+  const rowReadOnly = (r: VariantRow): string | false => {
+    if (saveMut.isPending) return 'Đang lưu bản soạn';
+    if (closed) return 'Đề nghị nhập hàng đã kết thúc';
+    if (r.index === null) return productEditable ? false : 'Sản phẩm đã tạo khi nhập kho. Sửa ở trang sản phẩm.';
+    return draft.variants[r.index]!.variantId === null ? false : 'Đã tạo khi nhập kho. Sửa ở trang sản phẩm.';
   };
+
+  /** Ô sửa ghi vào bản soạn trên trang, không gọi API theo ô; bấm Lưu bản soạn mới gửi (FE#476) */
+  const saveFact = async (r: VariantRow, columnId: string, value: unknown): Promise<SaveResult<number>> => {
+    const key = columnId as VariantFactKey;
+    const text = value === null || value === undefined ? '' : String(value);
+    setForm((f) => {
+      if (!f) return f;
+      if (r.index === null) return { ...f, defaults: { ...f.defaults, [key]: text } };
+      return { ...f, variants: f.variants.map((v, i) => (i === r.index ? { ...v, [key]: text } : v)) };
+    });
+    setDirty(true);
+    const errKey = errorKey(r, key);
+    setErrors((e) => {
+      if (!(errKey in e)) return e;
+      const next = { ...e };
+      delete next[errKey];
+      return next;
+    });
+    return { ok: true, version: 0 };
+  };
+
+  const variantRows: VariantRow[] = [{ id: 'defaults', index: null }, ...draft.variants.map((_, i) => ({ id: `v${i}`, index: i }))];
+  const variantColumns: GridColumn<VariantRow>[] = [
+    {
+      id: 'variant',
+      header: 'Biến thể',
+      sticky: true,
+      className: 'min-w-48',
+      render: (r) => {
+        if (r.index === null) {
+          return (
+            <div className="whitespace-normal">
+              <p className="font-medium">Mọi biến thể</p>
+              <p className="text-xs text-muted-foreground">Ô trống ở dòng dưới lấy số này</p>
+            </div>
+          );
+        }
+        const v = draft.variants[r.index]!;
+        const rowErr = errors[`variants.${r.index}`];
+        return (
+          <div className="whitespace-normal">
+            <p className="font-medium">{variantLabel(v.optionValues)}</p>
+            {v.variantId !== null && <p className="text-xs text-muted-foreground">Đã tạo khi nhập kho. Sửa ở trang sản phẩm.</p>}
+            {v.variantId === null && created && <p className="text-xs text-muted-foreground">Chưa về hàng, vẫn sửa được</p>}
+            {rowErr && <p className="text-xs text-destructive-text">{rowErr}</p>}
+          </div>
+        );
+      },
+    },
+    ...FACT_COLUMNS.map(
+      ({ key, header }): GridColumn<VariantRow> => ({
+        id: key,
+        header,
+        label: FACT_LABELS[key],
+        numeric: true,
+        className: key === 'targetNetPrice' || key === 'standardPrice' ? 'min-w-32' : 'min-w-24',
+        render: (r) => {
+          const v = factsOf(r)[key].trim();
+          if (v) return showFact(v);
+          // Ô trống của biến thể lấy số ở dòng Mọi biến thể
+          const fallback = r.index === null ? '' : form.defaults[key].trim();
+          return fallback ? (
+            <span className="text-muted-foreground" title="Theo dòng Mọi biến thể">
+              {showFact(fallback)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          );
+        },
+        edit: {
+          raw: (r) => factsOf(r)[key],
+          parse: (raw) => parseFact(key, raw),
+          readOnly: (r) => rowReadOnly(r) || (key === 'minQty' && !canMinQty ? 'Cần quyền chỉnh ngưỡng tồn' : false),
+        },
+      }),
+    ),
+    {
+      id: 'sku',
+      header: 'SKU',
+      render: (r) =>
+        r.index === null ? null : draft.variants[r.index]!.variantId ? (
+          <Badge variant="outline">Đã tạo</Badge>
+        ) : (
+          <span className="text-sm text-muted-foreground">Chưa có</span>
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -474,68 +562,21 @@ export function ProductDraftPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Biến thể</TableHead>
-                    <TableHead className="text-right">Giá muốn thực nhận (đ)</TableHead>
-                    <TableHead className="text-right">Giá chuẩn (đ)</TableHead>
-                    <TableHead className="text-right">Cân nặng (g)</TableHead>
-                    <TableHead className="text-right">Dài × Rộng × Cao (mm)</TableHead>
-                    <TableHead className="text-right">Ngưỡng tồn</TableHead>
-                    <TableHead>SKU</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow className="bg-muted/40 align-top">
-                    <TableCell>
-                      <p className="font-medium">Mọi biến thể</p>
-                      <p className="text-xs text-muted-foreground">Ô trống ở dòng dưới lấy số này</p>
-                    </TableCell>
-                    {(['targetNetPrice', 'standardPrice', 'weightG'] as VariantFactKey[]).map((k) => (
-                      <TableCell key={k} className="text-right">
-                        {factCell('defaults', k, productEditable)}
-                      </TableCell>
-                    ))}
-                    <TableCell>
-                      <div className="flex justify-end gap-1">{SIZE_KEYS.map((k) => <span key={k}>{factCell('defaults', k, productEditable)}</span>)}</div>
-                    </TableCell>
-                    <TableCell className="text-right">{factCell('defaults', 'minQty', productEditable)}</TableCell>
-                    <TableCell />
-                  </TableRow>
-                  {draft.variants.map((v, i) => {
-                    const editable = canEdit && !closed && v.variantId === null;
-                    const rowErr = errors[`variants.${i}`];
-                    return (
-                      <TableRow key={variantLabel(v.optionValues)} className={cn('align-top', rowErr && 'border-b-2 border-b-destructive')}>
-                        <TableCell>
-                          <p className="font-medium">{variantLabel(v.optionValues)}</p>
-                          {v.variantId !== null && (
-                            <p className="text-xs text-muted-foreground">Đã tạo khi nhập kho. Sửa ở trang sản phẩm.</p>
-                          )}
-                          {v.variantId === null && created && (
-                            <p className="text-xs text-muted-foreground">Chưa về hàng, vẫn sửa được</p>
-                          )}
-                          {rowErr && <p className="text-xs text-destructive">{rowErr}</p>}
-                        </TableCell>
-                        {(['targetNetPrice', 'standardPrice', 'weightG'] as VariantFactKey[]).map((k) => (
-                          <TableCell key={k} className="text-right">
-                            {factCell(i, k, editable)}
-                          </TableCell>
-                        ))}
-                        <TableCell>
-                          <div className="flex justify-end gap-1">{SIZE_KEYS.map((k) => <span key={k}>{factCell(i, k, editable)}</span>)}</div>
-                        </TableCell>
-                        <TableCell className="text-right">{factCell(i, 'minQty', editable)}</TableCell>
-                        <TableCell>
-                          {v.variantId ? <Badge variant="outline">Đã tạo</Badge> : <span className="text-sm text-muted-foreground">Chưa có</span>}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            <div className="overflow-hidden rounded-md border" data-testid="draft-variants">
+              <EditableGrid
+                key={formKey}
+                gridId="purchasing-product-draft-variants"
+                aria-label="Biến thể"
+                columns={variantColumns}
+                rows={variantRows}
+                getRowId={(r) => r.id}
+                rowLabel={(r) => (r.index === null ? 'mọi biến thể' : variantLabel(draft.variants[r.index]!.optionValues))}
+                getVersion={() => 0}
+                save={saveFact}
+                canEdit={anyEditable}
+                cellError={(r, columnId) => errors[errorKey(r, columnId)]}
+                rowClassName={(r) => (r.index === null ? 'bg-muted/40' : undefined)}
+              />
             </div>
             {!canMinQty && anyEditable && (
               <p className="text-xs text-muted-foreground">Ngưỡng tồn cần quyền chỉnh ngưỡng tồn; bạn chưa có quyền này nên ô bị khoá.</p>

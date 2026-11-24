@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowLeft, PackagePlus, Plus, Save, Trash2, Undo2, X } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { EditableGrid, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { NewProductDraftsCard } from './NewProductDraftsCard';
 import { droppedDrafts } from './productDraft';
-import { MoneyInput } from '@/components/common/MoneyInput';
 import { LifecycleSteps } from '@/components/common/LifecycleSteps';
 import { ReasonDialog } from '@/components/common/ReasonDialog';
 import { SecondPersonDialog } from '@/components/common/SecondPersonDialog';
@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
   useCreateGoodsReceipt,
@@ -66,6 +65,7 @@ import {
   formatQty,
   newLineFromPrevious,
   optionsLabel,
+  parseLineCell,
   requestFormSchema,
   type RequestFormInput,
   type RequestFormOutput,
@@ -76,6 +76,12 @@ import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { usePageGuide } from '@/guides/usePageGuide';
 
 type RequestTransition = Transition<PurchaseRequest['status'], PurchaseRequestAction, PurchaseRequestRecord>;
+
+/** Dòng của bảng dòng đơn: `key` của useFieldArray, `i` chỉ số trong form */
+interface LineRow {
+  key: string;
+  i: number;
+}
 
 const EDITABLE = new Set<PurchaseRequest['status']>(['draft', 'changes_requested']);
 
@@ -212,6 +218,7 @@ export function PurchaseRequestPage() {
     handleSubmit,
     reset,
     setError,
+    clearErrors,
     setValue,
     formState: { errors, isDirty, isSubmitted },
   } = useForm<RequestFormInput, unknown, RequestFormOutput>({
@@ -470,48 +477,10 @@ export function PurchaseRequestPage() {
     const c = parseMoney(l.unitCost);
     return Number.isFinite(q) && c.ok && c.value !== null ? s + q * c.value : s;
   }, 0);
-  const colCount = 2 + (showCost ? 1 : 0) + (showProgress ? 3 : 0) + (editable || canExclude ? 1 : 0);
   const title = req ? `Đề nghị nhập hàng ${req.number}` : fromReturnId ? 'Tạo đề nghị nhập hàng đổi' : 'Tạo đề nghị nhập hàng';
   const lifecycleBlocked = options.flatMap(({ transition: t, blocked }) =>
     blocked && blocked !== 'forbidden' ? [{ label: t.label, reason: blockedText(t.action, blocked) ?? '' }] : [],
   );
-
-  const textInput = (i: number, key: 'quantity' | 'unitCost', label: string, name: string, hint?: string) => {
-    const err = errors.lines?.[i]?.[key];
-    return (
-      <div className="grid gap-1">
-        {key === 'unitCost' ? (
-          // Ô tiền dùng chung (FE#385): phân cách nghìn khi gõ, chuỗi mơ hồ báo lỗi khi lưu
-          <Controller
-            control={control}
-            name={`lines.${i}.unitCost`}
-            render={({ field }) => (
-              <MoneyInput
-                ref={field.ref}
-                name={field.name}
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                aria-label={`${label} ${name}`}
-                aria-invalid={Boolean(err)}
-                className="h-8"
-              />
-            )}
-          />
-        ) : (
-          <Input
-            {...register(`lines.${i}.${key}`)}
-            aria-label={`${label} ${name}`}
-            inputMode="numeric"
-            aria-invalid={Boolean(err)}
-            className="h-8 text-right"
-          />
-        )}
-        {hint && !err && <p className="text-xs text-muted-foreground">{hint}</p>}
-        {err && <p className="text-start text-xs text-destructive">{err.message}</p>}
-      </div>
-    );
-  };
 
   const patchLine = (i: number, patch: Partial<RequestLineDraft>) => {
     for (const [k, v] of Object.entries(patch)) {
@@ -519,6 +488,200 @@ export function PurchaseRequestPage() {
       setValue(`lines.${i}.${k}` as `lines.${number}.parentName`, v as never, { shouldDirty: true, shouldValidate: isSubmitted });
     }
   };
+
+  /** Ô Số lượng, Giá nhập ghi vào form, không gọi API theo ô; Lưu nháp mới gửi cả đơn (FE#476) */
+  const saveLine = async (row: LineRow, columnId: string, value: unknown): Promise<SaveResult<number>> => {
+    const key = columnId as 'quantity' | 'unitCost';
+    const text = key === 'quantity' ? String(value) : formatMoneyInput(value as number);
+    setValue(`lines.${row.i}.${key}`, text, { shouldDirty: true, shouldValidate: isSubmitted });
+    // Lỗi BE trên ô (vd quá số đã trả) không tự mất khi chưa bấm Lưu lần nào
+    if (!isSubmitted) clearErrors(`lines.${row.i}.${key}`);
+    return { ok: true, version: 0 };
+  };
+
+  const lineRows: LineRow[] = fields.map((f, i) => ({ key: f.key, i }));
+  const lineName = (i: number) => fields[i]?.sku || lines[i]?.parentName || `dòng ${i + 1}`;
+  const busyReason = busy ? 'Đang lưu' : false;
+
+  const productCell = (i: number) => {
+    const f = fields[i]!;
+    const line = req?.lines[i];
+    const live = lines[i] ?? f;
+    const lineErrors = errors.lines?.[i];
+    const np = line?.newProduct;
+    return (
+      <>
+        {live.isNew && editable ? (
+          <NewProductFields
+            line={live}
+            name={lineName(i)}
+            index={i}
+            errors={lineErrors as NewProductErrors | undefined}
+            disabled={busy}
+            onChange={(patch) => patchLine(i, patch)}
+          />
+        ) : (
+          <>
+            <p className="font-medium">
+              {f.sku || np?.parentName || np?.name || live.parentName}
+              {(live.isNew || np) && (
+                <Badge variant="info" className="ms-2">
+                  {/* Thêm vào sản phẩm có sẵn là biến thể mới, không phải sản phẩm mới (KB3 3.8) */}
+                  {(np ? np.parentId !== null : live.parentMode === 'existing') ? 'Biến thể mới' : 'Sản phẩm mới'}
+                </Badge>
+              )}
+              {line?.excluded && (
+                <Badge variant="secondary" className="ms-2">
+                  Không duyệt
+                </Badge>
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {np && !line?.variantId
+                ? [optionsLabel(np.optionValues), np.parentId ? 'Thêm vào sản phẩm có sẵn' : `Danh mục sản phẩm ${np.groupName}`, 'Tạo khi nhập kho']
+                    .filter(Boolean)
+                    .join(' · ')
+                : `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
+            </p>
+            {line?.excluded && line.excludedReason && (
+              <p className="text-xs text-muted-foreground" data-testid="excluded-reason">
+                Lý do không duyệt: {line.excludedReason}
+              </p>
+            )}
+          </>
+        )}
+        {lineErrors?.variantId && <p className="text-xs text-destructive-text">{lineErrors.variantId.message}</p>}
+      </>
+    );
+  };
+
+  const lineColumns: GridColumn<LineRow>[] = [
+    {
+      id: 'product',
+      header: 'Sản phẩm / SKU',
+      className: 'min-w-72 whitespace-normal',
+      // Dòng sản phẩm mới khi còn sửa: ô có ô nhập tên, danh mục, phân loại riêng
+      interactive: editable,
+      render: ({ i }) => productCell(i),
+    },
+    {
+      id: 'quantity',
+      header: 'Số lượng',
+      numeric: true,
+      className: 'w-32',
+      render: ({ i }) => {
+        if (!editable) return formatQty(req?.lines[i]?.quantity ?? 0);
+        const q = (lines[i]?.quantity ?? '').trim();
+        return q ? (/^\d+$/.test(q) ? formatQty(Number(q)) : q) : <span className="text-muted-foreground">—</span>;
+      },
+      edit: editable
+        ? {
+            raw: ({ i }) => lines[i]?.quantity ?? '',
+            parse: (raw) => parseLineCell('quantity', raw),
+            readOnly: () => busyReason,
+            extra: ({ i }) => {
+              const returned = returnedQty(lines[i]?.variantId);
+              return returned !== null ? <p className="text-xs text-muted-foreground">Đã trả {formatQty(returned)}</p> : null;
+            },
+          }
+        : undefined,
+    },
+    ...(showCost
+      ? [
+          {
+            id: 'unitCost',
+            header: 'Giá nhập',
+            numeric: true,
+            className: 'w-40',
+            render: ({ i }) => {
+              const locked = editable && source ? lockedCost(lines[i]?.variantId) : null;
+              if (locked !== null && source) {
+                return (
+                  <div className="grid justify-items-end gap-0.5" data-testid="locked-cost">
+                    <span>{formatCurrency(locked)}</span>
+                    <span className="text-xs text-muted-foreground">Theo giá dòng gốc {source.number}</span>
+                  </div>
+                );
+              }
+              if (!editable) {
+                const cost = req?.lines[i]?.unitCost;
+                return cost === null || cost === undefined ? '—' : formatCurrency(cost);
+              }
+              const raw = lines[i]?.unitCost ?? '';
+              const parsed = parseMoney(raw);
+              if (parsed.ok && parsed.value !== null) return formatCurrency(parsed.value);
+              return raw.trim() || <span className="text-muted-foreground">—</span>;
+            },
+            edit: editable
+              ? {
+                  raw: ({ i }) => lines[i]?.unitCost ?? '',
+                  parse: (raw) => parseLineCell('unitCost', raw),
+                  readOnly: ({ i }) =>
+                    source && lockedCost(lines[i]?.variantId) !== null ? `Theo giá dòng gốc ${source.number}` : busyReason,
+                }
+              : undefined,
+          } satisfies GridColumn<LineRow>,
+        ]
+      : []),
+    ...(showProgress
+      ? ([
+          { id: 'received', header: 'Đã nhận', numeric: true, className: 'w-24', render: ({ i }) => formatQty(req?.lines[i]?.received ?? 0) },
+          {
+            id: 'defective',
+            header: 'Hàng lỗi giữ lại',
+            numeric: true,
+            className: 'w-24',
+            render: ({ i }) => formatQty(req?.lines[i]?.defective ?? 0),
+          },
+          {
+            id: 'outstanding',
+            header: 'Chưa nhận',
+            numeric: true,
+            className: 'w-24',
+            render: ({ i }) => {
+              const line = req?.lines[i];
+              if (line?.closedShort) {
+                return <span title={`Bỏ ${line.closedShort} khi đóng đơn thiếu hàng`}>0 (bỏ {formatQty(line.closedShort)})</span>;
+              }
+              return <span className={cn((line?.outstanding ?? 0) > 0 && 'font-medium')}>{formatQty(line?.outstanding ?? 0)}</span>;
+            },
+          },
+        ] satisfies GridColumn<LineRow>[])
+      : []),
+    ...(editable || canExclude
+      ? [
+          {
+            id: 'actions',
+            header: 'Thao tác',
+            headerContent: <span className="sr-only">Thao tác</span>,
+            className: 'w-12',
+            render: ({ i }) => {
+              const line = req?.lines[i];
+              return (
+                <div className="flex justify-end gap-1">
+                  {editable && (
+                    <RowAction label={`Bỏ dòng ${lineName(i)}`} destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
+                      <Trash2 />
+                    </RowAction>
+                  )}
+                  {canExclude && line && (
+                    <RowAction
+                      label={line.excluded ? 'Duyệt lại dòng' : 'Không duyệt dòng'}
+                      destructive={!line.excluded}
+                      reason={busy ? 'Đang lưu' : null}
+                      // Loại dòng bắt buộc lý do (BE#243); lấy lại thì không cần
+                      onClick={() => (line.excluded ? void onExclude(line.id, false) : setExcludeFor(line.id))}
+                    >
+                      {line.excluded ? <Undo2 /> : <X />}
+                    </RowAction>
+                  )}
+                </div>
+              );
+            },
+          } satisfies GridColumn<LineRow>,
+        ]
+      : []),
+  ];
 
   return (
     <div>
@@ -710,150 +873,23 @@ export function PurchaseRequestPage() {
             )}
             {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
 
-            <div className="overflow-x-auto rounded-md border" data-guide="pr-lines">
-              <Table data-testid="request-lines">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sản phẩm / SKU</TableHead>
-                    <TableHead className="w-32 text-right">Số lượng</TableHead>
-                    {showCost && <TableHead className="w-40 text-right">Giá nhập</TableHead>}
-                    {showProgress && (
-                      <>
-                        <TableHead className="w-24 text-right">Đã nhận</TableHead>
-                        <TableHead className="w-24 text-right">Hàng lỗi giữ lại</TableHead>
-                        <TableHead className="w-24 text-right">Chưa nhận</TableHead>
-                      </>
-                    )}
-                    {(editable || canExclude) && <TableHead className="w-12" />}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {!fields.length && (
-                    <TableRow>
-                      <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                        {editable ? 'Tìm SKU có sẵn hoặc thêm sản phẩm mới.' : 'Đơn không có dòng nào.'}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {fields.map((f, i) => {
-                    const line = req?.lines[i];
-                    const live = lines[i] ?? f;
-                    const lineErrors = errors.lines?.[i];
-                    const name = f.sku || live.parentName || `dòng ${i + 1}`;
-                    const np = line?.newProduct;
-                    const returned = returnedQty(live.variantId);
-                    return (
-                      <TableRow
-                        key={f.key}
-                        data-row-id={line?.id ?? f.variantId ?? `new-${i}`}
-                        className={cn('align-top', line?.excluded && 'opacity-60')}
-                      >
-                        <TableCell>
-                          {live.isNew && editable ? (
-                            <NewProductFields
-                              line={live}
-                              name={name}
-                              index={i}
-                              errors={lineErrors as NewProductErrors | undefined}
-                              disabled={busy}
-                              onChange={(patch) => patchLine(i, patch)}
-                            />
-                          ) : (
-                            <>
-                              <p className="font-medium">
-                                {f.sku || np?.parentName || np?.name || live.parentName}
-                                {(live.isNew || np) && (
-                                  <Badge variant="info" className="ms-2">
-                                    {/* Thêm vào sản phẩm có sẵn là biến thể mới, không phải sản phẩm mới (KB3 3.8) */}
-                                    {(np ? np.parentId !== null : live.parentMode === 'existing') ? 'Biến thể mới' : 'Sản phẩm mới'}
-                                  </Badge>
-                                )}
-                                {line?.excluded && (
-                                  <Badge variant="secondary" className="ms-2">
-                                    Không duyệt
-                                  </Badge>
-                                )}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {np && !line?.variantId
-                                  ? [
-                                      optionsLabel(np.optionValues),
-                                      np.parentId
-                                        ? 'Thêm vào sản phẩm có sẵn'
-                                        : `Danh mục sản phẩm ${np.groupName}`,
-                                      'Tạo khi nhập kho',
-                                    ]
-                                      .filter(Boolean)
-                                      .join(' · ')
-                                  : `${f.productName}${f.attributesLabel ? ` · ${f.attributesLabel}` : ''}`}
-                              </p>
-                              {line?.excluded && line.excludedReason && (
-                                <p className="text-xs text-muted-foreground" data-testid="excluded-reason">
-                                  Lý do không duyệt: {line.excludedReason}
-                                </p>
-                              )}
-                            </>
-                          )}
-                          {lineErrors?.variantId && <p className="text-xs text-destructive">{lineErrors.variantId.message}</p>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {editable
-                            ? textInput(i, 'quantity', 'Số lượng', name, returned !== null ? `Đã trả ${formatQty(returned)}` : undefined)
-                            : formatQty(line?.quantity ?? 0)}
-                        </TableCell>
-                        {showCost && (
-                          <TableCell className="text-right">
-                            {editable && source && lockedCost(live.variantId) !== null ? (
-                              <div className="grid gap-1" data-testid="locked-cost">
-                                <span aria-label={`Giá nhập ${name}`}>{formatCurrency(lockedCost(live.variantId)!)}</span>
-                                <span className="text-xs text-muted-foreground">Theo giá dòng gốc {source.number}</span>
-                                {lineErrors?.unitCost && <p className="text-xs text-destructive">{lineErrors.unitCost.message}</p>}
-                              </div>
-                            ) : editable
-                              ? textInput(i, 'unitCost', 'Giá nhập', name)
-                              : line?.unitCost === null || line?.unitCost === undefined
-                                ? '—'
-                                : formatCurrency(line.unitCost)}
-                          </TableCell>
-                        )}
-                        {showProgress && (
-                          <>
-                            <TableCell className="text-right">{formatQty(line?.received ?? 0)}</TableCell>
-                            <TableCell className="text-right">{formatQty(line?.defective ?? 0)}</TableCell>
-                            <TableCell className={cn('text-right', (line?.outstanding ?? 0) > 0 && 'font-medium')}>
-                              {line?.closedShort ? (
-                                <span title={`Bỏ ${line.closedShort} khi đóng đơn thiếu hàng`}>0 (bỏ {formatQty(line.closedShort)})</span>
-                              ) : (
-                                formatQty(line?.outstanding ?? 0)
-                              )}
-                            </TableCell>
-                          </>
-                        )}
-                        {(editable || canExclude) && (
-                          <TableCell>
-                            {editable && (
-                              <RowAction label="Bỏ dòng" destructive reason={busy ? 'Đang lưu' : null} onClick={() => remove(i)}>
-                                <Trash2 />
-                              </RowAction>
-                            )}
-                            {canExclude && line && (
-                              <RowAction
-                                label={line.excluded ? 'Duyệt lại dòng' : 'Không duyệt dòng'}
-                                destructive={!line.excluded}
-                                reason={busy ? 'Đang lưu' : null}
-                                // Loại dòng bắt buộc lý do (BE#243); lấy lại thì không cần
-                                onClick={() => (line.excluded ? void onExclude(line.id, false) : setExcludeFor(line.id))}
-                              >
-                                {line.excluded ? <Undo2 /> : <X />}
-                              </RowAction>
-                            )}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            <div className="overflow-hidden rounded-md border" data-guide="pr-lines" data-testid="request-lines">
+              <EditableGrid
+                gridId="purchasing-request-lines"
+                aria-label="Dòng đề nghị nhập hàng"
+                columns={lineColumns}
+                rows={lineRows}
+                getRowId={(r) => r.key}
+                rowLabel={(r) => lineName(r.i)}
+                getVersion={() => 0}
+                save={saveLine}
+                canEdit={editable}
+                cellError={(r, columnId) =>
+                  columnId === 'quantity' || columnId === 'unitCost' ? errors.lines?.[r.i]?.[columnId]?.message : undefined
+                }
+                rowClassName={(r) => (req?.lines[r.i]?.excluded ? 'opacity-60' : undefined)}
+                empty={editable ? 'Tìm SKU có sẵn hoặc thêm sản phẩm mới.' : 'Đơn không có dòng nào.'}
+              />
             </div>
             {editable && total > 0 && (
               <p className="text-end text-sm text-muted-foreground">

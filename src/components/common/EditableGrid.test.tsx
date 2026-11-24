@@ -246,3 +246,58 @@ describe('EditableGrid: xung đột version', () => {
     expect(reloadRow).toHaveBeenCalledWith(A);
   });
 });
+
+describe('EditableGrid: lỗi từ ngoài bảng, ô có ô nhập riêng (FE#476)', () => {
+  const renderGrid = (opts: { error?: string; save?: SaveFn } = {}) => {
+    window.localStorage.setItem('editable-grid:test-grid:unlocked', '1');
+    const save = vi.fn<SaveFn>(opts.save ?? (async () => ({ ok: true, version: 0 })));
+    const cols: GridColumn<Row>[] = [
+      { id: 'sku', header: 'SKU', interactive: true, render: (r) => <input aria-label={`Tên ${r.sku}`} defaultValue={r.sku} /> },
+      numberColumn('price', 'Giá'),
+    ];
+    render(
+      <EditableGrid
+        gridId="test-grid"
+        aria-label="Bảng thử"
+        columns={cols}
+        rows={[A]}
+        getRowId={(r) => r.id}
+        rowLabel={(r) => r.sku}
+        getVersion={() => 0}
+        save={save}
+        cellError={(_r, columnId) => (columnId === 'price' ? opts.error : undefined)}
+        canEdit
+      />,
+    );
+    return { save };
+  };
+
+  it('lỗi kiểm form hiện trên ô, nối qua aria-describedby, không role="alert"; lưu ô xong thì nhường trạng thái lưu', async () => {
+    const user = userEvent.setup();
+    const { save } = renderGrid({ error: 'Nhập giá nhập' });
+    const c = cell('a', 'price');
+    const id = c.getAttribute('aria-describedby');
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id!)?.textContent).toBe('Nhập giá nhập');
+    expect(c.getAttribute('aria-invalid')).toBe('true');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+    await user.dblClick(c);
+    await user.clear(editor()!);
+    await user.type(editor()!, '150{Enter}');
+    await waitFor(() => expect(cell('a', 'price').getAttribute('data-status')).toBe('saved'));
+    expect(save).toHaveBeenCalledWith(A, 'price', 150, 0);
+    expect(cell('a', 'price').getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('ô interactive: ô nhập trong ô vẫn nhận Tab; Enter trên ô đưa focus vào ô nhập', async () => {
+    const user = userEvent.setup();
+    renderGrid();
+    const input = screen.getByRole('textbox', { name: 'Tên SKU-A' });
+    expect(input.tabIndex).toBe(0);
+    cell('a', 'sku').focus();
+    await user.keyboard('{Enter}');
+    expect(document.activeElement).toBe(input);
+    await user.keyboard('X');
+    expect((input as HTMLInputElement).value).toBe('SKU-AX');
+  });
+});
