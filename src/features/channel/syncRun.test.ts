@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncRun } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
-import { syncErrorFix, syncErrorTitle, syncRunErrorFix, syncRunHeadline, syncRunState } from './syncRun';
+import { startedRunId, syncErrorFix, syncErrorTitle, syncRunErrorFix, syncRunHeadline, syncRunState } from './syncRun';
 
 const AT = '2026-11-21T13:15:00.000Z';
 const run = (over: Partial<SyncRun> = {}): SyncRun => ({
@@ -58,12 +58,15 @@ describe('dòng lỗi: tên và nút tới chỗ sửa', () => {
     expect(syncErrorFix({ fix: null, productId: null, variantId: null }, 'c1')).toBeNull();
   });
 
-  it('không có chỗ sửa riêng mà biết sản phẩm: nút dự phòng Mở sản phẩm', () => {
+  it('không có chỗ sửa riêng mà biết sản phẩm: nút dự phòng mở Thông tin SKU hoặc sản phẩm', () => {
     expect(syncErrorFix({ fix: null, productId: 'p1', variantId: 'v1' }, 'c1')).toEqual({
-      label: 'Mở sản phẩm',
+      label: 'Mở Thông tin SKU',
       href: '/c/c1/catalog/products/p1?spec=v1',
     });
-    expect(syncErrorFix({ fix: null, productId: 'p1', variantId: null }, 'c1')?.href).toBe('/c/c1/catalog/products/p1');
+    expect(syncErrorFix({ fix: null, productId: 'p1', variantId: null }, 'c1')).toEqual({
+      label: 'Mở sản phẩm',
+      href: '/c/c1/catalog/products/p1',
+    });
   });
 });
 
@@ -84,6 +87,15 @@ describe('syncRunState (hộp đồng bộ ở trang gian hàng)', () => {
   it('có runId: chỉ dùng lượt đó', () => {
     const cur = run({ id: 'r2', status: 'queued' });
     expect(syncRunState({ ...base, runId: 'r2', current: cur, latest: run() })).toEqual({ run: cur, running: true, readError: false });
+  });
+
+  it('bấm Đồng bộ ở gian hàng A rồi sang B: B không dùng lượt của A, quay về lượt gần nhất của B', () => {
+    const started = { shopId: 'A', runId: 'rA' };
+    expect(startedRunId(started, 'A')).toBe('rA');
+    expect(startedRunId(started, 'B')).toBeNull();
+    expect(startedRunId(null, 'A')).toBeNull();
+    const latestB = run({ id: 'rB', shopId: 'B' });
+    expect(syncRunState({ ...base, runId: startedRunId(started, 'B'), latest: latestB })).toEqual({ run: latestB, running: false, readError: false });
   });
 
   it('đọc lượt lỗi: báo lỗi, không còn đang chạy', () => {

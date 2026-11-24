@@ -56,7 +56,7 @@ import {
   useSyncListings,
 } from '@/api/shops.api';
 import { SyncRunPanel } from './SyncRunPanel';
-import { syncRunState } from './syncRun';
+import { startedRunId, syncRunState, type StartedRun } from './syncRun';
 import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
   problemCode,
@@ -283,7 +283,9 @@ export function ShopListingsPage() {
   const syncMut = useSyncListings();
   // Lượt đồng bộ người bấm: lượt vừa bấm, không có thì lượt gần nhất của gian hàng (Documents/21 §18.5 sync-runs, chốt
   // v2 câu 6)
-  const [runId, setRunId] = useState<string | null>(null);
+  // Lượt vừa bấm gắn với gian hàng: route giữ component khi đổi gian hàng, lượt của gian hàng khác không được dùng
+  const [startedRun, setStartedRun] = useState<StartedRun | null>(null);
+  const runId = startedRunId(startedRun, shopId);
   const [dismissedRun, setDismissedRun] = useState<string | null>(null);
   const latestRun = useLatestSyncRun(shopId, Boolean(shop) && !runId);
   const currentRun = useSyncRun(shopId, runId);
@@ -837,7 +839,7 @@ export function ShopListingsPage() {
   const sync = async () => {
     try {
       const r = await syncMut.mutateAsync(shopId);
-      setRunId(r.runId);
+      setStartedRun({ shopId, runId: r.runId });
       setDismissedRun(null);
     } catch (e) {
       toast.error(problemMessage(e));

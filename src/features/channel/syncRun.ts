@@ -32,6 +32,16 @@ export function syncErrorTitle(e: Pick<SyncRunError, 'productName' | 'attributes
   return e.sku ?? 'SKU';
 }
 
+/** Lượt người vừa bấm Đồng bộ, kèm gian hàng của lượt đó */
+export interface StartedRun {
+  shopId: string;
+  runId: string;
+}
+
+/** `runId` của lượt vừa bấm nếu thuộc gian hàng đang mở; gian hàng khác thì null (dùng lượt gần nhất của gian hàng đó) */
+export const startedRunId = (started: StartedRun | null, shopId: string): string | null =>
+  started && started.shopId === shopId ? started.runId : null;
+
 /**
  * Trạng thái hộp đồng bộ ở trang gian hàng. Đã có `runId` (vừa bấm Đồng bộ) thì chỉ dùng lượt đó, không lấy lượt gần
  * nhất; POST xong mà chưa đọc được lượt thì vẫn là đang chạy. Đọc lượt lỗi thì báo lỗi, không đứng mãi ở "Đang đồng bộ…".
@@ -59,7 +69,10 @@ export function syncErrorFix(
 ): { label: string; href: string | null } | null {
   const fix = fixOf(e, companyId);
   if (fix || !e.productId) return fix;
-  return { label: 'Mở sản phẩm', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId ?? undefined) };
+  // Có biến thể thì `?spec=` mở luôn hộp Thông tin SKU của biến thể đó (routes.ts catalogProduct)
+  return e.variantId
+    ? { label: 'Mở Thông tin SKU', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId) }
+    : { label: 'Mở sản phẩm', href: ROUTES.company.catalogProduct(companyId, e.productId) };
 }
 
 function fixOf(e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>, companyId: string): { label: string; href: string | null } | null {
