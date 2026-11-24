@@ -132,12 +132,19 @@ describe('onboardingRedirect (guard công ty)', () => {
     expect(onboardingRedirect(force, 'c1', '/c/c1/channel/shops')).toBe('/c/c1/welcome');
   });
 
-  it('tạm thời còn mở trang uỷ quyền sàn, thiết lập gian hàng, phiếu kiểm kê (bước chưa nhúng)', () => {
+  it('tạm thời còn mở trang uỷ quyền sàn, thiết lập gian hàng, còn trang phiếu kiểm kho thì không (bước 7 đã nhúng)', () => {
     expect(onboardingRedirect(force, 'c1', '/c/c1/channel/shops/oauth-callback/tiktok')).toBeNull();
     expect(onboardingRedirect(force, 'c1', '/c/c1/channel/shops/s9/setup')).toBeNull();
     // Bước 7 nhúng trong wizard: trang phiếu không còn là lối ra
     expect(onboardingRedirect(force, 'c1', '/c/c1/inventory/documents/d7')).toBe('/c/c1/welcome');
     expect(onboardingRedirect(force, 'c1', '/c/c1/inventory/documents')).toBe('/c/c1/welcome');
+  });
+
+  it('mở trang Nhân viên để duyệt yêu cầu tham gia của nhân viên kho được mời, không mở trang con khác của quản trị', () => {
+    expect(onboardingRedirect(force, 'c1', '/c/c1/admin/staff')).toBeNull();
+    expect(onboardingRedirect(force, 'c1', '/c/c1/admin/staff/')).toBeNull();
+    expect(onboardingRedirect(force, 'c1', '/c/c1/admin/roles')).toBe('/c/c1/welcome');
+    expect(onboardingRedirect(force, 'c1', '/c/c1/admin/staff/x')).toBe('/c/c1/welcome');
   });
 
   it('không bị ép hoặc chưa tải thì không chuyển (lỗi GET không khoá người dùng khỏi app)', () => {

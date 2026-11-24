@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type FieldErrors, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, ChevronLeft, ChevronRight, ListRestart, Loader2, Save, Search, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -30,6 +31,7 @@ import {
   useUpdateStockDoc,
 } from '@/api/inventory.api';
 import { getErrorMessage, getProblem } from '@/api/client';
+import { onboardingKey } from '@/api/onboarding.api';
 import { codeMessage, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { useAuth } from '@/hooks/useAuth';
@@ -195,6 +197,10 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   const requested = searchParams.get('type') as ManualStockDocType | null;
   const type: StockDocType = doc?.type ?? (requested && MANUAL_TYPES.includes(requested) ? requested : 'stocktake');
   const isStocktake = type === 'stocktake';
+  // Phiếu kiểm kho đầu kỳ (hệ thống lập khi thiết lập gian hàng, `kind` auto): gom theo sản phẩm, chia trang. Phiếu lập
+  // tay tối đa 200 dòng: giữ thứ tự nhập, một trang
+  const isOpening = isStocktake && (Boolean(embedded) || doc?.kind === 'auto');
+  const sheetPageSize = isOpening ? SHEET_PAGE_SIZE : Infinity;
   const isInspection = type === 'return_inspection';
   const hasQuantity = type === 'write_off' || type === 'to_quarantine';
   const editable = canManage && (isNew || (doc?.status === 'draft' && !isShipmentDoc(type)));
@@ -203,6 +209,7 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   const updateMut = useUpdateStockDoc();
   const actionMut = useStockDocAction();
   const decideMut = useDecideStockDoc();
+  const qc = useQueryClient();
   const busy = createMut.isPending || updateMut.isPending || actionMut.isPending || decideMut.isPending;
 
   // Tối đa 200 dòng chỉ khi tạo phiếu tay; phiếu đầu kỳ có thể nhiều dòng hơn, BE kiểm khi sửa
@@ -238,6 +245,8 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   const [sheetSearch, setSheetSearch] = useState('');
   const [sheetPage, setSheetPage] = useState(1);
   const [focusRow, setFocusRow] = useState<number | null>(null);
+  // Báo số dòng sai khi bấm lưu/gửi: vùng role="status" luôn có sẵn, không dùng role="alert" (lỗi từng ô nối qua aria-describedby)
+  const [sheetStatus, setSheetStatus] = useState('');
 
   useEffect(() => {
     if (doc && loaded.current !== doc.id) {
@@ -253,9 +262,13 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
     setVersion(latest.version);
   };
 
+  // Nhúng trong wizard: đổi bước là đổi `?step=` trên cùng đường dẫn, cũng phải hỏi trước khi bỏ số chưa lưu
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      !skipBlock.current && editable && isDirty && currentLocation.pathname !== nextLocation.pathname,
+      !skipBlock.current &&
+      editable &&
+      isDirty &&
+      (currentLocation.pathname !== nextLocation.pathname || (Boolean(embedded) && currentLocation.search !== nextLocation.search)),
   );
   useEffect(() => {
     if (!(editable && isDirty)) return;
@@ -283,11 +296,12 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   const sheetRows = isStocktake ? lines.map(toSheetRow) : [];
   // Thứ tự dòng chụp lúc đổi bộ lọc hay tìm, không theo từng phím gõ: gõ số vào dòng "Chưa nhập" không làm dòng biến mất
   const sheetOrder = useMemo(
-    () => (isStocktake ? visibleRows((getValues('lines') ?? []).map(toSheetRow), sheetFilter, sheetSearch) : []),
+    () =>
+      isStocktake ? visibleRows((getValues('lines') ?? []).map(toSheetRow), sheetFilter, sheetSearch, { group: isOpening }) : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isStocktake, fields, sheetFilter, sheetSearch, area, getValues],
+    [isStocktake, isOpening, fields, sheetFilter, sheetSearch, area, getValues],
   );
-  const sheet = pageOf(sheetOrder, sheetPage);
+  const sheet = pageOf(sheetOrder, sheetPage, sheetPageSize);
   const counts = sheetCounts(sheetRows);
   const hasPlatform = sheetRows.some((r) => r.platformStock !== null);
   const fills = editable ? fillFromPlatform(sheetRows) : [];
@@ -313,13 +327,13 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
     let order = sheetOrder;
     let target = nextEmpty(now, order, active ? Number(active) : null);
     if (target === null) {
-      order = visibleRows(now, 'empty', '');
+      order = visibleRows(now, 'empty', '', { group: isOpening });
       target = order[0] ?? null;
       if (target === null) return;
       setSheetFilter('empty');
       setSheetSearch('');
     }
-    setSheetPage(Math.floor(order.indexOf(target) / SHEET_PAGE_SIZE) + 1);
+    setSheetPage(Math.floor(order.indexOf(target) / sheetPageSize) + 1);
     setFocusRow(target);
   };
 
@@ -388,6 +402,7 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   /** Lưu nháp; trả về phiếu sau lưu (hoặc phiếu hiện tại nếu không có gì đổi) */
   const save = async (values: DocFormOutput): Promise<StockDoc | null> => {
     setNotice(null);
+    setSheetStatus('');
     try {
       if (isNew) {
         const created = await createMut.mutateAsync({
@@ -419,19 +434,21 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   };
 
   /**
-   * Ô sai nằm ở trang khác của bảng kiểm kê (chỉ vẽ 50 dòng): mở trang có dòng sai đầu tiên, đưa con trỏ tới, báo số
-   * dòng sai. Không có dòng sai thì để form tự báo như cũ.
+   * Ô sai có thể nằm ở trang khác của bảng kiểm kho đầu kỳ (chỉ vẽ 50 dòng) hoặc bị bộ lọc ẩn: bỏ lọc, mở trang có dòng
+   * sai đầu tiên theo thứ tự đang hiện, đưa con trỏ tới, báo số dòng sai ở vùng status. Không có dòng sai thì để form tự
+   * báo như cũ.
    */
   const onInvalid = (errs: FieldErrors<DocFormInput>) => {
     if (!isStocktake || !Array.isArray(errs.lines)) return;
-    const bad = errs.lines.flatMap((e, i) => (e ? [i] : []));
-    if (!bad.length) return;
-    const order = visibleRows((getValues('lines') ?? []).map(toSheetRow), 'all', '');
+    const bad = new Set(errs.lines.flatMap((e, i) => (e ? [i] : [])));
+    if (!bad.size) return;
+    const order = visibleRows((getValues('lines') ?? []).map(toSheetRow), 'all', '', { group: isOpening });
+    const first = order.find((i) => bad.has(i)) ?? [...bad][0];
     setSheetFilter('all');
     setSheetSearch('');
-    setSheetPage(Math.floor(order.indexOf(bad[0]) / SHEET_PAGE_SIZE) + 1);
-    setFocusRow(bad[0]);
-    setNotice({ severity: 'error', msg: `${bad.length} dòng nhập chưa đúng. Đã đưa tới dòng đầu tiên, xem ô báo đỏ.` });
+    setSheetPage(Math.floor(order.indexOf(first) / sheetPageSize) + 1);
+    setFocusRow(first);
+    setSheetStatus(`${bad.size} dòng nhập chưa đúng. Đã đưa tới dòng sai đầu tiên.`);
   };
 
   const onSave = handleSubmit(async (values) => {
@@ -444,6 +461,8 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
       const next = await actionMut.mutateAsync({ id: target.id, action, version: target.version, reason });
       load(next);
       toast.success(`${next.number}: ${DOC_STATUS[next.status].label.toLowerCase()}`);
+      // Bước 7 của wizard: gửi duyệt, duyệt, từ chối đổi việc của bước (nút "Tiếp" mở khi ghi sổ, bước sang người khác)
+      if (embedded) void qc.invalidateQueries({ queryKey: onboardingKey(companyId) });
       return true;
     } catch (e) {
       if (action === 'reject') setRejectError(problemMessage(e));
@@ -505,10 +524,12 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
     return (
       <div className="grid justify-items-start gap-4">
         <AlertMessage severity="error">{getErrorMessage(docQuery.error)}</AlertMessage>
-        <Button variant="outline" onClick={backToList}>
-          <ArrowLeft />
-          Về danh sách phiếu
-        </Button>
+        {!embedded && (
+          <Button variant="outline" onClick={backToList}>
+            <ArrowLeft />
+            Về danh sách phiếu
+          </Button>
+        )}
       </div>
     );
   }
@@ -531,6 +552,7 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
 
   const qtyInput = (i: number, key: 'quantity' | 'counted' | 'scanned' | 'resell' | 'damaged' | 'toSupplier', label: string, sku: string) => {
     const err = errors.lines?.[i]?.[key];
+    const errId = `doc-line-${i}-${key}-error`;
     return (
       <div className="grid gap-1">
         <Input
@@ -538,9 +560,14 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
           aria-label={`${label} ${sku}`}
           inputMode="numeric"
           aria-invalid={Boolean(err)}
+          aria-describedby={err ? errId : undefined}
           className="h-8 text-right"
         />
-        {err && <p className="text-start text-xs text-destructive">{err.message}</p>}
+        {err && (
+          <p id={errId} className="text-start text-xs text-destructive">
+            {err.message}
+          </p>
+        )}
       </div>
     );
   };
@@ -568,7 +595,11 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
                 Lưu nháp
               </Button>
             )}
-            {(isNew ? options.filter((o) => o.transition.action === 'submit') : options).map(({ transition: t, blocked }) => (
+            {/* Nhúng trong wizard không huỷ phiếu đầu kỳ: huỷ xong bước 7 mất phiếu, phải lập lại ở trang gian hàng */}
+            {(isNew
+              ? options.filter((o) => o.transition.action === 'submit')
+              : options.filter((o) => !(embedded && o.transition.action === 'cancel'))
+            ).map(({ transition: t, blocked }) => (
               <ActionButton
                 key={t.action}
                 variant={t.action === 'cancel' || t.action === 'reject' ? 'outline' : 'default'}
@@ -765,7 +796,8 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
                     className="h-8 ps-8"
                   />
                 </label>
-                {SHEET_FILTERS.filter((f) => f.key !== 'platform' || counts.platform > 0).map((f) => (
+                {/* "Theo tồn sàn" ẩn khi không có dòng nào, trừ khi đang chọn (sửa hết dòng thì vẫn còn nút để bỏ lọc) */}
+                {SHEET_FILTERS.filter((f) => f.key !== 'platform' || counts.platform > 0 || sheetFilter === 'platform').map((f) => (
                   <Button
                     key={f.key}
                     size="sm"
@@ -783,9 +815,12 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
               {counts.platform > 0 && (
                 <AlertMessage severity="warning">
                   <b className="font-semibold">Dòng "Theo tồn sàn" chưa phải số đếm thật.</b> Hợp khi shop nhỏ tin số trên sàn. Sau khi bán
-                  ổn định, nên kiểm kê lại các dòng này ở Kho.
+                  ổn định, nên kiểm kho lại các dòng này ở Kho.
                 </AlertMessage>
               )}
+              <p role="status" className={cn('text-sm font-medium text-destructive', !sheetStatus && 'sr-only')}>
+                {sheetStatus}
+              </p>
             </div>
           )}
 
@@ -847,8 +882,8 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
                       ? null
                       : (docLine.quantity ?? null);
                   const wrongSku = isInspection && !f.expected;
-                  // Kiểm kê: gom theo sản phẩm, một dòng tiêu đề khi đổi sản phẩm
-                  const groupStart = isStocktake && (pos === 0 || fields[shown[pos - 1]].productName !== f.productName);
+                  // Phiếu đầu kỳ: gom theo sản phẩm, một dòng tiêu đề khi đổi sản phẩm. Phiếu lập tay giữ thứ tự nhập
+                  const groupStart = isOpening && (pos === 0 || fields[shown[pos - 1]].productName !== f.productName);
                   return (
                     <Fragment key={f.key}>
                     {groupStart && (

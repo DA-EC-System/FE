@@ -19,6 +19,7 @@ import { onboardingSteps, optionalSteps } from '@/features/company/onboardingSte
 import { clearWelcome, markWelcome } from '@/features/company/welcomeFlow';
 import { ConnectStep } from './steps/ConnectStep';
 import { OpeningStockStep } from './steps/OpeningStockStep';
+import { InviteWarehouseActions } from './steps/InviteWarehouseButton';
 import { WizardStepper } from './WizardStepper';
 import {
   SHOP_SETUP_KEYS,
@@ -60,7 +61,7 @@ const STEP_TEXT: Record<WizardKey, { lead: string; why: string }> = {
   },
   opening_stock: {
     lead: 'Đếm số hàng đang có trong kho. Thời điểm đếm là mốc Commerio bắt đầu tính tồn và lấy đơn cho gian hàng đầu tiên.',
-    why: 'Ghi sổ phiếu kiểm kê đầu kỳ để hoàn tất.',
+    why: 'Ghi sổ phiếu kiểm kho đầu kỳ để hoàn tất.',
   },
 };
 
@@ -182,6 +183,10 @@ export function WelcomePage() {
               />
             )}
             {SHOP_SETUP_KEYS.includes(step.key) && <ShopSetupLink step={step} companyId={companyId} />}
+            {/* Bước 5 (FE#468): mời Nhân viên kho sớm để họ đếm ở bước 7 */}
+            {step.key === 'stock_sync' && (
+              <InviteWarehouseActions label="Nhờ người khác đếm tồn đầu kỳ ở bước sau?" className="mt-3" />
+            )}
             {step.key === 'opening_stock' && (
               <OpeningStockStep
                 step={step}

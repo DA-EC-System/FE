@@ -46,13 +46,16 @@ export function sheetCounts(rows: SheetRow[]): Record<SheetFilter, number> {
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase();
 
-/** Chỉ số các dòng hiện, gom theo sản phẩm (tên sản phẩm, rồi thứ tự trên phiếu) */
-export function visibleRows(rows: SheetRow[], filter: SheetFilter, search: string): number[] {
+/**
+ * Chỉ số các dòng hiện. `group`: gom theo sản phẩm (tên sản phẩm, rồi thứ tự trên phiếu), chỉ cho phiếu đầu kỳ; phiếu
+ * kiểm kho lập tay giữ thứ tự nhập
+ */
+export function visibleRows(rows: SheetRow[], filter: SheetFilter, search: string, { group = true }: { group?: boolean } = {}): number[] {
   const q = norm(search.trim());
   const hits = rows.flatMap((r, i) =>
     MATCH[filter](r) && (!q || norm(`${r.sku} ${r.productName} ${r.attributesLabel}`).includes(q)) ? [i] : [],
   );
-  return hits.sort((a, b) => rows[a].productName.localeCompare(rows[b].productName, 'vi') || a - b);
+  return group ? hits.sort((a, b) => rows[a].productName.localeCompare(rows[b].productName, 'vi') || a - b) : hits;
 }
 
 export interface SheetPage {
@@ -64,10 +67,12 @@ export interface SheetPage {
   to: number;
 }
 
+/** `size` Infinity: một trang, không chia (phiếu lập tay tối đa 200 dòng) */
 export function pageOf(indices: number[], page: number, size = SHEET_PAGE_SIZE): SheetPage {
   const pages = Math.max(1, Math.ceil(indices.length / size));
   const p = Math.min(Math.max(1, page), pages);
-  const start = (p - 1) * size;
+  // p = 1 thì 0 (0 × Infinity là NaN)
+  const start = p === 1 ? 0 : (p - 1) * size;
   const items = indices.slice(start, start + size);
   return { items, page: p, pages, from: items.length ? start + 1 : 0, to: start + items.length };
 }

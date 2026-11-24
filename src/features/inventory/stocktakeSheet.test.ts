@@ -28,6 +28,15 @@ describe('stocktakeSheet (FE#468 bước 7)', () => {
     expect(visibleRows(rows, 'all', '')).toEqual([1, 2, 0, 3]);
   });
 
+  it('phiếu kiểm kho lập tay (group false): giữ thứ tự nhập, lọc và tìm vẫn chạy; Infinity là một trang', () => {
+    expect(visibleRows(rows, 'all', '', { group: false })).toEqual([0, 1, 2, 3]);
+    expect(visibleRows(rows, 'empty', '', { group: false })).toEqual([1, 3]);
+    expect(visibleRows(rows, 'all', 'áo', { group: false })).toEqual([1, 2]);
+    const idx = Array.from({ length: 200 }, (_, i) => i);
+    expect(pageOf(idx, 3, Infinity)).toMatchObject({ page: 1, pages: 1, from: 1, to: 200 });
+    expect(pageOf(idx, 1, Infinity).items).toHaveLength(200);
+  });
+
   it('lọc và tìm theo SKU, tên, biến thể; tìm không dấu', () => {
     expect(visibleRows(rows, 'empty', '')).toEqual([1, 3]);
     expect(visibleRows(rows, 'all', 'binh')).toEqual([0]);

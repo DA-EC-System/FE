@@ -28,6 +28,7 @@ import { InviteStaffDialog } from './InviteStaffDialog';
 import { EditStaffRolesDialog } from './EditStaffRolesDialog';
 import { PendingInvitations } from './PendingInvitations';
 import { CreatedLinks } from './CreatedLinks';
+import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
 import {
   conflictCurrent,
   invalidTransitionCurrent,
@@ -192,6 +193,8 @@ export function StaffListPage() {
 
   return (
     <div>
+      {/* Mở từ bước 7 của wizard ("Duyệt yêu cầu tham gia"): thanh quay lại hướng dẫn */}
+      <WelcomeReturnBar stepKey="opening_stock" finished={false} className="mb-4" />
       <PageHeader
         title="Nhân viên"
         subtitle={`Tài khoản làm việc tại ${companyContext?.companyName ?? ''}.`}
