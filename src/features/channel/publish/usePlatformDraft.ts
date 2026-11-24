@@ -164,7 +164,7 @@ export function usePlatformDraft({
 
   /**
    * "Gộp thành 1 thuộc tính biến thể" (FE#459, commerio-backend#568): mọi thuộc tính biến thể trỏ `combineTarget` rồi lưu
-   * ngay (PUT spec). Danh mục sản phẩm không đổi; lúc đẩy BE nối giá trị theo thứ tự ("Đỏ - S")
+   * ngay (PUT spec). Sản phẩm trong Commerio không đổi; lúc đẩy BE nối giá trị theo thứ tự ("Đỏ - S")
    */
   const combineAxes = async (): Promise<ProductSpecResult | null> => {
     const target = caps?.combineTarget;
@@ -173,7 +173,7 @@ export function usePlatformDraft({
     setDraft(next);
     setDirty(true);
     const result = await save(next);
-    if (result) toast.success(`Đã gộp ${axes.map((a) => a.name).join(', ')} thành 1 thuộc tính biến thể khi đăng lên ${label}.`);
+    if (result) toast.success(`Đã gộp ${axes.map((a) => a.name).join(', ')} thành 1 thuộc tính biến thể khi đăng lên ${label} và lưu thông tin sàn.`);
     return result;
   };
 

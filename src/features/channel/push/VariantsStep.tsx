@@ -192,13 +192,13 @@ function CombinedNote({
   }
   const values = combinedValues(variants, group);
   const maxLen = caps?.maxValueLength ?? null;
-  const tooLong = maxLen ? values.filter((v) => v.length > maxLen) : [];
+  const tooLong = maxLen ? values.filter((v) => [...v].length > maxLen) : [];
   const maxCount = caps?.maxAxisValues ?? null;
   return (
     <div className="grid gap-1.5 text-sm" data-testid="combined-note">
       <p>
         Đã gộp {names} thành “{target}”. Commerio nối giá trị theo thứ tự thuộc tính biến thể khi đăng, không gửi giá trị chuẩn;
-        danh mục sản phẩm không đổi.
+        sản phẩm trong Commerio không đổi.
       </p>
       {values.length > 0 && (
         <p className="text-muted-foreground">

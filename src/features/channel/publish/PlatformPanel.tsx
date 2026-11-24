@@ -104,7 +104,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
             </p>
             <p className="text-muted-foreground">
               {combineLabel
-                ? `Gộp thành 1 thuộc tính biến thể “${combineLabel}”: Commerio nối giá trị theo thứ tự (ví dụ “${exampleValue(d.axes)}”) khi đăng, danh mục sản phẩm không đổi. Hoặc chọn category khác nhận đủ ${d.axes.length} thuộc tính biến thể.`
+                ? `Gộp thành 1 thuộc tính biến thể “${combineLabel}”: Commerio nối giá trị theo thứ tự (ví dụ “${exampleValue(d.axes)}”) khi đăng, sản phẩm trong Commerio không đổi. Hoặc chọn category khác nhận đủ ${d.axes.length} thuộc tính biến thể.`
                 : `Chọn category khác nhận đủ ${d.axes.length} thuộc tính biến thể.`}
             </p>
             <div className="flex flex-wrap gap-2">

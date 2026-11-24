@@ -35,6 +35,8 @@ describe('VariantsStep: thuộc tính biến thể đã gộp (FE#459)', () => {
     expect(screen.queryByRole('table')).toBeNull();
     const notes = screen.getAllByTestId('combined-note');
     expect(notes).toHaveLength(2);
+    expect(notes[0]!.textContent).toContain('sản phẩm trong Commerio không đổi');
+    expect(notes[0]!.textContent).not.toMatch(/danh mục/i);
     expect(notes[0]!.textContent).toContain('Giá trị gửi lên (2): Đỏ thẫm - S, Xanh - S');
     expect(notes[0]!.textContent).toContain('1 giá trị dài quá 9 ký tự sàn nhận: Đỏ thẫm - S');
     expect(notes[1]!.textContent).toContain('Giá trị gửi lên xem ở thuộc tính biến thể “Màu”');
