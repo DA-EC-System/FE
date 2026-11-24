@@ -1006,7 +1006,7 @@ function ShippingTable({
       f.lengthMm === null || f.widthMm === null || f.heightMm === null ? '— mm' : `${f.lengthMm}×${f.widthMm}×${f.heightMm} mm`
     }`;
 
-  /** Ghi số sàn vào SKU khi người dùng bấm; gửi kèm version của SKU, lệch thì tải lại và báo như hộp Thông tin SKU */
+  /** Ghi số sàn vào SKU khi người dùng bấm; gửi kèm version của SKU, lệch thì tải lại và báo như bảng biến thể */
   const use = async (variantId: string, version: number, patch: Omit<VariantUpdateInput, 'version'>) => {
     setBusyId(variantId);
     try {

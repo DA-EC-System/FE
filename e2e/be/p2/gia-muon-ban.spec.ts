@@ -1,4 +1,5 @@
 // P2 · Giá muốn bán, nhãn SKU, xoá hẳn trên BE thật (FE#260; Documents/21 §17.1–17.4, commerio-backend#344, #345).
+// Bảng biến thể sửa từng ô có khoá (FE#475): khoá thì bấm đúp không mở ô; mở khoá, sửa, Enter lưu, tải lại vẫn còn.
 // Một công ty giả riêng (e2e/be/congTyGia.ts), sản phẩm nền dựng qua API công khai.
 // BE chưa có targetNetPrice / code (BE#344, #345 chưa lên môi trường này) thì bỏ qua, không đỏ.
 import { type Page, expect, test } from '@playwright/test';
@@ -14,6 +15,8 @@ let boQua: string | undefined;
 
 interface Variant {
   id: string;
+  sku: string;
+  weightG?: number | null;
   standardPrice: number | null;
   targetNetPrice?: number | null;
   readiness?: string;
@@ -38,7 +41,6 @@ const chiTiet = async (): Promise<Detail> => {
   return (await res.json()) as Detail;
 };
 const sku = () => page.locator(`tbody tr[data-row-id="${variantId}"]`);
-const o = (nhan: string) => page.getByRole('dialog').getByRole('textbox', { name: nhan, exact: true });
 
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'giamuonban' });
@@ -70,25 +72,92 @@ test('mã sản phẩm ở đầu trang; SKU mới thiếu giá muốn bán, ch�
   await expect(sku().locator('[data-testid=variant-status] [data-status=not_listed]')).toBeVisible();
 });
 
-test('sửa giá chuẩn và giá muốn bán: hết thiếu giá muốn bán, BE lưu cả hai', async () => {
+test('bảng biến thể mặc định khoá: bấm đúp không mở ô sửa', async () => {
   test.skip(Boolean(boQua), boQua);
-  await sku().getByRole('button', { name: /^Sửa thông tin / }).click();
-  await o('Giá chuẩn (đ)').fill('199.000');
-  await o('Giá muốn thực nhận (đ)').fill('170.000');
-  const patch = page.waitForResponse(
-    (r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname.endsWith(`/variants/${variantId}`),
-  );
-  await page.getByRole('dialog').getByRole('button', { name: 'Lưu', exact: true }).click();
-  const res = await patch;
-  expect(res.status(), await res.text()).toBe(200);
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const khoa = page.getByRole('button', { name: 'Khoá sửa', exact: true });
+  await expect(khoa).toHaveAttribute('aria-pressed', 'true');
+  await expect(sku().getByTestId('variant-price')).toHaveAttribute('aria-readonly', 'true');
+  await sku().getByTestId('variant-price').dblclick();
+  await expect(page.locator('[data-grid-editor]')).toHaveCount(0);
+  // Đang khoá, gõ vào ô cũng không mở
+  await page.keyboard.type('5');
+  await expect(page.locator('[data-grid-editor]')).toHaveCount(0);
+});
 
+test('mở khoá, sửa giá chuẩn và giá muốn bán từng ô: Enter lưu ngay, tải lại vẫn còn', async () => {
+  test.skip(Boolean(boQua), boQua);
+  const khoa = page.getByRole('button', { name: 'Khoá sửa', exact: true });
+  await khoa.click();
+  await expect(khoa).toHaveAttribute('aria-pressed', 'false');
+  const luu = () =>
+    page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname.endsWith(`/variants/${variantId}`));
+
+  // Bấm đúp mở ô, Enter lưu
+  await sku().getByTestId('variant-price').dblclick();
+  const oGia = page.getByRole('textbox', { name: /^Giá chuẩn / });
+  await oGia.fill('199.000');
+  let res = luu();
+  await oGia.press('Enter');
+  expect((await res).status()).toBe(200);
+  await expect(page.locator('[data-grid-editor]')).toHaveCount(0);
   await expect(sku().getByTestId('variant-price')).toContainText('199.000');
+
+  // Gõ đè trên ô đang chọn, Enter lưu
+  await sku().getByTestId('variant-target-price').click();
+  await page.keyboard.type('170000');
+  res = luu();
+  await page.keyboard.press('Enter');
+  expect((await res).status()).toBe(200);
   await expect(sku().getByTestId('variant-target-price')).toContainText('170.000');
   await expect(sku().getByTestId('variant-readiness')).not.toContainText('giá muốn thực nhận');
+
+  // Số chữ sai: không gửi, ô vẫn mở kèm lỗi
+  await sku().getByTestId('variant-weight').dblclick();
+  const oKhoiLuong = page.getByRole('textbox', { name: /^Khối lượng \(g\) / });
+  await oKhoiLuong.fill('60000');
+  await oKhoiLuong.press('Enter');
+  await expect(oKhoiLuong).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('Quá 50 kg, kiểm tra lại đơn vị gram')).toBeVisible();
+  await oKhoiLuong.press('Escape');
+
+  await page.reload();
+  await expect(sku().getByTestId('variant-price')).toContainText('199.000');
+  await expect(sku().getByTestId('variant-target-price')).toContainText('170.000');
+  // Trạng thái mở khoá nhớ theo bảng
+  await expect(page.getByRole('button', { name: 'Khoá sửa', exact: true })).toHaveAttribute('aria-pressed', 'false');
   const v = (await chiTiet()).variants[0]!;
   expect(v).toMatchObject({ standardPrice: 199000, targetNetPrice: 170000 });
   expect(v.missing).not.toContain('price');
+  expect(v).not.toMatchObject({ weightG: 60000 });
+});
+
+test('sửa hàng loạt: mở khoá, sửa khối lượng một ô, Enter lưu qua PATCH bulk, tải lại vẫn còn', async () => {
+  test.skip(Boolean(boQua), boQua);
+  const { sku: ma } = (await chiTiet()).variants[0]!;
+  await page.goto(`/c/${cty.companyId}/catalog?mode=bulk`);
+  await expect(page.getByRole('button', { name: /^Lưu \d+ SKU/ })).toHaveCount(0);
+  const dong = () => page.locator(`tbody tr[data-row-id="${variantId}"]`);
+  await expect(dong()).toBeVisible();
+  // Bảng sửa hàng loạt nhớ khoá riêng, mặc định vẫn khoá
+  const khoa = page.getByRole('button', { name: 'Khoá sửa', exact: true });
+  await expect(khoa).toHaveAttribute('aria-pressed', 'true');
+  await dong().locator('[data-col-id=weightG]').dblclick();
+  await expect(page.locator('[data-grid-editor]')).toHaveCount(0);
+
+  await page.keyboard.press('Control+e');
+  await expect(khoa).toHaveAttribute('aria-pressed', 'false');
+  await dong().locator('[data-col-id=weightG]').dblclick();
+  const o = page.getByRole('textbox', { name: `Khối lượng (g) ${ma}` });
+  await o.fill('350');
+  const res = page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname.endsWith('/catalog/variants/bulk'));
+  await o.press('Enter');
+  expect((await res).status()).toBe(200);
+  await expect(dong().locator('[data-col-id=weightG]')).toContainText('350');
+
+  await page.reload();
+  await expect(dong().locator('[data-col-id=weightG]')).toContainText('350');
+  expect((await chiTiet()).variants[0]!.weightG).toBe(350);
+  await page.goto(`/c/${cty.companyId}/catalog/products/${productId}`);
 });
 
 test('tạm ngừng bán rồi mở bán lại: nhãn chính đổi theo trạng thái kinh doanh', async () => {

@@ -1,4 +1,4 @@
-import type { ProductVariant, VariantMissing } from '@/types/catalog';
+import type { BulkField, ProductVariant, VariantMissing } from '@/types/catalog';
 import type { ProductListingRow } from '@/types/shop';
 import type { MissingItem } from './completion';
 
@@ -10,8 +10,8 @@ import type { MissingItem } from './completion';
 export type AttentionAction =
   /** Cuộn, focus ô trên tab Nội bộ */
   | { kind: 'focus'; target: string }
-  /** Mở hộp Thông tin SKU của biến thể */
-  | { kind: 'sku'; variantId: string }
+  /** Mở ô còn thiếu của SKU trong bảng biến thể (FE#475) */
+  | { kind: 'sku'; variantId: string; field?: BulkField }
   /** Trang Cấu hình phí sàn và thuế */
   | { kind: 'fee' }
   /** Mở tab của sàn */
@@ -24,11 +24,12 @@ export interface AttentionItem {
   action: AttentionAction;
 }
 
-/** Phần còn thiếu nằm ở hộp Thông tin SKU: mở thẳng hộp của biến thể đầu tiên còn thiếu */
-const SKU_FIELDS: Partial<Record<VariantMissing, string>> = {
-  price: 'giá muốn thực nhận',
-  weight: 'cân nặng',
-  dimensions: 'kích thước gói',
+/** Phần còn thiếu nằm ở bảng biến thể: mở thẳng ô của biến thể đầu tiên còn thiếu */
+const SKU_FIELDS: Partial<Record<VariantMissing, { text: string; field?: BulkField }>> = {
+  price: { text: 'giá muốn thực nhận', field: 'targetNetPrice' },
+  weight: { text: 'cân nặng', field: 'weightG' },
+  // Cạnh trống đầu tiên do trang tự chọn
+  dimensions: { text: 'kích thước gói' },
 };
 
 const REJECTED = new Set(['push_failed', 'rejected']);
@@ -50,9 +51,9 @@ export function attentionItems(input: {
       const more = (m.skuCount ?? 1) > 1 ? ` (và ${(m.skuCount ?? 1) - 1} biến thể khác)` : '';
       out.push({
         key: `sku:${m.key}`,
-        text: `Biến thể ${name} chưa có ${field}${more}`,
-        actionLabel: `Mở Thông tin SKU ${first.sku}`,
-        action: { kind: 'sku', variantId: first.id },
+        text: `Biến thể ${name} chưa có ${field.text}${more}`,
+        actionLabel: `Sửa ${field.text} của ${first.sku}`,
+        action: { kind: 'sku', variantId: first.id, field: field.field },
       });
     } else {
       out.push({
