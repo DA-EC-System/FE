@@ -656,18 +656,9 @@ export function ProductFormPage() {
   // Đi tới SKU còn thiếu (`?spec=`, nút "Cần xử lý"): sang tab Nội bộ, mở ô thiếu đầu tiên trong bảng biến thể
   useEffect(() => {
     if (!skuFocus || !product) return;
-    if (tab !== 'commerio') {
-      // Tab đang mở còn sửa dở thì hỏi "Chuyển tab khi chưa lưu?"; đồng ý thì chọn ô sau khi chuyển (review PR #480)
-      if (dirtyTabs.includes(tab)) {
-        setPendingTab({ tab: 'commerio', sku: skuFocus });
-        setSkuFocus(null);
-      } else setTab('commerio');
-      return;
-    }
-    const v = product.variants.find((x) => x.id === skuFocus.variantId);
-    if (v) variantGrid.current?.focusCell(v.id, skuFocus.field ?? firstMissingField(v), { edit: true });
-    setSkuFocus(null);
-    if (searchParams.has('spec')) {
+    // Xoá `spec`, `field` khỏi URL để F5/Back không chọn lại và bấm lại cùng link vẫn có tác dụng
+    const clearSpec = () => {
+      if (!searchParams.has('spec')) return;
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -677,7 +668,21 @@ export function ProductFormPage() {
         },
         { replace: true },
       );
+    };
+    if (tab !== 'commerio') {
+      // Tab đang mở còn sửa dở thì hỏi "Chuyển tab khi chưa lưu?"; đồng ý thì chọn ô sau khi chuyển (review PR #480). Bấm
+      // "Ở lại" thì yêu cầu bỏ luôn, nên xoá `spec` ngay
+      if (dirtyTabs.includes(tab)) {
+        setPendingTab({ tab: 'commerio', sku: skuFocus });
+        setSkuFocus(null);
+        clearSpec();
+      } else setTab('commerio');
+      return;
     }
+    const v = product.variants.find((x) => x.id === skuFocus.variantId);
+    if (v) variantGrid.current?.focusCell(v.id, skuFocus.field ?? firstMissingField(v), { edit: true });
+    setSkuFocus(null);
+    clearSpec();
     // Chỉ chạy khi có yêu cầu mới hoặc sản phẩm, tab vừa sẵn sàng
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuFocus, product, tab]);
