@@ -160,8 +160,8 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
       /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i,
     text: (m) =>
       m[1] && m[2]
-        ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa cân nặng ở Thông tin SKU rồi bấm Đăng lại.`
-        : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa cân nặng ở Thông tin SKU rồi bấm Đăng lại.',
+        ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.`
+        : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.',
   },
   {
     pattern: /Category attribute "([^"]+)" is mandatory/i,
@@ -172,7 +172,7 @@ const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) =>
 /** Số kg của sàn ("300.0", "0.001") theo cách viết Việt Nam: "300", "0,001" */
 const kgText = (raw: string) => Number(raw).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
 
-/** Lỗi đẩy vì cân nặng kiện hàng: hiện nút Sửa cân nặng mở hộp Thông tin SKU (FE#326) */
+/** Lỗi đẩy vì cân nặng kiện hàng: hiện nút Sửa cân nặng mở ô Khối lượng của SKU ở trang sản phẩm (FE#326, FE#475) */
 export const isWeightError = (e: { message?: string } | null | undefined) =>
   Boolean(e?.message && /PACKAGE_WEIGHT[A-Z_]*INVALID/i.test(e.message));
 

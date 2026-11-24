@@ -14,7 +14,7 @@ interface CreatedNextStepsProps {
   /** null: không có quyền xem gian hàng, bỏ bước "Bổ sung theo sàn" */
   shops: readonly Shop[] | null;
   shopsLoading: boolean;
-  /** Mở hộp Thông tin SKU của biến thể (`?spec=`) */
+  /** Mở ô còn thiếu của SKU trong bảng biến thể (FE#475) */
   onOpenSku: ((variantId: string) => void) | null;
   onOpenTab: (platform: Marketplace) => void;
   publishHref: string | null;

@@ -54,9 +54,14 @@ export const ROUTES = {
     shopOAuthCallback: (companyId: string, platform: string) => `/c/${companyId}/channel/shops/oauth-callback/${platform}`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
-    /** spec: mở luôn hộp Thông tin SKU của biến thể (FE#326, lối sửa cân nặng từ lỗi đẩy) */
-    catalogProduct: (companyId: string, productId: string, spec?: string) =>
-      `/c/${companyId}/catalog/products/${productId}${spec ? `?spec=${encodeURIComponent(spec)}` : ''}`,
+    /**
+     * spec: chọn luôn SKU này trong bảng biến thể và mở ô còn thiếu (FE#326, FE#475); `field` chọn ô cụ thể, vd `weightG`
+     * cho lối sửa cân nặng từ lỗi đẩy
+     */
+    catalogProduct: (companyId: string, productId: string, spec?: string, field?: string) =>
+      `/c/${companyId}/catalog/products/${productId}${
+        spec ? `?spec=${encodeURIComponent(spec)}${field ? `&field=${encodeURIComponent(field)}` : ''}` : ''
+      }`,
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
     /** Trang một danh mục sản phẩm: thuộc tính sản phẩm, biến thể theo, ánh xạ sàn (Documents/29 bước 3) */
     catalogCategory: (companyId: string, groupId: string) => `/c/${companyId}/catalog/setup/categories/${groupId}`,
