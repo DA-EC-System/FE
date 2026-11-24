@@ -247,6 +247,27 @@ export function ShopListPage() {
         meta: { className: 'w-20 text-right' },
       },
       {
+        id: 'unlinked',
+        header: 'SKU sàn chưa liên kết',
+        meta: { className: 'w-24 text-right' },
+        // §18.12: gian hàng đang bán còn SKU sàn chưa liên kết thì mở thẳng tab đó; BE cũ chưa trả thì "—"
+        cell: ({ row }) => {
+          const n = row.original.unlinkedSkuCount;
+          if (n === undefined) return <span className="text-muted-foreground">—</span>;
+          if (!n || row.original.status !== 'active') return n;
+          return (
+            <Link
+              to={`${ROUTES.company.shop(companyId, row.original.id)}?tab=unmatched`}
+              className="font-medium text-warning-text underline-offset-4 hover:underline"
+              data-testid="shop-unlinked-link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {n}
+            </Link>
+          );
+        },
+      },
+      {
         id: 'orders7d',
         header: 'Đơn 7 ngày',
         meta: { className: 'w-24 text-right' },
