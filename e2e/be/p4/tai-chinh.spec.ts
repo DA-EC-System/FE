@@ -24,10 +24,10 @@ test.describe('P4-BE · Tài chính', () => {
   test('sổ tiền: công ty mới chưa có dòng sổ, phải thu, số dư sàn, đã rút đều 0', async () => {
     const { page } = s;
     await page.goto(url('/finance/ledger'));
-    await thayChu(page, 'Sổ tiền', 'h1');
+    await thayChu(page, 'Sổ giao dịch', 'h1');
     for (const k of ['receivable', 'platformBalance', 'withdrawn'])
       await expect(page.getByTestId(`kpi-${k}`)).toContainText(/(^|\D)0\s₫/);
-    await thayChu(page, 'Không có dòng sổ nào');
+    await thayChu(page, 'Chưa có giao dịch nào');
     await expect(page.getByTestId('tax-warnings')).toHaveCount(0);
   });
 });

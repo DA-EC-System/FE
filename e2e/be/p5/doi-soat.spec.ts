@@ -28,28 +28,28 @@ test.afterAll(async () => {
 test.describe('P5-BE · Đối soát sàn', () => {
   test('ba tab tiền theo đơn, lần đối soát, khớp sao kê; công ty chưa có gian hàng thì trống, nút kéo quyết toán khoá', async () => {
     const { page } = s;
-    await menu(page, 'Đối soát sàn');
-    await expect(page.getByRole('tab', { name: 'Tiền theo đơn', exact: true })).toHaveAttribute('aria-selected', 'true');
-    await thayChu(page, 'Chưa có trạng thái tiền');
+    await menu(page, 'Đối soát công nợ sàn');
+    await expect(page.getByRole('tab', { name: 'Đối soát theo đơn', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await thayChu(page, 'Chưa có trạng thái thanh toán');
 
-    await page.getByRole('tab', { name: 'Lần đối soát', exact: true }).click();
-    await thayChu(page, 'Chưa chạy đối soát');
+    await page.getByRole('tab', { name: 'Sao kê sàn', exact: true }).click();
+    await thayChu(page, 'Chưa lấy sao kê sàn lần nào');
     // Documents/21 §21.3: POST /finance/settlement-runs cần shopId; chưa chọn gian hàng thì FE khoá nút
-    await expect(page.getByRole('button', { name: 'Kéo quyết toán', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Lấy sao kê sàn', exact: true })).toBeDisabled();
 
-    await page.getByRole('tab', { name: 'Khớp sao kê', exact: true }).click();
-    await thayChu(page, 'Chưa có khoản cần khớp');
-    await expect(page.getByRole('button', { name: 'Kéo quyết toán', exact: true })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Đối chiếu ngân hàng', exact: true }).click();
+    await thayChu(page, 'Chưa có khoản cần đối chiếu');
+    await expect(page.getByRole('button', { name: 'Lấy sao kê sàn', exact: true })).toHaveCount(0);
   });
 
   test('US-TI-09: lọc khớp sao kê theo loại, chưa khớp gửi đúng tham số; khớp dòng không có thì 404 (FE#151)', async () => {
     const { page, api } = s;
     await page.goto(url('/finance/settlements?tab=bank'));
     const req = page.waitForRequest((r) => r.url().includes('/finance/bank-matching') && r.url().includes('kind=supplier_refund'));
-    await page.getByRole('combobox', { name: 'Loại', exact: true }).click();
-    await page.getByRole('option', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Loại khoản', exact: true }).click();
+    await page.getByRole('option', { name: 'NCC hoàn tiền', exact: true }).click();
     expect((await (await req).response())?.status()).toBe(200);
-    await thayChu(page, 'Chưa có khoản cần khớp');
+    await thayChu(page, 'Chưa có khoản cần đối chiếu');
 
     // Documents/21 §21.3: kind chỉ nhận ba loại; dòng sổ không có thì 404
     expect((await api.get('/api/v1/finance/bank-matching?kind=revenue')).status()).toBe(422);

@@ -15,26 +15,37 @@ export { expect };
  * Công ty mới bị ép vào wizard thiết lập (FE#468: `mustWizard`, mọi route công ty về `/welcome`), spec không vào được
  * trang cần kiểm. Không có API bỏ qua (`POST /onboarding/complete` đòi đủ bước bắt buộc) và staging không vào được DB,
  * nên sửa phản hồi `GET /onboarding` trên trình duyệt: `mustWizard: false`, `completedAt` có giá trị, như công ty đã thiết
- * lập xong. Chỉ đổi điều FE thấy; BE không đổi gì. Fixture `context` của `test` dưới đây gọi sẵn; trang tự mở bằng
- * `browser.newPage` (như `taoCongTyGia`) thì tự gọi hàm này.
+ * lập xong. Chỉ đổi điều FE thấy; BE không đổi gì. Fixture `context` của `test` dưới đây gọi sẵn (tắt bằng
+ * `test.use({ giuWizard: true })`); trang tự mở bằng `browser.newPage` (như `taoCongTyGia`) thì tự gọi hàm này.
  */
 export async function boQuaWizard(target: Page | BrowserContext): Promise<void> {
   await target.route(
     (url) => url.pathname === '/api/v1/onboarding',
     async (route) => {
-      const res = await route.fetch();
-      if (!res.ok()) return route.fulfill({ response: res });
-      const body = (await res.json()) as { completedAt: string | null };
-      await route.fulfill({ response: res, json: { ...body, mustWizard: false, completedAt: body.completedAt ?? new Date().toISOString() } });
+      if (route.request().method() !== 'GET') return route.fallback();
+      try {
+        const res = await route.fetch();
+        if (!res.ok()) return await route.fulfill({ response: res });
+        const body = (await res.json()) as { completedAt: string | null };
+        await route.fulfill({ response: res, json: { ...body, mustWizard: false, completedAt: body.completedAt ?? new Date().toISOString() } });
+      } catch {
+        // Trang hay context đóng giữa chừng (spec xong, dispose) thì request đã huỷ: bỏ qua, không làm lỗi route.
+        // Lỗi khác thì để request đi tiếp như không chặn.
+        await route.fallback().catch(() => undefined);
+      }
     },
   );
 }
 
-/** `test` của Playwright, thêm: mọi context của fixture bỏ qua wizard thiết lập bắt buộc (`boQuaWizard`) */
-export const test = base.extend({
+/**
+ * `test` của Playwright, thêm: mọi context của fixture bỏ qua wizard thiết lập bắt buộc (`boQuaWizard`). Spec kiểm wizard
+ * (FE#468) đặt `test.use({ giuWizard: true })`.
+ */
+export const test = base.extend<{ giuWizard: boolean }>({
+  giuWizard: [false, { option: true }],
   // Tham số thứ hai đặt `dung`, không đặt `use`: eslint react-hooks tưởng là hook
-  context: async ({ context }, dung) => {
-    await boQuaWizard(context);
+  context: async ({ context, giuWizard }, dung) => {
+    if (!giuWizard) await boQuaWizard(context);
     await dung(context);
   },
 });

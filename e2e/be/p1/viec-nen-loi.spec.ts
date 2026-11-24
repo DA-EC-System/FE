@@ -32,12 +32,12 @@ test.describe('P1 · Việc nền lỗi (BE thật)', () => {
     await expect(page.getByTestId('nav-user')).toBeVisible();
 
     const ds = page.waitForResponse((r) => r.url().includes('/api/v1/platform/jobs/dead') && r.request().method() === 'GET');
-    await menu(page, 'Việc nền lỗi');
+    await menu(page, 'Tác vụ lỗi');
     const res = await ds;
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ items: [], total: 0 });
     expect(duongDan(page)).toMatch(/\/admin\/dead-jobs$/);
-    await expect(page.locator('tbody')).toContainText('Không có việc lỗi');
+    await expect(page.locator('tbody')).toContainText('Không có tác vụ lỗi');
   });
 });
