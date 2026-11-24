@@ -59,6 +59,7 @@ const row = (variantId: string, productId: string, l: ChannelListing | null, thu
   feeWarning: null,
   stockToPush: null,
   stockHeldReason: null,
+  lastSyncFailedAt: null,
   listing: l,
   specStatus: 'complete',
 });

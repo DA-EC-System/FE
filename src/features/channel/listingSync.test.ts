@@ -35,17 +35,17 @@ describe('syncLine (FE#312)', () => {
   });
 
   it('chỉ tồn chờ: kèm lần đẩy cuối', () => {
-    expect(syncLine(l('synced', 'pending'))).toBe(`Chờ đồng bộ tồn · Lần cuối ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'pending'))).toBe(`Chờ đồng bộ tồn · Thành công gần nhất ${formatDateTime(AT)}`);
   });
 
   it('đã đồng bộ cả hai: đã đẩy lúc nào', () => {
-    expect(syncLine(l('synced', 'synced'))).toBe(`Đã đồng bộ ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'synced'))).toBe(`Đồng bộ thành công gần nhất: ${formatDateTime(AT)}`);
   });
 
   it('Lệch tồn hoặc đẩy tồn lỗi đã có nhãn riêng: câu không nhắc tồn', () => {
-    expect(syncLine(l('synced', 'pending', { stockSyncError: ERR }))).toBe(`Đã đồng bộ ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'pending', { stockSyncError: ERR }))).toBe(`Đồng bộ thành công gần nhất: ${formatDateTime(AT)}`);
     expect(syncLine(l('pending', 'pending', { stockSyncError: ERR }))).toBe(`Chờ đồng bộ giá mới, sàn đang ${priceText(150000)}`);
-    expect(syncLine(l('synced', 'error'))).toBe(`Đã đồng bộ ${formatDateTime(AT)}`);
+    expect(syncLine(l('synced', 'error'))).toBe(`Đồng bộ thành công gần nhất: ${formatDateTime(AT)}`);
   });
 });
 
@@ -53,5 +53,14 @@ describe('stockDriftLabel', () => {
   it('nêu số trên sàn khi có', () => {
     expect(stockDriftLabel(12)).toBe('Lệch tồn: sàn 12');
     expect(stockDriftLabel(null)).toBe('Lệch tồn');
+  });
+});
+
+describe('syncLine: lần thử lỗi gần nhất (lastSyncFailedAt, 21 §18.5)', () => {
+  it('ghi thêm lần thử lỗi sau lần thành công', () => {
+    const FAIL = '2026-11-21T13:15:00.000Z';
+    expect(syncLine(l('synced', 'synced'), FAIL)).toBe(
+      `Đồng bộ thành công gần nhất: ${formatDateTime(AT)} · lần thử ${formatDateTime(FAIL)} lỗi`,
+    );
   });
 });
