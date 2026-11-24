@@ -51,6 +51,16 @@ export const minQtySchema = z.string().transform((raw, ctx): number | null => {
 // ---------- Phiếu kho (sơ đồ B3) ----------
 
 const blank = z.string().transform((): number | undefined => undefined);
+
+/** Ô trống là chưa nhập (undefined); có chữ thì kiểm như `qtyText`, giữ đúng câu lỗi */
+const optionalQty = (label: string) =>
+  z.string().transform((raw, ctx): number | undefined => {
+    if (!raw.trim()) return undefined;
+    const parsed = qtyText(0, MAX_QTY, label).safeParse(raw);
+    if (parsed.success) return parsed.data;
+    ctx.addIssue({ code: 'custom', message: parsed.error.issues[0].message });
+    return z.NEVER;
+  });
 const isInspection = (type: StockDocType) => type === 'return_inspection';
 
 export const docLineSchema = (type: StockDocType) =>
@@ -58,7 +68,10 @@ export const docLineSchema = (type: StockDocType) =>
     .object({
       variantId: z.string().min(1, 'Chọn SKU'),
       quantity: type === 'write_off' || type === 'to_quarantine' ? qtyText(1, MAX_QTY) : blank,
-      counted: type === 'stocktake' ? qtyText(0, MAX_QTY, 'Thực tế') : blank,
+      // Kiểm kê: ô trống là chưa đếm, lưu nháp được; gửi duyệt khi còn ô trống bị chặn (commerio-backend#575)
+      counted: type === 'stocktake' ? optionalQty('Thực tế') : blank,
+      platformStock: z.number().nullable().optional(),
+      countSource: z.enum(['manual', 'platform']).nullable().optional(),
       scanned: isInspection(type) ? qtyText(0, MAX_QTY, 'Đã quét') : blank,
       resell: isInspection(type) ? qtyText(0, MAX_QTY, 'Bán lại') : blank,
       damaged: isInspection(type) ? qtyText(0, MAX_QTY, 'Hỏng') : blank,
@@ -70,7 +83,8 @@ export const docLineSchema = (type: StockDocType) =>
       }
     });
 
-export const docFormSchema = (type: StockDocType) =>
+/** `limitLines`: tối đa 200 dòng khi tạo phiếu tay; sửa phiếu đầu kỳ không giới hạn (BE kiểm khi sửa, #278) */
+export const docFormSchema = (type: StockDocType, limitLines = true) =>
   z.object({
     area: z.enum(['stock', 'quarantine']),
     note:
@@ -80,7 +94,7 @@ export const docFormSchema = (type: StockDocType) =>
     lines: z
       .array(docLineSchema(type))
       .min(isInspection(type) ? 0 : 1, 'Thêm ít nhất một dòng')
-      .max(200, 'Tối đa 200 dòng một phiếu')
+      .max(limitLines ? 200 : Number.MAX_SAFE_INTEGER, 'Tối đa 200 dòng một phiếu')
       .superRefine((lines, ctx) => {
         const seen = new Set<string>();
         lines.forEach((l, i) => {
@@ -102,6 +116,9 @@ export interface DocLineDraft {
   /** Kiểm kê: tồn sổ theo khu vực; lưu thì BE chụp lại */
   bookStock?: number;
   bookQuarantine?: number;
+  /** Kiểm kê đầu kỳ: tồn trên sàn, nguồn số đếm (FE#468) */
+  platformStock?: number | null;
+  countSource?: 'manual' | 'platform' | null;
   /** Kiểm hàng về: số dự kiến; 0 là dòng sai mẫu */
   expected?: number;
   quantity: string;
@@ -136,11 +153,19 @@ export const toLineInputs = (values: DocFormOutput): StockDocLineInput[] =>
     for (const key of ['quantity', 'counted', 'scanned', 'resell', 'damaged', 'toSupplier'] as const) {
       if (l[key] !== undefined) line[key] = l[key];
     }
+    if (l.counted !== undefined) {
+      line.countSource = l.countSource === 'platform' && l.counted === l.platformStock ? 'platform' : 'manual';
+    }
     return line;
   });
 
 /** Số ô chữ hiện tại (để tính Δ, phần thiếu khi đang gõ); ô sai thì null */
-export const draftNumber = (text: string): number | null => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : null);
+export const draftNumber = (text: string): number | null => {
+  const t = text.trim();
+  // "1.200" hay "1 200" là một nghìn hai trăm, như ô nhập nhận (qtyText)
+  const digits = /^\d{1,3}([.,\s]\d{3})+$/.test(t) ? t.replace(/[\s.,]/g, '') : t;
+  return /^\d+$/.test(digits) ? Number(digits) : null;
+};
 
 // ---------- Nhãn ----------
 

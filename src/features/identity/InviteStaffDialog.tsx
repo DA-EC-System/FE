@@ -26,6 +26,11 @@ interface InviteStaffDialogProps {
   open: boolean;
   roles: Role[];
   onClose: () => void;
+  /**
+   * Mời với một vai trò cố định, không cho chọn (wizard bước 7 mời Nhân viên kho, FE#468). `fixedRole.hint` là câu
+   * dẫn thay câu mặc định.
+   */
+  fixedRole?: { id: string; name: string; hint: string };
 }
 
 const EMPTY: InviteForm = { roleIds: [] };
@@ -34,7 +39,7 @@ const EMPTY: InviteForm = { roleIds: [] };
  * US-CT-05: tạo link mời kèm vai trò sẽ gán. Nhân viên tự mở link, xác minh email, đặt mật khẩu
  * rồi chờ duyệt ở tab Yêu cầu tham gia. Link chỉ hiện một lần (BE không lưu token).
  */
-export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogProps) {
+export function InviteStaffDialog({ open, roles, onClose, fixedRole }: InviteStaffDialogProps) {
   const create = useCreateInvitation();
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedInvitation | null>(null);
@@ -45,19 +50,21 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
   const [confirmClose, setConfirmClose] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
 
+  // Theo id, không theo object: nơi gọi truyền object mới mỗi lần vẽ thì không xoá link vừa tạo
+  const fixedRoleId = fixedRole?.id;
   const form = useForm<InviteForm>({ resolver: zodResolver(inviteSchema), defaultValues: EMPTY });
   const { control, reset, setError: setFieldError } = form;
 
   useEffect(() => {
     if (open) {
-      reset(EMPTY);
+      reset(fixedRoleId ? { roleIds: [fixedRoleId] } : EMPTY);
       setError(null);
       setCreated(null);
       setCopied(false);
       setCopyHint(null);
       setConfirmClose(false);
     }
-  }, [open, reset]);
+  }, [open, reset, fixedRoleId]);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
@@ -65,7 +72,9 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
       setCreated(await create.mutateAsync(values.roleIds));
     } catch (e) {
       const message = getProblem(e)?.errors?.roleIds;
-      if (message) setFieldError('roleIds', { message });
+      // Vai trò cố định: không có ô chọn vai trò để gắn lỗi, báo ở đầu hộp
+      if (message && !fixedRoleId) setFieldError('roleIds', { message });
+      else if (message) setError(message);
       else setError(problemMessage(e));
     }
   });
@@ -98,11 +107,13 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
     <Dialog open={open} onOpenChange={(next) => !next && requestClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{created ? 'Link mời đã tạo' : 'Mời nhân viên bằng link'}</DialogTitle>
+          <DialogTitle>{created ? 'Link mời đã tạo' : fixedRole ? `Mời ${fixedRole.name.toLowerCase()}` : 'Mời nhân viên bằng link'}</DialogTitle>
           <DialogDescription>
             {created
               ? 'Gửi link này cho nhân viên qua kênh bạn tin cậy. Họ mở link, xác minh email và đặt mật khẩu; bạn duyệt ở tab Yêu cầu tham gia thì họ mới vào được công ty.'
-              : 'Chọn vai trò sẽ gán cho người được mời. Mỗi link dùng cho một người, hạn 72 giờ.'}
+              : fixedRole
+                ? `${fixedRole.hint} Mỗi link dùng cho một người, hạn 72 giờ.`
+                : 'Chọn vai trò sẽ gán cho người được mời. Mỗi link dùng cho một người, hạn 72 giờ.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -148,6 +159,11 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
         ) : (
           <Form {...form}>
             <form onSubmit={onSubmit} noValidate className="grid gap-4">
+              {fixedRole ? (
+                <p className="text-sm">
+                  Vai trò: <b className="font-semibold">{fixedRole.name}</b>
+                </p>
+              ) : (
               <FormField
                 control={control}
                 name="roleIds"
@@ -161,6 +177,7 @@ export function InviteStaffDialog({ open, roles, onClose }: InviteStaffDialogPro
                   </FormItem>
                 )}
               />
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={onClose} disabled={create.isPending}>
                   Huỷ
