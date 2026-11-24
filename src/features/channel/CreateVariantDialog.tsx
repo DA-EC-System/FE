@@ -13,11 +13,21 @@ import type { RemoteSku } from '@/types/shop';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 
+interface CreateVariantDialogProps {
+  shopId: string;
+  remote: RemoteSku | null;
+  /** Số SKU của cùng sản phẩm trên sàn trong bản sao, tính cả SKU này */
+  siblings: number;
+  onClose: () => void;
+}
+
 /**
  * Tạo SKU kho từ SKU sàn rồi liên kết, ngay ở trang gian hàng (Documents/21 §18.9 R2, Documents/29 bước 5). Sản phẩm mới
- * bắt buộc có danh mục sản phẩm. SKU người bán trùng SKU kho có sẵn thì BE liên kết vào SKU đó.
+ * bắt buộc có danh mục sản phẩm, chưa chọn thì nút Tạo khoá (FE#460). SKU người bán trùng SKU kho có sẵn thì BE liên kết
+ * vào SKU đó. Sản phẩm sàn nhiều SKU: BE thêm SKU vào sản phẩm kho đang chứa SKU anh em (một thuộc tính biến thể), không
+ * thì tạo sản phẩm riêng (BE channel CLAUDE.md, liên kết ngoài thiết lập)
  */
-export function CreateVariantDialog({ shopId, remote, onClose }: { shopId: string; remote: RemoteSku | null; onClose: () => void }) {
+export function CreateVariantDialog({ shopId, remote, siblings, onClose }: CreateVariantDialogProps) {
   const groups = useGroups();
   const create = useCreateVariantFromRemote();
   const navigate = useNavigate();
@@ -74,6 +84,12 @@ export function CreateVariantDialog({ shopId, remote, onClose }: { shopId: strin
             bán. Tạo xong tự liên kết với SKU sàn này.
           </DialogDescription>
         </DialogHeader>
+        {siblings > 1 && (
+          <p className="text-sm text-muted-foreground" data-testid="create-variant-siblings">
+            Sản phẩm này trên sàn có {siblings} SKU. SKU anh em đã liên kết vào một sản phẩm kho có phân loại thì SKU này được
+            thêm vào sản phẩm đó làm một biến thể; chưa có thì SKU này thành một sản phẩm kho riêng.
+          </p>
+        )}
         <div className="grid gap-1.5">
           <Label htmlFor="create-variant-group">Danh mục sản phẩm</Label>
           <Select value={groupId} onValueChange={(v) => { setGroupId(v); setError(null); }} disabled={groups.isPending}>
@@ -99,7 +115,7 @@ export function CreateVariantDialog({ shopId, remote, onClose }: { shopId: strin
           <Button type="button" variant="outline" onClick={close}>
             Huỷ
           </Button>
-          <Button type="button" onClick={() => void submit()} disabled={create.isPending}>
+          <Button type="button" onClick={() => void submit()} disabled={!groupId || create.isPending}>
             {create.isPending ? 'Đang tạo…' : 'Tạo và liên kết'}
           </Button>
         </DialogFooter>
