@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import type { ProductDetail } from '@/types/catalog';
 import type { PlatformAttribute, ResolvedAttribute, Shop } from '@/types/shop';
 import { CategoryPath } from '@/features/catalog/CategoryPath';
-import { BRAND_CODES, CUSTOM_AXIS, ORIGIN_CODES, PROFILE_FIELDS, effectiveValue, fieldHint, valueLabel } from '../specDraft';
+import { BRAND_CODES, CUSTOM_AXIS, ORIGIN_CODES, PROFILE_FIELDS, axisTargetCount, effectiveValue, fieldHint, valueLabel } from '../specDraft';
 import { AttributeField } from '../push/AttributeField';
 import { AttributesStep } from '../push/AttributesStep';
 import { CategoryChangeBlock } from '../push/CategoryChangeBlock';
@@ -30,7 +30,15 @@ const SOURCE_LABELS: Record<ResolvedAttribute['source'], string> = {
   default: 'Mặc định của sàn',
 };
 
-const AXIS_REASONS = new Set(['axis_unmapped', 'axis_shape', 'sales_required']);
+const AXIS_REASONS = new Set([
+  'axis_unmapped',
+  'axis_shape',
+  'axis_limit',
+  'axis_value_too_long',
+  'axis_too_many_values',
+  'axis_name_too_long',
+  'sales_required',
+]);
 const ATTRIBUTE_REASONS = new Set(['required', 'required_when']);
 
 interface PlatformPanelProps {
@@ -56,8 +64,12 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
   const axisMissing = d.missing.filter((m) => AXIS_REASONS.has(m.reason));
   const categoryMissing = d.missing.filter((m) => m.reason === 'category_changed' || m.reason === 'category_removed');
   const ready = d.missing.length === 0 && !d.dirty && Boolean(d.saved.spec);
-  // Category nhận ít trục hơn sản phẩm: lý do chặn chính, đưa lên đầu bước 2 kèm lối xử lý (FE#459)
-  const axisOver = d.draft.externalCategoryId && d.caps && d.axes.length > d.caps.maxAxes ? d.caps.maxAxes : null;
+  // Category nhận ít thuộc tính biến thể hơn sản phẩm: lý do chặn chính, đưa lên đầu bước 2 kèm lối xử lý (FE#459). Đếm
+  // theo đích trong `axisMap`, các thuộc tính biến thể đã gộp tính là một
+  const axisCount = axisTargetCount(d.axes, d.draft.axisMap);
+  const axisOver = d.draft.externalCategoryId && d.caps && axisCount > d.caps.maxAxes ? d.caps.maxAxes : null;
+  const combineTarget = d.caps?.combineTarget ?? null;
+  const combineLabel = combineTarget ? (d.sales?.find((s) => s.code === combineTarget)?.label ?? combineTarget) : null;
   const changeCategory = () => {
     setChangingCategory(true);
     requestAnimationFrame(() => document.getElementById(`category-${d.platform}`)?.scrollIntoView({ block: 'center' }));
@@ -88,12 +100,24 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
           <AlertMessage severity="error">
             <p>
               <b>Chưa đăng được vào category này.</b> {d.label} chỉ nhận tối đa {axisOver} thuộc tính biến thể ở category đang
-              chọn, sản phẩm có {d.axes.length} ({d.axes.map((a) => a.name).join(', ')}).
+              chọn, sản phẩm có {axisCount} ({d.axes.map((a) => a.name).join(', ')}).
             </p>
-            <p className="text-muted-foreground">Chọn category khác nhận đủ {d.axes.length} thuộc tính biến thể.</p>
-            <Button type="button" size="sm" variant="outline" onClick={changeCategory}>
-              Đổi category
-            </Button>
+            <p className="text-muted-foreground">
+              {combineLabel
+                ? `Gộp thành 1 thuộc tính biến thể “${combineLabel}”: Commerio nối giá trị theo thứ tự (ví dụ “${exampleValue(d.axes)}”) khi đăng, sản phẩm trong Commerio không đổi. Hoặc chọn category khác nhận đủ ${d.axes.length} thuộc tính biến thể.`
+                : `Chọn category khác nhận đủ ${d.axes.length} thuộc tính biến thể.`}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {combineLabel && (
+                <Button type="button" size="sm" disabled={d.saving} onClick={() => void d.combineAxes()}>
+                  {d.saving && <Loader2 className="animate-spin" />}
+                  Gộp thành 1 thuộc tính biến thể
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="outline" onClick={changeCategory}>
+                Đổi category
+              </Button>
+            </div>
           </AlertMessage>
         )}
         {/* Category */}
@@ -194,6 +218,7 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
                   <VariantsStep
                     label={d.label}
                     axes={d.axes}
+                    variants={product.variants}
                     sales={d.sales}
                     caps={d.caps}
                     draft={d.draft}
@@ -206,10 +231,18 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
                     <span>
                       {d.axes
                         .map((axis) => {
+                          // Gộp: hiện "Màu + Size → Biến thể" một lần
+                          const code0 = d.draft.axisMap[axis.attributeId];
+                          const same = d.axes.filter((x) => code0 && code0 !== CUSTOM_AXIS && d.draft.axisMap[x.attributeId] === code0);
+                          if (same.length > 1) {
+                            if (same[0] !== axis) return null;
+                            return `${same.map((x) => x.name).join(' + ')} → ${d.sales?.find((s) => s.code === code0)?.label ?? code0}`;
+                          }
                           const code = d.draft.axisMap[axis.attributeId];
                           const target = code === CUSTOM_AXIS ? axis.name : (d.sales?.find((s) => s.code === code)?.label ?? axis.name);
                           return `${axis.name} → ${target}`;
                         })
+                        .filter(Boolean)
                         .join(' · ')}
                     </span>
                     <Badge variant="success">
@@ -362,4 +395,9 @@ function AutoFilled({ d, attrs }: { d: PlatformDraft; attrs: PlatformAttribute[]
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+/** Ví dụ giá trị ghép: giá trị đầu của từng thuộc tính biến thể, nối " - " */
+function exampleValue(axes: PlatformDraft['axes']): string {
+  return axes.map((a) => a.values[0]?.value ?? a.name).join(' - ');
 }

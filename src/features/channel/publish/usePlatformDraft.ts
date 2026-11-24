@@ -17,6 +17,7 @@ import {
   withAttribute,
   withAxis,
   withCategory,
+  withCombinedAxes,
   withSuggestedAxes,
   withValue,
   type ProductAxis,
@@ -133,11 +134,11 @@ export function usePlatformDraft({
 
   const saveSpec = useSaveProductSpec();
   /** Lưu thông tin sàn; trả bản BE vừa lưu, null khi lỗi (lỗi theo ô nằm ở `errors`) */
-  const save = async (): Promise<ProductSpecResult | null> => {
-    if (!draft.externalCategoryId) return null;
+  const save = async (from: SpecDraft = draft): Promise<ProductSpecResult | null> => {
+    if (!from.externalCategoryId) return null;
     setErrors({});
     try {
-      const result = await saveSpec.mutateAsync({ productId: product.id, platform, input: specInput(draft, attrs, axes) });
+      const result = await saveSpec.mutateAsync({ productId: product.id, platform, input: specInput(from, attrs, axes) });
       await syncProfile();
       setSaved(result);
       setDraft(draftFromSpec(result.spec));
@@ -159,6 +160,21 @@ export function usePlatformDraft({
       }
       return null;
     }
+  };
+
+  /**
+   * "Gộp thành 1 thuộc tính biến thể" (FE#459, commerio-backend#568): mọi thuộc tính biến thể trỏ `combineTarget` rồi lưu
+   * ngay (PUT spec). Sản phẩm trong Commerio không đổi; lúc đẩy BE nối giá trị theo thứ tự ("Đỏ - S")
+   */
+  const combineAxes = async (): Promise<ProductSpecResult | null> => {
+    const target = caps?.combineTarget;
+    if (!target) return null;
+    const next = withCombinedAxes(draft, axes, target);
+    setDraft(next);
+    setDirty(true);
+    const result = await save(next);
+    if (result) toast.success(`Đã gộp ${axes.map((a) => a.name).join(', ')} thành 1 thuộc tính biến thể khi đăng lên ${label} và lưu thông tin sàn.`);
+    return result;
   };
 
   /** Khối đổi category của sản phẩm đã đăng gặp 409: nạp bản mới */
@@ -190,6 +206,7 @@ export function usePlatformDraft({
     setAxis,
     setValue,
     save,
+    combineAxes,
     reload,
   };
 }
