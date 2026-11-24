@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useHandOver, usePackageQueue, usePickList, usePrintPackageDocuments } from '@/api/fulfillment.api';
-import { useShops } from '@/api/shops.api';
+import { useShopLabel, useShops } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -59,6 +59,7 @@ export function PackageQueuePage() {
   });
   // Kho không có quyền xem gian hàng nên chỉ lọc theo kênh bán
   const shops = useShops({ enabled: canViewShops });
+  const shopLabel = useShopLabel();
   const handOver = useHandOver();
   const { startTour } = usePageGuide('packages');
 
@@ -139,7 +140,7 @@ export function PackageQueuePage() {
         ),
       },
       { id: 'order', header: 'Mã đơn', meta: { className: 'w-28' }, cell: ({ row }) => row.original.order.code },
-      { id: 'source', header: 'Kênh bán', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
+      { id: 'source', header: 'Kênh bán', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original, shopLabel) },
       { id: 'customer', header: 'Người mua', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
       {
         id: 'totalQty',
@@ -195,7 +196,7 @@ export function PackageQueuePage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectable, selected, failed, allOnPage, items]);
+  }, [selectable, selected, failed, allOnPage, items, shopLabel]);
 
   const action = picking ? (
     <Button variant="outline" data-guide="package-actions" onClick={() => setShowPick((v) => !v)}>

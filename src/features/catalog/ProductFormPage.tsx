@@ -42,7 +42,7 @@ import {
 } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { useStock } from '@/api/inventory.api';
-import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
+import { useProductListingRows, useProductSpecs, useShopLabel, useShops } from '@/api/shops.api';
 import { formatQty } from '@/features/inventory/shared';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
 import type { ListingStatus, Marketplace, ProductListingRow } from '@/types/shop';
@@ -198,6 +198,8 @@ export function ProductFormPage() {
   // Còn SKU Đang đăng thì đọc lại mỗi 5 giây, tối đa 30 phút; dòng thôi Đang đăng thì toast kết quả (FE#462, §18.6.4)
   // `poll.from`: lúc thấy lượt Đang đăng; có SKU mới vào Đang đăng (vừa đẩy thêm) thì tính lại từ đầu, hết Đang đăng thì bỏ
   const [poll, setPoll] = useState<{ from: number; keys: string } | null>(null);
+  // Giá trị đọc từ sàn (`remote` của spec) chỉ có tên trên sàn: hiện tên hiển thị (FE#464)
+  const shopLabel = useShopLabel();
   const listingsQuery = useProductListingRows(productId, canShop, (rows) => listingPollDelay(rows, poll?.from ?? Date.now(), Date.now()));
   const pushingKeys = (listingsQuery.data ?? [])
     .filter((r) => r.listing?.status === 'pushing')
@@ -462,7 +464,7 @@ export function ProductFormPage() {
             <RemoteSuggestion
               key={key}
               platformName={platformLabel(platform)}
-              shopName={remote.shopName}
+              shopName={shopLabel(remote.shopId, remote.shopName)}
               readAt={remote.readAt}
               value={show(value)}
               onUse={readOnly ? null : () => applyRemote(field, value, key)}

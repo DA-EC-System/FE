@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { shopKeys, useApplyCategory, useProductListings } from '@/api/shops.api';
+import { shopKeys, useApplyCategory, useProductListings, useShopLabel } from '@/api/shops.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
@@ -94,6 +94,7 @@ export function CategoryChangeBlock({
     },
   );
   const apply = useApplyCategory();
+  const shopLabel = useShopLabel();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,7 +154,7 @@ export function CategoryChangeBlock({
       const offline = res.items.filter((i) => i.code === 'shop_not_connected');
       if (sent.length) toast.success(`Đã gửi ${sent.length} sản phẩm lên ${label}`);
       if (offline.length) {
-        toast.warning(`${offline.map((i) => i.shopName).join(', ')} chưa kết nối nên chưa gửi được. Kết nối lại rồi bấm lại.`);
+        toast.warning(`${offline.map((i) => shopLabel(i.shopId, i.shopName)).join(', ')} chưa kết nối nên chưa gửi được. Kết nối lại rồi bấm lại.`);
       }
       setConfirming(false);
     } catch (e) {

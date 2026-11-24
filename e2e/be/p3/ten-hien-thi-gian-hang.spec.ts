@@ -35,8 +35,6 @@ test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, {
     ten: 'tenshop',
     truocDangNhap: (companyId) => {
-      // Công ty mới bị ép vào wizard thiết lập (FE#468): coi như đã thiết lập xong để vào trang Gian hàng
-      sql(`UPDATE core.companies SET onboarding_completed_at = now() WHERE id = '${companyId}';`);
       // Gian hàng đã thiết lập xong; mới kéo đơn còn mở lúc thiết lập (open_orders_pulled_at), chưa có lượt kéo đơn định kỳ
       shopId = sql(`
         INSERT INTO channel.shops (company_id, platform, external_shop_id, shop_name, status, order_cutoff_at, open_orders_pulled_at)

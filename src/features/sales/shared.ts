@@ -13,6 +13,7 @@ import type {
 } from '@/types/sales';
 import type { Gateway, PaymentStatus } from '@/types/payment';
 import { formatCurrency } from '@/utils/format';
+import type { ShopLabel } from '@/api/shops.api';
 
 export type { BadgeVariant } from '@/components/common/StatusBadge';
 import type { BadgeVariant, StatusMeta } from '@/components/common/StatusBadge';
@@ -255,9 +256,11 @@ export const GATEWAY_LABELS: Record<Gateway, string> = {
   vietqr: 'VietQR',
 };
 
-/** Nguồn đơn: đơn sàn hiện tên gian hàng */
-export const sourceLabel = (o: Pick<OrderSummary, 'source' | 'shop'>) =>
-  o.source === 'marketplace' && o.shop ? o.shop.shopName : SOURCE_LABELS[o.source];
+/** Nguồn đơn: đơn sàn hiện tên gian hàng; `shopLabel` (useShopLabel) đổi tên trên sàn sang tên hiển thị (FE#464) */
+export const sourceLabel = (o: Pick<OrderSummary, 'source' | 'shop'>, shopLabel?: ShopLabel) =>
+  o.source === 'marketplace' && o.shop
+    ? (shopLabel?.(o.shop.id, o.shop.shopName) ?? o.shop.shopName)
+    : SOURCE_LABELS[o.source];
 
 type CancelLine = Pick<OrderLine, 'id' | 'sku' | 'productName' | 'quantity' | 'unitPrice' | 'cancelledQty' | 'cancelledAt' | 'cancelReason' | 'cancelReasonDetail' | 'cancelInitiator'>;
 

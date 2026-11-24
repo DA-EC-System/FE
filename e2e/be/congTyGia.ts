@@ -10,6 +10,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { type APIRequestContext, type Browser, type Page, expect, request, test } from '@playwright/test';
+import { boQuaWizard } from '../fixtures';
 import { dangKyCongTyApi, emailThu, xoaCongTyThu } from './dangKy';
 
 export interface CongTyGia {
@@ -36,12 +37,22 @@ export async function taoCongTyGia(
     batThem?: ('inbox' | 'assistant' | 'report')[];
     /** Chạy sau khi đăng ký, trước khi đăng nhập bằng form (spec chỉ chạy local dựng dữ liệu thẳng vào DB) */
     truocDangNhap?: (companyId: string) => void | Promise<void>;
+    /** Giữ wizard thiết lập bắt buộc của công ty mới (FE#468). Mặc định bỏ qua, xem `boQuaWizard` */
+    giuWizard?: boolean;
   },
 ): Promise<CongTyGia> {
   const { baseURL, viewport, storageState } = test.info().project.use;
   const suffix = randomUUID().replaceAll('-', '');
   const taxDigits = [...suffix].map((c) => Number.parseInt(c, 16) % 10).join('');
-  const email = emailThu(`${opts.ten}-${suffix.slice(0, 16)}`);
+  // `ten` có thể có dấu, khoảng trắng ('Trang giới thiệu'): phần trước @ chỉ giữ chữ không dấu, số và '-'
+  const slug = opts.ten
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const email = emailThu(`${slug || 'cty'}-${suffix.slice(0, 16)}`);
   const password = `Demo!${suffix.slice(0, 12)}aA1`;
 
   const anon = await request.newContext({ baseURL });
@@ -62,6 +73,7 @@ export async function taoCongTyGia(
 
   // browser.newPage không tự lấy storageState của config: truyền vào để giữ cờ tắt hướng dẫn lần đầu (FE#132)
   const page = await browser.newPage({ baseURL, viewport, storageState });
+  if (!opts.giuWizard) await boQuaWizard(page);
   await page.goto('/login');
   await page.locator('input[name=email]').fill(email);
   await page.locator('input[name=password]').fill(password);

@@ -11,6 +11,7 @@ import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { formatCurrency } from '@/utils/format';
 import { useShop } from '@/api/shops.api';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 import type { PendingPrice } from '@/types/shop';
 export function PendingPricesPage() {
@@ -23,7 +24,7 @@ export function PendingPricesPage() {
   // Chưa đọc được thì không hiện bảng trống kèm "Không có giá mới chờ duyệt" (FE#248)
   const unread = query.isError && !query.data;
   return <div><PageHeader title="Giá mới chờ duyệt" subtitle="Giá bán trên sàn được tính lại khi phí sàn, thuế hoặc giá vốn thay đổi. Xem giá mới, nhất là dòng dưới giá tối thiểu, rồi duyệt để cập nhật lên sàn." />
-    {shopId && <p className="mb-3 text-sm text-muted-foreground" data-testid="pending-shop-filter">Đang xem gian hàng {shop?.shopName ?? shopId}. <Button variant="link" className="h-auto p-0" onClick={() => { setPage(1); setSearchParams({}); }}>Xem mọi gian hàng</Button></p>}
+    {shopId && <p className="mb-3 text-sm text-muted-foreground" data-testid="pending-shop-filter">Đang xem gian hàng {shop ? shopDisplayName(shop) : shopId}. <Button variant="link" className="h-auto p-0" onClick={() => { setPage(1); setSearchParams({}); }}>Xem mọi gian hàng</Button></p>}
     {query.isError && (isRouteMissing(query.error)
       ? <AlertMessage severity="info"><span data-testid="route-missing">Tính năng duyệt giá mới chưa mở trên máy chủ. Nhóm đang làm, bạn chưa cần làm gì.</span></AlertMessage>
       : <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>)}

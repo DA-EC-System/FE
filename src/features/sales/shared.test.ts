@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   allLinesCancelled,
+  sourceLabel,
   cancelledAmountOf,
   completionBlockerText,
   isOverdue,
@@ -155,5 +156,15 @@ describe('chi tiết đơn: lý do chưa hoàn tất, người huỷ, trễ hạ
     expect(isOverdue({ flags: ['due_soon'], shipBy: '2026-11-07T00:00:00Z' }, now)).toBe(true);
     expect(isOverdue({ flags: ['due_soon'], shipBy: '2026-11-19T12:00:00Z' }, now)).toBe(false);
     expect(isOverdue({ flags: [], shipBy: '2026-11-07T00:00:00Z' }, now)).toBe(false);
+  });
+});
+
+describe('sourceLabel với tên hiển thị gian hàng (FE#464)', () => {
+  const order = { source: 'marketplace' as const, shop: { id: 's1', shopName: 'SANDBOX_VN_1', platform: 'lazada' as const } };
+  it('không truyền shopLabel thì giữ tên trên sàn', () => {
+    expect(sourceLabel(order)).toBe('SANDBOX_VN_1');
+  });
+  it('shopLabel đổi sang tên hiển thị theo id gian hàng', () => {
+    expect(sourceLabel(order, (id, fallback) => (id === 's1' ? 'Áo thun ABC' : fallback))).toBe('Áo thun ABC');
   });
 });

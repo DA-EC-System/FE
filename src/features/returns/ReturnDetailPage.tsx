@@ -25,6 +25,7 @@ import {
   useReturnPlatformHistory,
 } from '@/api/returns.api';
 import { getProblem } from '@/api/client';
+import { useShopLabel } from '@/api/shops.api';
 import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { DetailGrid, DocLink, Info, PageError, PageLoading } from '@/features/purchasing/parts';
@@ -96,6 +97,7 @@ function PlatformHistory({ returnId }: { returnId: string }) {
 /** Chi tiết yêu cầu trả (sơ đồ D3): dòng trả theo kiện, tiền, phiếu kiểm hàng về, nút theo bảng chuyển */
 export function ReturnDetailPage() {
   const { returnId = '' } = useParams();
+  const shopLabel = useShopLabel();
   const location = useLocation();
   const navigate = useNavigate();
   const { companyContext } = useAuth();
@@ -228,7 +230,7 @@ export function ReturnDetailPage() {
               {r.order.code}
             </Link>
           </Info>
-          <Info label="Nguồn">{r.source === 'marketplace' ? `Sàn · ${r.shopName ?? ''}` : 'Tạo thủ công'}</Info>
+          <Info label="Nguồn">{r.source === 'marketplace' ? `Sàn · ${shopLabel(r.shopId, r.shopName ?? '')}` : 'Tạo thủ công'}</Info>
           <Info label="Người mua">{r.customerName ?? '—'}</Info>
           <Info label="Lý do trả hàng">{r.reason}</Info>
           {r.rejectReason && (

@@ -1,6 +1,7 @@
 import { formatCurrency } from '@/utils/format';
 import { platformLabel } from '@/features/channel/shopSchemas';
 import type { Marketplace } from '@/types/shop';
+import type { ShopLabel } from '@/api/shops.api';
 import type { BadgeVariant } from '@/features/sales/shared';
 import type {
   DiscrepancyReason,
@@ -57,11 +58,15 @@ export const FEE_LABELS: Record<keyof SettlementFees, string> = {
 
 export const FEE_KEYS = Object.keys(FEE_LABELS) as (keyof SettlementFees)[];
 
-/** Gian hàng kèm sàn; gian hàng đã xoá khỏi kênh thì `shopName` là `null` */
-export function shopText(shop: SettlementShop): string {
+/**
+ * Gian hàng kèm sàn; gian hàng đã xoá khỏi kênh thì `shopName` là `null`. `shopLabel` (useShopLabel) đổi tên trên sàn
+ * sang tên hiển thị (FE#464)
+ */
+export function shopText(shop: SettlementShop, shopLabel?: ShopLabel): string {
   if (shop.shopName === null) return 'Gian hàng đã xoá';
+  const name = shopLabel?.(shop.id, shop.shopName) ?? shop.shopName;
   const platform = shop.platform ? (platformLabel(shop.platform as Marketplace) ?? shop.platform) : null;
-  return platform ? `${shop.shopName} (${platform})` : shop.shopName;
+  return platform ? `${name} (${platform})` : name;
 }
 
 // ---------- Phép kiểm của một dòng (AC-S2) ----------

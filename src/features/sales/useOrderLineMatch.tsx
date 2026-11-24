@@ -5,7 +5,7 @@ import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { fulfillmentKeys } from '@/api/fulfillment.api';
 import { salesKeys } from '@/api/sales.api';
-import { useMatchListing, useRemoteSkus, useShopListings } from '@/api/shops.api';
+import { useMatchListing, useRemoteSkus, useShopLabel, useShopListings } from '@/api/shops.api';
 import { MatchDialog } from '@/features/channel/MatchDialog';
 import { UNMANAGED, variantMatchOptions } from '@/features/channel/matchOptions';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,7 @@ export function useOrderLineMatch(order: Order | undefined) {
   const can = useCan();
   const qc = useQueryClient();
   const shopId = order?.shop?.id ?? '';
+  const shopLabel = useShopLabel();
   const canMatch = can(PERMISSIONS.listingMatch) && Boolean(shopId);
   const active = canMatch && Boolean(order?.lines.some(isUnmappedLine));
   const selfApprove = Boolean(companyContext?.canSelfApprove);
@@ -95,7 +96,7 @@ export function useOrderLineMatch(order: Order | undefined) {
         line ? (
           <>
             SKU sàn <strong>{line.externalSku}</strong> · {line.productName}. Chọn biến thể trong app, hoặc không quản lý tồn.
-            Liên kết lưu vào bảng liên kết SKU của {order?.shop?.shopName ?? 'gian hàng'}: đơn đã nhận và đơn về sau của SKU này
+            Liên kết lưu vào bảng liên kết SKU của {order?.shop ? shopLabel(order.shop.id, order.shop.shopName) : 'gian hàng'}: đơn đã nhận và đơn về sau của SKU này
             tự được liên kết.
           </>
         ) : null
