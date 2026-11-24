@@ -100,8 +100,10 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
    */
   const save = async (row: BulkEditRow, columnId: string, value: unknown, v: SkuVersions): Promise<SaveResult<SkuVersions>> => {
     const field = columnId as BulkField;
+    // Lượt trước cùng dòng đọc lại không được: không biết `reorderVersion` mới, không gửi để khỏi ghi đè mù (như ProductFormPage)
+    if (field === 'minQty' && v.reorderVersion === undefined) return { ok: false, error: 'Chưa đọc được ngưỡng tồn hiện tại, thử lại sau giây lát' };
     const body: BulkSaveRow = { variantId: row.variantId, version: v.version, [field]: value as number | null };
-    if (field === 'minQty') body.reorderVersion = v.reorderVersion ?? null;
+    if (field === 'minQty') body.reorderVersion = v.reorderVersion;
     const result = await saveCells.mutateAsync({ rows: [body] });
     const failed = result.failed[0];
     if (failed) {
@@ -114,11 +116,12 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     cache.patch(row.variantId, (r) => ({ ...r, version, current: { ...r.current, [field]: value as number | null } }));
     if (field !== 'minQty') return { ok: true, version: { ...v, version } };
     // BE không trả `reorderVersion` mới (dòng tồn mới tạo, ngưỡng không đổi... mỗi trường hợp tăng khác nhau): đọc lại dòng
-    // sau khi lưu. Đọc sau khi lưu nên không làm mất phát hiện xung đột
+    // sau khi lưu. Đọc sau khi lưu nên không làm mất phát hiện xung đột. Đọc lỗi thì `reorderVersion` undefined (chưa đọc
+    // được): lượt sau cùng dòng không gửi rv cũ; hết lượt thì lấy lại từ bảng sau khi tải lại
     const fresh = await fetchBulkRow(row.variantId, row.sku).catch(() => null);
     if (fresh) cache.replace(fresh);
     else void query.refetch();
-    return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : v.reorderVersion } };
+    return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : undefined } };
   };
 
   const reloadRow = async (row: BulkEditRow) => {

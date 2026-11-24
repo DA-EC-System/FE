@@ -74,17 +74,21 @@ export function parseFacts(
   const errors: Partial<Record<VariantFactKey, string>> = {};
   for (const k of FACT_KEYS) {
     if (k === 'minQty' && !opts.withMinQty) continue;
-    const raw = d[k].trim().replace(/[\s.,]/g, '');
-    if (!raw) {
-      value[k] = null;
-      continue;
-    }
-    const n = Number(raw);
-    const rule = RULES[k];
-    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n < rule.min || n > rule.max) errors[k] = rule.message;
-    else value[k] = n;
+    const parsed = parseFact(k, d[k]);
+    if (parsed.ok) value[k] = parsed.value;
+    else errors[k] = parsed.error;
   }
   return { value, errors };
+}
+
+/** Một ô số của bảng Biến thể (bảng sửa từng ô, FE#476): cùng luật với `parseFacts`, ô trống là null */
+export function parseFact(key: VariantFactKey, text: string): { ok: true; value: number | null } | { ok: false; error: string } {
+  const raw = text.trim().replace(/[\s.,]/g, '');
+  if (!raw) return { ok: true, value: null };
+  const n = Number(raw);
+  const rule = RULES[key];
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n < rule.min || n > rule.max) return { ok: false, error: rule.message };
+  return { ok: true, value: n };
 }
 
 /** "Đen / M"; cha không có thuộc tính biến thể thì một biến thể */
