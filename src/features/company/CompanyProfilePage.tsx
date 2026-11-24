@@ -85,6 +85,8 @@ export function ProfileForm({ profile, onSaved, formId, hideActions, onBusyChang
   const pending = update.isPending;
   useEffect(() => {
     onBusyChange?.(pending);
+    // Rời bước khi đang lưu (bấm thanh bước, Back): trả nút của wizard về bình thường
+    return () => onBusyChange?.(false);
   }, [pending, onBusyChange]);
 
   const onSubmit = form.handleSubmit((v) => {

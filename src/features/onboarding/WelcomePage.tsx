@@ -16,7 +16,7 @@ import type { Onboarding } from '@/types/onboarding';
 import { ProfileForm } from '@/features/company/CompanyProfilePage';
 import { OptionalTodoList } from '@/features/company/OnboardingCard';
 import { onboardingSteps, optionalSteps } from '@/features/company/onboardingSteps';
-import { markWelcome } from '@/features/company/welcomeFlow';
+import { clearWelcome, markWelcome } from '@/features/company/welcomeFlow';
 import { ConnectStep } from './steps/ConnectStep';
 import { WizardStepper } from './WizardStepper';
 import {
@@ -131,6 +131,7 @@ export function WelcomePage() {
     <Frame
       companyName={companyContext.companyName}
       exitTo={data.mustWizard ? undefined : home}
+      onExit={() => clearWelcome(companyId)}
       stepper={<WizardStepper steps={steps} view={view} onPick={go} />}
       footer={
         <>
@@ -142,7 +143,14 @@ export function WelcomePage() {
             {step && !step.done ? STEP_TEXT[step.key].why : ''}
           </span>
           {view === 'ready' ? (
-            <CompleteButton data={data} onMissing={go} onDone={() => navigate(home, { replace: true })} />
+            <CompleteButton
+              data={data}
+              onMissing={go}
+              onDone={() => {
+                clearWelcome(companyId);
+                navigate(home, { replace: true });
+              }}
+            />
           ) : view === 'company_profile' ? (
             <Button type="submit" form={PROFILE_FORM_ID} disabled={busy}>
               {busy ? 'Đang lưu…' : 'Lưu và tiếp'}
@@ -185,6 +193,7 @@ export function WelcomePage() {
 function Frame({
   companyName,
   exitTo,
+  onExit,
   stepper,
   footer,
   children,
@@ -192,6 +201,7 @@ function Frame({
   companyName: string;
   /** Chỉ khi không bị ép (`mustWizard = false`): lối về Tổng quan */
   exitTo?: string;
+  onExit?: () => void;
   stepper?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -205,7 +215,9 @@ function Frame({
         <span className="ms-auto flex gap-2">
           {exitTo && (
             <Button variant="ghost" size="sm" asChild>
-              <Link to={exitTo}>Về Tổng quan</Link>
+              <Link to={exitTo} onClick={onExit}>
+                Về Tổng quan
+              </Link>
             </Button>
           )}
           <LogoutButton variant="ghost" size="sm" />
@@ -322,7 +334,8 @@ function LinkOut({ companyId, title, detail, to, action }: { companyId: string; 
 /** Xong hết bước bắt buộc của người xem: việc tuỳ chọn (chỉ nhãn, không lối ra) */
 function ReadyScreen({ data, companyId, total }: { data: Onboarding; companyId: string; total: number }) {
   const optional = optionalSteps(onboardingSteps(data, companyId));
-  const waiting = data.next !== null;
+  // Không bị ép mà công ty chưa hoàn tất: phần còn lại (bước của người khác, hoặc nút hoàn tất) không phải của người xem
+  const waiting = !data.mustWizard && data.completedAt === null;
   return (
     <div className="grid gap-4">
       <div className="grid justify-items-start gap-2">
@@ -333,7 +346,9 @@ function ReadyScreen({ data, companyId, total }: { data: Onboarding; companyId: 
         <h1 className="text-xl font-semibold">Sẵn sàng bán</h1>
         <p className="max-w-prose text-sm text-muted-foreground">
           {waiting
-            ? `Bạn đã xong phần của mình. Bước "${WIZARD_STEP_LABELS[data.next!.key as WizardKey] ?? data.next!.key}" do người có quyền trong công ty làm.`
+            ? data.next
+              ? `Bạn đã xong phần của mình. Bước "${WIZARD_STEP_LABELS[data.next.key as WizardKey] ?? data.next.key}" do người có quyền trong công ty làm.`
+              : 'Bạn đã xong phần của mình. Chờ CEO bấm hoàn tất thiết lập, sau đó Commerio bắt đầu lấy đơn và cập nhật tồn.'
             : 'Commerio đang lấy đơn và cập nhật tồn của gian hàng. Các việc dưới đây không bắt buộc, làm lúc nào cũng được ở Tổng quan.'}
         </p>
       </div>
@@ -350,7 +365,8 @@ function CompleteButton({ data, onMissing, onDone }: { data: Onboarding; onMissi
   const complete = useCompleteOnboarding();
   const [missing, setMissing] = useState<WizardKey[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  if (data.next !== null && !data.mustWizard) return null;
+  // Chỉ người được gọi POST /onboarding/complete: BE ép ở trang này (`mustWizard`), hoặc công ty đã hoàn tất (gọi lại trả 200)
+  if (!data.mustWizard && data.completedAt === null) return null;
   const submit = async () => {
     setMissing(null);
     setError(null);

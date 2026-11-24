@@ -6,7 +6,7 @@ import { refreshAccessToken } from '@/api/client';
 import { appPath } from '@/utils/env';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@/api/useMutation';
-import { clearPendingRegistration } from '@/features/auth/registrationResume';
+import { clearPendingRegistration } from '@/lib/registrationResume';
 
 export function useAuth() {
   const status = useAuthStore((s) => s.status);

@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Info, KeyRound, RefreshCw, Store, TriangleAlert, Unplug } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useShopPlatforms, useShops } from '@/api/shops.api';
+import { onboardingKey } from '@/api/onboarding.api';
 import { problemMessage, tokenSourcePhrase } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import type { Shop, ShopPlatform } from '@/types/shop';
@@ -25,6 +27,7 @@ export function ConnectStep({ companyId, shopId, onConnected }: { companyId: str
   const platforms = useShopPlatforms();
   const connector = useStartConnect();
   const [disconnecting, setDisconnecting] = useState<Shop | null>(null);
+  const qc = useQueryClient();
 
   const live = (shops.data?.items ?? []).filter((s) => s.status !== 'disconnected');
   const shop = live.find((s) => s.id === shopId) ?? live[0] ?? null;
@@ -101,7 +104,11 @@ export function ConnectStep({ companyId, shopId, onConnected }: { companyId: str
       <ShopDisconnectDialog
         shop={disconnecting}
         companyId={companyId}
-        onClose={() => setDisconnecting(null)}
+        onClose={() => {
+          setDisconnecting(null);
+          // Ngắt xong thì bước 2 thành chưa xong: đọc lại tiến độ, không chờ sự kiện realtime
+          void qc.invalidateQueries({ queryKey: onboardingKey(companyId) });
+        }}
         onConflict={() => void shops.refetch()}
       />
     </div>

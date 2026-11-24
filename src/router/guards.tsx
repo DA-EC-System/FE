@@ -144,7 +144,8 @@ export function RequireOnboarding({ children }: { children: ReactNode }) {
   const { companyId = '' } = useParams<{ companyId: string }>();
   const location = useLocation();
   const onboarding = useOnboarding();
-  if (onboarding.isPending && onboarding.fetchStatus !== 'idle') return <PageSpinner />;
+  // Chỉ chờ khi đang gọi thật; mất mạng (`paused`) thì cho vào trang như khi lỗi
+  if (onboarding.isPending && onboarding.fetchStatus === 'fetching') return <PageSpinner />;
   const to = onboardingRedirect(onboarding.data, companyId, location.pathname);
   if (to) return <Navigate to={to} replace />;
   return <>{children}</>;
