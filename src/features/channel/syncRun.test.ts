@@ -53,6 +53,10 @@ describe('dòng lỗi: tên và nút tới chỗ sửa', () => {
       href: '/c/c1/catalog/products/p1?spec=v1',
     });
     expect(syncErrorFix({ fix: 'variant_price', productId: null, variantId: 'v1' }, 'c1')).toBeNull();
+    // Không có `fix` mà có `target` (commerio-backend#571): nút tới đúng chỗ sửa (FE#462)
+    expect(
+      syncErrorFix({ fix: null, productId: 'p1', variantId: 'v1', target: { kind: 'spec_attribute', attributeCode: 'brand' } }, 'c1', 'lazada'),
+    ).toEqual({ label: 'Sửa attribute', href: '/c/c1/catalog/products/p1?tab=lazada&focus=ptab-lazada-brand' });
     expect(syncErrorFix({ fix: 'stocktake', productId: null, variantId: null }, 'c1')?.href).toBe('/c/c1/inventory/documents/new?type=stocktake');
     expect(syncErrorFix({ fix: 'platform', productId: null, variantId: null }, 'c1')?.href).toBeNull();
     expect(syncErrorFix({ fix: null, productId: null, variantId: null }, 'c1')).toBeNull();

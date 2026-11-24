@@ -94,7 +94,9 @@ import { ProductCompletionRail } from './ProductCompletionRail';
 import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { NeedsAttentionBox } from './NeedsAttentionBox';
 import { attentionItems, type AttentionAction } from './needsAttention';
-import { focusField } from './focusField';
+import { focusField, focusWhenReady } from './focusField';
+import { listingPollDelay } from '@/features/channel/listingPush';
+import { usePushOutcomeToasts } from '@/features/channel/usePushOutcomeToasts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductMinQtyCard } from './ProductMinQtyCard';
 import { SpecFieldDialog } from './specs/SpecFieldDialog';
@@ -189,7 +191,19 @@ export function ProductFormPage() {
   const canCost = can(PERMISSIONS.costView);
   // Form tạo cũng tải sẵn gian hàng: tạo xong dải tab sàn hiện ngay, không nhảy layout (FE#463)
   const shopsQuery = useShops({ enabled: canShop });
-  const listingsQuery = useProductListingRows(productId, canShop);
+  // Còn SKU Đang đăng thì đọc lại mỗi 5 giây, tối đa 30 phút; dòng thôi Đang đăng thì toast kết quả (FE#462, §18.6.4)
+  const pollFrom = useRef<number | null>(null);
+  const listingsQuery = useProductListingRows(productId, canShop, (rows) => {
+    const now = Date.now();
+    const delay = listingPollDelay(rows, pollFrom.current ?? now, now);
+    if (delay === false) {
+      if (!rows.some((r) => r.listing?.status === 'pushing')) pollFrom.current = null;
+      return false;
+    }
+    pollFrom.current ??= now;
+    return delay;
+  });
+  usePushOutcomeToasts(listingsQuery.data, { companyId, canFix: canManage });
   const stockQuery = useStock({ productId, pageSize: 100 }, { enabled: canStock && !isNew });
   const platforms = activePlatforms(shopsQuery.data?.items ?? []);
   const listingRows = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
@@ -305,6 +319,23 @@ export function ProductFormPage() {
     });
     return () => cancelAnimationFrame(frame);
   }, [tab, jump]);
+  // `?focus=<id>` (FE#462: nút sửa của lỗi đẩy, mục chặn): chờ ô hiện ở tab đang mở rồi cuộn, focus; xong thì xoá khỏi URL
+  // để F5/Back không nhảy lại
+  const focusParam = searchParams.get('focus');
+  const productLoaded = Boolean(product);
+  useEffect(() => {
+    if (!focusParam || !productLoaded) return;
+    return focusWhenReady(focusParam, () =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('focus');
+          return next;
+        },
+        { replace: true },
+      ),
+    );
+  }, [focusParam, productLoaded, setSearchParams]);
 
   // Mẫu nhóm: form tạo đọc theo nhóm đang chọn; trang sửa chỉ đọc khi đổi sang nhóm khác (ngoài ra BE trả sẵn `specs`)
   const groupId = form.watch('groupId');

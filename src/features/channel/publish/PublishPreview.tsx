@@ -18,7 +18,7 @@ import { formatMoneyInput, parseMoney } from '@/utils/price';
 import type { ProductDetail } from '@/types/catalog';
 import type { PriceQuoteRow, ProductListingRow, PushResult, Shop } from '@/types/shop';
 import { LISTING_STATUS_LABELS, platformLabel } from '../shopSchemas';
-import { pushBlockMessage, splitPushResults } from '../listingPush';
+import { pushResultBlocks, splitPushResults } from '../listingPush';
 import { feePct, isOnPlatform, priceNote, priceRange, priceView, rowBlocker, stockToPushText } from './publishRows';
 
 const keyOf = (shopId: string, variantId: string) => `${shopId}:${variantId}`;
@@ -370,7 +370,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                   {o.blocked.map((r) => (
                     <li key={r.variantId} className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-muted-foreground">{rows.find((x) => x.variantId === r.variantId)?.sku ?? r.variantId}</span>
-                      <span>{r.code ? pushBlockMessage(r.code, r.message, platformLabel(o.shop.platform, o.shop.platformName)) : r.message}</span>
+                      <span>{pushResultBlocks(r, platformLabel(o.shop.platform, o.shop.platformName)).map((b) => b.label).join('; ') || r.message}</span>
                     </li>
                   ))}
                 </ul>

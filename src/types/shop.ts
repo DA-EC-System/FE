@@ -4,6 +4,8 @@
  * Hợp đồng API đề xuất ở FE#8, chờ commerio-backend#19 chốt.
  */
 
+import type { Blocker, BlockerTarget, PushErrorKind } from './blocker';
+
 export type Marketplace = string;
 
 /**
@@ -253,10 +255,20 @@ export interface CategoryChange {
 /** Đồng bộ tồn, đồng bộ giá: trường riêng, không đổi trạng thái listing */
 export type SyncState = 'synced' | 'pending' | 'error';
 
-/** Lỗi lần đẩy gần nhất của riêng một SKU (đẩy theo lô, SKU lỗi không đánh lỗi cả lô). `message` là câu của sàn */
+/**
+ * Lỗi lần đẩy gần nhất của riêng một SKU (đẩy theo lô, SKU lỗi không đánh lỗi cả lô). `message` là câu tiếng Việt BE dựng
+ * (commerio-backend#567, #571); mã và câu gốc của sàn ở `platformCode`, `platformMessage`. Lỗi ghi trước #567 có các trường
+ * mới là null (hoặc thiếu), khi đó `message` có thể là câu gốc của sàn
+ */
 export interface SyncError {
   code: string;
   message: string;
+  kind?: PushErrorKind | null;
+  target?: BlockerTarget | null;
+  variantId?: string | null;
+  platformCode?: string | null;
+  platformMessage?: string | null;
+  requestId?: string | null;
   at: string;
 }
 
@@ -521,6 +533,8 @@ export interface PushResult {
   status: ListingStatus | null;
   code: string | null;
   message: string | null;
+  /** Mọi mục chặn của biến thể, theo thứ tự hiển thị (commerio-backend#566); `code` là mục đầu */
+  blockers?: Blocker[];
 }
 
 /** Body đẩy: tối đa 20 biến thể một lần. Ảnh BE tự lấy từ catalog (§18.5, commerio-backend#303) */
@@ -580,6 +594,11 @@ export interface SyncRunError {
   code: string;
   /** Câu tiếng Việt cho người bán do app viết */
   message: string;
+  kind?: PushErrorKind | null;
+  /** Chỗ sửa; null khi không suy được (commerio-backend#571) */
+  target?: BlockerTarget | null;
+  /** Mã gốc của sàn; null khi lỗi do app giữ */
+  platformCode?: string | null;
   /** Câu sàn trả, nguyên văn; null khi lỗi do app giữ */
   platformMessage: string | null;
   at: string;

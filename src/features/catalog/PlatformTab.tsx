@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight, ChevronDown } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,9 @@ import { useInvalidateCatalog, useUpdateVariant } from '@/api/catalog.api';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { getProblem } from '@/api/client';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
+import { blockerFix } from '@/features/channel/blockerFix';
+import { pushErrorTarget, pushErrorText } from '@/features/channel/listingPush';
+import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { AttributeField } from '@/features/channel/push/AttributeField';
 import { CategoryChangeBlock } from '@/features/channel/push/CategoryChangeBlock';
 import {
@@ -486,7 +489,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
 
         <Section id={platformSectionId(platform, 'sales')} title={sections.find((s) => s.key === 'sales')!.title} perShop>
           <RegroupNotice productId={product.id} platform={platform} shops={shops} />
-          <SalesTable companyId={companyId} platform={platform} rows={rows} />
+          <SalesTable companyId={companyId} platform={platform} rows={rows} canEditProduct={canEditProduct} />
         </Section>
 
         {sizeRule && sizeRule !== 'unsupported' && (
@@ -908,7 +911,17 @@ function ExtraMissing({
 }
 
 /** Giá, tồn, trạng thái theo từng gian hàng của sàn (`GET /channel/products/:id/listings`) */
-function SalesTable({ companyId, platform, rows }: { companyId: string; platform: Marketplace; rows: readonly ProductListingRow[] }) {
+function SalesTable({
+  companyId,
+  platform,
+  rows,
+  canEditProduct,
+}: {
+  companyId: string;
+  platform: Marketplace;
+  rows: readonly ProductListingRow[];
+  canEditProduct: boolean;
+}) {
   const shops = listingsByShop(rows, platform);
   const [shopId, setShopId] = useState<string | null>(null);
   const shop = shops.find((s) => s.shopId === shopId) ?? shops[0];
@@ -941,6 +954,12 @@ function SalesTable({ companyId, platform, rows }: { companyId: string; platform
       <p className="text-xs text-muted-foreground">
         Giá, tồn và trạng thái theo từng gian hàng. Category và attribute dùng chung cho mọi gian hàng {platformLabel(platform)}.
       </p>
+      {shop.rows.some((r) => r.listing?.status === 'pushing') && (
+        <p className="flex items-center gap-1.5 text-sm text-info-text" data-testid="pushing-note">
+          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          Đang đẩy {shop.rows.filter((r) => r.listing?.status === 'pushing').length} SKU lên sàn… Trang tự cập nhật khi sàn phản hồi.
+        </p>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -964,7 +983,13 @@ function SalesTable({ companyId, platform, rows }: { companyId: string; platform
                 <TableCell className="text-right tabular-nums">{l?.platformStock == null ? '—' : formatQty(l.platformStock)}</TableCell>
                 <TableCell>
                   {l ? (
-                    <Badge variant={LISTING_STATUS_VARIANTS[l.status]}>{LISTING_STATUS_LABELS[l.status]}</Badge>
+                    <div className="grid justify-items-start gap-1">
+                      <Badge variant={LISTING_STATUS_VARIANTS[l.status]}>
+                        {l.status === 'pushing' && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
+                        {LISTING_STATUS_LABELS[l.status]}
+                      </Badge>
+                      {l.status === 'push_failed' && l.pushError && <PushErrorNote companyId={companyId} row={r} canFix={canEditProduct} />}
+                    </div>
                   ) : (
                     <span className="text-muted-foreground">Chưa lên sàn</span>
                   )}
@@ -975,6 +1000,36 @@ function SalesTable({ companyId, platform, rows }: { companyId: string; platform
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+/** Câu lỗi đẩy BE dựng, nút tới chỗ sửa, mã gốc của sàn trong "Chi tiết từ sàn" (FE#462) */
+function PushErrorNote({ companyId, row, canFix }: { companyId: string; row: ProductListingRow; canFix: boolean }) {
+  const e = row.listing!.pushError!;
+  const t = pushErrorText(e);
+  const fix = canFix
+    ? blockerFix(pushErrorTarget(e), {
+        companyId,
+        productId: row.productId,
+        platform: row.platform,
+        shopId: row.shopId,
+        variantId: e.variantId ?? row.variantId,
+      })
+    : null;
+  return (
+    <>
+      <span className="text-xs text-destructive-text" data-testid="listing-note">
+        {t.text}
+      </span>
+      {fix && fix.perm !== 'finance' && (
+        <Button asChild variant="link" size="sm" className="h-auto p-0">
+          <Link to={fix.to} data-testid="error-fix">
+            {fix.label}
+          </Link>
+        </Button>
+      )}
+      <PlatformDetail text={t.platformMessage} />
+    </>
   );
 }
 

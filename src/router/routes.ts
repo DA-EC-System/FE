@@ -54,9 +54,19 @@ export const ROUTES = {
     shopOAuthCallback: (companyId: string, platform: string) => `/c/${companyId}/channel/shops/oauth-callback/${platform}`,
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
-    /** spec: mở luôn hộp Thông tin SKU của biến thể (FE#326, lối sửa cân nặng từ lỗi đẩy) */
-    catalogProduct: (companyId: string, productId: string, spec?: string) =>
-      `/c/${companyId}/catalog/products/${productId}${spec ? `?spec=${encodeURIComponent(spec)}` : ''}`,
+    /**
+     * spec: mở luôn hộp Thông tin SKU của biến thể (FE#326, lối sửa cân nặng từ lỗi đẩy). Dạng object thêm `tab` (tab sàn,
+     * bỏ trống là tab Nội bộ) và `focus` (id ô cần cuộn tới, focus; FE#462 nút sửa theo chỗ sửa của lỗi)
+     */
+    catalogProduct: (companyId: string, productId: string, at?: string | { spec?: string; tab?: string; focus?: string }) => {
+      const o = typeof at === 'string' ? { spec: at } : (at ?? {});
+      const q = new URLSearchParams();
+      if (o.tab) q.set('tab', o.tab);
+      if (o.spec) q.set('spec', o.spec);
+      if (o.focus) q.set('focus', o.focus);
+      const qs = q.toString();
+      return `/c/${companyId}/catalog/products/${productId}${qs ? `?${qs}` : ''}`;
+    },
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
     /** Trang một danh mục sản phẩm: thuộc tính sản phẩm, biến thể theo, ánh xạ sàn (Documents/29 bước 3) */
     catalogCategory: (companyId: string, groupId: string) => `/c/${companyId}/catalog/setup/categories/${groupId}`,
