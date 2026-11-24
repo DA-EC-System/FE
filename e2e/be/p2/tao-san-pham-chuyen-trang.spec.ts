@@ -9,7 +9,7 @@ test.describe.configure({ mode: 'serial' });
 let cty: CongTyGia;
 let page: Page;
 const tenDanhMuc = 'Mũ kiểm thử';
-const tenSanPham = 'Mũ lưỡi trai kiểm thử';
+const tenSanPham = 'Mũ lưỡi trai kiểm thử chuyển trang';
 
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'tao-sp' });
@@ -24,7 +24,13 @@ test.afterAll(async () => {
 
 test('tạo sản phẩm: chuyển sang trang sửa, một toast, focus tiêu đề, khung Tiếp theo', async () => {
   await page.goto(`/c/${cty.companyId}/catalog/products/new`);
-  await page.getByLabel('Tên sản phẩm').fill(tenSanPham);
+  // Tên tối thiểu 25 ký tự: bộ đếm gắn với ô qua aria-describedby; bấm tạo khi tên ngắn thì lỗi cũng gắn với ô (không dùng role=alert để khỏi đọc lại sau mỗi phím)
+  const oTen = page.getByLabel('Tên sản phẩm');
+  await oTen.fill('Mũ ngắn');
+  await expect(oTen).toHaveAccessibleDescription(/7\/200 · tối thiểu 25/);
+  await page.getByRole('button', { name: 'Tạo sản phẩm', exact: true }).click();
+  await expect(oTen).toHaveAccessibleDescription(/Tên sản phẩm cần ít nhất 25 ký tự \(hiện 7\)/);
+  await oTen.fill(tenSanPham);
   await page.getByRole('combobox', { name: 'Danh mục sản phẩm' }).click();
   await page.getByPlaceholder('Gõ để tìm hoặc tạo nhóm…').fill(tenDanhMuc);
   await page.getByRole('option', { name: tenDanhMuc, exact: true }).click();

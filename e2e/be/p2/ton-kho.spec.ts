@@ -25,7 +25,7 @@ test.beforeAll(async ({ browser }) => {
   const product = await goi<{ variants: { id: string; sku: string }[] }>(
     'post',
     '/catalog/products',
-    { name: 'Áo tồn kho giả', groupId: group.id, axes: [], variants: [{ options: [] }] },
+    { name: 'Áo tồn kho giả dùng kiểm thử e2e', groupId: group.id, axes: [], variants: [{ options: [] }] },
     201,
   );
   ({ id: variantId, sku } = product.variants[0]!);

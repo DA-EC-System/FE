@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUP_FIELD_ID, MIN_QTY_FIELD_ID, missingItems, parseMinQty, publishBlocker } from './completion';
+import { GROUP_FIELD_ID, MIN_QTY_FIELD_ID, missingForPublish, missingItems, parseMinQty, publishBlocker } from './completion';
 import { SHARED_TARGETS } from './productTabs';
 import { specFieldDomId } from './specs/SpecFieldsInput';
 
@@ -41,8 +41,19 @@ describe('missingItems', () => {
     expect(items).toEqual([{ key: 'spec:b', label: 'Dáng áo', target: specFieldDomId('b') }]);
   });
 
+  it('form tạo: tên dưới 25 ký tự là còn thiếu Tên sản phẩm', () => {
+    const items = missingItems({ form: { name: '  Áo thun cotton nam cổ tr  ', groupId: 'g', imageCount: 1 } });
+    expect(items.map((i) => i.key)).toEqual(['name']);
+  });
+
+  it('sản phẩm đã lưu: chỉ hiện Tên sản phẩm khi bấm Lưu bị lỗi tên', () => {
+    const variants = [{ businessStatus: 'selling' as const, missing: [] }];
+    expect(missingItems({ variants })).toEqual([]);
+    expect(missingItems({ variants, nameInvalid: true })).toEqual([{ key: 'name', label: 'Tên sản phẩm', target: SHARED_TARGETS.name }]);
+  });
+
   it('đủ hết thì rỗng', () => {
-    expect(missingItems({ variants: [{ businessStatus: 'selling', missing: [] }], form: { name: 'A', groupId: 'g', imageCount: 1 } })).toEqual([]);
+    expect(missingItems({ variants: [{ businessStatus: 'selling', missing: [] }], form: { name: 'Áo thun nam cổ tròn cotton cao cấp', groupId: 'g', imageCount: 1 } })).toEqual([]);
   });
 });
 
@@ -67,4 +78,11 @@ describe('publishBlocker', () => {
     [{ missing: ['ảnh', 'cân nặng (2 SKU)'] }, 'Còn thiếu 2 mục để đăng: ảnh, cân nặng (2 SKU)'],
     [{ dirty: true }, 'Lưu thay đổi trước rồi mới đăng'],
   ])('%o → %s', (patch, reason) => expect(publishBlocker({ ...ok, ...patch })).toBe(reason));
+
+  it('chỉ có lỗi tên lúc Lưu (nameInvalid) thì không chặn Đăng', () => {
+    const variants = [{ businessStatus: 'selling' as const, missing: [] }];
+    const missing = missingForPublish({ variants, nameInvalid: true }).map((m) => m.label);
+    expect(missing).toEqual([]);
+    expect(publishBlocker({ ...ok, missing })).toBeNull();
+  });
 });
