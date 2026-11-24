@@ -59,13 +59,14 @@ export function Header({ active, sections }: { active: ActiveNav | null; section
             const last = i === crumbs.length - 1;
             return (
               <Fragment key={`${i}-${c.label}`}>
-                {i > 0 && (
-                  <li aria-hidden className="text-faint max-sm:hidden">
-                    /
-                  </li>
-                )}
+                {/* Dấu "/" là trang trí (FE#464): vẽ bằng ::before với alt rỗng (`content: '/' / ''`), không phải chữ hay
+                    mục danh sách, để trình đọc màn hình bỏ qua */}
                 <li
-                  className={cn('min-w-0', last ? 'truncate text-foreground' : 'shrink-0 max-sm:hidden')}
+                  className={cn(
+                    'min-w-0',
+                    last ? 'truncate text-foreground' : 'shrink-0 max-sm:hidden',
+                    i > 0 && "before:me-1.5 before:text-faint before:content-['/'_/_''] max-sm:before:content-none",
+                  )}
                   aria-current={last ? 'page' : undefined}
                 >
                   {c.to && !last ? (

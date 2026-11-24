@@ -35,10 +35,9 @@ export function HelpTip({ content, topic, onTour, mode, className }: HelpTipProp
       // Nằm trong dòng bảng hay nhãn ô nhập: bấm "?" không được mở dòng, không focus ô
       onClick={(e: MouseEvent) => e.stopPropagation()}
       className={cn(
-        'relative inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full align-middle text-muted-foreground transition-colors',
-        'hover:text-foreground-2 focus-visible:text-foreground-2 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-        // Vùng chạm rộng hơn biểu tượng 14px
-        'after:absolute after:-inset-1.5 after:content-[""]',
+        // Nút 24×24 (vùng bấm tối thiểu WCAG 2.5.8, FE#464), lề âm 4px để chiếm chỗ như biểu tượng 16px cũ
+        '-m-1 inline-flex size-6 shrink-0 cursor-help items-center justify-center rounded-full align-middle text-muted-foreground transition-colors',
+        'hover:text-foreground-2 focus-visible:text-foreground-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
         className,
       )}
     >

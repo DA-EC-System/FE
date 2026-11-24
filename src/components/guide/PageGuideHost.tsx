@@ -49,7 +49,7 @@ export function PageGuideHost() {
   useEffect(() => {
     if (!pageKey || open || !userId || dismissed.has(pageKey)) return;
     const g = getGuide(pageKey);
-    if (!g || guidesAutoOff() || hasSeen(userId, g.key, g.version)) return;
+    if (!g || g.autoOpen === false || guidesAutoOff() || hasSeen(userId, g.key, g.version)) return;
     // Hỏi lại tới khi không còn hộp thoại khác che
     const timer = window.setInterval(() => {
       if (document.querySelector(BUSY_SELECTOR)) return;

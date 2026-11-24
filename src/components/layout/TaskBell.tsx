@@ -6,7 +6,7 @@ import { useTasks } from '@/api/tasks.api';
 import { useAuth } from '@/hooks/useAuth';
 import { canAddToRequest } from '@/hooks/useRealtime';
 import { selectNotices, useStockAlertStore, type StockNotice } from '@/stores/stockAlertStore';
-import { problemMessage } from '@/api/problemMessages';
+import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { cn } from '@/lib/utils';
 import { docRefPath, ROUTES } from '@/router/routes';
 import type { TaskItem, TaskSeverity } from '@/types/tasks';
@@ -34,6 +34,9 @@ function byGroup(items: TaskItem[]) {
  */
 export function TaskBell({ companyId }: { companyId: string }) {
   const tasks = useTasks();
+  // BE chưa có `GET /tasks` (commerio-backend#209): không coi là lỗi tải, chỉ báo chưa có nhắc việc (FE#464)
+  const unavailable = tasks.isError && isRouteMissing(tasks.error);
+  const failed = tasks.isError && !unavailable;
   const items = tasks.data ?? [];
   const overdue = items.some((t) => t.severity === 'overdue');
   // SKU chạm ngưỡng nhận qua realtime trong phiên này (FE#318)
@@ -47,7 +50,7 @@ export function TaskBell({ companyId }: { companyId: string }) {
           variant="ghost"
           size="icon"
           className="relative size-8 rounded-md text-foreground-2 hover:bg-fill"
-          aria-label={tasks.isError ? 'Việc cần làm: chưa tải được' : `Việc cần làm: ${count}`}
+          aria-label={failed ? 'Việc cần làm: chưa tải được' : `Việc cần làm: ${count}`}
           data-testid="task-bell"
           data-guide="task-bell"
         >
@@ -78,7 +81,12 @@ export function TaskBell({ companyId }: { companyId: string }) {
           {count > 0 && <span className="text-sm text-muted-foreground">{count}</span>}
         </div>
         {notices.length > 0 && <StockNotices notices={notices} companyId={companyId} />}
-        {tasks.isError ? (
+        {unavailable && !notices.length ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground" data-testid="task-bell-unavailable">
+            <Info aria-hidden className="mx-auto mb-2 size-7 text-faint" />
+            Máy chủ chưa có nhắc việc theo hạn.
+          </div>
+        ) : failed ? (
           // Không hiện "Không có việc nào tới hạn" khi chưa đọc được (FE#248)
           <div className="px-4 py-10 text-center text-sm text-muted-foreground" data-testid="task-bell-error">
             <CloudOff aria-hidden className="mx-auto mb-2 size-7 text-faint" />

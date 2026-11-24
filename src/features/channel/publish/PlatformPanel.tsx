@@ -85,7 +85,8 @@ export function PlatformPanel({ d, product, companyId, shops, shopId, canEditPro
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <CategoryPath path={d.draft.categoryPath} />
               {categoryMissing.length > 0 && <Badge variant="warning">{categoryMissing[0]!.label}</Badge>}
-              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setChangingCategory(true)}>
+              {/* Vùng bấm tối thiểu 24×24 (FE#464) */}
+              <Button type="button" variant="link" size="sm" className="h-6 min-w-6 px-1" onClick={() => setChangingCategory(true)}>
                 Đổi
               </Button>
             </div>

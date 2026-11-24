@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Button } from '@/components/ui/button';
 import { HelpTip } from './HelpTip';
 
@@ -15,6 +15,8 @@ interface PageHeaderProps {
   actionLabel?: string;
   onAction?: () => void;
   actionIcon?: ReactNode;
+  /** Focus vào tiêu đề sau khi chuyển trang (trình đọc màn hình biết đã sang trang mới); có thì tiêu đề nhận `tabIndex=-1` */
+  titleRef?: Ref<HTMLHeadingElement>;
 }
 
 /** Đầu trang (`.ph-row` của Test_UI): tiêu đề 20px đậm 600, mô tả 14px màu phụ, nút hành động bên phải */
@@ -27,6 +29,7 @@ export function PageHeader({
   actionLabel,
   onAction,
   actionIcon,
+  titleRef,
 }: PageHeaderProps) {
   const actionNode =
     action ??
@@ -41,7 +44,13 @@ export function PageHeader({
     <div className="mb-6 flex flex-wrap items-end gap-x-4 gap-y-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl leading-[1.4] font-semibold break-words text-foreground">{title}</h1>
+          <h1
+            ref={titleRef}
+            tabIndex={titleRef ? -1 : undefined}
+            className="text-xl leading-[1.4] font-semibold break-words text-foreground focus:outline-none"
+          >
+            {title}
+          </h1>
           {help && <HelpTip content={help} topic={title} onTour={onTour} />}
         </div>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}

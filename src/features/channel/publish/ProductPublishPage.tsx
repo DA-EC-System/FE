@@ -123,6 +123,10 @@ function PublishFlow({
           </button>
         ))}
       </nav>
+      {/* Thứ bậc heading không nhảy từ H1 xuống H3 của từng sàn (FE#464); bước đang mở đã hiện ở thanh bước */}
+      <h2 className="sr-only">
+        Bước {step + 1}: {STEPS[step]}
+      </h2>
 
       {step === 0 && (
         <ShopPicker

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -48,7 +48,7 @@ import { useStock } from '@/api/inventory.api';
 import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
 import { formatQty } from '@/features/inventory/shared';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
-import type { ProductListingRow } from '@/types/shop';
+import type { Marketplace, ProductListingRow } from '@/types/shop';
 import { STOCK_STATE } from '@/features/inventory/shared';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -102,6 +102,8 @@ import { ProductSkuSheet } from './ProductSkuSheet';
 import { VariantImagesCard } from './VariantImagesCard';
 import { activePlatforms, businessSummary, listingsByVariant, sellingShopCount, totalAvailable } from './productOverview';
 import { ProductSpecsCard } from './specs/ProductSpecsCard';
+import { CreatedNextSteps } from './CreatedNextSteps';
+import type { ProductCreatedState } from './ProductFormRoute';
 import {
   draftsFromProduct,
   isEmptySpec,
@@ -151,6 +153,8 @@ export function ProductFormPage() {
   const { productId } = useParams<{ productId: string }>();
   const isNew = !productId;
   const navigate = useNavigate();
+  const location = useLocation();
+  const navType = useNavigationType();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
@@ -177,7 +181,8 @@ export function ProductFormPage() {
   const canShop = can(PERMISSIONS.shopView);
   const canStock = can(PERMISSIONS.stockView);
   const canCost = can(PERMISSIONS.costView);
-  const shopsQuery = useShops({ enabled: canShop && !isNew });
+  // Form tạo cũng tải sẵn gian hàng: tạo xong dải tab sàn hiện ngay, không nhảy layout (FE#463)
+  const shopsQuery = useShops({ enabled: canShop });
   const listingsQuery = useProductListingRows(productId, canShop);
   const stockQuery = useStock({ productId, pageSize: 100 }, { enabled: canStock && !isNew });
   const platforms = activePlatforms(shopsQuery.data?.items ?? []);
@@ -400,6 +405,42 @@ export function ProductFormPage() {
 
   const backToList = () => navigate(ROUTES.company.catalog(companyId));
 
+  // FE#463: khung "Tiếp theo" hiện theo `?created=1`; cuộn lên đầu và focus tiêu đề chỉ khi vừa chuyển tới từ form tạo
+  // (PUSH/REPLACE kèm state), không khi Back/Forward hay tải lại (POP), một lần cho mỗi sản phẩm
+  const justCreated = !isNew && searchParams.get('created') === '1';
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const announcedId = useRef<string | null>(null);
+  const arrivedId = navType !== 'POP' ? (location.state as ProductCreatedState | null)?.createdId : undefined;
+  useEffect(() => {
+    if (!product || arrivedId !== product.id || announcedId.current === product.id) return;
+    announcedId.current = product.id;
+    window.scrollTo({ top: 0 });
+    titleRef.current?.focus({ preventScroll: true });
+  }, [arrivedId, product]);
+  /** Gỡ `?created=1` (thay mục history hiện tại); `tab` kèm theo khi mở tab sàn từ khung, gộp một lần điều hướng */
+  const closeCreated = (tabTo?: Marketplace) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('created');
+        if (tabTo) next.set('tab', tabTo);
+        return next;
+      },
+      { replace: true },
+    );
+  // Đã đăng lên sàn (bước cuối của khung) thì khung xong việc, gỡ cờ để Back/F5 không hiện lại
+  const publishedAny = listingRows.some((r) => r.listing && r.listing.status !== 'delisted');
+  useEffect(() => {
+    if (justCreated && publishedAny) closeCreated();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo hai cờ
+  }, [justCreated, publishedAny]);
+  // "Đăng sản phẩm" trong khung: gỡ cờ trên mục history của trang này trước, rồi mới sang trình đăng (hai điều hướng
+  // liền nhau trong một lượt thì lượt sau huỷ lượt trước)
+  const publishFromCreated = (href: string) => {
+    closeCreated();
+    setTimeout(() => navigate(href), 0);
+  };
+
   /** Lỗi 422 của BE về đúng chỗ (AC-8) */
   const applyFieldErrors = (e: unknown) => {
     const fieldErrors = getProblem(e)?.errors;
@@ -446,20 +487,31 @@ export function ProductFormPage() {
           ...(sizeChart && { sizeChartFileId: sizeChart.fileId }),
           ...draftBody(draft, attributes),
         });
-        toast.success(`Đã tạo ${created.name} với ${created.variants.length} biến thể`);
-        // Ngưỡng tồn áp sau khi tạo; lỗi thì sản phẩm vẫn tạo xong, mục "Ngưỡng tồn" còn ở thanh Còn thiếu (Documents/29 bước 3)
+        // FE#463: chuyển trang ngay khi POST xong (chi tiết đã ghi vào cache, ProductFormRoute giữ instance); ngưỡng tồn áp
+        // sau ở nền, rồi mới báo một toast. Lỗi ngưỡng tồn thì sản phẩm vẫn tạo xong, mục "Ngưỡng tồn" còn ở thanh Còn thiếu
+        // (Documents/29 bước 3)
         const minQty = parseMinQty(minQtyText);
+        const done = `Đã tạo ${created.name} với ${created.variants.length} biến thể`;
+        // Trang sửa bắt đầu như mount mới: bỏ nháp biến thể, ô ngưỡng tồn của form tạo
+        setMinQtyText('');
+        setDraft(emptyDraft);
+        setSubmitted(false);
+        const state: ProductCreatedState = { createdId: created.id };
+        navigate(`${ROUTES.company.catalogProduct(companyId, created.id)}?created=1`, { replace: true, state });
         if (minQty !== null && created.variants.length) {
           try {
             const result = await bulkSave.mutateAsync(
               created.variants.map((v) => ({ variantId: v.id, version: v.version, reorderVersion: null, minQty })),
             );
-            if (result.failed.length) toast.warning(`Chưa đặt được ngưỡng tồn cho ${result.failed.length} biến thể: ${result.failed[0].message}`);
+            if (result.failed.length)
+              toast.warning(`${done}. Chưa đặt được ngưỡng tồn cho ${result.failed.length} biến thể: ${result.failed[0].message}`);
+            else toast.success(done);
           } catch (e) {
-            toast.warning(`Chưa đặt được ngưỡng tồn: ${problemMessage(e)}`);
+            toast.warning(`${done}. Chưa đặt được ngưỡng tồn: ${problemMessage(e)}`);
           }
+        } else {
+          toast.success(done);
         }
-        navigate(ROUTES.company.catalogProduct(companyId, created.id), { replace: true });
       } else {
         const saved = await updateMut.mutateAsync({
           id: productId,
@@ -595,6 +647,7 @@ export function ProductFormPage() {
         {back}
         <PageHeader
           title={title}
+          titleRef={titleRef}
           subtitle={
             product ? (
               <>
@@ -622,12 +675,20 @@ export function ProductFormPage() {
           }
         />
 
-        {currentGroup?.splitInto?.length ? (
-          <AlertMessage severity="info" className="mb-4">
-            Danh mục {currentGroup.renamedFrom ?? currentGroup.name} đã tách thành{' '}
-            {currentGroup.splitInto.map((s) => s.name).join(', ')}. Chọn danh mục phù hợp hơn ở ô Danh mục sản phẩm rồi Lưu.
-          </AlertMessage>
-        ) : null}
+        {justCreated && product && (
+          <CreatedNextSteps
+            product={product}
+            shops={canShop ? shops : null}
+            shopsLoading={shopsQuery.isLoading}
+            onOpenSku={canManage && !archived ? setSpecVariantId : null}
+            onOpenTab={(p) => closeCreated(p)}
+            publishHref={!blocker ? ROUTES.company.productPublish(companyId, product.id) : null}
+            onPublish={publishFromCreated}
+            publishBlocker={blocker}
+            onClose={() => closeCreated()}
+          />
+        )}
+
         {archived && (
           <AlertMessage severity="info" className="mb-4">
             Sản phẩm đã lưu trữ nên chỉ xem được; Khôi phục từng SKU để bán tiếp. SKU của sản phẩm không cấp lại cho sản phẩm khác.
@@ -674,6 +735,9 @@ export function ProductFormPage() {
         )}
 
         <Tabs value={tab} onValueChange={setTab} className="gap-4">
+          {/* Giữ chỗ dải tab sàn khi gian hàng đang tải, để trang không nhảy (FE#463). Tải xong mà không có sàn nào hoạt
+              động thì dải tab không hiện, trang vẫn co lại ~36px: chấp nhận, hiếm khi người tạo sản phẩm chưa có gian hàng */}
+          {product && canShop && shopsQuery.isLoading && <Skeleton className="h-9 w-64" data-testid="platform-tabs-placeholder" />}
           {product && tabPlatforms.length > 0 && (
             <div className="max-w-full overflow-x-auto">
               <TabsList aria-label="Nơi bán">
@@ -724,9 +788,15 @@ export function ProductFormPage() {
                       />
                     </FormControl>
                     <FormMessage />
-                    {!form.formState.errors.groupId && !readOnly && (
+                    {/* Danh mục mặc định đã tách (Documents/21 §5.7): gợi ý ngay tại ô, không chiếm đầu trang (FE#464) */}
+                    {currentGroup?.splitInto?.length && !readOnly ? (
+                      <p className="text-sm text-info-text" data-testid="group-split-note">
+                        Danh mục {currentGroup.renamedFrom ?? currentGroup.name} đã tách thành{' '}
+                        {currentGroup.splitInto.map((g) => g.name).join(', ')}. Chọn danh mục hẹp hơn rồi Lưu.
+                      </p>
+                    ) : !form.formState.errors.groupId && !readOnly ? (
                       <FormDescription>Quyết định thuộc tính sản phẩm cần điền và biến thể gợi ý. Mã SKU tạo theo mẫu ở Cài đặt sản phẩm.</FormDescription>
-                    )}
+                    ) : null}
                   </FormItem>
                 )}
               />

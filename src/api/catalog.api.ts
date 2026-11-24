@@ -301,13 +301,30 @@ export function useProduct(id: string | undefined) {
 
 export function useCreateProduct() {
   const invalidate = useInvalidateCatalog();
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
   return useMutation({
     mutationFn: async (input: ProductCreateInput) => {
       const { data } = await apiClient.post<ProductDetail>('/catalog/products', input);
-      return data;
+      return withVariantDefaults(data);
     },
-    onSuccess: invalidate,
+    // FE#463: ghi sẵn chi tiết vào cache để trang sản phẩm vẽ ngay, không hiện skeleton; invalidate sau chỉ refetch nền
+    onSuccess: (p) => {
+      qc.setQueryData(catalogKeys.product(companyId, p.id), p);
+      void invalidate();
+    },
   });
+}
+
+/**
+ * Sản phẩm chứa một SKU, tìm qua bảng sửa hàng loạt theo mã SKU (cùng quyền `catalog.product.manage` với tạo SKU kho từ
+ * sàn). Dùng cho nút "Mở sản phẩm" sau khi tạo SKU kho từ SKU sàn (FE#463): BE chỉ trả `variantId`
+ */
+export async function fetchProductIdOfVariant(variantId: string, sku: string): Promise<string | null> {
+  const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', {
+    params: { page: 1, pageSize: 200, search: sku },
+  });
+  return data.items.find((r) => r.variantId === variantId)?.productId ?? null;
 }
 
 export function useUpdateProduct() {
