@@ -106,14 +106,15 @@ function FormLabel({
   );
 }
 
-function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
+function FormControl({ withCounter, ...props }: React.ComponentProps<typeof Slot> & { withCounter?: boolean }) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const describedBy = [formDescriptionId, error && formMessageId, withCounter && `${formItemId}-counter`].filter(Boolean).join(' ');
 
   return (
     <Slot
       data-slot="form-control"
       id={formItemId}
-      aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}
+      aria-describedby={describedBy}
       aria-invalid={!!error}
       {...props}
     />
@@ -145,6 +146,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="form-message"
       id={formMessageId}
+      role={error ? 'alert' : undefined}
       className={cn('text-sm text-destructive', className)}
       {...props}
     >
@@ -153,8 +155,22 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
   );
 }
 
+/** Bộ đếm ký tự dưới ô; ô nhập trỏ tới qua `<FormControl withCounter>`. Không đặt aria-live để khỏi đọc sau mỗi phím. */
+function FormCounter({ className, ...props }: React.ComponentProps<'span'>) {
+  const { formItemId } = useFormField();
+  return (
+    <span
+      data-slot="form-counter"
+      id={`${formItemId}-counter`}
+      className={cn('shrink-0 text-xs text-muted-foreground tabular-nums', className)}
+      {...props}
+    />
+  );
+}
+
 export {
   useFormField,
+  FormCounter,
   Form,
   FormItem,
   FormLabel,

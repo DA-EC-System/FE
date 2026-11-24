@@ -100,6 +100,11 @@ export function parseMinQty(text: string): number | null {
 }
 
 /** Lý do khoá nút "Đăng sản phẩm"; null là bấm được */
+/** Mục còn thiếu dùng cho nút Đăng: bỏ lỗi tên lúc Lưu (tên cũ ngắn không chặn đăng, đăng không lưu tên) */
+export function missingForPublish(input: Parameters<typeof missingItems>[0]): MissingItem[] {
+  return missingItems({ ...input, nameInvalid: false });
+}
+
 export function publishBlocker(input: {
   isNew: boolean;
   archived: boolean;

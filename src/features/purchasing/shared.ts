@@ -1,8 +1,8 @@
-import { productNameError } from '@/features/catalog/productName';
 import { z } from 'zod';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { moneySchema } from '@/utils/price';
 import { MAX_QTY, qtyText } from '@/features/inventory/shared';
+import { productNameError, productNameMaxError } from '@/features/catalog/productName';
 import type {
   DeliveryMode,
   GoodsReceiptStatus,
@@ -129,24 +129,29 @@ const optionSchema = z.object({
   value: z.string().trim().max(20, 'Tối đa 20 ký tự'),
 });
 
+/** Tên sản phẩm mới trong đề nghị nhập: BE purchasing `parentName` tối đa 120 */
+export const PARENT_NAME_MAX = 120;
+
 const requestLineSchema = z
   .object({
     variantId: z.string().nullable(),
     isNew: z.boolean(),
     parentMode: z.enum(['existing', 'new']),
     parentId: z.string(),
-    parentName: z.string().trim().max(120, 'Tối đa 120 ký tự'),
+    parentName: z.string().trim(),
     groupId: z.string(),
     options: z.array(optionSchema).max(MAX_AXES),
     quantity: qtyText(1, MAX_QTY),
     unitCost: moneySchema({ label: 'Giá nhập', max: MAX_COST }),
   })
   .superRefine((l, ctx) => {
+    const maxError = productNameMaxError(l.parentName, PARENT_NAME_MAX);
+    if (maxError) ctx.addIssue({ code: 'custom', path: ['parentName'], message: maxError });
     if (!l.isNew) return;
     if (l.parentMode === 'existing') {
       if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm' });
     } else {
-      const nameError = productNameError(l.parentName);
+      const nameError = maxError ? null : productNameError(l.parentName);
       if (nameError) ctx.addIssue({ code: 'custom', path: ['parentName'], message: nameError });
       if (!l.groupId) ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Chọn danh mục sản phẩm' });
     }

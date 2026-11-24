@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { valueCode } from '@/utils/sku';
 import type { Attribute, ProductDetail, ProductUpdateInput } from '@/types/catalog';
 import { suggestFormSchema } from './suggest';
-import { PRODUCT_NAME_MAX, productNameError } from './productName';
+import { productNameError, productNameMaxError } from './productName';
 
 export const MAX_IMAGES = 9;
 /** Ảnh gửi lên kho: JPG, PNG, tối đa 1 MB, cạnh ngắn từ 330 px cho khớp yêu cầu của sàn (FE#205) */
@@ -68,9 +68,8 @@ export const productSchema = z.object({
   name: z
     .string()
     .trim()
-    .max(PRODUCT_NAME_MAX, `Tên sản phẩm tối đa ${PRODUCT_NAME_MAX} ký tự`)
     .superRefine((v, ctx) => {
-      const error = productNameError(v);
+      const error = productNameMaxError(v) ?? productNameError(v);
       if (error) ctx.addIssue({ code: 'custom', message: error });
     }),
   groupId: z.string().min(1, 'Chọn danh mục sản phẩm'),

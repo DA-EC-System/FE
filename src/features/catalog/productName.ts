@@ -14,6 +14,11 @@ export function productNameError(name: string): string | null {
   return n < PRODUCT_NAME_MIN ? `Tên sản phẩm cần ít nhất ${PRODUCT_NAME_MIN} ký tự (hiện ${n})` : null;
 }
 
+/** Câu lỗi khi tên vượt tối đa, đếm cùng cách với bộ đếm; null là đạt */
+export function productNameMaxError(name: string, max = PRODUCT_NAME_MAX): string | null {
+  return productNameLength(name) > max ? `Tên sản phẩm tối đa ${max} ký tự` : null;
+}
+
 /** Chữ bộ đếm cạnh ô tên */
 export function productNameCounter(name: string, max = PRODUCT_NAME_MAX): string {
   const n = productNameLength(name);

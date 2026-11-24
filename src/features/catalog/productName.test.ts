@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PRODUCT_NAME_MIN, productNameCounter, productNameError, productNameLength } from './productName';
+import { PRODUCT_NAME_MIN, productNameCounter, productNameError, productNameLength, productNameMaxError } from './productName';
 import { productSchema } from './shared';
 
 const NAME_24 = 'Áo thun cotton nam cổ tr'; // 24 ký tự
@@ -38,6 +38,18 @@ describe('tên sản phẩm tối thiểu 25 ký tự', () => {
     const ok = productSchema.safeParse({ ...base, name: ` ${NAME_25} ` });
     expect(ok.success).toBe(true);
     expect(ok.data?.name).toBe(NAME_25);
+  });
+
+  it('tối đa đếm cùng cách với bộ đếm: chữ có dấu dạng tổ hợp (NFD) không bị đếm đôi', () => {
+    const name200 = 'ệ'.normalize('NFD').repeat(200);
+    expect(name200.length).toBe(600);
+    expect(productNameMaxError(name200)).toBeNull();
+    expect(productSchema.safeParse({ ...base, name: name200 }).success).toBe(true);
+    expect(productNameMaxError(`${name200}a`)).toBe('Tên sản phẩm tối đa 200 ký tự');
+    expect(productSchema.safeParse({ ...base, name: `${name200}a` }).error?.issues).toMatchObject([
+      { path: ['name'], message: 'Tên sản phẩm tối đa 200 ký tự' },
+    ]);
+    expect(productNameMaxError('a'.repeat(121), 120)).toBe('Tên sản phẩm tối đa 120 ký tự');
   });
 
   it('bộ đếm nhắc mức tối thiểu khi còn ngắn', () => {

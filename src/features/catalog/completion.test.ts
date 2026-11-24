@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUP_FIELD_ID, MIN_QTY_FIELD_ID, missingItems, parseMinQty, publishBlocker } from './completion';
+import { GROUP_FIELD_ID, MIN_QTY_FIELD_ID, missingForPublish, missingItems, parseMinQty, publishBlocker } from './completion';
 import { SHARED_TARGETS } from './productTabs';
 import { specFieldDomId } from './specs/SpecFieldsInput';
 
@@ -78,4 +78,11 @@ describe('publishBlocker', () => {
     [{ missing: ['ảnh', 'cân nặng (2 SKU)'] }, 'Còn thiếu 2 mục để đăng: ảnh, cân nặng (2 SKU)'],
     [{ dirty: true }, 'Lưu thay đổi trước rồi mới đăng'],
   ])('%o → %s', (patch, reason) => expect(publishBlocker({ ...ok, ...patch })).toBe(reason));
+
+  it('chỉ có lỗi tên lúc Lưu (nameInvalid) thì không chặn Đăng', () => {
+    const variants = [{ businessStatus: 'selling' as const, missing: [] }];
+    const missing = missingForPublish({ variants, nameInvalid: true }).map((m) => m.label);
+    expect(missing).toEqual([]);
+    expect(publishBlocker({ ...ok, missing })).toBeNull();
+  });
 });

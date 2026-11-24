@@ -6,10 +6,10 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAttributes, useGroups, useGroupTemplate, useProduct, useProducts } from '@/api/catalog.api';
 import { useDebounce } from '@/hooks/useDebounce';
+import { productNameCounter } from '@/features/catalog/productName';
 import { cn } from '@/lib/utils';
 import type { ProductListItem } from '@/types/catalog';
-import { MAX_AXES, axisChoices, type NewProductOption, type RequestLineDraft } from './shared';
-import { productNameCounter } from '@/features/catalog/productName';
+import { MAX_AXES, PARENT_NAME_MAX, axisChoices, type NewProductOption, type RequestLineDraft } from './shared';
 
 type FieldError = { message?: string } | undefined;
 
@@ -34,8 +34,12 @@ const NO_AXIS = '__none__';
 
 const emptyOptions = (): NewProductOption[] => Array.from({ length: MAX_AXES }, () => ({ axis: '', value: '' }));
 
-function Err({ error }: { error: FieldError }) {
-  return error?.message ? <p className="text-xs text-destructive">{error.message}</p> : null;
+function Err({ error, id }: { error: FieldError; id?: string }) {
+  return error?.message ? (
+    <p id={id} role="alert" className="text-xs text-destructive">
+      {error.message}
+    </p>
+  ) : null;
 }
 
 /**
@@ -43,6 +47,8 @@ function Err({ error }: { error: FieldError }) {
  * (tên, danh mục, tối đa 2 trục chọn từ thuộc tính của công ty). Các dòng cùng tên cha mới gộp một cha khi duyệt.
  */
 export function NewProductFields({ line, name, index, errors, disabled, onChange }: NewProductFieldsProps) {
+  const nameErrId = `parentName-${index}-err`;
+  const nameCounterId = `parentName-${index}-counter`;
   const groupsQuery = useGroups();
   const attributesQuery = useAttributes();
   const parentQuery = useProduct(line.parentMode === 'existing' && line.parentId ? line.parentId : undefined);
@@ -146,15 +152,18 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
               placeholder="Tên sản phẩm"
               aria-label={`Tên sản phẩm ${name}`}
               aria-invalid={Boolean(errors?.parentName)}
+              aria-describedby={errors?.parentName?.message ? `${nameErrId} ${nameCounterId}` : nameCounterId}
               disabled={disabled}
               className="h-8"
               onChange={(e) => onChange({ parentName: e.target.value })}
             />
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <Err error={errors?.parentName} />
+                <Err error={errors?.parentName} id={nameErrId} />
               </div>
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{productNameCounter(line.parentName, 120)}</span>
+              <span id={nameCounterId} className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {productNameCounter(line.parentName, PARENT_NAME_MAX)}
+              </span>
             </div>
           </div>
           <div className="grid gap-1">

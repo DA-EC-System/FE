@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import type { Control, FieldPath, FieldValues } from 'react-hook-form';
 import {
   FormControl,
+  FormCounter,
   FormDescription,
   FormField,
   FormItem,
@@ -47,7 +48,7 @@ export function FormTextField<T extends FieldValues>({
       render={({ field, fieldState }) => (
         <FormItem className={className}>
           <FormLabel hint={hint}>{label}</FormLabel>
-          <FormControl>
+          <FormControl withCounter={Boolean(counter)}>
             {password ? (
               <PasswordInput {...inputProps} {...field} value={field.value ?? ''} />
             ) : (
@@ -59,7 +60,7 @@ export function FormTextField<T extends FieldValues>({
               <div className="min-w-0 flex-1">
                 {fieldState.error ? <FormMessage /> : description && <FormDescription>{description}</FormDescription>}
               </div>
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{counter}</span>
+              <FormCounter>{counter}</FormCounter>
             </div>
           ) : fieldState.error ? (
             <FormMessage />

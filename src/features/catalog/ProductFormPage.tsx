@@ -1,4 +1,3 @@
-import { productNameCounter } from './productName';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -70,6 +69,7 @@ import { axisServerErrors, draftBody, draftError, emptyDraft, type VariantDraft 
 import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
 import { productPatchBody, productSchema, sizeChartPatch, type ProductForm } from './shared';
+import { productNameCounter } from './productName';
 import { Input } from '@/components/ui/input';
 import { CountryCombobox } from './CountryCombobox';
 import { SizeChartField } from './SizeChartField';
@@ -88,7 +88,7 @@ import {
   type ProductTabKey,
   type SharedTarget,
 } from './productTabs';
-import { GROUP_FIELD_ID, missingItems, parseMinQty, publishBlocker } from './completion';
+import { GROUP_FIELD_ID, missingForPublish, missingItems, parseMinQty, publishBlocker } from './completion';
 import { ProductCompletionRail } from './ProductCompletionRail';
 import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { NeedsAttentionBox } from './NeedsAttentionBox';
@@ -651,14 +651,14 @@ export function ProductFormPage() {
   };
   // Tên cũ ngắn hơn 25 ký tự: chỉ báo sau khi bấm Lưu (lỗi ở ô tên) và không chặn đăng, thao tác không lưu tên
   const missing = missingItems({ ...missingInput, nameInvalid: !isNew && Boolean(form.formState.errors.name) });
-  const missingForPublish = missingItems(missingInput);
+  const publishMissing = missingForPublish(missingInput);
   const specsDirty = JSON.stringify(specDrafts) !== JSON.stringify(specInitial);
   const imagesDirty = product ? JSON.stringify(images.map((i) => i.fileId)) !== JSON.stringify(toImages(product).map((i) => i.fileId)) : false;
   const blocker = publishBlocker({
     isNew,
     archived,
     canPublish: can(PERMISSIONS.listingManage),
-    missing: missingForPublish.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
+    missing: publishMissing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
   });
   // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
