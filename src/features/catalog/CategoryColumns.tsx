@@ -21,6 +21,8 @@ interface CategoryColumnsProps {
   /** Cha các cột đang mở, từ cột 2 trở đi (cột gốc luôn mở) */
   trail: string[];
   onTrail: (trail: string[]) => void;
+  /** Category cấp cuối nhận đủ thuộc tính biến thể của sản phẩm không (FE#459); thiếu thì không ghi gì */
+  fit?: (category: PlatformCategory) => { dim: boolean; note: string } | null;
   onSelect: (category: PlatformCategory) => void;
 }
 
@@ -29,7 +31,7 @@ interface PendingFocus {
   index: number;
 }
 
-export function CategoryColumns({ platform, label, selected, trail, onTrail, onSelect }: CategoryColumnsProps) {
+export function CategoryColumns({ platform, label, selected, trail, onTrail, fit, onSelect }: CategoryColumnsProps) {
   const pending = useRef<PendingFocus | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const parents: (string | null)[] = [null, ...trail];
@@ -110,6 +112,7 @@ export function CategoryColumns({ platform, label, selected, trail, onTrail, onS
             pending={pending}
             focusItem={focusItem}
             onOpen={(id) => onTrail([...trail.slice(0, col), id])}
+            fit={fit}
             onSelect={onSelect}
             onLoaded={col === parents.length - 1 ? scrollToLast : undefined}
           />
@@ -129,12 +132,13 @@ interface ColumnProps {
   pending: React.RefObject<PendingFocus | null>;
   focusItem: (col: number, index: number) => boolean;
   onOpen: (id: string) => void;
+  fit?: CategoryColumnsProps['fit'];
   onSelect: (category: PlatformCategory) => void;
   /** Cột cuối: gọi khi có dữ liệu để khung cuộn tới nó */
   onLoaded?: () => void;
 }
 
-function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pending, focusItem, onOpen, onSelect, onLoaded }: ColumnProps) {
+function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pending, focusItem, onOpen, fit, onSelect, onLoaded }: ColumnProps) {
   const level = usePlatformCategories(platform, parentId ? { parentId } : {});
   const items = level.data?.items;
 
@@ -191,6 +195,7 @@ function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pen
       {items.map((c, index) => {
         const isOpen = !c.isLeaf && opened === c.externalId;
         const isSelected = c.isLeaf && selected === c.externalId;
+        const f = c.isLeaf ? (fit?.(c) ?? null) : null;
         return (
           <button
             key={c.externalId}
@@ -207,9 +212,14 @@ function Column({ platform, col, parentId, opened, selected, hiddenOnMobile, pen
               'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
               isOpen && 'bg-accent font-semibold text-primary-text',
               isSelected && 'bg-primary font-semibold text-primary-foreground hover:bg-primary',
+              f?.dim && !isSelected && 'opacity-60',
             )}
+            title={f?.note}
           >
-            <span className="min-w-0 break-words">{c.name}</span>
+            <span className="min-w-0 break-words">
+              {c.name}
+              {f && <span className={cn('block text-xs font-normal', !isSelected && (f.dim ? 'text-warning-text' : 'text-muted-foreground'))}>{f.note}</span>}
+            </span>
             <RemovedBadge category={c} />
             {!c.isLeaf && <ChevronRight className={cn('size-4 flex-none text-muted-foreground', isOpen && 'text-primary-text')} aria-hidden />}
           </button>

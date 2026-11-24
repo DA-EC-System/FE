@@ -951,10 +951,22 @@ function ExtraMissing({
             'Sản phẩm chưa có thuộc tính biến thể nào ánh xạ tới sales attribute này. Thuộc tính biến thể của sản phẩm không thêm được sau khi tạo: chọn category khác, hoặc lập sản phẩm mới có thuộc tính biến thể này.';
           if (pushHref) actions.push(btn(pushHref, 'Chọn category khác', true));
           actions.push(btn(newProductHref, 'Lập sản phẩm mới'));
-        } else if (m.reason === 'axis_shape') {
+        } else if (m.reason === 'axis_shape' || m.reason === 'axis_limit') {
           title = 'Thuộc tính biến thể của sản phẩm không hợp với category';
+          body =
+            m.reason === 'axis_limit'
+              ? `${m.label}. Gộp thành 1 thuộc tính biến thể (nếu category cho ghép) hoặc chọn category khác ở bước Bổ sung theo sàn.`
+              : m.label;
+          if (pushHref) actions.push(btn(pushHref, m.reason === 'axis_limit' ? 'Gộp hoặc đổi category' : 'Chọn category khác', true));
+        } else if (m.reason === 'axis_value_too_long' || m.reason === 'axis_too_many_values' || m.reason === 'axis_name_too_long') {
+          title =
+            m.reason === 'axis_value_too_long'
+              ? 'Giá trị thuộc tính biến thể dài quá mức sàn nhận'
+              : m.reason === 'axis_too_many_values'
+                ? 'Thuộc tính biến thể có nhiều giá trị quá mức sàn nhận'
+                : 'Tên thuộc tính biến thể dài quá mức sàn nhận';
           body = m.label;
-          if (pushHref) actions.push(btn(pushHref, 'Chọn category khác', true));
+          if (pushHref) actions.push(btn(pushHref, 'Xem ở trang đẩy', true));
         } else {
           title = m.label;
         }
