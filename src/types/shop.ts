@@ -775,6 +775,10 @@ export interface PlatformCategory {
   pathIds?: string[];
   isLeaf: boolean;
   status: 'active' | 'removed';
+  /** Số thuộc tính biến thể leaf nhận (Documents/21 §18.10); null khi chưa lấy attribute của leaf, BE cũ thì thiếu */
+  maxAxes?: number | null;
+  /** Leaf có đích ghép thuộc tính biến thể (§18.8.3, commerio-backend#568); null khi chưa lấy attribute */
+  combinable?: boolean | null;
 }
 
 /** `syncedAt: null` khi chưa đồng bộ cây của sàn lần nào (`items` rỗng) */
@@ -840,6 +844,9 @@ export interface CategorySuggestion {
   permission: CategoryPermission | null;
   /** Công ty đã có spec ở category này trên sàn (chỉ ở `items`) */
   usedByCompany?: boolean;
+  /** Như `PlatformCategory.maxAxes`, `combinable` (Documents/21 §18.10) */
+  maxAxes?: number | null;
+  combinable?: boolean | null;
 }
 
 /** Category đọc từ spec của công ty (`group`: sản phẩm cùng nhóm hàng; `recent`: công ty dùng gần đây) */
@@ -898,6 +905,10 @@ export type SpecMissingReason =
   | 'axis_unmapped'
   | 'sales_required'
   | 'axis_shape'
+  | 'axis_limit'
+  | 'axis_value_too_long'
+  | 'axis_too_many_values'
+  | 'axis_name_too_long'
   | 'category_changed'
   | 'category_removed';
 
@@ -941,6 +952,15 @@ export interface VariantCapabilities {
   customAxisName: boolean;
   /** Mã sales attribute leaf bắt buộc có trục ánh xạ tới */
   salesRequired: string[];
+  /**
+   * Mã sales attribute BE đề xuất để ghép các thuộc tính biến thể thành một (commerio-backend#568); null khi leaf không có
+   * đích ghép được. BE cũ thì thiếu
+   */
+  combineTarget?: string | null;
+  /** Số ký tự tối đa của một giá trị ghép (Lazada 20, TikTok 50) */
+  maxValueLength?: number | null;
+  /** Số giá trị tối đa của thuộc tính biến thể ghép (Lazada 50, TikTok null) */
+  maxAxisValues?: number | null;
 }
 
 /** Giá trị đã tính của một attribute và nguồn của nó (Documents/21 §18.8.2) */

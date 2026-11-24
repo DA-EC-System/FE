@@ -201,8 +201,10 @@ export function specMissing(
     }
   }
   if (caps) {
-    if (axes.length > caps.maxAxes) {
-      out.push({ code: 'axes', label: `Sản phẩm có ${axes.length} thuộc tính biến thể, category này nhận tối đa ${caps.maxAxes}`, reason: 'axis_shape' });
+    // Đếm theo đích khác nhau trong `axisMap`: các trục ghép vào cùng một mã tính là một (Documents/21 §18.8.3)
+    const count = axisTargetCount(axes, spec.axisMap);
+    if (count > caps.maxAxes) {
+      out.push({ code: 'axes', label: `Category này chỉ nhận ${caps.maxAxes} thuộc tính biến thể, sản phẩm có ${count}`, reason: 'axis_limit' });
     }
     const mapped = new Set(axes.map((x) => spec.axisMap[x.attributeId]));
     for (const code of caps.salesRequired) {
@@ -234,6 +236,63 @@ export function draftMissing(input: {
   if (sameLeaf && !input.dirty) return saved.missing;
   const resolved = sameLeaf ? saved.resolved : input.forLeaf?.resolved;
   return specMissing(input.attrs, { ...draft, attributes: mergedValues(draft.attributes, resolved) }, input.axes, input.facts, input.caps);
+}
+
+/**
+ * Số thuộc tính biến thể gửi lên sàn: số đích khác nhau trong `axisMap`; mỗi trục tên tự đặt (`__custom`) hoặc chưa ánh xạ
+ * tính một đích riêng (Documents/21 §18.8.3)
+ */
+export function axisTargetCount(axes: Pick<ProductAxis, 'attributeId'>[], axisMap: Record<string, string>): number {
+  const codes = new Set<string>();
+  let own = 0;
+  for (const a of axes) {
+    const code = axisMap[a.attributeId];
+    if (!code || code === CUSTOM_AXIS) own++;
+    else codes.add(code);
+  }
+  return own + codes.size;
+}
+
+/** Nhóm thuộc tính biến thể ghép: mã sales attribute → các trục (từ hai trở lên) cùng trỏ mã đó, theo thứ tự trục */
+export function combinedGroups<T extends Pick<ProductAxis, 'attributeId'>>(axes: T[], axisMap: Record<string, string>): Map<string, T[]> {
+  const byCode = new Map<string, T[]>();
+  for (const a of axes) {
+    const code = axisMap[a.attributeId];
+    if (!code || code === CUSTOM_AXIS) continue;
+    byCode.set(code, [...(byCode.get(code) ?? []), a]);
+  }
+  return new Map([...byCode].filter(([, list]) => list.length > 1));
+}
+
+/**
+ * "Gộp thành 1 thuộc tính biến thể" (FE#459, commerio-backend#568): mọi trục trỏ `target`. Catalog không đổi; lúc đẩy BE
+ * nối giá trị theo thứ tự trục ("Đỏ - S"). Trục ghép không gửi `valueMap` (BE trả 422), nên bỏ giá trị chuẩn đã chọn
+ */
+export function withCombinedAxes(draft: SpecDraft, axes: ProductAxis[], target: string): SpecDraft {
+  const axisMap = { ...draft.axisMap };
+  const valueMap = { ...draft.valueMap };
+  for (const axis of axes) {
+    axisMap[axis.attributeId] = target;
+    for (const v of axis.values) delete valueMap[v.id];
+  }
+  return { ...draft, axisMap, valueMap };
+}
+
+/**
+ * Giá trị ghép gửi lên sàn theo từng SKU chưa lưu trữ: nhãn giá trị các trục trong nhóm theo thứ tự trục, nối " - ";
+ * bỏ trùng, giữ thứ tự (Documents/21 §18.8.3)
+ */
+export function combinedValues(
+  variants: Pick<ProductVariant, 'attributes' | 'archivedAt'>[],
+  group: Pick<ProductAxis, 'attributeId'>[],
+): string[] {
+  const out = new Set<string>();
+  for (const v of variants) {
+    if (v.archivedAt) continue;
+    const parts = group.map((g) => v.attributes.find((a) => a.attributeId === g.attributeId)?.value);
+    if (parts.every(Boolean)) out.add(parts.join(' - '));
+  }
+  return [...out];
 }
 
 /** Trục phân loại của sản phẩm, đọc từ biến thể chưa lưu trữ; giữ thứ tự xuất hiện */
@@ -339,7 +398,9 @@ export function specInput(draft: SpecDraft, attrs: PlatformAttribute[] | null, a
     attributes[code] = value;
   }
   const axisIds = new Set(axes.map((x) => x.attributeId));
-  const valueIds = new Set(axes.flatMap((x) => x.values.map((v) => v.id)));
+  // Giá trị của trục ghép không gửi `valueMap` (BE trả 422, commerio-backend#568)
+  const combined = new Set([...combinedGroups(axes, draft.axisMap).values()].flat().map((x) => x.attributeId));
+  const valueIds = new Set(axes.filter((x) => !combined.has(x.attributeId)).flatMap((x) => x.values.map((v) => v.id)));
   return {
     externalCategoryId: draft.externalCategoryId,
     attributes,
