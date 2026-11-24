@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -48,7 +48,7 @@ import { useStock } from '@/api/inventory.api';
 import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
 import { formatQty } from '@/features/inventory/shared';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
-import type { ProductListingRow } from '@/types/shop';
+import type { Marketplace, ProductListingRow } from '@/types/shop';
 import { STOCK_STATE } from '@/features/inventory/shared';
 import { isRouteMissing, problemCode, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
@@ -153,6 +153,8 @@ export function ProductFormPage() {
   const { productId } = useParams<{ productId: string }>();
   const isNew = !productId;
   const navigate = useNavigate();
+  const location = useLocation();
+  const navType = useNavigationType();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
@@ -403,25 +405,41 @@ export function ProductFormPage() {
 
   const backToList = () => navigate(ROUTES.company.catalog(companyId));
 
-  // FE#463: vừa tạo xong (`?created=1`) thì cuộn lên đầu và focus tiêu đề, một lần cho mỗi sản phẩm
+  // FE#463: khung "Tiếp theo" hiện theo `?created=1`; cuộn lên đầu và focus tiêu đề chỉ khi vừa chuyển tới từ form tạo
+  // (PUSH/REPLACE kèm state), không khi Back/Forward hay tải lại (POP), một lần cho mỗi sản phẩm
   const justCreated = !isNew && searchParams.get('created') === '1';
   const titleRef = useRef<HTMLHeadingElement>(null);
   const announcedId = useRef<string | null>(null);
+  const arrivedId = navType !== 'POP' ? (location.state as ProductCreatedState | null)?.createdId : undefined;
   useEffect(() => {
-    if (!justCreated || !product || announcedId.current === product.id) return;
+    if (!product || arrivedId !== product.id || announcedId.current === product.id) return;
     announcedId.current = product.id;
     window.scrollTo({ top: 0 });
     titleRef.current?.focus({ preventScroll: true });
-  }, [justCreated, product]);
-  const closeCreated = () =>
+  }, [arrivedId, product]);
+  /** Gỡ `?created=1` (thay mục history hiện tại); `tab` kèm theo khi mở tab sàn từ khung, gộp một lần điều hướng */
+  const closeCreated = (tabTo?: Marketplace) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete('created');
+        if (tabTo) next.set('tab', tabTo);
         return next;
       },
       { replace: true },
     );
+  // Đã đăng lên sàn (bước cuối của khung) thì khung xong việc, gỡ cờ để Back/F5 không hiện lại
+  const publishedAny = listingRows.some((r) => r.listing && r.listing.status !== 'delisted');
+  useEffect(() => {
+    if (justCreated && publishedAny) closeCreated();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo hai cờ
+  }, [justCreated, publishedAny]);
+  // "Đăng sản phẩm" trong khung: gỡ cờ trên mục history của trang này trước, rồi mới sang trình đăng (hai điều hướng
+  // liền nhau trong một lượt thì lượt sau huỷ lượt trước)
+  const publishFromCreated = (href: string) => {
+    closeCreated();
+    setTimeout(() => navigate(href), 0);
+  };
 
   /** Lỗi 422 của BE về đúng chỗ (AC-8) */
   const applyFieldErrors = (e: unknown) => {
@@ -663,10 +681,11 @@ export function ProductFormPage() {
             shops={canShop ? shops : null}
             shopsLoading={shopsQuery.isLoading}
             onOpenSku={canManage && !archived ? setSpecVariantId : null}
-            onOpenTab={setTab}
+            onOpenTab={(p) => closeCreated(p)}
             publishHref={!blocker ? ROUTES.company.productPublish(companyId, product.id) : null}
+            onPublish={publishFromCreated}
             publishBlocker={blocker}
-            onClose={closeCreated}
+            onClose={() => closeCreated()}
           />
         )}
 
@@ -716,7 +735,8 @@ export function ProductFormPage() {
         )}
 
         <Tabs value={tab} onValueChange={setTab} className="gap-4">
-          {/* Giữ chỗ dải tab sàn khi gian hàng đang tải, để trang không nhảy (FE#463) */}
+          {/* Giữ chỗ dải tab sàn khi gian hàng đang tải, để trang không nhảy (FE#463). Tải xong mà không có sàn nào hoạt
+              động thì dải tab không hiện, trang vẫn co lại ~36px: chấp nhận, hiếm khi người tạo sản phẩm chưa có gian hàng */}
           {product && canShop && shopsQuery.isLoading && <Skeleton className="h-9 w-64" data-testid="platform-tabs-placeholder" />}
           {product && tabPlatforms.length > 0 && (
             <div className="max-w-full overflow-x-auto">

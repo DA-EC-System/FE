@@ -18,6 +18,8 @@ interface CreatedNextStepsProps {
   onOpenSku: ((variantId: string) => void) | null;
   onOpenTab: (platform: Marketplace) => void;
   publishHref: string | null;
+  /** Bấm "Đăng sản phẩm": trang gỡ `?created=1` rồi mới chuyển sang `publishHref` */
+  onPublish: (href: string) => void;
   publishBlocker: string | null;
   onClose: () => void;
 }
@@ -34,6 +36,7 @@ export function CreatedNextSteps({
   onOpenSku,
   onOpenTab,
   publishHref,
+  onPublish,
   publishBlocker,
   onClose,
 }: CreatedNextStepsProps) {
@@ -91,7 +94,14 @@ export function CreatedNextSteps({
         <Step n={shops !== null ? 3 : 2} title="Đăng sản phẩm">
           {publishHref ? (
             <Button asChild size="sm" className="h-7">
-              <Link to={publishHref}>
+              <Link
+                to={publishHref}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                  e.preventDefault();
+                  onPublish(publishHref);
+                }}
+              >
                 Đăng sản phẩm
                 <ArrowRight aria-hidden />
               </Link>
@@ -123,7 +133,11 @@ function Step({ n, title, done, children }: { n: number; title: string; done?: b
   );
 }
 
-/** Một gian hàng: trạng thái thông tin sàn của sản phẩm trên sàn đó, nút sang tab sàn */
+/**
+ * Một gian hàng: trạng thái thông tin sàn của sản phẩm trên sàn đó, nút sang tab sàn.
+ * TODO(commerio-backend#564): trạng thái đang tính theo sàn (spec dùng chung các gian hàng cùng sàn), chưa theo gian
+ * hàng; đổi sang readiness theo gian hàng khi BE có
+ */
 function ShopLine({
   product,
   shop,

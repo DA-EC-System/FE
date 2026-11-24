@@ -322,7 +322,7 @@ export function useCreateProduct() {
  */
 export async function fetchProductIdOfVariant(variantId: string, sku: string): Promise<string | null> {
   const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', {
-    params: { page: 1, pageSize: 50, search: sku },
+    params: { page: 1, pageSize: 200, search: sku },
   });
   return data.items.find((r) => r.variantId === variantId)?.productId ?? null;
 }

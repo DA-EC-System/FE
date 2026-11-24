@@ -50,6 +50,36 @@ test('tạo sản phẩm: chuyển sang trang sửa, một toast, focus tiêu đ
   await expect(next.getByText('Đăng sản phẩm').first()).toBeVisible();
 });
 
+test('F5 thì khung còn nhưng không cuộn, không focus lại tiêu đề; breadcrumb không đọc dấu "/"', async () => {
+  await page.getByLabel('Tên sản phẩm').focus();
+  await page.reload();
+  await expect(page.getByTestId('created-next-steps')).toBeVisible();
+  await expect(page.getByLabel('Tên sản phẩm')).toHaveValue(tenSanPham);
+  await expect(page.getByRole('heading', { level: 1 })).not.toBeFocused();
+  // Dấu "/" vẽ bằng ::before có alt rỗng: không nằm trong cây truy cập
+  const snap = await page.getByRole('navigation', { name: 'Vị trí' }).ariaSnapshot();
+  const names = snap
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('- /url:'))
+    .join(' ');
+  expect(names).toContain(tenSanPham);
+  expect(names).not.toContain('/');
+});
+
+test('từ trang sản phẩm mở /new, gõ dở rồi Back: trang sản phẩm không dùng lại form /new', async () => {
+  const url = page.url();
+  await page.keyboard.press('Control+k');
+  await page.getByRole('dialog').getByPlaceholder(/./).fill('Thêm sản phẩm');
+  await page.getByRole('option', { name: /Thêm sản phẩm/ }).first().click();
+  await expect(page).toHaveURL(/\/catalog\/products\/new$/);
+  await page.getByLabel('Ngưỡng tồn (áp cho mọi biến thể)').fill('5');
+  await page.goBack();
+  await expect(page).toHaveURL(url);
+  await expect(page.getByLabel('Tên sản phẩm')).toHaveValue(tenSanPham);
+  await expect(page.getByLabel('Ngưỡng tồn (áp cho mọi biến thể)')).not.toHaveValue('5');
+  await expect(page.getByRole('heading', { level: 1 })).not.toBeFocused();
+});
+
 test('đóng khung Tiếp theo: bỏ ?created=1, tải lại không hiện lại', async () => {
   await page.getByRole('button', { name: 'Đóng hướng dẫn tiếp theo' }).click();
   await expect(page.getByTestId('created-next-steps')).toHaveCount(0);
