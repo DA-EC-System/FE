@@ -165,8 +165,13 @@ function StockPreview({ shopId, firstShop, hold }: { shopId: string; firstShop: 
       <h2 id="stock-preview-title" className="text-[15px] font-semibold">
         {keep ? 'Tồn trên sàn sẽ giữ tới khi kiểm kho xong' : 'Tồn sẽ đồng bộ lên sàn'}
       </h2>
-      {/* Chỗ cho dòng "Tổng tồn trên sàn …, có thể bán ở Commerio …" của design v2.html s5: `totals` (§18.12) chưa có tổng
-          số lượng, đang chờ Thành quyết có thêm vào hợp đồng không */}
+      {/* Thành chọn 24(a): giữ dòng tổng của design v2.html s5; ẩn khi BE chưa trả hoặc trả null */}
+      {totals?.platformStockSum != null && totals.availableSum != null && (
+        <p className="text-sm" data-testid="setup-stock-sums">
+          Tổng tồn trên sàn <b className="tabular-nums">{n(totals.platformStockSum)}</b>, có thể bán ở Commerio{' '}
+          <b className="tabular-nums">{n(totals.availableSum)}</b>.
+        </p>
+      )}
       {totals && (
         <div className="flex flex-wrap items-center gap-2 text-sm" role="status">
           <Badge variant="warning" className="tabular-nums">

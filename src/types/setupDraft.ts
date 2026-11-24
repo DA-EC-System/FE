@@ -121,6 +121,9 @@ export interface RemoteProductList {
     none: number | null;
     drifted: number;
     matched: number;
+    /** Tổng tồn trên sàn và tổng có thể bán ở Commerio của các SKU khớp bộ lọc (be#587, Documents quyết định 24); null khi không có SKU hoặc không SKU nào có `available` */
+    platformStockSum?: number | null;
+    availableSum?: number | null;
   };
 }
 
