@@ -29,20 +29,23 @@ export function VariantsStep({ label, axes, sales, caps, draft, errors, onAxis, 
   const list = sales ?? [];
   return (
     <div className="grid gap-4">
-      <AlertMessage severity={caps && axes.length > caps.maxAxes ? 'warning' : 'info'}>
-        Mỗi thuộc tính biến thể của sản phẩm khớp với một thuộc tính biến thể của {label}; Commerio đã chọn sẵn theo loại thuộc
-        tính và ánh xạ của công ty. Giá trị khớp lựa chọn chuẩn thì sản phẩm hiện đúng trong bộ lọc của sàn.
-        {caps && (
-          <>
-            {' '}
-            Category này nhận tối đa <b>{caps.maxAxes}</b> thuộc tính biến thể
-            {caps.customAxisName ? ', nhận cả tên tự đặt.' : ', chỉ nhận thuộc tính biến thể có sẵn của category, không nhận tên tự đặt.'}
-            {axes.length > caps.maxAxes && ` Sản phẩm có ${axes.length} thuộc tính biến thể nên chưa đăng được vào category này.`}
-          </>
-        )}
+      <AlertMessage severity={caps && axes.length > caps.maxAxes ? 'warning' : 'info'} alert={Boolean(caps && axes.length > caps.maxAxes)}>
+        {/* Bọc một đoạn: AlertDescription là grid, phần tử inline (<b>) đứng riêng một dòng (FE#459) */}
+        <p>
+          Mỗi thuộc tính biến thể của sản phẩm khớp với một thuộc tính biến thể của {label}; Commerio đã chọn sẵn theo loại thuộc
+          tính và ánh xạ của công ty. Giá trị khớp lựa chọn chuẩn thì sản phẩm hiện đúng trong bộ lọc của sàn.
+          {caps && (
+            <>
+              {' '}
+              Category này nhận tối đa <b>{caps.maxAxes}</b> thuộc tính biến thể
+              {caps.customAxisName ? ', nhận cả tên tự đặt.' : ', chỉ nhận thuộc tính biến thể có sẵn của category, không nhận tên tự đặt.'}
+              {axes.length > caps.maxAxes && ` Sản phẩm có ${axes.length} thuộc tính biến thể nên chưa đăng được vào category này.`}
+            </>
+          )}
+        </p>
       </AlertMessage>
       {caps?.salesRequired.some((c) => !axes.some((x) => draft.axisMap[x.attributeId] === c)) && (
-        <AlertMessage severity="warning">
+        <AlertMessage severity="warning" alert>
           {label} bắt buộc category này có thuộc tính biến thể{' '}
           {caps.salesRequired
             .filter((c) => !axes.some((x) => draft.axisMap[x.attributeId] === c))

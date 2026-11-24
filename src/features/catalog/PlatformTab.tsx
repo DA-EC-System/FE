@@ -52,6 +52,7 @@ import type {
   SpecValue,
 } from '@/types/shop';
 import { CategoryPath } from './CategoryPath';
+import { CategoryPickerDialog } from './CategoryPickerDialog';
 import { focusField } from './focusField';
 import { usePlatformTab } from './usePlatformTab';
 import { RemoteSuggestion } from './RemoteSuggestion';
@@ -85,6 +86,8 @@ interface Props {
   canEditProduct: boolean;
   /** Sang tab Nội bộ, cuộn tới ô dùng chung */
   onJump: (target: SharedTarget) => void;
+  /** Báo trang khi attribute có/không còn sửa dở, để hỏi lại khi rời tab/trang (FE#459) */
+  onDirtyChange?: (platform: Marketplace, dirty: boolean) => void;
 }
 
 /**
@@ -92,7 +95,7 @@ interface Props {
  * theo gian hàng, bảng kích cỡ, vận chuyển. Attribute bắt buộc sửa và lưu tại chỗ qua `PUT …/specs/:platform`
  * (Documents/21 §18.5); ô dùng chung chỉ xem, bấm nhãn thì sang tab Nội bộ
  */
-export function PlatformTab({ companyId, product, platform, shops, rows, canEditSpec, canEditProduct, onJump }: Props) {
+export function PlatformTab({ companyId, product, platform, shops, rows, canEditSpec, canEditProduct, onJump, onDirtyChange }: Props) {
   const data = usePlatformTab(product, platform, shops);
   const resolved = data.specQuery.data?.resolved;
   const { specQuery, spec, leaf, attrs, axes, missing, gaps, noCategory } = data;
@@ -109,10 +112,15 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     // eslint-disable-next-line react-hooks/exhaustive-deps -- theo version của bản đã lưu
   }, [spec?.version, spec?.externalCategoryId]);
   const save = useSaveProductSpec();
+  // Chọn category tại chỗ (FE#459); sản phẩm đã lên sàn thì đổi category cần khối đổi trên sàn ở trang đăng
+  const [pickingCategory, setPickingCategory] = useState(false);
   // Ô đang mở sửa riêng cho sàn mà chưa có giá trị ghi đè ("Chỉ điền cho {sàn}" ở ô trống)
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
   // Chỉ bật Lưu khi giá trị hiển thị thật sự khác bản đã lưu ("Sửa riêng" mà giữ nguyên thì chưa đổi)
   const dirty = spec ? valuesChanged(draft.attributes, spec.attributes, resolved) : false;
+  useEffect(() => {
+    onDirtyChange?.(platform, dirty);
+  }, [dirty, platform, onDirtyChange]);
   // Giá trị mỗi ô: ghi đè trong nháp > giá trị BE tự điền (Documents/21 §18.8.2)
   const values = mergedValues(draft.attributes, resolved);
   const otherMissing = missing.filter((m) => !ATTR_REASONS.has(m.reason));
@@ -334,9 +342,15 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 missing={noCategory && `Chưa chọn category ${label}. Chọn category để sửa nội dung trên sàn.`}
                 action={
                   canEditSpec && (
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={pushHref}>{spec ? 'Đổi category' : 'Chọn category'}</Link>
-                    </Button>
+                    listed ? (
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={pushHref}>Đổi category</Link>
+                      </Button>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setPickingCategory(true)}>
+                        {spec ? 'Đổi category' : 'Chọn category'}
+                      </Button>
+                    )
                   )
                 }
               >
@@ -512,6 +526,20 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
             </span>
           </ReadField>
         </Section>
+      {canEditSpec && !listed && (
+        <CategoryPickerDialog
+          open={pickingCategory}
+          onOpenChange={setPickingCategory}
+          companyId={companyId}
+          product={product}
+          platform={platform}
+          label={label}
+          shopId={data.shop?.id ?? null}
+          spec={spec}
+          pathIds={leaf.data?.category.pathIds ?? null}
+          dirty={dirty}
+        />
+      )}
       </div>
     </div>
   );
