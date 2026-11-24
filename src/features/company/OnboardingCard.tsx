@@ -5,10 +5,10 @@ import { Panel } from '@/components/common/Panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useOnboarding } from '@/api/onboarding.api';
-import { ROUTES } from '@/router/routes';
 import type { OnboardingKey } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
-import { onboardingSteps, optionalSteps, requiredSteps, showOnboarding, type OnboardingStep } from './onboardingSteps';
+import { workspaceMode } from '@/features/onboarding/wizardState';
+import { onboardingSteps, optionalSteps, requiredSteps, type OnboardingStep } from './onboardingSteps';
 
 const collapsedKey = (companyId: string) => `commerio_onboarding_collapsed:${companyId}`;
 
@@ -48,13 +48,17 @@ export function OnboardingCard({ companyId }: { companyId: string }) {
   const optional = optionalSteps(steps);
   return (
     <>
-      {showOnboarding(data) && <ResumeBand companyId={companyId} done={data.done} total={data.total} steps={requiredSteps(steps)} />}
+      {workspaceMode(data) === 'resume' && <ResumeBand done={data.done} total={data.total} steps={requiredSteps(steps)} />}
       {optional.some((s) => !s.done) && <OptionalBoard companyId={companyId} steps={optional} />}
     </>
   );
 }
 
-function ResumeBand({ companyId, done, total, steps }: { companyId: string; done: number; total: number; steps: OnboardingStep[] }) {
+/**
+ * Công ty đã hoàn tất thiết lập mà một mục bắt buộc bị đảo lại (ngắt gian hàng, xoá phiếu): không ép vào wizard, nút
+ * dẫn thẳng tới trang làm mục đó (Documents/21 mục 23: dải ở Tổng quan tới trang cũ, không về `/welcome`).
+ */
+function ResumeBand({ done, total, steps }: { done: number; total: number; steps: OnboardingStep[] }) {
   const next = steps.find((s) => !s.done);
   const left = total - done;
   return (
@@ -90,12 +94,14 @@ function ResumeBand({ companyId, done, total, steps }: { companyId: string; done
           </p>
         )}
       </div>
-      <Button asChild className="justify-self-start sm:justify-self-end">
-        <Link to={ROUTES.company.welcome(companyId)}>
-          Tiếp tục thiết lập
-          <ArrowRight />
-        </Link>
-      </Button>
+      {next && (
+        <Button asChild className="justify-self-start sm:justify-self-end">
+          <Link to={next.to}>
+            Tiếp tục thiết lập
+            <ArrowRight />
+          </Link>
+        </Button>
+      )}
     </section>
   );
 }
@@ -127,8 +133,11 @@ function OptionalBoard({ companyId, steps }: { companyId: string; steps: Onboard
   );
 }
 
-/** Danh sách việc tuỳ chọn: dùng ở bảng Tổng quan và trang "Sẵn sàng bán" của wizard */
-export function OptionalTodoList({ steps, className }: { steps: OnboardingStep[]; className?: string }) {
+/**
+ * Danh sách việc tuỳ chọn: dùng ở bảng Tổng quan và trang "Sẵn sàng bán" của wizard. `readOnly` (wizard): thay nút
+ * bằng nhãn "Làm ở Tổng quan", để "Vào Tổng quan" là lối ra duy nhất (FE#468, design v2.html màn done).
+ */
+export function OptionalTodoList({ steps, className, readOnly }: { steps: OnboardingStep[]; className?: string; readOnly?: boolean }) {
   return (
     <ul className={cn('divide-y', className)} data-testid="onboarding-list">
       {steps.map((s) => {
@@ -156,6 +165,10 @@ export function OptionalTodoList({ steps, className }: { steps: OnboardingStep[]
               <Badge variant="outline" className="border-success/30 bg-success/10 font-normal text-success-text">
                 <Check className="size-3.5" aria-hidden />
                 Xong
+              </Badge>
+            ) : readOnly ? (
+              <Badge variant="outline" className="font-normal">
+                Làm ở Tổng quan
               </Badge>
             ) : (
               <Button asChild variant="outline" size="sm">

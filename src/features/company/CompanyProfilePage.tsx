@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { FormTextField } from '@/components/common/FormTextField';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
@@ -56,8 +57,20 @@ export function CompanyProfilePage() {
   );
 }
 
-/** Form hồ sơ; wizard `/welcome` nhúng lại ở bước Hồ sơ công ty (FE#419) và đọc lại tiến độ qua `onSaved` */
-export function ProfileForm({ profile, onSaved }: { profile: CompanyProfile; onSaved?: () => void }) {
+interface ProfileFormProps {
+  profile: CompanyProfile;
+  onSaved?: () => void;
+  /**
+   * Wizard `/welcome` (FE#468): nút gửi nằm ở chân wizard ("Lưu và tiếp", `form={formId}`), nên form ẩn nút của mình
+   * và báo đang lưu qua `onBusyChange`
+   */
+  formId?: string;
+  hideActions?: boolean;
+  onBusyChange?: (busy: boolean) => void;
+}
+
+/** Form hồ sơ; wizard `/welcome` nhúng lại ở bước Hồ sơ công ty (FE#419, FE#468) và đọc lại tiến độ qua `onSaved` */
+export function ProfileForm({ profile, onSaved, formId, hideActions, onBusyChange }: ProfileFormProps) {
   const update = useUpdateCompanyProfile();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<CompanyProfileForm>({ resolver: zodResolver(schema), defaultValues: toProfileForm(profile) });
@@ -69,6 +82,12 @@ export function ProfileForm({ profile, onSaved }: { profile: CompanyProfile; onS
   }, [profile, reset]);
 
   const address = watch('address').trim();
+  const pending = update.isPending;
+  useEffect(() => {
+    onBusyChange?.(pending);
+    // Rời bước khi đang lưu (bấm thanh bước, Back): trả nút của wizard về bình thường
+    return () => onBusyChange?.(false);
+  }, [pending, onBusyChange]);
 
   const onSubmit = form.handleSubmit((v) => {
     setError(null);
@@ -100,7 +119,7 @@ export function ProfileForm({ profile, onSaved }: { profile: CompanyProfile; onS
 
   return (
     <Form {...form}>
-      <form onSubmit={onSubmit} noValidate className="grid max-w-2xl gap-4" data-testid="company-profile-form">
+      <form id={formId} onSubmit={onSubmit} noValidate className="grid max-w-2xl gap-4" data-testid="company-profile-form">
         {error && (
           <AlertMessage severity="warning" onClose={() => setError(null)}>
             {error}
@@ -141,6 +160,10 @@ export function ProfileForm({ profile, onSaved }: { profile: CompanyProfile; onS
         <Card className="gap-0 py-0">
           <div className="border-b px-4 py-3 text-sm font-semibold">Tổ chức chịu trách nhiệm hàng hoá</div>
           <div className="grid gap-4 px-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Khi đăng sản phẩm lên sàn, Commerio điền tên và địa chỉ này vào ô tổ chức chịu trách nhiệm hàng hoá mà sàn đòi theo
+              quy định ghi nhãn. Để trống thì dùng tên và địa chỉ công ty.
+            </p>
             <FormTextField
               control={control}
               name="responsibleName"
@@ -163,7 +186,7 @@ export function ProfileForm({ profile, onSaved }: { profile: CompanyProfile; onS
             </p>
           </div>
         </Card>
-        <div className="flex gap-2">
+        <div className={cn('flex gap-2', hideActions && 'hidden')}>
           <Button type="submit" disabled={update.isPending}>
             {update.isPending ? 'Đang lưu…' : 'Lưu'}
           </Button>

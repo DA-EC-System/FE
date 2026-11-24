@@ -9,6 +9,7 @@ import {
   RequireCompany,
   RequireGuest,
   RequireModule,
+  RequireOnboarding,
   RequirePasswordChanged,
   RequirePlatformAdmin,
   RequireStaff,
@@ -26,7 +27,7 @@ import { CompanyAuditLogPage } from '@/features/company/CompanyAuditLogPage';
 import { CompanyProfilePage } from '@/features/company/CompanyProfilePage';
 import { DeadJobsPage } from '@/features/company/DeadJobsPage';
 import { CompanyHomePage } from '@/features/company/CompanyHomePage';
-import { WelcomePage } from '@/features/company/WelcomePage';
+import { WelcomePage } from '@/features/onboarding/WelcomePage';
 import { ShopListPage } from '@/features/channel/ShopListPage';
 import { ShopListingsPage } from '@/features/channel/ShopListingsPage';
 import { ShopSetupPage } from '@/features/channel/ShopSetupPage';
@@ -131,7 +132,12 @@ export const router = createBrowserRouter([
               // Hướng dẫn thiết lập ban đầu: trang riêng, không có thanh bên (FE#419)
               { path: 'welcome', element: <WelcomePage /> },
               {
-                element: <CompanyLayout />,
+                // Chưa xong thiết lập ban đầu thì về /welcome (FE#468)
+                element: (
+                  <RequireOnboarding>
+                    <CompanyLayout />
+                  </RequireOnboarding>
+                ),
                 children: [
                   { index: true, element: <CompanyHomePage /> },
                   {
