@@ -109,10 +109,19 @@ export interface RemoteProductList {
   counts: { unlinked: number; linked: number; pending: number };
   syncedAt: string | null;
   /**
-   * Tổng xem trước tồn của SKU có quyết định `link`/`create` trên cả gian hàng (Thành chốt 24/11/2026: BE trả, FE không
-   * đọc hết trang). Tên và hình trường chờ Documents/21 §18.12; vắng thì FE không hiện dòng tổng
+   * Số SKU khớp cả bộ lọc, không theo trang (§18.12, Documents#251). `create`…`none`: theo lựa chọn trong nháp, chỉ gian
+   * hàng `connecting` (còn lại null). `drifted`/`matched`: SKU có `available` (dòng `create` tính 0) lệch/khớp tồn sàn.
+   * Vắng khi BE chưa có trường này
    */
-  stockTotals?: { drifted: number; matched: number; platformTotal: number; availableTotal: number } | null;
+  totals?: {
+    create: number | null;
+    link: number | null;
+    skip: number | null;
+    unmanaged: number | null;
+    none: number | null;
+    drifted: number;
+    matched: number;
+  };
 }
 
 /** POST /channel/shops/:id/sku-links khi gian hàng `connecting` (ghi nháp) */

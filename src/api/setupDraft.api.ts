@@ -172,16 +172,28 @@ export function useCategorySync(shopId: string, enabled = true) {
   });
 }
 
-/** Nút "Thử lại" của khối category: xếp lại lượt đồng bộ cây rồi đọc lại trạng thái */
+/**
+ * Nút "Thử lại" của khối category (§18.5, Documents#253): cây lỗi thì xếp lại lượt đồng bộ cây, gửi `shopId` để gian
+ * hàng đang thiết lập cho mượn token (TikTok, chưa có gian hàng active); quyền theo gian hàng lỗi thì đọc lại quyền,
+ * kết quả cùng hình `GET category-sync` nên ghi thẳng vào cache.
+ */
 export function useRetryCategorySync(shopId: string, platform: string) {
   const qc = useQueryClient();
   const companyId = useCompanyId();
+  const key = setupDraftKeys.categorySync(companyId, shopId);
   return useMutation({
-    mutationFn: async () => {
-      const { data } = await apiClient.post<{ queued: boolean }>(`/channel/platforms/${platform}/categories/sync`);
-      return data;
+    mutationFn: async (target: 'tree' | 'permissions') => {
+      if (target === 'permissions') {
+        const { data } = await apiClient.post<CategorySyncState>(`/channel/shops/${shopId}/category-permissions/refresh`);
+        return data;
+      }
+      await apiClient.post<{ queued: boolean }>(`/channel/platforms/${platform}/categories/sync`, { shopId });
+      return null;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: setupDraftKeys.categorySync(companyId, shopId) }),
+    onSuccess: (data) => {
+      if (data) qc.setQueryData(key, data);
+      return qc.invalidateQueries({ queryKey: key });
+    },
   });
 }
 

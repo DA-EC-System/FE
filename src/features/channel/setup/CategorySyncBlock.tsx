@@ -29,13 +29,14 @@ export function CategorySyncBlock({ shopId, platform, platformName }: { shopId: 
     return <Row icon={<CircleX className="text-muted-foreground" />} title="Sàn này chưa hỗ trợ đọc category; chọn danh mục tay ở bước 4." />;
   }
   if (tree === 'failed' || perm === 'failed') {
+    const retryError = retry.isError ? ` ${problemMessage(retry.error)}` : '';
     return (
       <Row
         icon={<CircleX className="text-destructive" />}
-        title={`Chưa tải được category ${platformName}`}
-        hint={`${d.tree.error ?? d.permissions?.error ?? 'Sàn chưa trả cây category.'} Thử lại; vẫn lỗi thì chọn danh mục bằng tay ở bước 4.`}
+        title={tree === 'failed' ? `Chưa tải được category ${platformName}` : `Chưa đọc được category gian hàng được bán trên ${platformName}`}
+        hint={`${(tree === 'failed' ? d.tree.error : d.permissions?.error) ?? 'Sàn chưa trả cây category.'} Thử lại; vẫn lỗi thì chọn danh mục bằng tay ở bước 4.${retryError}`}
         action={
-          <Button size="sm" variant="outline" disabled={retry.isPending} onClick={() => retry.mutate()}>
+          <Button size="sm" variant="outline" disabled={retry.isPending} onClick={() => retry.mutate(tree === 'failed' ? 'tree' : 'permissions')}>
             <RefreshCw className={retry.isPending ? 'animate-spin motion-reduce:animate-none' : undefined} />
             Thử lại
           </Button>

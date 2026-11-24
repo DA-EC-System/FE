@@ -157,7 +157,7 @@ function StockPreview({ shopId, firstShop, hold }: { shopId: string; firstShop: 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const list = useRemoteProducts(shopId, { status: 'all', search, page, pageSize: PAGE_SIZE });
-  const totals = list.data?.stockTotals ?? null;
+  const totals = list.data?.totals ?? null;
   const keep = firstShop || hold;
 
   return (
@@ -173,9 +173,6 @@ function StockPreview({ shopId, firstShop, hold }: { shopId: string; firstShop: 
           <Badge variant="outline" className="tabular-nums">
             {n(totals.matched)} SKU khớp
           </Badge>
-          <span className="text-xs text-muted-foreground">
-            Tổng tồn trên sàn {n(totals.platformTotal)}, có thể bán ở Commerio {n(totals.availableTotal)}
-          </span>
         </div>
       )}
       <label className="relative w-full sm:w-64">
