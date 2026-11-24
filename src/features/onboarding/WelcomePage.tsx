@@ -187,6 +187,11 @@ export function WelcomePage() {
                 onConnected={() => void advance('connect_shop')}
               />
             )}
+            {SHOP_SETUP_KEYS.includes(step.key) && step.ref?.type !== 'shop' && (
+              <AlertMessage severity="warning">
+                Chưa có gian hàng đang thiết lập. Quay lại bước Kết nối gian hàng để nối một gian hàng, hoặc tải lại trang.
+              </AlertMessage>
+            )}
             {step.ref?.type === 'shop' && SHOP_SETUP_KEYS.includes(step.key) && (
               <ShopSetupWizardStep
                 shopId={step.ref.id}

@@ -76,8 +76,29 @@ export function ShopSetupWizardStep({
   }, [connecting, onOwnsAction]);
 
   if (shop.isLoading) return <PageSpinner />;
-  if (shop.isError || !shop.data) return <AlertMessage severity="error">{problemMessage(shop.error)}</AlertMessage>;
+  if (shop.isError || !shop.data) {
+    return (
+      <div className="grid justify-items-start gap-3">
+        <AlertMessage severity="error">{problemMessage(shop.error)}</AlertMessage>
+        <Button variant="outline" onClick={() => void shop.refetch()} disabled={shop.isFetching}>
+          Thử lại
+        </Button>
+      </div>
+    );
+  }
   const s = shop.data;
+  if (s.status === 'needs_reauth') {
+    // Mất uỷ quyền giữa wizard (Documents/21 mục 23): kết nối lại thì gian hàng về `connecting`, nháp còn nguyên
+    return (
+      <div className="grid justify-items-start gap-3" data-testid="setup-needs-reauth">
+        <AlertMessage severity="warning">
+          <b className="font-semibold">Gian hàng cần kết nối lại.</b> Sàn không còn cho Commerio truy cập. Kết nối lại, lựa chọn đã lưu vẫn còn,
+          rồi làm tiếp bước này.
+        </AlertMessage>
+        <Button onClick={() => void connector.start({ platform: s.platform, shopId: s.id })}>Kết nối lại</Button>
+      </div>
+    );
+  }
   if (!connecting && stepKey === 'order_cutoff') {
     // Đã hoàn tất: wizard ở lại bước này cho tới khi người dùng bấm Tiếp, hiện tiến độ và kết quả việc chạy nền
     return <SetupProgress shop={s} companyId={companyId} timedOut={Date.now() - pollFrom >= SETUP_POLL_MAX_MS} />;
@@ -164,7 +185,14 @@ export function ShopSetupWizardStep({
   return (
     <div className="grid gap-4">
       <DraftNotices state={state} onReconnect={() => void connector.start({ platform: s.platform, shopId: s.id })} />
-      {state.view.isError && <AlertMessage severity="error">{problemMessage(state.view.error)}</AlertMessage>}
+      {state.view.isError && (
+        <div className="grid justify-items-start gap-2">
+          <AlertMessage severity="error">{problemMessage(state.view.error)}</AlertMessage>
+          <Button variant="outline" size="sm" onClick={() => void state.view.refetch()} disabled={state.view.isFetching}>
+            Thử lại
+          </Button>
+        </div>
+      )}
       {issues.length > 0 && (
         <AlertMessage severity="error">
           <ul className="grid list-disc gap-1 ps-5">
