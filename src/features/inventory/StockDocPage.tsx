@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -170,9 +170,18 @@ function RefLink({ companyId, docRef }: { companyId: string; docRef: DocRef }) {
  * trả nhà cung cấp; không thiếu thì ghi sổ thẳng, có thiếu thì người thứ hai duyệt. Phiếu xuất theo kiện, huỷ bàn giao chỉ xem.
  * `/inventory/documents/new?type=stocktake|write_off|to_quarantine` là phiếu mới.
  */
-export function StockDocPage() {
+interface StockDocPageProps {
+  /**
+   * Nhúng vào wizard thiết lập (bước 7 Tồn đầu kỳ, FE#468): đọc phiếu theo `docId` thay vì URL, không có nút quay lại,
+   * lịch sử và thanh quay về wizard. `intro` hiện trên bảng dòng (ai đếm, ai duyệt; nút mời Nhân viên kho).
+   */
+  embedded?: { docId: string; intro?: ReactNode };
+}
+
+export function StockDocPage({ embedded }: StockDocPageProps = {}) {
   const navigate = useNavigate();
-  const { docId = '' } = useParams();
+  const params = useParams();
+  const docId = embedded?.docId ?? params.docId ?? '';
   const [searchParams] = useSearchParams();
   const isNew = docId === 'new';
   const { companyContext } = useAuth();
@@ -182,7 +191,7 @@ export function StockDocPage() {
 
   const docQuery = useStockDoc(isNew ? undefined : docId);
   const doc = docQuery.data;
-  useBreadcrumb(isNew ? 'Tạo phiếu' : doc?.number);
+  useBreadcrumb(embedded ? null : isNew ? 'Tạo phiếu' : doc?.number);
   const requested = searchParams.get('type') as ManualStockDocType | null;
   const type: StockDocType = doc?.type ?? (requested && MANUAL_TYPES.includes(requested) ? requested : 'stocktake');
   const isStocktake = type === 'stocktake';
@@ -518,16 +527,20 @@ export function StockDocPage() {
   return (
     <div>
       {/* Mở từ hướng dẫn thiết lập: thanh quay lại, ghi sổ xong thì tự về wizard (FE#419) */}
-      {isStocktake && <WelcomeReturnBar stepKey="opening_stock" finished={doc?.status === 'posted'} className="mb-4" />}
+      {isStocktake && !embedded && (
+        <WelcomeReturnBar stepKey="opening_stock" finished={doc?.status === 'posted'} className="mb-4" />
+      )}
       <PageHeader
         title={title}
-        subtitle={DOC_TYPE_HELP[type]}
+        subtitle={embedded ? undefined : DOC_TYPE_HELP[type]}
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={backToList}>
-              <ArrowLeft />
-              Quay lại
-            </Button>
+            {!embedded && (
+              <Button variant="outline" onClick={backToList}>
+                <ArrowLeft />
+                Quay lại
+              </Button>
+            )}
             {editable && (
               <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
                 <Save />
@@ -688,6 +701,7 @@ export function StockDocPage() {
           )}
           {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
 
+          {embedded?.intro}
           {isStocktake && fields.length > 0 && (
             <div className="grid gap-3" data-testid="stocktake-toolbar">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -936,7 +950,7 @@ export function StockDocPage() {
         </CardContent>
       </Card>
 
-      {doc && doc.statusHistory.length > 0 && (
+      {doc && !embedded && doc.statusHistory.length > 0 && (
         <Card className="mt-4 py-4">
           <CardHeader>
             <CardTitle className="text-base">Lịch sử</CardTitle>
