@@ -10,6 +10,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useProduct } from '@/api/catalog.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useProductListingRows, useProductSpecs, useShops } from '@/api/shops.api';
+import { useProductReadiness } from '@/api/readiness.api';
+import type { ShopReadiness } from '@/types/blocker';
+import { platformMissing, shopMissing, shopState } from '../readiness';
 import { useAuth } from '@/hooks/useAuth';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { useLeaveGuard } from '@/hooks/useLeaveGuard';
@@ -76,6 +79,8 @@ function PublishFlow({
   const can = useCan();
   const canEditProduct = can(PERMISSIONS.productManage);
   const canEditCompany = can(PERMISSIONS.companyManage);
+  // Readiness theo gian hàng (FE#458): bước 1 báo cùng số mục với rail và nhãn tab sàn
+  const readiness = useProductReadiness(product.id);
   const usable = shops.filter((s) => isUsable(s.status));
   const [selected, setSelected] = useState<ReadonlySet<string>>(() =>
     initialSelection(usable, rows, { shops: search.get('shops'), platform: search.get('platform') }),
@@ -142,6 +147,7 @@ function PublishFlow({
 
       {step === 0 && (
         <ShopPicker
+          readiness={readiness.data}
           product={product}
           shops={shops}
           rows={rows}
@@ -288,6 +294,7 @@ function PlatformSlot({
 }
 
 function ShopPicker({
+  readiness,
   product,
   shops,
   rows,
@@ -303,6 +310,8 @@ function ShopPicker({
   selected: ReadonlySet<string>;
   onToggle: (id: string, on: boolean) => void;
   companyId: string;
+  /** Readiness theo gian hàng (FE#458) */
+  readiness: readonly ShopReadiness[] | undefined;
 }) {
   const platforms = [...new Set(shops.map((s) => s.platform))];
   if (!shops.length) {
@@ -324,7 +333,7 @@ function ShopPicker({
           <section key={p} aria-label={label} className="grid gap-2">
             <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
               {label}
-              {st && (st.ready ? <Badge variant="success">Đủ thông tin sàn</Badge> : <Badge variant="warning">{st.missing ? `Còn ${st.missing} mục thông tin sàn` : 'Thông tin sàn chưa lưu'}</Badge>)}
+              <PlatformBadge missing={platformMissing(readiness, p)} status={st} />
             </h3>
             <RegroupNotice productId={product.id} platform={p} shops={shops} />
             <div className="grid gap-2 md:grid-cols-2">
@@ -333,6 +342,7 @@ function ShopPicker({
                 .map((s) => {
                   const usable = isUsable(s.status);
                   const sum = shopSummary(rows, s.id);
+                  const rd = readiness?.find((x) => x.shopId === s.id);
                   const id = `pick-${s.id}`;
                   return (
                     <label
@@ -356,6 +366,11 @@ function ShopPicker({
                                 : `Đã đăng ${sum.onPlatform}/${sum.total} SKU`
                               : 'Chưa đăng SKU nào'}
                         </span>
+                        {usable && rd && shopState(rd) !== 'listed' && (
+                          <span className={shopState(rd) === 'ready' ? 'text-success-text' : 'text-warning-text'} data-testid="pick-readiness">
+                            {shopState(rd) === 'ready' ? 'Đăng được' : `Còn ${shopMissing(rd)} mục`}
+                          </span>
+                        )}
                       </span>
                     </label>
                   );
@@ -365,6 +380,17 @@ function ShopPicker({
         );
       })}
     </div>
+  );
+}
+
+/** Badge một sàn ở bước 1: có readiness thì "Còn N mục" cùng số với rail, nhãn tab sàn; chưa có thì theo thông tin sàn đã lưu */
+function PlatformBadge({ missing, status }: { missing: number | null; status: PlatformStatus | undefined }) {
+  if (missing !== null) return missing ? <Badge variant="warning">Còn {missing} mục</Badge> : <Badge variant="success">Đủ thông tin</Badge>;
+  if (!status) return null;
+  return status.ready ? (
+    <Badge variant="success">Đủ thông tin sàn</Badge>
+  ) : (
+    <Badge variant="warning">{status.missing ? `Còn ${status.missing} mục thông tin sàn` : 'Thông tin sàn chưa lưu'}</Badge>
   );
 }
 

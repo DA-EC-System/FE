@@ -93,7 +93,7 @@ import {
 import { GROUP_FIELD_ID, missingForPublish, missingItems, parseMinQty, publishBlocker } from './completion';
 import { ProductCompletionRail } from './ProductCompletionRail';
 import { useProductReadiness } from '@/api/readiness.api';
-import { readinessBlocker } from '@/features/channel/readiness';
+import { platformMissing, platformShop, readinessBlocker } from '@/features/channel/readiness';
 import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { NeedsAttentionBox } from './NeedsAttentionBox';
 import { attentionItems, type AttentionAction } from './needsAttention';
@@ -1118,7 +1118,7 @@ export function ProductFormPage() {
                 <TabsTrigger value="commerio">Nội bộ</TabsTrigger>
                 {tabPlatforms.map((p) => (
                   <TabsTrigger key={p} value={p}>
-                    <PlatformTabLabel product={product} platform={p} shops={shops} />
+                    <PlatformTabLabel product={product} platform={p} shops={shops} missing={platformMissing(readiness.data, p)} />
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -1433,6 +1433,7 @@ export function ProductFormPage() {
                     onDirtyChange={onPlatformDirty}
                     canEditFinance={can(PERMISSIONS.financeConfigManage)}
                     pollTimedOut={pollTimedOut}
+                    readiness={platformShop(readiness.data, p)}
                   />
                 </ProductFixContext.Provider>
               </TabsContent>
