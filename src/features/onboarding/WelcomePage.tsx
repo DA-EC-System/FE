@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CircleCheck, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CircleCheck, LogOut, RefreshCw } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +16,11 @@ import type { Onboarding } from '@/types/onboarding';
 import { ProfileForm } from '@/features/company/CompanyProfilePage';
 import { OptionalTodoList } from '@/features/company/OnboardingCard';
 import { onboardingSteps, optionalSteps } from '@/features/company/onboardingSteps';
-import { clearWelcome, markWelcome } from '@/features/company/welcomeFlow';
+import { clearWelcome } from '@/features/company/welcomeFlow';
 import { ConnectStep } from './steps/ConnectStep';
 import { OpeningStockStep } from './steps/OpeningStockStep';
 import { InviteWarehouseActions } from './steps/InviteWarehouseButton';
+import { ShopSetupWizardStep, type ShopSetupKey } from './steps/ShopSetupWizardStep';
 import { WizardStepper } from './WizardStepper';
 import {
   SHOP_SETUP_KEYS,
@@ -79,6 +80,9 @@ export function WelcomePage() {
   const onboarding = useOnboarding({ refetchOnWindowFocus: true });
   const [params, setParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
+  // Chân wizard chừa một ô cho nút của bước thiết lập gian hàng (Tiếp, Hoàn tất); `ownsAction` bật khi bước đang giữ nút
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const [ownsAction, setOwnsAction] = useState(false);
   const home = ROUTES.company.root(companyId);
 
   if (!companyContext) return null;
@@ -142,8 +146,9 @@ export function WelcomePage() {
             Quay lại
           </Button>
           <span className="ms-auto text-sm text-muted-foreground" data-testid="welcome-why" aria-live="polite">
-            {step && !step.done ? STEP_TEXT[step.key].why : ''}
+            {step && !step.done && !SHOP_SETUP_KEYS.includes(step.key) ? STEP_TEXT[step.key].why : ''}
           </span>
+          {step && SHOP_SETUP_KEYS.includes(step.key) && <span ref={setSlot} className="contents" />}
           {view === 'ready' ? (
             <CompleteButton
               data={data}
@@ -158,7 +163,7 @@ export function WelcomePage() {
               {busy ? 'Đang lưu…' : 'Lưu và tiếp'}
               <ArrowRight />
             </Button>
-          ) : (
+          ) : step && SHOP_SETUP_KEYS.includes(step.key) && ownsAction ? null : (
             <Button disabled={!step?.done} onClick={() => step && go(viewAfter(data, step.key))}>
               Tiếp
               <ArrowRight />
@@ -182,7 +187,22 @@ export function WelcomePage() {
                 onConnected={() => void advance('connect_shop')}
               />
             )}
-            {SHOP_SETUP_KEYS.includes(step.key) && <ShopSetupLink step={step} companyId={companyId} />}
+            {SHOP_SETUP_KEYS.includes(step.key) && step.ref?.type !== 'shop' && (
+              <AlertMessage severity="warning">
+                Chưa có gian hàng đang thiết lập. Quay lại bước Kết nối gian hàng để nối một gian hàng, hoặc tải lại trang.
+              </AlertMessage>
+            )}
+            {step.ref?.type === 'shop' && SHOP_SETUP_KEYS.includes(step.key) && (
+              <ShopSetupWizardStep
+                shopId={step.ref.id}
+                stepKey={step.key as ShopSetupKey}
+                slot={slot}
+                onAdvance={advance}
+                onGoStep={go}
+                onOwnsAction={setOwnsAction}
+                onRefresh={() => onboarding.refetch()}
+              />
+            )}
             {/* Bước 5 (FE#468): mời Nhân viên kho sớm để họ đếm ở bước 7 */}
             {step.key === 'stock_sync' && (
               <InviteWarehouseActions label="Nhờ người khác đếm tồn đầu kỳ ở bước sau?" className="mt-3" />
@@ -282,42 +302,6 @@ function ProfileStep({ onSaved, onBusyChange }: { onSaved: () => void; onBusyCha
   if (profile.isPending) return <Skeleton className="h-64 w-full" />;
   if (profile.isError) return <AlertMessage severity="error">{problemMessage(profile.error)}</AlertMessage>;
   return <ProfileForm profile={profile.data} onSaved={onSaved} formId={PROFILE_FORM_ID} hideActions onBusyChange={onBusyChange} />;
-}
-
-/**
- * Bước 3 tới 6 (tạm, FE#468 PR A): còn làm ở trang Thiết lập gian hàng; trang đó hiện thanh "Thiết lập ban đầu" và
- * tự về wizard khi hoàn tất. PR sau nhúng từng bước vào đây.
- */
-function ShopSetupLink({ step, companyId }: { step: WizardStep; companyId: string }) {
-  const to = step.ref?.type === 'shop' ? ROUTES.company.shopSetup(companyId, step.ref.id) : ROUTES.company.shops(companyId);
-  const range = `${WIZARD_STEP_LABELS.link_skus}, ${WIZARD_STEP_LABELS.assign_groups.toLowerCase()}, ${WIZARD_STEP_LABELS.stock_sync.toLowerCase()}, chọn mốc lấy đơn`;
-  return (
-    <LinkOut
-      companyId={companyId}
-      title="Thiết lập gian hàng"
-      detail={`${range}: làm ở trang Thiết lập gian hàng, hoàn tất thì tự về đây.`}
-      to={to}
-      action={step.done ? 'Xem thiết lập' : 'Mở thiết lập'}
-    />
-  );
-}
-
-function LinkOut({ companyId, title, detail, to, action }: { companyId: string; title: string; detail: string; to: string; action: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-muted/40 p-4">
-      <div className="grid min-w-0 flex-1 gap-0.5">
-        <b className="font-semibold">{title}</b>
-        <span className="text-sm text-muted-foreground">{detail}</span>
-      </div>
-      <Button asChild>
-        {/* Dấu "đến từ wizard": trang đích hiện thanh quay lại và tự về khi xong */}
-        <Link to={to} onClick={() => markWelcome(companyId)}>
-          {action}
-          <ExternalLink />
-        </Link>
-      </Button>
-    </div>
-  );
 }
 
 /** Xong hết bước bắt buộc của người xem: việc tuỳ chọn (chỉ nhãn, không lối ra) */
