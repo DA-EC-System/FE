@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ListRestart, Loader2, Save, Search, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
@@ -68,9 +68,27 @@ import {
 import { VariantPicker } from './VariantPicker';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
+import {
+  countSourceOf,
+  fillFromPlatform,
+  nextEmpty,
+  pageOf,
+  SHEET_PAGE_SIZE,
+  sheetCounts,
+  visibleRows,
+  type SheetFilter,
+  type SheetRow,
+} from './stocktakeSheet';
+
+const SHEET_FILTERS: { key: SheetFilter; label: string }[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'empty', label: 'Chưa nhập' },
+  { key: 'platform', label: 'Theo tồn sàn' },
+  { key: 'diff', label: 'Có chênh lệch' },
+];
 
 const MANUAL_TYPES: ManualStockDocType[] = ['stocktake', 'write_off', 'to_quarantine'];
-const str = (n: number | undefined) => (n === undefined ? '' : String(n));
+const str = (n: number | null | undefined) => (n === undefined || n === null ? '' : String(n));
 
 const toForm = (doc: StockDoc): DocFormInput => ({
   area: doc.area ?? 'stock',
@@ -87,6 +105,8 @@ const toForm = (doc: StockDoc): DocFormInput => ({
       expected: l.expected,
       quantity: doc.type === 'write_off' || doc.type === 'to_quarantine' ? String(l.quantity) : '',
       counted: str(l.counted),
+      platformStock: l.platformStock ?? null,
+      countSource: l.countSource ?? null,
       scanned: doc.type === 'return_inspection' ? String(l.quantity) : '',
       resell: str(l.resell),
       damaged: str(l.damaged),
@@ -176,7 +196,8 @@ export function StockDocPage() {
   const decideMut = useDecideStockDoc();
   const busy = createMut.isPending || updateMut.isPending || actionMut.isPending || decideMut.isPending;
 
-  const schema = useMemo(() => docFormSchema(type), [type]);
+  // Tối đa 200 dòng chỉ khi tạo phiếu tay; phiếu đầu kỳ có thể nhiều dòng hơn, BE kiểm khi sửa
+  const schema = useMemo(() => docFormSchema(type, isNew), [type, isNew]);
   const {
     control,
     register,
@@ -184,6 +205,7 @@ export function StockDocPage() {
     reset,
     setError,
     setValue,
+    getValues,
     formState: { errors, isDirty },
   } = useForm<DocFormInput, unknown, DocFormOutput>({
     // Dòng trên form giữ thêm sku, tồn sổ để hiển thị; schema chỉ kiểm các ô nhập nên phải ép kiểu
@@ -202,6 +224,11 @@ export function StockDocPage() {
   const [decision, setDecision] = useState<RejectDecision | null>(null);
   const loaded = useRef<string | null>(null);
   const skipBlock = useRef(false);
+  // Bảng kiểm kê: lọc, tìm, trang, dòng cần đưa con trỏ tới (FE#468)
+  const [sheetFilter, setSheetFilter] = useState<SheetFilter>('all');
+  const [sheetSearch, setSheetSearch] = useState('');
+  const [sheetPage, setSheetPage] = useState(1);
+  const [focusRow, setFocusRow] = useState<number | null>(null);
 
   useEffect(() => {
     if (doc && loaded.current !== doc.id) {
@@ -233,6 +260,62 @@ export function StockDocPage() {
 
   const taken = useMemo(() => new Set(fields.map((f) => f.variantId)), [fields]);
   const missing = lines.reduce((s, l) => s + missingOf(l), 0);
+
+  // ---- Bảng kiểm kê (FE#468 bước 7): đếm, lọc, tìm, trang, dòng trống kế, điền theo tồn sàn ----
+  const toSheetRow = (l: DocLineDraft): SheetRow => ({
+    sku: l.sku,
+    productName: l.productName,
+    attributesLabel: l.attributesLabel,
+    counted: l.counted ?? '',
+    book: area === 'quarantine' ? l.bookQuarantine : l.bookStock,
+    platformStock: l.platformStock ?? null,
+    countSource: l.countSource ?? null,
+  });
+  const sheetRows = isStocktake ? lines.map(toSheetRow) : [];
+  // Thứ tự dòng chụp lúc đổi bộ lọc hay tìm, không theo từng phím gõ: gõ số vào dòng "Chưa nhập" không làm dòng biến mất
+  const sheetOrder = useMemo(
+    () => (isStocktake ? visibleRows((getValues('lines') ?? []).map(toSheetRow), sheetFilter, sheetSearch) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isStocktake, fields, sheetFilter, sheetSearch, area, getValues],
+  );
+  const sheet = pageOf(sheetOrder, sheetPage);
+  const counts = sheetCounts(sheetRows);
+  const hasPlatform = sheetRows.some((r) => r.platformStock !== null);
+  const fills = editable ? fillFromPlatform(sheetRows) : [];
+
+  useEffect(() => {
+    if (focusRow === null) return;
+    const input = document.querySelector<HTMLInputElement>(`[data-line-index="${focusRow}"] input`);
+    if (!input) return;
+    input.scrollIntoView({ block: 'center' });
+    input.focus();
+    setFocusRow(null);
+  }, [focusRow, sheet.page, sheetOrder]);
+
+  /** "Tới dòng trống kế": sau dòng đang gõ; bộ lọc đang xem không còn dòng trống thì chuyển sang "Chưa nhập" */
+  const goNextEmpty = () => {
+    const active = (document.activeElement as HTMLElement | null)?.closest('[data-line-index]')?.getAttribute('data-line-index');
+    const now = (getValues('lines') ?? []).map(toSheetRow);
+    let order = sheetOrder;
+    let target = nextEmpty(now, order, active ? Number(active) : null);
+    if (target === null) {
+      order = visibleRows(now, 'empty', '');
+      target = order[0] ?? null;
+      if (target === null) return;
+      setSheetFilter('empty');
+      setSheetSearch('');
+    }
+    setSheetPage(Math.floor(order.indexOf(target) / SHEET_PAGE_SIZE) + 1);
+    setFocusRow(target);
+  };
+
+  const fillPlatform = () => {
+    for (const { index, value } of fills) {
+      setValue(`lines.${index}.counted`, String(value), { shouldDirty: true });
+      setValue(`lines.${index}.countSource`, 'platform');
+    }
+    toast.success(`Đã điền ${fills.length} dòng theo tồn sàn. Lưu nháp để giữ lại.`);
+  };
 
   // Nút lấy từ bảng chuyển trạng thái: cùng bảng mock dùng để từ chối chuyển sai
   const record: StockDocRecord = {
@@ -414,7 +497,7 @@ export function StockDocPage() {
   const areaEditable = editable && (isStocktake || (type === 'write_off' && (isNew || doc?.kind === 'manual')));
   const confirmText = confirm ? ACTION_CONFIRM[confirm] : undefined;
   const colCount =
-    1 + (isStocktake ? 3 : isInspection ? 6 : 1) + (showCost ? 1 : 0) + (editable ? 1 : 0);
+    1 + (isStocktake ? 3 + (hasPlatform ? 1 : 0) : isInspection ? 6 : 1) + (showCost ? 1 : 0) + (editable ? 1 : 0);
 
   const qtyInput = (i: number, key: 'quantity' | 'counted' | 'scanned' | 'resell' | 'damaged' | 'toSupplier', label: string, sku: string) => {
     const err = errors.lines?.[i]?.[key];
@@ -456,7 +539,13 @@ export function StockDocPage() {
                 key={t.action}
                 variant={t.action === 'cancel' || t.action === 'reject' ? 'outline' : 'default'}
                 className={cn((t.action === 'cancel' || t.action === 'reject') && 'text-destructive hover:text-destructive')}
-                blockedReason={blocked && codeMessage(blocked)}
+                blockedReason={
+                  (blocked && codeMessage(blocked)) ||
+                  // Kiểm kê còn ô trống: BE cũng chặn 422 (commerio-backend#575), báo trước tại nút
+                  (isStocktake && editable && counts.empty > 0 && (t.action === 'submit' || t.action === 'post')
+                    ? `Còn ${counts.empty} dòng chưa nhập số đếm. Đếm không thấy thì ghi 0.`
+                    : undefined)
+                }
                 disabled={busy}
                 onClick={() => (t.action === 'reject' ? setRejecting(true) : setConfirm(t.action))}
               >
@@ -599,6 +688,66 @@ export function StockDocPage() {
           )}
           {linesError && <AlertMessage severity="error">{linesError}</AlertMessage>}
 
+          {isStocktake && fields.length > 0 && (
+            <div className="grid gap-3" data-testid="stocktake-toolbar">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <p className="min-w-0 flex-1">
+                  <b className="font-semibold tabular-nums">
+                    Đã nhập {formatQty(counts.all - counts.empty)}/{formatQty(counts.all)} dòng.
+                  </b>{' '}
+                  Chênh lệch = thực tế − tồn hệ thống.{hasPlatform && ' Tồn trên sàn chỉ để tham khảo khi đếm.'}{' '}
+                  {editable && counts.empty > 0 && (
+                    <button type="button" className="font-medium text-primary underline-offset-4 hover:underline" onClick={goNextEmpty}>
+                      Tới dòng trống kế
+                    </button>
+                  )}
+                </p>
+                {fills.length > 0 && (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={fillPlatform}>
+                    <ListRestart />
+                    Điền theo tồn sàn cho {formatQty(fills.length)} dòng trống
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="relative flex min-w-56 flex-1 items-center sm:max-w-xs">
+                  <Search className="pointer-events-none absolute start-2.5 size-4 text-muted-foreground" aria-hidden />
+                  <Input
+                    type="search"
+                    value={sheetSearch}
+                    onChange={(e) => {
+                      setSheetSearch(e.target.value);
+                      setSheetPage(1);
+                    }}
+                    placeholder="Tìm theo SKU, tên"
+                    aria-label="Tìm dòng phiếu"
+                    className="h-8 ps-8"
+                  />
+                </label>
+                {SHEET_FILTERS.filter((f) => f.key !== 'platform' || counts.platform > 0).map((f) => (
+                  <Button
+                    key={f.key}
+                    size="sm"
+                    variant={sheetFilter === f.key ? 'default' : 'outline'}
+                    aria-pressed={sheetFilter === f.key}
+                    onClick={() => {
+                      setSheetFilter(f.key);
+                      setSheetPage(1);
+                    }}
+                  >
+                    {f.label} <span className="tabular-nums opacity-80">{formatQty(counts[f.key])}</span>
+                  </Button>
+                ))}
+              </div>
+              {counts.platform > 0 && (
+                <AlertMessage severity="warning">
+                  <b className="font-semibold">Dòng "Theo tồn sàn" chưa phải số đếm thật.</b> Hợp khi shop nhỏ tin số trên sàn. Sau khi bán
+                  ổn định, nên kiểm kê lại các dòng này ở Kho.
+                </AlertMessage>
+              )}
+            </div>
+          )}
+
           <div className="overflow-x-auto rounded-md border">
             <Table data-testid="doc-lines">
               <TableHeader>
@@ -606,6 +755,7 @@ export function StockDocPage() {
                   <TableHead>SKU</TableHead>
                   {isStocktake && (
                     <>
+                      {hasPlatform && <TableHead className="w-28 text-right">Tồn trên sàn</TableHead>}
                       <TableHead className="w-28 text-right">Tồn hệ thống</TableHead>
                       <TableHead className="w-32 text-right">Thực tế</TableHead>
                       <TableHead className="w-28 text-right">Chênh lệch</TableHead>
@@ -634,7 +784,15 @@ export function StockDocPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {fields.map((f, i) => {
+                {isStocktake && fields.length > 0 && !sheet.items.length && (
+                  <TableRow>
+                    <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
+                      Không có dòng nào khớp bộ lọc.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {(isStocktake ? sheet.items : fields.map((_, i) => i)).map((i, pos, shown) => {
+                  const f = fields[i];
                   const lineErrors = errors.lines?.[i];
                   const docLine = doc?.lines[i];
                   const live = lines[i] ?? f;
@@ -644,10 +802,22 @@ export function StockDocPage() {
                     ? book !== undefined && counted !== null
                       ? counted - book
                       : null
-                    : (docLine?.quantity ?? null);
+                    : docLine?.counted == null
+                      ? null
+                      : (docLine.quantity ?? null);
                   const wrongSku = isInspection && !f.expected;
+                  // Kiểm kê: gom theo sản phẩm, một dòng tiêu đề khi đổi sản phẩm
+                  const groupStart = isStocktake && (pos === 0 || fields[shown[pos - 1]].productName !== f.productName);
                   return (
-                    <TableRow key={f.key} data-row-id={f.variantId} className="align-top">
+                    <Fragment key={f.key}>
+                    {groupStart && (
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableCell colSpan={colCount} className="py-1.5 text-xs font-semibold">
+                          {f.productName}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow data-row-id={f.variantId} data-line-index={i} className="align-top">
                       <TableCell>
                         <p className="font-medium">
                           {f.sku}
@@ -664,9 +834,22 @@ export function StockDocPage() {
                       </TableCell>
                       {isStocktake && (
                         <>
+                          {hasPlatform && (
+                            <TableCell className="text-right">{f.platformStock == null ? '—' : formatQty(f.platformStock)}</TableCell>
+                          )}
                           <TableCell className="text-right">{book === undefined ? '—' : formatQty(book)}</TableCell>
                           <TableCell className="text-right">
-                            {editable ? qtyInput(i, 'counted', 'Thực tế', f.sku) : formatQty(docLine?.counted ?? 0)}
+                            {editable
+                              ? qtyInput(i, 'counted', 'Thực tế', f.sku)
+                              : docLine?.counted == null
+                                ? '—'
+                                : formatQty(docLine.counted)}
+                            {countSourceOf({ counted: live.counted ?? '', platformStock: f.platformStock ?? null, countSource: live.countSource ?? null }) ===
+                              'platform' && (
+                              <Badge variant="outline" className="mt-1 font-normal">
+                                Theo tồn sàn
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell
                             className={cn('text-right font-medium', delta !== null && delta < 0 && 'text-destructive')}
@@ -726,11 +909,30 @@ export function StockDocPage() {
                         </TableCell>
                       )}
                     </TableRow>
+                    </Fragment>
                   );
                 })}
               </TableBody>
             </Table>
           </div>
+          {isStocktake && sheet.pages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm" data-testid="stocktake-pager">
+              <span className="tabular-nums text-muted-foreground">
+                {formatQty(sheet.from)}–{formatQty(sheet.to)} trên {formatQty(sheetOrder.length)} dòng
+              </span>
+              <span className="flex items-center gap-2">
+                <Button size="sm" variant="outline" aria-label="Trang trước" disabled={sheet.page <= 1} onClick={() => setSheetPage(sheet.page - 1)}>
+                  <ChevronLeft />
+                </Button>
+                <span className="tabular-nums">
+                  {sheet.page} / {sheet.pages}
+                </span>
+                <Button size="sm" variant="outline" aria-label="Trang sau" disabled={sheet.page >= sheet.pages} onClick={() => setSheetPage(sheet.page + 1)}>
+                  <ChevronRight />
+                </Button>
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

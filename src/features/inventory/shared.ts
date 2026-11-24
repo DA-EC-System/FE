@@ -58,7 +58,10 @@ export const docLineSchema = (type: StockDocType) =>
     .object({
       variantId: z.string().min(1, 'Chọn SKU'),
       quantity: type === 'write_off' || type === 'to_quarantine' ? qtyText(1, MAX_QTY) : blank,
-      counted: type === 'stocktake' ? qtyText(0, MAX_QTY, 'Thực tế') : blank,
+      // Kiểm kê: ô trống là chưa đếm, lưu nháp được; gửi duyệt khi còn ô trống bị chặn (commerio-backend#575)
+      counted: type === 'stocktake' ? z.string().pipe(z.union([z.string().trim().length(0).transform(() => undefined), qtyText(0, MAX_QTY, 'Thực tế')])) : blank,
+      platformStock: z.number().nullable().optional(),
+      countSource: z.enum(['manual', 'platform']).nullable().optional(),
       scanned: isInspection(type) ? qtyText(0, MAX_QTY, 'Đã quét') : blank,
       resell: isInspection(type) ? qtyText(0, MAX_QTY, 'Bán lại') : blank,
       damaged: isInspection(type) ? qtyText(0, MAX_QTY, 'Hỏng') : blank,
@@ -70,7 +73,8 @@ export const docLineSchema = (type: StockDocType) =>
       }
     });
 
-export const docFormSchema = (type: StockDocType) =>
+/** `limitLines`: tối đa 200 dòng khi tạo phiếu tay; sửa phiếu đầu kỳ không giới hạn (BE kiểm khi sửa, #278) */
+export const docFormSchema = (type: StockDocType, limitLines = true) =>
   z.object({
     area: z.enum(['stock', 'quarantine']),
     note:
@@ -80,7 +84,7 @@ export const docFormSchema = (type: StockDocType) =>
     lines: z
       .array(docLineSchema(type))
       .min(isInspection(type) ? 0 : 1, 'Thêm ít nhất một dòng')
-      .max(200, 'Tối đa 200 dòng một phiếu')
+      .max(limitLines ? 200 : Number.MAX_SAFE_INTEGER, 'Tối đa 200 dòng một phiếu')
       .superRefine((lines, ctx) => {
         const seen = new Set<string>();
         lines.forEach((l, i) => {
@@ -102,6 +106,9 @@ export interface DocLineDraft {
   /** Kiểm kê: tồn sổ theo khu vực; lưu thì BE chụp lại */
   bookStock?: number;
   bookQuarantine?: number;
+  /** Kiểm kê đầu kỳ: tồn trên sàn, nguồn số đếm (FE#468) */
+  platformStock?: number | null;
+  countSource?: 'manual' | 'platform' | null;
   /** Kiểm hàng về: số dự kiến; 0 là dòng sai mẫu */
   expected?: number;
   quantity: string;
@@ -135,6 +142,9 @@ export const toLineInputs = (values: DocFormOutput): StockDocLineInput[] =>
     const line: StockDocLineInput = { variantId: l.variantId };
     for (const key of ['quantity', 'counted', 'scanned', 'resell', 'damaged', 'toSupplier'] as const) {
       if (l[key] !== undefined) line[key] = l[key];
+    }
+    if (l.counted !== undefined) {
+      line.countSource = l.countSource === 'platform' && l.counted === l.platformStock ? 'platform' : 'manual';
     }
     return line;
   });

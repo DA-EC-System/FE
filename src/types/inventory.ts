@@ -149,7 +149,11 @@ export interface StockDocLine {
   quantity: number;
   /** Kiểm kê: tồn sổ lúc đếm, số đếm */
   bookQty?: number;
-  counted?: number;
+  /** null hoặc vắng: chưa đếm (commerio-backend#575); dòng chưa đếm có `quantity` 0 */
+  counted?: number | null;
+  /** Phiếu kiểm kê đầu kỳ: tồn trên sàn để tham khảo khi đếm, nguồn số đếm (Documents/21 mục 18.6.2, FE#468) */
+  platformStock?: number | null;
+  countSource?: 'manual' | 'platform' | null;
   /** Kiểm hàng về: số dự kiến (0 là sai mẫu), chia bán lại + hỏng + trả nhà cung cấp = số quét */
   expected?: number;
   resell?: number;
@@ -213,8 +217,10 @@ export interface StockDocLineInput {
   variantId: string;
   /** Xuất huỷ, chuyển chờ xử lý */
   quantity?: number;
-  /** Kiểm kê */
+  /** Kiểm kê; vắng là chưa đếm (BE giữ null) */
   counted?: number;
+  /** Kiểm kê đầu kỳ: số điền theo tồn sàn hay gõ tay; phiếu khác BE bỏ qua */
+  countSource?: 'manual' | 'platform';
   /** Kiểm hàng về */
   scanned?: number;
   resell?: number;
