@@ -145,13 +145,12 @@ const requestLineSchema = z
     unitCost: moneySchema({ label: 'Giá nhập', max: MAX_COST }),
   })
   .superRefine((l, ctx) => {
-    const maxError = productNameMaxError(l.parentName, PARENT_NAME_MAX);
-    if (maxError) ctx.addIssue({ code: 'custom', path: ['parentName'], message: maxError });
     if (!l.isNew) return;
     if (l.parentMode === 'existing') {
       if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm' });
     } else {
-      const nameError = maxError ? null : productNameError(l.parentName);
+      // Chỉ kiểm tên cha mới gõ tay; cha có sẵn lấy tên từ danh mục (tối đa 200), không có ô để báo lỗi
+      const nameError = productNameMaxError(l.parentName, PARENT_NAME_MAX) ?? productNameError(l.parentName);
       if (nameError) ctx.addIssue({ code: 'custom', path: ['parentName'], message: nameError });
       if (!l.groupId) ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Chọn danh mục sản phẩm' });
     }

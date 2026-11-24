@@ -53,6 +53,12 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
     expect(errorsOf([line({ parentName: '  Áo thun cotton nam cổ trò  ' })])['lines.0.parentName']).toBeUndefined();
   });
 
+  it('tên cha mới quá 120 ký tự thì báo; cha có sẵn tên dài (lấy từ danh mục) không bị chặn', () => {
+    const long = `Áo ${'a'.repeat(120)}`;
+    expect(errorsOf([line({ parentName: long })])).toMatchObject({ 'lines.0.parentName': 'Tên sản phẩm tối đa 120 ký tự' });
+    expect(errorsOf([line({ parentMode: 'existing', parentId: 'p-1', parentName: long })])).toEqual({});
+  });
+
   it('các dòng cùng tên cha mới gộp một cha: quá 2 trục thì báo', () => {
     const e = errorsOf([
       line({ options: [{ axis: 'Màu sắc', value: 'Đen' }, { axis: 'Kích cỡ', value: 'M' }] }),

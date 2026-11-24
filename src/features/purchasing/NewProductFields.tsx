@@ -36,7 +36,7 @@ const emptyOptions = (): NewProductOption[] => Array.from({ length: MAX_AXES }, 
 
 function Err({ error, id }: { error: FieldError; id?: string }) {
   return error?.message ? (
-    <p id={id} role="alert" className="text-xs text-destructive">
+    <p id={id} className="text-xs text-destructive">
       {error.message}
     </p>
   ) : null;
