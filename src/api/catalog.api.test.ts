@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import type { ProductDetail } from '@/types/catalog';
-import { withVariantDefaults } from './catalog.api';
+import { describe, expect, it, vi } from 'vitest';
+import type { BulkEditRow, ProductDetail } from '@/types/catalog';
+import { reorderVersionAfterSave, withVariantDefaults } from './catalog.api';
 
 // Sản phẩm đúng như BE main trả khi chưa có commerio-backend#204: biến thể thiếu các trường mới
 const tuBe = (variant: Record<string, unknown>) =>
@@ -48,5 +48,45 @@ describe('withVariantDefaults', () => {
     const [day] = withVariantDefaults(tuBe({ archivedAt: null, businessStatus: 'paused', weightG: 0, missing: ['image'] }))
       .variants;
     expect(day).toMatchObject({ businessStatus: 'paused', weightG: 0, missing: ['image'] });
+  });
+});
+
+describe('reorderVersionAfterSave (commerio-backend#590)', () => {
+  const row = { variantId: 'v1', sku: 'AO-0001' };
+  const dongDoc = { variantId: 'v1', version: 4, reorderVersion: 9 } as unknown as BulkEditRow;
+
+  it('BE trả reorderVersion thì dùng luôn, không đọc lại dòng', async () => {
+    const read = vi.fn();
+    await expect(reorderVersionAfterSave({ variantId: 'v1', version: 3, reorderVersion: 7 }, row, read)).resolves.toEqual({
+      reorderVersion: 7,
+      fresh: null,
+    });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('reorderVersion null (chưa có dòng tồn) là giá trị BE trả, không đọc lại', async () => {
+    const read = vi.fn();
+    await expect(reorderVersionAfterSave({ variantId: 'v1', version: 3, reorderVersion: null }, row, read)).resolves.toEqual({
+      reorderVersion: null,
+      fresh: null,
+    });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('BE chưa có #590 (không có trường) thì đọc lại dòng', async () => {
+    const read = vi.fn().mockResolvedValue(dongDoc);
+    await expect(reorderVersionAfterSave({ variantId: 'v1', version: 3 }, row, read)).resolves.toEqual({ reorderVersion: 9, fresh: dongDoc });
+    expect(read).toHaveBeenCalledWith('v1', 'AO-0001');
+  });
+
+  it('đọc lại lỗi hay không thấy dòng thì reorderVersion undefined', async () => {
+    await expect(reorderVersionAfterSave(undefined, row, vi.fn().mockRejectedValue(new Error('mạng')))).resolves.toEqual({
+      reorderVersion: undefined,
+      fresh: null,
+    });
+    await expect(reorderVersionAfterSave(undefined, row, vi.fn().mockResolvedValue(null))).resolves.toEqual({
+      reorderVersion: undefined,
+      fresh: null,
+    });
   });
 });

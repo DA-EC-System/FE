@@ -24,7 +24,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  fetchBulkRow,
+  reorderVersionAfterSave,
   fetchNextIncompleteProduct,
   useBulkEditCache,
   useProductBulkRows,
@@ -835,12 +835,14 @@ export function ProductFormPage() {
             ? { ...conflict, error: failed.errors?.minQty ? `${failed.errors.minQty}. Bấm Tải lại dòng rồi lưu lại.` : conflict.error }
             : { ok: false, error: failed.errors?.minQty ?? failed.message };
         }
-        // BE không trả `reorderVersion` mới: đọc lại dòng sau khi lưu (không làm mất phát hiện xung đột)
-        const version = result.saved[0]?.version ?? ver.version + 1;
-        const fresh = await fetchBulkRow(v.id, v.sku).catch(() => null);
+        // `reorderVersion` mới lấy từ `saved` (BE#590); BE chưa có thì đọc lại dòng sau khi lưu (không làm mất phát hiện xung đột)
+        const saved = result.saved.find((s) => s.variantId === v.id);
+        const version = saved?.version ?? ver.version + 1;
+        const { reorderVersion, fresh } = await reorderVersionAfterSave(saved, { variantId: v.id, sku: v.sku });
         if (fresh) bulkCache.replace(fresh);
-        else void reorderQuery.refetch();
-        return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : undefined } };
+        else if (reorderVersion === undefined) void reorderQuery.refetch();
+        else bulkCache.patch(v.id, (r) => ({ ...r, version, reorderVersion, current: { ...r.current, minQty: value as number | null } }));
+        return { ok: true, version: { version: fresh?.version ?? version, reorderVersion } };
       }
       const detail = await saveVariantCell.mutateAsync({ productId: product.id, variantId: v.id, version: ver.version, [field]: value as number | null });
       return { ok: true, version: { ...ver, version: detail.variants.find((x) => x.id === v.id)?.version ?? ver.version + 1 } };

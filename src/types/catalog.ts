@@ -379,7 +379,11 @@ export type BulkSaveRow = {
 } & Partial<Record<BulkField, number | null>>;
 
 export interface BulkSaveResult {
-  saved: { variantId: string; version: number }[];
+  /**
+   * `reorderVersion` (commerio-backend#590): dòng gửi `minQty` thì là version sau khi lưu, không gửi thì version hiện tại,
+   * chưa có dòng tồn thì null. BE chưa có #590 thì không có trường (undefined, khác null)
+   */
+  saved: { variantId: string; version: number; reorderVersion?: number | null }[];
   /** Dòng lỗi không làm hỏng dòng khác; `errors` theo tên ô */
   failed: { variantId: string; code: string; message: string; errors?: Partial<Record<BulkField, string>> }[];
 }

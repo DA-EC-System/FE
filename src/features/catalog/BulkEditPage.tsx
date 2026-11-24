@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { fetchBulkRow, useBulkEditCache, useBulkEditRows, useGroups, useSaveBulkCells } from '@/api/catalog.api';
+import { fetchBulkRow, reorderVersionAfterSave, useBulkEditCache, useBulkEditRows, useGroups, useSaveBulkCells } from '@/api/catalog.api';
 import { getErrorMessage } from '@/api/client';
 import { useCan } from '@/hooks/usePermission';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -115,13 +115,13 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     const version = saved?.version ?? v.version + 1;
     cache.patch(row.variantId, (r) => ({ ...r, version, current: { ...r.current, [field]: value as number | null } }));
     if (field !== 'minQty') return { ok: true, version: { ...v, version } };
-    // BE không trả `reorderVersion` mới (dòng tồn mới tạo, ngưỡng không đổi... mỗi trường hợp tăng khác nhau): đọc lại dòng
-    // sau khi lưu. Đọc sau khi lưu nên không làm mất phát hiện xung đột. Đọc lỗi thì `reorderVersion` undefined (chưa đọc
-    // được): lượt sau cùng dòng không gửi rv cũ; hết lượt thì lấy lại từ bảng sau khi tải lại
-    const fresh = await fetchBulkRow(row.variantId, row.sku).catch(() => null);
+    // `reorderVersion` mới lấy từ `saved` (BE#590); BE chưa có thì đọc lại dòng sau khi lưu (không làm mất phát hiện xung
+    // đột). Đọc lỗi thì undefined: lượt sau cùng dòng không gửi rv cũ; hết lượt thì lấy lại từ bảng sau khi tải lại
+    const { reorderVersion, fresh } = await reorderVersionAfterSave(saved, row);
     if (fresh) cache.replace(fresh);
-    else void query.refetch();
-    return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : undefined } };
+    else if (reorderVersion === undefined) void query.refetch();
+    else cache.patch(row.variantId, (r) => ({ ...r, reorderVersion }));
+    return { ok: true, version: { version: fresh?.version ?? version, reorderVersion } };
   };
 
   const reloadRow = async (row: BulkEditRow) => {
@@ -159,11 +159,17 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         }));
         for (const f of p.fields) grid.current?.markSaved(s.variantId, f);
       }
-      // Dòng có lưu ngưỡng tồn: đọc lại sau khi lưu để có `reorderVersion` mới (BE không trả)
-      const minQtyRows = payload.filter((p) => p.fields.includes('minQty') && result.saved.some((s) => s.variantId === p.row.variantId));
-      const freshRows = await Promise.all(minQtyRows.map((p) => fetchBulkRow(p.row.variantId, p.row.sku).catch(() => null)));
-      for (const fresh of freshRows) if (fresh) cache.replace(fresh);
-      if (freshRows.some((r) => !r)) void query.refetch();
+      // Dòng có lưu ngưỡng tồn: `reorderVersion` mới lấy từ `saved` (BE#590), BE chưa có thì đọc lại dòng
+      const minQtyRows = payload.flatMap((p) => {
+        const s = p.fields.includes('minQty') ? result.saved.find((x) => x.variantId === p.row.variantId) : undefined;
+        return s ? [{ row: p.row, saved: s }] : [];
+      });
+      const after = await Promise.all(minQtyRows.map((m) => reorderVersionAfterSave(m.saved, m.row)));
+      after.forEach(({ reorderVersion, fresh }, i) => {
+        if (fresh) cache.replace(fresh);
+        else if (reorderVersion !== undefined) cache.patch(minQtyRows[i].row.variantId, (r) => ({ ...r, reorderVersion }));
+      });
+      if (after.some((a) => a.reorderVersion === undefined)) void query.refetch();
       for (const f of result.failed) {
         const p = payload.find((x) => x.row.variantId === f.variantId);
         if (!p) continue;
