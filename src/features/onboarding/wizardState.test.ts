@@ -135,7 +135,8 @@ describe('onboardingRedirect (guard công ty)', () => {
   it('tạm thời còn mở trang uỷ quyền sàn, thiết lập gian hàng, phiếu kiểm kê (bước chưa nhúng)', () => {
     expect(onboardingRedirect(force, 'c1', '/c/c1/channel/shops/oauth-callback/tiktok')).toBeNull();
     expect(onboardingRedirect(force, 'c1', '/c/c1/channel/shops/s9/setup')).toBeNull();
-    expect(onboardingRedirect(force, 'c1', '/c/c1/inventory/documents/d7')).toBeNull();
+    // Bước 7 nhúng trong wizard: trang phiếu không còn là lối ra
+    expect(onboardingRedirect(force, 'c1', '/c/c1/inventory/documents/d7')).toBe('/c/c1/welcome');
     expect(onboardingRedirect(force, 'c1', '/c/c1/inventory/documents')).toBe('/c/c1/welcome');
   });
 

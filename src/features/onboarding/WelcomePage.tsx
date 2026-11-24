@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CircleCheck, ExternalLink, LogOut, RefreshCw, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CircleCheck, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { OptionalTodoList } from '@/features/company/OnboardingCard';
 import { onboardingSteps, optionalSteps } from '@/features/company/onboardingSteps';
 import { clearWelcome, markWelcome } from '@/features/company/welcomeFlow';
 import { ConnectStep } from './steps/ConnectStep';
+import { OpeningStockStep } from './steps/OpeningStockStep';
 import { WizardStepper } from './WizardStepper';
 import {
   SHOP_SETUP_KEYS,
@@ -181,7 +182,13 @@ export function WelcomePage() {
               />
             )}
             {SHOP_SETUP_KEYS.includes(step.key) && <ShopSetupLink step={step} companyId={companyId} />}
-            {step.key === 'opening_stock' && <OpeningStockLink step={step} companyId={companyId} />}
+            {step.key === 'opening_stock' && (
+              <OpeningStockStep
+                step={step}
+                companyName={companyContext.companyName}
+                countOnly={steps.every((s) => s.key === 'opening_stock')}
+              />
+            )}
           </StepBody>
         )}
       </div>
@@ -287,29 +294,6 @@ function ShopSetupLink({ step, companyId }: { step: WizardStep; companyId: strin
       to={to}
       action={step.done ? 'Xem thiết lập' : 'Mở thiết lập'}
     />
-  );
-}
-
-function OpeningStockLink({ step, companyId }: { step: WizardStep; companyId: string }) {
-  if (step.done) return null;
-  const to =
-    step.ref?.type === 'stock_document'
-      ? ROUTES.company.inventoryDoc(companyId, step.ref.id)
-      : ROUTES.company.inventoryDocNew(companyId, 'stocktake');
-  return (
-    <>
-      <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-        Trong lúc chờ phiếu ghi sổ, Commerio chưa cập nhật tồn lên sàn và chưa giữ hàng cho đơn. Sàn giữ số đang có.
-      </div>
-      <LinkOut
-        companyId={companyId}
-        title="Phiếu kiểm kê đầu kỳ"
-        detail="Đếm, rồi gửi duyệt và ghi sổ. Ghi sổ xong thì tự về đây."
-        to={to}
-        action="Mở phiếu"
-      />
-    </>
   );
 }
 
