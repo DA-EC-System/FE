@@ -776,7 +776,8 @@ export function ProductFormPage() {
     canPublish: can(PERMISSIONS.listingManage),
     missing: publishMissing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
-    shopsBlocker: readiness.data ? readinessBlocker(readiness.data) : undefined,
+    // Chưa có gian hàng nào thì readiness rỗng: khoá theo mục còn thiếu như rail
+    shopsBlocker: readiness.data?.length ? readinessBlocker(readiness.data) : undefined,
   });
   // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
   const attention = product && !isNew ? attentionItems({ missing, variants: product.variants, rows: listingRows, platformName: platformLabel }) : [];

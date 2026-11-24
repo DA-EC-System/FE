@@ -43,13 +43,17 @@ export function ProductCompletionRail({
   // "Sẵn sàng" chỉ khi có gian hàng đăng được, nói rõ gian hàng nào (FE#458); chưa có readiness thì theo phần chung
   const readyShops = (shops ?? []).filter((s) => shopState(s) === 'ready');
   const noShopReady = Boolean(shops?.length) && !readyShops.length && shops!.some((s) => shopState(s) === 'blocked');
-  const warn = items.length > 0 || noShopReady;
-  const title = items.length
-    ? `Còn thiếu ${items.length} mục`
-    : isNew
-      ? 'Đã điền đủ phần chung'
-      : noShopReady
-        ? 'Chưa đăng được gian hàng nào'
+  // Có readiness thì tiêu đề theo readiness, cùng nguồn với nút Đăng (`readinessBlocker`); chưa có thì theo mục còn thiếu
+  const byShops = !isNew && Boolean(shops?.length);
+  const warn = byShops ? noShopReady : items.length > 0;
+  const title = byShops
+    ? noShopReady
+      ? 'Chưa đăng được gian hàng nào'
+      : 'Sẵn sàng'
+    : items.length
+      ? `Còn thiếu ${items.length} mục`
+      : isNew
+        ? 'Đã điền đủ phần chung'
         : 'Sẵn sàng';
   const doneText = isNew
     ? 'Tạo xong, các biến thể còn cần giá, cân nặng, kích thước gói sẽ hiện ở đây.'
@@ -96,7 +100,8 @@ export function ProductCompletionRail({
         ) : (
           <p className="text-sm text-muted-foreground">{doneText}</p>
         )}
-        {items.length > 0 && <p className="text-xs text-muted-foreground">Còn thiếu vẫn lưu được; chỉ chưa đăng được.</p>}
+        {items.length > 0 && !byShops && <p className="text-xs text-muted-foreground">Còn thiếu vẫn lưu được; chỉ chưa đăng được.</p>}
+        {items.length > 0 && byShops && <p className="text-xs text-muted-foreground">Còn thiếu vẫn lưu được. Gian hàng nào đăng được ghi ở dưới.</p>}
         {!isNew && shops && shops.length > 0 && (
           <div className="grid gap-1 border-t pt-2">
             <h3 className="text-xs font-semibold text-muted-foreground">Theo gian hàng</h3>

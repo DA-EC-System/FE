@@ -80,7 +80,7 @@ function PublishFlow({
   const canEditProduct = can(PERMISSIONS.productManage);
   const canEditCompany = can(PERMISSIONS.companyManage);
   // Readiness theo gian hàng (FE#458): bước 1 báo cùng số mục với rail và nhãn tab sàn
-  const readiness = useProductReadiness(product.id);
+  const readiness = useProductReadiness(product.id, can(PERMISSIONS.shopView));
   const usable = shops.filter((s) => isUsable(s.status));
   const [selected, setSelected] = useState<ReadonlySet<string>>(() =>
     initialSelection(usable, rows, { shops: search.get('shops'), platform: search.get('platform') }),
@@ -201,6 +201,7 @@ function PublishFlow({
           shops={usable.filter((s) => selected.has(s.id))}
           rows={rows.filter((r) => selected.has(r.shopId))}
           readyPlatforms={new Set(chosenPlatforms.filter((p) => status.get(p)?.ready))}
+          can={{ product: canEditProduct, finance: can(PERMISSIONS.financeConfigManage) }}
           onFixPlatform={(p) => {
             setFocusPlatform(p);
             goTo(1);

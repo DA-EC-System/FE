@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import { useAuthStore } from '@/stores/authStore';
-import type { ProductReadiness } from '@/types/blocker';
+import type { ProductReadiness, PushPreview, PushPreviewRow } from '@/types/blocker';
 
 export const readinessKey = (companyId: string, productId: string) => ['company', companyId, 'readiness', productId] as const;
 
@@ -60,5 +60,53 @@ export function useProductReadiness(productId: string | null | undefined, enable
       return data.items;
     },
     enabled: on,
+  });
+}
+
+/** BE nhận tối đa 200 biến thể mỗi lần xem trước (`PushPreviewBody`) */
+export const PUSH_PREVIEW_BATCH = 200;
+
+export interface PushPreviewInput {
+  shopId: string;
+  variantIds: string[];
+  /** Giá người bán gõ theo biến thể (chỉ biến thể có trong `variantIds`) */
+  listPrices?: Record<string, number>;
+}
+
+/** Gọi `push-preview` theo lô 200, gộp dòng theo thứ tự `variantIds` */
+export async function fetchPushPreview({ shopId, variantIds, listPrices }: PushPreviewInput): Promise<PushPreviewRow[]> {
+  const rows: PushPreviewRow[] = [];
+  for (let i = 0; i < variantIds.length; i += PUSH_PREVIEW_BATCH) {
+    const ids = variantIds.slice(i, i + PUSH_PREVIEW_BATCH);
+    const prices = Object.fromEntries(ids.filter((id) => listPrices?.[id] !== undefined).map((id) => [id, listPrices![id]!]));
+    const body = { variantIds: ids, ...(Object.keys(prices).length ? { listPrices: prices } : {}) };
+    const { data } = await apiClient.post<PushPreview>(`/channel/shops/${shopId}/listings/push-preview`, body);
+    rows.push(...data.rows);
+  }
+  return rows;
+}
+
+const pushPreviewKey = (companyId: string, input: PushPreviewInput) =>
+  ['company', companyId, 'push-preview', input.shopId, input.variantIds.join(','), JSON.stringify(input.listPrices ?? {})] as const;
+
+/**
+ * Kiểm trước khi đăng (Documents/21 §18.11, commerio-backend#566): mục chặn, giá sẽ gửi, thực nhận, tồn sẽ đẩy của từng
+ * biến thể ở một gian hàng. Không ghi gì. Cùng hàm chặn với readiness và `push`, nên bước 3 trình đăng không lệch rail.
+ */
+export function usePushPreview(shopId: string | null, variantIds: string[], listPrices?: Record<string, number>) {
+  return usePushPreviews(shopId ? [{ shopId, variantIds, ...(listPrices ? { listPrices } : {}) }] : [])[0];
+}
+
+/** `usePushPreview` cho nhiều gian hàng cùng lúc (bước 3 trình đăng) */
+export function usePushPreviews(inputs: PushPreviewInput[]) {
+  const companyId = useAuthStore((s) => s.companyContext?.companyId ?? '');
+  return useQueries({
+    queries: inputs.map((input) => ({
+      queryKey: pushPreviewKey(companyId, input),
+      queryFn: () => fetchPushPreview(input),
+      enabled: Boolean(companyId) && input.variantIds.length > 0,
+      // Gõ giá đổi khoá: giữ kết quả cũ tới khi có kết quả mới, dòng không nhảy về "Đang kiểm"
+      placeholderData: keepPreviousData,
+    })),
   });
 }

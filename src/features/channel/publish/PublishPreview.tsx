@@ -12,14 +12,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { usePriceQuote, usePushListings } from '@/api/shops.api';
+import { usePushPreviews } from '@/api/readiness.api';
 import { ROUTES } from '@/router/routes';
 import { cn } from '@/lib/utils';
 import { formatMoneyInput, parseMoney } from '@/utils/price';
 import type { ProductDetail } from '@/types/catalog';
+import type { PushPreviewRow } from '@/types/blocker';
 import type { PriceQuoteRow, ProductListingRow, PushResult, Shop } from '@/types/shop';
 import { LISTING_STATUS_LABELS, platformLabel } from '../shopSchemas';
 import { pushResultBlocks, splitPushResults } from '../listingPush';
-import { feePct, isOnPlatform, priceNote, priceRange, priceView, rowBlocker, stockToPushText } from './publishRows';
+import { blockerFix, canUseFix } from '../blockerFix';
+import { feePct, isOnPlatform, priceNote, priceRange, priceView, rowBlocker, rowReasons, stockToPushText, withPreview } from './publishRows';
 
 const keyOf = (shopId: string, variantId: string) => `${shopId}:${variantId}`;
 const pct = (x: number) => `${(x * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
@@ -40,6 +43,8 @@ interface PublishPreviewProps {
   rows: ProductListingRow[];
   /** Sàn đã đủ thông tin và đã lưu */
   readyPlatforms: ReadonlySet<string>;
+  /** Quyền cho nút tới chỗ sửa của mục chặn */
+  can: { product: boolean; finance: boolean };
   onFixPlatform: (platform: string) => void;
 }
 
@@ -47,8 +52,10 @@ interface PublishPreviewProps {
  * Bước "Xem trước và đăng" (Documents/25 §6.3, Documents/29 bước 4): bảng SKU × gian hàng với giá niêm yết, phí và thuế,
  * thực nhận; sửa giá thì tính thử ngay (Documents/21 §18.9 R1). Đăng gọi `listings/push` cho từng gian hàng.
  */
-export function PublishPreview({ product, companyId, shops, rows, readyPlatforms, onFixPlatform }: PublishPreviewProps) {
+export function PublishPreview({ product, companyId, shops, rows, readyPlatforms, can, onFixPlatform }: PublishPreviewProps) {
   const [edits, setEdits] = useState<Record<string, string>>({});
+  // Giá gõ đã ngừng gõ, gửi kèm `push-preview` theo gian hàng
+  const [sentPrices, setSentPrices] = useState<Record<string, Record<string, number>>>({});
   const [quotes, setQuotes] = useState<Record<string, PriceQuoteRow>>({});
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<ShopOutcome[] | null>(null);
@@ -76,6 +83,9 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
     if (body === lastSent.current) return;
     const t = setTimeout(() => {
       lastSent.current = body;
+      const byShop: Record<string, Record<string, number>> = {};
+      for (const x of typed) (byShop[x.shopId] ??= {})[x.variantId] = x.listPrice;
+      setSentPrices(byShop);
       if (!typed.length) {
         setQuotes({});
         return;
@@ -98,19 +108,39 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ gửi khi danh sách giá gõ đổi
   }, [typed, product.id]);
 
+  // Kiểm trước khi đăng (FE#458, Documents/21 §18.11): mục chặn của từng dòng lấy từ `push-preview`, cùng hàm với readiness
+  // và lệnh đăng của BE. SKU đã ở trên sàn không cần kiểm
+  const previews = usePushPreviews(
+    shops.map((s) => ({
+      shopId: s.id,
+      variantIds: rows.filter((r) => r.shopId === s.id && !isOnPlatform(r)).map((r) => r.variantId),
+      ...(sentPrices[s.id] ? { listPrices: sentPrices[s.id] } : {}),
+    })),
+  );
+  const previewOf = new Map<string, PushPreviewRow>();
+  shops.forEach((s, i) => {
+    for (const p of previews[i]?.data ?? []) previewOf.set(keyOf(s.id, p.variantId), p);
+  });
+  const previewFailed = previews.find((q) => q.isError && !q.data);
+  const previewLoading = previews.some((q) => q.isLoading);
+
   const views = rows.map((r) => {
     const key = keyOf(r.shopId, r.variantId);
     const text = edits[key];
     const parsed = text === undefined ? null : parseMoney(text);
     const invalid = parsed && (!parsed.ok || !parsed.value) ? (parsed.ok ? 'Nhập giá niêm yết' : parsed.error) : null;
-    const view = priceView(r, quotes[key]);
+    const preview = previewOf.get(key);
+    const view = withPreview(priceView(r, quotes[key]), preview);
     const platformReady = readyPlatforms.has(platformOf.get(r.shopId) ?? '');
     const onPlatform = isOnPlatform(r);
-    const blocker = onPlatform ? null : (invalid ?? rowBlocker(view, platformReady));
+    // Chưa có kết quả kiểm: đang kiểm thì chờ; kiểm lỗi (BE cũ, mạng) thì lý do tính tạm như trước
+    const checking = !onPlatform && !invalid && !preview && !previewFailed;
+    const { reasons, blockers } = onPlatform || invalid || checking ? { reasons: [], blockers: [] } : rowReasons(preview, rowBlocker(view, platformReady));
+    const blocker = onPlatform ? null : (invalid ?? (reasons.length ? reasons.join('; ') : null));
     const manual = Boolean(parsed?.ok && parsed.value && parsed.value !== r.price);
-    return { r, key, text, view, invalid, onPlatform, blocker, manual, platformReady };
+    return { r, key, text, view, preview, invalid, onPlatform, checking, reasons: invalid ? [invalid] : reasons, blockers, blocker, manual, platformReady };
   });
-  const toPublish = views.filter((v) => !v.onPlatform && !v.blocker);
+  const toPublish = views.filter((v) => !v.onPlatform && !v.blocker && !v.checking);
   const showMargin = views.some((v) => v.view.marginPct !== null);
   // Gian hàng chưa có cấu hình phí (tính thử trả fee_not_configured, KB2 2.12): báo rõ, kèm đường tới cấu hình phí
   const noFeeShops = shops.filter((s) => views.some((v) => v.r.shopId === s.id && !v.onPlatform && v.view.blockedCode === 'fee_not_configured'));
@@ -120,10 +150,10 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
   // Lỗi gom theo sàn
   const problemsByPlatform = new Map<string, Map<string, number>>();
   for (const v of views) {
-    if (!v.blocker) continue;
+    if (!v.reasons.length) continue;
     const p = platformOf.get(v.r.shopId) ?? '';
     const m = problemsByPlatform.get(p) ?? new Map<string, number>();
-    m.set(v.blocker, (m.get(v.blocker) ?? 0) + 1);
+    for (const reason of v.reasons) m.set(reason, (m.get(reason) ?? 0) + 1);
     problemsByPlatform.set(p, m);
   }
 
@@ -164,7 +194,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
   const platforms = [...new Set(shops.map((s) => s.platform))];
   // Không SKU nào đăng được: sàn đầu tiên còn thiếu thông tin (sửa ở bước 2), không thì lý do đầu tiên
   const fixPlatform = toPublish.length ? null : ([...problemsByPlatform.keys()].find((p) => !readyPlatforms.has(p)) ?? null);
-  const firstBlocker = views.find((v) => v.blocker)?.blocker ?? null;
+  const firstBlocker = views.find((v) => v.reasons.length)?.reasons[0] ?? null;
 
   return (
     <div className="grid gap-5">
@@ -200,6 +230,15 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
       </div>
 
       {quoteError && <AlertMessage severity="warning">{quoteError}</AlertMessage>}
+      {previewFailed && (
+        <AlertMessage severity="warning">
+          Chưa kiểm được trước khi đăng ({problemMessage(previewFailed.error)}). Lý do dưới đây tính tạm theo thông tin sàn và giá;
+          lệnh đăng vẫn kiểm lại.{' '}
+          <button type="button" className="font-medium underline" onClick={() => previews.forEach((q) => q.isError && void q.refetch())}>
+            Thử lại
+          </button>
+        </AlertMessage>
+      )}
       {anyManual && (
         <AlertMessage severity="info">
           Giá bạn gõ thành <b>giá đặt tay</b>: áp ngay khi đăng, không tự đổi theo giá muốn thực nhận hay phí nữa cho tới khi bỏ giá đặt tay ở trang gian hàng.
@@ -234,7 +273,7 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
             {views.map((v, k) => {
               const shop = shops.find((s) => s.id === v.r.shopId);
               const firstOfShop = k === 0 || views[k - 1]!.r.shopId !== v.r.shopId;
-              const fee = feePct(v.view);
+              const fee = v.preview ? v.preview.feePct : feePct(v.view);
               return (
                 <TableRow key={v.key} className={cn(v.onPlatform && 'text-muted-foreground')}>
                   <TableCell className="align-top">
@@ -282,10 +321,40 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
                   {showMargin && (
                     <TableCell className="text-right align-top tabular-nums">{v.view.marginPct !== null ? pct(v.view.marginPct) : '—'}</TableCell>
                   )}
-                  <TableCell className="text-right align-top tabular-nums">{stockToPushText(v.r)}</TableCell>
+                  <TableCell className="text-right align-top tabular-nums">{stockToPushText(v.preview ?? v.r)}</TableCell>
                   <TableCell className="align-top">
                     {v.onPlatform && v.r.listing ? (
                       <Badge variant="outline">{LISTING_STATUS_LABELS[v.r.listing.status]}</Badge>
+                    ) : v.checking ? (
+                      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden /> Đang kiểm…
+                      </span>
+                    ) : v.blockers.length ? (
+                      <ul className="grid gap-0.5 text-sm" data-testid="preview-blockers">
+                        {v.blockers.map((b, i) => {
+                          const found = blockerFix(b.target, {
+                            companyId,
+                            productId: product.id,
+                            platform: platformOf.get(v.r.shopId) ?? null,
+                            shopId: v.r.shopId,
+                            variantId: b.variantIds.includes(v.r.variantId) ? v.r.variantId : (b.variantIds[0] ?? v.r.variantId),
+                          });
+                          const fix = found && canUseFix(found, can) ? found : null;
+                          return (
+                            <li key={`${b.code}-${i}`} className="text-destructive-text">
+                              Chưa đăng: {b.label}
+                              {fix && (
+                                <>
+                                  {' '}
+                                  <Link to={fix.to} className="font-medium text-primary-text underline" data-testid="preview-fix">
+                                    {fix.label}
+                                  </Link>
+                                </>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
                     ) : v.blocker ? (
                       <span className="text-sm text-destructive-text">Chưa đăng: {v.blocker}</span>
                     ) : (
@@ -332,10 +401,12 @@ export function PublishPreview({ product, companyId, shops, rows, readyPlatforms
           </Button>
         ) : (
           <Button type="button" onClick={() => void publish()} disabled={busy || !toPublish.length}>
-            {busy && <Loader2 className="animate-spin" />}
+            {(busy || (previewLoading && !toPublish.length)) && <Loader2 className="animate-spin" />}
             {busy
               ? 'Đang đăng…'
-              : toPublish.length
+              : previewLoading && !toPublish.length
+                ? 'Đang kiểm trước khi đăng…'
+                : toPublish.length
                 ? `Đăng ${toPublish.length} SKU lên ${shopsToPublish.length} gian hàng`
                 : firstBlocker
                   ? `Chưa đăng được: ${firstBlocker.toLocaleLowerCase('vi')}`

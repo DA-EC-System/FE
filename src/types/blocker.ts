@@ -56,3 +56,32 @@ export interface ShopReadiness {
 export interface ProductReadiness {
   items: ShopReadiness[];
 }
+
+/**
+ * Một dòng của `POST /channel/shops/:shopId/listings/push-preview` (Documents/21 §18.11, commerio-backend#566). Mục chặn
+ * cùng hàm với readiness và `push`. Người gọi thiếu quyền xem giá vốn không nhận `below_floor` (lệnh đăng vẫn chặn)
+ */
+export interface PushPreviewRow {
+  variantId: string;
+  productId: string;
+  productName: string;
+  attributesLabel: string;
+  sku: string;
+  status: 'ready' | 'blocked';
+  blockers: Blocker[];
+  /** Giá lần đăng sẽ gửi (đã làm tròn); null khi chưa tính được */
+  listPrice: number | null;
+  /** Bước làm tròn của bộ lọc giá; null khi giá gõ tay */
+  rounding: unknown;
+  stockToPush: number | null;
+  stockHeldReason: 'shop_waiting_opening' | 'not_counted' | null;
+  netReceived: number | null;
+  /** (listPrice − netReceived) / listPrice */
+  feePct: number | null;
+  feeConfigId: string | null;
+}
+
+export interface PushPreview {
+  rows: PushPreviewRow[];
+  summary: { ready: number; blocked: number };
+}
