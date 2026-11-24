@@ -184,6 +184,8 @@ export const GUIDES = {
   products: {
     key: 'products',
     version: 1,
+    // Không tự che danh sách khi vừa vào (FE#464); mở bằng "Xem từng bước" ở nút "?" cạnh tiêu đề
+    autoOpen: false,
     title: 'Sản phẩm',
     intro: [
       'Mỗi sản phẩm có một hoặc nhiều biến thể, mỗi biến thể là một SKU.',

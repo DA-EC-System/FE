@@ -1,14 +1,17 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useGroups } from '@/api/catalog.api';
+import { fetchProductIdOfVariant, useGroups } from '@/api/catalog.api';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useCreateVariantFromRemote } from '@/api/shops.api';
 import type { RemoteSku } from '@/types/shop';
+import { useAuth } from '@/hooks/useAuth';
+import { ROUTES } from '@/router/routes';
 
 /**
  * Tạo SKU kho từ SKU sàn rồi liên kết, ngay ở trang gian hàng (Documents/21 §18.9 R2, Documents/29 bước 5). Sản phẩm mới
@@ -17,6 +20,8 @@ import type { RemoteSku } from '@/types/shop';
 export function CreateVariantDialog({ shopId, remote, onClose }: { shopId: string; remote: RemoteSku | null; onClose: () => void }) {
   const groups = useGroups();
   const create = useCreateVariantFromRemote();
+  const navigate = useNavigate();
+  const companyId = useAuth().companyContext?.companyId ?? '';
   const [groupId, setGroupId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -35,9 +40,22 @@ export function CreateVariantDialog({ shopId, remote, onClose }: { shopId: strin
     setError(null);
     try {
       const res = await create.mutateAsync({ shopId, externalSkuId: remote.externalSkuId, groupId });
-      if (res.pending) toast.info(`SKU kho ${remote.sellerSku} đã có và đang có đơn: đã gửi CEO duyệt liên kết.`);
-      else if (res.created) toast.success(`Đã tạo SKU kho ${remote.sellerSku} và liên kết với SKU sàn.`);
-      else toast.success(`SKU kho ${remote.sellerSku} đã có sẵn: đã liên kết SKU sàn vào SKU đó.`);
+      // FE#463: có lối tới sản phẩm chứa SKU kho vừa tạo hoặc vừa liên kết; BE chỉ trả `variantId` nên tìm sản phẩm khi bấm
+      const sku = remote.sellerSku;
+      const open = {
+        label: 'Mở sản phẩm',
+        onClick: () => {
+          void fetchProductIdOfVariant(res.variantId, sku)
+            .then((productId) => {
+              if (productId) navigate(ROUTES.company.catalogProduct(companyId, productId));
+              else toast.error(`Không tìm thấy sản phẩm chứa SKU ${sku}. Tìm ở danh sách sản phẩm.`);
+            })
+            .catch((e: unknown) => toast.error(problemMessage(e)));
+        },
+      };
+      if (res.pending) toast.info(`SKU kho ${sku} đã có và đang có đơn: đã gửi CEO duyệt liên kết.`);
+      else if (res.created) toast.success(`Đã tạo SKU kho ${sku} và liên kết với SKU sàn.`, { action: open });
+      else toast.success(`SKU kho ${sku} đã có sẵn: đã liên kết SKU sàn vào SKU đó.`, { action: open });
       close();
     } catch (e) {
       const problem = getProblem(e);

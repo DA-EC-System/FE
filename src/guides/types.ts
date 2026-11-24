@@ -21,4 +21,6 @@ export interface PageGuide {
   /** Nút làm nổi phần tử hành động chính của trang */
   primaryAction?: { label: string; target: string };
   steps: GuideStep[];
+  /** false: không tự mở lần đầu, chỉ mở khi bấm "Xem từng bước" ở nút "?" (trang danh sách hay vào, FE#464) */
+  autoOpen?: boolean;
 }

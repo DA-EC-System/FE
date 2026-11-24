@@ -36,7 +36,7 @@ import { StaffListPage } from '@/features/identity/StaffListPage';
 import { JoinPage } from '@/features/auth/JoinPage';
 import { RolesPage } from '@/features/identity/RolesPage';
 import { ProductListPage } from '@/features/catalog/ProductListPage';
-import { ProductFormPage } from '@/features/catalog/ProductFormPage';
+import { ProductFormRoute } from '@/features/catalog/ProductFormRoute';
 import { CatalogSetupPage } from '@/features/catalog/CatalogSetupPage';
 import { CategoryDetailPage } from '@/features/catalog/CategoryDetailPage';
 import { ProductSettingsPage } from '@/features/catalog/ProductSettingsPage';
@@ -235,20 +235,22 @@ export const router = createBrowserRouter([
                       </RequireModule>
                     ),
                   },
+                  // Danh sách sản phẩm nằm ở /catalog; gõ tay /catalog/products thì về đó thay vì 404 (FE#464)
+                  { path: 'catalog/products', element: <Navigate to=".." relative="path" replace /> },
                   {
                     path: 'catalog/products/new',
                     element: (
                       <RequireModule module="catalog" permission={PERMISSIONS.productManage}>
-                        <ProductFormPage key="new" />
+                        <ProductFormRoute />
                       </RequireModule>
                     ),
                   },
                   {
-                    // key khác trang tạo mới: không giữ state cũ khi chuyển từ tạo sang sửa
+                    // ProductFormRoute mount lại khi đổi giữa tạo và sửa, trừ lúc vừa tạo xong (FE#463)
                     path: 'catalog/products/:productId',
                     element: (
                       <RequireModule module="catalog" permission={PERMISSIONS.productView}>
-                        <ProductFormPage key="edit" />
+                        <ProductFormRoute />
                       </RequireModule>
                     ),
                   },
