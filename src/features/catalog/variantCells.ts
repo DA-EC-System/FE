@@ -46,9 +46,3 @@ export interface SkuVersions {
   version: number;
   reorderVersion: number | null | undefined;
 }
-
-/**
- * `reorderVersion` sau khi lưu ngưỡng tồn thành công. BE chỉ trả `version` của SKU; dòng tồn tăng version đúng 1 mỗi lần
- * ngưỡng đổi (null là chưa có dòng, tính như 0). Bảng chỉ gửi khi số khác số đang có nên lần lưu thành công luôn là đổi
- */
-export const reorderVersionAfterSave = (reorderVersion: number | null | undefined): number => (reorderVersion ?? 0) + 1;

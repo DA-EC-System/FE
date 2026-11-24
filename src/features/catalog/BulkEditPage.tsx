@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Loader2, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { EditableGrid, type EditableGridApi, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
-import { parseVariantField, reorderVersionAfterSave, type SkuVersions } from './variantCells';
+import { parseVariantField, type SkuVersions } from './variantCells';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -110,17 +110,15 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         : { ok: false, error: failureText(failed, field) };
     }
     const saved = result.saved.find((s) => s.variantId === row.variantId);
-    const next: SkuVersions = {
-      version: saved?.version ?? v.version + 1,
-      reorderVersion: field === 'minQty' ? reorderVersionAfterSave(v.reorderVersion) : v.reorderVersion,
-    };
-    cache.patch(row.variantId, (r) => ({
-      ...r,
-      version: next.version,
-      reorderVersion: next.reorderVersion ?? null,
-      current: { ...r.current, [field]: value as number | null },
-    }));
-    return { ok: true, version: next };
+    const version = saved?.version ?? v.version + 1;
+    cache.patch(row.variantId, (r) => ({ ...r, version, current: { ...r.current, [field]: value as number | null } }));
+    if (field !== 'minQty') return { ok: true, version: { ...v, version } };
+    // BE không trả `reorderVersion` mới (dòng tồn mới tạo, ngưỡng không đổi... mỗi trường hợp tăng khác nhau): đọc lại dòng
+    // sau khi lưu. Đọc sau khi lưu nên không làm mất phát hiện xung đột
+    const fresh = await fetchBulkRow(row.variantId, row.sku).catch(() => null);
+    if (fresh) cache.replace(fresh);
+    else void query.refetch();
+    return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : v.reorderVersion } };
   };
 
   const reloadRow = async (row: BulkEditRow) => {
@@ -154,11 +152,15 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         cache.patch(s.variantId, (r) => ({
           ...r,
           version: s.version,
-          reorderVersion: p.fields.includes('minQty') ? reorderVersionAfterSave(p.body.reorderVersion) : r.reorderVersion,
           current: { ...r.current, ...Object.fromEntries(p.fields.map((f) => [f, p.body[f] ?? null])) },
         }));
         for (const f of p.fields) grid.current?.markSaved(s.variantId, f);
       }
+      // Dòng có lưu ngưỡng tồn: đọc lại sau khi lưu để có `reorderVersion` mới (BE không trả)
+      const minQtyRows = payload.filter((p) => p.fields.includes('minQty') && result.saved.some((s) => s.variantId === p.row.variantId));
+      const freshRows = await Promise.all(minQtyRows.map((p) => fetchBulkRow(p.row.variantId, p.row.sku).catch(() => null)));
+      for (const fresh of freshRows) if (fresh) cache.replace(fresh);
+      if (freshRows.some((r) => !r)) void query.refetch();
       for (const f of result.failed) {
         const p = payload.find((x) => x.row.variantId === f.variantId);
         if (!p) continue;

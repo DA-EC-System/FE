@@ -1,5 +1,6 @@
 // P2 · Giá muốn bán, nhãn SKU, xoá hẳn trên BE thật (FE#260; Documents/21 §17.1–17.4, commerio-backend#344, #345).
-// Bảng biến thể sửa từng ô có khoá (FE#475): khoá thì bấm đúp không mở ô; mở khoá, sửa, Enter lưu, tải lại vẫn còn.
+// Bảng biến thể sửa từng ô có khoá (FE#475): khoá thì bấm đúp không mở ô; mở khoá, sửa, Enter lưu, tải lại vẫn còn;
+// ngưỡng tồn đặt lần đầu rồi sửa lại không báo xung đột giả.
 // Một công ty giả riêng (e2e/be/congTyGia.ts), sản phẩm nền dựng qua API công khai.
 // BE chưa có targetNetPrice / code (BE#344, #345 chưa lên môi trường này) thì bỏ qua, không đỏ.
 import { type Page, expect, test } from '@playwright/test';
@@ -157,6 +158,43 @@ test('sửa hàng loạt: mở khoá, sửa khối lượng một ô, Enter lưu
   await page.reload();
   await expect(dong().locator('[data-col-id=weightG]')).toContainText('350');
   expect((await chiTiet()).variants[0]!.weightG).toBe(350);
+  await page.goto(`/c/${cty.companyId}/catalog/products/${productId}`);
+});
+
+test('ngưỡng tồn: đặt lần đầu rồi sửa lại ngay, ở trang sản phẩm và Sửa hàng loạt, không báo xung đột giả', async () => {
+  test.skip(Boolean(boQua), boQua);
+  const { sku: ma } = (await chiTiet()).variants[0]!;
+  const moKhoa = async () => {
+    const khoa = page.getByRole('button', { name: 'Khoá sửa', exact: true });
+    if ((await khoa.getAttribute('aria-pressed')) === 'true') await khoa.click();
+    await expect(khoa).toHaveAttribute('aria-pressed', 'false');
+  };
+  // Mỗi lần: mở ô, gõ số, Enter; PATCH bulk trả 200 và không có dòng lỗi (xung đột nằm trong `failed`)
+  const datNguong = async (oNguong: () => ReturnType<Page['locator']>, so: string) => {
+    await oNguong().dblclick();
+    const o = page.getByRole('textbox', { name: `Ngưỡng tồn ${ma}` });
+    await o.fill(so);
+    const res = page.waitForResponse((r) => r.request().method() === 'PATCH' && new URL(r.url()).pathname.endsWith('/catalog/variants/bulk'));
+    await o.press('Enter');
+    const body = (await (await res).json()) as { failed: unknown[] };
+    expect(body.failed).toEqual([]);
+    await expect(oNguong()).toContainText(so);
+    await expect(oNguong().getByTestId('cell-error')).toHaveCount(0);
+  };
+
+  // Trang sản phẩm: SKU chưa có dòng tồn (reorderVersion null), BE tạo dòng rồi tăng version, lần hai phải lấy số mới
+  await page.goto(`/c/${cty.companyId}/catalog/products/${productId}`);
+  await moKhoa();
+  const oSanPham = () => sku().getByTestId('variant-min-qty');
+  await datNguong(oSanPham, '5');
+  await datNguong(oSanPham, '7');
+
+  // Sửa hàng loạt: sửa tiếp hai lần trên cùng SKU
+  await page.goto(`/c/${cty.companyId}/catalog?mode=bulk`);
+  await moKhoa();
+  const oBang = () => page.locator(`tbody tr[data-row-id="${variantId}"] [data-col-id=minQty]`);
+  await datNguong(oBang, '9');
+  await datNguong(oBang, '11');
   await page.goto(`/c/${cty.companyId}/catalog/products/${productId}`);
 });
 

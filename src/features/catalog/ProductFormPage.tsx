@@ -24,9 +24,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  fetchBulkRow,
   fetchNextIncompleteProduct,
   useBulkEditCache,
-  useBulkEditRows,
+  useProductBulkRows,
   useBulkSaveVariants,
   useSaveBulkCells,
   useSaveVariantCell,
@@ -64,7 +65,7 @@ import { VariationEditor } from './VariationEditor';
 import { GroupCombobox } from './GroupCombobox';
 import { axisServerErrors, draftBody, draftError, emptyDraft, type VariantDraft } from './variantDraft';
 import { AddVariantDialog } from './AddVariantDialog';
-import { firstMissingField, isBulkField, parseVariantField, reorderVersionAfterSave, type SkuVersions } from './variantCells';
+import { firstMissingField, isBulkField, parseVariantField, type SkuVersions } from './variantCells';
 import { siblingToCopy } from './siblingCopy';
 import { productPatchBody, productSchema, sizeChartPatch, type ProductForm } from './shared';
 import { productNameCounter } from './productName';
@@ -192,16 +193,15 @@ export function ProductFormPage() {
   const platforms = activePlatforms(shopsQuery.data?.items ?? []);
   const listingRows = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const listed = useMemo(() => listingsByVariant(listingRows), [listingRows]);
-  // `reorderVersion` của từng biến thể chỉ có ở bảng sửa hàng loạt; cùng truy vấn với ProductMinQtyCard nên dùng chung cache.
-  // Ô Ngưỡng tồn gửi version này (không đọc lại ngay trước khi lưu) để BE phát hiện người khác vừa sửa
-  const reorderQuery = useBulkEditRows(
-    { page: 1, pageSize: 200, search: product?.name ?? '' },
-    { enabled: Boolean(product) && canManage && !archived && can(PERMISSIONS.reorderManage) },
+  // `reorderVersion` của từng biến thể chỉ có ở bảng sửa hàng loạt; tra theo từng SKU của sản phẩm. Ô Ngưỡng tồn gửi
+  // version này (không đọc lại ngay trước khi lưu) để BE phát hiện người khác vừa sửa
+  const reorderQuery = useProductBulkRows(product?.id, product?.variants ?? [], {
+    enabled: canManage && !archived && can(PERMISSIONS.reorderManage),
+  });
+  const reorderVersions = useMemo(
+    () => (reorderQuery.data ? new Map(reorderQuery.data.items.map((r) => [r.variantId, r.reorderVersion])) : null),
+    [reorderQuery.data],
   );
-  const reorderVersions = useMemo(() => {
-    if (!reorderQuery.data || !product) return null;
-    return new Map(reorderQuery.data.items.filter((r) => r.productId === product.id).map((r) => [r.variantId, r.reorderVersion]));
-  }, [reorderQuery.data, product]);
   const bulkCache = useBulkEditCache();
   const levels = useMemo(() => new Map((stockQuery.data?.items ?? []).map((l) => [l.variantId, l])), [stockQuery.data]);
   const [skuVariantId, setSkuVariantId] = useState<string | null>(null);
@@ -747,9 +747,12 @@ export function ProductFormPage() {
             ? { ...conflict, error: failed.errors?.minQty ? `${failed.errors.minQty}. Bấm Tải lại dòng rồi lưu lại.` : conflict.error }
             : { ok: false, error: failed.errors?.minQty ?? failed.message };
         }
-        const next: SkuVersions = { version: result.saved[0]?.version ?? ver.version, reorderVersion: reorderVersionAfterSave(ver.reorderVersion) };
-        bulkCache.patch(v.id, (r) => ({ ...r, version: next.version, reorderVersion: next.reorderVersion ?? null, current: { ...r.current, minQty: value as number | null } }));
-        return { ok: true, version: next };
+        // BE không trả `reorderVersion` mới: đọc lại dòng sau khi lưu (không làm mất phát hiện xung đột)
+        const version = result.saved[0]?.version ?? ver.version + 1;
+        const fresh = await fetchBulkRow(v.id, v.sku).catch(() => null);
+        if (fresh) bulkCache.replace(fresh);
+        else void reorderQuery.refetch();
+        return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : undefined } };
       }
       const detail = await saveVariantCell.mutateAsync({ productId: product.id, variantId: v.id, version: ver.version, [field]: value as number | null });
       return { ok: true, version: { ...ver, version: detail.variants.find((x) => x.id === v.id)?.version ?? ver.version + 1 } };
@@ -1287,7 +1290,8 @@ export function ProductFormPage() {
                       rowLabel={(v) => v.sku}
                       getVersion={(v): SkuVersions => ({
                         version: v.version,
-                        reorderVersion: reorderVersions ? (reorderVersions.get(v.id) ?? null) : undefined,
+                        // Chưa đọc được dòng của SKU này thì để trống: ô Ngưỡng tồn báo lỗi thay vì gửi null
+                        reorderVersion: reorderVersions?.has(v.id) ? reorderVersions.get(v.id) : undefined,
                       })}
                       save={saveSkuCell}
                       reloadRow={async () => {

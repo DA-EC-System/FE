@@ -586,8 +586,8 @@ export function useSaveBulkCells() {
 }
 
 /**
- * Dòng mới nhất của một SKU trong bảng sửa hàng loạt, để tải lại dòng xung đột. Tìm theo SKU nên có thể trúng SKU khác
- * cùng tiền tố: đọc tiếp các trang tới khi thấy đúng `variantId`
+ * Dòng mới nhất của một SKU trong bảng sửa hàng loạt: tải lại dòng xung đột, đọc `reorderVersion` sau khi lưu ngưỡng tồn.
+ * Tìm theo SKU nên có thể trúng SKU khác cùng tiền tố: đọc tiếp các trang tới khi thấy đúng `variantId`
  */
 export async function fetchBulkRow(variantId: string, sku: string): Promise<BulkEditRow | null> {
   const pageSize = 200;
@@ -599,6 +599,29 @@ export async function fetchBulkRow(variantId: string, sku: string): Promise<Bulk
     if (found) return found;
     if (page * pageSize >= data.total || data.items.length === 0) return null;
   }
+}
+
+/**
+ * Dòng bảng sửa hàng loạt của đúng các SKU một sản phẩm (FE#475: `reorderVersion` cho ô Ngưỡng tồn ở trang sản phẩm).
+ * Tra từng SKU theo `variantId`, không tìm theo tên sản phẩm: tên trùng thì SKU có thể rơi khỏi trang đầu. Khoá nằm dưới
+ * `bulk-edit` nên `useBulkEditCache().patch` cập nhật luôn
+ */
+export function useProductBulkRows(
+  productId: string | undefined,
+  variants: { id: string; sku: string }[],
+  options: { enabled?: boolean } = {},
+) {
+  const companyId = useCompanyId();
+  const ids = variants.map((v) => v.id).join(',');
+  return useQuery({
+    queryKey: [...catalogKeys.all(companyId), 'bulk-edit', 'product', productId, ids],
+    enabled: Boolean(companyId) && Boolean(productId) && variants.length > 0 && options.enabled !== false,
+    queryFn: async (): Promise<PageResult<BulkEditRow>> => {
+      const rows = await Promise.all(variants.map((v) => fetchBulkRow(v.id, v.sku)));
+      const items = rows.filter((r): r is BulkEditRow => r !== null);
+      return { items, total: items.length, page: 1, pageSize: items.length };
+    },
+  });
 }
 
 /**
