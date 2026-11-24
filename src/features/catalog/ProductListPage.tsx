@@ -32,6 +32,7 @@ import type { ProductListItem, ProductListParams, ProductStatus, VariantReadines
 import { PRODUCT_STATUS_LABELS } from './labels';
 import { usePageGuide } from '@/guides/usePageGuide';
 import { BulkEditPage } from './BulkEditPage';
+import { coverageParts, coverageText, hasCoverageColumn } from './channelCoverage';
 import { BUSINESS_STATUS_LABELS, BusinessActionMenu, ParentStatus, parentActions, useBusinessAction } from './businessStatus';
 
 /** /catalog?mode=bulk mở bảng sửa hàng loạt (FE#155), cần quyền quản lý sản phẩm */
@@ -83,6 +84,8 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
   const rows = (productsQuery.data?.items ?? []).filter((p) =>
     status !== 'active' || !readiness ? true : readiness === 'incomplete' ? p.incompleteCount > 0 : p.incompleteCount === 0,
   );
+  // Cột độ phủ sàn chỉ hiện khi BE trả (commerio-backend#591) và người xem có quyền xem gian hàng (FE#464)
+  const showCoverage = hasCoverageColumn(rows);
   // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
   const groupsQuery = useGroups({ includeHidden: true });
   const groups = groupsQuery.data ?? [];
@@ -156,6 +159,49 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         },
         cell: ({ row }) => <ParentStatus item={row.original} />,
       },
+      ...(showCoverage
+        ? [
+            {
+              id: 'channelCoverage',
+              header: 'Độ phủ sàn',
+              meta: {
+                className: 'min-w-44',
+                help: 'Số SKU còn thiếu ở từng gian hàng, không tính SKU đã lưu trữ. ✓ là mọi SKU đã lên sàn hoặc đang đẩy. Bấm "còn N" để mở tab sàn của sản phẩm.',
+              },
+              cell: ({ row }) => {
+                const p = row.original;
+                const parts = coverageParts(p.channelCoverage);
+                if (!parts.length || p.variantCount === 0) return <span className="text-muted-foreground">—</span>;
+                return (
+                  <span className="flex flex-wrap items-center gap-x-1 text-sm" data-testid="channel-coverage">
+                    {parts.map((c, i) => (
+                      <span key={c.shopId} className="whitespace-nowrap">
+                        {i > 0 && <span className="text-muted-foreground">· </span>}
+                        {c.missing > 0 ? (
+                          <Link
+                            to={ROUTES.company.catalogProduct(companyId, p.id, { tab: c.platform })}
+                            className="font-medium text-amber-700 hover:underline dark:text-amber-400"
+                            title={`Mở tab ${c.label} của sản phẩm`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {coverageText(c)}
+                          </Link>
+                        ) : (
+                          <span>
+                            {c.label}{' '}
+                            <span className="text-emerald-600 dark:text-emerald-400" aria-label="đủ">
+                              ✓
+                            </span>
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                );
+              },
+            } satisfies ColumnDef<ProductListItem>,
+          ]
+        : []),
       {
         id: 'updatedAt',
         header: 'Cập nhật',
@@ -183,7 +229,7 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, companyId, readiness],
+    [canManage, companyId, readiness, showCoverage],
   );
 
   const filtered = Boolean(debouncedSearch || groupId || readiness);

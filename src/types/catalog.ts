@@ -196,6 +196,18 @@ export interface ProductVariant {
   archiveBlockers: string[];
 }
 
+/** Độ phủ sàn của sản phẩm ở một gian hàng chưa ngắt (FE#464, commerio-backend#591) */
+export interface ProductShopCoverage {
+  shopId: string;
+  /** Tên hiển thị của gian hàng nếu có, không thì tên trên sàn */
+  shopName: string;
+  platform: string;
+  /** Số SKU chưa lưu trữ đã lên sàn (đang duyệt, đang bán, đang ẩn) hoặc đang đẩy ở gian hàng này */
+  listed: number;
+  /** Số SKU chưa lưu trữ chưa có ở gian hàng này; 0 là đủ */
+  missing: number;
+}
+
 export interface ProductListItem {
   id: string;
   /** Mã sản phẩm cha, duy nhất trong công ty, sinh theo mẫu SKU của công ty */
@@ -216,6 +228,11 @@ export interface ProductListItem {
   status: ProductStatus;
   updatedAt: string;
   version: number;
+  /**
+   * Chỉ có ở danh sách. Tuỳ chọn tới khi commerio-backend#591 deploy; rỗng khi người xem không có `channel.shop.view`
+   * hoặc công ty chưa có gian hàng
+   */
+  channelCoverage?: ProductShopCoverage[];
 }
 
 export interface ProductDetail extends ProductListItem {
