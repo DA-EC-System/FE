@@ -9,7 +9,7 @@ const line = (patch: Partial<RequestLineDraft>): RequestLineDraft => ({
   isNew: true,
   parentMode: 'new',
   parentId: '',
-  parentName: 'Áo polo',
+  parentName: 'Áo polo nam cổ bẻ cotton cao cấp',
   groupId: 'cat-ao',
   options: [],
   quantity: '5',
@@ -25,7 +25,7 @@ const errorsOf = (lines: RequestLineDraft[]) => {
 describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', () => {
   it('cha mới cần tên và danh mục; cha có sẵn cần chọn cha', () => {
     expect(errorsOf([line({ parentName: '', groupId: '' })])).toMatchObject({
-      'lines.0.parentName': 'Nhập tên sản phẩm',
+      'lines.0.parentName': 'Tên sản phẩm cần ít nhất 25 ký tự (hiện 0)',
       'lines.0.groupId': 'Chọn danh mục sản phẩm',
     });
     expect(errorsOf([line({ parentMode: 'existing', parentName: '' })])).toMatchObject({
@@ -46,10 +46,17 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
     expect(e['lines.0.options.1.axis']).toBe('Chọn thuộc tính biến thể');
   });
 
+  it('tên cha mới dưới 25 ký tự (sau khi trim) thì báo, đủ 25 thì đạt', () => {
+    expect(errorsOf([line({ parentName: '  Áo thun cotton nam cổ tr  ' })])).toMatchObject({
+      'lines.0.parentName': 'Tên sản phẩm cần ít nhất 25 ký tự (hiện 24)',
+    });
+    expect(errorsOf([line({ parentName: '  Áo thun cotton nam cổ trò  ' })])['lines.0.parentName']).toBeUndefined();
+  });
+
   it('các dòng cùng tên cha mới gộp một cha: quá 2 trục thì báo', () => {
     const e = errorsOf([
       line({ options: [{ axis: 'Màu sắc', value: 'Đen' }, { axis: 'Kích cỡ', value: 'M' }] }),
-      line({ parentName: '  áo  POLO ', options: [{ axis: 'Chất liệu', value: 'Cotton' }] }),
+      line({ parentName: '  áo  POLO nam cổ bẻ   cotton cao CẤP ', options: [{ axis: 'Chất liệu', value: 'Cotton' }] }),
     ]);
     expect(e['lines.0.options']).toMatch(/3 thuộc tính biến thể; tối đa 2/);
     expect(e['lines.1.options']).toMatch(/tối đa 2/);
@@ -69,7 +76,7 @@ describe('Dòng sản phẩm mới của đề nghị nhập (Documents/21)', ()
     expect(errorsOf([line({ options: opts }), line({ options: [{ axis: 'Màu sắc', value: 'đen' }] })])).toMatchObject({
       'lines.1.options': 'Trùng phân loại với dòng 1 cùng sản phẩm',
     });
-    expect(errorsOf([line({ options: opts }), line({ parentName: 'Áo thun', options: opts })])).toEqual({});
+    expect(errorsOf([line({ options: opts }), line({ parentName: 'Áo thun nam cổ tròn cotton cao cấp', options: opts })])).toEqual({});
   });
 
   it('cha có sẵn: trùng tổ hợp cũng báo; dòng biến thể có sẵn không bị xét', () => {

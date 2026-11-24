@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { valueCode } from '@/utils/sku';
 import type { Attribute, ProductDetail, ProductUpdateInput } from '@/types/catalog';
 import { suggestFormSchema } from './suggest';
+import { PRODUCT_NAME_MAX, productNameError } from './productName';
 
 export const MAX_IMAGES = 9;
 /** Ảnh gửi lên kho: JPG, PNG, tối đa 1 MB, cạnh ngắn từ 330 px cho khớp yêu cầu của sàn (FE#205) */
@@ -64,7 +65,14 @@ export function effectiveCode(v: { value: string; code?: string }): string {
 }
 
 export const productSchema = z.object({
-  name: z.string().trim().min(1, 'Nhập tên sản phẩm').max(200, 'Tên sản phẩm tối đa 200 ký tự'),
+  name: z
+    .string()
+    .trim()
+    .max(PRODUCT_NAME_MAX, `Tên sản phẩm tối đa ${PRODUCT_NAME_MAX} ký tự`)
+    .superRefine((v, ctx) => {
+      const error = productNameError(v);
+      if (error) ctx.addIssue({ code: 'custom', message: error });
+    }),
   groupId: z.string().min(1, 'Chọn danh mục sản phẩm'),
   description: z.string().max(5000, 'Mô tả tối đa 5000 ký tự'),
   /** Mã ISO alpha-2, rỗng là chưa chọn (Documents/21 §17.2; chỉ sửa được khi đã tạo sản phẩm) */

@@ -2,6 +2,7 @@ import type { ProductVariant, VariantMissing } from '@/types/catalog';
 import { SHARED_TARGETS } from './productTabs';
 import { specFieldDomId } from './specs/SpecFieldsInput';
 import { isEmptySpec, type SpecDrafts, type SpecFieldView } from './specs/specValues';
+import { productNameError } from './productName';
 
 /** id ô danh mục sản phẩm trong form, để thanh "Còn thiếu" nhảy tới */
 export const GROUP_FIELD_ID = 'product-field-group';
@@ -53,6 +54,8 @@ const ORDER: (VariantMissing | 'category')[] = ['name', 'category', 'image', 'sp
 export function missingItems(input: {
   variants?: Pick<ProductVariant, 'businessStatus' | 'missing'>[];
   form?: { name: string; groupId: string; imageCount: number };
+  /** Sản phẩm đã lưu: bấm Lưu mà tên chưa đủ 25 ký tự (lỗi ở ô tên), hiện mục Tên sản phẩm để biết phải sửa */
+  nameInvalid?: boolean;
   requiredSpecs?: Pick<SpecFieldView, 'fieldId' | 'name' | 'required'>[];
   specDrafts?: SpecDrafts;
 }): MissingItem[] {
@@ -62,10 +65,12 @@ export function missingItems(input: {
     for (const m of v.missing) counts.set(m, (counts.get(m) ?? 0) + 1);
   }
   if (input.form) {
-    if (!input.form.name.trim()) counts.set('name', 1);
+    if (productNameError(input.form.name)) counts.set('name', 1);
     if (!input.form.groupId) counts.set('category', 1);
     if (!input.form.imageCount) counts.set('image', 1);
   }
+
+  if (input.nameInvalid) counts.set('name', 1);
 
   // Thuộc tính bắt buộc còn trống theo bản đang gõ: mỗi ô một dòng, nhảy đúng ô
   const specRows: MissingItem[] = (input.requiredSpecs ?? [])

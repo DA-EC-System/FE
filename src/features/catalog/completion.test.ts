@@ -41,8 +41,19 @@ describe('missingItems', () => {
     expect(items).toEqual([{ key: 'spec:b', label: 'Dáng áo', target: specFieldDomId('b') }]);
   });
 
+  it('form tạo: tên dưới 25 ký tự là còn thiếu Tên sản phẩm', () => {
+    const items = missingItems({ form: { name: '  Áo thun cotton nam cổ tr  ', groupId: 'g', imageCount: 1 } });
+    expect(items.map((i) => i.key)).toEqual(['name']);
+  });
+
+  it('sản phẩm đã lưu: chỉ hiện Tên sản phẩm khi bấm Lưu bị lỗi tên', () => {
+    const variants = [{ businessStatus: 'selling' as const, missing: [] }];
+    expect(missingItems({ variants })).toEqual([]);
+    expect(missingItems({ variants, nameInvalid: true })).toEqual([{ key: 'name', label: 'Tên sản phẩm', target: SHARED_TARGETS.name }]);
+  });
+
   it('đủ hết thì rỗng', () => {
-    expect(missingItems({ variants: [{ businessStatus: 'selling', missing: [] }], form: { name: 'A', groupId: 'g', imageCount: 1 } })).toEqual([]);
+    expect(missingItems({ variants: [{ businessStatus: 'selling', missing: [] }], form: { name: 'Áo thun nam cổ tròn cotton cao cấp', groupId: 'g', imageCount: 1 } })).toEqual([]);
   });
 });
 

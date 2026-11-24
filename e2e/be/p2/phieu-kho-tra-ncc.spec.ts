@@ -23,7 +23,7 @@ test.beforeAll(async ({ browser }) => {
   page = cty.page;
   const group = await tao<{ id: string }>('/catalog/groups', { name: 'Áo kiểm thử' });
   const product = await tao<{ variants: { id: string; sku: string }[] }>('/catalog/products', {
-    name: 'Áo kiểm thử giả',
+    name: 'Áo kiểm thử phiếu kho trả NCC',
     groupId: group.id,
     axes: [],
     variants: [{ options: [] }],

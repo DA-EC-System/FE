@@ -1,3 +1,4 @@
+import { productNameCounter } from './productName';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -642,19 +643,22 @@ export function ProductFormPage() {
   };
   // Thanh "Còn thiếu" (Documents/29 bước 3): BE tính `missing` theo SKU; thuộc tính bắt buộc theo bản đang gõ
   const watched = form.watch();
-  const missing = missingItems({
+  const missingInput = {
     variants: product?.variants,
     form: isNew ? { name: watched.name ?? '', groupId: watched.groupId ?? '', imageCount: images.length } : undefined,
     requiredSpecs: templateViews,
     specDrafts,
-  });
+  };
+  // Tên cũ ngắn hơn 25 ký tự: chỉ báo sau khi bấm Lưu (lỗi ở ô tên) và không chặn đăng, thao tác không lưu tên
+  const missing = missingItems({ ...missingInput, nameInvalid: !isNew && Boolean(form.formState.errors.name) });
+  const missingForPublish = missingItems(missingInput);
   const specsDirty = JSON.stringify(specDrafts) !== JSON.stringify(specInitial);
   const imagesDirty = product ? JSON.stringify(images.map((i) => i.fileId)) !== JSON.stringify(toImages(product).map((i) => i.fileId)) : false;
   const blocker = publishBlocker({
     isNew,
     archived,
     canPublish: can(PERMISSIONS.listingManage),
-    missing: missing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
+    missing: missingForPublish.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
   });
   // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
@@ -809,6 +813,7 @@ export function ProductFormPage() {
                   label="Tên sản phẩm"
                   autoFocus={isNew}
                   readOnly={readOnly}
+                  counter={productNameCounter(watched.name ?? '')}
                 />
               </div>
               <FormField

@@ -9,7 +9,7 @@ test.describe.configure({ mode: 'serial' });
 let cty: CongTyGia;
 let page: Page;
 const tenDanhMuc = 'Mũ kiểm thử';
-const tenSanPham = 'Mũ lưỡi trai kiểm thử';
+const tenSanPham = 'Mũ lưỡi trai kiểm thử chuyển trang';
 
 test.beforeAll(async ({ browser }) => {
   cty = await taoCongTyGia(browser, { ten: 'tao-sp' });

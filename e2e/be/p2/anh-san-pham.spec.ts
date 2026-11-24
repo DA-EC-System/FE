@@ -83,7 +83,7 @@ test.beforeAll(async ({ browser }) => {
   page = cty.page;
   const group = await tao<{ id: string }>('/catalog/groups', { name: 'Áo kiểm thử' });
   ({ id: productId } = await tao<{ id: string }>('/catalog/products', {
-    name: 'Áo kiểm thử có ảnh',
+    name: 'Áo kiểm thử có ảnh sản phẩm mẫu',
     groupId: group.id,
     axes: [],
     variants: [{ options: [] }],
@@ -165,7 +165,7 @@ test('đổi thứ tự: đưa ảnh 2 lên trước thì ảnh đó thành ản
 test('danh sách sản phẩm hiện ảnh đại diện', async () => {
   test.skip(Boolean(boQua), boQua);
   await page.goto(`/c/${cty.companyId}/catalog`);
-  const dong = page.locator('tbody tr').filter({ hasText: 'Áo kiểm thử có ảnh' });
+  const dong = page.locator('tbody tr').filter({ hasText: 'Áo kiểm thử có ảnh sản phẩm mẫu' });
   const img = dong.locator('img').first();
   await expect(img).toBeVisible();
   await expect.poll(() => img.evaluate((e: HTMLImageElement) => e.complete && e.naturalWidth > 0)).toBe(true);

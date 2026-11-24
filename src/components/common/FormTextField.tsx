@@ -24,6 +24,8 @@ interface FormTextFieldProps<T extends FieldValues> extends Omit<
   hint?: ReactNode;
   /** Ô mật khẩu có nút hiện/ẩn */
   password?: boolean;
+  /** Bộ đếm ký tự dưới ô, bên phải, hiện cả khi có lỗi (vd "24/200 · tối thiểu 25") */
+  counter?: ReactNode;
 }
 
 /** Ô nhập một dòng gắn với react-hook-form: nhãn, ô, gợi ý hoặc lỗi (thay cho TextField của MUI). */
@@ -34,6 +36,7 @@ export function FormTextField<T extends FieldValues>({
   description,
   hint,
   password,
+  counter,
   className,
   ...inputProps
 }: FormTextFieldProps<T>) {
@@ -51,7 +54,14 @@ export function FormTextField<T extends FieldValues>({
               <Input {...inputProps} {...field} value={field.value ?? ''} />
             )}
           </FormControl>
-          {fieldState.error ? (
+          {counter ? (
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                {fieldState.error ? <FormMessage /> : description && <FormDescription>{description}</FormDescription>}
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{counter}</span>
+            </div>
+          ) : fieldState.error ? (
             <FormMessage />
           ) : (
             description && <FormDescription>{description}</FormDescription>

@@ -9,6 +9,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type { ProductListItem } from '@/types/catalog';
 import { MAX_AXES, axisChoices, type NewProductOption, type RequestLineDraft } from './shared';
+import { productNameCounter } from '@/features/catalog/productName';
 
 type FieldError = { message?: string } | undefined;
 
@@ -149,7 +150,12 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
               className="h-8"
               onChange={(e) => onChange({ parentName: e.target.value })}
             />
-            <Err error={errors?.parentName} />
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <Err error={errors?.parentName} />
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{productNameCounter(line.parentName, 120)}</span>
+            </div>
           </div>
           <div className="grid gap-1">
             <Select

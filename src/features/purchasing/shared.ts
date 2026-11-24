@@ -1,3 +1,4 @@
+import { productNameError } from '@/features/catalog/productName';
 import { z } from 'zod';
 import type { StatusMeta } from '@/components/common/StatusBadge';
 import { moneySchema } from '@/utils/price';
@@ -145,7 +146,8 @@ const requestLineSchema = z
     if (l.parentMode === 'existing') {
       if (!l.parentId) ctx.addIssue({ code: 'custom', path: ['parentId'], message: 'Chọn sản phẩm' });
     } else {
-      if (!l.parentName) ctx.addIssue({ code: 'custom', path: ['parentName'], message: 'Nhập tên sản phẩm' });
+      const nameError = productNameError(l.parentName);
+      if (nameError) ctx.addIssue({ code: 'custom', path: ['parentName'], message: nameError });
       if (!l.groupId) ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Chọn danh mục sản phẩm' });
     }
     const seen = new Set<string>();
