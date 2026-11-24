@@ -585,27 +585,38 @@ export function useSaveBulkCells() {
   });
 }
 
-/** Dòng mới nhất của một SKU trong bảng sửa hàng loạt: `reorderVersion` để lưu ngưỡng tồn, hoặc tải lại dòng xung đột */
+/**
+ * Dòng mới nhất của một SKU trong bảng sửa hàng loạt, để tải lại dòng xung đột. Tìm theo SKU nên có thể trúng SKU khác
+ * cùng tiền tố: đọc tiếp các trang tới khi thấy đúng `variantId`
+ */
 export async function fetchBulkRow(variantId: string, sku: string): Promise<BulkEditRow | null> {
-  const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', {
-    params: { page: 1, pageSize: 200, search: sku },
-  });
-  return data.items.find((r) => r.variantId === variantId) ?? null;
+  const pageSize = 200;
+  for (let page = 1; ; page++) {
+    const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', {
+      params: { page, pageSize, search: sku },
+    });
+    const found = data.items.find((r) => r.variantId === variantId);
+    if (found) return found;
+    if (page * pageSize >= data.total || data.items.length === 0) return null;
+  }
 }
 
-/** Sửa cache của trang bảng sửa hàng loạt đang xem, theo từng dòng */
-export function useBulkEditCache(params: BulkEditParams) {
+/**
+ * Sửa một dòng trong mọi trang bảng sửa hàng loạt đang có trong cache (mọi trang, bộ lọc, cả bảng ngưỡng tồn của trang
+ * sản phẩm): lượt lưu xong sau khi người dùng đã đổi trang vẫn cập nhật đúng trang cũ
+ */
+export function useBulkEditCache() {
   const qc = useQueryClient();
   const companyId = useCompanyId();
   return useMemo(() => {
-    const key = catalogKeys.bulkEdit(companyId, params);
     const patch = (variantId: string, fn: (row: BulkEditRow) => BulkEditRow) =>
-      qc.setQueryData<PageResult<BulkEditRow>>(key, (old) =>
-        old ? { ...old, items: old.items.map((r) => (r.variantId === variantId ? fn(r) : r)) } : old,
+      qc.setQueriesData<PageResult<BulkEditRow>>({ queryKey: [...catalogKeys.all(companyId), 'bulk-edit'] }, (old) =>
+        old && old.items.some((r) => r.variantId === variantId)
+          ? { ...old, items: old.items.map((r) => (r.variantId === variantId ? fn(r) : r)) }
+          : old,
       );
     return { patch, replace: (row: BulkEditRow) => patch(row.variantId, () => row) };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qc, companyId, JSON.stringify(params)]);
+  }, [qc, companyId]);
 }
 
 // ---------- Thư viện thông số và mẫu nhóm hàng (Documents/21 §5.5) ----------

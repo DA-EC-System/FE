@@ -37,3 +37,18 @@ export function firstMissingField(v: Pick<ProductVariant, 'missing' | BulkField>
 const BULK_FIELDS: readonly string[] = ['standardPrice', 'targetNetPrice', 'minQty', 'weightG', 'lengthMm', 'widthMm', 'heightMm'];
 /** Đọc `?field=` trên URL */
 export const isBulkField = (v: string | null): v is BulkField => v !== null && BULK_FIELDS.includes(v);
+
+/**
+ * Version gửi kèm khi lưu một ô SKU (FE#475): `version` của SKU và `reorderVersion` của ngưỡng tồn. `reorderVersion`
+ * undefined là chưa đọc được (trang sản phẩm đang tải bảng ngưỡng): không gửi ngưỡng tồn, tránh ghi đè mù
+ */
+export interface SkuVersions {
+  version: number;
+  reorderVersion: number | null | undefined;
+}
+
+/**
+ * `reorderVersion` sau khi lưu ngưỡng tồn thành công. BE chỉ trả `version` của SKU; dòng tồn tăng version đúng 1 mỗi lần
+ * ngưỡng đổi (null là chưa có dòng, tính như 0). Bảng chỉ gửi khi số khác số đang có nên lần lưu thành công luôn là đổi
+ */
+export const reorderVersionAfterSave = (reorderVersion: number | null | undefined): number => (reorderVersion ?? 0) + 1;

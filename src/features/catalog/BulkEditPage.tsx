@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Loader2, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { EditableGrid, type EditableGridApi, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
-import { parseVariantField } from './variantCells';
+import { parseVariantField, reorderVersionAfterSave, type SkuVersions } from './variantCells';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -68,7 +68,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
     incomplete: incomplete || undefined,
   };
   const query = useBulkEditRows(params);
-  const cache = useBulkEditCache(params);
+  const cache = useBulkEditCache();
   // Bộ lọc vẫn lọc được theo nhóm chuẩn đã ẩn (Documents/25 E182)
   const groups = useGroups({ includeHidden: true });
   const saveCells = useSaveBulkCells();
@@ -94,24 +94,32 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
   const suggestTargets = selected.size ? selectedRows : rows;
   const selectedSuggestions = suggestTargets.reduce((n, r) => n + acceptable(r).length, 0);
 
-  /** Một ô: một dòng gửi PATCH bulk. Ngưỡng tồn cần `reorderVersion` mới nhất nên đọc lại dòng trước khi gửi */
-  const save = async (row: BulkEditRow, columnId: string, value: unknown, version: number): Promise<SaveResult<number>> => {
+  /**
+   * Một ô: một dòng gửi PATCH bulk. Version (cả `reorderVersion` của ngưỡng tồn) lấy từ dòng đang hiện hoặc lượt trước
+   * cùng dòng, không đọc lại trước khi gửi: người khác vừa sửa thì BE trả xung đột thay vì ghi đè
+   */
+  const save = async (row: BulkEditRow, columnId: string, value: unknown, v: SkuVersions): Promise<SaveResult<SkuVersions>> => {
     const field = columnId as BulkField;
-    const body: BulkSaveRow = { variantId: row.variantId, version, [field]: value as number | null };
-    if (field === 'minQty') {
-      const fresh = await fetchBulkRow(row.variantId, row.sku);
-      body.reorderVersion = fresh?.reorderVersion ?? null;
-    }
+    const body: BulkSaveRow = { variantId: row.variantId, version: v.version, [field]: value as number | null };
+    if (field === 'minQty') body.reorderVersion = v.reorderVersion ?? null;
     const result = await saveCells.mutateAsync({ rows: [body] });
     const failed = result.failed[0];
     if (failed) {
       return failed.code === 'version_conflict'
-        ? { ok: false, conflict: true, error: 'Người khác vừa sửa SKU này. Tải lại dòng rồi lưu lại.' }
+        ? { ok: false, conflict: true, error: `${failed.errors?.[field] ?? 'Người khác vừa sửa SKU này'}. Tải lại dòng rồi lưu lại.` }
         : { ok: false, error: failureText(failed, field) };
     }
     const saved = result.saved.find((s) => s.variantId === row.variantId);
-    const next = saved?.version ?? version + 1;
-    cache.patch(row.variantId, (r) => ({ ...r, version: next, current: { ...r.current, [field]: value as number | null } }));
+    const next: SkuVersions = {
+      version: saved?.version ?? v.version + 1,
+      reorderVersion: field === 'minQty' ? reorderVersionAfterSave(v.reorderVersion) : v.reorderVersion,
+    };
+    cache.patch(row.variantId, (r) => ({
+      ...r,
+      version: next.version,
+      reorderVersion: next.reorderVersion ?? null,
+      current: { ...r.current, [field]: value as number | null },
+    }));
     return { ok: true, version: next };
   };
 
@@ -146,6 +154,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         cache.patch(s.variantId, (r) => ({
           ...r,
           version: s.version,
+          reorderVersion: p.fields.includes('minQty') ? reorderVersionAfterSave(p.body.reorderVersion) : r.reorderVersion,
           current: { ...r.current, ...Object.fromEntries(p.fields.map((f) => [f, p.body[f] ?? null])) },
         }));
         for (const f of p.fields) grid.current?.markSaved(s.variantId, f);
@@ -317,7 +326,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
           rows={rows}
           getRowId={(r) => r.variantId}
           rowLabel={(r) => r.sku}
-          getVersion={(r) => r.version}
+          getVersion={(r): SkuVersions => ({ version: r.version, reorderVersion: r.reorderVersion })}
           save={save}
           reloadRow={reloadRow}
           canEdit={canEdit}

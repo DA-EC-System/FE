@@ -155,13 +155,12 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
       }),
   );
 
-  const rowIndex = useMemo(() => new Map(rows.map((r, i) => [getRowId(r), i])), [rows, getRowId]);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
-  const findRow = (rowId: string) => {
-    const i = rowIndex.get(rowId);
-    return i === undefined ? undefined : rowsRef.current[i];
-  };
+  // Luôn tìm theo id trên danh sách mới nhất: lượt lưu chạy sau một lần await, lúc đó bảng có thể đã đổi trang, đổi bộ
+  // lọc hay tải lại làm dòng xê dịch, chỉ số dòng của lần vẽ cũ trỏ sang SKU khác
+  const indexOfRow = (rowId: string) => rowsRef.current.findIndex((r) => latest.current.getRowId(r) === rowId);
+  const findRow = (rowId: string): T | undefined => rowsRef.current[indexOfRow(rowId)];
   const colIndex = (columnId: string) => columns.findIndex((c) => c.id === columnId);
 
   // Dữ liệu đổi (đổi trang, lọc) thì giữ ô chọn trong bảng
@@ -214,23 +213,16 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
   );
 
   const runSave = (rowId: string, col: GridColumn<T>, value: unknown, draft: string) => {
+    // Bản chụp của chính dòng này lúc xếp lượt: dòng đã rời bảng (đổi trang, lọc) vẫn gửi đúng SKU
+    const snapshot = findRow(rowId);
+    if (!snapshot) return;
     dispatch({ type: 'saving', rowId, columnId: col.id, draft });
-    const label = `${col.label ?? col.header} ${(() => {
-      const r = findRow(rowId);
-      return r ? latest.current.rowLabel(r) : '';
-    })()}`;
+    const label = `${col.label ?? col.header} ${latest.current.rowLabel(snapshot)}`;
     queue
       .run(
         rowId,
-        () => {
-          const r = findRow(rowId);
-          return latest.current.getVersion(r as T);
-        },
-        (version) => {
-          const r = findRow(rowId);
-          if (!r) return Promise.resolve<SaveResult<V>>({ ok: false, error: 'Dòng không còn trong bảng, tải lại trang' });
-          return latest.current.save(r, col.id, value, version);
-        },
+        () => latest.current.getVersion(findRow(rowId) ?? snapshot),
+        (version) => latest.current.save(findRow(rowId) ?? snapshot, col.id, value, version),
       )
       .then(
         (result) => {
@@ -288,8 +280,8 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
     }
     setEditing(null);
     if (then === 'blur') return;
-    const r = rowIndex.get(ed.rowId) ?? pos.row;
-    moveTo(afterCommit({ row: r, col: c }, then, rowCount, colCount));
+    const i = indexOfRow(ed.rowId);
+    moveTo(afterCommit({ row: i < 0 ? pos.row : i, col: c }, then, rowCount, colCount));
   };
 
   const cancel = () => {
@@ -298,7 +290,13 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
   };
 
   const activateInner = (p: CellPos) => {
-    const el = cellEl(p)?.querySelector<HTMLElement>(INNER_FOCUSABLE);
+    const cell = cellEl(p);
+    if (!cell) return;
+    const el =
+      cell.querySelector<HTMLElement>('[data-grid-reload]') ??
+      Array.from(cell.querySelectorAll<HTMLElement>(INNER_FOCUSABLE)).find(
+        (x) => !(x as HTMLButtonElement).disabled && x.getAttribute('aria-disabled') !== 'true',
+      );
     if (!el) return;
     if (el.getAttribute('aria-haspopup')) {
       // Menu của Radix mở bằng phím trên nút: chuyển focus vào nút rồi gửi Enter
@@ -312,7 +310,11 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
   const onWrapperKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!isToggleLock(e)) return;
     e.preventDefault();
-    if (editingRef.current) commit('stay');
+    if (editingRef.current) {
+      // Như rời ô: chữ đúng thì lưu, chữ sai thì đóng ô sửa, giữ chữ và câu lỗi trên ô, không gửi. Không để ô sửa mở khi bảng khoá
+      commit('blur');
+      moveTo(pos);
+    }
     toggleLock();
   };
 
@@ -350,11 +352,11 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
       return;
     }
     dispatch({ type: 'clearRow', rowId });
-    // Mở lại ô với số đã gõ để lưu lại bằng version mới
+    // Mở lại ô với số đã gõ để lưu lại bằng version mới; tải lại có thể làm dòng đổi chỗ nên tìm lại theo id
     const draft = st && st.kind !== 'saved' ? st.draft : null;
-    const r = rowIndex.get(rowId);
+    const r = indexOfRow(rowId);
     const c = colIndex(columnId);
-    if (r === undefined || c < 0) return;
+    if (r < 0 || c < 0) return;
     const col = columns[c];
     setActive({ row: r, col: c });
     if (col.edit && draft !== null && !locked) setEditing({ rowId, columnId, value: draft, typed: true });
@@ -363,15 +365,15 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
 
   useImperativeHandle(apiRef, () => ({
     focusCell: (rowId, columnId, options) => {
-      const r = rowIndex.get(rowId);
+      const r = indexOfRow(rowId);
       const c = colIndex(columnId);
-      if (r === undefined || c < 0) return;
-      const row = rows[r];
+      if (r < 0 || c < 0) return;
+      const row = rowsRef.current[r];
       const col = columns[c];
       const canOpen = options?.edit && latest.current.canEdit && col.edit && !readOnlyReason(row, col);
       if (canOpen) {
+        // Chỉ mở khoá trong phiên này; lần sau vào trang vẫn theo lựa chọn đã nhớ (mặc định khoá)
         setLockedPref(false);
-        writeLocked(gridId, false);
         setActive({ row: r, col: c });
         setEditing({ rowId, columnId, value: col.edit!.raw(row), typed: false });
         window.requestAnimationFrame(() => cellEl({ row: r, col: c })?.scrollIntoView?.({ block: 'center', inline: 'nearest' }));
@@ -570,7 +572,14 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
                                 {errorText}
                               </span>
                               {st?.kind === 'error' && st.conflict && props.reloadRow && (
-                                <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => void reload(rowId, col.id)}>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs"
+                                  data-grid-reload=""
+                                  onClick={() => void reload(rowId, col.id)}
+                                >
                                   <RotateCcw className="size-3" />
                                   Tải lại dòng
                                 </Button>
