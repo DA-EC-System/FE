@@ -262,7 +262,7 @@ function SpecLink({ label, onClick, testId = 'open-spec' }: { label: string; onC
   );
 }
 
-/** Lối sang trang sản phẩm; `spec`: mở luôn hộp Thông tin SKU của biến thể (Sửa cân nặng, FE#326) */
+/** Lối sang trang sản phẩm; `spec`: mở ô Khối lượng của SKU trong bảng biến thể (Sửa cân nặng, FE#326, FE#475) */
 export function EditProductLink({
   companyId,
   productId,
@@ -283,7 +283,7 @@ export function EditProductLink({
       className="h-auto p-0"
       onClick={(e) => {
         e.stopPropagation();
-        navigate(ROUTES.company.catalogProduct(companyId, productId, spec));
+        navigate(ROUTES.company.catalogProduct(companyId, productId, spec, spec ? 'weightG' : undefined));
       }}
       data-testid={spec ? 'edit-weight' : 'edit-product'}
     >

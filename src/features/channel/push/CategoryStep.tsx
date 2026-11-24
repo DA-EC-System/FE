@@ -168,7 +168,7 @@ function Suggestions({
                   {k === 0 && <Badge variant="purple">{label} đề xuất nhất</Badge>}
                   {used ? (
                     <Badge variant="primary">
-                      Nhóm {groupName} đã dùng · {used} sản phẩm
+                      Danh mục {groupName} đã dùng · {used} sản phẩm
                     </Badge>
                   ) : (
                     s.usedByCompany && <Badge variant="neutral">Công ty đã dùng</Badge>

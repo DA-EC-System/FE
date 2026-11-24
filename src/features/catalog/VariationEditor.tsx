@@ -380,7 +380,7 @@ function AxisCard({
             axis.name.trim() &&
             !attribute && (
               <p className="text-xs text-muted-foreground">
-                Tên tự đặt: lưu thành thuộc tính mới của công ty. Trên sàn, người mua không lọc được theo nhóm này như
+                Tên tự đặt: lưu thành thuộc tính mới của công ty. Trên sàn, người mua không lọc được theo thuộc tính biến thể này như
                 Màu sắc, Kích cỡ chuẩn sàn.
               </p>
             )

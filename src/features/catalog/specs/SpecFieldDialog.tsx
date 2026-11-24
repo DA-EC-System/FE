@@ -308,7 +308,7 @@ export function SpecFieldDialog({ open, field, onClose, onDone, attachTo }: Spec
             {attachTo && (
               <label className="flex min-h-6 items-center gap-2 text-sm">
                 <Checkbox checked={required} onCheckedChange={(v) => setRequired(v === true)} disabled={busy} />
-                Bắt buộc: thiếu thì sản phẩm còn "Chờ hoàn thiện" (vẫn lưu được)
+                Cần cho Sẵn sàng: thiếu thì SKU còn "Chờ hoàn thiện" (vẫn lưu và đăng được)
               </label>
             )}
             <DialogFooter>

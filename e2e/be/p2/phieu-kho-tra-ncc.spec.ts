@@ -1,6 +1,6 @@
 // B3 phiếu kho có duyệt, B4 phiếu trả nhà cung cấp trên BE thật (commerio-backend#208, #210). Một công ty giả riêng (một register,
 // một login, e2e/be/congTyGia.ts): công ty một người nên CEO tự duyệt được, mỗi lần tự duyệt có nhãn.
-// Dữ liệu nền (danh mục, sản phẩm một biến thể, nhà cung cấp) dựng qua API công khai; tồn chỉ có được bằng phiếu kiểm kê.
+// Dữ liệu nền (danh mục, sản phẩm một biến thể, nhà cung cấp) dựng qua API công khai; tồn chỉ có được bằng phiếu kiểm kho.
 import { type Page, expect, test } from '@playwright/test';
 import { type CongTyGia, taoCongTyGia } from '../congTyGia';
 
@@ -48,7 +48,7 @@ const chonBienThe = async () => {
   await page.locator('[role=option]').filter({ hasText: sku }).first().click();
 };
 
-const moLapPhieu = async (loai: 'Kiểm kê' | 'Xuất huỷ' | 'Chuyển chờ xử lý') => {
+const moLapPhieu = async (loai: 'Kiểm kho' | 'Xuất huỷ' | 'Chuyển hàng lỗi/chờ kiểm') => {
   await page.goto(`/c/${cty.companyId}/inventory`);
   await page.getByRole('tab', { name: 'Phiếu kho', exact: true }).click();
   await page.getByRole('button', { name: loai, exact: true }).click();
@@ -62,11 +62,11 @@ const ton = async () => {
 };
 
 test('B3a kiểm kê: đếm 10, gửi duyệt, CEO công ty một người tự duyệt có nhãn, tồn thực thành 10', async () => {
-  await moLapPhieu('Kiểm kê');
-  await page.getByTestId('doc-lines').getByLabel(`Số đếm ${sku}`, { exact: true }).fill('10');
+  await moLapPhieu('Kiểm kho');
+  await page.getByTestId('doc-lines').getByLabel(`Thực tế ${sku}`, { exact: true }).fill('10');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và ghi sổ');
+  await thaoTac('Duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
   await expect(page.getByText('Tự duyệt', { exact: true }).first()).toBeVisible();
   expect(await ton()).toMatchObject({ onHand: 10, quarantine: 0, locked: 0 });
@@ -85,17 +85,17 @@ test('B3a xuất huỷ: gửi duyệt thì tạm khoá, từ chối bắt buộc
   const hop = page.getByRole('dialog');
   await hop.getByRole('textbox').fill('Hàng còn bán được');
   await hop.getByRole('button', { name: 'Từ chối', exact: true }).click();
-  await expect(page.getByTestId('doc-status')).toContainText('Từ chối');
+  await expect(page.getByTestId('doc-status')).toContainText('Bị từ chối');
   expect(await ton()).toMatchObject({ onHand: 10, locked: 0, available: 10 });
 });
 
 test('B3a chuyển chờ xử lý 3 cái: duyệt xong tồn thực 7, chờ xử lý 3; phiếu có trong danh sách', async () => {
-  await moLapPhieu('Chuyển chờ xử lý');
+  await moLapPhieu('Chuyển hàng lỗi/chờ kiểm');
   await page.getByTestId('doc-lines').getByLabel(`Số lượng ${sku}`, { exact: true }).fill('3');
   await page.locator('#doc-note').fill('Lỗi đường may');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và ghi sổ');
+  await thaoTac('Duyệt');
   await expect(page.getByTestId('doc-status')).toContainText('Đã ghi sổ');
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 3 });
 
@@ -110,21 +110,21 @@ test('B4 phiếu trả nhà cung cấp: lập tay 2 cái từ chờ xử lý, g�
   await page.getByRole('option', { name: NCC, exact: true }).click();
   await page.locator('#ret-note').fill('Trả hàng lỗi đường may');
   await chonBienThe();
-  await page.getByTestId('return-lines').getByLabel(`Số trả ${sku}`, { exact: true }).fill('2');
+  await page.getByTestId('return-lines').getByLabel(`SL trả ${sku}`, { exact: true }).fill('2');
   await thaoTac('Gửi duyệt');
   await expect(page.getByTestId('return-status')).toContainText('Chờ duyệt');
-  await thaoTac('Duyệt và gửi');
+  await thaoTac('Duyệt và gửi NCC');
   await expect(page.getByTestId('return-status')).toContainText('Đã gửi');
   // Gửi đi thì hàng rời chờ xử lý
   expect(await ton()).toMatchObject({ onHand: 7, quarantine: 1 });
 
-  await page.getByRole('button', { name: 'Nhà cung cấp hoàn tiền', exact: true }).click();
+  await page.getByRole('button', { name: 'Ghi NCC hoàn tiền', exact: true }).click();
   const hop = page.getByRole('dialog');
-  await hop.getByLabel(/Số tiền nhà cung cấp hoàn/).fill('120000');
-  await hop.getByRole('button', { name: 'Ghi hoàn tiền', exact: true }).click();
-  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
+  await hop.getByLabel(/Số tiền NCC hoàn/).fill('120000');
+  await hop.getByRole('button', { name: 'Xác nhận hoàn tiền', exact: true }).click();
+  await expect(page.getByTestId('return-status')).toContainText('NCC đã hoàn tiền');
   await expect(page.locator('main')).toContainText('120.000');
 
   await page.reload();
-  await expect(page.getByTestId('return-status')).toContainText('Nhà cung cấp hoàn tiền');
+  await expect(page.getByTestId('return-status')).toContainText('NCC đã hoàn tiền');
 });

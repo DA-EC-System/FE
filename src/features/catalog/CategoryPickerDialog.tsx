@@ -23,13 +23,15 @@ interface CategoryPickerDialogProps {
   pathIds: string[] | null;
   /** Tab đang có attribute sửa dở: nhắc rằng đổi category sẽ bỏ phần đó */
   dirty: boolean;
+  /** Sản phẩm đã có trên sàn: lưu chỉ đổi trong Commerio, còn bấm đổi trên sàn (FE#474) */
+  listed?: boolean;
 }
 
 /**
  * Chọn hoặc đổi category của sàn ngay trong tab sàn của trang sản phẩm, không rời trang (FE#459). Chọn xong thì lưu
  * thông tin sàn với category mới; leaf khác thì attribute và ánh xạ trục của leaf cũ bỏ đi (mã attribute theo leaf)
  */
-export function CategoryPickerDialog({ open, onOpenChange, companyId, product, platform, label, shopId, spec, pathIds, dirty }: CategoryPickerDialogProps) {
+export function CategoryPickerDialog({ open, onOpenChange, companyId, product, platform, label, shopId, spec, pathIds, dirty, listed }: CategoryPickerDialogProps) {
   const [draft, setDraft] = useState<SpecDraft>(() => draftFromSpec(spec));
   const save = useSaveProductSpec();
   const changed = draft.externalCategoryId !== (spec?.externalCategoryId ?? null);
@@ -87,6 +89,12 @@ export function CategoryPickerDialog({ open, onOpenChange, companyId, product, p
           <AlertMessage severity="warning">
             Category khác thì attribute {label} đã điền cho category cũ sẽ bỏ, cần điền lại theo category mới
             {dirty ? ', kể cả phần đang sửa chưa lưu' : ''}.
+          </AlertMessage>
+        )}
+        {listed && changed && (
+          <AlertMessage severity="info">
+            Sản phẩm đang có trên {label}. Lưu category chỉ đổi trong Commerio. Sau đó bấm &ldquo;Đổi category trên {label}&rdquo;
+            dưới ô Category để gửi lên sàn: việc này chạy nền, sàn duyệt lại, trong lúc chờ bản cũ vẫn bán.
           </AlertMessage>
         )}
         <DialogFooter>
