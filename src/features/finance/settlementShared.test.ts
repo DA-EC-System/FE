@@ -7,6 +7,7 @@ import {
   MATCH_STATUS,
   formulaCheck,
   paymentStatusOf,
+  shopText,
 } from './settlementShared';
 
 const line = (over: Partial<Parameters<typeof formulaCheck>[0]> = {}) => ({
@@ -73,5 +74,14 @@ describe('phép kiểm công thức (AC-S2)', () => {
     );
     expect(c.holds).toBe(true);
     expect(c.revenueGap?.replace(/\s/g, ' ')).toBe('Doanh thu sàn 170.000 ₫, tổng đơn 180.000 ₫, lệch 10.000 ₫');
+  });
+});
+
+describe('shopText (FE#464)', () => {
+  it('kèm tên sàn; shopLabel đổi sang tên hiển thị; gian hàng đã xoá giữ câu riêng', () => {
+    const shop = { id: 's1', shopName: 'SANDBOX_VN_1', platform: 'lazada' };
+    expect(shopText(shop)).toBe('SANDBOX_VN_1 (Lazada)');
+    expect(shopText(shop, () => 'Áo thun ABC')).toBe('Áo thun ABC (Lazada)');
+    expect(shopText({ ...shop, shopName: null }, () => 'Áo thun ABC')).toBe('Gian hàng đã xoá');
   });
 });

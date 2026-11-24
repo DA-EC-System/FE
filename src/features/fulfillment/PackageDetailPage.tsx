@@ -25,6 +25,7 @@ import {
   usePrintPackageDocuments,
 } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
+import { useShopLabel } from '@/api/shops.api';
 import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { conflictCurrent } from '@/features/identity/shared';
 import { DetailGrid, PageError, PageLoading } from '@/features/purchasing/parts';
@@ -67,6 +68,7 @@ export function PackageDetailPage() {
   const actor = useTransitionActor();
   const can = useCan();
   const query = usePackage(packageId);
+  const shopLabel = useShopLabel();
   useBreadcrumb(query.data?.code);
   const command = usePackageCommand();
   const handOver = useHandOver();
@@ -375,7 +377,7 @@ export function PackageDetailPage() {
           </div>
           <div>
             <p className="text-muted-foreground">Kênh bán</p>
-            <p>{sourceLabel(p)}</p>
+            <p>{sourceLabel(p, shopLabel)}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Người mua</p>

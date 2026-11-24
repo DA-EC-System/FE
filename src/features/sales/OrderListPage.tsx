@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOrderTabCounts, useOrders } from '@/api/sales.api';
 import { usePageGuide } from '@/guides/usePageGuide';
-import { useShops, useSyncShop } from '@/api/shops.api';
+import { useShopLabel, useShops, useSyncShop } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -96,6 +96,7 @@ export function OrderListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageParam, stage]);
 
+  const shopLabel = useShopLabel();
   const columns = useMemo<ColumnDef<OrderSummary>[]>(
     () => [
       {
@@ -159,7 +160,7 @@ export function OrderListPage() {
           );
         },
       },
-      { id: 'source', header: 'Kênh bán', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original) },
+      { id: 'source', header: 'Kênh bán', meta: { className: 'w-40' }, cell: ({ row }) => sourceLabel(row.original, shopLabel) },
       {
         id: 'shipBy',
         header: 'Hạn bàn giao',
@@ -200,7 +201,7 @@ export function OrderListPage() {
         cell: ({ row }) => formatCurrency(row.original.total),
       },
     ],
-    [],
+    [shopLabel],
   );
 
   const shopOptions = useMemo(() => {

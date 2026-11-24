@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useConfirmOrder, useOrder } from '@/api/sales.api';
 import { useCancelRequestDecision } from '@/api/fulfillment.api';
 import { getProblem } from '@/api/client';
+import { useShopLabel } from '@/api/shops.api';
 import { isRouteMissing, problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan, useTransitionActor } from '@/hooks/usePermission';
@@ -85,6 +86,7 @@ export function OrderDetailPage() {
   const actor = useTransitionActor();
   const query = useOrder(orderId);
   const order = query.data;
+  const shopLabel = useShopLabel();
   useBreadcrumb(order?.code);
   const lineMatch = useOrderLineMatch(order);
   // Dòng có đơn ngược (FE#252): đơn chỉ có một yêu cầu trả thì nhãn Trả hàng dẫn tới yêu cầu đó (cùng khoá với khối Yêu cầu trả)
@@ -191,7 +193,7 @@ export function OrderDetailPage() {
       {back}
       <PageHeader
         title={`Đơn ${order.code}`}
-        subtitle={`${sourceLabel(order)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
+        subtitle={`${sourceLabel(order, shopLabel)} · tạo lúc ${formatDateTime(order.createdAt)}${order.createdBy ? ` bởi ${order.createdBy.name}` : ''}`}
         help="Thanh trên cùng là trạng thái đơn. Nhãn bên cạnh cho biết kiện hàng đang ở bước nào (rê chuột để xem nghĩa). Cột phải là lịch sử."
         onTour={startTour}
         action={

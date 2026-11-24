@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useReturns } from '@/api/returns.api';
+import { useShopLabel } from '@/api/shops.api';
 import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { useCan } from '@/hooks/usePermission';
@@ -40,6 +41,7 @@ type Tab = (typeof RETURN_TABS)[number]['value'];
 /** Trả hàng/Hoàn tiền (sơ đồ D3): Sale xử lý yêu cầu theo trạng thái, kho quét nhận hàng hoàn */
 export function ReturnListPage() {
   const navigate = useNavigate();
+  const shopLabel = useShopLabel();
   const { companyContext } = useAuth();
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
@@ -74,7 +76,7 @@ export function ReturnListPage() {
         id: 'source',
         header: 'Nguồn',
         meta: { className: 'w-40' },
-        cell: ({ row }) => (row.original.source === 'marketplace' ? (row.original.shopName ?? 'Sàn') : 'Tạo thủ công'),
+        cell: ({ row }) => (row.original.source === 'marketplace' ? shopLabel(row.original.shopId, row.original.shopName ?? 'Sàn') : 'Tạo thủ công'),
       },
       { id: 'customer', header: 'Người mua', meta: { className: 'min-w-36' }, cell: ({ row }) => row.original.customerName ?? '—' },
       { id: 'qty', header: 'SL trả', meta: { className: 'w-20 text-right' }, cell: ({ row }) => row.original.totalQty },
@@ -100,7 +102,7 @@ export function ReturnListPage() {
       },
       { id: 'createdAt', header: 'Ngày tạo', meta: { className: 'w-40' }, cell: ({ row }) => formatDateTime(row.original.createdAt) },
     ],
-    [],
+    [shopLabel],
   );
 
   const countOf = (t: Tab) => {

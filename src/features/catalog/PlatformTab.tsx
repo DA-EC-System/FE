@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useSaveProductSpec } from '@/api/shops.api';
+import { useSaveProductSpec, useShopLabel } from '@/api/shops.api';
 import { useInvalidateCatalog, useUpdateVariant } from '@/api/catalog.api';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { getProblem } from '@/api/client';
@@ -1149,6 +1149,7 @@ function ShippingTable({
   const variants = product.variants.filter((v) => v.businessStatus !== 'archived');
   const update = useUpdateVariant();
   const reload = useInvalidateCatalog();
+  const shopLabel = useShopLabel();
   const [busyId, setBusyId] = useState<string | null>(null);
   const shippingText = (f: Pick<RemoteVariantFacts, 'weightG' | 'lengthMm' | 'widthMm' | 'heightMm'>) =>
     `${f.weightG === null ? '— g' : `${f.weightG.toLocaleString('vi-VN')} g`} · ${
@@ -1197,7 +1198,7 @@ function ShippingTable({
               {remote && rv && patch && (
                 <RemoteSuggestion
                   platformName={platformName}
-                  shopName={remote.shopName}
+                  shopName={shopLabel(remote.shopId, remote.shopName)}
                   readAt={remote.readAt}
                   value={shippingText(rv)}
                   onUse={canEdit ? () => use(v.id, v.version, patch) : null}

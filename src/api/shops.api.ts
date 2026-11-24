@@ -5,13 +5,15 @@
  * Hợp đồng Documents/21 §18.1: danh sách không phân trang, FE lọc tại client.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { salesKeys } from './sales.api';
 import { syncRunActive } from '@/lib/machines/channel';
 import { useAuthStore } from '@/stores/authStore';
+import { useCan, useModuleEnabled } from '@/hooks/usePermission';
+import { PERMISSIONS } from '@/utils/permissions';
 import type {
   ApplyCategoryResult,
   CascadeOptionList,
@@ -106,6 +108,24 @@ export function useShops(options: { enabled?: boolean } = {}) {
       return data;
     },
   });
+}
+
+/** Tên của gian hàng theo id; `fallback` là tên BE gửi kèm (thường là tên trên sàn) */
+export type ShopLabel = (shopId: string | null | undefined, fallback: string) => string;
+
+/**
+ * Tên hiển thị của gian hàng theo id (FE#464). Object lồng của BE (đơn, yêu cầu trả, quyết toán, readiness…) chỉ có
+ * `shopName` là tên trên sàn, có khi là mã thô `SANDBOX_VN…`: tra tên hiển thị trong danh sách gian hàng.
+ * Người không có quyền `channel.shop.view` (hoặc phân hệ Kênh bán tắt) thì không gọi danh sách, giữ `fallback`.
+ */
+export function useShopLabel(): ShopLabel {
+  const can = useCan();
+  const on = useModuleEnabled('channel') && can(PERMISSIONS.shopView);
+  const items = useShops({ enabled: on }).data?.items;
+  return useMemo(() => {
+    const names = new Map((on && items ? items : []).map((s) => [s.id, s.displayName?.trim() || s.shopName]));
+    return (shopId, fallback) => (shopId ? names.get(shopId) : undefined) || fallback;
+  }, [on, items]);
 }
 
 export function useShopPlatforms(options: { enabled?: boolean } = {}) {
@@ -781,18 +801,15 @@ export function useProductListingRows(
 ) {
   const companyId = useCompanyId();
   // Dòng listing mang tên trên sàn (có khi là mã thô SANDBOX_VN…): thay bằng tên hiển thị của gian hàng (FE#464).
-  // Chung cache với danh sách gian hàng; chưa tải xong thì giữ tên trên sàn
-  const shops = useShops({ enabled }).data?.items;
+  // Chung cache với danh sách gian hàng; chưa tải xong hoặc không có quyền xem gian hàng thì giữ tên trên sàn
+  const shopLabel = useShopLabel();
   const select = useCallback(
-    (d: ProductListingsResponse) => {
-      if (!shops) return d.items;
-      const names = new Map(shops.map((s) => [s.id, s.displayName?.trim() || s.shopName]));
-      return d.items.map((r) => {
-        const name = names.get(r.shopId);
-        return name && name !== r.shopName ? { ...r, shopName: name } : r;
-      });
-    },
-    [shops],
+    (d: ProductListingsResponse) =>
+      d.items.map((r) => {
+        const name = shopLabel(r.shopId, r.shopName);
+        return name !== r.shopName ? { ...r, shopName: name } : r;
+      }),
+    [shopLabel],
   );
   return useQuery({
     ...productListingsQuery(companyId, productId, enabled),

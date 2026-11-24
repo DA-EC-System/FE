@@ -7,9 +7,36 @@
  * - Tìm theo chữ dùng `chu('…')` (chuỗi con, phân biệt hoa thường), không truyền chuỗi trần vào `hasText`
  *   (Playwright so chuỗi trần không phân biệt hoa thường).
  */
-import { expect, type Locator, type Page } from '@playwright/test';
+import { test as base, type BrowserContext, expect, type Locator, type Page } from '@playwright/test';
 
-export { expect, test } from '@playwright/test';
+export { expect };
+
+/**
+ * Công ty mới bị ép vào wizard thiết lập (FE#468: `mustWizard`, mọi route công ty về `/welcome`), spec không vào được
+ * trang cần kiểm. Không có API bỏ qua (`POST /onboarding/complete` đòi đủ bước bắt buộc) và staging không vào được DB,
+ * nên sửa phản hồi `GET /onboarding` trên trình duyệt: `mustWizard: false`, `completedAt` có giá trị, như công ty đã thiết
+ * lập xong. Chỉ đổi điều FE thấy; BE không đổi gì. Fixture `context` của `test` dưới đây gọi sẵn; trang tự mở bằng
+ * `browser.newPage` (như `taoCongTyGia`) thì tự gọi hàm này.
+ */
+export async function boQuaWizard(target: Page | BrowserContext): Promise<void> {
+  await target.route(
+    (url) => url.pathname === '/api/v1/onboarding',
+    async (route) => {
+      const res = await route.fetch();
+      if (!res.ok()) return route.fulfill({ response: res });
+      const body = (await res.json()) as { completedAt: string | null };
+      await route.fulfill({ response: res, json: { ...body, mustWizard: false, completedAt: body.completedAt ?? new Date().toISOString() } });
+    },
+  );
+}
+
+/** `test` của Playwright, thêm: mọi context của fixture bỏ qua wizard thiết lập bắt buộc (`boQuaWizard`) */
+export const test = base.extend({
+  context: async ({ context }, use) => {
+    await boQuaWizard(context);
+    await use(context);
+  },
+});
 
 type Scope = Page | Locator;
 

@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { keepPreviousData, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
+import { useShopLabel } from './shops.api';
 import { useAuthStore } from '@/stores/authStore';
 import type { ProductReadiness, PushPreview, PushPreviewRow } from '@/types/blocker';
 
@@ -53,12 +54,23 @@ export function useProductReadiness(productId: string | null | undefined, enable
   const qc = useQueryClient();
   const on = Boolean(companyId && productId) && enabled;
   useWatchProduct(qc, companyId, productId ?? '', on);
+  // Readiness chỉ có tên trên sàn: thay bằng tên hiển thị (FE#464) cho rail, ghi chú, tab sàn, lý do khoá Đăng
+  const shopLabel = useShopLabel();
+  const select = useCallback(
+    (items: ProductReadiness['items']) =>
+      items.map((s) => {
+        const name = shopLabel(s.shopId, s.shopName);
+        return name !== s.shopName ? { ...s, shopName: name } : s;
+      }),
+    [shopLabel],
+  );
   return useQuery({
     queryKey: readinessKey(companyId, productId ?? ''),
     queryFn: async () => {
       const { data } = await apiClient.get<ProductReadiness>(`/channel/products/${productId}/readiness`);
       return data.items;
     },
+    select,
     enabled: on,
   });
 }
