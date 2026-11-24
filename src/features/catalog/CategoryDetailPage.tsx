@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Lock, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { AlertMessage } from '@/components/common/AlertMessage';
+import { HelpTip } from '@/components/common/HelpTip';
 import { RowAction } from '@/components/common/RowAction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ import { GroupFormDialog } from './GroupFormDialog';
 import { SpecFieldDialog } from './specs/SpecFieldDialog';
 import { SpecOptionsDialog } from './specs/SpecOptionsDialog';
 import { MAPPING_HINT, SpecMappingTabs } from './specs/SpecMappingDialog';
-import { SPEC_INPUT_LABELS, hasOptions } from './specs/specLabels';
+import { READY_SPEC_HELP, SPEC_INPUT_LABELS, hasOptions } from './specs/specLabels';
 
 type FieldRow = { fieldId: string; required: boolean };
 const NONE = '__none';
@@ -175,7 +176,10 @@ export function CategoryDetailPage() {
         </button>
         {locked || !editable ? (
           row.required ? (
-            <Badge variant="secondary">Bắt buộc</Badge>
+            <span className="inline-flex items-center gap-1">
+              <Badge variant="secondary">Cần cho Sẵn sàng</Badge>
+              <HelpTip topic="Cần cho Sẵn sàng" content={READY_SPEC_HELP} />
+            </span>
           ) : (
             <span className="text-sm text-muted-foreground">Tuỳ chọn</span>
           )
@@ -188,12 +192,13 @@ export function CategoryDetailPage() {
                 onCheckedChange={(v) =>
                   void save(
                     { fields: ownFields.map((x, j) => (j === i ? { ...x, required: v === true } : x)) },
-                    v === true ? `${name} thành bắt buộc` : `${name} thành tuỳ chọn`,
+                    v === true ? `${name} thành cần cho Sẵn sàng` : `${name} thành tuỳ chọn`,
                   )
                 }
               />
-              Bắt buộc
+              Cần cho Sẵn sàng
             </label>
+            <HelpTip topic="Cần cho Sẵn sàng" content={READY_SPEC_HELP} />
             <span className="flex">
               <RowAction
                 label={`Đưa ${name} lên trên`}
@@ -273,7 +278,7 @@ export function CategoryDetailPage() {
             <CardHeader>
               <CardTitle>Biến thể theo</CardTitle>
               <CardDescription>
-                Chọn sẵn khi tạo sản phẩm thuộc danh mục này (tối đa 2), đổi được trên từng sản phẩm.
+                Chỉ gợi ý lúc tạo sản phẩm (tối đa 2); sản phẩm đã có không đổi.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -515,7 +520,10 @@ export function CategoryDetailPage() {
               {template.fields.map((f) => (
                 <PreviewField key={f.fieldId} label={`${f.name}${f.required ? ' *' : ''}`} value={SPEC_INPUT_LABELS[f.input]} muted />
               ))}
-              <p className="text-xs text-muted-foreground">Dấu * là bắt buộc: thiếu thì sản phẩm còn "Chờ hoàn thiện", vẫn lưu được.</p>
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                Dấu * là cần cho Sẵn sàng.
+                <HelpTip topic="Cần cho Sẵn sàng" content={READY_SPEC_HELP} />
+              </p>
             </CardContent>
           </Card>
         </aside>

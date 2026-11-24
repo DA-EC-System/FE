@@ -70,6 +70,8 @@ import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
 import { productPatchBody, productSchema, sizeChartPatch, type ProductForm } from './shared';
 import { productNameCounter } from './productName';
+import { axesNoticeText, groupChangeNotice, movingNoticeText } from './groupChange';
+import { productAxes } from './valueImages';
 import { Input } from '@/components/ui/input';
 import { CountryCombobox } from './CountryCombobox';
 import { SizeChartField } from './SizeChartField';
@@ -635,6 +637,16 @@ export function ProductFormPage() {
   const fromIncomplete = searchParams.get('from') === 'incomplete';
   // Danh mục mặc định đã tách (Documents/21 §5.7): gợi ý người dùng tự chọn danh mục hẹp hơn
   const currentGroup = groups.find((g) => g.id === groupId);
+  // Đổi danh mục ở trang sửa: báo trước khi Lưu trục nào ngoài danh mục mới, thuộc tính nào sang "Thuộc tính khác" (FE#474)
+  const groupNotice =
+    product && groupChanged && template
+      ? groupChangeNotice(
+          productAxes(product),
+          template.allowedAttributes,
+          otherViews.filter((v) => product.specs?.some((s) => s.fieldId === v.fieldId && s.inTemplate)).map((v) => v.name),
+        )
+      : null;
+  const groupNoticeLines = groupNotice ? [axesNoticeText(groupNotice.axes), movingNoticeText(groupNotice.moving)].filter(Boolean) : [];
   const saveAndNext = () => {
     nextAfterSave.current = true;
     void onSubmit().finally(() => {
@@ -844,6 +856,13 @@ export function ProductFormPage() {
                     ) : !form.formState.errors.groupId && !readOnly ? (
                       <FormDescription>Quyết định thuộc tính sản phẩm cần điền và biến thể gợi ý. Mã SKU tạo theo mẫu ở Cài đặt sản phẩm.</FormDescription>
                     ) : null}
+                    {groupNoticeLines.length > 0 && !readOnly && (
+                      <div className="grid gap-0.5 text-sm text-info-text" data-testid="group-change-note">
+                        {groupNoticeLines.map((line) => (
+                          <p key={line}>{line}</p>
+                        ))}
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />

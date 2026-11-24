@@ -49,7 +49,7 @@ export function DeleteGroupDialog({ group, groups, onClose, onDone }: DeleteGrou
   const submit = async () => {
     if (!group) return;
     if (!target) {
-      setError('Chọn nhóm nhận sản phẩm');
+      setError('Chọn danh mục nhận sản phẩm');
       return;
     }
     setError(null);
@@ -63,16 +63,16 @@ export function DeleteGroupDialog({ group, groups, onClose, onDone }: DeleteGrou
     const prefix = `Đã chuyển ${moved} sản phẩm sang ${target.name}`;
     try {
       await remove.mutateAsync({ id: group.id, version: group.version });
-      onDone(`${prefix} và xoá nhóm ${group.name}`);
+      onDone(`${prefix} và xoá danh mục ${group.name}`);
     } catch (e) {
       const code = getProblem(e)?.code;
       // Sản phẩm đã chuyển; nhóm còn lại vì có người vừa thêm sản phẩm hoặc sửa nhóm
       setError(
         code === 'in_use'
-          ? `${prefix}, nhưng vừa có sản phẩm mới vào nhóm ${group.name} nên chưa xoá được. Bấm lại để chuyển nốt.`
+          ? `${prefix}, nhưng vừa có sản phẩm mới vào danh mục ${group.name} nên chưa xoá được. Bấm lại để chuyển nốt.`
           : code === 'version_conflict'
-            ? `${prefix}, nhưng nhóm ${group.name} vừa được người khác sửa nên chưa xoá. Đóng rồi xoá lại.`
-            : `${prefix}, nhưng chưa xoá được nhóm: ${problemMessage(e)}`,
+            ? `${prefix}, nhưng danh mục ${group.name} vừa được người khác sửa nên chưa xoá. Đóng rồi xoá lại.`
+            : `${prefix}, nhưng chưa xoá được danh mục: ${problemMessage(e)}`,
       );
     }
   };
@@ -81,9 +81,9 @@ export function DeleteGroupDialog({ group, groups, onClose, onDone }: DeleteGrou
     <Dialog open={Boolean(group)} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Xoá nhóm {group?.name}</DialogTitle>
+          <DialogTitle>Xoá danh mục {group?.name}</DialogTitle>
           <DialogDescription>
-            Nhóm còn {group?.productCount} sản phẩm (kể cả đã lưu trữ). Chuyển hết sang nhóm khác rồi mới xoá được.
+            Danh mục còn {group?.productCount} sản phẩm (kể cả đã lưu trữ). Chuyển hết sang danh mục khác rồi mới xoá được.
           </DialogDescription>
         </DialogHeader>
 

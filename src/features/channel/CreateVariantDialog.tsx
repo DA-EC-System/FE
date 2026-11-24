@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchProductIdOfVariant, useGroups } from '@/api/catalog.api';
+import { GroupCombobox } from '@/features/catalog/GroupCombobox';
 import { getProblem } from '@/api/client';
 import { problemMessage } from '@/api/problemMessages';
 import { useCreateVariantFromRemote } from '@/api/shops.api';
@@ -92,18 +92,18 @@ export function CreateVariantDialog({ shopId, remote, siblings, onClose }: Creat
         )}
         <div className="grid gap-1.5">
           <Label htmlFor="create-variant-group">Danh mục sản phẩm</Label>
-          <Select value={groupId} onValueChange={(v) => { setGroupId(v); setError(null); }} disabled={groups.isPending}>
-            <SelectTrigger id="create-variant-group" className="w-full" aria-invalid={Boolean(error) || undefined} aria-describedby={error ? 'create-variant-error' : undefined}>
-              <SelectValue placeholder={groups.isPending ? 'Đang tải danh mục sản phẩm…' : 'Chọn danh mục sản phẩm'} />
-            </SelectTrigger>
-            <SelectContent>
-              {(groups.data ?? []).map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <GroupCombobox
+            id="create-variant-group"
+            value={groupId}
+            onChange={(v) => {
+              setGroupId(v);
+              setError(null);
+            }}
+            groups={groups.data ?? []}
+            loading={groups.isPending}
+            invalid={Boolean(error)}
+            aria-describedby={error ? 'create-variant-error' : undefined}
+          />
           {groups.isError && <p className="text-sm text-destructive-text">{problemMessage(groups.error)}</p>}
           {error && (
             <p id="create-variant-error" className="text-sm text-destructive-text" role="alert">

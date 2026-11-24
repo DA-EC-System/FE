@@ -27,7 +27,7 @@ interface Props {
   label: string;
   companyId: string;
   productId: string;
-  shops: Shop[];
+  shops: readonly Shop[];
   /** Category đang chọn ở bước 1 (có thể chưa lưu) */
   draftPath: string;
   draftCategoryId: string;

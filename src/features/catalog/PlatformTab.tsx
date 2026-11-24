@@ -17,6 +17,7 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { getProblem } from '@/api/client';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
 import { AttributeField } from '@/features/channel/push/AttributeField';
+import { CategoryChangeBlock } from '@/features/channel/push/CategoryChangeBlock';
 import {
   BRAND_CODES,
   ORIGIN_CODES,
@@ -112,7 +113,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
     // eslint-disable-next-line react-hooks/exhaustive-deps -- theo version của bản đã lưu
   }, [spec?.version, spec?.externalCategoryId]);
   const save = useSaveProductSpec();
-  // Chọn category tại chỗ (FE#459); sản phẩm đã lên sàn thì đổi category cần khối đổi trên sàn ở trang đăng
+  // Chọn category tại chỗ (FE#459); sản phẩm đã lên sàn thì lưu xong còn bấm đổi trên sàn ở khối dưới ô category (FE#474)
   const [pickingCategory, setPickingCategory] = useState(false);
   // Ô đang mở sửa riêng cho sàn mà chưa có giá trị ghi đè ("Chỉ điền cho {sàn}" ở ô trống)
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
@@ -280,11 +281,6 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
             )}
           </AlertMessage>
         )}
-        {canEditSpec && (
-          <div className="flex justify-end">
-            <PublishLink href={ROUTES.company.productPublish(companyId, product.id, { platform })} label={label} />
-          </div>
-        )}
         {spec?.source !== 'match' && total > 0 && (
           <AlertMessage severity="warning">
             <b>
@@ -342,20 +338,29 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 missing={noCategory && `Chưa chọn category ${label}. Chọn category để sửa nội dung trên sàn.`}
                 action={
                   canEditSpec && (
-                    listed ? (
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={pushHref}>Đổi category</Link>
-                      </Button>
-                    ) : (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setPickingCategory(true)}>
-                        {spec ? 'Đổi category' : 'Chọn category'}
-                      </Button>
-                    )
+                    <Button type="button" variant="outline" size="sm" onClick={() => setPickingCategory(true)}>
+                      {spec ? 'Đổi category' : 'Chọn category'}
+                    </Button>
                   )
                 }
               >
                 {spec ? <CategoryPath path={spec.categoryPath} /> : <span className="text-muted-foreground">Chưa chọn</span>}
                 {spec && <CategoryNotes spec={spec} rows={rows} platform={platform} />}
+                {/* Đã lên sàn: category lưu trong Commerio khác trên sàn thì đổi trên sàn bằng lượt chạy nền (FE#474) */}
+                {listed && spec && specQuery.data && (
+                  <CategoryChangeBlock
+                    platform={platform}
+                    label={label}
+                    companyId={companyId}
+                    productId={product.id}
+                    shops={shops}
+                    draftPath={spec.categoryPath}
+                    draftCategoryId={spec.externalCategoryId}
+                    saved={specQuery.data}
+                    sizeChartRule={leaf.data?.category.sizeChartRule ?? null}
+                    onConflict={() => void specQuery.refetch()}
+                  />
+                )}
               </ReadField>
             </div>
           </div>
@@ -390,12 +395,12 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                     <CollapsibleContent>
                       <ol className="grid list-decimal gap-0.5 pt-1 pl-9 text-xs text-muted-foreground">
                         <li>Bạn sửa riêng cho {label}.</li>
-                        <li>Thông số gốc của sản phẩm (xuất xứ, thương hiệu, thông số của nhóm) qua ánh xạ sang attribute của {label}.</li>
+                        <li>Thuộc tính gốc của sản phẩm (xuất xứ, thương hiệu, thuộc tính sản phẩm của danh mục) qua ánh xạ sang attribute của {label}.</li>
                         <li>Hồ sơ công ty.</li>
                         <li>Mặc định của sàn.</li>
                       </ol>
                       <p className="pt-1 pl-4 text-xs text-muted-foreground">
-                        Giá trị sửa riêng trùng thông số gốc thì không lưu riêng: sau này thông số gốc đổi, {label} đổi theo.
+                        Giá trị sửa riêng trùng thuộc tính gốc thì không lưu riêng: sau này thuộc tính gốc đổi, {label} đổi theo.
                       </p>
                     </CollapsibleContent>
                   </Collapsible>
@@ -526,7 +531,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
             </span>
           </ReadField>
         </Section>
-      {canEditSpec && !listed && (
+      {canEditSpec && (
         <CategoryPickerDialog
           open={pickingCategory}
           onOpenChange={setPickingCategory}
@@ -538,6 +543,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
           spec={spec}
           pathIds={leaf.data?.category.pathIds ?? null}
           dirty={dirty}
+          listed={listed}
         />
       )}
       </div>
@@ -583,18 +589,6 @@ function Group({ title, note, action, children }: { title: string; note?: string
       </div>
       {children}
     </section>
-  );
-}
-
-/** Nút "Đăng sản phẩm" của tab sàn: mở màn Đăng 4 bước chọn sẵn sàn này (chốt v2 câu 5) */
-function PublishLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Button asChild size="sm">
-      <Link to={href}>
-        Đăng sản phẩm lên {label}
-        <ArrowUpRight aria-hidden />
-      </Link>
-    </Button>
   );
 }
 

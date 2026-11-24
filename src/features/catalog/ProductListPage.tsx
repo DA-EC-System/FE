@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, ImageIcon, Pencil, Plus, Settings2, TableProperties } from 'lucide-react';
+import { ImageIcon, Plus, TableProperties } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { DataTable } from '@/components/common/DataTable';
 import { FilterBar, FilterSelect, SearchInput } from '@/components/common/FilterBar';
-import { RowAction } from '@/components/common/RowAction';
+import { GroupCombobox } from './GroupCombobox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -51,7 +51,6 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
   const companyId = companyContext?.companyId ?? '';
   const can = useCan();
   const canManage = can(PERMISSIONS.productManage);
-  const canSetup = can(PERMISSIONS.catalogSetup);
   // Tab "Hàng mới sắp về cần soạn" (chốt 21/11/2026 câu 1): xem đề nghị hoặc quản lý sản phẩm (Documents/21 §16.3)
   const canDrafts = DRAFT_PERMISSIONS.some((p) => can(p));
   const [tabParams, setTabParams] = useSearchParams();
@@ -96,8 +95,9 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
     };
 
   // Mở từ bộ lọc Chờ hoàn thiện: form có nút "Lưu và sang sản phẩm kế" (phương án 3A)
-  const open = (id: string) =>
-    navigate(`${ROUTES.company.catalogProduct(companyId, id)}${readiness === 'incomplete' ? '?from=incomplete' : ''}`);
+  const productHref = (id: string) =>
+    `${ROUTES.company.catalogProduct(companyId, id)}${readiness === 'incomplete' ? '?from=incomplete' : ''}`;
+  const open = (id: string) => navigate(productHref(id));
 
   const columns = useMemo<ColumnDef<ProductListItem>[]>(
     () => [
@@ -117,7 +117,14 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
               </AvatarFallback>
             </Avatar>
             <span className="grid min-w-0">
-              <span className="font-medium">{row.original.name}</span>
+              {/* Tên là link để mở bằng bàn phím; bấm vào dòng vẫn mở như cũ (FE#474) */}
+              <Link
+                to={productHref(row.original.id)}
+                className="font-medium hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {row.original.name}
+              </Link>
               <span className="font-mono text-xs text-muted-foreground" data-testid="product-code">
                 {row.original.code}
               </span>
@@ -161,12 +168,8 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         meta: { className: 'w-28 text-right' },
         cell: ({ row }) => {
           const p = row.original;
-          const editable = canManage && p.status === 'active';
           return (
             <div className="flex justify-end gap-1">
-              <RowAction label={`${editable ? 'Sửa' : 'Xem'} ${p.name}`} onClick={() => open(p.id)}>
-                {editable ? <Pencil /> : <Eye />}
-              </RowAction>
               {canManage && (
                 <BusinessActionMenu
                   label={`Đổi trạng thái ${p.name}`}
@@ -199,12 +202,6 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
         onTour={startTour}
         action={
           <div className="flex flex-wrap gap-2">
-            {canSetup && (
-              <Button variant="outline" onClick={() => navigate(ROUTES.company.catalogSetup(companyId))}>
-                <Settings2 />
-                Danh mục sản phẩm
-              </Button>
-            )}
             {canManage && (
               <Button variant="outline" onClick={onBulk}>
                 <TableProperties />
@@ -250,12 +247,16 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
                 onChange={withReset(setSearch)}
                 placeholder="Tìm theo tên hoặc SKU..."
               />
-              <FilterSelect loading={groupsQuery.isLoading}
-                label="Danh mục sản phẩm"
-                value={groupId}
-                onChange={withReset(setGroupId)}
-                options={groups.map((c) => ({ value: c.id, label: c.name }))}
-              />
+              <div className="grid gap-1.5 md:min-w-48">
+                <Label className="text-xs text-muted-foreground">Danh mục sản phẩm</Label>
+                <GroupCombobox
+                  value={groupId}
+                  onChange={withReset(setGroupId)}
+                  groups={groups}
+                  loading={groupsQuery.isLoading}
+                  allLabel="Tất cả"
+                />
+              </div>
               {/* API không có "tất cả": sản phẩm đang hoạt động và đã lưu trữ xem riêng */}
               <div className="grid gap-1.5">
                 <Label className="text-xs text-muted-foreground">Hiển thị</Label>

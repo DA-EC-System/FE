@@ -79,7 +79,7 @@ export function SpecOptionsDialog({ field, onClose }: SpecOptionsDialogProps) {
         <DialogHeader>
           <DialogTitle>{live?.name}</DialogTitle>
           <DialogDescription>
-            Thông số chuẩn của nền tảng ({live && SPEC_INPUT_LABELS[live.input]}
+            Thuộc tính chuẩn của nền tảng ({live && SPEC_INPUT_LABELS[live.input]}
             {live?.unit ? `, ${live.unit}` : ''}). Tên, kiểu nhập và lựa chọn chuẩn dùng chung mọi công ty.
             {canAdd && ' Công ty thêm được lựa chọn riêng.'}
           </DialogDescription>

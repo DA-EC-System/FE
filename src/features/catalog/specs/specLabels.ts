@@ -12,3 +12,7 @@ export const SPEC_INPUT_LABELS: Record<SpecInputKind, string> = {
 export const SPEC_INPUTS = Object.keys(SPEC_INPUT_LABELS) as SpecInputKind[];
 
 export const hasOptions = (input: SpecInputKind) => input === 'select' || input === 'multiselect';
+
+/** Giải thích nhãn "Cần cho Sẵn sàng" của thuộc tính sản phẩm (FE#474): không chặn lưu hay đăng */
+export const READY_SPEC_HELP =
+  'Thiếu thì vẫn lưu và vẫn đăng được, chỉ làm SKU "Chờ hoàn thiện". Cái chặn Đăng là attribute bắt buộc của category sàn.';

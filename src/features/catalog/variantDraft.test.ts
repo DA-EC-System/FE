@@ -39,7 +39,7 @@ describe('valueError', () => {
     expect(valueError(mau, '  ')).toBe('Nhập giá trị');
     expect(valueError(mau, 'x'.repeat(21))).toBe('Mỗi giá trị tối đa 20 ký tự');
     expect(valueError(mau, ' đen ')).toBe('Đã có giá trị đen');
-    expect(valueError(axis({ values: Array.from({ length: 50 }, (_, i) => `v${i}`) }), 'mới')).toBe('Mỗi nhóm tối đa 50 giá trị');
+    expect(valueError(axis({ values: Array.from({ length: 50 }, (_, i) => `v${i}`) }), 'mới')).toBe('Mỗi thuộc tính biến thể tối đa 50 giá trị');
     expect(valueError(mau, 'Xanh rêu')).toBeNull();
   });
 });

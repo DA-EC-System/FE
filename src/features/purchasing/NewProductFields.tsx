@@ -5,6 +5,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAttributes, useGroups, useGroupTemplate, useProduct, useProducts } from '@/api/catalog.api';
+import { GroupCombobox } from '@/features/catalog/GroupCombobox';
 import { useDebounce } from '@/hooks/useDebounce';
 import { productNameCounter } from '@/features/catalog/productName';
 import { cn } from '@/lib/utils';
@@ -167,23 +168,18 @@ export function NewProductFields({ line, name, index, errors, disabled, onChange
             </div>
           </div>
           <div className="grid gap-1">
-            <Select
+            <GroupCombobox
               value={line.groupId}
-              disabled={disabled || groupsQuery.isLoading}
-              onValueChange={(v) => onChange({ groupId: v })}
-            >
-              <SelectTrigger className="h-8 w-full" aria-label={`Danh mục sản phẩm ${name}`} aria-invalid={Boolean(errors?.groupId)}>
-                <SelectValue placeholder={groupsQuery.isLoading ? 'Đang tải…' : 'Danh mục sản phẩm'} />
-              </SelectTrigger>
-              <SelectContent>
-                {(groupsQuery.data ?? []).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Err error={errors?.groupId} />
+              onChange={(v) => onChange({ groupId: v })}
+              groups={groupsQuery.data ?? []}
+              loading={groupsQuery.isLoading}
+              disabled={disabled}
+              invalid={Boolean(errors?.groupId)}
+              aria-label={`Danh mục sản phẩm ${name}`}
+              aria-describedby={errors?.groupId?.message ? `${name}-group-error` : undefined}
+              className="h-8"
+            />
+            <Err error={errors?.groupId} id={`${name}-group-error`} />
           </div>
         </div>
       )}

@@ -26,6 +26,7 @@ import { problemMessage } from '@/api/problemMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/router/routes';
 import { VariantPicker } from '@/features/inventory/VariantPicker';
+import { GroupCombobox } from '@/features/catalog/GroupCombobox';
 import type {
   OpeningStockMode,
   SetupSuggestion,
@@ -61,7 +62,6 @@ import {
   type RowChoice,
 } from './setupDecisions';
 import { useGroups } from '@/api/catalog.api';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { WelcomeReturnBar } from '@/features/company/WelcomeReturnBar';
 
@@ -690,19 +690,17 @@ function CreatePanel({
       </div>
       {creating > 0 && (
         <div className="grid gap-1.5 sm:max-w-sm">
-          <Label htmlFor="create-group">Nhóm hàng cho {creating} SKU kho tạo mới</Label>
-          <Select value={groupId} onValueChange={onGroup} disabled={groups.isPending}>
-            <SelectTrigger id="create-group" className="w-full" aria-invalid={Boolean(error)} aria-describedby={error ? 'create-group-error' : undefined}>
-              <SelectValue placeholder={groups.isPending ? 'Đang tải danh mục sản phẩm...' : 'Chọn danh mục sản phẩm'} />
-            </SelectTrigger>
-            <SelectContent>
-              {(groups.data ?? []).map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="create-group">Danh mục sản phẩm cho {creating} SKU kho tạo mới</Label>
+          <GroupCombobox
+            id="create-group"
+            value={groupId}
+            onChange={onGroup}
+            groups={groups.data ?? []}
+            loading={groups.isPending}
+            invalid={Boolean(error)}
+            aria-label={`Danh mục sản phẩm cho ${creating} SKU kho tạo mới`}
+            aria-describedby={error ? 'create-group-error' : undefined}
+          />
           {groups.isError && <p className="text-sm text-destructive">{problemMessage(groups.error)}</p>}
           {error && (
             <p id="create-group-error" className="text-sm text-destructive" role="alert">
