@@ -1,11 +1,12 @@
+import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { onPlatform } from '@/lib/machines/channel';
-import { ROUTES } from '@/router/routes';
-import type { CategoryChange, ListingRow, PendingMapping } from '@/types/shop';
+import type { BlockerTarget } from '@/types/blocker';
+import type { CategoryChange, ListingRow, PendingMapping, SyncError } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
 import {
   listingStatusHint,
@@ -13,17 +14,18 @@ import {
   outsideChangeLabel,
   pendingRevisionHint,
   pendingRevisionLabel,
-  isWeightError,
+  pushErrorTarget,
   pushErrorText,
   SPEC_FIX_CODES,
+  type PushBlockItem,
 } from './listingPush';
+import { blockerFix, canUseFix } from './blockerFix';
 import { stockDriftLabel, syncLine } from './listingSync';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from './shopSchemas';
 
-/** Lỗi đẩy của lượt vừa bấm; giữ `code` để gắn lối sửa (vd mã trong `SPEC_FIX_CODES`) */
+/** Lỗi đẩy của lượt vừa bấm: các lý do chặn, mỗi lý do có câu và chỗ sửa (commerio-backend#566) */
 export interface PushError {
-  code?: string;
-  message: string;
+  blocks: PushBlockItem[];
 }
 
 const CATEGORY_CHANGE_LABELS: Record<CategoryChange['status'], string> = {
@@ -38,9 +40,6 @@ function categoryChangeHint(c: CategoryChange) {
   // Câu lỗi đã hiện ngay dưới nhãn (khi có), gợi ý chỉ nói đổi sang đâu và lúc nào
   return `${c.message ? `Đổi category${to}` : 'Sàn không nhận bản đổi category.'} · ${formatDateTime(c.at)}`;
 }
-
-/** Lỗi đẩy sửa được trong trang sản phẩm: hiện lối sang trang đó (FE#261) */
-const PRODUCT_FIX_CODES = new Set<string | undefined>(['images_missing', 'size_chart_missing', 'listing_check_failed']);
 
 interface Props {
   row: ListingRow;
@@ -57,6 +56,11 @@ interface Props {
   specFixable: boolean;
   /** Mở trang đẩy lên sàn của sản phẩm; `fill` là bổ sung thông tin cho listing đã lên sàn */
   onOpenSpec: (fill?: boolean) => void;
+  /** Sàn và gian hàng của dòng: dựng lối tới tab sàn, trang gian hàng cho nút sửa (FE#462) */
+  platform?: string | null;
+  shopId?: string;
+  /** Sửa được phí sàn: nút Cài phí sàn của lỗi thiếu phí */
+  canEditFinance?: boolean;
 }
 
 /**
@@ -75,21 +79,29 @@ export function ListingStatusCell({
   pendingTarget,
   specFixable,
   onOpenSpec,
+  platform,
+  shopId,
+  canEditFinance = false,
 }: Props) {
   const canFixSpec = canManage && specFixable;
+  /** Nút tới chỗ sửa theo `target`; mã thông tin sàn của bản ghi cũ (không có `target`) đi lối Sửa thông tin sàn */
+  const fixFor = (target: BlockerTarget | null, code: string | undefined, key: string, variantId = r.variantId) => {
+    const fix = blockerFix(target, { companyId, productId: r.productId, platform, shopId, variantId });
+    if (fix && canUseFix(fix, { product: canEditProduct, finance: canEditFinance }))
+      return <FixLink key={key} label={fix.label} to={fix.to} />;
+    if (!target && code && SPEC_FIX_CODES.has(code) && canFixSpec)
+      return <SpecLink key={key} label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />;
+    return null;
+  };
   if (err) {
     return (
-      <div className="flex flex-col items-start gap-1">
-        <span className="text-destructive" data-testid="push-error">
-          {err.message}
-        </span>
-        {err.code && SPEC_FIX_CODES.has(err.code) && canFixSpec && (
-          <SpecLink label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />
-        )}
-        {PRODUCT_FIX_CODES.has(err.code) && canEditProduct && <EditProductLink companyId={companyId} productId={r.productId} />}
-        {isWeightError(err) && canEditProduct && (
-          <EditProductLink companyId={companyId} productId={r.productId} spec={r.variantId} label="Sửa cân nặng" />
-        )}
+      <div className="flex flex-col items-start gap-1" data-testid="push-error">
+        {err.blocks.map((b, i) => (
+          <div key={`${b.code}-${i}`} className="flex flex-col items-start gap-0.5">
+            <span className="text-destructive">{b.label}</span>
+            {fixFor(b.target, b.code, 'fix')}
+          </div>
+        ))}
       </div>
     );
   }
@@ -97,6 +109,8 @@ export function ListingStatusCell({
   if (!l) return <Badge variant="info">Chưa đăng bán</Badge>;
   const live = onPlatform(l.status);
   const pushErr = (l.status === 'push_failed' || l.status === 'pushing') && l.pushError ? pushErrorText(l.pushError) : null;
+  const errFix = (e: SyncError | null | undefined, key: string) =>
+    e ? fixFor(pushErrorTarget(e), e.code, key, e.variantId ?? r.variantId) : null;
   const note =
     l.status === 'rejected'
       ? l.rejectReason
@@ -116,6 +130,7 @@ export function ListingStatusCell({
             tabIndex={0}
             aria-describedby={`listing-hint-${r.variantId}`}
           >
+            {l.status === 'pushing' && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
             {LISTING_STATUS_LABELS[l.status]}
           </Badge>
         </TooltipTrigger>
@@ -133,16 +148,8 @@ export function ListingStatusCell({
           {note}
         </span>
       )}
+      {l.status === 'push_failed' && errFix(l.pushError, 'push-fix')}
       <PlatformDetail text={pushErr?.platformMessage} />
-      {l.status === 'push_failed' && l.pushError && PRODUCT_FIX_CODES.has(l.pushError.code) && canEditProduct && (
-        <EditProductLink companyId={companyId} productId={r.productId} />
-      )}
-      {l.status === 'push_failed' && isWeightError(l.pushError) && canEditProduct && (
-        <EditProductLink companyId={companyId} productId={r.productId} spec={r.variantId} label="Sửa cân nặng" />
-      )}
-      {l.status === 'push_failed' && l.pushError && SPEC_FIX_CODES.has(l.pushError.code) && canFixSpec && (
-        <SpecLink label="Sửa thông tin sàn" onClick={() => onOpenSpec()} />
-      )}
       {live && r.specStatus !== 'complete' && canFixSpec && (
         <SpecLink label="Bổ sung thông tin sàn" onClick={() => onOpenSpec(true)} testId="fill-spec" />
       )}
@@ -210,23 +217,27 @@ export function ListingStatusCell({
           testId="stock-sync"
         />
       )}
-      {/* Lỗi đẩy của riêng SKU này: câu của sàn hiện nguyên văn trong tooltip (§18.4, §18.6.6) */}
+      {/* Lỗi đẩy tồn, giá của riêng SKU này: câu BE dựng trong tooltip, mã gốc của sàn trong "Chi tiết từ sàn" (#571) */}
       {[
         { key: 'stock', label: 'Đồng bộ tồn lỗi', err: l.stockSyncError },
         { key: 'price', label: 'Đồng bộ giá lỗi', err: l.priceSyncError },
-      ].map(
-        ({ key, label, err }) =>
-          err && (
+      ].map(({ key, label, err }) => {
+        if (!err) return null;
+        const t = pushErrorText(err);
+        return (
+          <div key={key} className="grid justify-items-start gap-1">
             <SyncBadge
-              key={key}
               id={`sync-error-${key}-${r.variantId}`}
               variant="destructive"
               label={label}
-              hint={`${err.message} · ${formatDateTime(err.at)}`}
+              hint={`${t.text} · ${formatDateTime(err.at)}`}
               testId="sync-error"
             />
-          ),
-      )}
+            {errFix(err, `${key}-fix`)}
+            <PlatformDetail text={t.platformMessage} />
+          </div>
+        );
+      })}
       {l.qcAlert && (
         <span className="text-xs text-warning" data-testid="qc-alert">
           Sàn cảnh báo chất lượng (QC): {l.qcAlert.reason}
@@ -262,18 +273,8 @@ function SpecLink({ label, onClick, testId = 'open-spec' }: { label: string; onC
   );
 }
 
-/** Lối sang trang sản phẩm; `spec`: mở ô Khối lượng của SKU trong bảng biến thể (Sửa cân nặng, FE#326, FE#475) */
-export function EditProductLink({
-  companyId,
-  productId,
-  spec,
-  label = 'Sửa sản phẩm',
-}: {
-  companyId: string;
-  productId: string;
-  spec?: string;
-  label?: string;
-}) {
+/** Nút tới chỗ sửa của lỗi (FE#462): trang sản phẩm đúng tab, đúng ô; Phí sàn; trang gian hàng */
+function FixLink({ label, to }: { label: string; to: string }) {
   const navigate = useNavigate();
   return (
     <Button
@@ -283,9 +284,9 @@ export function EditProductLink({
       className="h-auto p-0"
       onClick={(e) => {
         e.stopPropagation();
-        navigate(ROUTES.company.catalogProduct(companyId, productId, spec, spec ? 'weightG' : undefined));
+        navigate(to);
       }}
-      data-testid={spec ? 'edit-weight' : 'edit-product'}
+      data-testid="error-fix"
     >
       {label}
     </Button>

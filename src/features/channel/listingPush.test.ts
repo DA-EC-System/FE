@@ -11,8 +11,9 @@ import {
   pendingRevisionHint,
   pendingRevisionLabel,
   pushBlockMessage,
-  isWeightError,
+  pushErrorTarget,
   pushErrorText,
+  pushResultBlocks,
   SPEC_FIX_CODES,
   splitPushResults,
 } from './listingPush';
@@ -140,91 +141,82 @@ describe('giải thích trạng thái listing', () => {
   });
 });
 
-describe('pushErrorText (FE#266, commerio-backend#305)', () => {
-  const at = '2026-11-17T00:00:00.000Z';
-  it('gian hàng TikTok chưa đủ điều kiện: câu tiếng Việt, câu của sàn tách riêng', () => {
+describe('pushErrorText: câu BE dựng, mã sàn trong Chi tiết từ sàn (FE#462, commerio-backend#567)', () => {
+  const at = '2026-11-24T00:00:00.000Z';
+  const translated = {
+    code: 'attribute_value_invalid',
+    kind: 'data' as const,
+    message: 'Cân nặng phải là số',
+    target: { kind: 'variant_field' as const, field: 'weight' as const },
+    variantId: 'v-1',
+    platformCode: 'BIZ_CHECK_MEASURE_PROP_TEXT_INVALID',
+    platformMessage: 'weight không phải là số hợp lệ!',
+    requestId: 'req-9',
+    at,
+  };
+
+  it('lỗi sau #567: hiện `message`, mã và câu gốc của sàn cùng mã yêu cầu ở Chi tiết', () => {
+    expect(pushErrorText(translated)).toEqual({
+      text: 'Cân nặng phải là số',
+      platformMessage: 'BIZ_CHECK_MEASURE_PROP_TEXT_INVALID: weight không phải là số hợp lệ! · Mã yêu cầu: req-9',
+    });
+  });
+
+  it('lỗi do app giữ (không có mã sàn): không có Chi tiết', () => {
+    const e = { ...translated, platformCode: null, platformMessage: null, requestId: null, target: null, kind: 'connection' as const };
+    expect(pushErrorText(e)).toEqual({ text: 'Cân nặng phải là số' });
+  });
+
+  it('lỗi ghi trước #567 mà `message` là câu sàn: câu chung của mã, câu sàn vào Chi tiết', () => {
     const t = pushErrorText({ code: 'shop_not_eligible', message: 'Shop onboarding incomplete', at });
     expect(t.text).toContain('Gian hàng chưa đủ điều kiện');
-    expect(t.text).toContain('Seller Center');
     expect(t.platformMessage).toBe('Shop onboarding incomplete');
+    const w = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
+    expect(pushErrorText({ code: 'images_missing', message: w, at }).platformMessage).toBe(w);
   });
 
-  it('sai luật đăng mà không có câu dịch: câu chung, câu của sàn tách riêng', () => {
-    const t = pushErrorText({ code: 'listing_check_failed', message: '12099999: something else', at });
-    expect(t.text).toBe(
-      'Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đăng bán lại.',
-    );
-    expect(t.platformMessage).toBe('12099999: something else');
-  });
-
-  it('mã khác, câu không khớp bảng dịch: giữ nguyên câu BE trả', () => {
-    expect(pushErrorText({ code: 'marketplace_rejected', message: 'Sàn từ chối sản phẩm', at })).toEqual({ text: 'Sàn từ chối sản phẩm' });
+  it('lỗi ghi trước #567 của mã chặn app: giữ `message`', () => {
+    expect(pushErrorText({ code: 'images_missing', message: 'Sản phẩm chưa có ảnh', at })).toEqual({ text: 'Sản phẩm chưa có ảnh' });
   });
 });
 
-describe('lỗi cân nặng kiện hàng (FE#326)', () => {
-  it('câu tiếng Việt nêu khoảng sàn cho phép, câu gốc ở Chi tiết từ sàn', () => {
-    const message = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
-    const t = pushErrorText({ code: 'marketplace_rejected', message, at: '2026-11-18T00:00:00.000Z' });
-    expect(t.text).toBe('Cân nặng kiện hàng phải từ 0,001 đến 300 kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.');
-    expect(t.platformMessage).toBe(message);
-    expect(isWeightError({ message })).toBe(true);
-    expect(isWeightError({ message: 'other' })).toBe(false);
+describe('pushErrorTarget: chỗ sửa của lỗi', () => {
+  const at = '2026-11-24T00:00:00.000Z';
+  it('đọc `target` của BE', () => {
+    expect(
+      pushErrorTarget({ code: 'x', message: 'm', kind: 'data', target: { kind: 'category' }, platformCode: 'E1', at }),
+    ).toEqual({ kind: 'category' });
+    expect(pushErrorTarget({ code: 'x', message: 'm', kind: 'platform', target: null, at })).toBeNull();
   });
-
-  it('đi cùng lỗi attribute: giữ cả hai câu; số lạ sau mã không bị lấy làm khoảng', () => {
-    const at = '2026-11-18T00:00:00.000Z';
-    const message =
-      '12052104: attribute missing; BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
-    const t = pushErrorText({ code: 'listing_check_failed', message, at });
-    expect(t.text).toContain('Category của sàn bắt buộc một attribute');
-    expect(t.text).toContain('Cân nặng kiện hàng phải từ 0,001 đến 300 kg');
-    const odd = pushErrorText({ code: 'marketplace_rejected', message: 'PACKAGE_WEIGHT_INVALID SellerSku ABC-12, weight 500', at });
-    expect(odd.text).toContain('Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép');
+  it('bản ghi cũ: suy từ mã và câu cân nặng của Lazada', () => {
+    const w = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID: ...';
+    expect(pushErrorTarget({ code: 'marketplace_rejected', message: w, at })).toEqual({ kind: 'variant_field', field: 'weight' });
+    expect(pushErrorTarget({ code: 'size_chart_missing', message: '', at })).toEqual({ kind: 'product_field', field: 'sizeChart' });
+    expect(pushErrorTarget({ code: 'spec_incomplete', message: '', at })).toBeNull();
+    expect(pushErrorTarget(null)).toBeNull();
   });
 });
 
-describe('bảng dịch lỗi đẩy hay gặp (FE#250, TT-U03)', () => {
-  const at = '2026-11-17T00:00:00.000Z';
-  const TITLE = 'Sàn yêu cầu tên sản phẩm dài 25–255 ký tự. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.';
-  const SIZE = 'Category này trên sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.';
-
-  it.each([
-    ['listing_check_failed', '12052051: The product name must be between 25 and 255 characters, inclusive.', TITLE],
-    ['marketplace_rejected', 'Value Out Of Range. The parameter `product title` must be within 25 to 255', TITLE],
-    ['marketplace_rejected', 'Missing Parameter. `size_chart_image` is required. Please provide it and retry.', SIZE],
-    [
-      'listing_check_failed',
-      '12052104: attribute Material is required',
-      'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
-    ],
-    [
-      'marketplace_rejected',
-      'E0501: Category attribute "brand" is mandatory',
-      'Category trên sàn bắt buộc attribute "brand". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
-    ],
-  ])('%s: %s', (code, message, text) => {
-    expect(pushErrorText({ code, message, at })).toEqual({ text, platformMessage: message });
+describe('pushResultBlocks: lý do chặn của lượt vừa bấm (commerio-backend#566)', () => {
+  const base: PushResult = { variantId: 'v-1', listingId: null, status: null, code: 'category_unmapped', message: null };
+  it('có `blockers` thì dùng câu và chỗ sửa của BE', () => {
+    const r: PushResult = {
+      ...base,
+      blockers: [
+        { code: 'category_unmapped', label: 'Chưa chọn category Lazada', scope: 'platform', target: { kind: 'category' }, variantIds: [] },
+        { code: 'price_missing', label: 'Chưa có giá', scope: 'common', target: { kind: 'variant_field', field: 'price' }, variantIds: ['v-1'] },
+      ],
+    };
+    expect(pushResultBlocks(r, 'Lazada')).toEqual([
+      { code: 'category_unmapped', label: 'Chưa chọn category Lazada', target: { kind: 'category' } },
+      { code: 'price_missing', label: 'Chưa có giá', target: { kind: 'variant_field', field: 'price' } },
+    ]);
   });
-
-  it('nhiều lỗi nối bằng "; ": dịch từng phần, phần không dịch được thì thêm câu chung', () => {
-    const message = '12052051: product name must be between 25 and 255 characters; 12099999: other';
-    expect(pushErrorText({ code: 'listing_check_failed', message, at })).toEqual({
-      text: `${TITLE} Sàn từ chối sản phẩm. Sửa sản phẩm hoặc thông tin sàn của sản phẩm (category, attribute) rồi đăng bán lại.`,
-      platformMessage: message,
-    });
-  });
-
-  it('câu độ dài tên không phải 25–255 của TikTok thì không dịch', () => {
-    expect(pushErrorText({ code: 'marketplace_rejected', message: 'product name must be within 255 characters', at })).toEqual({
-      text: 'product name must be within 255 characters',
-    });
-  });
-
-  it('mã chặn của app không dịch theo câu', () => {
-    expect(pushErrorText({ code: 'images_missing', message: 'size_chart_image is required', at })).toEqual({
-      text: 'size_chart_image is required',
-    });
+  it('không có `blockers` thì dựng câu từ `code`; đã xếp việc thì rỗng', () => {
+    expect(pushResultBlocks(base, 'Lazada')).toEqual([
+      { code: 'category_unmapped', label: 'Chưa chọn category Lazada cho sản phẩm', target: null },
+    ]);
+    expect(pushResultBlocks({ ...base, code: null, status: 'pushing' }, 'Lazada')).toEqual([]);
   });
 });
 
@@ -278,5 +270,19 @@ describe('Mã chặn đẩy theo thông tin sàn (commerio-backend#400, Document
 describe('pushBlockMessage: below_floor khi đăng với giá đặt tay (§18.9 R1)', () => {
   it('nói rõ giá niêm yết dưới giá thấp nhất, không dùng câu của listing đang bán', () => {
     expect(pushBlockMessage('below_floor', null, 'Sàn A')).toMatch(/dưới giá thấp nhất, chưa đăng/);
+  });
+});
+
+describe('lỗi cân nặng kiện hàng ghi trước #567 (FE#326)', () => {
+  const at = '2026-11-18T00:00:00.000Z';
+  it('câu tiếng Việt nêu khoảng sàn cho phép, câu gốc ở Chi tiết từ sàn', () => {
+    const message = 'BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0';
+    const t = pushErrorText({ code: 'marketplace_rejected', message, at });
+    expect(t.text).toBe('Cân nặng kiện hàng phải từ 0,001 đến 300 kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.');
+    expect(t.platformMessage).toBe(message);
+  });
+  it('số lạ sau mã không bị lấy làm khoảng', () => {
+    const odd = pushErrorText({ code: 'marketplace_rejected', message: 'PACKAGE_WEIGHT_INVALID SellerSku ABC-12, weight 500', at });
+    expect(odd.text).toContain('Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép');
   });
 });

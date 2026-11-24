@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, X } from 'lucide-react';
+import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { SyncRun } from '@/types/shop';
@@ -17,11 +18,14 @@ const SHOWN_ERRORS = 20;
 export function SyncRunPanel({
   run,
   companyId,
+  platform,
   onFinished,
   onClose,
 }: {
   run: SyncRun;
   companyId: string;
+  /** Sàn của gian hàng: nút sửa theo `target` mở đúng tab sàn (FE#462) */
+  platform?: string | null;
   onFinished: () => void;
   onClose: () => void;
 }) {
@@ -68,12 +72,12 @@ export function SyncRunPanel({
         {shown.length > 0 && (
           <ul className="grid gap-1.5">
             {shown.map((e) => {
-              const fix = syncErrorFix(e, companyId);
+              const fix = syncErrorFix(e, companyId, platform);
+              const raw = [e.platformCode, e.platformMessage].filter(Boolean).join(': ');
               return (
                 <li key={e.listingId} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span>
                     <b>{syncErrorTitle(e)}</b>: {e.message}
-                    {e.platformMessage && <span className="text-muted-foreground"> (sàn báo: {e.platformMessage})</span>}
                   </span>
                   {fix &&
                     (fix.href ? (
@@ -86,6 +90,7 @@ export function SyncRunPanel({
                     ) : (
                       <span className="text-xs text-muted-foreground">{fix.label}</span>
                     ))}
+                  <PlatformDetail text={raw} className="basis-full" />
                 </li>
               );
             })}

@@ -55,13 +55,25 @@ export const ROUTES = {
     catalog: (companyId: string) => `/c/${companyId}/catalog`,
     catalogNew: (companyId: string) => `/c/${companyId}/catalog/products/new`,
     /**
-     * spec: chọn luôn SKU này trong bảng biến thể và mở ô còn thiếu (FE#326, FE#475); `field` chọn ô cụ thể, vd `weightG`
-     * cho lối sửa cân nặng từ lỗi đẩy
+     * spec: chọn luôn SKU này trong bảng biến thể và mở ô còn thiếu (FE#326, FE#475); `field` chọn ô cụ thể, vd `weightG`.
+     * Dạng object thêm `tab` (tab sàn, bỏ trống là tab Nội bộ) và `focus` (id ô cần cuộn tới; FE#462 nút sửa theo chỗ sửa
+     * của lỗi)
      */
-    catalogProduct: (companyId: string, productId: string, spec?: string, field?: string) =>
-      `/c/${companyId}/catalog/products/${productId}${
-        spec ? `?spec=${encodeURIComponent(spec)}${field ? `&field=${encodeURIComponent(field)}` : ''}` : ''
-      }`,
+    catalogProduct: (
+      companyId: string,
+      productId: string,
+      at?: string | { spec?: string; field?: string; tab?: string; focus?: string },
+      field?: string,
+    ) => {
+      const o = typeof at === 'string' ? { spec: at, field } : (at ?? {});
+      const q = new URLSearchParams();
+      if (o.tab) q.set('tab', o.tab);
+      if (o.spec) q.set('spec', o.spec);
+      if (o.spec && o.field) q.set('field', o.field);
+      if (o.focus) q.set('focus', o.focus);
+      const qs = q.toString();
+      return `/c/${companyId}/catalog/products/${productId}${qs ? `?${qs}` : ''}`;
+    },
     catalogSetup: (companyId: string) => `/c/${companyId}/catalog/setup`,
     /** Trang một danh mục sản phẩm: thuộc tính sản phẩm, biến thể theo, ánh xạ sàn (Documents/29 bước 3) */
     catalogCategory: (companyId: string, groupId: string) => `/c/${companyId}/catalog/setup/categories/${groupId}`,

@@ -2,6 +2,7 @@ import { syncRunActive } from '@/lib/machines/channel';
 import { ROUTES } from '@/router/routes';
 import type { SyncRun, SyncRunError } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
+import { blockerFix } from './blockerFix';
 
 /**
  * Kết quả lượt đồng bộ ở trang gian hàng (Documents/21 §18.5 `SyncRun`; bản phác
@@ -64,11 +65,15 @@ export function syncRunState(input: {
  * mà biết sản phẩm thì mở sản phẩm đó (CLAUDE.md "Lỗi phải chỉ chỗ sửa")
  */
 export function syncErrorFix(
-  e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>,
+  e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId' | 'target'>,
   companyId: string,
+  platform?: string | null,
 ): { label: string; href: string | null } | null {
   const fix = fixOf(e, companyId);
   if (fix || !e.productId) return fix;
+  // Chỗ sửa theo `target` (commerio-backend#571, FE#462); phí sàn thì để lối của `fix`
+  const byTarget = blockerFix(e.target, { companyId, productId: e.productId, platform, variantId: e.variantId });
+  if (byTarget && byTarget.perm !== 'finance') return { label: byTarget.label, href: byTarget.to };
   // Có biến thể thì `?spec=` chọn luôn SKU đó trong bảng biến thể (routes.ts catalogProduct)
   return e.variantId
     ? { label: 'Mở SKU trong bảng biến thể', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId) }

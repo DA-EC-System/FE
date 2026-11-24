@@ -87,10 +87,11 @@ import {
   LISTING_POLL_MAX_MS,
   listingPollDelay,
   REPUSH_STATUSES,
-  pushBlockMessage,
+  pushResultBlocks,
   splitPushResults,
 } from './listingPush';
 import { ListingStatusCell, PendingBadge, type PushError } from './ListingStatusCell';
+import { usePushOutcomeToasts } from './usePushOutcomeToasts';
 import { PRICE_SOURCE_LABEL } from './listingPrice';
 import { PriceOverrideDialog } from './PriceOverrideDialog';
 import {
@@ -206,6 +207,7 @@ export function ShopListingsPage() {
   /** Ghép SKU tách quyền khỏi đẩy, gỡ (§18.6.5): Sale ghép được nhưng không đẩy */
   const canMatch = can(PERMISSIONS.listingMatch) && usable;
   const canEditProduct = can(PERMISSIONS.productManage);
+  const canEditFinance = can(PERMISSIONS.financeConfigManage);
   /** Quyết thay đổi ngoài app: `listing.manage` + vai trò CEO (§18.3, commerio-backend#360) */
   const isCeo = Boolean(companyContext?.roles.includes('CEO'));
   const canDecideOutside = canManage && isCeo;
@@ -231,6 +233,14 @@ export function ShopListingsPage() {
     }
     pollFrom.current ??= now;
     return delay;
+  });
+  // Dòng thôi Đang đăng trong lúc mở trang: toast kết quả, lỗi có nút sửa (FE#462)
+  usePushOutcomeToasts(listingsQuery.data, {
+    companyId,
+    shopId,
+    platform: shop?.platform,
+    shopLabel: shop?.shopName,
+    canFix: canEditProduct,
   });
   const remoteQuery = useRemoteSkus(shopId, canMatch);
   const matchMut = useMatchListing();
@@ -816,7 +826,8 @@ export function ShopListingsPage() {
       setPushErrors((prev) => {
         const next = new Map(prev);
         results.forEach((r) => {
-          if (r.code) next.set(r.variantId, { code: r.code, message: pushBlockMessage(r.code, r.message, platformName) });
+          const blocks = pushResultBlocks(r, platformName);
+          if (blocks.length) next.set(r.variantId, { blocks });
           else next.delete(r.variantId);
         });
         return next;
@@ -1011,6 +1022,9 @@ export function ShopListingsPage() {
             pendingTarget={pendingTarget}
             specFixable={!!specPlatform}
             onOpenSpec={(fill) => openSpec(row.original.productId, fill)}
+            platform={shop?.platform}
+            shopId={shopId}
+            canEditFinance={canEditFinance}
           />
         ),
       },
@@ -1113,7 +1127,7 @@ export function ShopListingsPage() {
     }
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, pushingIds, listingReview, canSetPrice, canSync, shopId]);
+  }, [canManage, canMatch, canEditProduct, canDecide, canDecideOutside, outsideMut.isPending, contentMut.isPending, shop?.platform, companyId, items, remoteSkus, remoteTitles, selection, rows, allFilteredSelected, someFilteredSelected, pushErrors, specPlatform, remoteQuery.isError, pushMut.isPending, pushingIds, listingReview, canSetPrice, canSync, shopId, canEditFinance]);
 
   const remoteColumns = useMemo<ColumnDef<RemoteTableRow>[]>(
     () => [
@@ -1327,6 +1341,7 @@ export function ShopListingsPage() {
         <SyncRunPanel
           run={syncRun}
           companyId={companyId}
+          platform={shop?.platform}
           onFinished={() => void listingsQuery.refetch()}
           onClose={() => setDismissedRun(syncRun.id)}
         />

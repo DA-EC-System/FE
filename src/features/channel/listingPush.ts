@@ -8,6 +8,7 @@ import type {
   PushResult,
   SyncError,
 } from '@/types/shop';
+import type { BlockerTarget } from '@/types/blocker';
 import { formatDateTime } from '@/utils/format';
 import { priceText } from '@/utils/price';
 
@@ -130,78 +131,73 @@ export function pendingRevisionHint(r: PendingRevision): string {
     : 'Listing vẫn bán bản cũ. Sửa sản phẩm theo lý do sàn nêu rồi bấm Cập nhật thông tin lên sàn để gửi lại.';
 }
 
-/** Mã lỗi đẩy BE ghi riêng, `message` là câu gốc của sàn (§18.6.4, commerio-backend#305) */
-const PRECHECK_CODES = new Set(['shop_not_eligible', 'listing_check_failed']);
+/** Mã lỗi đẩy mà bản ghi trước commerio-backend#567 để câu gốc của sàn trong `message` */
+const LEGACY_PLATFORM_MESSAGE_CODES = new Set([
+  'marketplace_rejected',
+  'marketplace_unavailable',
+  'shop_not_eligible',
+  'listing_check_failed',
+]);
 
-/** Mã lỗi đẩy mà `message` là câu của sàn, dịch được theo bảng dưới */
-const PLATFORM_MESSAGE_CODES = new Set(['marketplace_rejected', 'marketplace_unavailable', ...PRECHECK_CODES]);
+/** Lỗi ghi sau commerio-backend#567, #571: `message` là câu tiếng Việt BE dựng, có thể có `target` */
+const isTranslated = (e: SyncError) => e.kind != null || e.target != null || e.platformCode != null;
 
-/**
- * Câu sàn hay gặp khi đẩy (FE#250, TT-U03). `pushError` không có mã sàn nên khớp theo câu; nguồn câu thật: test và gọi
- * thật của commerio-backend (#305, #347), staging 17/11/2026
- */
-const PUSH_ERROR_TRANSLATIONS: { pattern: RegExp; text: (m: RegExpMatchArray) => string }[] = [
-  {
-    pattern: /12052051|product (name|title)`?[^.;]*(\b25\b[^;]*\b255\b|must be within 25\b)/i,
-    text: () => 'Sàn yêu cầu tên sản phẩm dài 25–255 ký tự. Sửa tên ở trang sản phẩm rồi bấm Đăng lại.',
-  },
-  {
-    pattern: /size_chart(_image)?`? is required/i,
-    text: () => 'Category này trên sàn bắt buộc ảnh bảng kích cỡ. Thêm ảnh bảng kích cỡ ở trang sản phẩm rồi đăng lại.',
-  },
-  {
-    pattern: /^12052104:/,
-    text: () => 'Category của sàn bắt buộc một attribute còn thiếu. Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.',
-  },
-  {
-    // Lazada, staging 18/11/2026: "BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0"
-    // Số lấy theo cụm "khoảng A và B" / "between A and B", không bắt số lạ đứng sau mã (vd SellerSku ABC-12)
-    pattern:
-      /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i,
-    text: (m) =>
-      m[1] && m[2]
-        ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.`
-        : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.',
-  },
-  {
-    pattern: /Category attribute "([^"]+)" is mandatory/i,
-    text: (m) => `Category trên sàn bắt buộc attribute "${m[1]}". Bổ sung ở Thông tin sàn của sản phẩm rồi đăng lại.`,
-  },
-];
-
+/** Lỗi cân nặng kiện hàng của Lazada ghi trước #567 (FE#326) */
+const LEGACY_WEIGHT = /PACKAGE_WEIGHT[A-Z_]*INVALID/i;
+// Lazada, staging 18/11/2026: "BIZ_CHECK_PACKAGE_WEIGHT_BY_KG_INVALID:Khối lượng kiện hàng nên nằm trong khoảng 0.001 và 300.0".
+// Số lấy theo cụm "khoảng A và B" / "between A and B", không bắt số lạ đứng sau mã (vd SellerSku ABC-12)
+const LEGACY_WEIGHT_RANGE =
+  /PACKAGE_WEIGHT[A-Z_]*INVALID\b(?:[^;]*?(?:khoảng|between|range)\s*(\d+(?:\.\d+)?)\s*(?:và|and|đến|to|-|~)\s*(\d+(?:\.\d+)?))?/i;
 /** Số kg của sàn ("300.0", "0.001") theo cách viết Việt Nam: "300", "0,001" */
 const kgText = (raw: string) => Number(raw).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+const legacyWeightText = (message: string) => {
+  const m = message.match(LEGACY_WEIGHT_RANGE);
+  return m?.[1] && m[2]
+    ? `Cân nặng kiện hàng phải từ ${kgText(m[1])} đến ${kgText(m[2])} kg theo sàn. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.`
+    : 'Cân nặng kiện hàng nằm ngoài khoảng sàn cho phép. Sửa ô Khối lượng của SKU ở trang sản phẩm rồi bấm Đăng lại.';
+};
 
-/** Lỗi đẩy vì cân nặng kiện hàng: hiện nút Sửa cân nặng mở ô Khối lượng của SKU ở trang sản phẩm (FE#326, FE#475) */
-export const isWeightError = (e: { message?: string } | null | undefined) =>
-  Boolean(e?.message && /PACKAGE_WEIGHT[A-Z_]*INVALID/i.test(e.message));
-
-function translatePart(part: string): string | null {
-  for (const t of PUSH_ERROR_TRANSLATIONS) {
-    const m = part.match(t.pattern);
-    if (m) return t.text(m);
+/**
+ * Câu hiện cho lỗi đẩy, lỗi đồng bộ tồn/giá của listing, và phần "Chi tiết từ sàn" (FE#462). Câu là `message` BE dựng
+ * (commerio-backend#567), mã và câu gốc của sàn chỉ hiện trong "Chi tiết từ sàn". Lỗi ghi trước #567 mà `message` là câu gốc
+ * của sàn thì hiện câu chung của mã, câu sàn vào "Chi tiết từ sàn"
+ */
+export function pushErrorText(e: SyncError): { text: string; platformMessage?: string } {
+  if (isTranslated(e)) {
+    const raw = [e.platformCode, e.platformMessage].filter(Boolean).join(': ');
+    const detail = [raw, e.requestId ? `Mã yêu cầu: ${e.requestId}` : ''].filter(Boolean).join(' · ');
+    return { text: e.message || codeMessage(e.code), ...(detail ? { platformMessage: detail } : {}) };
   }
-  return null;
+  // Lỗi cân nặng cũ: giữ câu FE#326 (main), câu sàn vào "Chi tiết từ sàn"
+  if (e.message && LEGACY_WEIGHT.test(e.message)) return { text: legacyWeightText(e.message), platformMessage: e.message };
+  if (e.message && LEGACY_PLATFORM_MESSAGE_CODES.has(e.code)) {
+    return { text: codeMessage(e.code), platformMessage: e.message };
+  }
+  return { text: e.message || codeMessage(e.code) };
 }
 
 /**
- * Câu hiện cho lỗi đẩy của listing và câu gốc của sàn (hiện trong "Chi tiết từ sàn"). Câu sàn hay gặp dịch theo bảng;
- * `listing_check_failed` có nhiều lỗi nối bằng "; " thì dịch từng phần. Mã kiểm trước khi tạo sản phẩm của TikTok không
- * dịch được thì dùng câu chung của mã; mã khác không khớp thì giữ `message` BE trả
+ * Chỗ sửa của lỗi: `target` BE trả; lỗi ghi trước #567 thì suy từ mã như trước (ảnh, bảng kích cỡ, cân nặng). Mã thông tin
+ * sàn của bản ghi cũ vẫn đi lối Sửa thông tin sàn (`SPEC_FIX_CODES`)
  */
-export function pushErrorText(e: SyncError): { text: string; platformMessage?: string } {
-  // Lỗi cân nặng dịch dù BE gắn mã nào (FE#326); có thể đi cùng lỗi khác nên tách "; " và dịch từng phần như mã kiểm trước
-  const weight = isWeightError(e);
-  if (!weight && (!PLATFORM_MESSAGE_CODES.has(e.code) || !e.message)) {
-    return { text: e.message || codeMessage(e.code) };
-  }
-  const precheck = weight || PRECHECK_CODES.has(e.code);
-  const parts = precheck ? e.message.split('; ') : [e.message];
-  const translated = parts.map(translatePart);
-  const texts = [...new Set(translated.filter((t): t is string => t !== null))];
-  if (translated.some((t) => t === null)) {
-    if (!precheck && texts.length === 0) return { text: e.message };
-    texts.push(codeMessage(e.code));
-  }
-  return { text: texts.join(' '), platformMessage: e.message };
+export function pushErrorTarget(e: SyncError | null | undefined): BlockerTarget | null {
+  if (!e) return null;
+  if (isTranslated(e)) return e.target ?? null;
+  if (e.message && LEGACY_WEIGHT.test(e.message)) return { kind: 'variant_field', field: 'weight' };
+  if (e.code === 'images_missing') return { kind: 'product_field', field: 'images' };
+  if (e.code === 'size_chart_missing') return { kind: 'product_field', field: 'sizeChart' };
+  return null;
+}
+
+/** Một lý do chặn của dòng vừa bấm đăng: câu và chỗ sửa (null khi BE chưa trả `blockers`, bản trước commerio-backend#566) */
+export interface PushBlockItem {
+  code: string;
+  label: string;
+  target: BlockerTarget | null;
+}
+
+/** Lý do chặn của một kết quả đẩy: đọc `blockers` BE trả, không có thì dựng câu từ `code` như trước */
+export function pushResultBlocks(r: PushResult, platform: string): PushBlockItem[] {
+  if (r.blockers?.length) return r.blockers.map((b) => ({ code: b.code, label: b.label, target: b.target }));
+  return r.code ? [{ code: r.code, label: pushBlockMessage(r.code, r.message, platform), target: null }] : [];
 }

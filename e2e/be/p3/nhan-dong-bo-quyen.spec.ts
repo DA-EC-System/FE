@@ -96,8 +96,8 @@ test.describe('P3-BE · Nhãn đồng bộ và quyền nút ghép SKU (§18.6.5,
       if (trenSan && l.stockSync === 'error') await expect(dong.locator('[data-testid=stock-sync]')).toHaveText(/^Lệch tồn/);
       // Lỗi đẩy theo SKU: nhãn cố định, câu của sàn trong tooltip
       const loi = [
-        ...(l.stockSyncError ? ['Cập nhật tồn lên sàn lỗi'] : []),
-        ...(l.priceSyncError ? ['Đẩy giá lỗi'] : []),
+        ...(l.stockSyncError ? ['Đồng bộ tồn lỗi'] : []),
+        ...(l.priceSyncError ? ['Đồng bộ giá lỗi'] : []),
       ];
       await expect(dong.locator('[data-testid=sync-error]')).toHaveText(loi);
       // FE#312: một nhãn trạng thái listing; dòng đồng bộ chữ nhỏ khi listing trên sàn
