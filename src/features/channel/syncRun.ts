@@ -33,11 +33,37 @@ export function syncErrorTitle(e: Pick<SyncRunError, 'productName' | 'attributes
   return e.sku ?? 'SKU';
 }
 
-/** Nút tới chỗ sửa của một dòng lỗi; `href` null là việc làm ngoài app (trang người bán của sàn) */
+/**
+ * Trạng thái hộp đồng bộ ở trang gian hàng. Đã có `runId` (vừa bấm Đồng bộ) thì chỉ dùng lượt đó, không lấy lượt gần
+ * nhất; POST xong mà chưa đọc được lượt thì vẫn là đang chạy. Đọc lượt lỗi thì báo lỗi, không đứng mãi ở "Đang đồng bộ…".
+ */
+export function syncRunState(input: {
+  pending: boolean;
+  runId: string | null;
+  current: SyncRun | undefined;
+  currentError: boolean;
+  latest: SyncRun | null | undefined;
+}): { run: SyncRun | null; running: boolean; readError: boolean } {
+  const run = input.runId ? (input.current ?? null) : (input.latest ?? null);
+  const readError = Boolean(input.runId) && input.currentError;
+  const running = input.pending || (!readError && ((Boolean(input.runId) && !input.current) || syncRunActive(run)));
+  return { run, running, readError };
+}
+
+/**
+ * Nút tới chỗ sửa của một dòng lỗi; `href` null là việc làm ngoài app (trang người bán của sàn). Không có chỗ sửa riêng
+ * mà biết sản phẩm thì mở sản phẩm đó (CLAUDE.md "Lỗi phải chỉ chỗ sửa")
+ */
 export function syncErrorFix(
   e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>,
   companyId: string,
 ): { label: string; href: string | null } | null {
+  const fix = fixOf(e, companyId);
+  if (fix || !e.productId) return fix;
+  return { label: 'Mở sản phẩm', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId ?? undefined) };
+}
+
+function fixOf(e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>, companyId: string): { label: string; href: string | null } | null {
   switch (e.fix) {
     case 'variant_price':
       return e.productId && e.variantId

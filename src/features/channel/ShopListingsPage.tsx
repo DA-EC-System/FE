@@ -56,7 +56,7 @@ import {
   useSyncListings,
 } from '@/api/shops.api';
 import { SyncRunPanel } from './SyncRunPanel';
-import { syncRunActive } from './syncRun';
+import { syncRunActive, syncRunState } from './syncRun';
 import { getErrorMessage, getProblem, isTimeout } from '@/api/client';
 import {
   problemCode,
@@ -285,10 +285,19 @@ export function ShopListingsPage() {
   // v2 câu 6)
   const [runId, setRunId] = useState<string | null>(null);
   const [dismissedRun, setDismissedRun] = useState<string | null>(null);
-  const latestRun = useLatestSyncRun(shopId, Boolean(shop));
+  const latestRun = useLatestSyncRun(shopId, Boolean(shop) && !runId);
   const currentRun = useSyncRun(shopId, runId);
-  const syncRun = currentRun.data ?? latestRun.data ?? null;
-  const syncRunning = syncMut.isPending || syncRunActive(syncRun);
+  const {
+    run: syncRun,
+    running: syncRunning,
+    readError: syncReadError,
+  } = syncRunState({
+    pending: syncMut.isPending,
+    runId,
+    current: currentRun.data,
+    currentError: currentRun.isError,
+    latest: latestRun.data,
+  });
   const listingReview = shop?.capabilities.listingReview ?? false;
   const { startTour } = usePageGuide('shop-listings', { ready: Boolean(shop) && listingsQuery.isSuccess });
   const connector = useStartConnect();
@@ -1303,7 +1312,16 @@ export function ShopListingsPage() {
         }
       />
 
-      {syncRun && syncRun.id !== dismissedRun && (
+      {syncReadError && (
+        <AlertMessage severity="warning" className="mb-4">
+          <span>Không đọc được kết quả đồng bộ: {problemMessage(currentRun.error)}</span>
+          <Button size="sm" variant="outline" className="ms-3" disabled={currentRun.isFetching} onClick={() => void currentRun.refetch()}>
+            <RefreshCw />
+            Thử lại
+          </Button>
+        </AlertMessage>
+      )}
+      {syncRun && syncRun.id !== dismissedRun && !(syncReadError && syncRunActive(syncRun)) && (
         <SyncRunPanel
           run={syncRun}
           companyId={companyId}

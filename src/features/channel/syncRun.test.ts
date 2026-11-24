@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SyncRun } from '@/types/shop';
 import { formatDateTime } from '@/utils/format';
-import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunErrorFix, syncRunHeadline } from './syncRun';
+import { syncErrorFix, syncErrorTitle, syncRunActive, syncRunErrorFix, syncRunHeadline, syncRunState } from './syncRun';
 
 const AT = '2026-11-21T13:15:00.000Z';
 const run = (over: Partial<SyncRun> = {}): SyncRun => ({
@@ -57,6 +57,39 @@ describe('dòng lỗi: tên và nút tới chỗ sửa', () => {
     expect(syncErrorFix({ fix: 'stocktake', productId: null, variantId: null }, 'c1')?.href).toBe('/c/c1/inventory/documents/new?type=stocktake');
     expect(syncErrorFix({ fix: 'platform', productId: null, variantId: null }, 'c1')?.href).toBeNull();
     expect(syncErrorFix({ fix: null, productId: null, variantId: null }, 'c1')).toBeNull();
+  });
+
+  it('không có chỗ sửa riêng mà biết sản phẩm: nút dự phòng Mở sản phẩm', () => {
+    expect(syncErrorFix({ fix: null, productId: 'p1', variantId: 'v1' }, 'c1')).toEqual({
+      label: 'Mở sản phẩm',
+      href: '/c/c1/catalog/products/p1?spec=v1',
+    });
+    expect(syncErrorFix({ fix: null, productId: 'p1', variantId: null }, 'c1')?.href).toBe('/c/c1/catalog/products/p1');
+  });
+});
+
+describe('syncRunState (hộp đồng bộ ở trang gian hàng)', () => {
+  const base = { pending: false, runId: null, current: undefined, currentError: false, latest: undefined };
+
+  it('chưa bấm: dùng lượt gần nhất, đang chạy theo trạng thái lượt', () => {
+    expect(syncRunState({ ...base, latest: run() })).toEqual({ run: run(), running: false, readError: false });
+    expect(syncRunState({ ...base, latest: run({ status: 'running' }) }).running).toBe(true);
+    expect(syncRunState(base)).toEqual({ run: null, running: false, readError: false });
+  });
+
+  it('POST xong mà chưa đọc được lượt: vẫn đang chạy, không lấy lượt gần nhất', () => {
+    expect(syncRunState({ ...base, runId: 'r2', latest: run() })).toEqual({ run: null, running: true, readError: false });
+    expect(syncRunState({ ...base, pending: true, latest: run() }).running).toBe(true);
+  });
+
+  it('có runId: chỉ dùng lượt đó', () => {
+    const cur = run({ id: 'r2', status: 'queued' });
+    expect(syncRunState({ ...base, runId: 'r2', current: cur, latest: run() })).toEqual({ run: cur, running: true, readError: false });
+  });
+
+  it('đọc lượt lỗi: báo lỗi, không còn đang chạy', () => {
+    expect(syncRunState({ ...base, runId: 'r2', currentError: true })).toEqual({ run: null, running: false, readError: true });
+    expect(syncRunState({ ...base, runId: 'r2', currentError: true, current: run({ status: 'running' }) }).running).toBe(false);
   });
 });
 

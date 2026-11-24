@@ -39,8 +39,6 @@ export function SyncRunPanel({
 
   return (
     <section
-      role="status"
-      aria-live="polite"
       className={cn(
         'mb-4 flex gap-3 rounded-lg border p-3',
         tone === 'info' && 'border-info-border bg-info-soft',
@@ -51,7 +49,10 @@ export function SyncRunPanel({
     >
       <Icon className={cn('mt-0.5 size-4 shrink-0', active && 'animate-spin motion-reduce:animate-none')} aria-hidden />
       <div className="grid min-w-0 flex-1 gap-1.5 text-sm">
-        <p className="font-medium">{syncRunHeadline(run)}</p>
+        {/* Chỉ câu chính là vùng thông báo, không đọc lại cả danh sách lỗi mỗi lần hỏi lại */}
+        <p role="status" aria-live="polite" className="font-medium">
+          {syncRunHeadline(run)}
+        </p>
         {runFix && (
           <div>
             <Button asChild variant="outline" size="sm" className="h-7">
