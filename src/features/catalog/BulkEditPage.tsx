@@ -233,6 +233,7 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
         id: 'select',
         header: () => (
           <Checkbox
+            className="size-6"
             aria-label="Chọn mọi SKU trên trang"
             checked={allOnPage}
             onCheckedChange={(v) =>
@@ -248,8 +249,10 @@ export function BulkEditPage({ onExit }: { onExit: () => void }) {
           />
         ),
         meta: { className: 'w-10' },
+        // Ô chọn 24×24 (vùng bấm tối thiểu, FE#464)
         cell: ({ row }) => (
           <Checkbox
+            className="size-6"
             aria-label={`Chọn ${row.original.sku}`}
             checked={selected.has(row.original.variantId)}
             onCheckedChange={(v) =>
