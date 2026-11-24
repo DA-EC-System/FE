@@ -1,4 +1,4 @@
-// P3 với BE thật · Kết nối gian hàng bằng token rồi thiết lập lần đầu (FE#163; Documents/21 §18.4, §18.6.2, §18.6.3, §18.7)
+// P3 với BE thật · Kết nối gian hàng bằng token rồi thiết lập lần đầu (FE#163, FE#468; Documents/21 §18.4, §18.5, §18.6.2, §18.6.3, §18.7)
 // Cần commerio-backend#200 và #198 đã merge. Chạy: PW_BASE_URL=<địa chỉ FE trỏ BE thật> pnpm e2e:be
 //
 // Spec tạo gian hàng thật trên công ty thử nên tự bỏ qua trừ khi đặt đủ:
@@ -6,13 +6,13 @@
 //   E2E_SAN_ACCESS_TOKEN             access token sàn chấp nhận (sàn giả lập của BE nhận token bất kỳ)
 //   E2E_SAN_BE200=1                  xác nhận BE đang chạy đã có commerio-backend#200 và #198
 //   E2E_SAN_BE187=1                  xác nhận BE trả đủ §18.7 (Documents#73): shops[].previousStatus, remoteSkuCount,
-//                                    suggestions có match/score, nhận decisions, Shop.setup
+//                                    bản nháp thiết lập kèm draftVersion (§18.7.5), GET category-sync (§18.5)
 //   PLATFORM hoặc E2E_SAN_PLATFORM   (tuỳ chọn) mã sàn, mặc định "mock". TikTok (FE#198, commerio-backend#217):
 //                                    PLATFORM=tiktok; BE chưa công bố tiktok trong /channel/shops/platforms thì bỏ qua kèm lý do
 //   E2E_SAN_CONG_TY                  (tuỳ chọn) tên công ty, mặc định "Commerio Test Sàn"
 // Chạy xong gian hàng vẫn nối: ngắt tay ở trang Gian hàng nếu cần chạy lại từ đầu.
 import { type Page } from '@playwright/test';
-import { chu, duongDan, expect, test, thayChu } from '../../fixtures';
+import { chu, duongDan, expect, test } from '../../fixtures';
 
 const EMAIL = process.env.E2E_SAN_EMAIL ?? '';
 const MAT_KHAU = process.env.E2E_SAN_PASSWORD ?? '';
@@ -47,13 +47,6 @@ function canSan(items: San[]): San {
   return san!;
 }
 
-interface GoiY {
-  externalSkuId: string;
-  match: 'sku' | 'name' | 'none';
-  score: number | null;
-  variantId: string | null;
-}
-
 async function dangNhap(page: Page): Promise<string> {
   await page.goto('/login');
   await page.locator('input[name=email]').fill(EMAIL);
@@ -76,7 +69,7 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
   test.skip(!DA_CO_BE, 'Chưa xác nhận BE có commerio-backend#200 và #198 (E2E_SAN_BE200=1)');
   test.skip(!DA_CO_187, 'Chưa xác nhận BE trả đủ §18.7 theo Documents#73 (E2E_SAN_BE187=1)');
 
-  test('dán token: một gian hàng mới mở wizard; thiết lập gửi đúng body, mốc kéo đơn chỉ hiển thị', async ({ page }) => {
+  test('dán token: một gian hàng mới mở trang thiết lập; đọc nháp và trạng thái category', async ({ page }) => {
     const companyId = await dangNhap(page);
     await page.goto(`/c/${companyId}/channel/shops`);
 
@@ -123,80 +116,46 @@ test.describe('P3-BE · Kết nối gian hàng bằng token và thiết lập l�
     }
 
     const preview = page.waitForResponse(laApi('GET', new RegExp(`/channel/shops/${ketQua.shop.id}/setup$`)));
+    const dongBo = page.waitForResponse(laApi('GET', new RegExp(`/channel/shops/${ketQua.shop.id}/category-sync$`)));
     await section.locator('[data-outcome=connected]').getByRole('button', { name: 'Thiết lập ngay', exact: true }).click();
     await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}/setup`);
+
+    // §18.7.5: GET /setup trả bản nháp và draftVersion (0 khi chưa có nháp), không còn `suggestions`
     const xemTruoc = (await (await preview).json()) as {
       proposedCutoffAt: string;
       firstShopOfCompany: boolean;
-      suggestions: GoiY[];
+      draft: { decisions: unknown[]; createGroups: unknown[]; confirmed: Record<string, string | null> } | null;
+      draftVersion: number;
     };
     expect(typeof xemTruoc.proposedCutoffAt).toBe('string');
     expect(typeof xemTruoc.firstShopOfCompany).toBe('boolean');
-    for (const g of xemTruoc.suggestions) expect(['sku', 'name', 'none']).toContain(g.match);
-
-    // Bước 1: mỗi SKU sàn một dòng; giữ gợi ý chọn sẵn (chỉ dòng có variantId, mỗi biến thể một dòng)
-    await expect(page.locator('[data-testid=setup-suggestions] [data-suggestion]')).toHaveCount(xemTruoc.suggestions.length);
-    await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
-
-    // Bước 2: gian hàng đầu tiên của công ty thì không chọn được đẩy số Commerio
-    const day = page.getByRole('radio', { name: /Lấy số Commerio đẩy lên sàn/ });
-    if (xemTruoc.firstShopOfCompany) await expect(day).toBeDisabled();
-    await page.getByRole('radio', { name: /Kiểm kê lại trước/ }).click();
-    await page.getByRole('button', { name: 'Tiếp', exact: true }).click();
-
-    // Bước 3: mốc kéo đơn chỉ hiển thị; số ngày đổi trả chỉ hỏi khi capabilities.returnWindow = days
-    await expect(page.locator('[data-testid=proposed-cutoff]')).toContainText(/\d{2}\/\d{2}\/\d{4}/);
-    const soNgay = page.getByRole('spinbutton', { name: /Số ngày đổi trả/ });
-    const hoiSoNgay = san.capabilities.returnWindow === 'days';
-    // Sàn tự khoá đổi trả (TikTok: đơn sàn sang COMPLETED) thì không có ô, chỉ có câu giải thích
-    await expect(soNgay).toHaveCount(hoiSoNgay ? 1 : 0);
-    await expect(page.locator('[data-testid=return-window-note]')).toHaveCount(hoiSoNgay ? 0 : 1);
-    if (hoiSoNgay) {
-      await soNgay.fill('61');
-      await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
-      await thayChu(page, 'Số ngày đổi trả là số nguyên từ 1 đến 60');
-      await soNgay.fill('7');
+    expect(xemTruoc).not.toHaveProperty('suggestions');
+    expect(Number.isInteger(xemTruoc.draftVersion)).toBe(true);
+    if (xemTruoc.draft === null) expect(xemTruoc.draftVersion).toBe(0);
+    else {
+      expect(Array.isArray(xemTruoc.draft.decisions)).toBe(true);
+      expect(Array.isArray(xemTruoc.draft.createGroups)).toBe(true);
+      for (const k of ['link_skus', 'assign_groups', 'stock_sync']) expect(xemTruoc.draft.confirmed).toHaveProperty(k);
     }
 
-    const luu = page.waitForResponse(laApi('POST', new RegExp(`/channel/shops/${ketQua.shop.id}/setup$`)));
-    await page.getByRole('button', { name: 'Hoàn tất thiết lập', exact: true }).click();
-    const resLuu = await luu;
-    const body = resLuu.request().postDataJSON() as Record<string, unknown>;
-    expect(body).not.toHaveProperty('orderCutoffAt');
-    // §18.7.5: một quyết định cho mọi SKU trong suggestions, không gửi externalSkuIds
-    expect(body).not.toHaveProperty('externalSkuIds');
-    const seen = new Set<string>();
-    const mongDoi = xemTruoc.suggestions.map((g) => {
-      const variantId = g.variantId && !seen.has(g.variantId) ? g.variantId : null;
-      if (variantId) seen.add(variantId);
-      return { externalSkuId: g.externalSkuId, variantId };
-    });
-    expect(body.decisions).toEqual(mongDoi);
-    expect(body.openingStock).toBe('stocktake');
-    if (hoiSoNgay) expect(body.returnWindowDays).toBe(7);
-    else expect(body).not.toHaveProperty('returnWindowDays');
-    expect(resLuu.status()).toBe(200);
-
-    // Xong thiết lập: ở lại bước "Bắt đầu chạy", đọc Shop.setup (§18.7.7) rồi mở gian hàng
-    await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}/setup`);
-    const ketQuaLuu = (await resLuu.json()) as {
-      shop: { openingStocktake: { documentId: string } | null; setup: { steps: { key: string }[] } | null };
+    // §18.5: khối category đọc trạng thái cây và quyền theo gian hàng; không chặn bước nào
+    const sync = (await (await dongBo).json()) as {
+      tree: { state: string; leafCount: number };
+      permissions: { state: string } | null;
     };
-    if (ketQuaLuu.shop.setup) {
-      await expect(page.locator('[data-testid=setup-progress] [data-step]')).toHaveCount(ketQuaLuu.shop.setup.steps.length);
-    }
-    await page.getByRole('link', { name: 'Mở gian hàng', exact: true }).click();
-    await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}`);
-    // Còn phiếu kiểm kê đầu kỳ chưa ghi sổ thì có banner dẫn tới phiếu
-    const banner = page.locator('[data-testid=opening-stocktake-banner]');
-    if (ketQuaLuu.shop.openingStocktake) {
-      await expect(banner.getByRole('link')).toHaveAttribute(
-        'href',
-        `/c/${companyId}/inventory/documents/${ketQuaLuu.shop.openingStocktake.documentId}`,
-      );
-    } else {
-      await expect(banner).toHaveCount(0);
-    }
+    expect(['ready', 'queued', 'running', 'failed', 'unsupported']).toContain(sync.tree.state);
+    if (sync.permissions) expect(['ready', 'queued', 'running', 'failed']).toContain(sync.permissions.state);
+    await expect(page.locator('[data-testid=category-sync]')).toBeVisible();
+
+    // Bước Liên kết SKU dùng danh sách chung của FE#460; chưa có chế độ nháp thì Tiếp bị khoá, có câu lý do
+    await expect(page.getByRole('button', { name: 'Tiếp', exact: true })).toBeDisabled();
+    await expect(page.getByText(/FE#460/).first()).toBeVisible();
+    // Tải lại trang vẫn ở thiết lập: nháp nằm ở BE, không mất lựa chọn
+    await page.reload();
+    await expect.poll(() => duongDan(page)).toBe(`/c/${companyId}/channel/shops/${ketQua.shop.id}/setup`);
+
+    // Các bước sau (danh mục, đồng bộ tồn, mốc lấy đơn, Hoàn tất gửi `{ draftVersion }`) cần xác nhận được bước Liên kết SKU
+    test.fixme(true, 'Chờ FE#460 có chế độ nháp để xác nhận bước Liên kết SKU rồi đi tiếp bước 4–6 và Hoàn tất');
   });
 });
 
