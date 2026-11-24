@@ -10,6 +10,7 @@ import { ShopTokenForm } from './ShopTokenForm';
 import { ConnectedScreen } from './ConnectedScreen';
 import { ResultScreen } from './ConnectOutcome';
 import { failureScreen, type ConnectFailure } from './connectFailure';
+import { shopDisplayName } from './shopList';
 
 interface ReconnectTokenDialogProps {
   /** Gian hàng đang kết nối lại; null là hộp đóng */
@@ -80,7 +81,7 @@ export function ReconnectTokenDialog({ shop, platformName, companyId, onClose }:
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle>Kết nối lại {shop.shopName}</DialogTitle>
+                <DialogTitle>Kết nối lại {shopDisplayName(shop)}</DialogTitle>
                 <DialogDescription>
                   Dán mã truy cập (access token) của đúng gian hàng này, lấy {tokenSourcePhrase(shop.platform)}. Token của
                   gian hàng khác sẽ bị từ chối, không gian hàng nào bị đổi.

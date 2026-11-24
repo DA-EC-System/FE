@@ -8,6 +8,7 @@ import type { ProductDetail } from '@/types/catalog';
 import type { Marketplace, Shop } from '@/types/shop';
 import { platformLabel } from './platformCategory';
 import { usePlatformTab } from './usePlatformTab';
+import { shopDisplayName } from '@/features/channel/shopList';
 
 interface CreatedNextStepsProps {
   product: ProductDetail;
@@ -166,7 +167,7 @@ function ShopLine({
     <li className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1" data-testid="created-next-shop">
       <span>
         <span className="font-medium">
-          {name} · {shop.shopName}
+          {name} · {shopDisplayName(shop)}
         </span>
         : {status}
       </span>

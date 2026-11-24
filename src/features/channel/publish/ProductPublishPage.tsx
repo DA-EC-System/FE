@@ -28,6 +28,7 @@ import { PlatformPanel } from './PlatformPanel';
 import { PublishPreview } from './PublishPreview';
 import { initialSelection, selectedPlatforms, shopSummary } from './publishRows';
 import { usePlatformDraft, type PlatformDraft } from './usePlatformDraft';
+import { shopDisplayName } from '../shopList';
 
 const STEPS = ['Chọn gian hàng', 'Bổ sung theo sàn', 'Xem trước và đăng'] as const;
 type Step = 0 | 1 | 2;
@@ -357,7 +358,7 @@ function ShopPicker({
                     >
                       <Checkbox id={id} className="mt-0.5" disabled={!usable} checked={selected.has(s.id)} onCheckedChange={(v) => onToggle(s.id, v === true)} />
                       <span className="grid gap-0.5">
-                        <span className="font-medium">{s.shopName}</span>
+                        <span className="font-medium">{shopDisplayName(s)}</span>
                         <span className="text-muted-foreground">
                           {!usable
                             ? `${STATUS_META[s.status].label}: ${STATUS_META[s.status].hint}`

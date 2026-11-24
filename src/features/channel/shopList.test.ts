@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Shop } from '@/types/shop';
-import { missingReturnWindow, needsAction, shopPage, shopPlatformOptions } from './shopList';
+import { lastOrderPull, missingReturnWindow, needsAction, shopDisplayName, shopPage, shopPlatformOptions } from './shopList';
 
 const shops = Array.from({ length: 31 }, (_, i): Shop => ({
   id: `shop-${i}`, companyId: 'company', platform: i === 30 ? 'mock' : 'lazada',
@@ -55,5 +55,36 @@ describe('chưa nhập số ngày hạn trả (§18.7.2, FE#273)', () => {
     expect(needsAction(tiktok)).toBe(false);
     expect(missingReturnWindow({ ...base, returnWindowDays: null, status: 'disconnected' })).toBe(false);
     expect(missingReturnWindow({ ...base, returnWindowDays: null, status: 'connecting' })).toBe(false);
+  });
+});
+
+describe('tên hiển thị và lần đơn về gần nhất (FE#464)', () => {
+  const base = shops[0];
+  it('tên người dùng đặt thay tên thô trên sàn; trống hoặc null thì về tên sàn', () => {
+    const tiktok = { ...base, shopName: 'SANDBOX_VN7703317749853964039' };
+    expect(shopDisplayName({ ...tiktok, displayName: 'TikTok chính' })).toBe('TikTok chính');
+    expect(shopDisplayName({ ...tiktok, displayName: null })).toBe('SANDBOX_VN7703317749853964039');
+    expect(shopDisplayName({ ...tiktok, displayName: '  ' })).toBe('SANDBOX_VN7703317749853964039');
+    expect(shopDisplayName(tiktok)).toBe('SANDBOX_VN7703317749853964039');
+  });
+  it('tìm được theo tên hiển thị, tên sàn và mã gian hàng', () => {
+    const list = [{ ...base, displayName: 'TikTok chính', shopName: 'SANDBOX_VN77' }, shops[1]];
+    expect(shopPage(list, { ...filters, search: 'tiktok' }).items.map((s) => s.id)).toEqual(['shop-0']);
+    expect(shopPage(list, { ...filters, search: 'sandbox' }).total).toBe(1);
+  });
+  it('lấy mốc muộn nhất; chỉ có lượt đơn còn mở sau thiết lập vẫn tính là đã có đơn về', () => {
+    expect(lastOrderPull(base)).toBeNull();
+    expect(lastOrderPull({ ...base, openOrdersPulledAt: '2026-11-24T02:00:00Z', lastOrderSyncAt: null })).toEqual({
+      at: '2026-11-24T02:00:00Z',
+      openOrdersOnly: true,
+    });
+    expect(
+      lastOrderPull({
+        ...base,
+        openOrdersPulledAt: '2026-11-24T02:00:00Z',
+        lastOrderSyncAt: '2026-11-24T03:00:00Z',
+        ordersPulledOkAt: '2026-11-24T03:05:00Z',
+      }),
+    ).toEqual({ at: '2026-11-24T03:05:00Z', openOrdersOnly: false });
   });
 });

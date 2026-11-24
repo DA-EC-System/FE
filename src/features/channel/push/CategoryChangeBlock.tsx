@@ -21,6 +21,7 @@ import {
   CEO_ONLY_CATEGORY,
 } from '@/features/catalog/platformCategory';
 import { platformInfo } from '@/lib/platforms';
+import { maybeShopName } from '../shopList';
 
 
 interface Props {
@@ -135,7 +136,7 @@ export function CategoryChangeBlock({
 
   const platformOwned = drift.some((d) => d.platformOwned);
   const ceoBlocked = platformOwned && !isCeo;
-  const shopName = (id: string) => shops.find((s) => s.id === id)?.shopName ?? '';
+  const shopName = (id: string) => maybeShopName(shops.find((s) => s.id === id)) ?? '';
   const sellerCenterUrl = platformInfo(platform)?.sellerCenterUrl;
   const sellerCenter = sellerCenterUrl && (
     <a className="font-medium underline" href={sellerCenterUrl} target="_blank" rel="noreferrer">

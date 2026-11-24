@@ -7,6 +7,32 @@ export function shopPlatformOptions(shops: readonly Shop[]) {
   }));
 }
 
+/**
+ * Tên gian hàng cho người đọc: tên người dùng đặt, không có thì tên trên sàn (commerio-backend#565, FE#464).
+ * Tên trên sàn có khi chỉ là mã thô (TikTok sandbox `SANDBOX_VN…`), nên chỗ nào hiện gian hàng cũng đi qua đây
+ */
+export function shopDisplayName(shop: Pick<Shop, 'shopName' | 'displayName'>) {
+  return shop.displayName?.trim() || shop.shopName;
+}
+
+/** Như `shopDisplayName`, cho gian hàng tìm theo id có thể không thấy */
+export function maybeShopName(shop: Pick<Shop, 'shopName' | 'displayName'> | undefined) {
+  return shop ? shopDisplayName(shop) : undefined;
+}
+
+/**
+ * Lần đơn về gần nhất (FE#464): mốc muộn nhất trong lượt kéo định kỳ (`lastOrderSyncAt`), lượt lấy đơn chạy trọn
+ * (`ordersPulledOkAt`) và lượt kéo đơn còn mở sau thiết lập (`openOrdersPulledAt`). Lượt đơn còn mở không tiến
+ * `lastOrderSyncAt`, nên chỉ đọc cột đó thì gian hàng vừa thiết lập có "Đơn 7 ngày: 19" mà vẫn ghi "Chưa đồng bộ".
+ * `openOrdersOnly`: mới có lượt đơn còn mở, chưa có lượt định kỳ nào
+ */
+export function lastOrderPull(shop: Pick<Shop, 'lastOrderSyncAt' | 'ordersPulledOkAt' | 'openOrdersPulledAt'>) {
+  const times = [shop.lastOrderSyncAt, shop.ordersPulledOkAt, shop.openOrdersPulledAt].filter((t): t is string => Boolean(t));
+  if (times.length === 0) return null;
+  const at = times.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a));
+  return { at, openOrdersOnly: !shop.lastOrderSyncAt && !shop.ordersPulledOkAt };
+}
+
 /** Nhóm của thanh chọn trên bảng: tất cả, cần xử lý, đã ngắt */
 export type ShopSegment = 'all' | 'needs_action' | 'disconnected';
 
@@ -47,7 +73,8 @@ export function shopPage(shops: readonly Shop[], filters: {
 }) {
   const search = filters.search.trim().toLowerCase();
   const items = shops.filter((s) =>
-    (!search || s.shopName.toLowerCase().includes(search) || s.externalShopId.toLowerCase().includes(search)) &&
+    (!search ||
+      [s.displayName ?? '', s.shopName, s.externalShopId].some((v) => v.toLowerCase().includes(search))) &&
     (!filters.platform || s.platform === filters.platform) && inSegment(s, filters.segment),
   );
   const page = Math.min(filters.page, Math.max(1, Math.ceil(items.length / filters.pageSize)));

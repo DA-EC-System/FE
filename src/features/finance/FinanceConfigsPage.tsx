@@ -19,6 +19,7 @@ import { formatDate } from '@/utils/format';
 import { CONFIG_KINDS, CONFIG_STATES } from './lifecycleShared';
 import { FinanceConfigForm } from './FinanceConfigForm';
 import { ActiveConfigsPanel } from './ActiveConfigsPanel';
+import { shopDisplayName, maybeShopName } from '@/features/channel/shopList';
 
 export function FinanceConfigsPage() {
   const { companyContext } = useAuth(); const companyId = companyContext?.companyId ?? ''; const can = useCan();
@@ -26,14 +27,14 @@ export function FinanceConfigsPage() {
   const kind = f.params.get('kind') ?? ''; const status = f.params.get('status') ?? ''; const shopId = f.params.get('shopId') ?? '';
   const query = useFinanceConfigs({ page: f.page, pageSize: f.pageSize, kind: kind || undefined, status: status || undefined, shopId: shopId || undefined });
   const shops = useShops({ enabled: can(P.shopView) });
-  const shopName = (id: string) => shops.data?.items.find((s) => s.id === id)?.shopName ?? 'Gian hàng không xem được';
+  const shopName = (id: string) => maybeShopName(shops.data?.items.find((s) => s.id === id)) ?? 'Gian hàng không xem được';
   return <div><PageHeader title="Cấu hình phí sàn và thuế" subtitle="Mỗi lần thay đổi là một phiên bản mới, có hiệu lực từ ngày ghi trên phiên bản sau khi được duyệt. Tính thử chỉ xem trước ảnh hưởng, không ghi sổ."
     action={can(P.financeConfigManage) ? <Button onClick={() => setCreating(true)}>Thêm phiên bản</Button> : undefined} />
     {query.isError && <AlertMessage severity="error">{problemMessage(query.error)} <Button onClick={() => void query.refetch()}>Thử lại</Button></AlertMessage>}
     <ActiveConfigsPanel companyId={companyId} shopName={shopName} />
     <Card className="gap-0 py-0"><FilterBar><FilterSelect label="Loại cấu hình" value={kind} onChange={f.setFilter('kind')} options={Object.entries(CONFIG_KINDS).map(([value, label]) => ({ value, label }))} />
       <FilterSelect label="Trạng thái" value={status} onChange={f.setFilter('status')} options={Object.entries(CONFIG_STATES).map(([value, meta]) => ({ value, label: meta.label }))} />
-      <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} /></FilterBar>
+      <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: shopDisplayName(s) }))} /></FilterBar>
       <DataTable data={query.data?.items ?? []} loading={query.isLoading} fetching={query.isFetching} getRowId={(c) => c.id} empty="Chưa có phiên bản cấu hình" onRowClick={(c) => navigate(ROUTES.company.financeConfig(companyId, c.id))}
         pagination={{ page: f.page, pageSize: f.pageSize, total: query.data?.total ?? 0, pageSizes: [25, 50, 100], onChange: f.onPageChange }} columns={[
           { header: 'Loại cấu hình', cell: ({ row }) => CONFIG_KINDS[row.original.kind] },

@@ -27,6 +27,7 @@ import type { OrderPayment, SettlementLedgerLine } from '@/types/settlement';
 import { PAYMENT_FLAGS, PAYMENT_STATES } from './lifecycleShared';
 import { LifecycleActionDialog } from './LifecycleActionDialog';
 import { MismatchPanel } from './MismatchPanel';
+import { shopDisplayName, maybeShopName } from '@/features/channel/shopList';
 
 const BANK_KINDS: Record<string, string> = { withdrawal: 'Rút tiền từ ví sàn', supplier_refund: 'NCC hoàn tiền', lost_compensation: 'Sàn bồi thường mất hàng' };
 
@@ -101,7 +102,7 @@ export function SettlementsPage() {
       )}
       <Card className="mt-4 gap-0 py-0" data-guide={tab === 'bank' ? 'settlement-bank' : undefined}>
         <FilterBar>
-          {tab !== 'bank' && <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))} />}
+          {tab !== 'bank' && <FilterSelect loading={shops.isLoading} label="Gian hàng" value={shopId} onChange={f.setFilter('shopId')} options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: shopDisplayName(s) }))} />}
           {tab === 'payments' && <FilterSelect label="Trạng thái thanh toán" value={status} onChange={f.setFilter('status')} options={Object.entries(PAYMENT_STATES).map(([value, meta]) => ({ value, label: `${meta.label} (${counts?.[value as keyof typeof PAYMENT_STATES] ?? 0})` }))} />}
           {tab === 'bank' && <FilterSelect label="Loại khoản" value={kind} onChange={f.setFilter('kind')} options={Object.entries(BANK_KINDS).map(([value, label]) => ({ value, label }))} />}
           {tab === 'bank' && <FilterSelect label="Tình trạng đối chiếu" value={matched} onChange={f.setFilter('matched')} options={[{ value: 'false', label: 'Chưa khớp' }, { value: 'true', label: 'Đã khớp' }]} />}
@@ -129,7 +130,7 @@ export function SettlementsPage() {
         )}
         {tab === 'runs' && <DataTable data={runs.data?.items ?? []} loading={runs.isLoading} fetching={runs.isFetching} getRowId={(r) => r.id} pagination={pagination} empty="Chưa lấy sao kê sàn lần nào" columns={[
           { header: 'Thời điểm lấy', cell: ({ row }) => formatDateTime(row.original.createdAt) },
-          { header: 'Gian hàng', cell: ({ row }) => shops.data?.items.find((s) => s.id === row.original.shopId)?.shopName ?? row.original.shopId },
+          { header: 'Gian hàng', cell: ({ row }) => maybeShopName(shops.data?.items.find((s) => s.id === row.original.shopId)) ?? row.original.shopId },
           { header: 'Kỳ sao kê', cell: ({ row }) => `${formatDateTime(row.original.from)} – ${formatDateTime(row.original.to)}` },
           { header: 'Trạng thái', cell: ({ row }) => row.original.status === 'running' ? <Badge variant="info">Đang lấy</Badge> : row.original.status === 'done' ? <Badge variant="success">Hoàn tất</Badge> : <Badge variant="destructive">Lỗi: {row.original.error ?? 'Không rõ'}</Badge> },
           { header: 'Số dòng / trùng bỏ qua', meta: { numeric: true, help: 'Số dòng sao kê lấy về / số dòng trùng đã bỏ qua.' }, cell: ({ row }) => `${row.original.lineCount} / ${row.original.duplicates}` },

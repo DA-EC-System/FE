@@ -13,6 +13,7 @@ import { problemCode, problemMessage } from '@/api/problemMessages';
 import { ROUTES } from '@/router/routes';
 import type { Shop, ShopOpenOrder } from '@/types/shop';
 import { isUsable, platformLabel } from './shopSchemas';
+import { shopDisplayName } from './shopList';
 
 /** Chữ phải gõ để xác nhận ngắt */
 const CONFIRM_WORD = 'NGAT';
@@ -53,7 +54,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
   const submit = async () => {
     try {
       await disconnect.mutateAsync({ id: shop.id, version: shop.version, zeroStock: usable && zeroStock });
-      toast.success(`Đã ngắt kết nối ${shop.shopName}${usable && zeroStock ? ', tồn trên sàn đã về 0' : ''}`);
+      toast.success(`Đã ngắt kết nối ${shopDisplayName(shop)}${usable && zeroStock ? ', tồn trên sàn đã về 0' : ''}`);
       onClose();
     } catch (e) {
       const code = problemCode(e);
@@ -69,7 +70,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
         return;
       }
       if (code === 'version_conflict') {
-        toast.warning(`${shop.shopName} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại danh sách.`);
+        toast.warning(`${shopDisplayName(shop)} vừa được người khác sửa. Chưa có gì thay đổi, đã nạp lại danh sách.`);
         onConflict();
       } else {
         toast.error(problemMessage(e));
@@ -130,7 +131,7 @@ function DisconnectContent({ shop, companyId, onClose, onConflict }: { shop: Sho
   return (
     <DialogContent className="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>Ngắt kết nối {shop.shopName}?</DialogTitle>
+        <DialogTitle>Ngắt kết nối {shopDisplayName(shop)}?</DialogTitle>
         <DialogDescription asChild>
           <div>
             <p>

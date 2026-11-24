@@ -27,6 +27,7 @@ import { LEDGER_KIND_LABELS, formatMargin, formatMilestone, isReplaced } from '@
 import type { LedgerFilter, LedgerKind, LedgerLine, LedgerTotals, OrderProfitRow, ProfitTotals, SkuProfitRow } from '@/types/finance';
 import { LedgerStateBadge, ProfitFlags, ProfitStateBadge } from './ledgerShared';
 import { PAYMENT_FLAGS, todayVn } from './lifecycleShared';
+import { shopDisplayName, maybeShopName } from '@/features/channel/shopList';
 
 const PAGE_SIZES = [25, 50, 100];
 type Tab = 'lines' | 'orders' | 'skus';
@@ -150,7 +151,7 @@ export function LedgerPage() {
   const period = { from: from || monthStart(), to: to || todayVn() };
 
   const shops = useShops({ enabled: can(P.shopView) });
-  const shopName = (id: string | null) => (id ? (shops.data?.items.find((s) => s.id === id)?.shopName ?? 'Gian hàng') : null);
+  const shopName = (id: string | null) => (id ? (maybeShopName(shops.data?.items.find((s) => s.id === id)) ?? 'Gian hàng') : null);
   const ledger = useLedger({
     filter,
     kind: kind || undefined,
@@ -326,7 +327,7 @@ export function LedgerPage() {
       label="Gian hàng"
       value={shopId}
       onChange={f.setFilter('shopId')}
-      options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: s.shopName }))}
+      options={(shops.data?.items ?? []).map((s) => ({ value: s.id, label: shopDisplayName(s) }))}
     />
   );
   const periodFilter = (

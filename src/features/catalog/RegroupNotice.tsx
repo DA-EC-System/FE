@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { Marketplace, Shop } from '@/types/shop';
 import { platformLabel } from './platformCategory';
 import { regroupErrorText } from './regroupError';
+import { maybeShopName } from '@/features/channel/shopList';
 
 /**
  * Dòng báo "N SKU đang là N sản phẩm riêng trên {Sàn}" theo từng gian hàng (`separateProducts` của
@@ -38,7 +39,7 @@ export function RegroupNotice({ productId, platform, shops }: { productId: strin
   return (
     <div className="grid gap-2">
       {items.map((s) => {
-        const shopName = shops.find((x) => x.id === s.shopId)?.shopName;
+        const shopName = maybeShopName(shops.find((x) => x.id === s.shopId));
         const pending = regroup.isPending && regroup.variables?.shopId === s.shopId;
         if (queued.has(s.shopId)) {
           return (
