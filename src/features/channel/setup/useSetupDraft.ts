@@ -62,10 +62,14 @@ export function useSetupDraft(shopId: string, enabled: boolean) {
               // bằng bản này rồi báo một dòng; thiếu `current` thì mới chặn và bắt bấm "Tải bản mới nhất"
               const cur = p.current as Partial<SetupDraftSaved> | undefined;
               if (cur?.draft && typeof cur.draftVersion === 'number') {
-                const fresh = { draft: cur.draft, draftVersion: cur.draftVersion };
-                qc.setQueryData<ShopSetupDraftView>(setupDraftKeys.view(companyId, shopId), (old) =>
-                  old ? { ...old, ...fresh } : old,
-                );
+                const draft = cur.draft;
+                const version = cur.draftVersion;
+                // Giữ `changed` (chỉ GET trả) như useApplySavedDraft: baseline Liên kết SKU không đổi thì câu báo vẫn đúng
+                qc.setQueryData<ShopSetupDraftView>(setupDraftKeys.view(companyId, shopId), (old) => {
+                  if (!old) return old;
+                  const sameBaseline = old.draft?.confirmed.link_skus === draft.confirmed.link_skus;
+                  return { ...old, draft: { ...draft, changed: sameBaseline ? (old.draft?.changed ?? null) : null }, draftVersion: version };
+                });
                 setReplaced(true);
               } else setConflict(true);
             }
