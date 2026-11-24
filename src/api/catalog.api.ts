@@ -602,6 +602,21 @@ export async function fetchBulkRow(variantId: string, sku: string): Promise<Bulk
 }
 
 /**
+ * `reorderVersion` sau khi lưu ngưỡng tồn: lấy thẳng từ `saved[]` (commerio-backend#590, null là chưa có dòng tồn). BE chưa
+ * có #590 (staging chưa deploy: trường không có, khác null) thì đọc lại dòng như trước; đọc lỗi thì `reorderVersion`
+ * undefined (chưa biết: lượt sau cùng dòng không gửi rv cũ) và `fresh` null.
+ */
+export async function reorderVersionAfterSave(
+  saved: BulkSaveResult['saved'][number] | undefined,
+  row: { variantId: string; sku: string },
+  read: typeof fetchBulkRow = fetchBulkRow,
+): Promise<{ reorderVersion: number | null | undefined; fresh: BulkEditRow | null }> {
+  if (saved && saved.reorderVersion !== undefined) return { reorderVersion: saved.reorderVersion, fresh: null };
+  const fresh = await read(row.variantId, row.sku).catch(() => null);
+  return { reorderVersion: fresh ? fresh.reorderVersion : undefined, fresh };
+}
+
+/**
  * Dòng bảng sửa hàng loạt của đúng các SKU một sản phẩm (FE#475: `reorderVersion` cho ô Ngưỡng tồn ở trang sản phẩm).
  * Tra từng SKU theo `variantId`, không tìm theo tên sản phẩm: tên trùng thì SKU có thể rơi khỏi trang đầu. Khoá nằm dưới
  * `bulk-edit` nên `useBulkEditCache().patch` cập nhật luôn
