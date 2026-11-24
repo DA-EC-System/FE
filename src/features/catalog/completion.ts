@@ -112,11 +112,18 @@ export function publishBlocker(input: {
   /** Nhãn các mục còn thiếu (thanh "Còn thiếu"), để câu lý do ghi rõ mục nào */
   missing: readonly string[];
   dirty: boolean;
+  /**
+   * Readiness theo gian hàng đã tải (FE#458): `undefined` là chưa có, dùng `missing` nội bộ như cũ; có thì chỉ khoá khi
+   * không gian hàng nào đăng được (`readinessBlocker`), cùng hàm kiểm với lệnh đăng của BE.
+   */
+  shopsBlocker?: string | null;
 }): string | null {
   if (input.isNew) return 'Lưu sản phẩm trước rồi mới đăng';
   if (input.archived) return 'Sản phẩm đã lưu trữ';
   if (!input.canPublish) return 'Bạn không có quyền đăng sản phẩm lên gian hàng';
-  if (input.missing.length) return `Còn thiếu ${input.missing.length} mục để đăng: ${input.missing.join(', ')}`;
+  if (input.shopsBlocker !== undefined) {
+    if (input.shopsBlocker) return input.shopsBlocker;
+  } else if (input.missing.length) return `Còn thiếu ${input.missing.length} mục để đăng: ${input.missing.join(', ')}`;
   if (input.dirty) return 'Lưu thay đổi trước rồi mới đăng';
   return null;
 }
