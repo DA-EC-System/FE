@@ -42,6 +42,7 @@ import {
   decisionCounts,
   isOpenSku,
   resultSummaryText,
+  SKU_LINK_PAGE_SIZE,
   suggestionLinks,
   suggestionText,
 } from './skuLinkRows';
@@ -67,7 +68,7 @@ export interface SkuLinkListProps {
   onPick?: (row: RemoteSkuRow) => void;
 }
 
-const PAGE_SIZES = [20, 50];
+const PAGE_SIZES = [SKU_LINK_PAGE_SIZE, 50];
 
 /** Giá trị ô "Quyết định" (Radix Select không nhận chuỗi rỗng) */
 type DecisionValue = 'suggest' | 'link' | 'create' | 'skip' | 'unmanaged';
@@ -123,6 +124,8 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
     if (draftVersion !== undefined && draftVersion > version.current) version.current = draftVersion;
   }, [draftVersion]);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  /** Tăng khi gặp 409: các lần ghi đã xếp hàng với bản cũ bị bỏ, không gửi */
+  const epoch = useRef(0);
   const [writing, setWriting] = useState(0);
 
   const draftMap = useMemo(() => new Map((draft?.decisions ?? []).map((d) => [d.externalSkuId, d])), [draft]);
@@ -152,8 +155,10 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
       return next;
     });
     setWriting((n) => n + 1);
+    const mine = epoch.current;
     queue.current = queue.current.then(async () => {
       try {
+        if (mine !== epoch.current) return;
         const res = await saveDraftSkuLinks(shopId, items, version.current);
         version.current = res.draftVersion;
         const failed = res.results.filter((r) => r.result === 'error');
@@ -169,6 +174,8 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
       } catch (e) {
         const p = getProblem(e);
         if (p?.code === 'version_conflict') {
+          // Bỏ cả hàng đợi: các lựa chọn xếp sau dựa trên bản cũ
+          epoch.current += 1;
           // Nơi khác vừa sửa nháp: nhận bản BE trả kèm 409, bỏ lựa chọn chưa lưu ở đây
           const cur = p.current as Partial<SetupDraftSaved> | undefined;
           if (cur?.draft && typeof cur.draftVersion === 'number') {
@@ -237,7 +244,9 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
   const openRows = rows.filter((r) => isOpenSku(r));
   const selectedRows = openRows.filter((r) => selected.has(r.externalSkuId));
   const confident = suggestionLinks(drafting ? openRows.filter((r) => !decisionOf(r)) : openRows, { onlyHigh: true, taken: takenVariants });
-  const selLinks = suggestionLinks(selectedRows, { taken: takenVariants });
+  // Gian hàng đang bán: liên kết xong là đẩy tồn và giá lên sàn, nên hàng loạt chỉ nhận gợi ý chắc chắn; gợi ý theo tên
+  // phải mở từng dòng (BE schemas: FE không tự chọn sẵn gợi ý name). Nháp chưa áp nên nhận mọi gợi ý
+  const selLinks = suggestionLinks(selectedRows, { onlyHigh: !drafting, taken: takenVariants });
   const selCreates = canCreateProducts ? createItems(selectedRows) : [];
   const counts = drafting ? decisionCounts(merged, list.data?.counts.unlinked ?? 0) : null;
   const busy = applyMut.isPending;
@@ -312,7 +321,7 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
           </span>
           {selLinks.length > 0 && (
             <Button type="button" size="sm" onClick={() => submit(selLinks)} disabled={busy}>
-              Liên kết {selLinks.length} SKU theo gợi ý
+              Liên kết {selLinks.length} SKU theo gợi ý{drafting ? '' : ' chắc chắn'}
             </Button>
           )}
           {selCreates.length > 0 && (
@@ -391,9 +400,10 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
                         checked={selected.has(r.externalSkuId)}
                         onCheck={(on) => toggle([r.externalSkuId], on)}
                         error={rowErrors.get(r.externalSkuId) ?? null}
-                        action={
+                        action={(describedBy) =>
                           drafting ? (
                             <DecisionCell
+                              describedBy={describedBy}
                               r={r}
                               decision={decisionOf(r)}
                               skuOf={skuOf}
@@ -406,6 +416,7 @@ export function SkuLinkList({ shopId, mode, draftVersion, draft, onDraftSaved, o
                             />
                           ) : (
                             <ApplyActions
+                              describedBy={describedBy}
                               r={r}
                               busy={busy}
                               canCreate={canCreateProducts && r.canCreate}
@@ -528,7 +539,8 @@ function SkuRow({
   checked: boolean;
   onCheck: (on: boolean) => void;
   error: string | null;
-  action: React.ReactNode;
+  /** `describedBy`: id dòng lỗi, gắn vào nút hoặc ô chọn của dòng */
+  action: (describedBy: string | undefined) => React.ReactNode;
 }) {
   const open = isOpenSku(r);
   const s = r.suggestion;
@@ -561,8 +573,8 @@ function SkuRow({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell aria-describedby={error ? errorId : undefined}>
-        {action}
+      <TableCell>
+        {action(error ? errorId : undefined)}
         {error && (
           <p id={errorId} className="mt-1 text-xs text-destructive-text">
             {error}
@@ -575,6 +587,7 @@ function SkuRow({
 
 /** Ô lựa chọn của một SKU ở chế độ nháp: liên kết theo gợi ý, chọn SKU kho có sẵn, tạo SKU kho mới, bỏ qua, không quản tồn */
 function DecisionCell({
+  describedBy,
   r,
   decision,
   skuOf,
@@ -585,6 +598,7 @@ function DecisionCell({
   onChange,
   onPick,
 }: {
+  describedBy?: string;
   r: RemoteSkuRow;
   decision: Decision | null;
   skuOf: ReadonlyMap<string, string>;
@@ -618,7 +632,7 @@ function DecisionCell({
           else set(v as DecisionAction);
         }}
       >
-        <SelectTrigger size="sm" className="w-full" aria-label={`Lựa chọn cho SKU ${r.sellerSku || r.externalSkuId}`}>
+        <SelectTrigger size="sm" className="w-full" aria-label={`Lựa chọn cho SKU ${r.sellerSku || r.externalSkuId}`} aria-describedby={describedBy}>
           <SelectValue placeholder="Chưa chọn" />
         </SelectTrigger>
         <SelectContent>
@@ -645,6 +659,7 @@ function DecisionCell({
 
 /** Nút ở dòng SKU sàn của gian hàng đang bán: gợi ý chắc chắn thì liên kết ngay; gợi ý theo tên chỉ mở hộp chọn (không chọn sẵn) */
 function ApplyActions({
+  describedBy,
   r,
   busy,
   canCreate,
@@ -653,6 +668,7 @@ function ApplyActions({
   onPick,
   onCreate,
 }: {
+  describedBy?: string;
   r: RemoteSkuRow;
   busy: boolean;
   canCreate: boolean;
@@ -668,17 +684,17 @@ function ApplyActions({
     <div className="grid gap-1">
       <div className="flex flex-wrap gap-1.5">
         {s?.confidence === 'high' && (
-          <Button type="button" size="sm" onClick={() => onLink(s.variantId)} disabled={busy}>
+          <Button type="button" size="sm" onClick={() => onLink(s.variantId)} disabled={busy} aria-describedby={describedBy}>
             Liên kết
           </Button>
         )}
         {canPick && (
-          <Button type="button" size="sm" variant="outline" onClick={onPick}>
+          <Button type="button" size="sm" variant="outline" onClick={onPick} aria-describedby={describedBy}>
             {s?.confidence === 'high' ? 'Chọn khác' : s ? 'Xem gợi ý' : 'Chọn SKU kho'}
           </Button>
         )}
         {canCreate && (
-          <Button type="button" size="sm" variant="outline" onClick={onCreate} disabled={busy}>
+          <Button type="button" size="sm" variant="outline" onClick={onCreate} disabled={busy} aria-describedby={describedBy}>
             Tạo SKU kho mới
           </Button>
         )}

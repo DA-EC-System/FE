@@ -107,9 +107,9 @@ export function useSaveCreateGroups(shopId: string) {
 export const SKU_LINK_BATCH = 200;
 
 /**
- * POST sku-links với `items` khi gian hàng `active` (áp ngay, §18.12): chia lô 200, gộp kết quả. `groups` gửi ở lô đầu có
- * dòng `create` của sản phẩm đó; BE đòi mỗi sản phẩm sàn có dòng `create` trong request phải có `groups`, nên lô nào cũng
- * gửi phần `groups` của các sản phẩm có trong lô (bên gọi giữ các SKU cùng sản phẩm sàn liền nhau)
+ * POST sku-links với `items` khi gian hàng `active` (áp ngay, §18.12): chia lô theo sản phẩm sàn (`skuLinkBatches`), gộp
+ * kết quả. BE đòi mỗi sản phẩm sàn có dòng `create` trong request phải có `groups`, nên lô nào cũng gửi phần `groups` của
+ * các sản phẩm có trong lô
  */
 export function useApplySkuLinks(shopId: string) {
   const qc = useQueryClient();
@@ -117,8 +117,7 @@ export function useApplySkuLinks(shopId: string) {
   return useMutation({
     mutationFn: async ({ items, groups = [], productOf }: { items: SkuLinkInput[]; groups?: CreateGroup[]; productOf?: (externalSkuId: string) => string | undefined }) => {
       const results: SkuLinkResult[] = [];
-      for (let i = 0; i < items.length; i += SKU_LINK_BATCH) {
-        const batch = items.slice(i, i + SKU_LINK_BATCH);
+      for (const batch of skuLinkBatches(items, productOf)) {
         const products = new Set(batch.filter((it) => it.action === 'create').map((it) => productOf?.(it.externalSkuId)));
         const batchGroups = groups.filter((g) => products.has(g.externalProductId));
         const { data } = await apiClient.post<{ results: SkuLinkResult[] }>(`/channel/shops/${shopId}/sku-links`, {
@@ -132,6 +131,38 @@ export function useApplySkuLinks(shopId: string) {
     // Liên kết đổi listing, bảng gian hàng (số chưa liên kết) và danh sách SKU sàn: làm mới mọi thứ dưới `shopKeys.all`
     onSettled: () => qc.invalidateQueries({ queryKey: shopKeys.all(companyId) }),
   });
+}
+
+/**
+ * Chia lô theo sản phẩm sàn: SKU cùng sản phẩm đi chung một lô (BE gom thành một sản phẩm kho), lô tối đa 200 dòng; chỉ
+ * sản phẩm có hơn 200 SKU mới bị cắt
+ */
+export function skuLinkBatches(items: readonly SkuLinkInput[], productOf?: (externalSkuId: string) => string | undefined): SkuLinkInput[][] {
+  const byProduct = new Map<string, SkuLinkInput[]>();
+  for (const it of items) {
+    const key = productOf?.(it.externalSkuId) ?? `sku:${it.externalSkuId}`;
+    const list = byProduct.get(key);
+    if (list) list.push(it);
+    else byProduct.set(key, [it]);
+  }
+  const batches: SkuLinkInput[][] = [];
+  let cur: SkuLinkInput[] = [];
+  for (const group of byProduct.values()) {
+    if (cur.length && cur.length + group.length > SKU_LINK_BATCH) {
+      batches.push(cur);
+      cur = [];
+    }
+    for (let i = 0; i < group.length; i += SKU_LINK_BATCH) {
+      const part = group.slice(i, i + SKU_LINK_BATCH);
+      if (cur.length + part.length > SKU_LINK_BATCH) {
+        batches.push(cur);
+        cur = [];
+      }
+      cur.push(...part);
+    }
+  }
+  if (cur.length) batches.push(cur);
+  return batches;
 }
 
 /** POST sku-links với `items` khi gian hàng `connecting` (ghi nháp, §18.12); bên gọi giữ `draftVersion` */

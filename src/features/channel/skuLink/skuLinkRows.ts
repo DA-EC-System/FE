@@ -72,5 +72,8 @@ export function resultSummaryText(results: readonly SkuLinkResult[]): string {
   return parts.length ? `${parts.join(', ')}.` : 'Không có SKU nào thay đổi.';
 }
 
+/** Cỡ trang mặc định (sản phẩm sàn); trang gian hàng hỏi cùng tham số để đếm tab dùng chung cache với trang đầu */
+export const SKU_LINK_PAGE_SIZE = 20;
+
 /** Mọi SKU của các sản phẩm, theo thứ tự trang */
 export const allSkus = (products: readonly RemoteProduct[]): RemoteSkuRow[] => products.flatMap((p) => p.skus);

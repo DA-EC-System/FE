@@ -99,7 +99,7 @@ describe('SkuLinkList chế độ áp (gian hàng đang bán)', () => {
     render(<SkuLinkList shopId="s" mode="apply" showSkip={false} />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn mọi SKU của Sản phẩm p1' }));
     const bar = screen.getByTestId('sku-bulk-bar');
-    expect(within(bar).getByText('Liên kết 2 SKU theo gợi ý')).toBeTruthy();
+    expect(within(bar).getByText('Liên kết 1 SKU theo gợi ý chắc chắn')).toBeTruthy();
     fireEvent.click(within(bar).getByRole('button', { name: 'Tạo sản phẩm kho từ 2 SKU' }));
     const dialog = screen.getByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Tạo và liên kết' }));
@@ -108,6 +108,35 @@ describe('SkuLinkList chế độ áp (gian hàng đang bán)', () => {
     expect(arg.items.map((i: { action: string }) => i.action)).toEqual(['create', 'create']);
     expect(arg.groups).toEqual([{ externalProductId: 'p1', groupId: 'g1' }]);
     expect(arg.productOf('s2')).toBe('p1');
+  });
+
+  it('liên kết hàng loạt không gửi dòng gợi ý medium hoặc low', async () => {
+    api.list = listOf([
+      product('p1', [sku('s1', { suggestion: sug('v1', 'high') }), sku('s2', { suggestion: sug('v2', 'medium') })]),
+      product('p2', [sku('s3', { suggestion: sug('v3', 'low') })]),
+    ]);
+    render(<SkuLinkList shopId="s" mode="apply" showSkip={false} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn mọi SKU trên trang' }));
+    fireEvent.click(within(screen.getByTestId('sku-bulk-bar')).getByRole('button', { name: 'Liên kết 1 SKU theo gợi ý chắc chắn' }));
+    await waitFor(() => expect(api.apply).toHaveBeenCalled());
+    expect(api.apply.mock.calls[0]![0].items).toEqual([{ externalSkuId: 's1', action: 'link', variantId: 'v1' }]);
+  });
+
+  it('chỉ có gợi ý theo tên thì thanh hàng loạt không có nút liên kết', () => {
+    api.list = listOf([product('p1', [sku('s2', { suggestion: sug('v2', 'medium') })])]);
+    render(<SkuLinkList shopId="s" mode="apply" showSkip={false} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn SKU S2' }));
+    expect(within(screen.getByTestId('sku-bulk-bar')).queryByRole('button', { name: /theo gợi ý/ })).toBeNull();
+  });
+
+  it('lỗi của dòng gắn vào nút của dòng qua aria-describedby', async () => {
+    api.apply.mockResolvedValue([{ externalSkuId: 's1', result: 'error', variantId: null, productId: null, code: 'x', message: 'SKU kho đã liên kết nơi khác' }]);
+    render(<SkuLinkList shopId="s" mode="apply" showSkip={false} onPick={vi.fn()} />);
+    const row = screen.getAllByTestId('sku-row')[0]!;
+    fireEvent.click(within(row).getByRole('button', { name: 'Liên kết' }));
+    const err = await within(row).findByText('SKU kho đã liên kết nơi khác');
+    expect(within(row).getByRole('button', { name: 'Liên kết' }).getAttribute('aria-describedby')).toBe(err.id);
+    expect(err.getAttribute('role')).toBeNull();
   });
 
   it('không có quyền sửa sản phẩm thì không có nút tạo', () => {
@@ -144,5 +173,19 @@ describe('SkuLinkList chế độ nháp (thiết lập)', () => {
     await waitFor(() => expect(api.save).toHaveBeenCalledWith('s', [{ externalSkuId: 's3', action: 'skip', variantId: null }], 4));
     await waitFor(() => expect(onConflict).toHaveBeenCalled());
     expect(onDraftSaved).toHaveBeenCalledWith({ decisions: [] }, 9);
+  });
+
+  it('409: bỏ các lần ghi đã xếp hàng sau đó', async () => {
+    let reject!: (e: unknown) => void;
+    api.save.mockImplementationOnce(() => new Promise((_, rj) => (reject = rj)));
+    render(<SkuLinkList shopId="s" mode="draft" draftVersion={1} draft={null} showSkip />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn SKU S3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bỏ qua 1 SKU' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn SKU S2' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Bỏ qua \d SKU$/ }));
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(1));
+    reject({ isAxiosError: true, response: { status: 409, data: { status: 409, code: 'version_conflict' } } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(api.save).toHaveBeenCalledTimes(1);
   });
 });

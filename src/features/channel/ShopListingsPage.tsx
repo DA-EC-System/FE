@@ -80,6 +80,8 @@ import { CreateVariantDialog } from './CreateVariantDialog';
 import { groupRemote, remoteTableRows, type RemoteTableRow } from './remoteGroups';
 import { isOpenRemote, suggestionLabel } from './remoteLinking';
 import { SkuLinkList } from './skuLink/SkuLinkList';
+import { SKU_LINK_PAGE_SIZE } from './skuLink/skuLinkRows';
+import { useRemoteProducts } from '@/api/setupDraft.api';
 import { isDelisted, matchScore, rankByScore, UNMANAGED, variantMatchOptions } from './matchOptions';
 import {
   canUpdateContent,
@@ -246,6 +248,8 @@ export function ShopListingsPage() {
     canFix: canEditProduct,
   });
   const remoteQuery = useRemoteSkus(shopId, canMatch);
+  // Số trên tab "SKU sàn chưa liên kết": `counts.unlinked` của remote-products, cùng tham số trang đầu của SkuLinkList
+  const unlinkedQuery = useRemoteProducts(shopId, { status: 'unlinked', search: '', page: 1, pageSize: SKU_LINK_PAGE_SIZE }, canMatch);
   const matchMut = useMatchListing();
   const refreshMut = useRefreshRemoteSkus();
   // Lượt tải SKU sàn chạy nền (§18.3, BE#361): mở trang lần đầu hay bấm Tải lại thì BE chạy nền, `useRemoteSkus` hỏi lại
@@ -411,7 +415,7 @@ export function ShopListingsPage() {
     for (const t of LISTING_TABS) {
       counts[t.value] =
         t.value === 'unmatched'
-          ? unmatchedRemote.length
+          ? (unlinkedQuery.data?.counts.unlinked ?? unmatchedRemote.length)
           : t.value === 'pending'
             ? remoteQuery.data
               ? pendingRemote.length
@@ -419,7 +423,7 @@ export function ShopListingsPage() {
             : items.filter((r) => inTab(t.value, r)).length;
     }
     return counts;
-  }, [items, unmatchedRemote, pendingRemote, remoteQuery.data]);
+  }, [items, unmatchedRemote, pendingRemote, remoteQuery.data, unlinkedQuery.data]);
 
   /** Đích của ghép chờ: SKU biến thể xin ghép, hoặc "Không quản tồn" */
   const pendingTarget = (p: PendingMapping) =>
