@@ -58,7 +58,7 @@ import { focusField } from './focusField';
 import { usePlatformTab } from './usePlatformTab';
 import { RemoteSuggestion } from './RemoteSuggestion';
 import { RegroupNotice } from './RegroupNotice';
-import { platformLabel } from './platformCategory';
+import { platformLabel, shopsOnPlatform } from './platformCategory';
 import { platformDrift } from './productOverview';
 import {
   attributeGroups,
@@ -345,7 +345,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 }
               >
                 {spec ? <CategoryPath path={spec.categoryPath} /> : <span className="text-muted-foreground">Chưa chọn</span>}
-                {spec && <CategoryNotes spec={spec} rows={rows} platform={platform} />}
+                {spec && <CategoryNotes spec={spec} rows={rows} platform={platform} showDrift={!listed} />}
                 {/* Đã lên sàn: category lưu trong Commerio khác trên sàn thì đổi trên sàn bằng lượt chạy nền (FE#474) */}
                 {listed && spec && specQuery.data && (
                   <CategoryChangeBlock
@@ -353,7 +353,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                     label={label}
                     companyId={companyId}
                     productId={product.id}
-                    shops={shops}
+                    shops={shopsOnPlatform(shops, platform)}
                     draftPath={spec.categoryPath}
                     draftCategoryId={spec.externalCategoryId}
                     saved={specQuery.data}
@@ -665,12 +665,15 @@ function CategoryNotes({
   spec,
   rows,
   platform,
+  showDrift,
 }: {
   spec: NonNullable<ProductSpecResult['spec']>;
   rows: readonly ProductListingRow[];
   platform: Marketplace;
+  /** Đã lên sàn thì CategoryChangeBlock hiện "Trên … đang ở", không lặp ở đây */
+  showDrift: boolean;
 }) {
-  const drift = platformDrift(rows, platform, spec);
+  const drift = showDrift ? platformDrift(rows, platform, spec) : [];
   const shopName = (shopId: string) => rows.find((r) => r.shopId === shopId)?.shopName ?? '';
   return (
     <div className="mt-1 grid gap-1">

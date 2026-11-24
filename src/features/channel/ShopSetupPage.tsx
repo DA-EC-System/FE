@@ -703,7 +703,7 @@ function CreatePanel({
           />
           {groups.isError && <p className="text-sm text-destructive">{problemMessage(groups.error)}</p>}
           {error && (
-            <p id="create-group-error" className="text-sm text-destructive" role="alert">
+            <p id="create-group-error" className="text-sm text-destructive">
               {error}
             </p>
           )}

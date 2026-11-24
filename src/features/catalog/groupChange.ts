@@ -1,4 +1,6 @@
-import type { AllowedAttribute } from '@/types/catalog';
+import type { AllowedAttribute, ProductDetail } from '@/types/catalog';
+import { isEmptySpec, type SpecDrafts } from './specs/specValues';
+import { productAxes } from './valueImages';
 
 export interface GroupChangeNotice {
   /** Tên thuộc tính biến thể đang có mà danh mục mới không gợi ý */
@@ -35,4 +37,24 @@ export function axesNoticeText(names: readonly string[]): string | null {
 /** Câu báo thuộc tính sản phẩm chuyển mục; null khi không có */
 export function movingNoticeText(names: readonly string[]): string | null {
   return names.length ? `${names.length} thuộc tính sẽ chuyển sang Thuộc tính khác: ${names.join(', ')}.` : null;
+}
+
+/** Trục của sản phẩm tính theo biến thể chưa lưu trữ; biến thể đã lưu trữ không còn bán nên không báo */
+export function liveAxes(p: Pick<ProductDetail, 'variants'>) {
+  return productAxes({ variants: p.variants.filter((v) => v.businessStatus !== 'archived') });
+}
+
+/**
+ * Thuộc tính đang có giá trị trong form sẽ sang "Thuộc tính khác": gồm thuộc tính của danh mục cũ và thuộc tính vừa điền
+ * ở danh mục chọn tạm. Bỏ thuộc tính vốn đã nằm ở "Thuộc tính khác" lúc lưu, vì chúng không chuyển mục
+ */
+export function movingSpecNames(
+  others: readonly { fieldId: string; name: string }[],
+  drafts: SpecDrafts,
+  saved: readonly { fieldId: string; inTemplate: boolean }[],
+): string[] {
+  return others
+    .filter((v) => !isEmptySpec(drafts[v.fieldId]))
+    .filter((v) => !saved.some((s) => s.fieldId === v.fieldId && !s.inTemplate))
+    .map((v) => v.name);
 }

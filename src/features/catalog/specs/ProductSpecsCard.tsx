@@ -60,7 +60,7 @@ export function ProductSpecsCard({
         </div>
         {!readOnly && missing.length > 0 && (
           <p className="text-sm text-warning-text">
-            Còn trống {missing.length} thuộc tính bắt buộc:{' '}
+            Còn trống {missing.length} thuộc tính cần cho Sẵn sàng:{' '}
             {missing.map((v, i) => (
               <span key={v.fieldId}>
                 {i > 0 && ', '}

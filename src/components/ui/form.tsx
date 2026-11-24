@@ -106,9 +106,16 @@ function FormLabel({
   );
 }
 
-function FormControl({ withCounter, ...props }: React.ComponentProps<typeof Slot> & { withCounter?: boolean }) {
+function FormControl({
+  withCounter,
+  'aria-describedby': extraDescribedBy,
+  ...props
+}: React.ComponentProps<typeof Slot> & { withCounter?: boolean }) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
-  const describedBy = [formDescriptionId, error && formMessageId, withCounter && `${formItemId}-counter`].filter(Boolean).join(' ');
+  // `aria-describedby` truyền vào (ghi chú riêng dưới ô) gộp thêm, không thay phần của ô
+  const describedBy = [formDescriptionId, error && formMessageId, withCounter && `${formItemId}-counter`, extraDescribedBy]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <Slot

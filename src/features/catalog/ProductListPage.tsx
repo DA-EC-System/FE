@@ -248,8 +248,11 @@ function ProductListView({ onBulk }: { onBulk: () => void }) {
                 placeholder="Tìm theo tên hoặc SKU..."
               />
               <div className="grid gap-1.5 md:min-w-48">
-                <Label className="text-xs text-muted-foreground">Danh mục sản phẩm</Label>
+                <Label htmlFor="product-list-group" className="text-xs text-muted-foreground">
+                  Danh mục sản phẩm
+                </Label>
                 <GroupCombobox
+                  id="product-list-group"
                   value={groupId}
                   onChange={withReset(setGroupId)}
                   groups={groups}

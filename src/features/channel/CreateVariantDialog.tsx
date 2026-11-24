@@ -106,7 +106,7 @@ export function CreateVariantDialog({ shopId, remote, siblings, onClose }: Creat
           />
           {groups.isError && <p className="text-sm text-destructive-text">{problemMessage(groups.error)}</p>}
           {error && (
-            <p id="create-variant-error" className="text-sm text-destructive-text" role="alert">
+            <p id="create-variant-error" className="text-sm text-destructive-text">
               {error}
             </p>
           )}

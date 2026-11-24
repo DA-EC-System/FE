@@ -70,8 +70,7 @@ import { AddVariantDialog } from './AddVariantDialog';
 import { VariantSpecDialog } from './VariantSpecDialog';
 import { productPatchBody, productSchema, sizeChartPatch, type ProductForm } from './shared';
 import { productNameCounter } from './productName';
-import { axesNoticeText, groupChangeNotice, movingNoticeText } from './groupChange';
-import { productAxes } from './valueImages';
+import { axesNoticeText, groupChangeNotice, liveAxes, movingNoticeText, movingSpecNames } from './groupChange';
 import { Input } from '@/components/ui/input';
 import { CountryCombobox } from './CountryCombobox';
 import { SizeChartField } from './SizeChartField';
@@ -640,11 +639,7 @@ export function ProductFormPage() {
   // Đổi danh mục ở trang sửa: báo trước khi Lưu trục nào ngoài danh mục mới, thuộc tính nào sang "Thuộc tính khác" (FE#474)
   const groupNotice =
     product && groupChanged && template
-      ? groupChangeNotice(
-          productAxes(product),
-          template.allowedAttributes,
-          otherViews.filter((v) => product.specs?.some((s) => s.fieldId === v.fieldId && s.inTemplate)).map((v) => v.name),
-        )
+      ? groupChangeNotice(liveAxes(product), template.allowedAttributes, movingSpecNames(otherViews, specDrafts, product.specs ?? []))
       : null;
   const groupNoticeLines = groupNotice ? [axesNoticeText(groupNotice.axes), movingNoticeText(groupNotice.moving)].filter(Boolean) : [];
   const saveAndNext = () => {
@@ -834,7 +829,16 @@ export function ProductFormPage() {
                 render={({ field }) => (
                   <FormItem id={GROUP_FIELD_ID} className="rounded-md">
                     <FormLabel>Danh mục sản phẩm</FormLabel>
-                    <FormControl>
+                    <FormControl
+                      aria-describedby={
+                        [
+                          currentGroup?.splitInto?.length && !readOnly && 'group-split-note',
+                          groupNoticeLines.length > 0 && !readOnly && 'group-change-note',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
+                    >
                       <GroupCombobox
                         value={field.value}
                         onChange={field.onChange}
@@ -849,7 +853,7 @@ export function ProductFormPage() {
                     <FormMessage />
                     {/* Danh mục mặc định đã tách (Documents/21 §5.7): gợi ý ngay tại ô, không chiếm đầu trang (FE#464) */}
                     {currentGroup?.splitInto?.length && !readOnly ? (
-                      <p className="text-sm text-info-text" data-testid="group-split-note">
+                      <p id="group-split-note" className="text-sm text-info-text" data-testid="group-split-note">
                         Danh mục {currentGroup.renamedFrom ?? currentGroup.name} đã tách thành{' '}
                         {currentGroup.splitInto.map((g) => g.name).join(', ')}. Chọn danh mục hẹp hơn rồi Lưu.
                       </p>
@@ -857,7 +861,7 @@ export function ProductFormPage() {
                       <FormDescription>Quyết định thuộc tính sản phẩm cần điền và biến thể gợi ý. Mã SKU tạo theo mẫu ở Cài đặt sản phẩm.</FormDescription>
                     ) : null}
                     {groupNoticeLines.length > 0 && !readOnly && (
-                      <div className="grid gap-0.5 text-sm text-info-text" data-testid="group-change-note">
+                      <div id="group-change-note" className="grid gap-0.5 text-sm text-info-text" data-testid="group-change-note">
                         {groupNoticeLines.map((line) => (
                           <p key={line}>{line}</p>
                         ))}
