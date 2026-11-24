@@ -146,7 +146,9 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function RefLink({ companyId, docRef }: { companyId: string; docRef: DocRef }) {
+function RefLink({ companyId, docRef, plain }: { companyId: string; docRef: DocRef; plain?: boolean }) {
+  // Nhúng trong wizard: guard đưa mọi trang khác về /welcome, nên chỉ hiện chữ, không dẫn đi
+  if (plain) return <span>{docRef.type === 'order' ? `Đơn ${docRef.number}` : docRef.number}</span>;
   if (docRef.type === 'stock_document') {
     return (
       <Link className="text-primary underline-offset-4 hover:underline" to={ROUTES.company.inventoryDoc(companyId, docRef.id)}>
@@ -505,10 +507,18 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
     return (
       <div className="grid justify-items-start gap-4">
         <AlertMessage severity="error">{getErrorMessage(docQuery.error)}</AlertMessage>
-        <Button variant="outline" onClick={backToList}>
-          <ArrowLeft />
-          Về danh sách phiếu
-        </Button>
+        {embedded ? (
+          // Trong wizard đã ở đúng bước; về danh sách phiếu sẽ bị guard đưa về /welcome, nên chỉ đọc lại phiếu
+          <Button variant="outline" disabled={docQuery.isFetching} onClick={() => void docQuery.refetch()}>
+            <ListRestart />
+            Tải lại phiếu
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={backToList}>
+            <ArrowLeft />
+            Về danh sách phiếu
+          </Button>
+        )}
       </div>
     );
   }
@@ -637,7 +647,7 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
               {doc.source && (
                 <>
                   {' · '}
-                  <RefLink companyId={companyId} docRef={doc.source} />
+                  <RefLink companyId={companyId} docRef={doc.source} plain={Boolean(embedded)} />
                 </>
               )}
             </Info>
@@ -650,7 +660,7 @@ export function StockDocPage({ embedded }: StockDocPageProps = {}) {
               <Info label="Phiếu liên quan">
                 <div className="flex flex-wrap gap-x-3">
                   {doc.followUps.map((f) => (
-                    <RefLink key={f.id} companyId={companyId} docRef={f} />
+                    <RefLink key={f.id} companyId={companyId} docRef={f} plain={Boolean(embedded)} />
                   ))}
                 </div>
               </Info>
