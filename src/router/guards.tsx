@@ -7,6 +7,8 @@ import { useAuth, useSelectCompany } from '@/hooks/useAuth';
 import { authErrorMessage } from '@/features/auth/authErrors';
 import { hasAllPermissions, hasAnyPermission, isModuleEnabled } from '@/utils/permissions';
 import { MODULE_LABELS, type ModuleKey } from '@/utils/modules';
+import { useOnboarding } from '@/api/onboarding.api';
+import { onboardingRedirect } from '@/features/onboarding/wizardState';
 import { ForbiddenPage } from '@/components/common/ForbiddenPage';
 import { ROUTES } from './routes';
 
@@ -131,6 +133,21 @@ export function RequireCompany() {
     return <PageSpinner />;
   }
   return <Outlet />;
+}
+
+/**
+ * Công ty chưa hoàn tất thiết lập ban đầu mà BE bảo người này phải làm (`mustWizard`, Documents/21 mục 23): mọi trang
+ * của khu làm việc về `/welcome` (FE#468). Đang tải thì chờ để không lộ Tổng quan rồi mới chuyển. GET lỗi thì cho
+ * vào trang: không khoá người dùng khỏi app vì một lần gọi hỏng.
+ */
+export function RequireOnboarding({ children }: { children: ReactNode }) {
+  const { companyId = '' } = useParams<{ companyId: string }>();
+  const location = useLocation();
+  const onboarding = useOnboarding();
+  if (onboarding.isPending && onboarding.fetchStatus !== 'idle') return <PageSpinner />;
+  const to = onboardingRedirect(onboarding.data, companyId, location.pathname);
+  if (to) return <Navigate to={to} replace />;
+  return <>{children}</>;
 }
 
 interface RequireModuleProps {

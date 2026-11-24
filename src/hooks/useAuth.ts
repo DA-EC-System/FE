@@ -6,6 +6,7 @@ import { refreshAccessToken } from '@/api/client';
 import { appPath } from '@/utils/env';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@/api/useMutation';
+import { clearPendingRegistration } from '@/features/auth/registrationResume';
 
 export function useAuth() {
   const status = useAuthStore((s) => s.status);
@@ -61,6 +62,8 @@ export function useVerifyRegistration() {
   return useMutation({
     mutationFn: authApi.verifyRegistration,
     onSuccess: (res) => {
+      // Xoá trước khi đặt phiên: đặt phiên xong RequireGuest gỡ RegisterPage, callback của trang không chạy nữa
+      clearPendingRegistration();
       qc.clear();
       setSession(res.accessToken, res.account, res.memberships);
       setCompany(res.accessToken, res.context);

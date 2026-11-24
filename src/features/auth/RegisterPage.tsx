@@ -10,6 +10,7 @@ import { Form } from '@/components/ui/form';
 import { AuthShell } from './AuthShell';
 import { registerSchema, type RegisterForm } from './schemas';
 import { useCooldown } from './useCooldown';
+import { clearPendingRegistration, loadPendingRegistration, savePendingRegistration } from './registrationResume';
 import { useRegisterCompany, useResendRegistration, useVerifyRegistration } from '@/hooks/useAuth';
 import { getErrorMessage, getProblem, retryAfterSeconds } from '@/api/client';
 import { ROUTES } from '@/router/routes';
@@ -82,7 +83,11 @@ export function RegisterPage() {
   const resend = useResendRegistration();
   const verify = useVerifyRegistration();
   const cooldown = useCooldown();
-  const [step, setStep] = useState<Step>({ kind: 'form' });
+  // Tải lại trang khi đang chờ mã thì về thẳng màn nhập mã (FE#468, N2)
+  const [step, setStep] = useState<Step>(() => {
+    const pending = loadPendingRegistration();
+    return pending ? { kind: 'code', ...pending } : { kind: 'form' };
+  });
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -107,6 +112,7 @@ export function RegisterPage() {
   };
 
   const backToForm = (message: string | null) => {
+    clearPendingRegistration();
     setStep({ kind: 'form' });
     setNotice(null);
     setError(message);
@@ -121,6 +127,7 @@ export function RegisterPage() {
       },
       {
         onSuccess: (status) => {
+          savePendingRegistration({ email: v.email, status });
           setStep({ kind: 'code', email: v.email, status });
           cooldown.start(status.resendAfterSeconds);
           setNotice(SENT_NOTICE);
@@ -161,6 +168,7 @@ export function RegisterPage() {
     setError(null);
     resend.mutate(current.status.registrationId, {
       onSuccess: (status) => {
+        savePendingRegistration({ email: current.email, status });
         setStep({ ...current, status });
         cooldown.start(status.resendAfterSeconds);
         setNotice(RESENT_NOTICE);

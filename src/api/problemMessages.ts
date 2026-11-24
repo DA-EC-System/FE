@@ -10,6 +10,8 @@ import type { RemoteSkusRefreshError } from '@/types/shop';
 import { platformInfo } from '@/lib/platforms';
 
 const MESSAGES: Record<string, string> = {
+  // Documents/21 mục 23 (FE#468): wizard hiện thêm danh sách bước còn thiếu kèm nút tới bước
+  onboarding_incomplete: 'Còn bước thiết lập chưa xong nên chưa vào Tổng quan được.',
   dry_run_required: 'Cần tính thử trước khi gửi duyệt.',
   config_already_effective: 'Đã tới ngày hiệu lực, không thể huỷ. Hãy tạo phiên bản mới.',
   // commerio-backend#325: sửa lỗi cấu hình

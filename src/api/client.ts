@@ -23,6 +23,8 @@ export interface ProblemDetails {
   /** Mã và câu gốc của sàn khi lỗi đến từ sàn (§19.3) */
   platformCode?: string;
   platformMessage?: string;
+  /** 409 `onboarding_incomplete` (§23): các mục bắt buộc còn thiếu, theo thứ tự bảng */
+  missing?: string[];
   /** 409 `spec_incomplete` (§18.5): nhãn thông tin sàn còn thiếu */
   message?: string;
   /** Số đơn của gian hàng chưa xong khi ngắt bị chặn (409 `shop_has_open_orders`, §18.6.1) */
