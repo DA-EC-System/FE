@@ -3,6 +3,7 @@
  * gộp số giá của dòng listing với kết quả tính thử, lý do một dòng chưa đăng được.
  */
 
+import type { Blocker, PushPreviewRow } from '@/types/blocker';
 import type { PriceQuoteRow, ProductListingRow, Shop, SpecStatus } from '@/types/shop';
 
 /** Listing đang ở trên sàn hoặc đang đẩy: đăng lại không cần */
@@ -123,6 +124,31 @@ function priceBlocker(view: PriceView): string | null {
 export function rowBlocker(view: PriceView, platformReady: boolean): string | null {
   const reasons = [platformReady ? null : 'Còn thiếu thông tin của sàn', priceBlocker(view)].filter(Boolean);
   return reasons.length ? reasons.join('; ') : null;
+}
+
+/** Lý do chưa đăng của một dòng ở bước 3 */
+export interface RowReasons {
+  /** Mỗi lý do một câu; rỗng là đăng được */
+  reasons: string[];
+  /** Mục chặn của BE (kèm chỗ sửa); rỗng khi lý do tính tạm ở trình duyệt */
+  blockers: Blocker[];
+}
+
+/**
+ * Lý do chưa đăng của một dòng (FE#458): có kết quả `push-preview` thì dùng mục chặn của BE, cùng hàm với readiness và
+ * lệnh đăng nên bước 3 không lệch rail, tab sàn. Không có (BE cũ, lỗi mạng) thì dùng lý do tính tạm `fallback`
+ */
+export function rowReasons(preview: Pick<PushPreviewRow, 'status' | 'blockers'> | undefined, fallback: string | null): RowReasons {
+  if (!preview) return { reasons: fallback ? [fallback] : [], blockers: [] };
+  if (preview.status === 'ready') return { reasons: [], blockers: [] };
+  const reasons = preview.blockers.map((b) => b.label);
+  return { reasons: reasons.length ? reasons : ['Chưa đăng được'], blockers: preview.blockers };
+}
+
+/** Số giá của một dòng: `push-preview` có thì theo nó (giá đã làm tròn, thực nhận cùng bước với lệnh đăng) */
+export function withPreview(view: PriceView, preview: Pick<PushPreviewRow, 'listPrice' | 'netReceived'> | undefined): PriceView {
+  if (!preview) return view;
+  return { ...view, listPrice: preview.listPrice, netReceived: preview.netReceived };
 }
 
 /**

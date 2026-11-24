@@ -59,6 +59,8 @@ import { CategoryPath } from './CategoryPath';
 import { CategoryPickerDialog } from './CategoryPickerDialog';
 import { focusField } from './focusField';
 import { useProductFix } from './productFix';
+import { ReadinessNote } from './ReadinessNote';
+import type { ShopReadiness } from '@/types/blocker';
 import { usePlatformTab } from './usePlatformTab';
 import { RemoteSuggestion } from './RemoteSuggestion';
 import { RegroupNotice } from './RegroupNotice';
@@ -97,6 +99,8 @@ interface Props {
   canEditFinance?: boolean;
   /** Đã hỏi lại trạng thái quá `LISTING_POLL_MAX_MS` mà còn SKU Đang đăng: trang thôi tự cập nhật */
   pollTimedOut?: boolean;
+  /** Readiness của gian hàng ít mục nhất trên sàn (FE#458): danh sách mục chặn đầu tab, category gợi ý */
+  readiness?: ShopReadiness | null;
 }
 
 /**
@@ -116,6 +120,7 @@ export function PlatformTab({
   onDirtyChange,
   canEditFinance = false,
   pollTimedOut = false,
+  readiness = null,
 }: Props) {
   const data = usePlatformTab(product, platform, shops);
   const resolved = data.specQuery.data?.resolved;
@@ -311,7 +316,16 @@ export function PlatformTab({
             )}
           </AlertMessage>
         )}
-        {spec?.source !== 'match' && total > 0 && (
+        {/* Có readiness: cùng danh sách mục chặn với rail và trình đăng (FE#458); chưa có thì đếm trường bắt buộc như trước */}
+        {readiness && (
+          <ReadinessNote
+            companyId={companyId}
+            productId={product.id}
+            readiness={readiness}
+            can={{ product: canEditProduct, finance: canEditFinance }}
+          />
+        )}
+        {!readiness && spec?.source !== 'match' && total > 0 && (
           <AlertMessage severity="warning">
             <b>
               {label} còn thiếu {total} trường bắt buộc.
@@ -374,7 +388,19 @@ export function PlatformTab({
                   )
                 }
               >
-                {spec ? <CategoryPath path={spec.categoryPath} /> : <span className="text-muted-foreground">Chưa chọn</span>}
+                {spec ? (
+                  <CategoryPath path={spec.categoryPath} />
+                ) : readiness?.category.state === 'suggested' && readiness.category.path ? (
+                  // Gợi ý của BE (ghép SKU, danh mục sản phẩm, lần chọn gần đây) chưa lưu: khác với "Đã chọn" (FE#458)
+                  <span className="grid gap-0.5" data-testid="category-suggested">
+                    <span className="inline-flex flex-wrap items-center gap-x-1">
+                      Gợi ý: <CategoryPath path={readiness.category.path} />
+                    </span>
+                    <span className="text-xs text-muted-foreground">Chờ xác nhận. Bấm Chọn category để lưu.</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Chưa chọn</span>
+                )}
                 {spec && <CategoryNotes spec={spec} rows={rows} platform={platform} showDrift={!listed} />}
                 {/* Đã lên sàn: category lưu trong Commerio khác trên sàn thì đổi trên sàn bằng lượt chạy nền (FE#474) */}
                 {listed && spec && specQuery.data && (
@@ -1174,13 +1200,27 @@ function ShippingTable({
   );
 }
 
-/** Nhãn tab một sàn: tên sàn kèm "Thiếu N" (cùng cách đếm với nội dung tab) */
-export function PlatformTabLabel({ product, platform, shops }: { product: ProductDetail; platform: Marketplace; shops: readonly Shop[] }) {
+/**
+ * Nhãn tab một sàn: tên sàn kèm "Thiếu N". `missing` (readiness, FE#458) cùng số với rail và trình đăng; chưa có readiness
+ * thì đếm như nội dung tab
+ */
+export function PlatformTabLabel({
+  product,
+  platform,
+  shops,
+  missing,
+}: {
+  product: ProductDetail;
+  platform: Marketplace;
+  shops: readonly Shop[];
+  missing?: number | null;
+}) {
   const { count, specQuery } = usePlatformTab(product, platform, shops);
+  const n = missing ?? (specQuery.isSuccess ? count : 0);
   return (
     <>
       {platformLabel(platform)}
-      {specQuery.isSuccess && count > 0 && <Badge variant="warning">Thiếu {count}</Badge>}
+      {n > 0 && <Badge variant="warning">Thiếu {n}</Badge>}
     </>
   );
 }

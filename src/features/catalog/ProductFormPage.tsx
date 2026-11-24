@@ -92,6 +92,8 @@ import {
 } from './productTabs';
 import { GROUP_FIELD_ID, missingForPublish, missingItems, parseMinQty, publishBlocker } from './completion';
 import { ProductCompletionRail } from './ProductCompletionRail';
+import { useProductReadiness } from '@/api/readiness.api';
+import { platformMissing, platformShop, readinessBlocker } from '@/features/channel/readiness';
 import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { NeedsAttentionBox } from './NeedsAttentionBox';
 import { attentionItems, type AttentionAction } from './needsAttention';
@@ -208,6 +210,8 @@ export function ProductFormPage() {
     setPoll({ from: listingsQuery.dataUpdatedAt, keys: pushingKeys });
   // Quá 30 phút mà còn SKU Đang đăng: thôi hỏi lại, tab sàn gợi ý bấm Tải lại (review PR #480)
   const pollTimedOut = !!poll && !!pushingKeys && listingsQuery.dataUpdatedAt - poll.from >= LISTING_POLL_MAX_MS;
+  // Readiness theo gian hàng (FE#458): rail, nhãn tab sàn, nút Đăng cùng một nguồn với lệnh đăng của BE
+  const readiness = useProductReadiness(isNew ? null : productId, canShop);
   // Nút sửa của toast đi qua `openFix` (khai báo dưới) để mở tại chỗ; ref vì toast giữ hàm cũ
   const openFixRef = useRef<(to: string) => boolean>(() => false);
   usePushOutcomeToasts(listingsQuery.data, { companyId, canFix: canManage, onFix: (to) => openFixRef.current(to) });
@@ -652,18 +656,9 @@ export function ProductFormPage() {
   // Đi tới SKU còn thiếu (`?spec=`, nút "Cần xử lý"): sang tab Nội bộ, mở ô thiếu đầu tiên trong bảng biến thể
   useEffect(() => {
     if (!skuFocus || !product) return;
-    if (tab !== 'commerio') {
-      // Tab đang mở còn sửa dở thì hỏi "Chuyển tab khi chưa lưu?"; đồng ý thì chọn ô sau khi chuyển (review PR #480)
-      if (dirtyTabs.includes(tab)) {
-        setPendingTab({ tab: 'commerio', sku: skuFocus });
-        setSkuFocus(null);
-      } else setTab('commerio');
-      return;
-    }
-    const v = product.variants.find((x) => x.id === skuFocus.variantId);
-    if (v) variantGrid.current?.focusCell(v.id, skuFocus.field ?? firstMissingField(v), { edit: true });
-    setSkuFocus(null);
-    if (searchParams.has('spec')) {
+    // Xoá `spec`, `field` khỏi URL để F5/Back không chọn lại và bấm lại cùng link vẫn có tác dụng
+    const clearSpec = () => {
+      if (!searchParams.has('spec')) return;
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -673,7 +668,21 @@ export function ProductFormPage() {
         },
         { replace: true },
       );
+    };
+    if (tab !== 'commerio') {
+      // Tab đang mở còn sửa dở thì hỏi "Chuyển tab khi chưa lưu?"; đồng ý thì chọn ô sau khi chuyển (review PR #480). Bấm
+      // "Ở lại" thì yêu cầu bỏ luôn, nên xoá `spec` ngay
+      if (dirtyTabs.includes(tab)) {
+        setPendingTab({ tab: 'commerio', sku: skuFocus });
+        setSkuFocus(null);
+        clearSpec();
+      } else setTab('commerio');
+      return;
     }
+    const v = product.variants.find((x) => x.id === skuFocus.variantId);
+    if (v) variantGrid.current?.focusCell(v.id, skuFocus.field ?? firstMissingField(v), { edit: true });
+    setSkuFocus(null);
+    clearSpec();
     // Chỉ chạy khi có yêu cầu mới hoặc sản phẩm, tab vừa sẵn sàng
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuFocus, product, tab]);
@@ -767,6 +776,8 @@ export function ProductFormPage() {
     canPublish: can(PERMISSIONS.listingManage),
     missing: publishMissing.map((m) => (m.skuCount ? `${m.label} (${m.skuCount} SKU)` : m.label)),
     dirty: form.formState.isDirty || specsDirty || imagesDirty,
+    // Chưa có gian hàng nào thì readiness rỗng: khoá theo mục còn thiếu như rail
+    shopsBlocker: readiness.data?.length ? readinessBlocker(readiness.data) : undefined,
   });
   // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
   const attention = product && !isNew ? attentionItems({ missing, variants: product.variants, rows: listingRows, platformName: platformLabel }) : [];
@@ -1113,7 +1124,7 @@ export function ProductFormPage() {
                 <TabsTrigger value="commerio">Nội bộ</TabsTrigger>
                 {tabPlatforms.map((p) => (
                   <TabsTrigger key={p} value={p}>
-                    <PlatformTabLabel product={product} platform={p} shops={shops} />
+                    <PlatformTabLabel product={product} platform={p} shops={shops} missing={platformMissing(readiness.data, p)} />
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -1405,6 +1416,8 @@ export function ProductFormPage() {
               onSaveNext={fromIncomplete && !isNew ? () => void saveAndNext() : undefined}
               publishHref={product && !blocker ? ROUTES.company.productPublish(companyId, product.id) : null}
               publishBlocker={blocker}
+              shops={readiness.data}
+              onOpenPlatform={(p) => requestTab(p)}
             />
           ) : null}
         </div>
@@ -1426,6 +1439,7 @@ export function ProductFormPage() {
                     onDirtyChange={onPlatformDirty}
                     canEditFinance={can(PERMISSIONS.financeConfigManage)}
                     pollTimedOut={pollTimedOut}
+                    readiness={platformShop(readiness.data, p)}
                   />
                 </ProductFixContext.Provider>
               </TabsContent>
