@@ -18,6 +18,10 @@ import {
   withAttribute,
   withAxis,
   withCategory,
+  axisTargetCount,
+  combinedGroups,
+  combinedValues,
+  withCombinedAxes,
   type ProductAxis,
   fieldHint,
   cascadePath,
@@ -167,7 +171,7 @@ describe('Ánh xạ trục và giá trị (FE-3)', () => {
     const facts = { originCountry: 'VN', brand: null };
     const spec = { attributes: {}, axisMap: { 'att-mau': CUSTOM_AXIS, 'att-size': 'size' } };
     const caps = { maxAxes: 1, customAxisName: false, salesRequired: ['color_family'] };
-    expect(specMissing([], spec, AXES, facts, caps).map((m) => m.reason)).toEqual(['axis_unmapped', 'axis_shape', 'sales_required']);
+    expect(specMissing([], spec, AXES, facts, caps).map((m) => m.reason)).toEqual(['axis_unmapped', 'axis_limit', 'sales_required']);
     expect(specMissing([], spec, AXES, facts, { maxAxes: 2, customAxisName: true, salesRequired: [] })).toEqual([]);
   });
 
@@ -299,5 +303,39 @@ describe('draftMissing: tin missing của BE, tính lại có resolved (kiểm n
     expect(draftMissing({ ...base, draft, dirty: true, saved, forLeaf: { resolved: fromCatalog } })).toEqual([]);
     expect(draftMissing({ ...base, draft, dirty: true, saved, forLeaf: undefined }).map((m) => m.code)).toEqual(['license_no']);
     expect(draftMissing({ ...base, draft: { ...draft, externalCategoryId: '' }, dirty: true, saved, forLeaf: undefined })[0]?.code).toBe('category');
+  });
+});
+
+describe('Gộp thuộc tính biến thể (FE#459)', () => {
+  const VARIANTS = [
+    { archivedAt: null, attributes: [{ attributeId: 'att-mau', value: 'Đen' }, { attributeId: 'att-size', value: 'M' }] },
+    { archivedAt: null, attributes: [{ attributeId: 'att-mau', value: 'Xanh rêu' }, { attributeId: 'att-size', value: 'M' }] },
+    { archivedAt: '2026-01-01', attributes: [{ attributeId: 'att-mau', value: 'Trắng' }, { attributeId: 'att-size', value: 'M' }] },
+  ] as unknown as Parameters<typeof combinedValues>[0];
+
+  it('đếm theo đích khác nhau; mỗi tên tự đặt hoặc chưa ánh xạ tính riêng', () => {
+    expect(axisTargetCount(AXES, { 'att-mau': 'variation', 'att-size': 'variation' })).toBe(1);
+    expect(axisTargetCount(AXES, { 'att-mau': 'color_family', 'att-size': 'size' })).toBe(2);
+    expect(axisTargetCount(AXES, { 'att-mau': CUSTOM_AXIS, 'att-size': CUSTOM_AXIS })).toBe(2);
+    expect(axisTargetCount(AXES, {})).toBe(2);
+  });
+
+  it('gộp: mọi trục trỏ đích ghép, bỏ giá trị chuẩn, không gửi valueMap; hết axis_limit', () => {
+    const d = { ...draftFromSpec(spec()), axisMap: { 'att-mau': 'color_family', 'att-size': 'size' }, valueMap: { 'val-den': 'Đen', 'val-m': 'M' } };
+    const g = withCombinedAxes(d, AXES, 'variation');
+    expect(g.axisMap).toEqual({ 'att-mau': 'variation', 'att-size': 'variation' });
+    expect(g.valueMap).toEqual({});
+    expect([...combinedGroups(AXES, g.axisMap).keys()]).toEqual(['variation']);
+    expect(combinedGroups(AXES, d.axisMap).size).toBe(0);
+    const input = specInput({ ...g, valueMap: { 'val-den': 'Đen' } }, ATTRS, AXES);
+    expect(input.axisMap).toEqual({ 'att-mau': 'variation', 'att-size': 'variation' });
+    expect(input.valueMap).toEqual({});
+    const caps = { maxAxes: 1, customAxisName: true, salesRequired: [] };
+    expect(specMissing([], d, AXES, FACTS, caps).map((m) => m.reason)).toEqual(['axis_limit']);
+    expect(specMissing([], g, AXES, FACTS, caps)).toEqual([]);
+  });
+
+  it('giá trị ghép theo thứ tự trục, bỏ SKU lưu trữ, bỏ trùng', () => {
+    expect(combinedValues(VARIANTS, AXES)).toEqual(['Đen - M', 'Xanh rêu - M']);
   });
 });

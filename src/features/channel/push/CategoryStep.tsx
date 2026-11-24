@@ -18,7 +18,8 @@ import { columnParents, parentPath } from '@/features/catalog/platformCategory';
 import { CategoryColumns } from '@/features/catalog/CategoryColumns';
 import { CategoryPath } from '@/features/catalog/CategoryPath';
 import { SearchResults } from '@/features/catalog/PlatformCategoryTree';
-import { PERMISSION_LABELS, permissionBlocked, type SpecDraft } from '../specDraft';
+import { PERMISSION_LABELS, permissionBlocked, productAxes, type SpecDraft } from '../specDraft';
+import { categoryFit, sortByFit } from '../categoryFit';
 
 interface CategoryStepProps {
   platform: string;
@@ -42,6 +43,8 @@ const lastName = (path: string) => path.split(' > ').at(-1) ?? path;
 /** Bước 1: gợi ý của sàn theo sản phẩm, hoặc tìm/duyệt cây category (Documents/21 §18.5) */
 export function CategoryStep({ platform, label, companyId, shopId, product, draft, pathIds, children, onPick, onSuggestions }: CategoryStepProps) {
   const [recent, setRecent] = useState<UsedCategory[]>([]);
+  // Tên thuộc tính biến thể của sản phẩm: category nhận ít hơn thì làm mờ, xếp cuối (FE#459, Documents/21 §18.10)
+  const axisNames = productAxes(product.variants).map((a) => a.name);
   return (
     <div className="grid grid-cols-1 gap-5">
       {draft.externalCategoryId && (
@@ -65,6 +68,7 @@ export function CategoryStep({ platform, label, companyId, shopId, product, draf
         onPick={onPick}
         onSuggestions={onSuggestions}
         onRecent={setRecent}
+        axisNames={axisNames}
       />
       <CategoryBrowser
         platform={platform}
@@ -72,6 +76,7 @@ export function CategoryStep({ platform, label, companyId, shopId, product, draf
         selected={draft.externalCategoryId}
         pathIds={pathIds}
         recent={recent}
+        axisNames={axisNames}
         onPick={onPick}
       />
     </div>
@@ -87,11 +92,12 @@ function Suggestions({
   onPick,
   onSuggestions,
   onRecent,
-}: Omit<CategoryStepProps, 'pathIds' | 'children' | 'platform'> & { onRecent: (items: UsedCategory[]) => void }) {
+  axisNames,
+}: Omit<CategoryStepProps, 'pathIds' | 'children' | 'platform'> & { onRecent: (items: UsedCategory[]) => void; axisNames: string[] }) {
   const q = useCategorySuggestions(shopId, product.id);
   const data = q.data;
-  const items = data?.items;
-  const group = data?.group;
+  const items = data ? sortByFit(data.items, axisNames) : undefined;
+  const group = data?.group ? sortByFit(data.group, axisNames) : undefined;
   // Ba nguồn theo thứ tự Documents/21 §18.5: sàn gợi ý, cùng nhóm hàng, công ty dùng gần đây. Chưa chọn category thì
   // chọn sẵn dòng đầu chọn được của nguồn sớm nhất
   useEffect(() => {
@@ -100,7 +106,8 @@ function Suggestions({
     onSuggestions?.(all);
     onRecent(data.recent ?? []);
     // Chỉ chọn sẵn từ gợi ý của sàn và nhóm hàng; "dùng gần đây" là của sản phẩm khác nhóm, để người dùng tự bấm
-    const first = [...data.items, ...(data.group ?? [])].find((c) => !permissionBlocked(c.permission));
+    // Bỏ qua category không nhận đủ thuộc tính biến thể của sản phẩm (FE#459)
+    const first = [...data.items, ...(data.group ?? [])].find((c) => !permissionBlocked(c.permission) && !categoryFit(c, axisNames)?.dim);
     if (first && !draft.externalCategoryId) onPick(first);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ chạy khi có kết quả gợi ý mới
   }, [data]);
@@ -161,6 +168,7 @@ function Suggestions({
             <CategoryCard
               key={s.externalId}
               category={s}
+              axisNames={axisNames}
               selected={draft.externalCategoryId === s.externalId}
               onPick={onPick}
               badges={
@@ -220,6 +228,7 @@ function Suggestions({
                 <CategoryCard
                   key={c.externalId}
                   category={c}
+                  axisNames={axisNames}
                   selected={draft.externalCategoryId === c.externalId}
                   onPick={onPick}
                   badges={<Badge variant="primary">{c.productCount} sản phẩm</Badge>}
@@ -294,16 +303,19 @@ function SuggestErrorAlert({
 /** Thẻ radio một category: tên lá, đường dẫn cha, badge; category sàn không cho đăng thì khoá */
 function CategoryCard({
   category,
+  axisNames,
   selected,
   onPick,
   badges,
 }: {
   category: CategorySuggestion;
+  axisNames: string[];
   selected: boolean;
   onPick: (c: { externalId: string; path: string }) => void;
   badges?: ReactNode;
 }) {
   const blocked = permissionBlocked(category.permission);
+  const fit = categoryFit(category, axisNames);
   return (
     <button
       type="button"
@@ -315,6 +327,7 @@ function CategoryCard({
         'flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
         selected ? 'border-primary bg-accent' : 'hover:border-primary',
         blocked && 'cursor-not-allowed opacity-60 hover:border-border',
+        fit?.dim && !selected && 'opacity-60',
       )}
     >
       <span className="min-w-0">
@@ -323,6 +336,11 @@ function CategoryCard({
           {parentPath(category.path)}
         </span>
         {blocked && <span className="block text-xs text-destructive-text">{codeMessage('category_not_permitted')}</span>}
+        {fit && (
+          <span className={cn('block text-xs', fit.dim ? 'text-warning-text' : 'text-muted-foreground')} data-testid="category-fit">
+            {fit.note}
+          </span>
+        )}
       </span>
       <span className="ml-auto flex shrink-0 flex-col items-end gap-1">
         {badges}
@@ -341,6 +359,7 @@ function CategoryBrowser({
   selected,
   pathIds,
   recent,
+  axisNames,
   onPick,
 }: {
   platform: string;
@@ -349,6 +368,7 @@ function CategoryBrowser({
   pathIds: string[] | null;
   /** Category công ty dùng gần đây (BE đã bỏ trùng hai nguồn trên), hiện thành chip dưới ô tìm */
   recent: UsedCategory[];
+  axisNames: string[];
   onPick: (c: { externalId: string; path: string }) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -362,6 +382,7 @@ function CategoryBrowser({
   const search = useDebounce(query.trim(), 300);
   const searching = query.trim().length >= 2 && search.length >= 2;
   const results = usePlatformCategories(platform, { search }, searching);
+  const fit = (c: { maxAxes?: number | null; combinable?: boolean | null }) => categoryFit(c, axisNames);
   const pickFromSearch = (c: PlatformCategory) => {
     onPick(c);
     setQuery('');
@@ -387,24 +408,27 @@ function CategoryBrowser({
       {recent.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Category công ty dùng gần đây">
           <span className="text-xs text-muted-foreground">Công ty dùng gần đây:</span>
-          {recent.map((c) => {
+          {sortByFit(recent, axisNames).map((c) => {
             const blocked = permissionBlocked(c.permission);
             const on = selected === c.externalId;
+            const note = fit(c);
             return (
               <button
                 key={c.externalId}
                 type="button"
-                title={blocked ? `${c.path} · ${codeMessage('category_not_permitted')}` : c.path}
+                title={[c.path, blocked ? codeMessage('category_not_permitted') : null, note?.note].filter(Boolean).join(' · ')}
                 aria-pressed={on}
                 disabled={blocked}
                 onClick={() => onPick(c)}
                 className={cn(
                   'inline-flex min-h-8 items-center rounded-full border px-2.5 text-xs transition-colors',
                   on ? 'border-primary bg-accent text-primary-text' : 'hover:border-primary hover:text-primary-text',
-                  blocked && 'cursor-not-allowed opacity-60',
+                  (blocked || (note?.dim && !on)) && 'opacity-60',
+                  blocked && 'cursor-not-allowed',
                 )}
               >
                 {lastName(c.path)} · {c.productCount}
+                {note && <span className="sr-only"> · {note.note}</span>}
               </button>
             );
           })}
@@ -415,13 +439,14 @@ function CategoryBrowser({
           <SearchResults
             loading={results.isLoading || search !== query.trim()}
             error={results.isError ? results.error : null}
-            items={results.data?.items ?? []}
+            items={sortByFit(results.data?.items ?? [], axisNames)}
             selected={selected}
+            fit={fit}
             onSelect={pickFromSearch}
           />
         </div>
       ) : (
-        <CategoryColumns platform={platform} label={label} selected={selected} trail={trail} onTrail={setTrail} onSelect={onPick} />
+        <CategoryColumns platform={platform} label={label} selected={selected} trail={trail} onTrail={setTrail} fit={fit} onSelect={onPick} />
       )}
       {/* Đã chọn thì thẻ "Đang chọn" ở đầu bước đã hiện đường dẫn, không lặp lại ở đây */}
       {!selected && <p className="text-sm text-muted-foreground">Chưa chọn category cấp cuối.</p>}

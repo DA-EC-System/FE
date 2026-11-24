@@ -97,10 +97,12 @@ interface SearchResultsProps {
   error: unknown;
   items: PlatformCategory[];
   selected: string | null;
+  /** Category nhận đủ thuộc tính biến thể của sản phẩm không (FE#459); thiếu thì không ghi gì */
+  fit?: (category: PlatformCategory) => { dim: boolean; note: string } | null;
   onSelect: (category: PlatformCategory) => void;
 }
 
-export function SearchResults({ loading, error, items, selected, onSelect }: SearchResultsProps) {
+export function SearchResults({ loading, error, items, selected, fit, onSelect }: SearchResultsProps) {
   if (loading) {
     return (
       <div className="grid gap-2 px-2 py-1">
@@ -114,24 +116,29 @@ export function SearchResults({ loading, error, items, selected, onSelect }: Sea
   if (!items.length) return <EmptyState compact title="Không thấy category cấp cuối nào" description="Thử từ khác, hoặc xoá ô tìm để duyệt cây." />;
   return (
     <div role="group">
-      {items.map((c) => (
-        <button
-          key={c.externalId}
-          type="button"
-          role="treeitem"
-          aria-selected={selected === c.externalId}
-          onClick={() => onSelect(c)}
-          className={cn(
-            'block w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted',
-            selected === c.externalId && 'bg-accent',
-          )}
-        >
-          <span className="flex items-start gap-2 text-sm">
-            <CategoryPath path={c.path} />
-            <RemovedBadge category={c} />
-          </span>
-        </button>
-      ))}
+      {items.map((c) => {
+        const f = fit?.(c) ?? null;
+        return (
+          <button
+            key={c.externalId}
+            type="button"
+            role="treeitem"
+            aria-selected={selected === c.externalId}
+            onClick={() => onSelect(c)}
+            className={cn(
+              'block w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted',
+              selected === c.externalId && 'bg-accent',
+              f?.dim && selected !== c.externalId && 'opacity-60',
+            )}
+          >
+            <span className="flex items-start gap-2 text-sm">
+              <CategoryPath path={c.path} />
+              <RemovedBadge category={c} />
+            </span>
+            {f && <span className={cn('block text-xs', f.dim ? 'text-warning-text' : 'text-muted-foreground')}>{f.note}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
