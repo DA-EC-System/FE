@@ -5,13 +5,13 @@ import { taoCongTyGia } from '../congTyGia';
 test('BE thật: cấu hình nháp → chạy thử → gửi → tự duyệt; danh sách tiền đúng hợp đồng', async ({ browser }) => {
   const { page, api, companyId, dispose } = await taoCongTyGia(browser, { ten: 'finance' });
   await page.goto(`/c/${companyId}/finance/configs`);
-  await page.getByRole('button', { name: 'Soạn phiên bản', exact: true }).click();
+  await page.getByRole('button', { name: 'Thêm phiên bản', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Loại cấu hình', { exact: true }).selectOption('min_margin');
-  await dialog.getByLabel('Biên tối thiểu (%)', { exact: true }).fill('10');
+  await dialog.getByLabel('Lãi tối thiểu trên giá vốn (%)', { exact: true }).fill('10');
   await dialog.getByRole('button', { name: 'Lưu nháp', exact: true }).click();
-  await page.getByRole('button', { name: 'Chạy thử', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Kết quả chạy thử', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Tính thử', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Kết quả tính thử', exact: true })).toBeVisible();
   for (const name of ['Gửi duyệt', 'Duyệt']) {
     await page.getByRole('button', { name, exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name, exact: true }).click();
@@ -30,6 +30,6 @@ test('BE thật: cấu hình nháp → chạy thử → gửi → tự duyệt; 
     expect(body.total).toBe(0);
   }
   await page.goto(`/c/${companyId}/finance/settlements`);
-  await expect(page.getByText('Chưa có trạng thái tiền', { exact: true })).toBeVisible();
+  await expect(page.getByText('Chưa có trạng thái thanh toán', { exact: true })).toBeVisible();
   await dispose();
 });
