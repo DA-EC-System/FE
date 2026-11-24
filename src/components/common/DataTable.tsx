@@ -187,7 +187,7 @@ export function DataTable<T>({
 }
 
 /** Tiêu đề cột kèm nút "?" khi cột có `meta.help` */
-function HeaderLabel({ help, topic, children }: { help?: ReactNode; topic: unknown; children: ReactNode }) {
+export function HeaderLabel({ help, topic, children }: { help?: ReactNode; topic: unknown; children: ReactNode }) {
   if (!help) return children;
   return (
     <span className="inline-flex items-center gap-1">
@@ -212,7 +212,7 @@ function renderCell<TProps extends object>(cell: ColumnDefTemplate<TProps> | und
   return typeof cell === 'function' ? (cell as (p: TProps) => ReactNode)(props) : cell;
 }
 
-function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 50], sizeLabel = 'Số dòng mỗi trang' }: ServerPagination) {
+export function PaginationBar({ page, pageSize, total, onChange, pageSizes = [10, 25, 50], sizeLabel = 'Số dòng mỗi trang' }: ServerPagination) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);

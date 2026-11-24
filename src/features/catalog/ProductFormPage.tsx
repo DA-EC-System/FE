@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -22,18 +22,15 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  fetchBulkRow,
   fetchNextIncompleteProduct,
+  useBulkEditCache,
+  useProductBulkRows,
   useBulkSaveVariants,
+  useSaveBulkCells,
+  useSaveVariantCell,
   useAttributes,
   useGroups,
   useProductSettings,
@@ -61,13 +58,15 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/format';
 import { priceText } from '@/utils/price';
 import { mainLabel, variantMachine } from '@/lib/machines/product';
-import { MISSING_LABELS, type ProductDetail, type ProductVariant, type VariantPresence } from '@/types/catalog';
+import { MISSING_LABELS, type BulkField, type ProductDetail, type ProductVariant, type VariantPresence } from '@/types/catalog';
+import { EditableGrid, type EditableGridApi, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
 import { ProductImagesField, type ImageItem } from './ProductImagesField';
 import { VariationEditor } from './VariationEditor';
 import { GroupCombobox } from './GroupCombobox';
 import { axisServerErrors, draftBody, draftError, emptyDraft, type VariantDraft } from './variantDraft';
 import { AddVariantDialog } from './AddVariantDialog';
-import { VariantSpecDialog } from './VariantSpecDialog';
+import { firstMissingField, isBulkField, parseVariantField, type SkuVersions } from './variantCells';
+import { siblingToCopy } from './siblingCopy';
 import { productPatchBody, productSchema, sizeChartPatch, type ProductForm } from './shared';
 import { productNameCounter } from './productName';
 import { axesNoticeText, groupChangeNotice, liveAxes, movingNoticeText, movingSpecNames } from './groupChange';
@@ -100,7 +99,7 @@ import { NeedsAttentionBox } from './NeedsAttentionBox';
 import { attentionItems, type AttentionAction } from './needsAttention';
 import { focusField, focusWhenReady } from './focusField';
 import { ProductFixContext, productFixTarget } from './productFix';
-import { listingPollDelay } from '@/features/channel/listingPush';
+import { LISTING_POLL_MAX_MS, listingPollDelay } from '@/features/channel/listingPush';
 import { usePushOutcomeToasts } from '@/features/channel/usePushOutcomeToasts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductMinQtyCard } from './ProductMinQtyCard';
@@ -197,25 +196,22 @@ export function ProductFormPage() {
   // Form tạo cũng tải sẵn gian hàng: tạo xong dải tab sàn hiện ngay, không nhảy layout (FE#463)
   const shopsQuery = useShops({ enabled: canShop });
   // Còn SKU Đang đăng thì đọc lại mỗi 5 giây, tối đa 30 phút; dòng thôi Đang đăng thì toast kết quả (FE#462, §18.6.4)
-  const pollFrom = useRef<number | null>(null);
+  // `poll.from`: lúc thấy lượt Đang đăng; có SKU mới vào Đang đăng (vừa đẩy thêm) thì tính lại từ đầu, hết Đang đăng thì bỏ
+  const [poll, setPoll] = useState<{ from: number; keys: string } | null>(null);
+  const listingsQuery = useProductListingRows(productId, canShop, (rows) => listingPollDelay(rows, poll?.from ?? Date.now(), Date.now()));
+  const pushingKeys = (listingsQuery.data ?? [])
+    .filter((r) => r.listing?.status === 'pushing')
+    .map((r) => `${r.shopId}:${r.variantId}`)
+    .sort()
+    .join(',');
+  // Đổi state lúc render theo dữ liệu mới (mẫu "lưu thông tin của lần render trước" của React), không setState trong refetchInterval
+  if (!pushingKeys && poll) setPoll(null);
+  else if (pushingKeys && (!poll || pushingKeys.split(',').some((k) => !poll.keys.split(',').includes(k))))
+    setPoll({ from: listingsQuery.dataUpdatedAt, keys: pushingKeys });
   // Quá 30 phút mà còn SKU Đang đăng: thôi hỏi lại, tab sàn gợi ý bấm Tải lại (review PR #480)
-  const [pollTimedOut, setPollTimedOut] = useState(false);
+  const pollTimedOut = !!poll && !!pushingKeys && listingsQuery.dataUpdatedAt - poll.from >= LISTING_POLL_MAX_MS;
   // Readiness theo gian hàng (FE#458): rail, nhãn tab sàn, nút Đăng cùng một nguồn với lệnh đăng của BE
   const readiness = useProductReadiness(isNew ? null : productId, canShop);
-  const listingsQuery = useProductListingRows(productId, canShop, (rows) => {
-    const now = Date.now();
-    const delay = listingPollDelay(rows, pollFrom.current ?? now, now);
-    if (delay === false) {
-      if (pollFrom.current !== null && rows.some((r) => r.listing?.status === 'pushing')) setPollTimedOut(true);
-      else {
-        pollFrom.current = null;
-        setPollTimedOut(false);
-      }
-      return false;
-    }
-    pollFrom.current ??= now;
-    return delay;
-  });
   // Nút sửa của toast đi qua `openFix` (khai báo dưới) để mở tại chỗ; ref vì toast giữ hàm cũ
   const openFixRef = useRef<(to: string) => boolean>(() => false);
   usePushOutcomeToasts(listingsQuery.data, { companyId, canFix: canManage, onFix: (to) => openFixRef.current(to) });
@@ -223,6 +219,16 @@ export function ProductFormPage() {
   const platforms = activePlatforms(shopsQuery.data?.items ?? []);
   const listingRows = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
   const listed = useMemo(() => listingsByVariant(listingRows), [listingRows]);
+  // `reorderVersion` của từng biến thể chỉ có ở bảng sửa hàng loạt; tra theo từng SKU của sản phẩm. Ô Ngưỡng tồn gửi
+  // version này (không đọc lại ngay trước khi lưu) để BE phát hiện người khác vừa sửa
+  const reorderQuery = useProductBulkRows(product?.id, product?.variants ?? [], {
+    enabled: canManage && !archived && can(PERMISSIONS.reorderManage),
+  });
+  const reorderVersions = useMemo(
+    () => (reorderQuery.data ? new Map(reorderQuery.data.items.map((r) => [r.variantId, r.reorderVersion])) : null),
+    [reorderQuery.data],
+  );
+  const bulkCache = useBulkEditCache();
   const levels = useMemo(() => new Map((stockQuery.data?.items ?? []).map((l) => [l.variantId, l])), [stockQuery.data]);
   const [skuVariantId, setSkuVariantId] = useState<string | null>(null);
   const [skuTab, setSkuTab] = useState<'stock' | 'shops'>('stock');
@@ -264,33 +270,24 @@ export function ProductFormPage() {
   const [specDrafts, setSpecDrafts] = useState<SpecDrafts>({});
   const [specInitial, setSpecInitial] = useState<SpecDrafts>({});
   const [specErrors, setSpecErrors] = useState<Record<string, string>>({});
-  // `?spec=` mở luôn hộp Thông tin SKU (FE#326: nút Sửa cân nặng ở lỗi đẩy của trang gian hàng)
-  // Cùng điều kiện với nút bút chì: có quyền, sản phẩm và biến thể chưa lưu trữ. Đóng hộp thì xoá `spec` khỏi URL để F5/Back
-  // không mở lại
+  // `?spec=` (FE#326: nút Sửa cân nặng ở lỗi đẩy của trang gian hàng) và nút "Cần xử lý" chọn ô còn thiếu của SKU trong
+  // bảng biến thể (FE#475 thay hộp Thông tin SKU). Chọn xong thì xoá `spec` khỏi URL để F5/Back không chọn lại
   const [searchParams, setSearchParams] = useSearchParams();
-  const [specVariantId, setSpecVariantId] = useState<string | null>(() => searchParams.get('spec'));
-  // `?spec=` đổi khi trang đang mở (link từ chỗ khác trỏ về chính trang này): mở hộp theo (review PR #480)
+  const [skuFocus, setSkuFocus] = useState<{ variantId: string; field?: BulkField } | null>(() => {
+    const spec = searchParams.get('spec');
+    const field = searchParams.get('field');
+    return spec ? { variantId: spec, field: isBulkField(field) ? field : undefined } : null;
+  });
+  const variantGrid = useRef<EditableGridApi>(null);
+  const [gridBusy, setGridBusy] = useState(false);
+  const saveVariantCell = useSaveVariantCell();
+  const saveBulkCells = useSaveBulkCells();
+  // `?spec=` đổi khi trang đang mở (link từ chỗ khác trỏ về chính trang này): chọn ô theo (review PR #480)
   const specParam = searchParams.get('spec');
+  const fieldParam = searchParams.get('field');
   useEffect(() => {
-    if (specParam) setSpecVariantId(specParam);
-  }, [specParam]);
-  const specVariant =
-    canManage && !archived
-      ? (product?.variants.find((v) => v.id === specVariantId && v.businessStatus !== 'archived') ?? null)
-      : null;
-  const closeSpec = () => {
-    setSpecVariantId(null);
-    if (searchParams.has('spec')) {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete('spec');
-          return next;
-        },
-        { replace: true },
-      );
-    }
-  };
+    if (specParam) setSkuFocus({ variantId: specParam, field: isBulkField(fieldParam) ? fieldParam : undefined });
+  }, [specParam, fieldParam]);
 
   const form = useForm<ProductForm>({
     resolver: zodResolver(productSchema),
@@ -651,22 +648,57 @@ export function ProductFormPage() {
           (sizeChart?.fileId ?? null) !== (product.sizeChart?.fileId ?? null)
         : false));
   const dirtyTabs = [...(internalDirty ? ['commerio'] : []), ...tabPlatforms.filter((p) => platformDirty[p])];
+  // Bảng SKU đang lưu ô vừa sửa: không hỏi, giữ lại tới khi lưu xong rồi tự chuyển trang (như Sửa hàng loạt)
   const leave = useLeaveGuard(dirtyTabs.length > 0, {
     message: `Còn thay đổi chưa lưu ở tab ${dirtyTabs.map(tabName).join(', ')}. Rời trang thì các thay đổi này bị bỏ.`,
+    busy: gridBusy,
   });
-  const [pendingTab, setPendingTab] = useState<{ tab: string; focus?: string } | null>(null);
+  // Đi tới SKU còn thiếu (`?spec=`, nút "Cần xử lý"): sang tab Nội bộ, mở ô thiếu đầu tiên trong bảng biến thể
+  useEffect(() => {
+    if (!skuFocus || !product) return;
+    if (tab !== 'commerio') {
+      // Tab đang mở còn sửa dở thì hỏi "Chuyển tab khi chưa lưu?"; đồng ý thì chọn ô sau khi chuyển (review PR #480)
+      if (dirtyTabs.includes(tab)) {
+        setPendingTab({ tab: 'commerio', sku: skuFocus });
+        setSkuFocus(null);
+      } else setTab('commerio');
+      return;
+    }
+    const v = product.variants.find((x) => x.id === skuFocus.variantId);
+    if (v) variantGrid.current?.focusCell(v.id, skuFocus.field ?? firstMissingField(v), { edit: true });
+    setSkuFocus(null);
+    if (searchParams.has('spec')) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('spec');
+          next.delete('field');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+    // Chỉ chạy khi có yêu cầu mới hoặc sản phẩm, tab vừa sẵn sàng
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skuFocus, product, tab]);
+  // `sku`: ô của SKU cần chọn sau khi sang tab Nội bộ (nút sửa cân nặng, giá, kích thước của lỗi đẩy)
+  const [pendingTab, setPendingTab] = useState<{ tab: string; focus?: string; sku?: { variantId: string; field?: BulkField } } | null>(
+    null,
+  );
   const requestTab = (next: string, focus?: string) => {
     if (next !== tab && dirtyTabs.includes(tab)) setPendingTab({ tab: next, focus });
     else setTab(next, focus);
   };
-  // Nút sửa trỏ vào chính trang này (lỗi đẩy ở tab sàn, toast): mở hộp Thông tin SKU hay chuyển tab tại chỗ, qua hộp hỏi
+  // Nút sửa trỏ vào chính trang này (lỗi đẩy ở tab sàn, toast): chọn ô của SKU trong bảng biến thể hay chuyển tab tại chỗ, qua hộp hỏi
   // khi tab đang mở còn sửa dở. Trả false để nút đi theo link như thường (trỏ trang khác)
   const openFix = (to: string): boolean => {
     if (!product) return false;
     const t = productFixTarget(to, ROUTES.company.catalogProduct(companyId, product.id));
     if (!t) return false;
-    if (t.spec) setSpecVariantId(t.spec);
-    else requestTab(t.tab, t.focus);
+    if (t.spec) {
+      // Ô của SKU trong bảng biến thể ở tab Nội bộ; effect `skuFocus` chuyển tab (qua hộp hỏi khi còn sửa dở)
+      setSkuFocus({ variantId: t.spec, field: isBulkField(t.field ?? null) ? (t.field as BulkField) : undefined });
+    } else requestTab(t.tab, t.focus);
     return true;
   };
   useEffect(() => {
@@ -744,7 +776,7 @@ export function ProductFormPage() {
   // Hộp "Cần xử lý" đầu trang (chốt v2 câu 7): mỗi lỗi chặn một nút tới đúng chỗ sửa; vẫn báo tại chỗ
   const attention = product && !isNew ? attentionItems({ missing, variants: product.variants, rows: listingRows, platformName: platformLabel }) : [];
   const onAttention = (a: AttentionAction) => {
-    if (a.kind === 'sku') setSpecVariantId(a.variantId);
+    if (a.kind === 'sku') setSkuFocus({ variantId: a.variantId, field: a.field });
     else if (a.kind === 'fee') navigate(ROUTES.company.financeConfigs(companyId));
     else if (a.kind === 'tab') setTab(a.platform);
     else {
@@ -767,6 +799,215 @@ export function ProductFormPage() {
     }
   };
   const title = isNew ? 'Thêm sản phẩm' : readOnly ? (product?.name ?? '') : 'Sửa sản phẩm';
+
+  // ---------- Bảng biến thể sửa từng ô (FE#475) ----------
+  const canReorder = can(PERMISSIONS.reorderManage);
+  const conflict: SaveResult<number> = {
+    ok: false,
+    conflict: true,
+    error: 'Người khác vừa sửa SKU này. Bấm Tải lại dòng rồi lưu lại.',
+  };
+  /**
+   * Ô thường lưu qua PATCH §17.2; ngưỡng tồn qua sửa hàng loạt một dòng vì cần `reorderVersion` (Documents/21 §17.5).
+   * Version lấy từ dữ liệu đang hiện hoặc lượt trước cùng dòng, không đọc lại trước khi gửi
+   */
+  const saveSkuCell = async (v: ProductVariant, columnId: string, value: unknown, ver: SkuVersions): Promise<SaveResult<SkuVersions>> => {
+    if (!product) return { ok: false, error: 'Chưa tải xong sản phẩm' };
+    const field = columnId as BulkField;
+    try {
+      if (field === 'minQty') {
+        if (ver.reorderVersion === undefined) return { ok: false, error: 'Chưa đọc được ngưỡng tồn hiện tại, thử lại sau giây lát' };
+        const result = await saveBulkCells.mutateAsync({
+          productId: product.id,
+          rows: [{ variantId: v.id, version: ver.version, minQty: value as number | null, reorderVersion: ver.reorderVersion }],
+        });
+        const failed = result.failed[0];
+        if (failed) {
+          return failed.code === 'version_conflict'
+            ? { ...conflict, error: failed.errors?.minQty ? `${failed.errors.minQty}. Bấm Tải lại dòng rồi lưu lại.` : conflict.error }
+            : { ok: false, error: failed.errors?.minQty ?? failed.message };
+        }
+        // BE không trả `reorderVersion` mới: đọc lại dòng sau khi lưu (không làm mất phát hiện xung đột)
+        const version = result.saved[0]?.version ?? ver.version + 1;
+        const fresh = await fetchBulkRow(v.id, v.sku).catch(() => null);
+        if (fresh) bulkCache.replace(fresh);
+        else void reorderQuery.refetch();
+        return { ok: true, version: { version: fresh?.version ?? version, reorderVersion: fresh ? fresh.reorderVersion : undefined } };
+      }
+      const detail = await saveVariantCell.mutateAsync({ productId: product.id, variantId: v.id, version: ver.version, [field]: value as number | null });
+      return { ok: true, version: { ...ver, version: detail.variants.find((x) => x.id === v.id)?.version ?? ver.version + 1 } };
+    } catch (e) {
+      if (problemCode(e) === 'version_conflict') return conflict;
+      // §17.4: SKU còn trên sàn thì không xoá được ô sàn bắt buộc; câu lỗi của đúng ô này
+      if (problemCode(e) === 'listing_field_required') return { ok: false, error: getProblem(e)?.errors?.[field] ?? problemMessage(e) };
+      return { ok: false, error: problemMessage(e) };
+    }
+  };
+  // Ô trống chép được từ SKU cùng sản phẩm (KB3 3.9): gợi ý, bấm mới lưu
+  const siblingFill =
+    canManage && !archived && product
+      ? product.variants.flatMap((v) => {
+          if (v.businessStatus === 'archived') return [];
+          const pick = siblingToCopy(v, product.variants);
+          return pick ? pick.fields.map((f) => ({ variantId: v.id, field: f, raw: String(pick.from[f]) })) : [];
+        })
+      : [];
+  const fillFromSiblings = () => {
+    for (const c of siblingFill) variantGrid.current?.saveCell(c.variantId, c.field, c.raw);
+  };
+  const variantField = (field: BulkField, header: string, testId: string, show: (n: number) => string): GridColumn<ProductVariant> => ({
+    id: field,
+    header,
+    numeric: true,
+    testId,
+    className: field === 'standardPrice' || field === 'targetNetPrice' ? 'min-w-32' : 'min-w-20',
+    render: (v) => (v[field] === null || v[field] === undefined ? <span className="text-muted-foreground">—</span> : show(v[field]!)),
+    edit: {
+      raw: (v) => (v[field] === null || v[field] === undefined ? '' : String(v[field])),
+      parse: (raw) => parseVariantField(field, raw),
+      readOnly: (v) =>
+        v.businessStatus === 'archived' ? 'SKU đã lưu trữ' : field === 'minQty' && !canReorder ? 'Cần quyền đặt ngưỡng tồn' : false,
+    },
+  });
+  const qty = (n: number) => formatQty(n);
+  const variantColumns: GridColumn<ProductVariant>[] = [
+    {
+      id: 'sku',
+      header: 'SKU',
+      sticky: true,
+      className: 'whitespace-nowrap',
+      render: (v) => (
+        <SkuCode
+          code={v.sku}
+          hint={canStock || canShop ? 'Xem tồn kho và listing' : undefined}
+          onClick={canStock || canShop ? () => openSku(v.id, canStock ? 'stock' : 'shops') : undefined}
+          className={cn(v.businessStatus === 'archived' && 'line-through')}
+        />
+      ),
+    },
+    {
+      id: 'attributes',
+      header: 'Thuộc tính biến thể',
+      className: 'min-w-36',
+      render: (v) => v.attributes.map((a) => `${a.attributeName}: ${a.value}`).join(', ') || 'Mặc định',
+    },
+    {
+      id: 'status',
+      header: 'Trạng thái',
+      testId: 'variant-status',
+      className: 'min-w-40',
+      render: (v) => (
+        <>
+          {v.presence === undefined && v.businessStatus === 'selling' ? (
+            NOT_COMPUTED
+          ) : (
+            <span className="flex flex-wrap items-center gap-1">
+              <StatusBadge status={mainLabel(v.businessStatus, v.presence)} statuses={MAIN_LABEL_META} />
+              {/* Nhãn phụ: đang bán nhưng có listing lỗi ở gian hàng khác */}
+              {v.businessStatus === 'selling' && v.presence === 'live' && v.hasListingError && (
+                <Badge variant="destructive" data-flag="error">
+                  Listing lỗi
+                </Badge>
+              )}
+            </span>
+          )}
+          {v.businessStatus !== 'archived' && (
+            <div className="mt-1" data-testid="variant-shops">
+              {canShop && listed.get(v.id)?.length ? (
+                <ShopSummary rows={listed.get(v.id)!} onOpen={() => openSku(v.id, 'shops')} />
+              ) : v.presence !== undefined && v.listingCount ? (
+                <span className="text-[12.5px] text-muted-foreground">
+                  {PRESENCE_LABELS[v.presence]} · {v.listingCount} gian hàng
+                </span>
+              ) : null}
+            </div>
+          )}
+        </>
+      ),
+    },
+    ...(canStock
+      ? [
+          {
+            id: 'stock',
+            header: 'Có thể bán',
+            numeric: true,
+            testId: 'variant-stock',
+            render: (v: ProductVariant) => {
+              const l = levels.get(v.id);
+              if (stockQuery.isLoading) return <Skeleton className="ms-auto h-4 w-20" />;
+              if (!l) return <span className="text-muted-foreground">—</span>;
+              return (
+                <span className="grid justify-items-end">
+                  <span className="inline-flex items-center gap-1.5">
+                    {l.state !== 'in_stock' && <Badge variant={STOCK_STATE[l.state].variant}>{STOCK_STATE[l.state].label}</Badge>}
+                    <span className="font-semibold">{formatQty(l.available)}</span>
+                  </span>
+                  <span className="text-[12.5px] text-muted-foreground">
+                    Thực {formatQty(l.onHand)} · Giữ {formatQty(l.reserved)}
+                  </span>
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
+    ...(canStock && canCost
+      ? [
+          {
+            id: 'cost',
+            header: 'Giá vốn BQ',
+            numeric: true,
+            testId: 'variant-cost',
+            render: (v: ProductVariant) => (levels.get(v.id)?.avgCost == null ? '—' : formatCurrency(levels.get(v.id)!.avgCost!)),
+          },
+        ]
+      : []),
+    variantField('standardPrice', 'Giá chuẩn', 'variant-price', priceText),
+    variantField('targetNetPrice', 'Giá muốn thực nhận', 'variant-target-price', priceText),
+    variantField('minQty', 'Ngưỡng tồn', 'variant-min-qty', qty),
+    variantField('weightG', 'Khối lượng (g)', 'variant-weight', qty),
+    variantField('lengthMm', 'Dài (mm)', 'variant-length', qty),
+    variantField('widthMm', 'Rộng (mm)', 'variant-width', qty),
+    variantField('heightMm', 'Cao (mm)', 'variant-height', qty),
+    {
+      id: 'readiness',
+      header: 'Thông tin',
+      testId: 'variant-readiness',
+      className: 'min-w-32',
+      render: (v) => (
+        <>
+          {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
+            NOT_COMPUTED
+          ) : v.readiness === 'ready' ? (
+            <span className="text-muted-foreground">Sẵn sàng</span>
+          ) : (
+            <Badge variant="warning" title={`Thiếu: ${missingText(v)}`}>
+              Chờ hoàn thiện
+            </Badge>
+          )}
+          {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
+            <div className="mt-0.5 text-xs whitespace-normal text-muted-foreground">Thiếu {missingText(v)}</div>
+          )}
+        </>
+      ),
+    },
+    ...(canManage && product
+      ? [
+          {
+            id: 'actions',
+            header: 'Thao tác',
+            className: 'w-16 text-right',
+            render: (v: ProductVariant) => (
+              <BusinessActionMenu
+                label={`Đổi trạng thái ${v.sku}`}
+                choices={variantChoices(v)}
+                onSelect={(action) => business.request({ productId: product.id, name: v.sku, action, variantIds: [v.id] })}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <Form {...form}>
@@ -806,7 +1047,14 @@ export function ProductFormPage() {
             product={product}
             shops={canShop ? shops : null}
             shopsLoading={shopsQuery.isLoading}
-            onOpenSku={canManage && !archived ? setSpecVariantId : null}
+            onOpenSku={
+              canManage && !archived
+                ? (id) => {
+                    closeCreated();
+                    setSkuFocus({ variantId: id });
+                  }
+                : null
+            }
             onOpenTab={(p) => closeCreated(p)}
             publishHref={!blocker ? ROUTES.company.productPublish(companyId, product.id) : null}
             onPublish={publishFromCreated}
@@ -1111,146 +1359,39 @@ export function ProductFormPage() {
                 />
               ) : (
                 <div className="grid gap-2">
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table data-testid="variants">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Thuộc tính biến thể</TableHead>
-                          <TableHead>Trạng thái</TableHead>
-                          {canStock && <TableHead className="text-right">Có thể bán</TableHead>}
-                          {canStock && canCost && <TableHead className="text-right">Giá vốn BQ</TableHead>}
-                          <TableHead className="text-right">Giá chuẩn</TableHead>
-                          <TableHead className="text-right">Giá muốn thực nhận</TableHead>
-                          <TableHead className="text-right">Ngưỡng tồn</TableHead>
-                          <TableHead>Thông tin</TableHead>
-                          {canManage && <TableHead className="w-24" />}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {product?.variants.map((v) => (
-                          <TableRow
-                            key={v.id}
-                            data-row-id={v.id}
-                            className={cn(v.businessStatus === 'archived' && 'text-muted-foreground')}
-                          >
-                            <TableCell className="whitespace-nowrap">
-                              <SkuCode
-                                code={v.sku}
-                                hint={canStock || canShop ? 'Xem tồn kho và listing' : undefined}
-                                onClick={canStock || canShop ? () => openSku(v.id, canStock ? 'stock' : 'shops') : undefined}
-                                className={cn(v.businessStatus === 'archived' && 'line-through')}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {v.attributes.map((a) => `${a.attributeName}: ${a.value}`).join(', ') ||
-                                'Mặc định'}
-                            </TableCell>
-                            <TableCell data-testid="variant-status">
-                              {v.presence === undefined && v.businessStatus === 'selling' ? (
-                                NOT_COMPUTED
-                              ) : (
-                                <span className="flex flex-wrap items-center gap-1">
-                                  <StatusBadge status={mainLabel(v.businessStatus, v.presence)} statuses={MAIN_LABEL_META} />
-                                  {/* Nhãn phụ: đang bán nhưng có listing lỗi ở gian hàng khác */}
-                                  {v.businessStatus === 'selling' && v.presence === 'live' && v.hasListingError && (
-                                    <Badge variant="destructive" data-flag="error">
-                                      Listing lỗi
-                                    </Badge>
-                                  )}
-                                </span>
-                              )}
-                              {v.businessStatus !== 'archived' && (
-                                <div className="mt-1" data-testid="variant-shops">
-                                  {canShop && listed.get(v.id)?.length ? (
-                                    <ShopSummary rows={listed.get(v.id)!} onOpen={() => openSku(v.id, 'shops')} />
-                                  ) : v.presence !== undefined && v.listingCount ? (
-                                    <span className="text-[12.5px] text-muted-foreground">
-                                      {PRESENCE_LABELS[v.presence]} · {v.listingCount} gian hàng
-                                    </span>
-                                  ) : null}
-                                </div>
-                              )}
-                            </TableCell>
-                            {canStock && (
-                              <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-stock">
-                                {(() => {
-                                  const l = levels.get(v.id);
-                                  if (stockQuery.isLoading) return <Skeleton className="ms-auto h-4 w-20" />;
-                                  if (!l) return <span className="text-muted-foreground">—</span>;
-                                  return (
-                                    <>
-                                      <span className="inline-flex items-center gap-1.5">
-                                        {l.state !== 'in_stock' && (
-                                          <Badge variant={STOCK_STATE[l.state].variant}>{STOCK_STATE[l.state].label}</Badge>
-                                        )}
-                                        <span className="font-semibold">{formatQty(l.available)}</span>
-                                      </span>
-                                      <span className="block text-[12.5px] text-muted-foreground">
-                                        Thực {formatQty(l.onHand)} · Giữ {formatQty(l.reserved)}
-                                      </span>
-                                    </>
-                                  );
-                                })()}
-                              </TableCell>
-                            )}
-                            {canStock && canCost && (
-                              <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-cost">
-                                {levels.get(v.id)?.avgCost == null ? '—' : formatCurrency(levels.get(v.id)!.avgCost!)}
-                              </TableCell>
-                            )}
-                            <TableCell className="text-right whitespace-nowrap tabular-nums">
-                              <span data-testid="variant-price">{priceText(v.standardPrice)}</span>
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-target-price">
-                              {priceText(v.targetNetPrice)}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap tabular-nums" data-testid="variant-min-qty">
-                              {v.minQty === null ? '—' : formatQty(v.minQty)}
-                            </TableCell>
-                            <TableCell data-testid="variant-readiness">
-                              {v.businessStatus === 'archived' ? null : v.readiness === undefined ? (
-                                NOT_COMPUTED
-                              ) : v.readiness === 'ready' ? (
-                                <span className="text-muted-foreground">Sẵn sàng</span>
-                              ) : (
-                                <Badge variant="warning" title={`Thiếu: ${missingText(v)}`}>
-                                  Chờ hoàn thiện
-                                </Badge>
-                              )}
-                              {v.readiness === 'incomplete' && v.businessStatus !== 'archived' && (
-                                <div className="mt-0.5 text-xs text-muted-foreground">Thiếu {missingText(v)}</div>
-                              )}
-                            </TableCell>
-                            {canManage && (
-                              <TableCell className="text-right whitespace-nowrap">
-                                {v.businessStatus !== 'archived' && !archived && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label={`Sửa thông tin ${v.sku}`}
-                                    title="Giá chuẩn, giá muốn thực nhận, cân nặng, kích thước gói, ngưỡng tồn"
-                                    onClick={() => setSpecVariantId(v.id)}
-                                  >
-                                    <Pencil />
-                                  </Button>
-                                )}
-                                <BusinessActionMenu
-                                  label={`Đổi trạng thái ${v.sku}`}
-                                  choices={variantChoices(v)}
-                                  onSelect={(action) =>
-                                    business.request({ productId: product.id, name: v.sku, action, variantIds: [v.id] })
-                                  }
-                                />
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="overflow-hidden rounded-md border" data-testid="variants">
+                    <EditableGrid
+                      gridId="catalog-product-variants"
+                      aria-label="Biến thể SKU"
+                      apiRef={variantGrid}
+                      columns={variantColumns}
+                      rows={product?.variants ?? []}
+                      getRowId={(v) => v.id}
+                      rowLabel={(v) => v.sku}
+                      getVersion={(v): SkuVersions => ({
+                        version: v.version,
+                        // Chưa đọc được dòng của SKU này thì để trống: ô Ngưỡng tồn báo lỗi thay vì gửi null
+                        reorderVersion: reorderVersions?.has(v.id) ? reorderVersions.get(v.id) : undefined,
+                      })}
+                      save={saveSkuCell}
+                      reloadRow={async () => {
+                        await Promise.all([productQuery.refetch(), reorderQuery.isEnabled ? reorderQuery.refetch() : null]);
+                      }}
+                      canEdit={canManage && !archived}
+                      onBusyChange={setGridBusy}
+                      rowClassName={(v) => (v.businessStatus === 'archived' ? 'text-muted-foreground' : undefined)}
+                      actions={
+                        siblingFill.length > 0 && (
+                          <Button type="button" variant="outline" size="sm" disabled={gridBusy} onClick={fillFromSiblings}>
+                            <Copy />
+                            Điền ô trống theo SKU cùng sản phẩm ({siblingFill.length})
+                          </Button>
+                        )
+                      }
+                    />
                   </div>
                   {variantsError && <AlertMessage severity="error">{variantsError}</AlertMessage>}
+                  {leave.waiting && <AlertMessage severity="info">Đang lưu nốt các ô vừa sửa, xong sẽ tự chuyển trang.</AlertMessage>}
                 </div>
               )}
             </CardContent>
@@ -1328,6 +1469,7 @@ export function ProductFormPage() {
           cancelLabel="Ở lại"
           onConfirm={() => {
             if (pendingTab) setTab(pendingTab.tab, pendingTab.focus);
+            if (pendingTab?.sku) setSkuFocus(pendingTab.sku);
             setPendingTab(null);
           }}
           onClose={() => setPendingTab(null)}
@@ -1365,18 +1507,6 @@ export function ProductFormPage() {
           onClose={() => setAddingField(false)}
           onDone={(message) => {
             setAddingField(false);
-            toast.success(message);
-          }}
-        />
-      )}
-      {product && (
-        <VariantSpecDialog
-          productId={product.id}
-          variant={specVariant}
-          siblings={product.variants}
-          onClose={closeSpec}
-          onDone={(message) => {
-            closeSpec();
             toast.success(message);
           }}
         />

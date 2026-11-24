@@ -2,8 +2,10 @@ import { createContext, useContext } from 'react';
 
 /** Chỗ sửa trong cùng trang sản phẩm, tách từ `BlockerFix.to` */
 export interface ProductFixTarget {
-  /** `?spec=`: mở hộp Thông tin SKU của biến thể */
+  /** `?spec=`: chọn SKU trong bảng biến thể (tab Nội bộ) */
   spec?: string;
+  /** `?field=`: ô của SKU cần mở, vd `weightG` */
+  field?: string;
   /** `?tab=`: tab cần mở; không có là tab Nội bộ */
   tab: string;
   /** `?focus=`: ô cần cuộn tới */
@@ -20,6 +22,7 @@ export function productFixTarget(to: string, productPath: string): ProductFixTar
   const q = new URLSearchParams(query);
   return {
     ...(q.get('spec') ? { spec: q.get('spec')! } : {}),
+    ...(q.get('spec') && q.get('field') ? { field: q.get('field')! } : {}),
     tab: q.get('tab') ?? 'commerio',
     ...(q.get('focus') ? { focus: q.get('focus')! } : {}),
   };

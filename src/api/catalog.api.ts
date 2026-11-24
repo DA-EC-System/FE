@@ -3,7 +3,8 @@
  * ảnh (UC-CP-02). Hợp đồng theo commerio-backend#13, #14; BE lấy công ty từ token.
  */
 
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMutation } from './useMutation';
 import { apiClient } from './client';
 import { shopKeys } from './shops.api';
@@ -515,6 +516,130 @@ export function useBulkSaveVariants() {
       qc.invalidateQueries({ queryKey: ['company', companyId, 'inventory'] });
     },
   });
+}
+
+// ---------- Bảng sửa từng ô (FE#475) ----------
+
+/**
+ * Sau khi lưu một ô: đánh dấu cũ dữ liệu catalog khác (danh sách sản phẩm, đếm Chờ hoàn thiện) nhưng không đọc lại bảng
+ * đang sửa, để dòng không nhảy, không biến mất khỏi bộ lọc "Chỉ SKU thiếu thông tin" khi đang gõ. Bảng tự ghi số mới vào
+ * cache của dòng
+ */
+function invalidateAroundGrid(qc: QueryClient, companyId: string, productId?: string) {
+  const detail = productId ? JSON.stringify(catalogKeys.product(companyId, productId)) : null;
+  void qc.invalidateQueries({
+    queryKey: catalogKeys.all(companyId),
+    predicate: (q) => !q.queryKey.includes('bulk-edit') && JSON.stringify(q.queryKey) !== detail,
+  });
+}
+
+/** Lưu một ô của bảng biến thể (PATCH §17.2); ghi ProductDetail trả về vào cache chi tiết */
+export function useSaveVariantCell() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ productId, variantId, ...input }: VariantUpdateInput & { productId: string; variantId: string }) => {
+      const { data } = await apiClient.patch<ProductDetail>(`/catalog/products/${productId}/variants/${variantId}`, input);
+      return withVariantDefaults(data);
+    },
+    onSuccess: (p) => {
+      qc.setQueryData(catalogKeys.product(companyId, p.id), p);
+      invalidateAroundGrid(qc, companyId, p.id);
+    },
+  });
+}
+
+/**
+ * Lưu ô qua PATCH /catalog/variants/bulk mà không đọc lại bảng đang sửa. `productId`: trang sản phẩm tự ghi cache chi
+ * tiết, không đọc lại
+ */
+export function useSaveBulkCells() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMutation({
+    mutationFn: async ({ rows }: { rows: BulkSaveRow[]; productId?: string }) => {
+      const { data } = await apiClient.patch<BulkSaveResult>('/catalog/variants/bulk', { rows });
+      return data;
+    },
+    onSuccess: (data, { rows, productId }) => {
+      if (!productId) return;
+      qc.setQueryData<ProductDetail>(catalogKeys.product(companyId, productId), (old) =>
+        old
+          ? {
+              ...old,
+              variants: old.variants.map((v) => {
+                const saved = data.saved.find((x) => x.variantId === v.id);
+                const row = rows.find((r) => r.variantId === v.id);
+                if (!saved || !row) return v;
+                const { variantId: _id, version: _v, reorderVersion: _rv, ...fields } = row;
+                return { ...v, ...fields, version: saved.version };
+              }),
+            }
+          : old,
+      );
+    },
+    onSettled: (_data, _error, { rows, productId }) => {
+      invalidateAroundGrid(qc, companyId, productId);
+      if (rows.some((r) => 'minQty' in r)) void qc.invalidateQueries({ queryKey: ['company', companyId, 'inventory'] });
+    },
+  });
+}
+
+/**
+ * Dòng mới nhất của một SKU trong bảng sửa hàng loạt: tải lại dòng xung đột, đọc `reorderVersion` sau khi lưu ngưỡng tồn.
+ * Tìm theo SKU nên có thể trúng SKU khác cùng tiền tố: đọc tiếp các trang tới khi thấy đúng `variantId`
+ */
+export async function fetchBulkRow(variantId: string, sku: string): Promise<BulkEditRow | null> {
+  const pageSize = 200;
+  for (let page = 1; ; page++) {
+    const { data } = await apiClient.get<PageResult<BulkEditRow>>('/catalog/variants/bulk-edit', {
+      params: { page, pageSize, search: sku },
+    });
+    const found = data.items.find((r) => r.variantId === variantId);
+    if (found) return found;
+    if (page * pageSize >= data.total || data.items.length === 0) return null;
+  }
+}
+
+/**
+ * Dòng bảng sửa hàng loạt của đúng các SKU một sản phẩm (FE#475: `reorderVersion` cho ô Ngưỡng tồn ở trang sản phẩm).
+ * Tra từng SKU theo `variantId`, không tìm theo tên sản phẩm: tên trùng thì SKU có thể rơi khỏi trang đầu. Khoá nằm dưới
+ * `bulk-edit` nên `useBulkEditCache().patch` cập nhật luôn
+ */
+export function useProductBulkRows(
+  productId: string | undefined,
+  variants: { id: string; sku: string }[],
+  options: { enabled?: boolean } = {},
+) {
+  const companyId = useCompanyId();
+  const ids = variants.map((v) => v.id).join(',');
+  return useQuery({
+    queryKey: [...catalogKeys.all(companyId), 'bulk-edit', 'product', productId, ids],
+    enabled: Boolean(companyId) && Boolean(productId) && variants.length > 0 && options.enabled !== false,
+    queryFn: async (): Promise<PageResult<BulkEditRow>> => {
+      const rows = await Promise.all(variants.map((v) => fetchBulkRow(v.id, v.sku)));
+      const items = rows.filter((r): r is BulkEditRow => r !== null);
+      return { items, total: items.length, page: 1, pageSize: items.length };
+    },
+  });
+}
+
+/**
+ * Sửa một dòng trong mọi trang bảng sửa hàng loạt đang có trong cache (mọi trang, bộ lọc, cả bảng ngưỡng tồn của trang
+ * sản phẩm): lượt lưu xong sau khi người dùng đã đổi trang vẫn cập nhật đúng trang cũ
+ */
+export function useBulkEditCache() {
+  const qc = useQueryClient();
+  const companyId = useCompanyId();
+  return useMemo(() => {
+    const patch = (variantId: string, fn: (row: BulkEditRow) => BulkEditRow) =>
+      qc.setQueriesData<PageResult<BulkEditRow>>({ queryKey: [...catalogKeys.all(companyId), 'bulk-edit'] }, (old) =>
+        old && old.items.some((r) => r.variantId === variantId)
+          ? { ...old, items: old.items.map((r) => (r.variantId === variantId ? fn(r) : r)) }
+          : old,
+      );
+    return { patch, replace: (row: BulkEditRow) => patch(row.variantId, () => row) };
+  }, [qc, companyId]);
 }
 
 // ---------- Thư viện thông số và mẫu nhóm hàng (Documents/21 §5.5) ----------

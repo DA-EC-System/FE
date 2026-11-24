@@ -74,9 +74,9 @@ export function syncErrorFix(
   // Chỗ sửa theo `target` (commerio-backend#571, FE#462); phí sàn thì để lối của `fix`
   const byTarget = blockerFix(e.target, { companyId, productId: e.productId, platform, variantId: e.variantId });
   if (byTarget && byTarget.perm !== 'finance') return { label: byTarget.label, href: byTarget.to };
-  // Có biến thể thì `?spec=` mở luôn hộp Thông tin SKU của biến thể đó (routes.ts catalogProduct)
+  // Có biến thể thì `?spec=` chọn luôn SKU đó trong bảng biến thể (routes.ts catalogProduct)
   return e.variantId
-    ? { label: 'Mở Thông tin SKU', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId) }
+    ? { label: 'Mở SKU trong bảng biến thể', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId) }
     : { label: 'Mở sản phẩm', href: ROUTES.company.catalogProduct(companyId, e.productId) };
 }
 
@@ -84,7 +84,10 @@ function fixOf(e: Pick<SyncRunError, 'fix' | 'productId' | 'variantId'>, company
   switch (e.fix) {
     case 'variant_price':
       return e.productId && e.variantId
-        ? { label: 'Mở Thông tin SKU, ô Giá muốn thực nhận', href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId) }
+        ? {
+            label: 'Sửa ô Giá muốn thực nhận của SKU',
+            href: ROUTES.company.catalogProduct(companyId, e.productId, e.variantId, 'targetNetPrice'),
+          }
         : null;
     case 'stocktake':
       return { label: 'Tạo phiếu kiểm kê', href: ROUTES.company.inventoryDocNew(companyId, 'stocktake') };
