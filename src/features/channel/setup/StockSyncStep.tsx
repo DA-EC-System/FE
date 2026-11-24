@@ -165,11 +165,11 @@ function StockPreview({ shopId, firstShop, hold }: { shopId: string; firstShop: 
       <h2 id="stock-preview-title" className="text-[15px] font-semibold">
         {keep ? 'Tồn trên sàn sẽ giữ tới khi kiểm kho xong' : 'Tồn sẽ đồng bộ lên sàn'}
       </h2>
-      {/* Thành chọn 24(a): giữ dòng tổng của design v2.html s5; ẩn khi BE chưa trả hoặc trả null */}
-      {totals?.platformStockSum != null && totals.availableSum != null && (
+      {/* Thành chọn 24(a): giữ dòng tổng của design v2.html s5; chỉ ẩn khi tổng tồn sàn null; `availableSum` null (chưa SKU nào có tồn ở Commerio) hiện 0, đúng design s5 */}
+      {totals?.platformStockSum != null && (
         <p className="text-sm" data-testid="setup-stock-sums">
           Tổng tồn trên sàn <b className="tabular-nums">{n(totals.platformStockSum)}</b>, có thể bán ở Commerio{' '}
-          <b className="tabular-nums">{n(totals.availableSum)}</b>.
+          <b className="tabular-nums">{n(totals.availableSum ?? 0)}</b>.
         </p>
       )}
       {totals && (
