@@ -3,7 +3,7 @@ import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Save } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
-import { EditableGrid, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
+import { EditableGrid, type EditableGridApi, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
@@ -120,6 +120,10 @@ export function ProductDraftPage() {
 
   const [form, setForm] = useState<DraftForm | null>(null);
   const [dirty, setDirty] = useState(false);
+  /** Bảng Biến thể còn ô chữ sai chưa vào bản soạn: tính là còn thay đổi, chặn Lưu bản soạn */
+  const [gridInvalid, setGridInvalid] = useState(false);
+  const gridRef = useRef<EditableGridApi>(null);
+  const unsaved = dirty || gridInvalid;
   const [uploading, setUploading] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<{ severity: 'error' | 'warning'; msg: string; reload?: boolean } | null>(null);
@@ -145,8 +149,8 @@ export function ProductDraftPage() {
   const anyEditable = canEdit && !closed && Boolean(draft?.variants.some((v) => v.variantId === null));
   const busy = saveMut.isPending || uploading > 0;
 
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname);
-  useEffect(() => beforeUnloadGuard(dirty), [dirty]);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => unsaved && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => beforeUnloadGuard(unsaved), [unsaved]);
 
   const templateViews = useMemo(() => templateQuery.data?.fields.map(viewFromTemplate) ?? [], [templateQuery.data]);
   const axes = draft ? axesOf(draft.variants) : [];
@@ -167,6 +171,13 @@ export function ProductDraftPage() {
 
   const save = async () => {
     setNotice(null);
+    // Chữ sai trên bảng chưa vào bản soạn: lưu lúc này là gửi số cũ mà không báo (review PR #481)
+    const bad = gridRef.current?.firstInvalid();
+    if (bad) {
+      setNotice({ severity: 'error', msg: 'Có ô số chưa đúng. Xem các ô báo đỏ.' });
+      gridRef.current?.focusCell(bad.rowId, bad.columnId, { edit: true });
+      return;
+    }
     const fieldErrors: Record<string, string> = {};
     const defaults = parseFacts(form.defaults, { withMinQty: canMinQty });
     for (const [k, m] of Object.entries(defaults.errors)) fieldErrors[`variantDefaults.${k}`] = m;
@@ -355,10 +366,10 @@ export function ProductDraftPage() {
         action={
           anyEditable ? (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={!dirty || busy} onClick={() => load(draft)}>
+              <Button variant="outline" disabled={!unsaved || busy} onClick={() => load(draft)}>
                 Huỷ
               </Button>
-              <Button disabled={!dirty || busy} onClick={() => void save()}>
+              <Button disabled={!unsaved || busy} onClick={() => void save()}>
                 <Save />
                 {saveMut.isPending ? 'Đang lưu…' : 'Lưu bản soạn'}
               </Button>
@@ -565,6 +576,8 @@ export function ProductDraftPage() {
             <div className="overflow-hidden rounded-md border" data-testid="draft-variants">
               <EditableGrid
                 key={formKey}
+                apiRef={gridRef}
+                onInvalidChange={setGridInvalid}
                 gridId="purchasing-product-draft-variants"
                 aria-label="Biến thể"
                 columns={variantColumns}

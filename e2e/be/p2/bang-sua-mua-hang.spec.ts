@@ -103,6 +103,23 @@ test('đề nghị nhập hàng: mặc định khoá; mở khoá sửa Số lư�
   const req = await doc<Req>(`/purchasing/requests/${requestId}`);
   expect(req.lines.find((l) => l.sku === sku)).toMatchObject({ quantity: 12, unitCost: 65000 });
 
+  // Ô còn chữ sai thì Lưu nháp bị chặn dù ô khác đã đổi đúng: không gửi số cũ (review PR #481)
+  await suaO(giaNhap, '70000');
+  await soLuong.dblclick();
+  await page.locator('[data-grid-editor]').fill('abc');
+  await page.getByRole('button', { name: 'Lưu nháp' }).click();
+  await expect(page.getByText(/^Còn ô chưa đúng/)).toBeVisible();
+  await expect(page.locator('[data-grid-editor]')).toHaveValue('abc');
+  await expect(page.locator('[data-grid-editor]')).toBeFocused();
+  expect((await doc<Req>(`/purchasing/requests/${requestId}`)).lines.find((l) => l.sku === sku)).toMatchObject({ quantity: 12, unitCost: 65000 });
+  await page.locator('[data-grid-editor]').fill('13');
+  await page.locator('[data-grid-editor]').press('Enter');
+  await page.getByRole('button', { name: 'Lưu nháp' }).click();
+  await expect(page.getByText(/^Đã lưu nháp /).last()).toBeVisible();
+  await expect
+    .poll(async () => (await doc<Req>(`/purchasing/requests/${requestId}`)).lines.find((l) => l.sku === sku))
+    .toMatchObject({ quantity: 13, unitCost: 70000 });
+
   await page.reload();
   await expect(khoa(page.getByTestId('request-lines'))).toHaveAttribute('aria-pressed', 'false');
 });
@@ -131,6 +148,16 @@ test('bản soạn hàng mới: khoá riêng với bảng đề nghị; sửa ô
   await expect(page.getByText('Cân nặng là số nguyên gam > 0')).toBeVisible();
   await page.locator('[data-grid-editor]').press('Escape');
   await suaO(o('Đỏ', 'weightG'), '250');
+
+  // Ô còn chữ sai thì Lưu bản soạn bị chặn dù ô khác đã đổi đúng; ô sai mở lại với chữ đã gõ (review PR #481)
+  await o('Xanh', 'weightG').dblclick();
+  await page.locator('[data-grid-editor]').fill('0');
+  await page.getByRole('button', { name: 'Lưu bản soạn' }).click();
+  await expect(page.getByText('Có ô số chưa đúng. Xem các ô báo đỏ.')).toBeVisible();
+  await expect(page.locator('[data-grid-editor]')).toHaveValue('0');
+  expect((await doc<{ variantDefaults: { targetNetPrice: number | null } }>(`/purchasing/product-drafts/${draftId}`)).variantDefaults.targetNetPrice).toBeNull();
+  await page.locator('[data-grid-editor]').fill('');
+  await page.locator('[data-grid-editor]').press('Enter');
 
   await page.getByRole('button', { name: 'Lưu bản soạn' }).click();
   await expect(page.getByText(`Đã lưu bản soạn ${TEN_CHA}`)).toBeVisible();

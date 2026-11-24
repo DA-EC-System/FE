@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowLeft, PackagePlus, Plus, Save, Trash2, Undo2, X } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
-import { EditableGrid, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
+import { EditableGrid, type EditableGridApi, type GridColumn, type SaveResult } from '@/components/common/EditableGrid';
 import { AlertMessage } from '@/components/common/AlertMessage';
 import { ActionButton } from '@/components/common/ActionButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -241,6 +241,9 @@ export function PurchaseRequestPage() {
   const [receiving, setReceiving] = useState(false);
   const loaded = useRef<string | null>(null);
   const skipBlock = useRef(false);
+  /** Bảng dòng còn ô chữ sai chưa vào form: tính là còn thay đổi, chặn Lưu nháp, Gửi duyệt */
+  const [gridInvalid, setGridInvalid] = useState(false);
+  const gridRef = useRef<EditableGridApi>(null);
 
   useEffect(() => {
     if (req && loaded.current !== req.id) {
@@ -293,9 +296,18 @@ export function PurchaseRequestPage() {
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      !skipBlock.current && editable && isDirty && currentLocation.pathname !== nextLocation.pathname,
+      !skipBlock.current && editable && (isDirty || gridInvalid) && currentLocation.pathname !== nextLocation.pathname,
   );
-  useEffect(() => beforeUnloadGuard(editable && isDirty), [editable, isDirty]);
+  useEffect(() => beforeUnloadGuard(editable && (isDirty || gridInvalid)), [editable, isDirty, gridInvalid]);
+
+  /** Chữ sai trên bảng chưa vào form thì lưu sẽ gửi số cũ mà không báo (review PR #481): báo, đưa tới ô sai */
+  const gridBlocks = () => {
+    const bad = gridRef.current?.firstInvalid();
+    if (!bad) return false;
+    toast.error(`Còn ô chưa đúng: ${bad.message}`);
+    gridRef.current?.focusCell(bad.rowId, bad.columnId, { edit: true });
+    return true;
+  };
 
   const taken = useMemo(() => new Set(fields.flatMap((f) => (f.variantId ? [f.variantId] : []))), [fields]);
 
@@ -399,10 +411,13 @@ export function PurchaseRequestPage() {
     }
   };
 
-  const onSave = handleSubmit(async (values) => {
+  const submitSave = handleSubmit(async (values) => {
     const saved = await save(values);
     if (saved) toast.success(`Đã lưu nháp ${saved.number}`);
   });
+  const onSave = () => {
+    if (!gridBlocks()) void submitSave();
+  };
 
   const runAction = async (
     target: PurchaseRequest,
@@ -426,6 +441,7 @@ export function PurchaseRequestPage() {
     setConfirm(null);
     // Gửi duyệt từ nháp: lưu thay đổi trước rồi chuyển bằng version mới
     if ((action === 'submit' || action === 'resubmit') && (isNew || editable)) {
+      if (gridBlocks()) return;
       void handleSubmit(async (values) => {
         const saved = await save(values);
         if (saved) await runAction(saved, action);
@@ -614,7 +630,11 @@ export function PurchaseRequestPage() {
             },
             edit: editable
               ? {
-                  raw: ({ i }) => lines[i]?.unitCost ?? '',
+                  // Giá theo dòng gốc: tên đọc của ô ("Giá nhập <tên>: …") lấy đúng số đang hiện, không phải chữ trong form
+                  raw: ({ i }) => {
+                    const locked = source ? lockedCost(lines[i]?.variantId) : null;
+                    return locked !== null ? String(locked) : (lines[i]?.unitCost ?? '');
+                  },
                   parse: (raw) => parseLineCell('unitCost', raw),
                   readOnly: ({ i }) =>
                     source && lockedCost(lines[i]?.variantId) !== null ? `Theo giá dòng gốc ${source.number}` : busyReason,
@@ -697,7 +717,7 @@ export function PurchaseRequestPage() {
               Danh sách
             </Button>
             {editable && (
-              <Button variant="outline" disabled={busy || (!isNew && !isDirty)} onClick={onSave}>
+              <Button variant="outline" disabled={busy || (!isNew && !isDirty && !gridInvalid)} onClick={onSave}>
                 <Save />
                 Lưu nháp
               </Button>
@@ -875,6 +895,8 @@ export function PurchaseRequestPage() {
 
             <div className="overflow-hidden rounded-md border" data-guide="pr-lines" data-testid="request-lines">
               <EditableGrid
+                apiRef={gridRef}
+                onInvalidChange={setGridInvalid}
                 gridId="purchasing-request-lines"
                 aria-label="Dòng đề nghị nhập hàng"
                 columns={lineColumns}

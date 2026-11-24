@@ -68,6 +68,11 @@ export interface EditableGridApi {
   /** Báo lỗi từ một lần lưu bên ngoài bảng, vd áp gợi ý cho nhiều dòng */
   setCellError: (rowId: string, columnId: string, message: string, draft: string, conflict?: boolean) => void;
   markSaved: (rowId: string, columnId: string) => void;
+  /**
+   * Ô đầu tiên (theo thứ tự dòng, cột) còn chữ chưa lưu được: ô sửa đang mở báo lỗi, hoặc ô báo lỗi giữ chữ đã gõ.
+   * Trang ghi ô vào form (không gọi API theo ô) dựa vào đây để chặn Lưu cả phiếu khi chữ sai chưa vào form (FE#476)
+   */
+  firstInvalid: () => { rowId: string; columnId: string; message: string } | null;
 }
 
 interface EditableGridProps<T, V> {
@@ -101,6 +106,8 @@ interface EditableGridProps<T, V> {
   empty?: ReactNode;
   pagination?: ServerPagination;
   onBusyChange?: (busy: boolean) => void;
+  /** Có hay hết ô còn chữ chưa lưu được (xem `firstInvalid`): trang tính là còn thay đổi để hỏi trước khi rời */
+  onInvalidChange?: (invalid: boolean) => void;
   apiRef?: Ref<EditableGridApi>;
   /** Chiều cao tối đa vùng cuộn, đầu bảng dính trong vùng này */
   maxHeightClass?: string;
@@ -154,6 +161,8 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
     setEditingState(next);
   };
   const [statuses, dispatch] = useReducer(statusReducer, {});
+  const statusesRef = useRef(statuses);
+  statusesRef.current = statuses;
   const [announce, setAnnounce] = useState('');
   const tableRef = useRef<HTMLTableElement>(null);
   const pendingFocus = useRef(false);
@@ -375,6 +384,30 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
     else moveTo({ row: r, col: c });
   };
 
+  /** Ô còn chữ chưa lưu được; ô sửa đang mở có lỗi tính trước. Đọc ref nên đúng cả ngay sau khi ô sửa vừa rời */
+  const firstInvalid = () => {
+    const ed = editingRef.current;
+    if (ed?.error) return { rowId: ed.rowId, columnId: ed.columnId, message: ed.error };
+    for (const row of rowsRef.current) {
+      const rowId = latest.current.getRowId(row);
+      for (const col of columns) {
+        const st = statusesRef.current[cellKey(rowId, col.id)];
+        if (st?.kind === 'error') return { rowId, columnId: col.id, message: st.message };
+      }
+    }
+    return null;
+  };
+  // Chỉ tính dòng còn trên bảng: dòng bị bỏ (vd Bỏ dòng ở đề nghị) mang theo ô lỗi thì không còn gì để sửa
+  const invalid =
+    Boolean(editing?.error) ||
+    rows.some((row) => {
+      const rowId = getRowId(row);
+      return columns.some((col) => statuses[cellKey(rowId, col.id)]?.kind === 'error');
+    });
+  useEffect(() => {
+    latest.current.onInvalidChange?.(invalid);
+  }, [invalid]);
+
   useImperativeHandle(apiRef, () => ({
     focusCell: (rowId, columnId, options) => {
       const r = indexOfRow(rowId);
@@ -387,7 +420,16 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
         // Chỉ mở khoá trong phiên này; lần sau vào trang vẫn theo lựa chọn đã nhớ (mặc định khoá)
         setLockedPref(false);
         setActive({ row: r, col: c });
-        setEditing({ rowId, columnId, value: col.edit!.raw(row), typed: false });
+        // Ô đang báo lỗi: mở lại với chữ đã gõ và câu lỗi, không lấy số cũ đè lên
+        const st = statusOf(rowId, columnId);
+        const draft = st && st.kind !== 'saved' ? st.draft : null;
+        setEditing({
+          rowId,
+          columnId,
+          value: draft ?? col.edit!.raw(row),
+          typed: draft !== null,
+          error: st?.kind === 'error' ? st.message : undefined,
+        });
         window.requestAnimationFrame(() => cellEl({ row: r, col: c })?.scrollIntoView?.({ block: 'center', inline: 'nearest' }));
       } else {
         moveTo({ row: r, col: c });
@@ -405,6 +447,7 @@ export function EditableGrid<T, V>(props: EditableGridProps<T, V>) {
       dispatch({ type: 'saved', rowId, columnId });
       window.setTimeout(() => dispatch({ type: 'expire', rowId, columnId }), SAVED_MS);
     },
+    firstInvalid,
   }));
 
   // TanStack lo mô hình dòng và tiêu đề; ô tự vẽ để điều khiển focus, chế độ sửa

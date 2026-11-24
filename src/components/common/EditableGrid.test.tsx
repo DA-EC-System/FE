@@ -248,7 +248,8 @@ describe('EditableGrid: xung đột version', () => {
 });
 
 describe('EditableGrid: lỗi từ ngoài bảng, ô có ô nhập riêng (FE#476)', () => {
-  const renderGrid = (opts: { error?: string; save?: SaveFn } = {}) => {
+  const renderGrid = (opts: { error?: string; save?: SaveFn; onInvalidChange?: (v: boolean) => void } = {}) => {
+    const apiRef = createRef<EditableGridApi>();
     window.localStorage.setItem('editable-grid:test-grid:unlocked', '1');
     const save = vi.fn<SaveFn>(opts.save ?? (async () => ({ ok: true, version: 0 })));
     const cols: GridColumn<Row>[] = [
@@ -266,10 +267,12 @@ describe('EditableGrid: lỗi từ ngoài bảng, ô có ô nhập riêng (FE#47
         getVersion={() => 0}
         save={save}
         cellError={(_r, columnId) => (columnId === 'price' ? opts.error : undefined)}
+        onInvalidChange={opts.onInvalidChange}
+        apiRef={apiRef}
         canEdit
       />,
     );
-    return { save };
+    return { save, apiRef };
   };
 
   it('lỗi kiểm form hiện trên ô, nối qua aria-describedby, không role="alert"; lưu ô xong thì nhường trạng thái lưu', async () => {
@@ -299,5 +302,28 @@ describe('EditableGrid: lỗi từ ngoài bảng, ô có ô nhập riêng (FE#47
     expect(document.activeElement).toBe(input);
     await user.keyboard('X');
     expect((input as HTMLInputElement).value).toBe('SKU-AX');
+  });
+
+  it('chữ sai chưa lưu: firstInvalid chỉ ô, onInvalidChange báo; focusCell mở lại với chữ đã gõ; sửa đúng thì hết', async () => {
+    const user = userEvent.setup();
+    const onInvalidChange = vi.fn();
+    const { save, apiRef } = renderGrid({ onInvalidChange });
+    expect(apiRef.current!.firstInvalid()).toBeNull();
+    await user.dblClick(cell('a', 'price'));
+    await user.clear(editor()!);
+    await user.type(editor()!, 'abc');
+    // Rời ô (vd bấm nút Lưu của trang): không gửi, ô giữ chữ và báo lỗi
+    act(() => editor()!.blur());
+    expect(editor()).toBeNull();
+    expect(save).not.toHaveBeenCalled();
+    expect(apiRef.current!.firstInvalid()).toMatchObject({ rowId: 'a', columnId: 'price' });
+    expect(onInvalidChange).toHaveBeenLastCalledWith(true);
+    act(() => apiRef.current!.focusCell('a', 'price', { edit: true }));
+    expect(editor()!.value).toBe('abc');
+    await user.clear(editor()!);
+    await user.type(editor()!, '150{Enter}');
+    await waitFor(() => expect(onInvalidChange).toHaveBeenLastCalledWith(false));
+    expect(apiRef.current!.firstInvalid()).toBeNull();
+    expect(save).toHaveBeenCalledWith(A, 'price', 150, 0);
   });
 });
