@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowUpRight, ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertMessage } from '@/components/common/AlertMessage';
@@ -16,8 +16,8 @@ import { useInvalidateCatalog, useUpdateVariant } from '@/api/catalog.api';
 import { problemCode, problemMessage } from '@/api/problemMessages';
 import { getProblem } from '@/api/client';
 import { LISTING_STATUS_LABELS, LISTING_STATUS_VARIANTS } from '@/features/channel/shopSchemas';
-import { blockerFix } from '@/features/channel/blockerFix';
-import { pushErrorTarget, pushErrorText } from '@/features/channel/listingPush';
+import { blockerFix, canUseFix } from '@/features/channel/blockerFix';
+import { LISTING_POLL_MAX_MS, pushErrorTarget, pushErrorText } from '@/features/channel/listingPush';
 import { PlatformDetail } from '@/components/common/PlatformDetail';
 import { AttributeField } from '@/features/channel/push/AttributeField';
 import { CategoryChangeBlock } from '@/features/channel/push/CategoryChangeBlock';
@@ -58,6 +58,7 @@ import type {
 import { CategoryPath } from './CategoryPath';
 import { CategoryPickerDialog } from './CategoryPickerDialog';
 import { focusField } from './focusField';
+import { useProductFix } from './productFix';
 import { usePlatformTab } from './usePlatformTab';
 import { RemoteSuggestion } from './RemoteSuggestion';
 import { RegroupNotice } from './RegroupNotice';
@@ -92,6 +93,10 @@ interface Props {
   onJump: (target: SharedTarget) => void;
   /** Báo trang khi attribute có/không còn sửa dở, để hỏi lại khi rời tab/trang (FE#459) */
   onDirtyChange?: (platform: Marketplace, dirty: boolean) => void;
+  /** `finance.config.manage`: hiện nút "Cài phí sàn" ở lỗi đẩy */
+  canEditFinance?: boolean;
+  /** Đã hỏi lại trạng thái quá `LISTING_POLL_MAX_MS` mà còn SKU Đang đăng: trang thôi tự cập nhật */
+  pollTimedOut?: boolean;
 }
 
 /**
@@ -99,7 +104,19 @@ interface Props {
  * theo gian hàng, bảng kích cỡ, vận chuyển. Attribute bắt buộc sửa và lưu tại chỗ qua `PUT …/specs/:platform`
  * (Documents/21 §18.5); ô dùng chung chỉ xem, bấm nhãn thì sang tab Nội bộ
  */
-export function PlatformTab({ companyId, product, platform, shops, rows, canEditSpec, canEditProduct, onJump, onDirtyChange }: Props) {
+export function PlatformTab({
+  companyId,
+  product,
+  platform,
+  shops,
+  rows,
+  canEditSpec,
+  canEditProduct,
+  onJump,
+  onDirtyChange,
+  canEditFinance = false,
+  pollTimedOut = false,
+}: Props) {
   const data = usePlatformTab(product, platform, shops);
   const resolved = data.specQuery.data?.resolved;
   const { specQuery, spec, leaf, attrs, axes, missing, gaps, noCategory } = data;
@@ -140,6 +157,16 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
       : missing;
   const missingCodes = new Set(draftMissing.filter((m) => ATTR_REASONS.has(m.reason)).map((m) => m.code));
   const groups = attrs ? attributeGroups(attrs, values) : null;
+  // `?focus=` trỏ attribute nằm trong nhóm đang gập (nút sửa của lỗi đẩy): mở nhóm đó để ô hiện ra (review PR #480)
+  const [keyOpen, setKeyOpen] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+  const focusParam = useSearchParams()[0].get('focus');
+  const focusInKey = Boolean(focusParam && groups?.key.some((a) => platformFieldId(platform, a.code) === focusParam));
+  const focusInOther = Boolean(focusParam && groups?.other.some((a) => platformFieldId(platform, a.code) === focusParam));
+  useEffect(() => {
+    if (focusInKey) setKeyOpen(true);
+    if (focusInOther) setOtherOpen(true);
+  }, [focusInKey, focusInOther]);
   // Mọi attribute sửa được tại chỗ (chốt v2 câu 4): bắt buộc mở sẵn, không bắt buộc gập
   const editRow = (a: PlatformAttribute) =>
     spec ? (
@@ -410,7 +437,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 </Group>
 
                 {groups.key.length > 0 && (
-                  <Collapsible>
+                  <Collapsible open={keyOpen} onOpenChange={setKeyOpen}>
                     <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-sm font-semibold">
                       <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
                       Key attributes ({groups.key.length})
@@ -423,7 +450,7 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
                 )}
 
                 {groups.other.length > 0 && (
-                  <Collapsible>
+                  <Collapsible open={otherOpen} onOpenChange={setOtherOpen}>
                     <CollapsibleTrigger className="group flex min-h-9 cursor-pointer items-center gap-1 text-sm font-semibold">
                       <ChevronDown className="size-4 transition-transform group-data-[state=closed]:-rotate-90" aria-hidden />
                       Không bắt buộc ({groups.other.length})
@@ -489,7 +516,14 @@ export function PlatformTab({ companyId, product, platform, shops, rows, canEdit
 
         <Section id={platformSectionId(platform, 'sales')} title={sections.find((s) => s.key === 'sales')!.title} perShop>
           <RegroupNotice productId={product.id} platform={platform} shops={shops} />
-          <SalesTable companyId={companyId} platform={platform} rows={rows} canEditProduct={canEditProduct} />
+          <SalesTable
+            companyId={companyId}
+            platform={platform}
+            rows={rows}
+            canEditProduct={canEditProduct}
+            canEditFinance={canEditFinance}
+            pollTimedOut={pollTimedOut}
+          />
         </Section>
 
         {sizeRule && sizeRule !== 'unsupported' && (
@@ -916,11 +950,15 @@ function SalesTable({
   platform,
   rows,
   canEditProduct,
+  canEditFinance,
+  pollTimedOut,
 }: {
   companyId: string;
   platform: Marketplace;
   rows: readonly ProductListingRow[];
   canEditProduct: boolean;
+  canEditFinance: boolean;
+  pollTimedOut: boolean;
 }) {
   const shops = listingsByShop(rows, platform);
   const [shopId, setShopId] = useState<string | null>(null);
@@ -957,7 +995,10 @@ function SalesTable({
       {shop.rows.some((r) => r.listing?.status === 'pushing') && (
         <p className="flex items-center gap-1.5 text-sm text-info-text" data-testid="pushing-note">
           <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
-          Đang đẩy {shop.rows.filter((r) => r.listing?.status === 'pushing').length} SKU lên sàn… Trang tự cập nhật khi sàn phản hồi.
+          Đang đăng {shop.rows.filter((r) => r.listing?.status === 'pushing').length} SKU lên sàn…{' '}
+          {pollTimedOut
+            ? `Đã chờ ${LISTING_POLL_MAX_MS / 60000} phút mà sàn chưa phản hồi; bấm Tải lại trang để xem kết quả mới.`
+            : 'Trang tự cập nhật khi sàn phản hồi.'}
         </p>
       )}
       <Table>
@@ -988,7 +1029,7 @@ function SalesTable({
                         {l.status === 'pushing' && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
                         {LISTING_STATUS_LABELS[l.status]}
                       </Badge>
-                      {l.status === 'push_failed' && l.pushError && <PushErrorNote companyId={companyId} row={r} canFix={canEditProduct} />}
+                      {l.status === 'push_failed' && l.pushError && <PushErrorNote companyId={companyId} row={r} can={{ product: canEditProduct, finance: canEditFinance }} />}
                     </div>
                   ) : (
                     <span className="text-muted-foreground">Chưa lên sàn</span>
@@ -1004,26 +1045,41 @@ function SalesTable({
 }
 
 /** Câu lỗi đẩy BE dựng, nút tới chỗ sửa, mã gốc của sàn trong "Chi tiết từ sàn" (FE#462) */
-function PushErrorNote({ companyId, row, canFix }: { companyId: string; row: ProductListingRow; canFix: boolean }) {
+function PushErrorNote({
+  companyId,
+  row,
+  can,
+}: {
+  companyId: string;
+  row: ProductListingRow;
+  can: { product: boolean; finance: boolean };
+}) {
   const e = row.listing!.pushError!;
   const t = pushErrorText(e);
-  const fix = canFix
-    ? blockerFix(pushErrorTarget(e), {
-        companyId,
-        productId: row.productId,
-        platform: row.platform,
-        shopId: row.shopId,
-        variantId: e.variantId ?? row.variantId,
-      })
-    : null;
+  const openFix = useProductFix();
+  const found = blockerFix(pushErrorTarget(e), {
+    companyId,
+    productId: row.productId,
+    platform: row.platform,
+    shopId: row.shopId,
+    variantId: e.variantId ?? row.variantId,
+  });
+  const fix = found && canUseFix(found, can) ? found : null;
   return (
     <>
       <span className="text-xs text-destructive-text" data-testid="listing-note">
         {t.text}
       </span>
-      {fix && fix.perm !== 'finance' && (
+      {fix && (
         <Button asChild variant="link" size="sm" className="h-auto p-0">
-          <Link to={fix.to} data-testid="error-fix">
+          {/* Trong trang sản phẩm: mở hộp, chuyển tab tại chỗ (qua hộp hỏi khi chưa lưu); không thì đi theo link */}
+          <Link
+            to={fix.to}
+            data-testid="error-fix"
+            onClick={(ev) => {
+              if (openFix?.(fix.to)) ev.preventDefault();
+            }}
+          >
             {fix.label}
           </Link>
         </Button>

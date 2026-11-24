@@ -82,6 +82,8 @@ import { Kpi, KpiStrip } from '@/components/common/KpiStrip';
 import { SkuCode } from '@/components/common/SkuCode';
 import {
   SHARED_TARGETS,
+  platformFieldId,
+  platformSectionId,
   productSuggestions,
   sharedTargetId,
   tabFromParam,
@@ -95,6 +97,7 @@ import { PlatformTab, PlatformTabLabel } from './PlatformTab';
 import { NeedsAttentionBox } from './NeedsAttentionBox';
 import { attentionItems, type AttentionAction } from './needsAttention';
 import { focusField, focusWhenReady } from './focusField';
+import { ProductFixContext, productFixTarget } from './productFix';
 import { listingPollDelay } from '@/features/channel/listingPush';
 import { usePushOutcomeToasts } from '@/features/channel/usePushOutcomeToasts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -193,17 +196,25 @@ export function ProductFormPage() {
   const shopsQuery = useShops({ enabled: canShop });
   // Còn SKU Đang đăng thì đọc lại mỗi 5 giây, tối đa 30 phút; dòng thôi Đang đăng thì toast kết quả (FE#462, §18.6.4)
   const pollFrom = useRef<number | null>(null);
+  // Quá 30 phút mà còn SKU Đang đăng: thôi hỏi lại, tab sàn gợi ý bấm Tải lại (review PR #480)
+  const [pollTimedOut, setPollTimedOut] = useState(false);
   const listingsQuery = useProductListingRows(productId, canShop, (rows) => {
     const now = Date.now();
     const delay = listingPollDelay(rows, pollFrom.current ?? now, now);
     if (delay === false) {
-      if (!rows.some((r) => r.listing?.status === 'pushing')) pollFrom.current = null;
+      if (pollFrom.current !== null && rows.some((r) => r.listing?.status === 'pushing')) setPollTimedOut(true);
+      else {
+        pollFrom.current = null;
+        setPollTimedOut(false);
+      }
       return false;
     }
     pollFrom.current ??= now;
     return delay;
   });
-  usePushOutcomeToasts(listingsQuery.data, { companyId, canFix: canManage });
+  // Nút sửa của toast đi qua `openFix` (khai báo dưới) để mở tại chỗ; ref vì toast giữ hàm cũ
+  const openFixRef = useRef<(to: string) => boolean>(() => false);
+  usePushOutcomeToasts(listingsQuery.data, { companyId, canFix: canManage, onFix: (to) => openFixRef.current(to) });
   const stockQuery = useStock({ productId, pageSize: 100 }, { enabled: canStock && !isNew });
   const platforms = activePlatforms(shopsQuery.data?.items ?? []);
   const listingRows = useMemo(() => listingsQuery.data ?? [], [listingsQuery.data]);
@@ -254,6 +265,11 @@ export function ProductFormPage() {
   // không mở lại
   const [searchParams, setSearchParams] = useSearchParams();
   const [specVariantId, setSpecVariantId] = useState<string | null>(() => searchParams.get('spec'));
+  // `?spec=` đổi khi trang đang mở (link từ chỗ khác trỏ về chính trang này): mở hộp theo (review PR #480)
+  const specParam = searchParams.get('spec');
+  useEffect(() => {
+    if (specParam) setSpecVariantId(specParam);
+  }, [specParam]);
   const specVariant =
     canManage && !archived
       ? (product?.variants.find((v) => v.id === specVariantId && v.businessStatus !== 'archived') ?? null)
@@ -293,12 +309,14 @@ export function ProductFormPage() {
     [],
   );
   const tabName = (t: string) => (t === 'commerio' ? 'Nội bộ' : platformLabel(t as Marketplace));
-  const setTab = (next: string) =>
+  // `focus`: ô cần cuộn tới sau khi tab hiện (nút sửa của lỗi đẩy), ghi cùng lúc với `tab`
+  const setTab = (next: string, focus?: string) =>
     setSearchParams(
       (prev) => {
         const q = new URLSearchParams(prev);
         if (next === 'commerio') q.delete('tab');
         else q.set('tab', next);
+        if (focus) q.set('focus', focus);
         return q;
       },
       { replace: true },
@@ -325,7 +343,12 @@ export function ProductFormPage() {
   const productLoaded = Boolean(product);
   useEffect(() => {
     if (!focusParam || !productLoaded) return;
-    return focusWhenReady(focusParam, () =>
+    return focusWhenReady(focusParam, (found) => {
+      // Ô không hiện (attribute đã bỏ, category chưa có thuộc tính): focus phần attribute hay ô category của tab sàn
+      if (!found && tab !== 'commerio') {
+        const fallback = [platformSectionId(tab, 'attrs'), platformFieldId(tab, 'category')].find((id) => document.getElementById(id));
+        if (fallback) focusField(fallback);
+      }
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -333,8 +356,9 @@ export function ProductFormPage() {
           return next;
         },
         { replace: true },
-      ),
-    );
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tab` chỉ dùng để chọn ô dự phòng lúc hết giờ
   }, [focusParam, productLoaded, setSearchParams]);
 
   // Mẫu nhóm: form tạo đọc theo nhóm đang chọn; trang sửa chỉ đọc khi đổi sang nhóm khác (ngoài ra BE trả sẵn `specs`)
@@ -626,11 +650,24 @@ export function ProductFormPage() {
   const leave = useLeaveGuard(dirtyTabs.length > 0, {
     message: `Còn thay đổi chưa lưu ở tab ${dirtyTabs.map(tabName).join(', ')}. Rời trang thì các thay đổi này bị bỏ.`,
   });
-  const [pendingTab, setPendingTab] = useState<string | null>(null);
-  const requestTab = (next: string) => {
-    if (next !== tab && dirtyTabs.includes(tab)) setPendingTab(next);
-    else setTab(next);
+  const [pendingTab, setPendingTab] = useState<{ tab: string; focus?: string } | null>(null);
+  const requestTab = (next: string, focus?: string) => {
+    if (next !== tab && dirtyTabs.includes(tab)) setPendingTab({ tab: next, focus });
+    else setTab(next, focus);
   };
+  // Nút sửa trỏ vào chính trang này (lỗi đẩy ở tab sàn, toast): mở hộp Thông tin SKU hay chuyển tab tại chỗ, qua hộp hỏi
+  // khi tab đang mở còn sửa dở. Trả false để nút đi theo link như thường (trỏ trang khác)
+  const openFix = (to: string): boolean => {
+    if (!product) return false;
+    const t = productFixTarget(to, ROUTES.company.catalogProduct(companyId, product.id));
+    if (!t) return false;
+    if (t.spec) setSpecVariantId(t.spec);
+    else requestTab(t.tab, t.focus);
+    return true;
+  };
+  useEffect(() => {
+    openFixRef.current = openFix;
+  });
 
   const back = (
     <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={backToList}>
@@ -818,7 +855,7 @@ export function ProductFormPage() {
           <NeedsAttentionBox items={attention} product={product} platforms={tabPlatforms} shops={shops} onAction={onAttention} />
         )}
 
-        <Tabs value={tab} onValueChange={requestTab} className="gap-4">
+        <Tabs value={tab} onValueChange={(v) => requestTab(v)} className="gap-4">
           {/* Giữ chỗ dải tab sàn khi gian hàng đang tải, để trang không nhảy (FE#463). Tải xong mà không có sàn nào hoạt
               động thì dải tab không hiện, trang vẫn co lại ~36px: chấp nhận, hiếm khi người tạo sản phẩm chưa có gian hàng */}
           {product && canShop && shopsQuery.isLoading && <Skeleton className="h-9 w-64" data-testid="platform-tabs-placeholder" />}
@@ -1234,17 +1271,22 @@ export function ProductFormPage() {
           {product &&
             tabPlatforms.map((p) => (
               <TabsContent key={p} value={p} forceMount className="data-[state=inactive]:hidden">
-                <PlatformTab
-                  companyId={companyId}
-                  product={product}
-                  platform={p}
-                  shops={shops}
-                  rows={listingRows}
-                  canEditSpec={can(PERMISSIONS.listingManage) && !archived}
-                  canEditProduct={!readOnly}
-                  onJump={jumpTo}
-                  onDirtyChange={onPlatformDirty}
-                />
+                {/* Nút sửa trong tab sàn mở chỗ sửa tại chỗ (review PR #480) */}
+                <ProductFixContext.Provider value={openFix}>
+                  <PlatformTab
+                    companyId={companyId}
+                    product={product}
+                    platform={p}
+                    shops={shops}
+                    rows={listingRows}
+                    canEditSpec={can(PERMISSIONS.listingManage) && !archived}
+                    canEditProduct={!readOnly}
+                    onJump={jumpTo}
+                    onDirtyChange={onPlatformDirty}
+                    canEditFinance={can(PERMISSIONS.financeConfigManage)}
+                    pollTimedOut={pollTimedOut}
+                  />
+                </ProductFixContext.Provider>
               </TabsContent>
             ))}
         </Tabs>
@@ -1278,7 +1320,7 @@ export function ProductFormPage() {
           confirmLabel="Chuyển tab"
           cancelLabel="Ở lại"
           onConfirm={() => {
-            if (pendingTab) setTab(pendingTab);
+            if (pendingTab) setTab(pendingTab.tab, pendingTab.focus);
             setPendingTab(null);
           }}
           onClose={() => setPendingTab(null)}
