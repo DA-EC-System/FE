@@ -132,6 +132,15 @@ const optionSchema = z.object({
 /** Tên sản phẩm mới trong đề nghị nhập: BE purchasing `parentName` tối đa 120 */
 export const PARENT_NAME_MAX = 120;
 
+const lineQty = qtyText(1, MAX_QTY);
+const lineCost = moneySchema({ label: 'Giá nhập', max: MAX_COST });
+
+/** Một ô Số lượng hoặc Giá nhập trên bảng dòng của đề nghị nhập hàng (bảng sửa từng ô, FE#476): cùng luật với form */
+export function parseLineCell(key: 'quantity' | 'unitCost', raw: string): { ok: true; value: number } | { ok: false; error: string } {
+  const result = (key === 'quantity' ? lineQty : lineCost).safeParse(raw);
+  return result.success ? { ok: true, value: result.data } : { ok: false, error: result.error.issues[0]?.message ?? 'Giá trị không hợp lệ' };
+}
+
 const requestLineSchema = z
   .object({
     variantId: z.string().nullable(),
@@ -141,8 +150,8 @@ const requestLineSchema = z
     parentName: z.string().trim(),
     groupId: z.string(),
     options: z.array(optionSchema).max(MAX_AXES),
-    quantity: qtyText(1, MAX_QTY),
-    unitCost: moneySchema({ label: 'Giá nhập', max: MAX_COST }),
+    quantity: lineQty,
+    unitCost: lineCost,
   })
   .superRefine((l, ctx) => {
     if (!l.isNew) return;

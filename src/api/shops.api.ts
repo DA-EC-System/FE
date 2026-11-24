@@ -49,9 +49,6 @@ import type {
   ShopDeleteResult,
   ShopDisconnectInput,
   ShopOpeningStocktakeRestart,
-  ShopSetupInput,
-  ShopSetupPreview,
-  ShopSetupResult,
   ShopTokenInput,
   ShopUpdateInput,
 } from '@/types/shop';
@@ -241,31 +238,6 @@ export function useRestartOpeningStocktake() {
       qc.setQueryData(shopKeys.detail(companyId, data.shop.id), data.shop);
       return invalidate();
     },
-  });
-}
-
-/** Thiết lập lần đầu: gợi ý ghép listing có sẵn (chỉ khi gian hàng đang thiết lập) */
-export function useShopSetup(id: string, enabled: boolean) {
-  const companyId = useCompanyId();
-  return useQuery({
-    queryKey: shopKeys.setup(companyId, id),
-    enabled: Boolean(companyId && id) && enabled,
-    retry: false,
-    queryFn: async () => {
-      const { data } = await apiClient.get<ShopSetupPreview>(`/channel/shops/${id}/setup`);
-      return data;
-    },
-  });
-}
-
-export function useFinishShopSetup() {
-  const invalidate = useInvalidateShops();
-  return useMutation({
-    mutationFn: async ({ id, ...input }: ShopSetupInput & { id: string }) => {
-      const { data } = await apiClient.post<ShopSetupResult>(`/channel/shops/${id}/setup`, input);
-      return data;
-    },
-    onSuccess: invalidate,
   });
 }
 

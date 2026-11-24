@@ -8,6 +8,7 @@ import {
   droppedDrafts,
   editableVariantIndexes,
   factsDraft,
+  parseFact,
   parseFacts,
   requestClosed,
   specDraftsOf,
@@ -119,5 +120,15 @@ describe('changedFacts (PUT gộp theo ô, Documents#236)', () => {
   it('ô không có trong value (minQty khi thiếu quyền) không gửi', () => {
     const { minQty: _drop, ...noMin } = { ...nullFacts, targetNetPrice: 149000, weightG: 250 };
     expect(changedFacts(noMin, { ...initial, minQty: 5 })).toBeNull();
+  });
+});
+
+describe('parseFact (một ô của bảng Biến thể, FE#476)', () => {
+  it('cùng luật với parseFacts: trống là null, bỏ dấu ngăn nghìn, sai thì câu lỗi của cột', () => {
+    expect(parseFact('targetNetPrice', ' 149.000 ')).toEqual({ ok: true, value: 149000 });
+    expect(parseFact('weightG', '')).toEqual({ ok: true, value: null });
+    expect(parseFact('minQty', '0')).toEqual({ ok: true, value: 0 });
+    expect(parseFact('weightG', '0')).toEqual({ ok: false, error: 'Cân nặng là số nguyên gam > 0' });
+    expect(parseFact('lengthMm', '1,5a')).toEqual({ ok: false, error: 'Chiều dài là số nguyên mm > 0' });
   });
 });
