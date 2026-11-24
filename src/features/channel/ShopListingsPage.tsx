@@ -168,8 +168,8 @@ function inTab(tab: ListingTab, r: ListingRow): boolean {
  */
 const STICKY_BG = '[&:is(td)]:bg-card [tr:hover>&]:bg-table-head [tr[data-state=selected]>&]:bg-accent';
 const STICKY_START = `sticky start-0 z-10 ${STICKY_BG}`;
-/** Cột Sản phẩm của bảng SKU kho đứng sau cột chọn (w-10) */
-const STICKY_AFTER_SELECT = `sticky start-10 z-10 ${STICKY_BG}`;
+/** Cột Sản phẩm của bảng SKU kho đứng sau cột chọn (w-12: ô checkbox 16px cộng padding hai bên, w-10 bị đè 8px) */
+const STICKY_AFTER_SELECT = `sticky start-12 z-10 ${STICKY_BG}`;
 const STICKY_END = `sticky end-0 z-10 ${STICKY_BG}`;
 
 /** Gỡ được khi listing còn trên sàn và không đang đẩy */
@@ -837,7 +837,7 @@ export function ShopListingsPage() {
     if (canManage) {
       cols.push({
         id: 'select',
-        meta: { className: `w-10 ${STICKY_START}` },
+        meta: { className: `w-12 ${STICKY_START}` },
         header: () => (
           <Checkbox
             aria-label="Chọn tất cả dòng đang lọc"
