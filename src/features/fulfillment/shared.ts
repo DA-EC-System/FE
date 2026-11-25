@@ -72,6 +72,9 @@ export const pendingDropTotal = (lines: readonly Pick<PackageLine, 'pendingDropQ
 
 export const PENDING_DROP_HINT = 'Sàn đã huỷ phần này, hàng còn trong hộp: bỏ ra khi mở kiện.';
 
+/** Dòng `remapPending`: CEO đã đổi liên kết SKU sau khi kiện đóng (commerio-backend#237 PR 2) */
+export const REMAP_PENDING_HINT = 'Món trong hộp theo liên kết SKU cũ. Mở kiện để đổi sang SKU mới.';
+
 /** Hàng đợi kho theo bước làm việc; Chờ đóng gói là tab mặc định */
 export const PACKAGE_TABS: { value: PackageTab; label: string }[] = [
   { value: 'reserved', label: 'Chờ đóng gói' },

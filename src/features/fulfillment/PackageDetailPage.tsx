@@ -39,6 +39,7 @@ import type { Package, PackageAction } from '@/types/fulfillment';
 import { PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, canPrintLabel, handoverFailureLabel, openPurposeLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { PendingDropBadge } from './PendingDropBadge';
+import { RemapPendingBadge } from './RemapPendingBadge';
 import { SplitPackageDialog } from './SplitPackageDialog';
 import { ScannedLines } from './ScannedLines';
 import { checkScanRows, scanErrorsOf, scanRowsFrom, type ScanRow } from './scanLines';
@@ -454,6 +455,7 @@ export function PackageDetailPage() {
                     {l.variantId && l.externalSku && l.externalSku !== l.sku && (
                       <p className="font-mono text-xs text-muted-foreground">SKU sàn {l.externalSku}</p>
                     )}
+                    <RemapPendingBadge pending={l.remapPending} />
                   </TableCell>
                   <TableCell className="whitespace-normal">
                     {l.productName}

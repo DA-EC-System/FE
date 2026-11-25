@@ -28,7 +28,7 @@ import { useCan, useTransitionActor } from '@/hooks/usePermission';
 import { orderMachine } from '@/lib/machines/order';
 import { ROUTES } from '@/router/routes';
 import { PERMISSIONS } from '@/utils/permissions';
-import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, PENDING_DROP_HINT, packageButtons } from '@/features/fulfillment/shared';
+import { DELIVERY_ACTIONS, PACKAGE_FLAGS, PACKAGE_STATUS, PENDING_DROP_HINT, REMAP_PENDING_HINT, packageButtons } from '@/features/fulfillment/shared';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { PackageSummary } from '@/types/fulfillment';
 import type { Order, OrderStatus } from '@/types/sales';
@@ -581,9 +581,21 @@ export function OrderDetailPage() {
                         </TableCell>
                         <TableCell
                           className="whitespace-normal text-sm"
-                          title={p.lines.some((l) => l.pendingDropQty > 0) ? PENDING_DROP_HINT : undefined}
+                          title={
+                            [
+                              p.lines.some((l) => l.pendingDropQty > 0) && PENDING_DROP_HINT,
+                              p.lines.some((l) => l.remapPending) && REMAP_PENDING_HINT,
+                            ]
+                              .filter(Boolean)
+                              .join('\n') || undefined
+                          }
                         >
-                          {p.lines.map((l) => `${l.sku} × ${l.quantity}${l.pendingDropQty > 0 ? ` (bỏ ra ${l.pendingDropQty} khi mở kiện)` : ''}`).join(', ')}
+                          {p.lines
+                            .map(
+                              (l) =>
+                                `${l.sku} × ${l.quantity}${l.pendingDropQty > 0 ? ` (bỏ ra ${l.pendingDropQty} khi mở kiện)` : ''}${l.remapPending ? ' (đổi liên kết SKU khi mở kiện)' : ''}`,
+                            )
+                            .join(', ')}
                           <PackageShipping pkg={p} />
                         </TableCell>
                         <TableCell>
@@ -591,7 +603,7 @@ export function OrderDetailPage() {
                             <StatusBadge status={p.status} statuses={PACKAGE_STATUS} />
                             <FlagChips flags={p.flags} meta={PACKAGE_FLAGS} />
                           </div>
-                          {/* Đổi ghép SKU khi kiện đã đóng (spec BE#237 §5.5): kho dỡ kiện về kệ để áp ghép mới */}
+                          {/* Đổi liên kết SKU khi kiện đã đóng (21 §19.2, commerio-backend#237 PR 2): kiện chờ mở còn dòng `remapPending` */}
                           {needsUnload(p) && (
                             <p className="mt-1 text-xs text-destructive" data-testid="unload-task">
                               Dỡ kiện về kệ để áp liên kết SKU mới

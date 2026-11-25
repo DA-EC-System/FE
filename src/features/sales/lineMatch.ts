@@ -1,10 +1,7 @@
-import type { PackageSummary } from '@/types/fulfillment';
+import type { PackageLine, PackageSummary } from '@/types/fulfillment';
 import type { Order, OrderLine } from '@/types/sales';
 import { ROUTES } from '@/router/routes';
 import type { PendingMapping, RemoteSku } from '@/types/shop';
-
-/** Ghi chú Cần xử lý BE đặt cho kiện đã đóng khi đổi ghép SKU (spec commerio-backend#237 §5.5, `REMAP_UNLOAD_NOTE`) */
-export const REMAP_UNLOAD_NOTE = 'Đổi ghép SKU: dỡ kiện về kệ để áp ghép mới';
 
 /** Dòng sàn chưa ghép (cờ Chưa ghép SKU): không biến thể, không "không quản tồn" (21 §19.1) */
 export const isUnmappedLine = (l: Pick<OrderLine, 'externalSku' | 'variantId' | 'untracked'>) =>
@@ -19,9 +16,12 @@ export function remoteSkuOf(items: RemoteSku[] | undefined, l: Pick<OrderLine, '
   );
 }
 
-/** Kiện đã đóng phải dỡ về kệ để áp ghép mới: BE bật Cần xử lý kèm `REMAP_UNLOAD_NOTE` */
-export const needsUnload = (p: Pick<PackageSummary, 'flags' | 'flagNote'>) =>
-  p.flags.includes('needs_attention') && p.flagNote === REMAP_UNLOAD_NOTE;
+/**
+ * Kiện đã đóng phải dỡ để áp liên kết SKU mới: chờ mở và còn dòng `remapPending` (21 §19.2, commerio-backend#237 PR 2).
+ * Không xét `openPurpose`: kiện chờ mở để huỷ, sửa, tách lại vẫn có thể mang dấu
+ */
+export const needsUnload = (p: Pick<PackageSummary, 'flags'> & { lines: readonly Pick<PackageLine, 'remapPending'>[] }) =>
+  p.flags.includes('needs_open') && p.lines.some((l) => l.remapPending);
 
 /** Câu báo sau khi ghép từ dòng đơn; `pending` (202): chờ CEO duyệt, đơn giữ cờ */
 export function lineMatchToast(label: string, variantSku: string | null, pending: boolean) {
