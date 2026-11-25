@@ -6,6 +6,7 @@ import {
   attributeSource,
   sharedTargetId,
   listingsByShop,
+  liveOnPlatform,
   productSuggestions,
   variantSuggestion,
   sharedGaps,
@@ -129,5 +130,31 @@ describe('Trang sản phẩm theo tab (FE#417)', () => {
     expect(variantSuggestion(v, undefined)).toBeNull();
     expect(variantSuggestion(v, { variantId: 'v', weightG: 200, lengthMm: 300, widthMm: null, heightMm: 10 })).toEqual({ lengthMm: 300 });
     expect(variantSuggestion(v, { variantId: 'v', weightG: 200, lengthMm: null, widthMm: 10, heightMm: 10 })).toBeNull();
+  });
+});
+
+describe('liveOnPlatform', () => {
+  const r = (platform: string, listing: Partial<ChannelListing> | null) =>
+    ({ platform, listing: listing && { externalProductId: 'R_1', ...listing } }) as unknown as ProductListingRow;
+
+  it('đang bán hay tạm ẩn, có mã trên sàn thì tính là đang có trên sàn', () => {
+    expect(liveOnPlatform([r('lazada', { status: 'live' })], 'lazada')).toBe(true);
+    expect(liveOnPlatform([r('lazada', { status: 'hidden' })], 'lazada')).toBe(true);
+  });
+
+  it('chỉ đẩy lỗi, bị từ chối, đang đẩy, đã gỡ hay chưa có mã sàn thì không tính', () => {
+    const rows = [
+      r('lazada', { status: 'push_failed', externalProductId: 'R_6049911' }),
+      r('lazada', { status: 'rejected', externalProductId: 'R_6049911' }),
+      r('lazada', { status: 'pushing', externalProductId: null }),
+      r('lazada', { status: 'delisted' }),
+      r('lazada', { status: 'live', externalProductId: null }),
+      r('lazada', null),
+    ];
+    expect(liveOnPlatform(rows, 'lazada')).toBe(false);
+  });
+
+  it('chỉ xét listing của đúng sàn', () => {
+    expect(liveOnPlatform([r('shopee', { status: 'live' })], 'lazada')).toBe(false);
   });
 });

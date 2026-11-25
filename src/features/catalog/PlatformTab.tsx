@@ -72,6 +72,7 @@ import {
   listingsByShop,
   platformFieldId,
   platformSectionId,
+  liveOnPlatform,
   variantsMissingShipping,
   variantSuggestion,
   type FieldSource,
@@ -140,6 +141,19 @@ export function PlatformTab({
   const save = useSaveProductSpec();
   // Chọn category tại chỗ (FE#459); sản phẩm đã lên sàn thì lưu xong còn bấm đổi trên sàn ở khối dưới ô category (FE#474)
   const [pickingCategory, setPickingCategory] = useState(false);
+  // Lưu category xong mà còn thiếu: đưa tới phần Attribute khi phần đó đã hiện theo category mới
+  const [jumpToAttrs, setJumpToAttrs] = useState(false);
+  useEffect(() => {
+    if (!jumpToAttrs || pickingCategory) return;
+    const id = platformSectionId(platform, 'attrs');
+    if (!document.getElementById(id)) return;
+    // Chờ hộp đóng hẳn: Radix trả focus về nút mở hộp khi đóng, gọi sớm thì focus bị kéo lại
+    const t = window.setTimeout(() => {
+      setJumpToAttrs(false);
+      focusField(id);
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [jumpToAttrs, pickingCategory, platform, spec?.externalCategoryId]);
   // Ô đang mở sửa riêng cho sàn mà chưa có giá trị ghi đè ("Chỉ điền cho {sàn}" ở ô trống)
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
   // Chỉ bật Lưu khi giá trị hiển thị thật sự khác bản đã lưu ("Sửa riêng" mà giữ nguyên thì chưa đổi)
@@ -606,7 +620,8 @@ export function PlatformTab({
           spec={spec}
           pathIds={leaf.data?.category.pathIds ?? null}
           dirty={dirty}
-          listed={listed}
+          listed={liveOnPlatform(rows, platform)}
+          onSavedWithMissing={() => setJumpToAttrs(true)}
         />
       )}
       </div>

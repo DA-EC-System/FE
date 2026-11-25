@@ -141,6 +141,14 @@ export interface ShopListings {
 }
 
 /** Dòng listing của một sàn gom theo gian hàng, giữ thứ tự BE trả; gồm cả dòng chưa lên sàn của gian hàng đó */
+/**
+ * Sản phẩm thật sự đang có trên sàn: có listing đang bán hoặc tạm ẩn đã có mã sản phẩm trên sàn. Listing chỉ đẩy lỗi, bị
+ * từ chối hay đang đẩy lần đầu thì chưa có gì trên sàn (hộp đổi category không nói "đang có trên sàn")
+ */
+export function liveOnPlatform(rows: readonly ProductListingRow[], platform: Marketplace): boolean {
+  return rows.some((r) => r.platform === platform && (r.listing?.status === 'live' || r.listing?.status === 'hidden') && Boolean(r.listing.externalProductId));
+}
+
 export function listingsByShop(rows: readonly ProductListingRow[], platform: Marketplace): ShopListings[] {
   const out = new Map<string, ShopListings>();
   for (const r of rows) {
