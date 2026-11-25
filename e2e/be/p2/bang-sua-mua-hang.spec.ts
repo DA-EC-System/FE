@@ -145,7 +145,7 @@ test('bản soạn hàng mới: khoá riêng với bảng đề nghị; sửa ô
   await page.locator('[data-grid-editor]').press('Enter');
   // Cân nặng 0 sai luật: ô sửa giữ lại, báo lỗi; Esc bỏ
   await expect(page.locator('[data-grid-editor]')).toBeVisible();
-  await expect(page.getByText('Cân nặng là số nguyên gam > 0')).toBeVisible();
+  await expect(page.getByText('Nhập số nguyên lớn hơn 0')).toBeVisible();
   await page.locator('[data-grid-editor]').press('Escape');
   await suaO(o('Đỏ', 'weightG'), '250');
 

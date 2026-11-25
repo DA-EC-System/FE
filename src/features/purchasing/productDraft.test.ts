@@ -28,11 +28,37 @@ describe('parseFacts (21 §16.3, luật số như §17.2, §17.5)', () => {
       { withMinQty: true },
     );
     expect(errors).toEqual({
-      weightG: 'Cân nặng là số nguyên gam > 0',
-      lengthMm: 'Chiều dài là số nguyên mm > 0',
-      heightMm: 'Chiều cao là số nguyên mm > 0',
+      weightG: 'Nhập số nguyên lớn hơn 0',
+      lengthMm: 'Nhập số mm nguyên, vd 300',
+      heightMm: 'Nhập số mm nguyên, vd 300',
       minQty: 'Ngưỡng tồn là số nguyên ≥ 0',
     });
+  });
+
+  it('cân nặng tối đa 50.000 g, mỗi cạnh tối đa 2.000 mm như SKU (commerio-backend#434)', () => {
+    const max = parseFacts({ ...EMPTY_FACTS, weightG: '50000', lengthMm: '2000', widthMm: '2000', heightMm: '2000' }, { withMinQty: true });
+    expect(max.errors).toEqual({});
+    expect(max.value).toMatchObject({ weightG: 50000, lengthMm: 2000, widthMm: 2000, heightMm: 2000 });
+    const over = parseFacts({ ...EMPTY_FACTS, weightG: '50001', lengthMm: '2001', widthMm: '2001', heightMm: '2001' }, { withMinQty: true });
+    expect(over.errors).toEqual({
+      weightG: 'Cân nặng tối đa 50 kg',
+      lengthMm: 'Chiều dài tối đa 2.000 mm',
+      widthMm: 'Chiều rộng tối đa 2.000 mm',
+      heightMm: 'Chiều cao tối đa 2.000 mm',
+    });
+  });
+
+  it('cân nặng, kích thước không ghép số qua dấu phẩy, chấm, khoảng trắng: "0,25" không thành 25 g', () => {
+    const { value, errors } = parseFacts(
+      { ...EMPTY_FACTS, weightG: '0,25', lengthMm: '1.000', widthMm: '30 0', heightMm: ' 300 ' },
+      { withMinQty: true },
+    );
+    expect(errors).toEqual({
+      weightG: 'Nhập số gam nguyên, vd 250',
+      lengthMm: 'Nhập số mm nguyên, vd 300',
+      widthMm: 'Nhập số mm nguyên, vd 300',
+    });
+    expect(value).toMatchObject({ heightMm: 300 });
   });
 
   it('không có quyền chỉnh ngưỡng tồn thì không gửi minQty, cũng không kiểm', () => {
@@ -128,7 +154,9 @@ describe('parseFact (một ô của bảng Biến thể, FE#476)', () => {
     expect(parseFact('targetNetPrice', ' 149.000 ')).toEqual({ ok: true, value: 149000 });
     expect(parseFact('weightG', '')).toEqual({ ok: true, value: null });
     expect(parseFact('minQty', '0')).toEqual({ ok: true, value: 0 });
-    expect(parseFact('weightG', '0')).toEqual({ ok: false, error: 'Cân nặng là số nguyên gam > 0' });
-    expect(parseFact('lengthMm', '1,5a')).toEqual({ ok: false, error: 'Chiều dài là số nguyên mm > 0' });
+    expect(parseFact('weightG', '0')).toEqual({ ok: false, error: 'Nhập số nguyên lớn hơn 0' });
+    expect(parseFact('weightG', '0,25')).toEqual({ ok: false, error: 'Nhập số gam nguyên, vd 250' });
+    expect(parseFact('weightG', '50001')).toEqual({ ok: false, error: 'Cân nặng tối đa 50 kg' });
+    expect(parseFact('lengthMm', '1,5a')).toEqual({ ok: false, error: 'Nhập số mm nguyên, vd 300' });
   });
 });
