@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RemoteSku } from '@/types/shop';
 import {
-  REMAP_UNLOAD_NOTE,
   isUnmappedLine,
   lineMatchToast,
   lineShopHref,
@@ -29,10 +28,14 @@ describe('lineMatch (FE#283)', () => {
     expect(remoteSkuOf(undefined, { externalSkuId: 's-1', externalSku: 'A' })).toBeUndefined();
   });
 
-  it('kiện cần dỡ về kệ: Cần xử lý kèm ghi chú đổi ghép', () => {
-    expect(needsUnload({ flags: ['needs_attention'], flagNote: REMAP_UNLOAD_NOTE })).toBe(true);
-    expect(needsUnload({ flags: ['needs_attention'], flagNote: 'Sàn báo lỗi' })).toBe(false);
-    expect(needsUnload({ flags: [], flagNote: REMAP_UNLOAD_NOTE })).toBe(false);
+  it('kiện cần dỡ để áp liên kết SKU mới: chờ mở và còn dòng remapPending (commerio-backend#237 PR 2)', () => {
+    expect(needsUnload({ flags: ['needs_open'], lines: [{ remapPending: false }, { remapPending: true }] })).toBe(true);
+    // Kiện chờ mở để huỷ (cờ khác đi kèm) vẫn mang dấu: vẫn phải dỡ
+    expect(needsUnload({ flags: ['needs_open', 'needs_attention'], lines: [{ remapPending: true }] })).toBe(true);
+    expect(needsUnload({ flags: ['needs_open'], lines: [{ remapPending: false }] })).toBe(false);
+    expect(needsUnload({ flags: [], lines: [{ remapPending: true }] })).toBe(false);
+    // Kiện cũ trước BE#237 PR 2 chỉ có Cần xử lý kèm ghi chú: không còn là việc dỡ kiện
+    expect(needsUnload({ flags: ['needs_attention'], lines: [{ remapPending: false }] })).toBe(false);
   });
 
   it('câu báo theo kết quả ghép', () => {
