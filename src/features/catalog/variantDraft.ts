@@ -1,3 +1,4 @@
+import { isMeasureField, parseMeasure } from '@/utils/measure';
 import { renderSku, valueCode } from '@/utils/sku';
 import type { Attribute, ProductAxis, ProductSettings, VariantFacts } from '@/types/catalog';
 import { cartesian } from './shared';
@@ -42,23 +43,22 @@ export const FACT_KEYS = ['standardPrice', 'targetNetPrice', 'weightG', 'lengthM
 export type FactKey = (typeof FACT_KEYS)[number];
 export type FactsDraft = Partial<Record<FactKey, string>>;
 
-/** Trần như PATCH …/variants/:variantId (§17.2, commerio-backend#434): 50 kg, cạnh 2 m */
-const FACT_MAX: Record<FactKey, [number, string]> = {
-  standardPrice: [1_000_000_000, 'Giá quá lớn'],
-  targetNetPrice: [1_000_000_000, 'Giá quá lớn'],
-  weightG: [50_000, 'Quá 50 kg, kiểm tra lại đơn vị gram'],
-  lengthMm: [2000, 'Quá 2 m, kiểm tra lại đơn vị mm'],
-  widthMm: [2000, 'Quá 2 m, kiểm tra lại đơn vị mm'],
-  heightMm: [2000, 'Quá 2 m, kiểm tra lại đơn vị mm'],
-};
+const PRICE_MAX = 1_000_000_000;
 
-/** Một ô số: trống là chưa có; bỏ dấu chấm, phẩy, khoảng trắng phân cách nghìn; phải là số nguyên dương */
+/**
+ * Một ô số: trống là chưa có. Cân nặng, cạnh theo `parseMeasure` như PATCH …/variants/:variantId (§17.2,
+ * commerio-backend#434): tối đa 50 kg, 2 m, chỉ nhận chữ số ("0,25" không thành 25 g). Giá bỏ dấu chấm, phẩy, khoảng
+ * trắng phân cách nghìn, phải là số nguyên dương
+ */
 export function parseFact(key: FactKey, raw: string | undefined): { value: number | null; error?: string } {
+  if (isMeasureField(key)) {
+    const m = parseMeasure(key, raw ?? '');
+    return m.ok ? { value: m.value } : { value: null, error: m.error };
+  }
   const text = (raw ?? '').trim().replace(/[.,\s]/g, '');
   if (!text) return { value: null };
   if (!/^\d+$/.test(text) || Number(text) <= 0) return { value: null, error: 'Số nguyên dương' };
-  const [max, tooBig] = FACT_MAX[key];
-  if (Number(text) > max) return { value: null, error: tooBig };
+  if (Number(text) > PRICE_MAX) return { value: null, error: 'Giá quá lớn' };
   return { value: Number(text) };
 }
 
