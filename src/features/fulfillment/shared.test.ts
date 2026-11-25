@@ -10,6 +10,7 @@ import {
   packageBackTo,
   packageButtons,
   pendingDropTotal,
+  remapOpenNote,
 } from './shared';
 
 const P = PERMISSIONS;
@@ -234,5 +235,12 @@ describe('mục đích remap: đổi liên kết SKU khi kiện đã đóng (com
       expect(b.actions).not.toContain('hand_over');
       expect(b.blocked).toMatch(/Kiện đang chờ mở/);
     }
+  });
+
+  it('hộp xác nhận Mở kiện báo áp liên kết mới và có thể về Thiếu hàng khi còn dòng remapPending', () => {
+    expect(remapOpenNote({ lines: [{ remapPending: false }, { remapPending: true }] })).toBe(
+      ' Mở ra sẽ áp liên kết SKU mới: lấy món cũ ra, nhặt món theo SKU mới. SKU mới thiếu hàng thì kiện về Thiếu hàng.',
+    );
+    expect(remapOpenNote({ lines: [{ remapPending: false }] })).toBe('');
   });
 });
