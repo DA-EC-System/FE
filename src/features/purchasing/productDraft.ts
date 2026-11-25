@@ -7,6 +7,7 @@ import type {
   VariantFactsInput,
 } from '@/types/purchasing';
 import type { SpecDrafts } from '@/features/catalog/specs/specValues';
+import { isMeasureField, parseMeasure, type MeasureField } from '@/utils/measure';
 
 /**
  * Bản soạn trước sản phẩm mới (Documents/21 §16.3 "Bản soạn trước", Documents/29 bước 1). Hàm thuần cho trang soạn:
@@ -36,44 +37,13 @@ export const FACT_LABELS: Record<VariantFactKey, string> = {
   minQty: 'Ngưỡng tồn',
 };
 
-interface FactRule {
-  min: number;
-  max: number;
-  /** Câu lỗi khi không phải số nguyên (và khi nhỏ hơn `min`, vượt `max` nếu không có câu riêng) */
-  message: string;
-  tooSmall?: string;
-  tooBig?: string;
-  /** Số đo: chỉ nhận chữ số, không bỏ dấu chấm, phẩy, khoảng trắng ("0,25" kg mà ghép thành 25 g là sai lặng lẽ) */
-  digitsOnly?: boolean;
-}
-
-/** Trần cân nặng 50.000 g, mỗi cạnh 2.000 mm và câu lỗi trùng BE (`catalog/domain/measure.ts`, commerio-backend#434) */
-const WEIGHT_MAX_G = 50_000;
-const EDGE_MAX_MM = 2_000;
-const MEASURE_TOO_SMALL = 'Nhập số nguyên lớn hơn 0';
-const edge = (label: string): FactRule => ({
-  min: 1,
-  max: EDGE_MAX_MM,
-  message: 'Nhập số mm nguyên, vd 300',
-  tooSmall: MEASURE_TOO_SMALL,
-  tooBig: `${label} tối đa 2.000 mm`,
-  digitsOnly: true,
-});
-
-const RULES: Record<VariantFactKey, FactRule> = {
+/**
+ * Giá, ngưỡng tồn. Cân nặng, kích thước đọc bằng `parseMeasure` như ô SKU (trần 50.000 g / 2.000 mm, chỉ nhận chữ số,
+ * commerio-backend#434)
+ */
+const RULES: Record<Exclude<VariantFactKey, MeasureField>, { min: number; max: number; message: string }> = {
   targetNetPrice: { min: 0, max: 1_000_000_000_000, message: 'Giá muốn thực nhận là số nguyên đồng ≥ 0' },
   standardPrice: { min: 0, max: 1_000_000_000_000, message: 'Giá chuẩn là số nguyên đồng ≥ 0' },
-  weightG: {
-    min: 1,
-    max: WEIGHT_MAX_G,
-    message: 'Nhập số gam nguyên, vd 250',
-    tooSmall: MEASURE_TOO_SMALL,
-    tooBig: 'Cân nặng tối đa 50 kg',
-    digitsOnly: true,
-  },
-  lengthMm: edge('Chiều dài'),
-  widthMm: edge('Chiều rộng'),
-  heightMm: edge('Chiều cao'),
   minQty: { min: 0, max: 1_000_000, message: 'Ngưỡng tồn là số nguyên ≥ 0' },
 };
 
@@ -114,13 +84,12 @@ export function parseFacts(
 
 /** Một ô số của bảng Biến thể (bảng sửa từng ô, FE#476): cùng luật với `parseFacts`, ô trống là null */
 export function parseFact(key: VariantFactKey, text: string): { ok: true; value: number | null } | { ok: false; error: string } {
-  const rule = RULES[key];
-  const raw = rule.digitsOnly ? text.trim() : text.trim().replace(/[\s.,]/g, '');
+  if (isMeasureField(key)) return parseMeasure(key, text);
+  const raw = text.trim().replace(/[\s.,]/g, '');
   if (!raw) return { ok: true, value: null };
   const n = Number(raw);
-  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n)) return { ok: false, error: rule.message };
-  if (n < rule.min) return { ok: false, error: rule.tooSmall ?? rule.message };
-  if (n > rule.max) return { ok: false, error: rule.tooBig ?? rule.message };
+  const rule = RULES[key];
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n < rule.min || n > rule.max) return { ok: false, error: rule.message };
   return { ok: true, value: n };
 }
 
