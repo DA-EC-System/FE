@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSIONS } from '@/utils/permissions';
 import type { PackageSummary } from '@/types/fulfillment';
-import { canPrintLabel, handoverFailureLabel, isHotPackage, packageBackTo, packageButtons, pendingDropTotal } from './shared';
+import {
+  OPEN_PURPOSE_LABELS,
+  canPrintLabel,
+  handoverFailureLabel,
+  isHotPackage,
+  openPurposeLabel,
+  packageBackTo,
+  packageButtons,
+  pendingDropTotal,
+} from './shared';
 
 const P = PERMISSIONS;
 const kho = { accountId: 'kho', permissions: [P.fulfillmentProcess] };
@@ -201,5 +210,29 @@ describe('báo sàn, in vận đơn (commerio-backend#239, FE#338)', () => {
     expect(canPrintLabel(san({ trackingCode: null }))).toBe(false);
     expect(canPrintLabel(san({ platformPackageCode: null, trackingCode: 'JNT1' }))).toBe(false);
     expect(canPrintLabel(san({ status: 'in_transit', trackingCode: 'JNT1' }))).toBe(false);
+  });
+});
+
+describe('mục đích remap: đổi liên kết SKU khi kiện đã đóng (commerio-backend#237 PR 2, FE#359)', () => {
+  it('nhãn Đổi liên kết SKU', () => {
+    expect(OPEN_PURPOSE_LABELS.remap).toBe('Đổi liên kết SKU');
+  });
+
+  it('openPurposeLabel chỉ có khi kiện chờ mở và có mục đích', () => {
+    expect(openPurposeLabel({ flags: ['needs_open'], openPurpose: 'remap' })).toBe('Đổi liên kết SKU');
+    expect(openPurposeLabel({ flags: [], openPurpose: 'remap' })).toBeNull();
+    expect(openPurposeLabel({ flags: ['needs_open'], openPurpose: null })).toBeNull();
+  });
+
+  it('kiện đã đóng chờ mở vì đổi liên kết: chỉ Mở kiện, không báo sẵn sàng, không bàn giao', () => {
+    for (const status of ['packed', 'awaiting_pickup'] as const) {
+      const p = pkg({ status, source: 'marketplace', platformPackageCode: 'PK-1', flags: ['needs_open'], openPurpose: 'remap' });
+      const b = packageButtons(p, kho);
+      expect(b.actions).toContain('open');
+      expect(b.actions).not.toContain('open_cancel');
+      expect(b.actions).not.toContain('mark_ready');
+      expect(b.actions).not.toContain('hand_over');
+      expect(b.blocked).toMatch(/Kiện đang chờ mở/);
+    }
   });
 });
