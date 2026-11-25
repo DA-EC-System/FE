@@ -4,9 +4,12 @@
 //   3. Kho bấm Mở kiện: kiện về Chờ đóng gói hoặc Thiếu hàng, dòng mang SKU của biến thể mới, hết dấu.
 //   Cuối cùng trả liên kết về biến thể cũ (kiện đã mở nên BE đổi phần giữ ngay, không bật Cần mở).
 // Spec ghi dữ liệu thật trên gian hàng thử (staging chỉ có dữ liệu của nhóm). BE phải có commerio-backend#453.
+// Đổi liên kết áp cho mọi đơn còn mở của SKU đó trong gian hàng, không chỉ kiện được chọn. Thử kiện Chờ lấy hàng trước
+// (mở giữ vận đơn, không gọi sàn); chỉ khi không có mới dùng kiện Đã đóng gói, mà kiện Lazada đã đóng gói thì mở là
+// repack thật trên sàn, mất mã kiện và vận đơn cũ.
 // Chạy: PW_BASE_URL=<địa chỉ FE trỏ BE thật> pnpm e2e:be
 // Tự bỏ qua trừ khi đặt:
-//   E2E_SAN_SHOP_ID                  gian hàng đang hoạt động, có kiện đơn sàn Đã đóng gói / Chờ lấy hàng không cờ
+//   E2E_SAN_SHOP_ID                  gian hàng đang hoạt động, có kiện đơn sàn Chờ lấy hàng / Đã đóng gói không cờ
 //   E2E_SAN_EMAIL, E2E_SAN_PASSWORD  tài khoản CEO của công ty thử (CEO đổi liên kết thì áp luôn, không chờ duyệt)
 //   E2E_SAN_DOI_LIEN_KET=1           đồng ý cho spec ghi
 //   E2E_SAN_CONG_TY                  (tuỳ chọn) tên công ty, mặc định "Commerio Test Sàn"
@@ -97,7 +100,7 @@ test.describe('P4-BE · Đổi liên kết SKU khi kiện đã đóng (FE#359)',
     // Kiện đơn sàn đã đóng, không cờ, có dòng đã liên kết biến thể
     let kien: Kien | undefined;
     let dongA: DongKien | undefined;
-    for (const tab of ['packed', 'awaiting_pickup']) {
+    for (const tab of ['awaiting_pickup', 'packed']) {
       const res = await page.request.get('/api/v1/fulfillment/packages', { params: { tab, shopId: SHOP_ID, pageSize: 50 }, headers });
       expect(res.status(), await res.text()).toBe(200);
       for (const k of ((await res.json()) as { items: Kien[] }).items) {
@@ -154,8 +157,11 @@ test.describe('P4-BE · Đổi liên kết SKU khi kiện đã đóng (FE#359)',
 
     // Kho mở kiện: BE áp liên kết mới; thiếu hàng thì kiện về Thiếu hàng, mở vẫn thành công
     await page.getByRole('button', { name: 'Mở kiện', exact: true }).click();
+    // ConfirmDialog dựng trên AlertDialog: role `alertdialog`
+    const hoi = page.getByRole('alertdialog');
+    await expect(hoi).toContainText('Mở ra sẽ áp liên kết SKU mới');
     const mo = page.waitForResponse((r) => apiPost(r, `/fulfillment/packages/${k.id}/open`));
-    await page.getByRole('dialog').getByRole('button', { name: 'Mở kiện', exact: true }).click();
+    await hoi.getByRole('button', { name: 'Mở kiện', exact: true }).click();
     expect((await mo).status()).toBe(200);
 
     const sau = (await (await page.request.get(`/api/v1/fulfillment/packages/${k.id}`, { headers })).json()) as Kien;

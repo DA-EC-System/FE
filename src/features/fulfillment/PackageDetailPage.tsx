@@ -36,7 +36,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
-import { PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, canPrintLabel, handoverFailureLabel, openPurposeLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
+import { PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, canPrintLabel, handoverFailureLabel, openPurposeLabel, packageBackTo, packageButtons, remapOpenNote, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { PendingDropBadge } from './PendingDropBadge';
 import { RemapPendingBadge } from './RemapPendingBadge';
@@ -168,11 +168,11 @@ export function PackageDetailPage() {
                   `Mở kiện ${p.code} để sửa. Kiện quay về Chờ đóng gói, giữ nguyên mã vận đơn ${p.trackingCode ?? ''}: đóng gói lại rồi bấm Sẵn sàng giao lại, không cần lấy mã vận đơn mới.`.replace(
                     '  ',
                     ' ',
-                  )
+                  ) + remapOpenNote(p)
                 : `Mở kiện ${p.code} để sửa. Kiện quay về Chờ đóng gói, cần đóng gói lại.${
                     // eslint-disable-next-line no-restricted-syntax -- chờ capability từ BE (audit nhieu-san bước 3), không thêm chỗ mới
                     p.shop?.platform === 'lazada' && p.platformPackageCode ? ' Sàn huỷ mã kiện cũ (repack), đóng gói lại sẽ lấy mã kiện và mã vận đơn mới.' : ''
-                  }`,
+                  }${remapOpenNote(p)}`,
           label,
           destructive: a === 'open_cancel',
           command: { kind: 'open' },
