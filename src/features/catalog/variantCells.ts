@@ -1,10 +1,11 @@
 import { parseCell, type CellParse } from '@/components/common/editableGrid/cellParse';
+import { parseMeasure } from '@/utils/measure';
 import { parsePrice } from '@/utils/price';
 import type { BulkField, ProductVariant } from '@/types/catalog';
 
 /**
- * Đọc chữ trong một ô số của SKU (bảng sửa hàng loạt và bảng biến thể, FE#475). Luật lấy từ hộp Thông tin SKU cũ: giá theo
- * ô giá, khối lượng tối đa 50 kg, mỗi cạnh tối đa 2 m, ngưỡng tồn cho phép 0
+ * Đọc chữ trong một ô số của SKU (bảng sửa hàng loạt và bảng biến thể, FE#475): giá theo ô giá; khối lượng, cạnh theo
+ * `parseMeasure` (tối đa 50 kg, 2 m, chỉ nhận chữ số, commerio-backend#434); ngưỡng tồn cho phép 0
  */
 export function parseVariantField(field: BulkField, raw: string): CellParse {
   switch (field) {
@@ -15,11 +16,10 @@ export function parseVariantField(field: BulkField, raw: string): CellParse {
       return p;
     }
     case 'weightG':
-      return parseCell(raw, { max: 50000, tooBig: 'Quá 50 kg, kiểm tra lại đơn vị gram' });
     case 'lengthMm':
     case 'widthMm':
     case 'heightMm':
-      return parseCell(raw, { max: 2000, tooBig: 'Quá 2 m, kiểm tra lại đơn vị mm' });
+      return parseMeasure(field, raw);
     case 'minQty':
       return parseCell(raw, { allowZero: true });
   }
