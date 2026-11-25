@@ -118,7 +118,7 @@ test('mở khoá, sửa giá chuẩn và giá muốn bán từng ô: Enter lưu 
   await oKhoiLuong.fill('60000');
   await oKhoiLuong.press('Enter');
   await expect(oKhoiLuong).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.getByText('Quá 50 kg, kiểm tra lại đơn vị gram')).toBeVisible();
+  await expect(page.getByText('Cân nặng tối đa 50 kg')).toBeVisible();
   await oKhoiLuong.press('Escape');
 
   await page.reload();

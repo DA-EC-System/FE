@@ -124,12 +124,18 @@ it('axisServerErrors: gắn lỗi BE vào nhóm, còn lại là lỗi chung', ()
 describe('giá, cân nặng, kích thước khi tạo (Documents/21 §5.5)', () => {
   const two: VariantDraft = { axes: [axis({ attributeId: 'att-mau', name: 'Màu sắc', values: ['Đen', 'Trắng'] })], excluded: [] };
 
-  it('parseFact bỏ dấu nghìn, chặn số không nguyên dương và quá trần', () => {
+  it('parseFact: giá bỏ dấu nghìn; cân nặng, cạnh chỉ nhận chữ số; chặn số không nguyên dương và quá trần', () => {
     expect(parseFact('standardPrice', '120.000')).toEqual({ value: 120000 });
+    expect(parseFact('standardPrice', '0').error).toBe('Số nguyên dương');
+    expect(parseFact('targetNetPrice', '1.000.000.001').error).toBe('Giá quá lớn');
     expect(parseFact('weightG', ' ')).toEqual({ value: null });
-    expect(parseFact('weightG', '1,5kg').error).toBe('Số nguyên dương');
-    expect(parseFact('weightG', '60000').error).toBe('Quá 50 kg, kiểm tra lại đơn vị gram');
-    expect(parseFact('lengthMm', '2001').error).toBe('Quá 2 m, kiểm tra lại đơn vị mm');
+    expect(parseFact('weightG', '250')).toEqual({ value: 250 });
+    expect(parseFact('weightG', '1,5kg').error).toBe('Nhập số gam nguyên, vd 250');
+    expect(parseFact('weightG', '0,25').error).toBe('Nhập số gam nguyên, vd 250');
+    expect(parseFact('weightG', '0').error).toBe('Nhập số nguyên lớn hơn 0');
+    expect(parseFact('weightG', '60000').error).toBe('Cân nặng tối đa 50 kg');
+    expect(parseFact('lengthMm', '2001').error).toBe('Chiều dài tối đa 2.000 mm');
+    expect(parseFact('widthMm', '1.000').error).toBe('Nhập số mm nguyên, vd 300');
   });
 
   it('kích thước phải đủ ba cạnh hoặc bỏ trống cả ba', () => {

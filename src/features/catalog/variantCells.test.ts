@@ -9,10 +9,13 @@ describe('parseVariantField', () => {
     expect(parseVariantField('standardPrice', '0').ok).toBe(false);
     expect(parseVariantField('standardPrice', 'abc').ok).toBe(false);
   });
-  it('khối lượng, cạnh chặn sai đơn vị', () => {
-    expect(parseVariantField('weightG', '60000')).toEqual({ ok: false, error: 'Quá 50 kg, kiểm tra lại đơn vị gram' });
-    expect(parseVariantField('lengthMm', '2500')).toEqual({ ok: false, error: 'Quá 2 m, kiểm tra lại đơn vị mm' });
+  it('khối lượng, cạnh chặn quá trần, không ghép số qua dấu phẩy, chấm (commerio-backend#434)', () => {
+    expect(parseVariantField('weightG', '60000')).toEqual({ ok: false, error: 'Cân nặng tối đa 50 kg' });
+    expect(parseVariantField('lengthMm', '2500')).toEqual({ ok: false, error: 'Chiều dài tối đa 2.000 mm' });
     expect(parseVariantField('heightMm', '120')).toEqual({ ok: true, value: 120 });
+    expect(parseVariantField('weightG', '0,25')).toEqual({ ok: false, error: 'Nhập số gam nguyên, vd 250' });
+    expect(parseVariantField('widthMm', '1.000')).toEqual({ ok: false, error: 'Nhập số mm nguyên, vd 300' });
+    expect(parseVariantField('weightG', '')).toEqual({ ok: true, value: null });
   });
   it('ngưỡng tồn cho phép 0', () => {
     expect(parseVariantField('minQty', '0')).toEqual({ ok: true, value: 0 });
