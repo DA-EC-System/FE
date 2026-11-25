@@ -71,8 +71,9 @@ export type HandoverSource = 'scan' | 'marketplace' | 'forced' | 'before_cutoff'
 /**
  * Mở kiện để làm gì; sau khi mở: huỷ thì kiện huỷ, còn lại về Đã giữ.
  * `stocktake`: phiếu kiểm kê đếm thấp hơn hàng trong kiện đã đóng (commerio-backend#238)
+ * `remap`: CEO đổi liên kết SKU đã có đơn dùng khi kiện đã đóng; mở kiện ra BE áp liên kết mới (commerio-backend#237 PR 2)
  */
-export type OpenPurpose = 'cancel' | 'edit' | 'resplit' | 'stocktake';
+export type OpenPurpose = 'cancel' | 'edit' | 'resplit' | 'stocktake' | 'remap';
 
 /**
  * Dòng hàng để nhặt, đóng (21 §19.2): dòng đã ghép mang SKU, tên, thuộc tính của biến thể app; dòng chưa ghép hay
@@ -96,6 +97,11 @@ export interface PackageLine extends FulfillmentLine {
   externalSku: string | null;
   /** Số đơn vị sàn đã huỷ, còn trong hộp, kho bỏ ra khi mở kiện (21 §19.2); 0 khi không chờ bỏ */
   pendingDropQty: number;
+  /**
+   * Món trong hộp theo liên kết SKU cũ, mở kiện để đổi; chỉ `true` khi kiện còn đóng (21 §19.2, commerio-backend#237 PR 2).
+   * Kiện chờ mở vì mục đích khác (huỷ, sửa, tách lại) vẫn có thể mang dấu này
+   */
+  remapPending: boolean;
 }
 
 export interface LostReport {

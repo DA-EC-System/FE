@@ -36,7 +36,7 @@ import { PERMISSIONS } from '@/utils/permissions';
 import { ROUTES } from '@/router/routes';
 import { formatDateTime } from '@/utils/format';
 import type { Package, PackageAction } from '@/types/fulfillment';
-import { OPEN_PURPOSE_LABELS, PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, canPrintLabel, handoverFailureLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
+import { PACKAGE_ACTION_LABELS, PACKAGE_FLAGS, PACKAGE_STATUS, canPrintLabel, handoverFailureLabel, openPurposeLabel, packageBackTo, packageButtons, shippingProviderTypeLabel } from './shared';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { PendingDropBadge } from './PendingDropBadge';
 import { SplitPackageDialog } from './SplitPackageDialog';
@@ -246,10 +246,11 @@ export function PackageDetailPage() {
   const splittable =
     can(PERMISSIONS.fulfillmentProcess) && (p.status === 'reserved' || p.status === 'backordered') && p.totalQty > 1;
   const hasActions = buttons.actions.length > 0 || buttons.reportLost || printable || splittable || Boolean(buttons.lostNote);
+  const purpose = openPurposeLabel(p);
   // Gộp cảnh báo theo dữ liệu kiện vào một khung
   const warnings = [
     p.flagNote,
-    p.flags.includes('needs_open') && p.openPurpose ? `Cần mở lại kiện: ${OPEN_PURPOSE_LABELS[p.openPurpose]}` : null,
+    purpose ? `Cần mở lại kiện: ${purpose}` : null,
     p.lostReport && p.status !== 'lost'
       ? sealedLost
         ? `${p.lostReport.by.name} báo dỡ kiện không thấy lúc ${formatDateTime(p.lostReport.at)}: ${p.lostReport.claimCode}. Cần người khác xác nhận.`

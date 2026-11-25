@@ -30,7 +30,7 @@ import { formatDateTime } from '@/utils/format';
 import type { PackageSummary, PackageTab } from '@/types/fulfillment';
 import type { OrderSource } from '@/types/sales';
 import { SOURCE_LABELS, sourceLabel } from '@/features/sales/shared';
-import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, canPrintLabel, handoverFailureLabel, isHotPackage, pendingDropTotal } from './shared';
+import { PACKAGE_FLAGS, PACKAGE_STATUS, PACKAGE_TABS, canPrintLabel, handoverFailureLabel, isHotPackage, openPurposeLabel, pendingDropTotal } from './shared';
 import { PendingDropBadge } from './PendingDropBadge';
 import { shopDisplayName } from '@/features/channel/shopList';
 
@@ -157,13 +157,22 @@ export function PackageQueuePage() {
         id: 'status',
         header: 'Trạng thái',
         meta: { className: 'w-48' },
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            <StatusBadge status={row.original.status} statuses={PACKAGE_STATUS} />
-            <FlagChips flags={row.original.flags} meta={PACKAGE_FLAGS} />
-            {row.original.selfDelivery && <Badge variant="outline">Shop tự giao</Badge>}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const purpose = openPurposeLabel(row.original);
+          return (
+            <div className="flex flex-wrap gap-1">
+              <StatusBadge status={row.original.status} statuses={PACKAGE_STATUS} />
+              <FlagChips flags={row.original.flags} meta={PACKAGE_FLAGS} />
+              {row.original.selfDelivery && <Badge variant="outline">Shop tự giao</Badge>}
+              {/* Vì sao kiện chờ mở lại, nhất là ở tab Cần mở lại kiện */}
+              {purpose && (
+                <p className="w-full text-xs text-muted-foreground" data-testid="open-purpose">
+                  {purpose}
+                </p>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: 'shipBy',

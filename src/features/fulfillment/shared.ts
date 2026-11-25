@@ -37,7 +37,7 @@ export const PACKAGE_STATUS: Record<PackageStatus, StatusMeta> = {
 };
 
 export const PACKAGE_FLAGS: Record<PackageFlag, StatusMeta> = {
-  needs_open: { label: 'Cần mở lại kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa hoặc tách lại kiện.' },
+  needs_open: { label: 'Cần mở lại kiện', variant: 'warning', hint: 'Kiện đã đóng nhưng cần mở lại: đơn huỷ, sửa, tách lại kiện, kiểm kho thiếu hoặc đổi liên kết SKU.' },
   needs_attention: { label: 'Cần xử lý', variant: 'destructive', hint: 'Kiện có vấn đề cần người xem, lý do ghi trong chi tiết kiện.' },
   cancel_requested: { label: 'Người mua xin huỷ', variant: 'warning', hint: 'Người mua đang xin huỷ đơn, chờ Sale trả lời. Chưa bấm Sẵn sàng giao được.' },
   lost_reported: { label: 'Đã báo thất lạc', variant: 'warning', hint: 'Đã báo thất lạc, cần một người khác xác nhận.' },
@@ -59,7 +59,12 @@ export const OPEN_PURPOSE_LABELS: Record<OpenPurpose, string> = {
   edit: 'Sửa kiện',
   resplit: 'Tách lại kiện',
   stocktake: 'Kiểm kho thiếu hàng',
+  remap: 'Đổi liên kết SKU',
 };
+
+/** Vì sao kiện chờ mở lại; `null` khi kiện không chờ mở hoặc BE không gửi mục đích */
+export const openPurposeLabel = (p: Pick<PackageSummary, 'flags' | 'openPurpose'>): string | null =>
+  p.flags.includes('needs_open') && p.openPurpose ? OPEN_PURPOSE_LABELS[p.openPurpose] : null;
 
 /** Tổng số đơn vị chờ bỏ của kiện (sàn huỷ lẻ món sau khi đóng gói, 21 §19.2) */
 export const pendingDropTotal = (lines: readonly Pick<PackageLine, 'pendingDropQty'>[]): number =>
